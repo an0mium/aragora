@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Logo } from './Logo';
-import { useSidebar } from '@/context/SidebarContext';
 
 interface AsciiBannerProps {
   subtitle?: string;
@@ -114,13 +113,10 @@ export function AsciiBannerCompact({
   showLogo?: boolean;
   onLogoClick?: () => void;
 }) {
-  const { toggle } = useSidebar();
-  const handleLogoClick = onLogoClick ?? toggle;
-
   return (
     <div className="flex items-center gap-3">
       {showLogo && (
-        <Logo size="sm" onClick={handleLogoClick} />
+        <Logo size="sm" onClick={onLogoClick} />
       )}
       {showAsciiArt && (
         <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
@@ -131,9 +127,9 @@ export function AsciiBannerCompact({
 /_/   \\_\\_| \\_\\`}
         </pre>
       )}
-      <a href="https://aragora.ai" className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
+      <span className="text-acid-green font-mono font-bold">
         [ARAGORA]
-      </a>
+      </span>
       {showStatus && (
         <span
           className={`w-2 h-2 rounded-full ${

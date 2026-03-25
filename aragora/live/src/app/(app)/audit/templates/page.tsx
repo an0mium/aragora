@@ -97,7 +97,9 @@ export default function AuditTemplatesPage() {
       <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <AsciiBannerCompact />
+            <Link href="/" className="hover:text-accent">
+              <AsciiBannerCompact />
+            </Link>
             <span className="text-muted font-mono text-sm">{'//'} AUDIT TEMPLATES</span>
           </div>
           <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { StatusPill } from '@/components/StatusBar';
 import { BackendSelector } from '@/components/BackendSelector';
@@ -64,7 +65,9 @@ export function DashboardHeader({
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           {/* ASCII Logo */}
-          <AsciiBannerCompact connected={connected} showAsciiArt={showHeaderAscii} />
+          <Link href="/" className="hover:opacity-80 transition-opacity">
+            <AsciiBannerCompact connected={connected} showAsciiArt={showHeaderAscii} />
+          </Link>
 
           {/* Controls */}
           <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">

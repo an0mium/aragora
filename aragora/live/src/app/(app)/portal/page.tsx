@@ -51,7 +51,9 @@ export default function PortalPage() {
       <section className="relative z-10 py-16 px-4 border-b border-acid-green/20">
         <div className="container mx-auto max-w-6xl text-center">
           <div className="mb-6">
-            <AsciiBannerCompact connected={true} />
+            <Link href="/" className="inline-flex hover:opacity-80 transition-opacity">
+              <AsciiBannerCompact connected={true} />
+            </Link>
           </div>
           <h1 className="text-4xl md:text-5xl font-mono font-bold text-acid-green mb-4">
             Multi Agent Decision Making
