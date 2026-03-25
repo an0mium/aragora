@@ -17,6 +17,7 @@ from aragora.server.unified_server import run_unified_server
 
 # Default to localhost for security; use ARAGORA_BIND_HOST=0.0.0.0 for external access
 DEFAULT_BIND_HOST = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1")
+LOCAL_DEMO_HANDLER_TIERS = "core,extended,optional"
 
 
 def _configure_logging() -> None:
@@ -76,6 +77,35 @@ def _print_startup_banner(args, workers: int) -> None:
     print("  Press Ctrl+C to stop.")
     print("=" * 64)
     print()
+
+
+def _configure_runtime_environment(offline: bool, api_keys: list[str], logger) -> None:
+    """Apply local runtime defaults before starting the server."""
+    if offline:
+        os.environ.setdefault("ARAGORA_OFFLINE", "true")
+        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        os.environ.setdefault("ARAGORA_ENV", "development")
+        # Keep optional handlers in local demo/offline mode so dashboard
+        # surfaces can exercise the same API families they call in production.
+        os.environ.setdefault("ARAGORA_HANDLER_TIERS", LOCAL_DEMO_HANDLER_TIERS)
+        logger.info("[server] OFFLINE mode: SQLite backend, demo data for unavailable services")
+        return
+
+    if not api_keys:
+        # No API keys found — auto-enable demo mode for zero-config startup.
+        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        # Keep optional handlers available in local demo mode. They back
+        # dashboard surfaces such as usage/ROI/budget widgets.
+        os.environ.setdefault("ARAGORA_HANDLER_TIERS", LOCAL_DEMO_HANDLER_TIERS)
+        logger.info(
+            "[server] No API keys detected. Starting in DEMO mode with mock agents. "
+            "Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI debates."
+        )
+        return
+
+    logger.info("[server] API keys detected: %s", ", ".join(api_keys))
 
 
 def _run_worker(http_port: int, ws_port: int, host: str, static_dir, nomic_dir):
@@ -161,27 +191,8 @@ Production deployment with multiple workers:
         if os.environ.get(k, "").strip()
     ]
 
-    # Apply offline mode before starting any workers
-    if args.offline:
-        os.environ.setdefault("ARAGORA_OFFLINE", "true")
-        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
-        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
-        os.environ.setdefault("ARAGORA_ENV", "development")
-        # Reduce handler surface area — skip enterprise/experimental tiers
-        os.environ.setdefault("ARAGORA_HANDLER_TIERS", "core,extended")
-        _logger.info("[server] OFFLINE mode: SQLite backend, demo data for unavailable services")
-    elif not _api_keys:
-        # No API keys found — auto-enable demo mode for zero-config startup
-        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
-        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
-        # Reduce handler surface area — skip enterprise/experimental tiers
-        os.environ.setdefault("ARAGORA_HANDLER_TIERS", "core,extended")
-        _logger.info(
-            "[server] No API keys detected. Starting in DEMO mode with mock agents. "
-            "Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI debates."
-        )
-    else:
-        _logger.info("[server] API keys detected: %s", ", ".join(_api_keys))
+    # Apply runtime defaults before starting any workers.
+    _configure_runtime_environment(args.offline, _api_keys, _logger)
 
     # Default to SQLite if no database URL configured
     if not os.environ.get("DATABASE_URL") and not os.environ.get("ARAGORA_POSTGRES_DSN"):

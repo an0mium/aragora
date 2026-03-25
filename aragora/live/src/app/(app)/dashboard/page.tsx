@@ -13,6 +13,7 @@ import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
 import { TrialStatusWidget } from '@/components/billing/TrialStatusWidget';
 import { TemplateMarketplace } from '@/components/templates/TemplateMarketplace';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useSWRFetch, useActiveDebates } from '@/hooks/useSWRFetch';
 import type { ActiveDebate } from '@/hooks/useSWRFetch';
 import { useDashboardEvents } from '@/hooks/useDashboardEvents';
@@ -262,7 +263,7 @@ function LiveDebatesPanel() {
   );
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [recentDebates, setRecentDebates] = useState<DebateArtifact[]>([]);
   const [loadingDebates, setLoadingDebates] = useState(true);
   const [_dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
@@ -571,5 +572,13 @@ export default function DashboardPage() {
         </footer>
       </main>
     </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <ProtectedRoute redirectTo="/dashboard">
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
