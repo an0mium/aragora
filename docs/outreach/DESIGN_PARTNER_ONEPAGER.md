@@ -94,8 +94,26 @@ Zero operator intervention on the validated benchmark path.
 |----------|---------|
 | One bounded recurring workflow with a clear trigger | Free access during partner period |
 | 30 min onboarding + weekly 30 min check-in for 4-6 weeks | Hands-on onboarding to first receipt |
+| Named buyer, daily user, evaluator, and likely blocker | Role-specific materials for each decision owner |
 | Real artifacts (sanitized OK): inbox batch, design doc, bounded backlog | Priority feature requests and weekly iteration |
 | Candid feedback on quality, friction, and trust | Co-marketing opportunity (anonymized case studies OK) |
+
+## Who Owns The First Deal Decisions
+
+Do not treat the first deal as "find one champion and hope they carry everything."
+Aragora has to clear four different decisions:
+
+| Role | Typical titles | Decision they own | What they need to see |
+|------|----------------|-------------------|-----------------------|
+| Buyer | CTO, VP Engineering, Head of Platform, founder | Whether this workflow deserves budget, attention, and a live pilot | Narrow scope, credible pain, clear owner, time-to-value |
+| Daily user | Engineering manager, tech lead, triage owner, security analyst | Whether Aragora fits into the weekly operating loop and saves real time | Low-friction workflow, useful receipts, obvious next actions |
+| Evaluator | Staff engineer, platform lead, security/compliance lead | Whether Aragora's evidence and controls are trustworthy enough for consequential use | Receipts, dissent, provenance, review gates, truthful stopping behavior |
+| Blocker | Security, legal, procurement, IT admin, skeptical exec | Whether a specific control, policy, or deployment issue still prevents rollout | Precise answers on data flow, providers, auth, deployment options, exports, and guardrails |
+
+In smaller teams one person may hold multiple roles, but the decision owners
+should still be named explicitly. A deal is easier to unblock when you know
+whether it is stalled on budget, operator trust, evaluator standards, or a
+hard veto.
 
 ## Who This Is For
 
@@ -104,7 +122,8 @@ We are looking for **3-5 design partners** who:
 - Feel real pain from review latency, manual triage, audit evidence work, or bounded engineering backlog throughput
 - Have one recurring workflow with a clear trigger, owner, and success/failure outcome
 - Can start narrow (one receipt-gated workflow) before expanding
-- Have a champion who can provide artifacts, review receipts, and join a weekly loop
+- Can name the buyer, daily user, evaluator, and likely blocker for the first workflow
+- Have a champion who can coordinate artifacts, review receipts, and pull the right decision owner into the weekly loop
 
 **Best-fit segments:** Regulated SaaS, FinTech, HealthTech, platform/security teams,
 founder-led teams with painful inbox triage, AI-native teams frustrated by single-model trust gaps.

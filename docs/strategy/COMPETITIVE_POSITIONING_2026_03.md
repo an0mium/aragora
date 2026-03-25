@@ -114,6 +114,22 @@ Why this works:
 - receipts and blocker truthfulness are valuable immediately
 - the repo now contains real evidence from queue-produced work, not just demos
 
+## First-Deal Decision Ownership
+
+The first deals will usually have four distinct decision owners, even if a
+smaller company compresses them into two people:
+
+| Role | Owns this decision | What Aragora must prove |
+|------|--------------------|-------------------------|
+| Buyer | Is this worth budget and organizational attention right now? | Clear ROI wedge, narrow pilot, fast time-to-first-receipt |
+| Daily user | Will I actually run this workflow every week? | Low-friction operator path, useful summaries, precise next actions |
+| Evaluator | Do the receipts, dissent, and controls meet the bar for consequential work? | Provenance, review evidence, explicit gates, truthful stopping |
+| Blocker | Is there any security, legal, procurement, or policy issue that still stops rollout? | Exact blocker handling, deployment answers, audit/export story |
+
+If Aragora collapses these roles into a generic "champion," the team will
+misread where a deal is stuck. Product and GTM should track them separately and
+build artifacts for each.
+
 ## Competitor Map
 
 | Dimension | Aragora | LangGraph/CrewAI | OpenCode/Pi |
@@ -174,6 +190,7 @@ So the correct sequence is:
 - make `aragora review` feel like a complete product path
 - keep unattended execution and merge gating truthful
 - tighten receipt, review, and blocker summaries for operators
+- package first-deal artifacts by owner: buyer brief, daily-user workflow, evaluator evidence pack, blocker FAQ
 
 ### Weeks 5-8
 
@@ -191,6 +208,7 @@ So the correct sequence is:
 
 | Metric | Why it matters |
 |--------|----------------|
+| Active deals with named buyer, daily user, evaluator, and blocker | shows whether deal ownership is explicit instead of assumed |
 | External users running `aragora review` | proves the beachhead is real |
 | Receipts generated per week | measures decision volume and provenance capture |
 | Live multi-model debates per week | measures real usage, not surface clicks |
