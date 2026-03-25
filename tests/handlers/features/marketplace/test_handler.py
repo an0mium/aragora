@@ -347,6 +347,9 @@ class TestCanHandle:
     def test_handles_search(self, handler):
         assert handler.can_handle("/api/v1/marketplace/search") is True
 
+    def test_handles_templates_search_alias(self, handler):
+        assert handler.can_handle("/api/v1/marketplace/templates/search") is True
+
     def test_handles_deployments(self, handler):
         assert handler.can_handle("/api/v1/marketplace/deployments") is True
 
@@ -618,6 +621,17 @@ class TestSearch:
             handler, "/api/v1/marketplace/search", templates=templates, request=req
         )
         assert _status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_templates_search_alias_returns_search_results(self, handler, templates):
+        req = _req(query={"q": "contract"})
+        result = await _call(
+            handler, "/api/v1/marketplace/templates/search", templates=templates, request=req
+        )
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["total"] == 1
+        assert body["results"][0]["id"] == "tpl-legal-1"
 
     @pytest.mark.asyncio
     async def test_search_filters_by_query(self, handler, templates):

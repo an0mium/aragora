@@ -151,7 +151,14 @@ class MarketplaceHandler:
                 return await self._handle_list_categories(request, tenant_id)
 
             # Search templates
-            elif path == "/api/v1/marketplace/search" and method == "GET":
+            elif (
+                path
+                in (
+                    "/api/v1/marketplace/search",
+                    "/api/v1/marketplace/templates/search",
+                )
+                and method == "GET"
+            ):
                 return await self._handle_search(request, tenant_id)
 
             # Popular templates
