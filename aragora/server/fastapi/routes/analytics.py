@@ -49,6 +49,7 @@ Migration Notes:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from enum import Enum
 from typing import Any
@@ -329,15 +330,11 @@ def _get_analytics_response(path: str) -> dict[str, Any]:
         return {}
 
 
-def _run_async_helper(coro: Any) -> Any:
-    """Run an async coroutine from a sync context."""
-    try:
-        from aragora.server.http_utils import run_async
-
-        return run_async(coro)
-    except (ImportError, RuntimeError) as e:
-        logger.debug("run_async helper not available: %s", e)
-        raise HTTPException(status_code=503, detail="Async runtime not available") from e
+async def _await_if_needed(result: Any) -> Any:
+    """Await async dashboard results while tolerating sync test doubles."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 # =============================================================================
@@ -368,7 +365,7 @@ async def get_summary(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        summary = _run_async_helper(dashboard.get_summary(workspace_id, tr))
+        summary = await _await_if_needed(dashboard.get_summary(workspace_id, tr))
         return AnalyticsSummaryResponse(data=summary.to_dict())
 
     except ValueError as e:
@@ -399,8 +396,6 @@ async def get_finding_trends(
     workspace and time range.
     """
     try:
-        import asyncio
-
         from aragora.analytics import (
             Granularity,
             TimeRange,
@@ -411,7 +406,7 @@ async def get_finding_trends(
         tr = TimeRange(time_range.value)
         gran = Granularity(granularity.value)
 
-        trends = asyncio.run(dashboard.get_finding_trends(workspace_id, tr, gran))
+        trends = await _await_if_needed(dashboard.get_finding_trends(workspace_id, tr, gran))
 
         return FindingTrendsResponse(
             workspace_id=workspace_id,
@@ -448,7 +443,7 @@ async def get_remediation_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(dashboard.get_remediation_metrics(workspace_id, tr))
+        metrics = await _await_if_needed(dashboard.get_remediation_metrics(workspace_id, tr))
 
         return RemediationResponse(
             workspace_id=workspace_id,
@@ -484,7 +479,7 @@ async def get_agent_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(dashboard.get_agent_metrics(workspace_id, tr))
+        metrics = await _await_if_needed(dashboard.get_agent_metrics(workspace_id, tr))
 
         return AgentMetricsResponse(
             workspace_id=workspace_id,
@@ -520,7 +515,7 @@ async def get_risk_heatmap(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        cells = _run_async_helper(dashboard.get_risk_heatmap(workspace_id, tr))
+        cells = await _await_if_needed(dashboard.get_risk_heatmap(workspace_id, tr))
 
         return HeatmapResponse(
             workspace_id=workspace_id,
@@ -563,7 +558,7 @@ async def get_cost_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(dashboard.get_cost_metrics(workspace_id, tr))
+        metrics = await _await_if_needed(dashboard.get_cost_metrics(workspace_id, tr))
 
         return CostMetricsResponse(
             workspace_id=workspace_id,
@@ -662,7 +657,9 @@ async def get_compliance_scorecard(
         from aragora.analytics import get_analytics_dashboard
 
         dashboard = get_analytics_dashboard()
-        scores = _run_async_helper(dashboard.get_compliance_scorecard(workspace_id, framework_list))
+        scores = await _await_if_needed(
+            dashboard.get_compliance_scorecard(workspace_id, framework_list)
+        )
 
         return ComplianceScorecardResponse(
             workspace_id=workspace_id,
