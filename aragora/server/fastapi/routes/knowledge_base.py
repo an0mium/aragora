@@ -37,6 +37,7 @@ Migration Notes:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from typing import Any
@@ -435,6 +436,13 @@ def _relation_to_model(relation: Any) -> FactRelation:
     )
 
 
+async def _await_if_needed(result: Any) -> Any:
+    """Await async engine results while tolerating sync test doubles."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 # =============================================================================
 # Fact CRUD Endpoints
 # =============================================================================
@@ -651,9 +659,7 @@ async def verify_fact(
             )
 
         try:
-            from aragora.server.http_utils import run_async as _run_async
-
-            verified = _run_async(engine.verify_fact(fact_id))
+            verified = await _await_if_needed(engine.verify_fact(fact_id))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error("Verification failed: %s", e)
             raise HTTPException(status_code=500, detail="Verification failed")
@@ -858,9 +864,7 @@ async def query_knowledge_base(
         )
 
         try:
-            from aragora.server.http_utils import run_async as _run_async
-
-            result = _run_async(engine.query(body.question, body.workspace_id, options))
+            result = await _await_if_needed(engine.query(body.question, body.workspace_id, options))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error("Query execution failed: %s", e)
             raise HTTPException(status_code=500, detail="Query execution failed")
@@ -907,9 +911,7 @@ async def search_knowledge_base(
             )
 
         try:
-            from aragora.server.http_utils import run_async as _run_async
-
-            results = _run_async(engine.search(q, workspace_id, limit))
+            results = await _await_if_needed(engine.search(q, workspace_id, limit))
         except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error("Search failed: %s", e)
             raise HTTPException(status_code=500, detail="Search operation failed")
