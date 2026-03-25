@@ -25,6 +25,9 @@ from aragora.server.handlers.receipts import (
     ReceiptsHandler,
     create_receipts_handler,
 )
+from aragora.server.handlers.utils.receipt_delivery_history import (
+    get_receipt_delivery_history_store,
+)
 import builtins
 
 
@@ -304,6 +307,15 @@ def receipts_handler(mock_server_context, mock_receipt_store):
     return handler
 
 
+@pytest.fixture(autouse=True)
+def clear_receipt_delivery_history():
+    """Keep the shared in-memory delivery history isolated per test."""
+    history = get_receipt_delivery_history_store()
+    history.clear()
+    yield
+    history.clear()
+
+
 def parse_handler_response(result) -> dict[str, Any]:
     """Parse handler result body as JSON."""
     if hasattr(result, "body"):
@@ -341,6 +353,10 @@ class TestReceiptsHandlerRouting:
     def test_can_handle_stats(self, receipts_handler):
         """Test can_handle for stats endpoint."""
         assert receipts_handler.can_handle("/api/v2/receipts/stats", "GET") is True
+
+    def test_can_handle_v1_deliveries(self, receipts_handler):
+        """Test can_handle for legacy/frontend delivery history bridge."""
+        assert receipts_handler.can_handle("/api/v1/receipts/deliveries", "GET") is True
 
     def test_cannot_handle_other_paths(self, receipts_handler):
         """Test can_handle returns False for other paths."""
@@ -1747,6 +1763,101 @@ class TestReceiptsHandlerSendToChannel:
             )
 
         assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_v1_delivery_bridge_records_history(self, receipts_handler, mock_receipt_store):
+        """Legacy deliver bridge should populate the frontend delivery history route."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+
+        mock_format = MagicMock(return_value={"blocks": []})
+        mock_receipt = MagicMock()
+        mock_receipt_class = MagicMock(from_dict=MagicMock(return_value=mock_receipt))
+
+        with (
+            patch.multiple(
+                "aragora.channels.formatter",
+                create=True,
+                format_receipt_for_channel=mock_format,
+            ),
+            patch.dict(
+                "sys.modules",
+                {"aragora.export.decision_receipt": MagicMock(DecisionReceipt=mock_receipt_class)},
+            ),
+            patch.object(
+                receipts_handler,
+                "_send_to_slack",
+                AsyncMock(return_value={"message_ts": "123.456", "channel": "C123"}),
+            ),
+        ):
+            result = await receipts_handler.handle(
+                "POST",
+                "/api/v1/receipts/r1/deliver",
+                body={"channel": "slack", "destination": "C123"},
+            )
+
+        assert result.status_code == 200
+
+        history_result = await receipts_handler.handle(
+            "GET",
+            "/api/v1/receipts/deliveries",
+            query_params={"receipt_id": "r1"},
+        )
+
+        assert history_result.status_code == 200
+        data = parse_handler_response(history_result)
+        assert data["total"] == 1
+        assert data["deliveries"][0]["receiptId"] == "r1"
+        assert data["deliveries"][0]["channel"] == "slack"
+        assert data["deliveries"][0]["destination"] == "C123"
+        assert data["deliveries"][0]["status"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_failed_send_records_failed_delivery_history(
+        self, receipts_handler, mock_receipt_store
+    ):
+        """Failed sends should still be visible in delivery history for debugging."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+
+        mock_format = MagicMock(return_value={"blocks": []})
+        mock_receipt = MagicMock()
+        mock_receipt_class = MagicMock(from_dict=MagicMock(return_value=mock_receipt))
+
+        with (
+            patch.multiple(
+                "aragora.channels.formatter",
+                create=True,
+                format_receipt_for_channel=mock_format,
+            ),
+            patch.dict(
+                "sys.modules",
+                {"aragora.export.decision_receipt": MagicMock(DecisionReceipt=mock_receipt_class)},
+            ),
+            patch.object(
+                receipts_handler,
+                "_send_to_slack",
+                AsyncMock(side_effect=ConnectionError("slack offline")),
+            ),
+        ):
+            result = await receipts_handler.handle(
+                "POST",
+                "/api/v2/receipts/r1/send-to-channel",
+                body={"channel_type": "slack", "channel_id": "C123", "workspace_id": "T123"},
+            )
+
+        assert result.status_code == 500
+
+        history_result = await receipts_handler.handle(
+            "GET",
+            "/api/v1/receipts/deliveries",
+            query_params={"receipt_id": "r1", "status": "failed"},
+        )
+
+        assert history_result.status_code == 200
+        data = parse_handler_response(history_result)
+        assert data["total"] == 1
+        assert data["deliveries"][0]["status"] == "failed"
+        assert data["deliveries"][0]["channel"] == "slack"
+        assert data["deliveries"][0]["errorMessage"]
 
 
 # ===========================================================================

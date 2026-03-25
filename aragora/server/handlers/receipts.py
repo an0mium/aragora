@@ -22,6 +22,7 @@ Endpoints:
     GET  /api/v2/receipts/stats                        - Receipt statistics
     POST /api/v2/receipts/:receipt_id/share            - Create shareable link
     GET  /api/v2/receipts/share/:token                 - Access receipt via share token
+    GET  /api/v1/receipts/deliveries                   - Legacy/frontend delivery history bridge
 
 These endpoints support the "defensible decisions" pillar with:
 - Cryptographic signature verification
@@ -51,6 +52,9 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
+from aragora.server.handlers.utils.receipt_delivery_history import (
+    get_receipt_delivery_history_store,
+)
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
@@ -240,6 +244,7 @@ class ReceiptsHandler(BaseHandler):
         "/api/v2/receipts/*",
         "/api/v2/receipts/search",
         "/api/v2/receipts/stats",
+        "/api/v1/receipts/deliveries",
         "/api/v1/receipts/*/deliver",
     ]
 
@@ -277,6 +282,8 @@ class ReceiptsHandler(BaseHandler):
         """Check if this handler can process the request."""
         if path.startswith("/api/v2/receipts"):
             return method in ("GET", "POST")
+        if path == "/api/v1/receipts/deliveries":
+            return method == "GET"
         # v1 delivery bridge for frontend DeliveryModal
         if path.startswith("/api/v1/receipts/") and path.endswith("/deliver"):
             return method == "POST"
@@ -367,6 +374,10 @@ class ReceiptsHandler(BaseHandler):
             if path.startswith("/api/v2/receipts/share/") and method == "GET":
                 token = path.split("/api/v2/receipts/share/")[1].rstrip("/")
                 return await self._get_shared_receipt(token, query_params, headers)
+
+            # v1 delivery history bridge: GET /api/v1/receipts/deliveries
+            if path == "/api/v1/receipts/deliveries" and method == "GET":
+                return await self._list_delivery_history(query_params)
 
             # v1 delivery bridge: POST /api/v1/receipts/{id}/deliver
             # Maps frontend DeliveryModal calls to v2 send-to-channel logic
@@ -977,6 +988,89 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @require_permission("receipts:read")
+    async def _list_delivery_history(self, query_params: dict[str, str]) -> HandlerResult:
+        """Return receipt delivery history in the legacy/frontend response shape."""
+        limit = safe_query_int(query_params, "limit", default=50, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
+        receipt_id = (
+            query_params.get("receipt_id") or query_params.get("receiptId") or ""
+        ).strip() or None
+        channel_type = (
+            query_params.get("channel_type") or query_params.get("channel") or ""
+        ).strip() or None
+        status = (query_params.get("status") or "").strip() or None
+
+        history = list(get_receipt_delivery_history_store())
+        filtered = [
+            item
+            for item in history
+            if (not receipt_id or item.get("receiptId") == receipt_id)
+            and (not channel_type or item.get("channel") == channel_type)
+            and (not status or item.get("status") == status)
+        ]
+        filtered.sort(
+            key=lambda item: str(item.get("deliveredAt") or item.get("delivered_at") or ""),
+            reverse=True,
+        )
+        paginated = filtered[offset : offset + limit]
+
+        return json_response(
+            {
+                "deliveries": paginated,
+                "total": len(filtered),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+
+    def _record_delivery_history(
+        self,
+        *,
+        receipt_id: str,
+        channel_type: str,
+        channel_id: str,
+        workspace_id: str | None,
+        status: str,
+        result: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Record a lightweight delivery event for frontend history views."""
+        delivery_result = result or {}
+        delivered_at = datetime.now(timezone.utc).isoformat()
+        destination_name = (
+            delivery_result.get("channel_name")
+            or delivery_result.get("channel")
+            or delivery_result.get("email_sent_to")
+            or channel_id
+        )
+        message_id = delivery_result.get("message_id") or delivery_result.get("message_ts")
+        get_receipt_delivery_history_store().append(
+            {
+                "id": f"delivery-{int(datetime.now(timezone.utc).timestamp() * 1000)}-{secrets.token_hex(4)}",
+                "receiptId": receipt_id,
+                "receipt_id": receipt_id,
+                "channel": channel_type,
+                "channel_type": channel_type,
+                "destination": channel_id,
+                "channel_id": channel_id,
+                "destinationName": destination_name,
+                "destination_name": destination_name,
+                "deliveredAt": delivered_at,
+                "delivered_at": delivered_at,
+                "status": status,
+                "workspaceId": workspace_id,
+                "workspace_id": workspace_id,
+                "messageId": message_id,
+                "message_id": message_id,
+                "errorMessage": error,
+                "error_message": error,
+            }
+        )
+        history = get_receipt_delivery_history_store()
+        if len(history) > 1000:
+            del history[:-1000]
+
     @require_permission("receipts:send")
     async def _send_to_channel(self, receipt_id: str, body: dict[str, Any]) -> HandlerResult:
         """
@@ -1030,6 +1124,14 @@ class ReceiptsHandler(BaseHandler):
                     400,
                 )
 
+            self._record_delivery_history(
+                receipt_id=receipt_id,
+                channel_type=channel_type,
+                channel_id=channel_id,
+                workspace_id=workspace_id,
+                status="success",
+                result=result,
+            )
             return json_response(
                 {
                     "sent": True,
@@ -1041,9 +1143,25 @@ class ReceiptsHandler(BaseHandler):
             )
 
         except ImportError as e:
+            self._record_delivery_history(
+                receipt_id=receipt_id,
+                channel_type=channel_type,
+                channel_id=channel_id,
+                workspace_id=workspace_id,
+                status="failed",
+                error=safe_error_message(e, f"channel {channel_type}"),
+            )
             logger.exception("Missing dependency for channel %s: %s", channel_type, e)
             return error_response(safe_error_message(e, f"channel {channel_type}"), 501)
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+            self._record_delivery_history(
+                receipt_id=receipt_id,
+                channel_type=channel_type,
+                channel_id=channel_id,
+                workspace_id=workspace_id,
+                status="failed",
+                error=safe_error_message(e, "receipt send"),
+            )
             logger.exception("Failed to send receipt to channel: %s", e)
             return error_response(safe_error_message(e, "receipt send"), 500)
 

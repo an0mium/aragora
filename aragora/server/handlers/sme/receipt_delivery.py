@@ -24,6 +24,7 @@ from ..base import (
 )
 from ..utils.responses import HandlerResult
 from ..utils.url_security import validate_webhook_url
+from ..utils.receipt_delivery_history import get_receipt_delivery_history_store
 from ..secure import SecureHandler
 from aragora.rbac.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -110,11 +111,7 @@ class ReceiptDeliveryHandler(SecureHandler):
 
     def _get_delivery_history_store(self):
         """Get delivery history store instance."""
-        # Use a simple in-memory store for delivery history
-        # In production, this would be backed by a database
-        if not hasattr(self, "_delivery_history"):
-            self._delivery_history: list[dict[str, Any]] = []
-        return self._delivery_history
+        return get_receipt_delivery_history_store()
 
     def _get_user_and_org(self, handler, user):
         """Get user and organization from context."""
