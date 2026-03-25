@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { TopBar } from '@/components/layout/TopBar';
 import { useAuth } from '@/context/AuthContext';
-import { useBackend } from '@/components/BackendSelector';
+import { buildHealthCheckUrl, useBackend } from '@/components/BackendSelector';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const NO_SHELL_PREFIXES = ['/auth'];
@@ -26,7 +26,7 @@ export default function AppLayoutClient({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isAuthenticated) return;
     const controller = new AbortController();
-    fetch(`${backendConfig.api}/api/health`, { signal: controller.signal })
+    fetch(buildHealthCheckUrl(backendConfig.api), { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.demo_mode || data?.mode === 'demo' || data?.offline) {

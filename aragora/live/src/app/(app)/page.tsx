@@ -17,7 +17,7 @@ import { DebateExportModal } from '@/components/DebateExportModal';
 import { VerdictCard } from '@/components/VerdictCard';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { useBackend, BACKENDS } from '@/components/BackendSelector';
+import { useBackend, BACKENDS, buildHealthCheckUrl } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { FeaturesProvider } from '@/context/FeaturesContext';
@@ -167,7 +167,7 @@ export default function Home() {
   useEffect(() => {
     if (isAuthenticated) return;
     const controller = new AbortController();
-    fetch(`${backendConfig.api}/api/health`, { signal: controller.signal })
+    fetch(buildHealthCheckUrl(backendConfig.api), { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.demo_mode || data?.mode === 'demo' || data?.offline) {

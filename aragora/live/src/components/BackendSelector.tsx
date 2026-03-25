@@ -37,6 +37,16 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
 
 const STORAGE_KEY = 'aragora-backend';
 
+export function buildHealthCheckUrl(apiBase: string): string {
+  const normalizedBase = apiBase.trim().replace(/\/$/, '');
+  if (!normalizedBase) {
+    // In local same-origin dev, Next rewrites `/api/*` and `trailingSlash: true`
+    // turns `/api/health` into a redirect chain. Use the stable path directly.
+    return '/api/health/';
+  }
+  return `${normalizedBase}/api/health`;
+}
+
 function isLocalHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
   return (
@@ -114,7 +124,7 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
   useEffect(() => {
     const checkEndpoint = async (url: string): Promise<boolean> => {
       try {
-        const res = await fetch(`${url}/api/health`, {
+        const res = await fetch(buildHealthCheckUrl(url), {
           method: 'GET',
           signal: AbortSignal.timeout(3000),
         });

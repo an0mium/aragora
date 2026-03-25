@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { UsageChart, DataPoint } from '@/components/admin/UsageChart';
-import { useBackend } from '@/components/BackendSelector';
+import { buildHealthCheckUrl, useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 
@@ -106,7 +106,7 @@ export default function AdminOverviewPage() {
       setError(null);
 
       // Fetch health status
-      const healthRes = await fetch(`${backendConfig.api}/api/health`);
+      const healthRes = await fetch(buildHealthCheckUrl(backendConfig.api));
       if (healthRes.ok) {
         const healthData = await healthRes.json();
         setHealth(healthData);

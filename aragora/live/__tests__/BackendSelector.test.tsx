@@ -3,7 +3,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BackendSelector, BACKENDS, useBackend } from '../src/components/BackendSelector';
+import { BackendSelector, BACKENDS, buildHealthCheckUrl, useBackend } from '../src/components/BackendSelector';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -62,6 +62,15 @@ describe('BackendSelector', () => {
     it('has development backend configured', () => {
       expect(BACKENDS.development).toBeDefined();
       expect(BACKENDS.development.fallbackApi).toBe('');
+    });
+
+    it('builds a same-origin health URL with trailing slash for local rewrites', () => {
+      expect(buildHealthCheckUrl('')).toBe('/api/health/');
+    });
+
+    it('builds an absolute health URL without adding a trailing slash route', () => {
+      expect(buildHealthCheckUrl('http://127.0.0.1:8086')).toBe('http://127.0.0.1:8086/api/health');
+      expect(buildHealthCheckUrl('http://127.0.0.1:8086/')).toBe('http://127.0.0.1:8086/api/health');
     });
   });
 
