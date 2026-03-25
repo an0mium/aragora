@@ -62,7 +62,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Voting** | Stable | User votes on debate positions | `aragora/debate/voting.py` |
 | **Suggestions** | Stable | User suggestions during debates | `aragora/audience/suggestions.py` |
 | **Audience System** | Stable | Audience engagement and spectator mode | `aragora/audience/` |
-| **Spectate** | Partial | Debate spectating exists, but `/api/v1/spectate/stream` is currently served as an SSE snapshot/stub rather than full live streaming | `aragora/server/handlers/spectate_ws.py`, `aragora/spectate/` |
+| **Spectate** | Partial | Debate spectating exists, and `/api/v1/spectate/stream` now serves a finite buffered SSE snapshot with JSON preview fallback, but full live streaming is still not shipped on that endpoint | `aragora/server/handlers/spectate_ws.py`, `aragora/spectate/` |
 
 ### Configuration
 

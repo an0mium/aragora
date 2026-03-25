@@ -3,7 +3,7 @@
 Endpoints:
 - GET /api/v1/spectate/recent  - Get recent buffered spectate events
 - GET /api/v1/spectate/status  - Get bridge status (active, subscribers, buffer size)
-- GET /api/v1/spectate/stream  - SSE endpoint (returns snapshot of recent events)
+- GET /api/v1/spectate/stream  - Finite SSE snapshot or JSON preview of recent events
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ __all__ = [
     "SpectateStreamHandler",
 ]
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -142,6 +143,12 @@ def _redact_live_debate_details(summary: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
+def _sse_frame(event_type: str, data: Any) -> str:
+    """Format a single SSE frame."""
+    payload = json.dumps(data, default=str, separators=(",", ":"))
+    return f"event: {event_type}\ndata: {payload}\n\n"
+
+
 class SpectateStreamHandler(BaseHandler):
     """Handler for spectate stream endpoints.
 
@@ -157,9 +164,16 @@ class SpectateStreamHandler(BaseHandler):
 
     STREAM_MODE = "snapshot"
     STREAM_READINESS = "partial"
-    STREAM_MESSAGE = (
-        "Public spectate streaming is currently snapshot-only on this endpoint; "
-        "live SSE delivery has not shipped yet."
+    STREAM_JSON_TRANSPORT = "json_preview"
+    STREAM_SSE_TRANSPORT = "sse_snapshot"
+    STREAM_JSON_MESSAGE = (
+        "Buffered spectate events are available as a JSON preview on this endpoint. "
+        "Request Accept: text/event-stream or ?format=sse for a finite SSE snapshot; "
+        "full live SSE delivery has not shipped yet."
+    )
+    STREAM_SSE_MESSAGE = (
+        "Buffered spectate events are being delivered as a finite SSE snapshot on this "
+        "endpoint; full live SSE delivery has not shipped yet."
     )
 
     @handle_errors("spectate")
@@ -173,35 +187,61 @@ class SpectateStreamHandler(BaseHandler):
         if path.endswith("/status"):
             return self._handle_status(handler)
         if path.endswith("/stream"):
-            return self._handle_stream(query_params)
+            return self._handle_stream(query_params, handler)
 
         return None
 
     def _handle_recent(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/spectate/recent -- get recent events from the buffer."""
-        return json_response(self._build_recent_payload(query_params))
+        events = self._get_recent_events(query_params)
+        return json_response(self._recent_payload(events))
 
-    def _handle_stream(self, query_params: dict[str, Any]) -> HandlerResult:
-        """GET /api/v1/spectate/stream -- snapshot preview, not live SSE."""
-        payload = self._build_recent_payload(query_params)
+    def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
+        events = self._get_recent_events(query_params)
+        if self._wants_sse(query_params, handler):
+            metadata = self._stream_metadata(
+                query_params,
+                count=len(events),
+                transport=self.STREAM_SSE_TRANSPORT,
+                message=self.STREAM_SSE_MESSAGE,
+            )
+            return HandlerResult(
+                status_code=200,
+                content_type="text/event-stream",
+                body=self._build_sse_snapshot_body(events, metadata),
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Vary": "Accept",
+                    "X-Accel-Buffering": "no",
+                    "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                    "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                    "X-Aragora-Stream-Transport": self.STREAM_SSE_TRANSPORT,
+                },
+            )
+
+        payload = self._recent_payload(events)
         payload.update(
-            {
-                "mode": self.STREAM_MODE,
-                "readiness": self.STREAM_READINESS,
-                "streaming_ready": False,
-                "message": self.STREAM_MESSAGE,
-            }
+            self._stream_metadata(
+                query_params,
+                count=len(events),
+                transport=self.STREAM_JSON_TRANSPORT,
+                message=self.STREAM_JSON_MESSAGE,
+            )
         )
         return json_response(
             payload,
             headers={
+                "Vary": "Accept",
                 "X-Aragora-Endpoint-State": self.STREAM_READINESS,
                 "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
             },
         )
 
-    def _build_recent_payload(self, query_params: dict[str, Any]) -> dict[str, Any]:
-        """Build the recent-events payload shared by snapshot endpoints."""
+    def _get_recent_events(self, query_params: dict[str, Any]) -> list[Any]:
+        """Return filtered recent spectate events from the bridge buffer."""
         try:
             from aragora.spectate.ws_bridge import get_spectate_bridge
 
@@ -215,7 +255,6 @@ class SpectateStreamHandler(BaseHandler):
 
             events = bridge.get_recent_events(count)
 
-            # Optional filtering by debate_id or pipeline_id
             debate_id = query_params.get("debate_id") if query_params else None
             pipeline_id = query_params.get("pipeline_id") if query_params else None
 
@@ -224,12 +263,56 @@ class SpectateStreamHandler(BaseHandler):
             if pipeline_id:
                 events = [e for e in events if e.pipeline_id == pipeline_id]
 
-            return {
-                "events": [e.to_dict() for e in events],
-                "count": len(events),
-            }
+            return events
         except ImportError:
-            return {"events": [], "count": 0}
+            return []
+
+    def _recent_payload(self, events: list[Any]) -> dict[str, Any]:
+        """Build the recent-events payload shared by snapshot endpoints."""
+        return {
+            "events": [e.to_dict() for e in events],
+            "count": len(events),
+        }
+
+    def _stream_metadata(
+        self,
+        query_params: dict[str, Any],
+        *,
+        count: int,
+        transport: str,
+        message: str,
+    ) -> dict[str, Any]:
+        """Build stream metadata shared across JSON and SSE snapshot responses."""
+        metadata: dict[str, Any] = {
+            "mode": self.STREAM_MODE,
+            "transport": transport,
+            "readiness": self.STREAM_READINESS,
+            "streaming_ready": False,
+            "message": message,
+            "count": count,
+        }
+        if query_params.get("debate_id"):
+            metadata["debate_id"] = query_params["debate_id"]
+        if query_params.get("pipeline_id"):
+            metadata["pipeline_id"] = query_params["pipeline_id"]
+        return metadata
+
+    def _build_sse_snapshot_body(self, events: list[Any], metadata: dict[str, Any]) -> bytes:
+        """Serialize buffered spectate events into a finite SSE snapshot body."""
+        frames = [_sse_frame("connected", metadata)]
+        for event in events:
+            event_type = getattr(event, "event_type", None) or "event"
+            frames.append(_sse_frame(event_type, event.to_dict()))
+        frames.append(_sse_frame("snapshot_complete", metadata))
+        return "".join(frames).encode("utf-8")
+
+    def _wants_sse(self, query_params: dict[str, Any], handler: Any) -> bool:
+        """Return True when the caller requested an SSE response."""
+        if (query_params.get("format") or "").lower() == "sse":
+            return True
+        headers = getattr(handler, "headers", {}) or {}
+        accept = headers.get("Accept") or headers.get("accept") or ""
+        return "text/event-stream" in accept
 
     def _handle_status(self, handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/status -- bridge status."""

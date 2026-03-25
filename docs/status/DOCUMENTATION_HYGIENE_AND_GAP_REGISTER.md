@@ -72,7 +72,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - OpenAPI and SDK parity claims are still inflated by spec-only endpoints defined in `aragora/server/openapi/endpoints/sdk_missing.py`.
 - `aragora/server/handlers/agent_evolution_dashboard.py` still raises `NotImplementedError("No real pending changes store yet")` for pending-change retrieval.
 - `aragora/server/handlers/goal_canvas.py` still returns placeholder data for advancing a canvas into the actions stage.
-- `aragora/server/handlers/spectate_ws.py` still serves `/api/v1/spectate/stream` as an SSE snapshot stub rather than full real-time streaming.
+- `aragora/server/handlers/spectate_ws.py` now serves `/api/v1/spectate/stream` as a finite buffered SSE snapshot with JSON preview fallback; full real-time streaming on that endpoint still has not shipped.
 - `aragora/server/handlers/sme/slack_workspace.py` has placeholder channel listing plus placeholder SME OAuth start/callback endpoints.
 - `aragora/server/handlers/sme/teams_workspace.py` has placeholder channel listing plus placeholder SME OAuth start/callback endpoints.
 - `aragora/inbox/triage_runner.py` can still fall back to stub debates when agents or engine wiring are unavailable.

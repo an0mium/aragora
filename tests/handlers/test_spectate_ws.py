@@ -6,6 +6,7 @@ SpectateWebSocketBridge over the /api/v1/spectate/* endpoints.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -48,6 +49,24 @@ def mock_handler():
     return h
 
 
+def _parse_sse_frames(body: bytes) -> list[tuple[str, object]]:
+    """Parse a finite SSE snapshot body into (event_type, payload) pairs."""
+    frames: list[tuple[str, object]] = []
+    for chunk in body.decode("utf-8").strip().split("\n\n"):
+        lines = chunk.splitlines()
+        if not lines or lines[0].startswith(":"):
+            continue
+        event_type = "event"
+        payload: object = None
+        for line in lines:
+            if line.startswith("event: "):
+                event_type = line.removeprefix("event: ")
+            elif line.startswith("data: "):
+                payload = json.loads(line.removeprefix("data: "))
+        frames.append((event_type, payload))
+    return frames
+
+
 # ---------------------------------------------------------------------------
 # Route matching tests
 # ---------------------------------------------------------------------------
@@ -83,17 +102,64 @@ class TestRouteMatching:
         assert "buffer_size" in body
 
     def test_handle_stream_path(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
-        """Stream endpoint is truthfully marked as a snapshot preview."""
+        """Stream endpoint defaults to a JSON preview for non-SSE callers."""
         result = handler.handle("/api/v1/spectate/stream", {}, mock_handler)
         assert result is not None
         body = result[0]
         assert "events" in body
         assert body["mode"] == "snapshot"
+        assert body["transport"] == "json_preview"
         assert body["readiness"] == "partial"
         assert body["streaming_ready"] is False
-        assert "snapshot-only" in body["message"]
+        assert "JSON preview" in body["message"]
         assert result[2]["X-Aragora-Endpoint-State"] == "partial"
         assert result[2]["X-Aragora-Stream-Mode"] == "snapshot"
+        assert result[2]["X-Aragora-Stream-Transport"] == "json_preview"
+
+    def test_handle_stream_path_returns_sse_snapshot_when_requested(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:00+00:00",
+                debate_id="d-111",
+                agent_name="claude",
+                data={"details": "Bounded fix"},
+            )
+        )
+        mock_handler.headers = {"Accept": "text/event-stream"}
+
+        result = handler.handle("/api/v1/spectate/stream", {"debate_id": "d-111"}, mock_handler)
+
+        assert result is not None
+        assert result.content_type == "text/event-stream"
+        assert result.headers["X-Aragora-Stream-Transport"] == "sse_snapshot"
+        frames = _parse_sse_frames(result.body)
+        assert [frame[0] for frame in frames] == ["connected", "proposal", "snapshot_complete"]
+        connected = frames[0][1]
+        proposal = frames[1][1]
+        complete = frames[2][1]
+        assert isinstance(connected, dict)
+        assert connected["transport"] == "sse_snapshot"
+        assert connected["debate_id"] == "d-111"
+        assert isinstance(proposal, dict)
+        assert proposal["event_type"] == "proposal"
+        assert proposal["agent_name"] == "claude"
+        assert isinstance(complete, dict)
+        assert complete["count"] == 1
+
+    def test_handle_stream_path_honors_format_sse_query(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        result = handler.handle("/api/v1/spectate/stream", {"format": "sse"}, mock_handler)
+        assert result is not None
+        assert result.content_type == "text/event-stream"
+        frames = _parse_sse_frames(result.body)
+        assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
 
 
 # ---------------------------------------------------------------------------
