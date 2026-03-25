@@ -491,7 +491,8 @@ def create_persistent_store(
         asyncio.get_running_loop()
         in_async_context = True
     except RuntimeError as e:
-        logger.warning("connection_factory operation failed: %s", e)
+        if "no running event loop" not in str(e).lower():
+            logger.warning("connection_factory operation failed: %s", e)
 
     # Determine if SQLite is allowed (not in production unless explicitly allowed)
     allow_sqlite = not is_production_environment()

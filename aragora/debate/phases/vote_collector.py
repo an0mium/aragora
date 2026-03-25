@@ -420,7 +420,14 @@ class VoteCollector:
                     if isinstance(vote_result, Exception):
                         logger.error("vote_error agent=%s error=%s", agent.name, vote_result)
                     else:
-                        logger.error("vote_error agent=%s error=vote returned None", agent.name)
+                        logger.error(
+                            "vote_error agent=%s error=vote returned None",
+                            agent.name,
+                            extra={
+                                "triage_diag_code": "vote_none",
+                                "triage_diag_severity": "degraded",
+                            },
+                        )
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(ctx, agent, vote_result)
@@ -540,7 +547,12 @@ class VoteCollector:
                         )
                     else:
                         logger.error(
-                            "vote_error_unanimous agent=%s error=vote returned None", agent.name
+                            "vote_error_unanimous agent=%s error=vote returned None",
+                            agent.name,
+                            extra={
+                                "triage_diag_code": "vote_none",
+                                "triage_diag_severity": "degraded",
+                            },
                         )
                     voting_errors += 1
                 else:

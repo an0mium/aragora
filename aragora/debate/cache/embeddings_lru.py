@@ -370,7 +370,11 @@ def get_embedding_cache(
             )
             logger.warning(
                 "Using global embedding cache. For debate context, "
-                "use get_scoped_embedding_cache(debate_id) to prevent contamination."
+                "use get_scoped_embedding_cache(debate_id) to prevent contamination.",
+                extra={
+                    "triage_diag_code": "global_embedding_cache",
+                    "triage_diag_severity": "diagnostic",
+                },
             )
 
         return _embedding_cache

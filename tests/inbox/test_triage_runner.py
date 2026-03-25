@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from aragora.core import DebateResult
+from aragora.inbox.triage_diagnostics import DiagnosticSeverity, TriageRunDiagnostics
 from aragora.inbox.triage_runner import InboxTriageRunner, _create_triage_agents
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -254,7 +257,7 @@ async def test_unparseable_final_answer_falls_back_to_ignore_and_blocks_auto_app
     assert decision.receipt_state == ReceiptState.CREATED.value
     assert decision.final_action == InboxWedgeAction.IGNORE
     assert decision.blocked_by_policy is True
-    assert "fell back to ignore" in decision.dissent_summary
+    assert "showing a blocked recommendation" in decision.dissent_summary
     wedge_service.execute_receipt.assert_not_awaited()
 
 
@@ -425,9 +428,10 @@ async def test_run_debate_uses_fast_agent_subset_and_explicit_action_prompt(monk
     captured_tasks: list[str] = []
 
     class _Arena:
-        def __init__(self, env, agents, protocol):
+        def __init__(self, env, agents, protocol, **kwargs):
             captured_tasks.append(env.task)
             created_agents.extend(agents)
+            self.kwargs = kwargs
 
         async def run(self):
             return {"final_answer": "archive", "confidence": 0.9}
@@ -468,7 +472,57 @@ async def test_run_debate_uses_fast_agent_subset_and_explicit_action_prompt(monk
 
 
 @pytest.mark.asyncio
-async def test_run_debate_falls_back_to_stub_when_fewer_than_two_agents(monkeypatch):
+async def test_run_debate_disables_trending_and_post_debate_pipeline(monkeypatch):
+    captured_kwargs: dict[str, object] = {}
+    captured_protocol: dict[str, object] = {}
+
+    class _Arena:
+        def __init__(self, env, agents, protocol, **kwargs):
+            captured_kwargs.update(kwargs)
+            captured_protocol.update(protocol.__dict__)
+
+        async def run(self):
+            assert os.environ.get("ARAGORA_DISABLE_TRENDING") == "true"
+            return {"final_answer": "archive", "confidence": 0.9}
+
+    def _environment(*, task):
+        return SimpleNamespace(task=task)
+
+    import os
+    import aragora.core as core_mod
+    import aragora.debate.orchestrator as orch_mod
+    import aragora.debate.protocol as proto_mod
+
+    monkeypatch.delenv("ARAGORA_DISABLE_TRENDING", raising=False)
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner._create_triage_agents",
+        lambda: [
+            SimpleNamespace(name="triage-proposer", role="proposer", model_type="openai-api"),
+            SimpleNamespace(name="triage-critic", role="critic", model_type="openrouter"),
+        ],
+    )
+    monkeypatch.setattr(core_mod, "Environment", _environment)
+    monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(orch_mod, "Arena", _Arena)
+
+    runner = InboxTriageRunner(gmail_connector=None)
+    await runner._run_debate(
+        {
+            "id": "msg-runtime-flags",
+            "subject": "Runtime flags",
+            "from_address": "sender@example.com",
+            "body_text": "Body",
+        }
+    )
+
+    assert captured_kwargs["disable_post_debate_pipeline"] is True
+    assert captured_kwargs["enable_knowledge_retrieval"] is False
+    assert captured_protocol["enable_research"] is False
+    assert "ARAGORA_DISABLE_TRENDING" not in os.environ
+
+
+@pytest.mark.asyncio
+async def test_run_debate_returns_blocked_result_when_fewer_than_two_agents(monkeypatch):
     import aragora.core as core_mod
     import aragora.debate.orchestrator as orch_mod
     import aragora.debate.protocol as proto_mod
@@ -493,8 +547,9 @@ async def test_run_debate_falls_back_to_stub_when_fewer_than_two_agents(monkeypa
         }
     )
 
-    assert result["final_answer"] == "ignore"
+    assert result["final_answer"] == ""
     assert result["confidence"] == 0.0
+    assert result["status"] == "insufficient_participation"
 
 
 def test_create_triage_agents_prefers_fast_pair(monkeypatch):
@@ -517,10 +572,11 @@ def test_create_triage_agents_prefers_fast_pair(monkeypatch):
 
     agents = _create_triage_agents()
 
-    assert len(agents) == 2
+    assert len(agents) == 3
     assert calls == [
-        ("anthropic-api", "proposer", "claude-haiku-4-5-20251001"),
+        ("openai-api", "proposer", "gpt-4.1-mini"),
         ("openrouter", "critic", "deepseek/deepseek-chat"),
+        ("anthropic-api", "synthesizer", "claude-haiku-4-5-20251001"),
     ]
 
 
@@ -544,8 +600,368 @@ def test_create_triage_agents_falls_back_to_openai_when_needed(monkeypatch):
 
     agents = _create_triage_agents()
 
-    assert len(agents) == 2
+    assert len(agents) == 3
     assert calls == [
-        ("anthropic-api", "proposer", "claude-haiku-4-5-20251001"),
-        ("openai-api", "critic", None),
+        ("openai-api", "proposer", "gpt-4.1-mini"),
+        ("openai-api", "critic", "gpt-4.1-mini"),
+        ("anthropic-api", "synthesizer", "claude-haiku-4-5-20251001"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_triage_message_reattaches_subject_after_receipt_creation():
+    gmail = _DummyGmail()
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+
+    def _create_envelope(intent, decision, auto_approve=False):
+        copied_intent = type(intent)(**intent.to_dict())
+        updated = TriageDecision.create(
+            final_action=decision.final_action,
+            confidence=decision.confidence,
+            dissent_summary=decision.dissent_summary,
+            receipt_id="receipt-copy",
+            auto_approval_eligible=auto_approve,
+            receipt_state=ReceiptState.CREATED.value,
+            intent=copied_intent,
+            provider_route=decision.provider_route,
+            label_id=decision.label_id,
+            blocked_by_policy=decision.blocked_by_policy,
+        )
+        return SimpleNamespace(
+            intent=copied_intent,
+            decision=updated,
+            receipt=SimpleNamespace(receipt_id="receipt-copy", state=ReceiptState.CREATED),
+            provider_route=decision.provider_route,
+        )
+
+    wedge_service.create_receipt = MagicMock(side_effect=_create_envelope)
+
+    runner = InboxTriageRunner(gmail_connector=gmail, wedge_service=wedge_service)
+    runner._run_debate = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.9,
+            "debate_id": "debate-copy",
+        }
+    )
+
+    decisions = await runner.run_triage(batch_size=1, auto_approve=False)
+
+    intent = decisions[0].intent
+    assert intent is not None
+    assert intent._subject == "Test subject"  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_stub_debate_result_is_blocked_instead_of_silent_ignore(monkeypatch):
+    import aragora.core as core_mod
+    import aragora.debate.orchestrator as orch_mod
+    import aragora.debate.protocol as proto_mod
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner._create_triage_agents",
+        lambda: [SimpleNamespace(name="triage-proposer", role="proposer", model_type="openai-api")],
+    )
+    monkeypatch.setattr(core_mod, "Environment", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(orch_mod, "Arena", MagicMock())
+
+    runner = InboxTriageRunner(gmail_connector=None)
+    result = await runner._run_debate(
+        {
+            "id": "msg-stub",
+            "subject": "Stub subject",
+            "from_address": "sender@example.com",
+            "body_text": "Stub body",
+        }
+    )
+
+    assert result["final_answer"] == ""
+    assert result["confidence"] == 0.0
+    assert result["status"] == "insufficient_participation"
+
+
+@pytest.mark.asyncio
+async def test_staged_profile_uses_fast_tier_without_escalation(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+    runner._run_debate_once = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.96,
+            "consensus_reached": True,
+            "debate_id": "debate-fast",
+        }
+    )
+
+    with diagnostics.activate():
+        result = await runner._run_debate(
+            {
+                "id": "msg-fast",
+                "subject": "Fast path",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    execution = result["metadata"]["triage_execution"]
+    assert execution["execution_tier"] == "fast"
+    assert execution["escalation_reasons"] == []
+    runner._run_debate_once.assert_awaited_once_with(
+        {
+            "id": "msg-fast",
+            "subject": "Fast path",
+            "from_address": "sender@example.com",
+            "body_text": "Body",
+        },
+        tier="fast",
+        rounds=1,
+        max_agents=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_staged_profile_escalates_high_risk_actions(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+    runner._run_debate_once = AsyncMock(
+        side_effect=[
+            {
+                "final_answer": "star",
+                "confidence": 0.97,
+                "consensus_reached": True,
+                "debate_id": "debate-fast",
+            },
+            {
+                "final_answer": "archive",
+                "confidence": 0.91,
+                "consensus_reached": True,
+                "debate_id": "debate-escalated",
+            },
+        ]
+    )
+
+    with diagnostics.activate(), diagnostics.message_scope("msg-escalated"):
+        result = await runner._run_debate(
+            {
+                "id": "msg-escalated",
+                "subject": "Escalate",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    execution = result["metadata"]["triage_execution"]
+    assert execution["execution_tier"] == "escalated"
+    assert "high_risk_action" in execution["escalation_reasons"]
+    assert runner._run_debate_once.await_count == 2
+    event_codes = [
+        json.loads(line)["code"]
+        for line in diagnostics.events_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert "fast_tier_escalation" in event_codes
+
+
+@pytest.mark.asyncio
+async def test_staged_profile_truthfully_stops_on_no_consensus(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+    runner._run_debate_once = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.84,
+            "consensus_reached": False,
+            "debate_id": "debate-no-consensus-fast",
+        }
+    )
+
+    with diagnostics.activate(), diagnostics.message_scope("msg-no-consensus"):
+        result = await runner._run_debate(
+            {
+                "id": "msg-no-consensus",
+                "subject": "No consensus",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    execution = result["metadata"]["triage_execution"]
+    assert execution["execution_tier"] == "fast"
+    assert execution["escalation_reasons"] == ["no_consensus"]
+    runner._run_debate_once.assert_awaited_once()
+    event_codes = [
+        json.loads(line)["code"]
+        for line in diagnostics.events_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert "fast_tier_truthful_stop" in event_codes
+
+
+@pytest.mark.asyncio
+async def test_staged_profile_truthfully_stops_on_parse_failed_fast_result(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+    runner._run_debate_once = AsyncMock(
+        return_value={
+            "final_answer": "archive or ignore depending on urgency",
+            "confidence": 0.94,
+            "consensus_reached": True,
+            "debate_id": "debate-parse-fast",
+        }
+    )
+
+    with diagnostics.activate(), diagnostics.message_scope("msg-parse-fast"):
+        result = await runner._run_debate(
+            {
+                "id": "msg-parse-fast",
+                "subject": "Parse failed",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    execution = result["metadata"]["triage_execution"]
+    assert execution["execution_tier"] == "fast"
+    assert execution["escalation_reasons"] == ["parse_failed"]
+    runner._run_debate_once.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_staged_profile_returns_blocked_timeout_without_escalation(tmp_path, monkeypatch):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+
+    async def _slow_debate(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return {
+            "final_answer": "archive",
+            "confidence": 0.95,
+            "consensus_reached": True,
+            "debate_id": "debate-slow-fast",
+        }
+
+    monkeypatch.setattr("aragora.inbox.triage_runner._FAST_TIER_TIMEOUT_SECONDS", 0.01)
+    runner._run_debate_once = AsyncMock(side_effect=_slow_debate)
+
+    with diagnostics.activate(), diagnostics.message_scope("msg-timeout-fast"):
+        result = await runner._run_debate(
+            {
+                "id": "msg-timeout-fast",
+                "subject": "Timeout",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    execution = result["metadata"]["triage_execution"]
+    assert execution["execution_tier"] == "fast"
+    assert execution["escalation_reasons"] == ["fast_timeout", "no_consensus", "parse_failed"]
+    assert result["status"] == "timeout"
+    runner._run_debate_once.assert_awaited_once()
+    event_codes = [
+        json.loads(line)["code"]
+        for line in diagnostics.events_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert "fast_tier_timeout" in event_codes
+    assert "fast_tier_truthful_stop" in event_codes
+
+
+@pytest.mark.asyncio
+async def test_triage_message_carries_execution_and_diagnostics_metadata(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-meta",
+            state=ReceiptState.CREATED,
+        )
+    )
+    runner = InboxTriageRunner(
+        gmail_connector=None,
+        wedge_service=wedge_service,
+        diagnostics=diagnostics,
+        profile="staged_v1",
+    )
+    runner._run_debate = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.91,
+            "consensus_reached": True,
+            "debate_id": "debate-meta",
+            "metadata": {
+                "triage_execution": {
+                    "execution_tier": "escalated",
+                    "escalation_reasons": ["low_confidence"],
+                }
+            },
+        }
+    )
+
+    with diagnostics.activate(), diagnostics.message_scope("msg-meta"):
+        diagnostics.record_event(
+            code="provider_fallback",
+            severity=DiagnosticSeverity.DEGRADED,
+            logger_name="aragora.server.research_phase",
+            summary="Fallback to OpenRouter",
+            tier="escalated",
+        )
+        decision = await runner._triage_message(
+            {
+                "id": "msg-meta",
+                "subject": "Metadata",
+                "from_address": "sender@example.com",
+                "body_text": "Body",
+            }
+        )
+
+    assert decision.execution_tier == "escalated"
+    assert decision.escalation_reasons == ["low_confidence"]
+    assert decision.suppressed_diagnostics_count == 1
+    assert decision.blocked_by_policy is True

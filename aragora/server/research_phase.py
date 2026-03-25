@@ -201,6 +201,10 @@ class PreDebateResearcher:
             logger.warning(
                 "[research] Anthropic generation failed (%s), falling back to OpenRouter",
                 type(e).__name__,
+                extra={
+                    "triage_diag_code": "provider_fallback",
+                    "triage_diag_severity": "degraded",
+                },
             )
             return await asyncio.wait_for(
                 fallback_agent.generate(prompt),

@@ -45,6 +45,37 @@ DEFAULT_SLOW_ROUND_THRESHOLD = 30.0
 MAX_SLOW_DEBATES_HISTORY = 100
 
 
+def _record_triage_perf_event(
+    *,
+    code: str,
+    summary: str,
+    details: str = "",
+    debate_id: str | None = None,
+) -> bool:
+    try:
+        from aragora.inbox.triage_diagnostics import DiagnosticSeverity, record_triage_diagnostic
+
+        return record_triage_diagnostic(
+            code=code,
+            severity=DiagnosticSeverity.DIAGNOSTIC,
+            logger_name=__name__,
+            summary=summary,
+            details=details,
+            debate_id=debate_id,
+        )
+    except ImportError:
+        return False
+
+
+def _should_mirror_triage_perf_logs() -> bool:
+    try:
+        from aragora.inbox.triage_diagnostics import triage_diagnostics_should_mirror_logs
+
+        return triage_diagnostics_should_mirror_logs()
+    except ImportError:
+        return False
+
+
 @dataclass
 class PhaseMetric:
     """Metric for a single phase within a round."""
@@ -307,15 +338,29 @@ class DebatePerformanceMonitor:
             if metric.duration_seconds > self.slow_round_threshold:
                 metric.is_slow = True
                 slowest = metric.slowest_phase
-                logger.warning(
-                    "slow_round_detected debate_id=%s round=%d "
-                    "duration=%.2fs threshold=%.2fs slowest_phase=%s",
+                summary = (
+                    "slow_round_detected debate_id=%s round=%d duration=%.2fs "
+                    "threshold=%.2fs slowest_phase=%s"
+                ) % (
                     debate_id,
                     round_num,
                     metric.duration_seconds,
                     self.slow_round_threshold,
                     f"{slowest[0]}={slowest[1]:.2f}s" if slowest else "unknown",
                 )
+                recorded = _record_triage_perf_event(
+                    code="slow_round",
+                    summary=summary,
+                    debate_id=debate_id,
+                )
+                if not recorded or _should_mirror_triage_perf_logs():
+                    logger.warning(
+                        summary,
+                        extra={
+                            "triage_diag_code": "slow_round",
+                            "triage_diag_severity": "diagnostic",
+                        },
+                    )
             else:
                 logger.debug(
                     "round_perf_complete debate_id=%s round=%d duration=%.2fs",
@@ -483,9 +528,10 @@ class DebatePerformanceMonitor:
         """Log debate completion with performance summary."""
         if metric.is_slow:
             slowest = metric.get_slowest_round()
-            logger.warning(
+            summary = (
                 "slow_debate_complete debate_id=%s duration=%.2fs rounds=%d "
-                "slow_rounds=%d avg_round=%.2fs slowest_round=%s outcome=%s",
+                "slow_rounds=%d avg_round=%.2fs slowest_round=%s outcome=%s"
+            ) % (
                 metric.debate_id,
                 metric.duration_seconds or 0,
                 len(metric.rounds),
@@ -494,6 +540,19 @@ class DebatePerformanceMonitor:
                 f"r{slowest[0]}={slowest[1]:.2f}s" if slowest else "none",
                 metric.outcome,
             )
+            recorded = _record_triage_perf_event(
+                code="slow_debate",
+                summary=summary,
+                debate_id=metric.debate_id,
+            )
+            if not recorded or _should_mirror_triage_perf_logs():
+                logger.warning(
+                    summary,
+                    extra={
+                        "triage_diag_code": "slow_debate",
+                        "triage_diag_severity": "diagnostic",
+                    },
+                )
         else:
             logger.info(
                 "debate_perf_complete debate_id=%s duration=%.2fs rounds=%d "

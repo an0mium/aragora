@@ -15,9 +15,13 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import re
+import time
 import uuid
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,8 +35,22 @@ from aragora.inbox.trust_wedge import (
     compute_content_hash,
     get_inbox_trust_wedge_service,
 )
+from aragora.inbox.triage_diagnostics import (
+    DiagnosticSeverity,
+    TriageRunDiagnostics,
+    record_triage_diagnostic,
+)
 
 logger = logging.getLogger(__name__)
+
+_SUPPORTED_TRIAGE_PROFILES = {"baseline", "staged_v1"}
+_FAST_TIER_CONFIDENCE_THRESHOLD = 0.85
+_FAST_TIER_TIMEOUT_SECONDS = 12.0
+_HIGH_RISK_ACTIONS = {InboxWedgeAction.LABEL, InboxWedgeAction.STAR}
+_DEGRADED_DIAGNOSTIC_SEVERITIES = {
+    DiagnosticSeverity.BLOCKING.value,
+    DiagnosticSeverity.DEGRADED.value,
+}
 
 _ACTION_PATTERNS = {
     AllowedAction.ARCHIVE: re.compile(r"\barchiv(?:e|ed|ing)\b", re.IGNORECASE),
@@ -57,6 +75,8 @@ class _NormalizedDebateOutcome:
     dissent_summary: str
     rationale: str
     debate_id: str
+    status: str
+    parse_failed: bool
 
 
 def _result_field(debate_result: Any, field: str, default: Any = None) -> Any:
@@ -117,6 +137,74 @@ def _result_dissenting_views(debate_result: Any) -> list[str]:
     return [str(view).strip() for view in views if str(view).strip()]
 
 
+def _result_status(debate_result: Any) -> str:
+    candidates = [
+        _result_field(debate_result, "status", None),
+        _result_metadata(debate_result).get("status"),
+    ]
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        text = str(candidate).strip().lower()
+        if text:
+            return text
+    return ""
+
+
+def _normalize_triage_profile(profile: str | None) -> str:
+    normalized = str(profile or "baseline").strip().lower()
+    if normalized in _SUPPORTED_TRIAGE_PROFILES:
+        return normalized
+    return "baseline"
+
+
+def _result_triage_execution_metadata(debate_result: Any) -> dict[str, Any]:
+    metadata = _result_metadata(debate_result)
+    execution = metadata.get("triage_execution")
+    return dict(execution) if isinstance(execution, dict) else {}
+
+
+def _attach_triage_execution_metadata(
+    debate_result: Any,
+    *,
+    execution_tier: str,
+    escalation_reasons: list[str] | None = None,
+    profile: str | None = None,
+) -> Any:
+    execution = _result_triage_execution_metadata(debate_result)
+    execution["execution_tier"] = execution_tier
+    execution["escalation_reasons"] = list(escalation_reasons or [])
+    if profile:
+        execution["profile"] = profile
+
+    if isinstance(debate_result, dict):
+        metadata = debate_result.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            debate_result["metadata"] = metadata
+        metadata["triage_execution"] = execution
+        return debate_result
+
+    metadata = dict(_result_metadata(debate_result))
+    metadata["triage_execution"] = execution
+    try:
+        setattr(debate_result, "metadata", metadata)
+    except (AttributeError, TypeError):
+        pass
+    return debate_result
+
+
+def _is_blocked_status(status: str) -> bool:
+    return status in {
+        "blocked",
+        "error",
+        "failed",
+        "insufficient_participation",
+        "runtime_error",
+        "timeout",
+    }
+
+
 def _parse_action_from_rationale(rationale: str) -> tuple[InboxWedgeAction, bool]:
     normalized = rationale.strip().lower()
     if not normalized:
@@ -141,18 +229,29 @@ def _normalize_debate_outcome(debate_result: Any) -> _NormalizedDebateOutcome:
     consensus_reached = _result_consensus_reached(debate_result, rationale)
     debate_id = _result_debate_id(debate_result)
     dissenting_views = _result_dissenting_views(debate_result)
+    status = _result_status(debate_result)
     final_action, parse_failed = _parse_action_from_rationale(rationale)
 
     reasons: list[str] = []
     if not consensus_reached:
         reasons.append("No consensus reached; manual review required.")
+    if status == "insufficient_participation":
+        reasons.append(
+            "Debate quorum failed; showing a blocked recommendation pending human review."
+        )
+    elif _is_blocked_status(status):
+        reasons.append(f"Debate ended in {status.replace('_', ' ')}; manual review required.")
     if parse_failed:
         if rationale.strip():
             reasons.append(
-                "Could not map the debate answer to a single inbox action; fell back to ignore."
+                "Could not map the debate answer to a single inbox action; showing a blocked recommendation."
             )
         else:
-            reasons.append("Debate returned no final answer; fell back to ignore.")
+            reasons.append(
+                "Debate returned no actionable final answer; showing a blocked recommendation."
+            )
+    if confidence <= 0.0 and not rationale.strip():
+        reasons.append("No confident recommendation was produced.")
     if dissenting_views:
         reasons.append(f"Dissent: {'; '.join(dissenting_views[:3])}")
 
@@ -163,10 +262,12 @@ def _normalize_debate_outcome(debate_result: Any) -> _NormalizedDebateOutcome:
         dissent_summary=" ".join(reasons).strip(),
         rationale=rationale,
         debate_id=debate_id,
+        status=status,
+        parse_failed=parse_failed,
     )
 
 
-def _create_triage_agents() -> list[Any]:
+def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
     """Create agents for triage debates.
 
     Prefers cheap, fast models:
@@ -179,41 +280,102 @@ def _create_triage_agents() -> list[Any]:
     from aragora.agents.base import create_agent
 
     agents: list[Any] = []
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    providers_used: set[str] = set()
+
+    def _append_agent(
+        provider: str,
+        *,
+        name: str,
+        role: str,
+        model: str | None = None,
+    ) -> None:
         try:
-            agents.append(
-                create_agent(
-                    "anthropic-api",
-                    name="triage-proposer",
-                    role="proposer",
-                    model="claude-haiku-4-5-20251001",
-                )
-            )
+            kwargs: dict[str, Any] = {
+                "name": name,
+                "role": role,
+            }
+            if model is not None:
+                kwargs["model"] = model
+            agents.append(create_agent(provider, **kwargs))
+            providers_used.add(provider)
         except (ImportError, RuntimeError, ValueError, OSError):
-            pass
+            logger.debug("Triage agent unavailable: provider=%s role=%s", provider, role)
+
+    if os.environ.get("OPENAI_API_KEY"):
+        _append_agent(
+            "openai-api",
+            name="triage-proposer",
+            role="proposer",
+            model="gpt-4.1-mini",
+        )
+    elif os.environ.get("ANTHROPIC_API_KEY"):
+        _append_agent(
+            "anthropic-api",
+            name="triage-proposer",
+            role="proposer",
+            model="claude-haiku-4-5-20251001",
+        )
 
     if os.environ.get("OPENROUTER_API_KEY"):
-        try:
-            agents.append(
-                create_agent(
-                    "openrouter",
-                    name="triage-critic",
-                    role="critic",
-                    model="deepseek/deepseek-chat",
-                )
-            )
-        except (ImportError, RuntimeError, ValueError, OSError):
-            pass
+        _append_agent(
+            "openrouter",
+            name="triage-critic",
+            role="critic",
+            model="deepseek/deepseek-chat",
+        )
+    elif os.environ.get("OPENAI_API_KEY"):
+        _append_agent(
+            "openai-api",
+            name="triage-critic",
+            role="critic",
+            model="gpt-4.1-mini",
+        )
+    elif os.environ.get("ANTHROPIC_API_KEY"):
+        _append_agent(
+            "anthropic-api",
+            name="triage-critic",
+            role="critic",
+            model="claude-haiku-4-5-20251001",
+        )
 
-    # Fallback: try OpenAI if still short
-    if len(agents) < 2 and os.environ.get("OPENAI_API_KEY"):
-        role = "critic" if agents else "proposer"
-        try:
-            agents.append(create_agent("openai-api", name=f"triage-{role}", role=role))
-        except (ImportError, RuntimeError, ValueError, OSError):
-            logger.debug("OpenAI triage fallback unavailable")
+    if os.environ.get("ANTHROPIC_API_KEY") and "anthropic-api" not in providers_used:
+        _append_agent(
+            "anthropic-api",
+            name="triage-reviewer",
+            role="synthesizer",
+            model="claude-haiku-4-5-20251001",
+        )
+    elif os.environ.get("OPENAI_API_KEY") and len(agents) < 2:
+        _append_agent(
+            "openai-api",
+            name="triage-reviewer",
+            role="synthesizer",
+            model="gpt-4.1-mini",
+        )
 
+    if max_agents is not None:
+        return agents[:max_agents]
     return agents
+
+
+def _attach_display_metadata(intent: ActionIntent, msg: dict[str, Any], body: str) -> None:
+    """Attach non-persisted email display metadata for CLI summaries."""
+    intent._subject = msg.get("subject", "(no subject)")  # type: ignore[attr-defined]
+    intent._sender = msg.get("from_address", msg.get("sender", "(unknown)"))  # type: ignore[attr-defined]
+    intent._snippet = msg.get("snippet", body[:120])  # type: ignore[attr-defined]
+
+
+@contextmanager
+def _set_env_if_missing(key: str, value: str):
+    """Temporarily set an environment variable only when unset."""
+    existed = key in os.environ
+    if not existed:
+        os.environ[key] = value
+    try:
+        yield
+    finally:
+        if not existed:
+            os.environ.pop(key, None)
 
 
 class InboxTriageRunner:
@@ -235,10 +397,14 @@ class InboxTriageRunner:
         gmail_connector: Any | None = None,
         auto_approval_policy: AutoApprovalPolicy | None = None,
         wedge_service: Any | None = None,
+        diagnostics: TriageRunDiagnostics | None = None,
+        profile: str | None = None,
     ) -> None:
         self._gmail = gmail_connector
         self._policy = auto_approval_policy or AutoApprovalPolicy()
         self._wedge_service = wedge_service or get_inbox_trust_wedge_service()
+        self._diagnostics = diagnostics
+        self._profile = _normalize_triage_profile(profile or os.getenv("ARAGORA_TRIAGE_PROFILE"))
         self._triaged: list[TriageDecision] = []
 
     @property
@@ -339,12 +505,41 @@ class InboxTriageRunner:
         auto_approve: bool = False,
     ) -> TriageDecision:
         """Run debate and build a TriageDecision for a single message."""
+        started = time.perf_counter()
         message_id = msg.get("id", str(uuid.uuid4()))
         body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
         content_hash = compute_content_hash(body)
+        scope = self._diagnostics.message_scope(message_id) if self._diagnostics else nullcontext()
 
-        debate_result = await self._run_debate(msg)
-        normalized = _normalize_debate_outcome(debate_result)
+        with scope:
+            debate_result = await self._run_debate(msg)
+            normalized = _normalize_debate_outcome(debate_result)
+            execution_metadata = _result_triage_execution_metadata(debate_result)
+            execution_tier = str(execution_metadata.get("execution_tier", "baseline"))
+            escalation_reasons = [
+                str(reason)
+                for reason in execution_metadata.get("escalation_reasons", [])
+                if str(reason).strip()
+            ]
+            diagnostics_summary = (
+                self._diagnostics.get_message_summary(message_id)
+                if self._diagnostics
+                else {"total": 0}
+            )
+            final_tier_summary = (
+                self._diagnostics.get_message_summary(message_id, tier=execution_tier)
+                if self._diagnostics
+                else {
+                    DiagnosticSeverity.BLOCKING.value: 0,
+                    DiagnosticSeverity.DEGRADED.value: 0,
+                    DiagnosticSeverity.DIAGNOSTIC.value: 0,
+                    "total": 0,
+                }
+            )
+            degraded_final_diagnostics = any(
+                final_tier_summary.get(severity, 0) > 0
+                for severity in _DEGRADED_DIAGNOSTIC_SEVERITIES
+            )
         provider = (
             getattr(self._gmail, "connector_id", "gmail") if self._gmail is not None else "gmail"
         )
@@ -361,10 +556,7 @@ class InboxTriageRunner:
             debate_id=normalized.debate_id,
             user_id=user_id,
         )
-        # Attach email metadata for CLI display (private attrs)
-        intent._subject = msg.get("subject", "(no subject)")  # type: ignore[attr-defined]
-        intent._sender = msg.get("from_address", msg.get("sender", "(unknown)"))  # type: ignore[attr-defined]
-        intent._snippet = msg.get("snippet", body[:120])  # type: ignore[attr-defined]
+        _attach_display_metadata(intent, msg, body)
 
         decision = TriageDecision(
             final_action=normalized.final_action,
@@ -373,7 +565,10 @@ class InboxTriageRunner:
             auto_approval_eligible=False,
             provider_route="direct",
             intent=intent,
-            blocked_by_policy=bool(normalized.dissent_summary),
+            blocked_by_policy=bool(normalized.dissent_summary) or degraded_final_diagnostics,
+            execution_tier=execution_tier,
+            escalation_reasons=escalation_reasons,
+            suppressed_diagnostics_count=int(diagnostics_summary.get("total", 0)),
         )
 
         should_auto_approve = auto_approve and self._policy.can_auto_approve(decision)
@@ -388,14 +583,156 @@ class InboxTriageRunner:
         decision.receipt_state = envelope.receipt.state.value
         decision.provider_route = envelope.provider_route
         decision.label_id = envelope.intent.label_id or decision.label_id
+        decision.execution_tier = execution_tier
+        decision.escalation_reasons = escalation_reasons
+        decision.suppressed_diagnostics_count = int(diagnostics_summary.get("total", 0))
+        decision.blocked_by_policy = bool(normalized.dissent_summary) or degraded_final_diagnostics
+        decision.latency_seconds = time.perf_counter() - started
+        _attach_display_metadata(decision.intent, msg, body)
 
         return decision
 
     async def _run_debate(self, msg: dict[str, Any]) -> Any:
+        message_id = str(msg.get("id", ""))
+        if self._profile == "staged_v1":
+            fast_task = asyncio.create_task(
+                self._run_debate_once(
+                    msg,
+                    tier="fast",
+                    rounds=1,
+                    max_agents=2,
+                )
+            )
+            try:
+                fast_result = await asyncio.wait_for(
+                    fast_task,
+                    timeout=_FAST_TIER_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                fast_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await fast_task
+                record_triage_diagnostic(
+                    code="fast_tier_timeout",
+                    severity=DiagnosticSeverity.BLOCKING,
+                    logger_name=__name__,
+                    summary="Fast-tier triage debate exceeded its time budget; returning blocked result.",
+                    details=f"timeout_seconds={_FAST_TIER_TIMEOUT_SECONDS}",
+                    message_id=message_id or None,
+                    tier="fast",
+                )
+                fast_result = {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "debate_id": f"timeout-{uuid.uuid4().hex[:8]}",
+                    "status": "timeout",
+                }
+            fast_result = _attach_triage_execution_metadata(
+                fast_result,
+                execution_tier="fast",
+                escalation_reasons=[],
+                profile=self._profile,
+            )
+            fast_outcome = _normalize_debate_outcome(fast_result)
+            fast_summary = (
+                self._diagnostics.get_message_summary(message_id, tier="fast")
+                if self._diagnostics
+                else {
+                    DiagnosticSeverity.BLOCKING.value: 0,
+                    DiagnosticSeverity.DEGRADED.value: 0,
+                    DiagnosticSeverity.DIAGNOSTIC.value: 0,
+                    "total": 0,
+                }
+            )
+            truthful_stop_reasons: list[str] = []
+            if fast_outcome.status == "timeout":
+                truthful_stop_reasons.append("fast_timeout")
+            elif _is_blocked_status(fast_outcome.status):
+                truthful_stop_reasons.append("blocked_status")
+            if not fast_outcome.consensus_reached:
+                truthful_stop_reasons.append("no_consensus")
+            if fast_outcome.parse_failed:
+                truthful_stop_reasons.append("parse_failed")
+
+            if truthful_stop_reasons:
+                record_triage_diagnostic(
+                    code="fast_tier_truthful_stop",
+                    severity=DiagnosticSeverity.BLOCKING,
+                    logger_name=__name__,
+                    summary="Fast-tier triage result was non-decisive; returning blocked result.",
+                    details=", ".join(truthful_stop_reasons),
+                    message_id=message_id or None,
+                    tier="fast",
+                )
+                return _attach_triage_execution_metadata(
+                    fast_result,
+                    execution_tier="fast",
+                    escalation_reasons=truthful_stop_reasons,
+                    profile=self._profile,
+                )
+
+            escalation_reasons: list[str] = []
+            if fast_outcome.confidence < _FAST_TIER_CONFIDENCE_THRESHOLD:
+                escalation_reasons.append("low_confidence")
+            if fast_outcome.final_action in _HIGH_RISK_ACTIONS:
+                escalation_reasons.append("high_risk_action")
+            if any(
+                fast_summary.get(severity, 0) > 0 for severity in _DEGRADED_DIAGNOSTIC_SEVERITIES
+            ):
+                escalation_reasons.append("diagnostic_degraded")
+
+            if not escalation_reasons:
+                return fast_result
+
+            record_triage_diagnostic(
+                code="fast_tier_escalation",
+                severity=DiagnosticSeverity.DIAGNOSTIC,
+                logger_name=__name__,
+                summary="Escalating triage decision to full review tier.",
+                details=", ".join(escalation_reasons),
+                message_id=message_id or None,
+                tier="fast",
+            )
+
+            escalated_result = await self._run_debate_once(
+                msg,
+                tier="escalated",
+                rounds=2,
+                max_agents=None,
+            )
+            return _attach_triage_execution_metadata(
+                escalated_result,
+                execution_tier="escalated",
+                escalation_reasons=escalation_reasons,
+                profile=self._profile,
+            )
+
+        baseline_result = await self._run_debate_once(
+            msg,
+            tier="baseline",
+            rounds=2,
+            max_agents=None,
+        )
+        return _attach_triage_execution_metadata(
+            baseline_result,
+            execution_tier="baseline",
+            escalation_reasons=[],
+            profile=self._profile,
+        )
+
+    async def _run_debate_once(
+        self,
+        msg: dict[str, Any],
+        *,
+        tier: str,
+        rounds: int,
+        max_agents: int | None,
+    ) -> Any:
         """Run an adversarial debate on a message.
 
-        Attempts to use the Arena with API agents. Falls back to a stub
-        result if the debate engine or agents are unavailable.
+        Attempts to use the Arena with API agents. When debate infrastructure
+        is unavailable or quorum fails, returns a blocked result rather than a
+        silent IGNORE recommendation.
         """
         subject = msg.get("subject", "(no subject)")
         sender = msg.get("from_address", msg.get("sender", "(unknown)"))
@@ -409,42 +746,82 @@ class InboxTriageRunner:
             "Your final answer MUST begin with the action word "
             "(archive, star, label, or ignore) followed by your reasoning."
         )
+        tier_scope = self._diagnostics.tier_scope(tier) if self._diagnostics else nullcontext()
 
-        try:
-            from aragora.core import Environment
-            from aragora.debate.orchestrator import Arena
-            from aragora.debate.protocol import DebateProtocol
+        with tier_scope:
+            try:
+                from aragora.core import Environment
+                from aragora.debate.orchestrator import Arena
+                from aragora.debate.protocol import DebateProtocol
 
-            env = Environment(task=question)
-            protocol = DebateProtocol(rounds=2, consensus="majority")
-
-            agents = _create_triage_agents()
-
-            if len(agents) < 2:
-                logger.warning(
-                    "%d triage agents available (need 2); using stub debate", len(agents)
+                env = Environment(task=question)
+                protocol = DebateProtocol(
+                    rounds=rounds,
+                    consensus="majority",
+                    enable_research=False,
+                    enable_trickster=False,
+                    role_rotation=False,
+                    role_matching=False,
                 )
+
+                record_triage_diagnostic(
+                    code="research_disabled_for_profile",
+                    severity=DiagnosticSeverity.DIAGNOSTIC,
+                    logger_name=__name__,
+                    summary="Research is disabled for inbox triage execution.",
+                    details=f"profile={self._profile} tier={tier}",
+                    once_key=f"research_disabled:{self._profile}:{tier}",
+                    tier=tier,
+                )
+
+                if max_agents is None:
+                    agents = _create_triage_agents()
+                else:
+                    agents = _create_triage_agents(max_agents=max_agents)
+
+                if len(agents) < 2:
+                    logger.warning(
+                        "%d triage agents available (need 2); returning blocked triage result",
+                        len(agents),
+                    )
+                    return {
+                        "final_answer": "",
+                        "confidence": 0.0,
+                        "debate_id": f"no-agents-{uuid.uuid4().hex[:8]}",
+                        "status": "insufficient_participation",
+                    }
+                with _set_env_if_missing("ARAGORA_DISABLE_TRENDING", "true"):
+                    arena = Arena(
+                        env,
+                        agents=agents,
+                        protocol=protocol,
+                        enable_knowledge_retrieval=False,
+                        disable_post_debate_pipeline=True,
+                    )
+                    result = await arena.run()
+                    debate_scope = (
+                        self._diagnostics.debate_scope(_result_debate_id(result))
+                        if self._diagnostics
+                        else nullcontext()
+                    )
+                    with debate_scope:
+                        return result
+            except ImportError:
+                logger.debug("Debate engine not available; returning blocked triage result")
                 return {
-                    "final_answer": "ignore",
+                    "final_answer": "",
                     "confidence": 0.0,
-                    "debate_id": f"no-agents-{uuid.uuid4().hex[:8]}",
+                    "debate_id": f"stub-{uuid.uuid4().hex[:8]}",
+                    "status": "insufficient_participation",
                 }
-            arena = Arena(env, agents=agents, protocol=protocol)
-            return await arena.run()
-        except ImportError:
-            logger.debug("Debate engine not available; using stub result")
-            return {
-                "final_answer": "ignore",
-                "confidence": 0.5,
-                "debate_id": f"stub-{uuid.uuid4().hex[:8]}",
-            }
-        except (RuntimeError, OSError, ValueError, TypeError) as exc:
-            logger.warning("Debate failed, falling back to ignore: %s", exc)
-            return {
-                "final_answer": "ignore",
-                "confidence": 0.0,
-                "debate_id": f"err-{uuid.uuid4().hex[:8]}",
-            }
+            except (RuntimeError, OSError, ValueError, TypeError) as exc:
+                logger.warning("Debate failed, returning blocked triage result: %s", exc)
+                return {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "debate_id": f"err-{uuid.uuid4().hex[:8]}",
+                    "status": "failed",
+                }
 
     async def _execute_action(self, decision: TriageDecision) -> None:
         """Execute an approved triage action via the Gmail connector.

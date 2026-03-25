@@ -146,6 +146,10 @@ class CLIReviewLoop:
             self._print(f"  Snippet : {snippet[:120]}")
         self._print(f"  Action  : {_action_value(decision.final_action)}")
         self._print(f"  Conf.   : {decision.confidence:.0%}")
+        if decision.blocked_by_policy:
+            self._print("  Status  : blocked pending human review")
+        else:
+            self._print(f"  Status  : {decision.receipt_state}")
         if decision.dissent_summary:
             self._print(f"  Dissent : {decision.dissent_summary}")
         self._print(f"  Receipt : {decision.receipt_id}")

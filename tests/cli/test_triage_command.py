@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -11,6 +12,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from aragora.cli.commands import triage as triage_cmd
+from aragora.inbox.triage_diagnostics import DiagnosticSeverity, record_triage_diagnostic
 from aragora.inbox.trust_wedge import InboxWedgeAction, TriageDecision
 
 
@@ -29,13 +31,14 @@ def test_add_triage_parser_supports_auth_and_dry_run():
 
 
 @pytest.mark.asyncio
-async def test_run_triage_uses_receipt_review_loop():
+async def test_run_triage_uses_receipt_review_loop(tmp_path, monkeypatch):
     decision = TriageDecision.create(
         final_action="ignore",
         confidence=0.4,
         dissent_summary="",
         receipt_id="receipt-1",
     )
+    monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
     fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]))
     fake_service = SimpleNamespace(review_receipt=object())
     captured: dict[str, object] = {}
@@ -70,13 +73,14 @@ async def test_run_triage_uses_receipt_review_loop():
 
 
 @pytest.mark.asyncio
-async def test_run_triage_dry_run_disables_action_execution(capsys):
+async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, monkeypatch):
     decision = TriageDecision.create(
         final_action="archive",
         confidence=0.92,
         dissent_summary="",
         receipt_id="receipt-2",
     )
+    monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
     fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]))
     fake_service = SimpleNamespace(review_receipt=object())
 
@@ -98,6 +102,50 @@ async def test_run_triage_dry_run_disables_action_execution(capsys):
     assert "[DRY RUN] Fetching up to 2 unread messages" in out
     assert "[DRY RUN] Proposed triage decisions" in out
     assert "archive" in out
+    assert "Run summary:" in out
+
+
+@pytest.mark.asyncio
+async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkeypatch):
+    decision = TriageDecision.create(
+        final_action="archive",
+        confidence=0.92,
+        dissent_summary="",
+        receipt_id="receipt-3",
+    )
+    monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
+
+    async def _run_triage(*, batch_size, auto_approve):
+        record_triage_diagnostic(
+            code="provider_fallback",
+            severity=DiagnosticSeverity.DEGRADED,
+            logger_name="aragora.server.research_phase",
+            summary="Fallback to OpenRouter",
+            tier="baseline",
+        )
+        return [decision]
+
+    fake_runner = SimpleNamespace(run_triage=AsyncMock(side_effect=_run_triage))
+    fake_service = SimpleNamespace(review_receipt=object())
+
+    with (
+        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch("aragora.inbox.triage_runner.InboxTriageRunner", return_value=fake_runner),
+        patch(
+            "aragora.inbox.trust_wedge.get_inbox_trust_wedge_service",
+            return_value=fake_service,
+        ),
+    ):
+        await triage_cmd._run_triage(batch_size=1, auto_approve=True, dry_run=True)
+
+    out = capsys.readouterr().out
+    assert "Run summary:" in out
+    assert "Diagnostics:" in out
+    diag_root = tmp_path / "triage-runs"
+    meta_files = list(diag_root.glob("*/meta.json"))
+    assert len(meta_files) == 1
+    meta = json.loads(meta_files[0].read_text())
+    assert meta["severity_counts"]["degraded"] == 1
 
 
 def test_print_decisions_formats_enum_values(capsys):
@@ -114,6 +162,35 @@ def test_print_decisions_formats_enum_values(capsys):
     out = capsys.readouterr().out
     assert "ignore" in out
     assert "InboxWedgeAction" not in out
+    assert "created" in out
+
+
+def test_print_decisions_shows_blocked_status_for_truthful_stop(capsys):
+    decision = TriageDecision.create(
+        final_action=InboxWedgeAction.IGNORE,
+        confidence=0.0,
+        dissent_summary="Debate quorum failed.",
+        receipt_id="receipt-blocked",
+        blocked_by_policy=True,
+    )
+    decision.intent = SimpleNamespace(_subject="Blocked subject")
+
+    triage_cmd._print_decisions([decision])
+
+    out = capsys.readouterr().out
+    assert "blocked" in out
+    assert "Blocked subject" in out
+
+
+@pytest.mark.asyncio
+async def test_initialize_triage_storage_bootstraps_shared_pool():
+    with patch(
+        "aragora.server.startup.database.init_postgres_pool",
+        AsyncMock(return_value={"enabled": True}),
+    ) as mocked:
+        await triage_cmd._initialize_triage_storage()
+
+    mocked.assert_awaited_once()
 
 
 def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkeypatch):

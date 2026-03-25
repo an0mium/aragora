@@ -1344,6 +1344,10 @@ class ConsensusPhase:
             vote_count,
             required,
             total_agents,
+            extra={
+                "triage_diag_code": "insufficient_participation",
+                "triage_diag_severity": "blocking",
+            },
         )
 
         if self._notify_spectator:

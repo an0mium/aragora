@@ -24,7 +24,7 @@ import sqlite3
 import threading
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
@@ -250,6 +250,9 @@ class TriageDecision:
     blocked_by_policy: bool = False
     cost_usd: float | None = None
     latency_seconds: float | None = None
+    execution_tier: str = "baseline"
+    escalation_reasons: list[str] = field(default_factory=list)
+    suppressed_diagnostics_count: int = 0
 
     @classmethod
     def create(
@@ -267,6 +270,9 @@ class TriageDecision:
         blocked_by_policy: bool = False,
         cost_usd: float | None = None,
         latency_seconds: float | None = None,
+        execution_tier: str = "baseline",
+        escalation_reasons: list[str] | None = None,
+        suppressed_diagnostics_count: int = 0,
     ) -> TriageDecision:
         return cls(
             final_action=InboxWedgeAction.parse(final_action),
@@ -281,6 +287,9 @@ class TriageDecision:
             blocked_by_policy=blocked_by_policy,
             cost_usd=cost_usd,
             latency_seconds=latency_seconds,
+            execution_tier=execution_tier,
+            escalation_reasons=list(escalation_reasons or []),
+            suppressed_diagnostics_count=int(suppressed_diagnostics_count),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -298,6 +307,9 @@ class TriageDecision:
             "blocked_by_policy": self.blocked_by_policy,
             "cost_usd": self.cost_usd,
             "latency_seconds": self.latency_seconds,
+            "execution_tier": self.execution_tier,
+            "escalation_reasons": list(self.escalation_reasons),
+            "suppressed_diagnostics_count": self.suppressed_diagnostics_count,
         }
         if self.intent is not None:
             result["intent"] = self.intent.to_dict()

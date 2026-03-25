@@ -59,9 +59,23 @@ REVISION_PHASE_BASE_TIMEOUT = _REVISION_PHASE_BASE_TIMEOUT
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
-    from aragora.debate.context import DebateContext
+from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
+
+def _should_emit_slow_round_warning() -> bool:
+    try:
+        from aragora.inbox.triage_diagnostics import (
+            get_active_triage_diagnostics,
+            triage_diagnostics_should_mirror_logs,
+        )
+
+        if get_active_triage_diagnostics() is None:
+            return True
+        return triage_diagnostics_should_mirror_logs()
+    except ImportError:
+        return True
 
 
 class DebateRoundsPhase:
@@ -710,13 +724,18 @@ class DebateRoundsPhase:
         _round_duration = time.time() - _round_start_time
         _slow_threshold = perf_monitor.slow_round_threshold
         if _round_duration > _slow_threshold:
-            logger.warning(
-                "slow_round_detected debate_id=%s round=%s duration=%ss threshold=%ss",
-                ctx.debate_id,
-                round_num,
-                _round_duration,
-                _slow_threshold,
-            )
+            if _should_emit_slow_round_warning():
+                logger.warning(
+                    "slow_round_detected debate_id=%s round=%s duration=%ss threshold=%ss",
+                    ctx.debate_id,
+                    round_num,
+                    _round_duration,
+                    _slow_threshold,
+                    extra={
+                        "triage_diag_code": "slow_round",
+                        "triage_diag_severity": "diagnostic",
+                    },
+                )
             try:
                 from aragora.observability.metrics import (
                     record_slow_round,

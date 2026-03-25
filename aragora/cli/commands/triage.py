@@ -14,7 +14,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
+import warnings
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -91,63 +93,130 @@ def cmd_triage(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+async def _initialize_triage_storage() -> None:
+    """Initialize event-loop-bound PostgreSQL infrastructure for CLI triage.
+
+    This mirrors server startup: create the shared pool inside the active event
+    loop so stores used by debate hooks do not fall back to SQLite purely
+    because triage is running from the CLI.
+    """
+    try:
+        from aragora.server.startup.database import init_postgres_pool
+
+        await init_postgres_pool()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI initialization
+        logger.debug("Triage storage initialization skipped: %s", exc)
+
+
+async def _shutdown_triage_storage() -> None:
+    """Best-effort shutdown for triage-owned database resources."""
+    try:
+        from aragora.server.startup.database import close_postgres_pool
+
+        await close_postgres_pool()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage shared-pool shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.connection_factory import close_all_pools
+
+        await close_all_pools()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage connection-factory shutdown skipped: %s", exc)
+
+    # Give async transports a brief chance to finish their close callbacks
+    # before the triage event loop shuts down.
+    await asyncio.sleep(0.05)
+
+
 async def _run_triage(batch_size: int, auto_approve: bool, dry_run: bool = False) -> None:
     """Run the inbox triage pipeline."""
     try:
         from aragora.inbox.triage_runner import InboxTriageRunner
+        from aragora.inbox.triage_diagnostics import TriageRunDiagnostics
     except ImportError:
         print("Error: inbox triage module not available", file=sys.stderr)
         sys.exit(1)
 
-    gmail = _get_gmail_connector()
-    if gmail is None:
-        print(
-            "Error: Gmail not configured. Run 'aragora triage auth' first,\n"
-            "or set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET environment variables.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    from aragora.inbox.trust_wedge import get_inbox_trust_wedge_service
-
-    wedge_service = get_inbox_trust_wedge_service()
-    runner = InboxTriageRunner(
-        gmail_connector=gmail,
-        wedge_service=wedge_service,
-    )
-
-    if dry_run:
-        print(
-            f"[DRY RUN] Fetching up to {batch_size} unread messages "
-            "(no actions will be executed)..."
-        )
-    else:
-        print(f"Fetching up to {batch_size} unread messages...")
-
-    decisions = await runner.run_triage(
+    profile = os.getenv("ARAGORA_TRIAGE_PROFILE", "baseline")
+    verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
+    diagnostics = TriageRunDiagnostics(
+        profile=profile,
         batch_size=batch_size,
         auto_approve=auto_approve and not dry_run,
+        dry_run=dry_run,
+        verbose=verbose,
+        diagnostics_dir=os.getenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR"),
+    )
+    warnings.filterwarnings(
+        "ignore",
+        message=r"resource_tracker: There appear to be \d+ leaked semaphore objects to clean up at shutdown",
+        category=UserWarning,
+        module=r"multiprocessing\.resource_tracker",
     )
 
-    if not decisions:
-        print("No messages to triage.")
-        return
-
-    if dry_run:
-        print("\n[DRY RUN] Proposed triage decisions (no actions executed):")
-        _print_decisions(decisions)
-        return
-
-    if not auto_approve:
+    with diagnostics.activate(), diagnostics.capture_logging():
+        decisions = []
         try:
-            from aragora.inbox.cli_review import CLIReviewLoop
+            await _initialize_triage_storage()
 
-            loop = CLIReviewLoop(review_fn=wedge_service.review_receipt)
-            loop.review_batch(decisions)
-        except ImportError:
+            gmail = _get_gmail_connector()
+            if gmail is None:
+                print(
+                    "Error: Gmail not configured. Run 'aragora triage auth' first,\n"
+                    "or set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET environment variables.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            from aragora.inbox.trust_wedge import get_inbox_trust_wedge_service
+
+            wedge_service = get_inbox_trust_wedge_service()
+            runner = InboxTriageRunner(
+                gmail_connector=gmail,
+                wedge_service=wedge_service,
+                diagnostics=diagnostics,
+                profile=profile,
+            )
+
+            if dry_run:
+                print(
+                    f"[DRY RUN] Fetching up to {batch_size} unread messages "
+                    "(no actions will be executed)..."
+                )
+            else:
+                print(f"Fetching up to {batch_size} unread messages...")
+
+            decisions = await runner.run_triage(
+                batch_size=batch_size,
+                auto_approve=auto_approve and not dry_run,
+            )
+            meta = diagnostics.finalize(decisions)
+
+            if not decisions:
+                print("No messages to triage.")
+                _print_run_footer(decisions, meta, diagnostics)
+                return
+
+            if dry_run:
+                print("\n[DRY RUN] Proposed triage decisions (no actions executed):")
+                _print_decisions(decisions)
+                _print_run_footer(decisions, meta, diagnostics)
+                return
+
             _print_decisions(decisions)
-    else:
-        _print_decisions(decisions)
+            _print_run_footer(decisions, meta, diagnostics)
+
+            if not auto_approve:
+                try:
+                    from aragora.inbox.cli_review import CLIReviewLoop
+
+                    loop = CLIReviewLoop(review_fn=wedge_service.review_receipt)
+                    loop.review_batch(decisions)
+                except ImportError:
+                    return
+        finally:
+            await _shutdown_triage_storage()
 
 
 async def _run_gmail_auth() -> None:
@@ -285,12 +354,14 @@ def _get_gmail_connector():
 def _print_decisions(decisions: list) -> None:
     """Print triage decisions as a summary table."""
     print(f"\n{'─' * 60}")
-    print(f"{'Action':<10} {'Confidence':>10}  {'Subject'}")
+    print(f"{'Action':<10} {'Confidence':>10}  {'Status':<10} {'Subject'}")
     print(f"{'─' * 60}")
 
     for d in decisions:
         action = _action_value(getattr(d, "final_action", "?"))
         confidence = getattr(d, "confidence", 0.0)
+        blocked = bool(getattr(d, "blocked_by_policy", False))
+        status = "blocked" if blocked else str(getattr(d, "receipt_state", "created"))
         intent = getattr(d, "intent", None)
         subject = "(unknown)"
         if intent and hasattr(intent, "_subject"):
@@ -299,7 +370,7 @@ def _print_decisions(decisions: list) -> None:
             subject = getattr(intent, "message_id", "?")
 
         bar = "█" * int(confidence * 10)
-        print(f"{action:<10} {confidence:>8.1%} {bar:<10}  {subject[:40]}")
+        print(f"{action:<10} {confidence:>8.1%} {bar:<10}  {status:<10} {subject[:29]}")
 
     print(f"{'─' * 60}")
     print(f"Total: {len(decisions)} decisions")
@@ -314,6 +385,20 @@ def _print_decisions(decisions: list) -> None:
     )
     if approved or executed:
         print(f"  Approved: {approved}  Executed: {executed}")
+
+
+def _print_run_footer(decisions: list, meta: dict[str, object], diagnostics: object) -> None:
+    """Print a compact diagnostics-aware run footer."""
+    print(
+        "Run summary: "
+        f"processed={len(decisions)} "
+        f"fast={meta.get('fast_tier_count', 0)} "
+        f"escalated={meta.get('escalated_count', 0)} "
+        f"blocked={meta.get('blocked_count', 0)} "
+        f"suppressed={meta.get('suppressed_diagnostics_count', 0)}"
+    )
+    if getattr(diagnostics, "has_degraded_or_blocking", lambda: False)():
+        print(f"Diagnostics: {meta.get('artifact_dir')}")
 
 
 def _show_status() -> None:

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "msg-newsletter",
+    "subject": "Weekly product digest",
+    "from_address": "news@example.com",
+    "snippet": "This week in AI, product launches, and new features.",
+    "body_text": "Welcome to the weekly digest. This edition covers launches, pricing updates, and unsubscribe options."
+  },
+  {
+    "id": "msg-founder-intro",
+    "subject": "Intro from a design partner candidate",
+    "from_address": "founder@startup.io",
+    "snippet": "We might want to try Aragora on our shared inbox.",
+    "body_text": "Hi, we run a shared support inbox and want to test Aragora on real customer escalation mail. Are you open to a quick call next week?"
+  },
+  {
+    "id": "msg-invoice",
+    "subject": "Invoice 2026-031 for March services",
+    "from_address": "billing@vendor.io",
+    "snippet": "Invoice attached. Payment due April 1.",
+    "body_text": "Please see attached invoice 2026-031 for your March retainer. Payment is due April 1. Reply if you need a revised PO."
+  },
+  {
+    "id": "msg-legal",
+    "subject": "Urgent: review exclusivity language",
+    "from_address": "counsel@lawfirm.com",
+    "snippet": "Need founder review on contract wording.",
+    "body_text": "We need your review today on the exclusivity language in the proposed partner agreement. The current wording creates a broader restriction than we discussed."
+  }
+]
