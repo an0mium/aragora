@@ -226,3 +226,54 @@ The answer should be:
 and truthful stopping behavior.**
 
 That is the category worth owning.
+
+## Field Objection Anchors
+
+Use these anchors to keep sales, partner, and product messaging aligned. The
+full talk tracks live in
+[`docs/outreach/OBJECTION_HANDLING_LIBRARY.md`](../outreach/OBJECTION_HANDLING_LIBRARY.md).
+
+### Security
+
+Lead with narrow authority, not broad autonomy:
+
+- receipt before action
+- explicit approval gates
+- narrow allowed action surfaces
+- self-hosted and offline deployment where required
+
+### Trust
+
+Do not ask the buyer to trust "AI" in the abstract. Ask them to inspect a
+process that makes disagreement visible:
+
+- adversarial challenge across heterogeneous models
+- dissent preserved in the receipt
+- calibrated weighting over time
+- truthful stopping when evidence is insufficient
+
+### False positives
+
+Do not promise zero noise. Promise legible uncertainty and bounded rollout:
+
+- keep human approval in place initially
+- measure approval and override rate
+- expand only after repeated bounded wins
+
+### Integration burden
+
+Do not sell a platform rollout. Sell one bounded workflow:
+
+- one trigger
+- one owner
+- one approval path
+- one useful receipt
+
+### Existing tools
+
+Do not frame worker runtimes as enemies. Frame them as substrates that Aragora
+governs when the work becomes consequential:
+
+- execution tools are for speed
+- Aragora is for receipts, provenance, and accountable review
+- the moat is control-plane truthfulness, not provider breadth
