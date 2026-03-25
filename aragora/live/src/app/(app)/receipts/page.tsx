@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
@@ -510,9 +511,41 @@ function buildExportUrls(
   return Array.from(urls);
 }
 
+function matchesReceiptId(item: ReceiptListItem, requestedId: string): boolean {
+  return (
+    item.id === requestedId ||
+    item.receiptId === requestedId ||
+    item.gauntletId === requestedId
+  );
+}
+
+function preferredReceiptId(item: ReceiptListItem): string {
+  return item.receiptId ?? item.gauntletId ?? item.id;
+}
+
+function buildReceiptsHref(
+  pathname: string,
+  searchParams: { toString(): string } | null | undefined,
+  receiptId?: string
+): string {
+  const params = new URLSearchParams(searchParams?.toString() ?? '');
+  if (receiptId) {
+    params.set('id', receiptId);
+  } else {
+    params.delete('id');
+  }
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
 export default function ReceiptsPage() {
   const { config } = useBackend();
   const backendUrl = config.api;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedReceiptId = safeString(searchParams.get('id'));
+  const autoOpenAttemptRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('list');
   const [results, setResults] = useState<ReceiptListItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ReceiptListItem | null>(null);
@@ -635,8 +668,15 @@ export default function ReceiptsPage() {
     ]);
   }, [mutateGauntletReceipts, mutateReceipts, mutateGauntletResults]);
 
+  const syncReceiptQuery = useCallback(
+    (receiptId?: string) => {
+      router.replace(buildReceiptsHref(pathname, searchParams, receiptId));
+    },
+    [pathname, router, searchParams]
+  );
+
   const fetchReceipt = useCallback(
-    async (item: ReceiptListItem) => {
+    async (item: ReceiptListItem, options: { syncUrl?: boolean } = {}) => {
       setReceiptLoading(true);
       setError(null);
 
@@ -657,6 +697,9 @@ export default function ReceiptsPage() {
           setSelectedItem(item);
           setSelectedReceipt(normalizeReceiptDetail(data, item));
           setActiveTab('detail');
+          if (options.syncUrl !== false) {
+            syncReceiptQuery(preferredReceiptId(item));
+          }
           return;
         }
 
@@ -667,8 +710,29 @@ export default function ReceiptsPage() {
         setReceiptLoading(false);
       }
     },
-    [backendUrl]
+    [backendUrl, syncReceiptQuery]
   );
+
+  const clearSelection = useCallback(() => {
+    setActiveTab('list');
+    setSelectedItem(null);
+    setSelectedReceipt(null);
+    syncReceiptQuery(undefined);
+  }, [syncReceiptQuery]);
+
+  useEffect(() => {
+    if (!requestedReceiptId || receiptLoading) return;
+    if (selectedItem && matchesReceiptId(selectedItem, requestedReceiptId)) return;
+
+    const match = results.find((item) => matchesReceiptId(item, requestedReceiptId));
+    if (!match) return;
+
+    const attemptKey = `${requestedReceiptId}:${match.source}:${match.id}`;
+    if (autoOpenAttemptRef.current === attemptKey) return;
+
+    autoOpenAttemptRef.current = attemptKey;
+    void fetchReceipt(match, { syncUrl: false });
+  }, [fetchReceipt, receiptLoading, requestedReceiptId, results, selectedItem]);
 
   const downloadReceipt = async (format: 'json' | 'html' | 'markdown') => {
     if (!selectedItem) return;
@@ -884,11 +948,7 @@ export default function ReceiptsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setActiveTab('list');
-                setSelectedItem(null);
-                setSelectedReceipt(null);
-              }}
+              onClick={clearSelection}
               className="px-3 py-1 text-sm font-mono border border-border rounded hover:border-acid-green/50"
             >
               Back
