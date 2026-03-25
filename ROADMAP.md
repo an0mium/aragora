@@ -4,376 +4,178 @@
 
 ---
 
-## Current Status (March 2026)
-
-Aragora has shipped the closed-loop backbone (CLB) infrastructure, the 14/14 issue sprint, Phase 2 truth-seeking advances, and **proven the live founder loop repeatable** (5/5 consecutive runs, 35-62s, March 24, 2026). The March 21-25 work stream materially advanced the product loop: live debate receipts are now visible on API/dashboard surfaces, the prompt-to-spec engine works end-to-end, the inbox trust wedge CLI is dogfood-ready, and the design-partner first-week trust contract is now documented. The current gate is design partner readiness and inbox wedge dogfooding, not enterprise certification.
-
-**By the numbers:**
-- 3,846 Python files under `aragora/`
-- 5,174 test files under `tests/`
-- 674 Markdown docs under `docs/`
-- 42 Knowledge Mound adapter specs registered
-- 43 agent types available across CLI, API, local, and proxy providers
-- SOC 2 controls framework: 98% implemented
-
-These are capability inventory numbers, not founder success metrics. They
-describe surface area, but they do not prove PMF.
-
-**Completed since January 2026:**
-- Nomic Loop end-to-end self-improvement (66 E2E tests passing)
-- Knowledge Mound Phase A2 (contradiction detection, confidence decay, RBAC governance, analytics)
-- Unified Memory Gateway (MemoryGateway + RetentionGate + CrossSystemDedupEngine + RLMMemoryNavigator + ClaudeMemAdapter)
-- Pipeline orchestration — 4-stage Idea-to-Execution (Ideas → Goals → Workflows → Orchestration)
-- Compliance CLI (`aragora compliance export`) for EU AI Act artifact bundles
-- Settlement hooks with cryptographic Gauntlet receipts
-- Voice/TTS integration wired end-to-end (STT + TTS)
-- Multi-tenancy isolation, resource quotas, and usage metering
-- RBAC v2 fully integrated across all KM adapters
-- Closed-loop backbone sprint (14 CLB issues: canonical contracts, spec gates, deliberation handoff, execution bundles, verification bundles, receipt normalization, outcome feedback, trust-tier propagation, external verifier, golden-path test, dogfood profile)
-- PR watch daemon fleet (3 Mac machines, 30 autonomous reviews/hour)
-- Dev swarm coordination layer
-- LLM-powered scope validation and blocker classification (6 async methods with fail-closed semantics)
-- Ralph observability dashboard (7 Prometheus metrics, 10 REST API endpoints, YAML state data service)
-- File-scope propagation fix for swarm work orders (#884)
-- LLM-first vague-goal expansion replacing keyword templates (#888)
-- Live settings/API-key tab wiring to backend auth endpoints ([#1146](https://github.com/synaptent/aragora/pull/1146))
-- Live debate creation from the debates page ([#1147](https://github.com/synaptent/aragora/pull/1147))
-- Truthful partial-public status surface ([#1148](https://github.com/synaptent/aragora/pull/1148))
-- Refresh-aware pipeline feedback scoping ([#1149](https://github.com/synaptent/aragora/pull/1149))
-- Visible pipeline golden-path summary ([#1150](https://github.com/synaptent/aragora/pull/1150))
-- `PipelineKMBridge` precedent loading before debate ([#1151](https://github.com/synaptent/aragora/pull/1151))
-- Queue max-parallel-two safety slice ([#1141](https://github.com/synaptent/aragora/pull/1141))
-- Queue harvest command ([#1164](https://github.com/synaptent/aragora/pull/1164))
-
-**Completed since March 23, 2026 (latest):**
-- Live founder loop proven repeatable: 5/5 consecutive runs (35-62s), all 7 acceptance items pass
-- Quickstart receipts persist to receipt store (API/dashboard/share-link visible)
-- Prompt-to-spec CLI (`aragora spec`) completes end-to-end in ~23s
-- Inbox trust wedge CLI: `aragora triage auth` (OAuth), `--dry-run`, `--auto-approve`
-- Phase 2 truth-seeking wired: Prover-Estimator consensus, cross-verification, truth ratio vote weights
-- Design partner first-week journey defined: setup -> first trustworthy result -> explicit truth boundaries
-- Embedding rate limit resilience (hash-based fallback on 429 errors)
-- Summary preamble cleaning (strip LLM chain-of-thought from CLI output)
-- EU AI Act compliance bundle verified end-to-end with real quickstart receipts
-
-**Remaining tracked priority work:**
-- Dogfood the inbox trust wedge on a real Gmail inbox (CLI is ready)
-- Prepare for design partner outreach with repeatable live demo
-- Package the buyer alternatives story for outreach: status quo coordination, generic agents, bespoke workflows, and human-only review
-- Keep pentest / SOC 2 preparation warm, after design partner validation ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
-
-**Decision-integrity proof status:**
-- **Proven now:** repeatable live founder loop, visible receipts on product
-  surfaces, adversarial review with explicit dissent, and receipt-gated bounded
-  execution that can stop truthfully instead of bluffing past blockers.
-- **Still incomplete:** published single-model vs Aragora quality deltas on real
-  work, one repeatable external end-to-end partner journey, live proof for
-  routing and KM visibility, and stricter external-verification defenses for
-  correlated high-impact failure modes.
-
-**EU AI Act enforcement date: August 2, 2026** — the compliance CLI and audit trail infrastructure
-position Aragora as a natural adoption path for enterprises facing this deadline.
-
----
-
-## Next Six Weeks: Founder Operating Plan (March 25-May 5, 2026)
-
-Detailed plan: [docs/plans/2026-03-25-six-week-founder-operating-plan.md](docs/plans/2026-03-25-six-week-founder-operating-plan.md)
-
-This is the active roadmap for the next six weeks. It is intentionally narrower than the quarter backlog. If a task does not improve daily inbox dogfooding, repeatable demo readiness, or first design-partner pull, it is not active founder scope.
-
-### Required outcomes by May 5, 2026
-
-| Outcome | Concrete definition |
-|---------|---------------------|
-| Daily-use wedge proof | Founder uses the inbox trust wedge on 10 business days, processes at least 50 real emails, keeps `100%` receipt-before-action, keeps reply/send/forward at `0`, and meets the cost/latency/override/recall thresholds in the operating plan. |
-| Repeatable demo pack | One 7-minute live demo, one seeded setup, three clean rehearsals, and one receipt-backed case study are ready without hidden operator rescue. |
-| First partner pull | 15 named target accounts are narrowed to 5 completed discovery calls, 3 live demos, 2 scorecarded prospects at `>=65`, and 1 weekly pilot reaching a first receipt. |
-
-### Explicit non-goals through May 5, 2026
-
-- No broad connector expansion beyond the Gmail trust wedge
-- No reply/send autonomy
-- No pentest / SOC 2 kickoff
-- No marketplace, on-chain identity, or horizontal-scale initiatives
-- No new workbench/canvas surface unless it directly helps the demo or pilot
-
-Everything outside those outcomes remains backlog or horizon work.
-
----
-
 ## Vision
 
-Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. We orchestrate heterogeneous AI agents to debate, synthesize, and deliver defensible decisions through structured vetted decisionmaking—building institutional memory with full audit trails.
+Aragora is the **Decision Integrity Platform** — the control plane for multi-agent vetted decision-making across organizational knowledge and channels. We orchestrate heterogeneous AI agents to debate, synthesize, and deliver defensible decisions with full audit trails and cryptographic receipts.
 
-## Explicit Non-Goals
-
-Aragora is not a generic autonomous-agent platform. The roadmap is constrained
-by the [Non-Goals Ledger](docs/strategy/NON_GOALS_LEDGER.md): we do not try to
-replace worker runtimes, we do not treat agent-count inflation as strategy, and
-we do not sell unattended autonomy as the default story.
-
-Roadmap work is in scope when it improves receipts, review quality,
-provenance, bounded delegation, or truthful terminalization. Roadmap work is
-out of scope when its main effect is making Aragora look like a generic agent
-substrate.
+The long-term goal: every consequential AI-assisted decision in an organization flows through Aragora, producing an inspectable, verifiable record of what was decided, by whom, with what evidence, and with what dissent.
 
 ---
 
-## Stop-Doing Ledger (March 2026)
+## Operating Principle: Build the Full Vision, Make Everything Work
 
-Near-term planning is now constrained by the [stop-doing ledger](docs/strategy/STOP_DOING_LEDGER_2026_03.md). If a proposed project does not strengthen Aragora's current wedge, it should be explicitly deferred or rejected instead of quietly remaining "strategic."
+This roadmap is not a stop-doing list. The platform has massive infrastructure already built — 3,800+ Python modules, 216,000+ tests, 42 Knowledge Mound adapters, 43 agent types, 4-stage pipeline, swarm orchestration, compliance framework, and more.
 
-Current wedge:
-- auditable multi-model execution and review for consequential engineering work
-- receipts, provenance, and truthful stopping behavior as first-class product outputs
-- dogfooded product paths that are usable in live founder/design-partner loops now: `aragora review`, prompt-to-spec, and the inbox trust wedge
+**The priority is:**
+1. Make everything that exists work correctly and reliably
+2. Wire disconnected subsystems together into coherent user journeys
+3. Improve performance, quality, and polish across the board
+4. Build out the full vision using the autonomous pipeline infrastructure
 
-Default stop-doing calls:
-- Reject near-term work that mostly increases generic substrate breadth: more provider/count bragging, generic orchestration infrastructure, default huge swarms, or ecosystem/marketplace surface area without live user pull.
-- Defer work that may matter later but does not currently close PMF: pentest expansion, cloud marketplace listings, large-scale coordination, vertical packages, and cryptoeconomic productization.
-- Advance work that shortens time-to-first-useful-result, improves receipt/review/operator clarity, or makes design-partner demos and wedge dogfooding more repeatable.
+**The autonomous execution system (overnight queue, boss loop, Nomic loop) is proven and should be used continuously** to improve the platform. Every code change should make the demo better, the debates faster, the receipts clearer, or the integrations more reliable.
 
 ---
 
-## Current Capabilities (v2.8)
+## Current Status (March 2026)
 
-### Core Platform
-- Multi-agent debate orchestration with configurable protocols
-- 43 agent types across 10+ providers (Anthropic, OpenAI, Google, xAI, DeepSeek, Mistral, etc.)
-- Real-time WebSocket streaming of debate progress
-- Consensus detection with formal verification proofs
-- ELO-based agent skill tracking and team selection
+The live founder loop is **proven repeatable** (5/5 consecutive runs, 35-62s). Production is live at api.aragora.ai. The demo surface works. 41 founder strategy docs were produced autonomously overnight and merged.
 
-### Knowledge & Memory
-- Knowledge Mound for organizational knowledge accumulation with provenance,
-  contradiction detection, and confidence-gated writeback
-- Continuum Memory with 4-tier retention (fast/medium/slow/glacial)
-- Evidence collection from 11+ sources (ArXiv, GitHub, Wikipedia, etc.)
-- Cross-debate learning and pattern recognition without auto-promoting low-confidence debate residue
-
-### Enterprise Features
-- Multi-tenant workspaces with RBAC
-- OIDC/SAML authentication
-- Audit logging and compliance reporting
-- Control Plane for multi-instance orchestration
-- Workflow engine for complex debate pipelines
-
-### Integrations
-- Slack, Discord, Microsoft Teams bots
-- Email-to-debate routing
-- REST API with 3,100+ operations across 2,600+ paths
-- WebSocket real-time API
-- MCP server for Claude Desktop
+**What works end-to-end today:**
+- Multi-agent debates with real LLM providers (Claude, GPT-4, Gemini, Mistral, Grok)
+- Cryptographic decision receipts with SHA-256 audit trails
+- Production API serving live debates at api.aragora.ai
+- Demo surface at aragora.ai/demo with real backend
+- Prompt-to-spec engine (`aragora spec`) in ~23s
+- Inbox trust wedge CLI (`aragora triage`) with staged performance profile
+- Autonomous overnight queue producing real strategy artifacts
+- Deploy pipeline auto-deploying on push to main
+- 216,000+ tests across 4,700+ test files
 
 ---
 
-## Q1-Q2 2026: SME & Developer Focus
+## Continuous Improvement Tracks
 
-> **Backlog:** See `docs/FEATURE_GAP_LIST.md` for current backlog.
+These tracks run in parallel, driven by the autonomous pipeline. Each produces measurable improvements that can be verified by running the product.
 
-### Track 1: SME Starter Pack
-- [x] Slack integration (OAuth, slash commands, thread debates)
-- [x] Microsoft Teams integration (Bot Framework, Adaptive Cards)
-- [x] Decision Receipts v1 (cryptographic signatures, PDF/JSON/HTML export)
-- [x] Budget controls and cost tracking per debate
-- [x] Usage dashboard with spend analytics
+### Track 1: Performance & Speed
+Make every user-facing flow faster.
 
-### Track 2: Developer Platform
-- [x] OpenAPI 3.1 specification (3,100+ operations)
-- [x] TypeScript SDK feature parity with Python
-- [x] SDK code generation pipeline
-- [x] Backend runtime entrypoint and compatibility policy documented (ADR-017)
-- [ ] Interactive API explorer at docs.aragora.ai/api
-- [ ] Example apps (Slack code review, document analysis)
+- [ ] Debate execution time: target sub-20s for quickstart (currently 35-62s)
+- [ ] Triage per-email time: target sub-10s for fast tier (currently ~18s)
+- [ ] Prompt-to-spec latency: target sub-15s (currently ~23s)
+- [ ] Streaming response improvements for live debate views
+- [ ] Batch debate processing for inbox triage at scale
+- [ ] Provider routing optimization (select fastest available model)
+- [ ] Reduce unnecessary sidecars (research, KM retrieval when empty)
 
-### Track 3: Self-Hosted Deployment
-- [x] Docker Compose production stack
-- [ ] Guided setup CLI (`aragora setup`)
-- [x] Minimal dependency mode (SQLite + in-memory)
-- [x] Backup & restore CLI
-- [x] Helm chart for Kubernetes
+### Track 2: Code Correctness & Reliability
+Make everything that exists work correctly.
 
-### Enterprise Readiness (After PMF)
-- [ ] Complete third-party penetration testing after provider routing, one working user journey, and KM retrieval are live end-to-end
-- [ ] Deploy public status page at status.aragora.ai
-- [x] Implement quarterly disaster recovery drills (BackupScheduler with DR integration)
-- [x] Finalize data classification policy (runtime enforcement, CI PII gate, evidence bundles)
-- [x] MFA enforcement for admin access (TOTP/HOTP)
-- [x] Enhanced circuit breaker coverage for all connectors
-- [x] Redis Sentinel/Cluster support (RedisHAClient)
-- [ ] 99.9% uptime target with public SLA
+- [ ] Full test suite health pass (find and fix regressions from recent 50+ PR sprint)
+- [ ] Provider fallback reliability (Anthropic → OpenRouter → local)
+- [ ] Async/sync boundary correctness (PostgreSQL, asyncpg, event loop issues)
+- [ ] Resource cleanup (unclosed sockets, transport warnings)
+- [ ] Error message quality (user-facing errors should be helpful, not stack traces)
+- [ ] Receipt integrity verification across all paths
+- [ ] KM ingestion/retrieval consistency (embedding dimension management)
+
+### Track 3: Integration Wiring
+Wire disconnected subsystems into coherent flows.
+
+- [ ] Provider routing visible in debate results (show which models were selected and why)
+- [ ] KM retrieval actually enriching debate context (not just write-only)
+- [ ] Debate outcomes feeding back into agent ELO ratings
+- [ ] Pipeline stage transitions visible in the UI
+- [ ] Receipt store ↔ dashboard ↔ API ↔ share links fully connected
+- [ ] Compliance artifacts auto-generated from debate receipts
+- [ ] Webhook delivery for debate completion events
+
+### Track 4: Frontend & UX Polish
+Make the product look and feel professional.
+
+- [ ] All frontend pages rendering real data (not shells)
+- [ ] Consistent typography and spacing across themes
+- [ ] Mobile responsiveness for key flows
+- [ ] Loading states and progress indicators for long operations
+- [ ] Error boundaries with helpful recovery actions
+- [ ] Debate detail page: clean verdict, agent positions, receipt link
+- [ ] Receipts page: searchable, filterable, exportable
+
+### Track 5: Multi-Agent Orchestration
+Scale and improve the debate engine.
+
+- [ ] 10+ agent debates at production quality
+- [ ] Prover-Estimator consensus mode hardened for real use
+- [ ] Cross-verification quality metrics visible in receipts
+- [ ] Truth scorer influence visible in vote weights
+- [ ] Agent performance benchmarking and selection improvement
+- [ ] Debate replay and comparison tools
+- [ ] Configurable debate protocols from the UI
+
+### Track 6: Knowledge & Memory
+Make the Knowledge Mound genuinely useful.
+
+- [ ] KM retrieval enriching debate context with relevant precedents
+- [ ] Semantic search returning quality results (embedding consistency)
+- [ ] Cross-debate learning producing measurable quality improvement
+- [ ] Knowledge gap identification from debate patterns
+- [ ] KM health dashboard showing adapter status and data quality
+- [ ] Evidence collection reliability across all sources
+
+### Track 7: Pipeline & Automation
+Build out the idea-to-execution vision.
+
+- [ ] DAG-based pipeline visualization in the UI
+- [ ] Interactive stage transitions (Ideas → Goals → Actions → Orchestration)
+- [ ] Pipeline feedback loops (execution results inform future planning)
+- [ ] Autonomous improvement cycles via Nomic Loop
+- [ ] Boss loop handling real engineering tasks continuously
+- [ ] Queue-based overnight runs producing and merging real improvements
+
+### Track 8: Enterprise & Compliance
+Prepare for enterprise adoption.
+
+- [ ] EU AI Act compliance artifacts auto-generated (enforcement: August 2, 2026)
+- [ ] SOC 2 controls: close remaining 2% gap
+- [ ] Pentest readiness (when enterprise prospect requires it)
+- [ ] Multi-tenant isolation hardening
+- [ ] Audit log completeness and export
+- [ ] HIPAA/FedRAMP compliance paths for healthcare/government verticals
 
 ---
 
-## Q3 2026: Scale & Performance
+## Quarterly Themes
 
-### Performance Optimization
-- [ ] Debate execution time reduction (target: 50%)
-- [ ] Streaming response improvements
-- [ ] Efficient batch debate processing
-- [ ] Memory optimization for large knowledge bases
+### Q2 2026: Make It Work, Make It Fast
+- Complete the dogfood loop (inbox wedge, design partner demos)
+- Performance improvements across all user-facing flows
+- Wire disconnected subsystems together
+- Polish frontend for professional presentation
+- Stripe integration and first paid users
 
-### Horizontal Scaling
-- [ ] Kubernetes Operator for automated scaling
-- [ ] Global edge deployment
-- [ ] Debate sharding for high-throughput workloads
-- [x] Redis Cluster mode support
+### Q3 2026: Scale & Expand
+- 10+ agent debates at enterprise quality
+- Vertical packages (Healthcare, Financial, Legal)
+- Cloud marketplace listings (AWS, Azure)
+- Kubernetes Operator for horizontal scaling
+- Skills marketplace pilot
 
-### Cost Optimization
-- [ ] Smart provider routing based on cost/quality
-- [ ] Token usage analytics dashboard
-- [x] Budget controls and alerts
-- [ ] Cached response optimization
+### Q4 2026: Platform Ecosystem
+- Cross-organization federation
+- Decision-Integrity UI Workbench (visual debate canvas)
+- Community integration connectors
+- Advanced analytics and ROI measurement
+- ERC-8004 on-chain deployment
 
----
-
-## Q4 2026: Platform Ecosystem
-
-### Marketplace
-- [ ] Agent marketplace for sharing custom agents
-- [x] Workflow template library (50+ pre-built templates across 6 categories)
-- [ ] Integration connectors from community
-- [ ] Revenue sharing for creators
-
-### Extended Integrations
-- [x] Zapier / Make.com connectors
-- [x] GitHub Actions for CI/CD debates (`aragora-review-gate.yml` shipped)
-- [ ] Jupyter notebook integration
-- [ ] VS Code extension
-
-### Analytics & Insights
-- [ ] Debate outcome analytics dashboard
-- [ ] Agent performance benchmarking
-- [ ] Knowledge gap identification
-- [ ] ROI measurement tools
-
----
-
-## 2027 Vision
-
-### Governed Automation And Research
-- [x] Self-improving debate protocols (Nomic Loop, operational as of Q1 2026)
-- [x] Autonomous knowledge acquisition (Knowledge Mound Phase A2)
-- [ ] Proactive insight generation
-- [x] Human-in-the-loop governance (approval gates in self-improvement pipeline)
-
-### Industry Solutions
-- [ ] Legal document review suite (vertical package planned Q3 2026)
-- [ ] Medical diagnosis support (Healthcare FHIR vertical planned Q3 2026)
-- [ ] Financial analysis platform (Financial SOX vertical planned Q3 2026)
-- [ ] Research acceleration tools
-
-### Platform Capabilities
-- [ ] 1M+ concurrent debates
-- [ ] Sub-second debate initiation
-- [ ] 99.99% availability
-- [ ] Global compliance (HIPAA, FedRAMP)
-
-### 2027 R&D
-- ~~Prover-Estimator debate protocol~~ **SHIPPED** (March 2026 — wired into consensus pipeline)
-- Canvas GUI 8-stage visual pipeline
+### 2027: Industry Standard
+- 1M+ concurrent debates
+- Sub-second debate initiation
+- Global compliance (HIPAA, FedRAMP)
 - Market resolution mechanism for long-horizon settlement
-- ERC-8004 on-chain agent identity deployment to mainnet (contracts written, pending deployment)
-- Decision-Integrity UI Workbench
-- OpenClaw E2E demo and production integration
-- Cloud marketplace listings (AWS Marketplace, Azure Marketplace)
-
----
-
-## Q2-Q4 2026 Forward Plan
-
-This section captures the prioritized forward roadmap as of March 2026, organized by quarter and theme.
-Execution priority source of truth: [docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). This roadmap summarizes quarter-level themes and does not supersede canonical execution priorities.
-
-The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use. The March 21-24 work stream changed the material facts: the live founder loop is now proven repeatable, receipts are visible on product surfaces, Phase 2 truth-seeking is wired, and the inbox trust wedge is CLI-ready. The active founder scope for March 25-May 5, 2026 is the six-week operating plan above. Everything else in this section is backlog or horizon unless it directly unblocks that plan.
-
-That priority ordering follows the product evolution story above: move from a
-strong debate core to trusted decision-integrity surfaces and then to repeatable
-execution-control loops that external users can adopt.
-
-That outreach now needs a practical buyer-menu story, not just an agent-landscape story. The real substitutes are status quo coordination, generic agents, bespoke automation, and human-only review. Aragora's go-to-market burden is to show where it should sit above or replace those defaults on consequential workflows.
-
-The external market now matches Aragora's wedge. OpenAI, Anthropic, GitHub, and Google all ship agentic execution surfaces; the scarce layer is increasingly operator control, truthful stopping, and auditable action. Roadmap priority should stay on receipt-before-action workflows and control-plane truthfulness, not generic orchestration breadth.
-
-**EU AI Act enforcement: August 2, 2026.** This remains a real forcing function, but the compliance package only matters commercially if the core PMF loop is usable enough to demo and adopt.
-
-Future-evolution framing: [docs/strategy/FUTURE_EVOLUTION_AFTER_PROOF.md](docs/strategy/FUTURE_EVOLUTION_AFTER_PROOF.md).
-That memo describes how the wedge expands after proof. It does not change the
-current source of truth: prove the inbox/design-partner wedge first, then widen
-into adjacent workflows and enterprise packaging in sequence.
-
-### Q2 2026 Priorities
-- [x] Prove the live founder loop (5/5 runs, 35-62s, all acceptance items pass — March 24, 2026)
-- [x] Productize the founder-loop result surfaces (receipts persist to store for API/dashboard/share-link)
-- [x] Prompt-to-spec engine (`aragora spec` end-to-end in ~23s)
-- [x] Phase 2 truth-seeking: Prover-Estimator, cross-verification, truth ratio vote weights wired
-- [x] Inbox trust wedge CLI ready (`aragora triage auth`, `--dry-run`)
-- [ ] Dogfood the inbox trust wedge on a real Gmail inbox
-- [ ] Publish the practical alternatives matrix for design partner conversations and live demos
-- [x] Agent-first beta: OpenClaw fleet deployed on 3 machines, running `aragora review` on real PRs via REST API
-- [x] GitHub Actions pre-merge gate (`aragora-review-gate.yml` shipped)
-- [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)
-- [ ] Prepare the repeatable design partner proof kit after the internal dogfood gate is met (demo script, receipt pack, KPI template, blocker taxonomy)
-- [ ] EU AI Act compliance package — keep packaging warm without displacing PMF loop closure
-
-Roadmap focus for the rest of Q2:
-
-- make the review, inbox, and founder-loop paths feel like one product surface
-- keep receipts, operator summaries, and truthful blocker handling ahead of new
-  orchestration breadth
-- validate the decision-integrity wedge with real users before expanding into
-  broader control-plane packaging
-
-### Q3 2026 Priorities
-- [ ] Convert repeatable design partner proof into paid expansion in one wedge (2 design partner conversions, 1 additional paid logo, 1 expansion within 60 days)
-- [ ] 10+ agent coordination at enterprise scale ([#815](https://github.com/synaptent/aragora/issues/815))
-- [ ] Pentest / SOC 2 engagement kickoff after paid expansion proof, not before ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
-- [ ] ERC-8004 on-chain deployment ([#816](https://github.com/synaptent/aragora/issues/816))
-- [ ] Cloud marketplace listings: AWS Marketplace and Azure Marketplace
-- [ ] Vertical packages: Healthcare (FHIR/HIPAA), Financial Services (SOX/audit), Legal
-- [ ] Skills marketplace pilot (community agent templates)
-- [ ] Kubernetes Operator for automated horizontal scaling
-
-Q3 sequencing note: only expand enterprise scale, compliance, and category
-surface area as the consequence of proven decision-integrity workflows, not as a
-substitute for them.
-
-### Q4 2026 Priorities
-- [ ] Cross-organization federation foundation
-- [ ] Decision-Integrity UI Workbench (visual debate canvas)
-
-### 2027 Horizon
-- ~~Prover-Estimator debate protocol~~ **SHIPPED** (March 2026)
 - Canvas GUI 8-stage visual pipeline
-- Market resolution mechanism (long-horizon settlement)
-- ERC-8004 on-chain deployment to mainnet
 
 ---
 
-## Feature Requests
+## Autonomous Execution
 
-We actively track feature requests from customers. Top requested features:
+The platform improves itself using its own infrastructure:
 
-| Feature | Votes | Status |
-|---------|-------|--------|
-| Dark mode for live dashboard | 89 | **Shipped v2.1** |
-| Mobile app | 67 | Under consideration |
-| Offline debate mode | 45 | Researching |
-| Voice input for debates | 38 | **Shipped Q1 2026** |
-| Debate replay/rewind | 34 | Planned Q2 |
+- **Overnight queue**: Produces bounded improvements while the team sleeps
+- **Boss loop**: Dispatches work to AI workers against labeled GitHub issues
+- **Nomic Loop**: Self-improvement cycles with human approval gates
+- **Swarm orchestration**: Multi-worker parallel execution with lease-based coordination
 
-Submit feature requests: https://github.com/aragora/aragora/discussions
-
----
-
-## Release Cadence
-
-| Release Type | Frequency | Notes |
-|--------------|-----------|-------|
-| Patch (x.x.X) | Weekly | Bug fixes, security patches |
-| Minor (x.X.0) | Monthly | New features, improvements |
-| Major (X.0.0) | Quarterly | Breaking changes (with migration guides) |
+The operating principle: if an improvement can be specified as a bounded task with clear acceptance criteria, it should be dispatched to the autonomous pipeline, not wait for a human to implement it.
 
 ---
 
@@ -386,16 +188,17 @@ Priority contribution areas:
 - Language translations
 - Documentation improvements
 - Test coverage expansion
+- Performance optimization
 
 ---
 
 ## Contact
 
+- **GitHub**: https://github.com/synaptent/aragora
 - **Product Feedback**: product@aragora.ai
 - **Enterprise Sales**: sales@aragora.ai
 - **Security Issues**: security@aragora.ai
-- **General Support**: support@aragora.ai
 
 ---
 
-*This roadmap represents our current plans and is subject to change based on customer feedback and market conditions.*
+*This roadmap represents our current plans and is subject to change based on user feedback and market conditions.*
