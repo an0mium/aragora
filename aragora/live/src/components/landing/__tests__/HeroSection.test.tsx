@@ -2,6 +2,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HeroSection } from '../HeroSection';
 
+const mockPush = jest.fn();
+const mockBackendConfig = { api: 'http://localhost:8080' };
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () => ({ theme: 'dark' }),
 }));
@@ -13,7 +20,7 @@ jest.mock('../../DebateResultPreview', () => ({
 }));
 
 jest.mock('../../BackendSelector', () => ({
-  useBackend: () => ({ config: { api: 'http://localhost:8080' } }),
+  useBackend: () => ({ config: mockBackendConfig }),
   BACKENDS: { production: { api: 'http://localhost:8080' } },
 }));
 
@@ -35,6 +42,8 @@ describe('HeroSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBackendConfig.api = 'http://localhost:8080';
+    Element.prototype.scrollIntoView = jest.fn();
   });
 
   describe('initial render', () => {
@@ -185,6 +194,29 @@ describe('HeroSection', () => {
 
       // DebateInput is mocked, but we can verify the component renders
       expect(screen.getByTestId('debate-input')).toBeInTheDocument();
+    });
+  });
+
+  describe('landing mode backend resolution', () => {
+    it('uses the same-origin API proxy when the backend hook resolves an empty local API base', async () => {
+      const user = userEvent.setup();
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'completed' }),
+      });
+      mockBackendConfig.api = '';
+      global.fetch = fetchMock as typeof fetch;
+
+      render(<HeroSection />);
+
+      await user.click(screen.getByRole('button', { name: /try a demo debate/i }));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/playground/debate/',
+        expect.objectContaining({
+          method: 'POST',
+        }),
+      );
     });
   });
 });

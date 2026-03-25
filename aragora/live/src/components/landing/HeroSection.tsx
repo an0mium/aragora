@@ -112,7 +112,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   }, [result]);
 
   const { config: backendConfig } = useBackend();
-  const apiBase = (isDashboardMode ? props.apiBase as string : backendConfig.api) || BACKENDS.production.api;
+  const apiBase =
+    isDashboardMode
+      ? (props.apiBase as string | undefined) ?? BACKENDS.production.api
+      : backendConfig.api;
+  const playgroundDebateUrl =
+    apiBase === ''
+      ? '/api/v1/playground/debate/'
+      : `${apiBase}/api/v1/playground/debate`;
 
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
@@ -196,7 +203,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     abortRef.current = controller;
 
     try {
-      const res = await fetch(`${apiBase}/api/v1/playground/debate`, {
+      const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
@@ -235,7 +242,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     abortRef.current = controller;
 
     try {
-      const res = await fetch(`${apiBase}/api/v1/playground/debate`, {
+      const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: DEMO_TOPIC, question: DEMO_TOPIC, rounds: 2, agents: 3, source: 'demo' }),

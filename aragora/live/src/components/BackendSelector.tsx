@@ -29,7 +29,7 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
     controlPlaneWs: 'wss://api-dev.aragora.ai/api/control-plane/stream',
     label: 'DEV',
     description: 'Local Mac (via tunnel or localhost)',
-    fallbackApi: 'http://localhost:8080',
+    fallbackApi: '',
     fallbackWs: 'ws://localhost:8765/ws',
     fallbackControlPlaneWs: 'ws://localhost:8766/api/control-plane/stream',
   },
@@ -37,24 +37,78 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
 
 const STORAGE_KEY = 'aragora-backend';
 
+function isLocalHost(hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    hostname.endsWith('.local')
+  );
+}
+
+function getSavedBackend(): BackendType | null {
+  if (typeof window === 'undefined') return null;
+  const saved = localStorage.getItem(STORAGE_KEY) as BackendType | null;
+  return saved && BACKENDS[saved] ? saved : null;
+}
+
+function getDefaultBackend(): BackendType {
+  const saved = getSavedBackend();
+  if (saved) return saved;
+  if (typeof window !== 'undefined' && isLocalHost(window.location.hostname)) {
+    return 'development';
+  }
+  return 'production';
+}
+
+function resolveBackendConfig(
+  backend: BackendType,
+  devSource: 'tunnel' | 'localhost' | null,
+): BackendConfig {
+  const config = BACKENDS[backend];
+  if (
+    backend === 'development' &&
+    devSource === 'localhost' &&
+    config.fallbackApi !== undefined &&
+    config.fallbackWs
+  ) {
+    return {
+      ...config,
+      api: config.fallbackApi,
+      ws: config.fallbackWs,
+      ...(config.fallbackControlPlaneWs
+        ? { controlPlaneWs: config.fallbackControlPlaneWs }
+        : {}),
+    };
+  }
+  return config;
+}
+
 interface BackendSelectorProps {
   onChange?: (backend: BackendType, config: BackendConfig) => void;
   compact?: boolean;
 }
 
 export function BackendSelector({ onChange, compact = false }: BackendSelectorProps) {
-  const [selected, setSelected] = useState<BackendType>('production');
-  const [devAvailable, setDevAvailable] = useState<boolean | null>(null);
-  const [devSource, setDevSource] = useState<'tunnel' | 'localhost' | null>(null);
+  const localHost = typeof window !== 'undefined' && isLocalHost(window.location.hostname);
+  const [selected, setSelected] = useState<BackendType>(getDefaultBackend);
+  const [devAvailable, setDevAvailable] = useState<boolean | null>(localHost ? true : null);
+  const [devSource, setDevSource] = useState<'tunnel' | 'localhost' | null>(
+    localHost ? 'localhost' : null,
+  );
 
   // Load saved preference
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as BackendType;
-    if (saved && BACKENDS[saved]) {
+    const saved = getSavedBackend();
+    if (saved) {
       setSelected(saved);
-      onChange?.(saved, BACKENDS[saved]);
+      onChange?.(saved, resolveBackendConfig(saved, devSource));
+    } else if (localHost) {
+      onChange?.('development', resolveBackendConfig('development', 'localhost'));
     }
-  }, [onChange]);
+  }, [devSource, localHost, onChange]);
 
   // Check if dev backend is available (try tunnel first, then localhost)
   useEffect(() => {
@@ -93,25 +147,20 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
       setDevSource(null);
     };
 
+    if (localHost) {
+      setDevAvailable(true);
+      setDevSource('localhost');
+    }
+
     checkDev();
     const interval = setInterval(checkDev, 30000); // Check every 30s
     return () => clearInterval(interval);
-  }, []);
+  }, [localHost]);
 
   const handleSelect = (backend: BackendType) => {
     setSelected(backend);
     localStorage.setItem(STORAGE_KEY, backend);
-
-    // For development, use localhost URLs if that's what's available
-    let config = BACKENDS[backend];
-    if (backend === 'development' && devSource === 'localhost' && config.fallbackApi && config.fallbackWs) {
-      config = {
-        ...config,
-        api: config.fallbackApi,
-        ws: config.fallbackWs,
-      };
-    }
-    onChange?.(backend, config);
+    onChange?.(backend, resolveBackendConfig(backend, devSource));
   };
 
   if (compact) {
@@ -204,12 +253,16 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
 }
 
 export function useBackend(): { backend: BackendType; config: BackendConfig } {
-  const [backend, setBackend] = useState<BackendType>('production');
+  const localHost =
+    typeof window !== 'undefined' && isLocalHost(window.location.hostname);
+  const [backend, setBackend] = useState<BackendType>(getDefaultBackend);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as BackendType;
-    if (saved && BACKENDS[saved]) {
+    const saved = getSavedBackend();
+    if (saved) {
       setBackend(saved);
+    } else if (localHost) {
+      setBackend('development');
     }
 
     // Listen for changes
@@ -220,7 +273,10 @@ export function useBackend(): { backend: BackendType; config: BackendConfig } {
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+  }, [localHost]);
 
-  return { backend, config: BACKENDS[backend] };
+  return {
+    backend,
+    config: resolveBackendConfig(backend, localHost ? 'localhost' : null),
+  };
 }
