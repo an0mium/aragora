@@ -68,6 +68,22 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 
 ---
 
+## Stop-Doing Ledger (March 2026)
+
+Near-term planning is now constrained by the [stop-doing ledger](docs/strategy/STOP_DOING_LEDGER_2026_03.md). If a proposed project does not strengthen Aragora's current wedge, it should be explicitly deferred or rejected instead of quietly remaining "strategic."
+
+Current wedge:
+- auditable multi-model execution and review for consequential engineering work
+- receipts, provenance, and truthful stopping behavior as first-class product outputs
+- dogfooded product paths that are usable in live founder/design-partner loops now: `aragora review`, prompt-to-spec, and the inbox trust wedge
+
+Default stop-doing calls:
+- Reject near-term work that mostly increases generic substrate breadth: more provider/count bragging, generic orchestration infrastructure, default huge swarms, or ecosystem/marketplace surface area without live user pull.
+- Defer work that may matter later but does not currently close PMF: pentest expansion, cloud marketplace listings, large-scale coordination, vertical packages, and cryptoeconomic productization.
+- Advance work that shortens time-to-first-useful-result, improves receipt/review/operator clarity, or makes design-partner demos and wedge dogfooding more repeatable.
+
+---
+
 ## Current Capabilities (v2.8)
 
 ### Core Platform
