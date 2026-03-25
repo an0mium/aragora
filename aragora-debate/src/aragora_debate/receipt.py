@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import uuid
+from dataclasses import asdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -104,7 +105,7 @@ class ReceiptBuilder:
         # Clear signature fields before computing so sign + verify are symmetric
         receipt.signature = None
         receipt.signature_algorithm = None
-        payload = json.dumps(receipt.to_dict(), sort_keys=True, default=str).encode()
+        payload = ReceiptBuilder._signature_payload(receipt)
         sig = hmac.new(key, payload, hashlib.sha256).hexdigest()
         receipt.signature = sig
         receipt.signature_algorithm = "HMAC-SHA256"
@@ -121,12 +122,19 @@ class ReceiptBuilder:
         # Temporarily clear signature fields to re-compute
         receipt.signature = None
         receipt.signature_algorithm = None
-        payload = json.dumps(receipt.to_dict(), sort_keys=True, default=str).encode()
+        payload = ReceiptBuilder._signature_payload(receipt)
         expected = hmac.new(key, payload, hashlib.sha256).hexdigest()
         # Restore
         receipt.signature = saved_sig
         receipt.signature_algorithm = "HMAC-SHA256"
         return hmac.compare_digest(saved_sig, expected)
+
+    @staticmethod
+    def verify_content_hash(receipt: DecisionReceipt) -> bool:
+        """Verify a content-hash signed receipt."""
+        if receipt.signature_algorithm != "SHA-256-content-hash" or not receipt.signature:
+            return False
+        return hmac.compare_digest(receipt.signature, ReceiptBuilder._content_hash(receipt))
 
     # ------------------------------------------------------------------
     # Export
@@ -215,15 +223,18 @@ class ReceiptBuilder:
     @staticmethod
     def _content_hash(receipt: DecisionReceipt) -> str:
         """SHA-256 hash of receipt content for integrity checking."""
-        payload = json.dumps(
-            {
-                "question": receipt.question,
-                "verdict": receipt.verdict.value,
-                "confidence": receipt.confidence,
-                "agents": receipt.agents,
-                "rounds_used": receipt.rounds_used,
-                "timestamp": receipt.timestamp,
-            },
-            sort_keys=True,
-        ).encode()
-        return hashlib.sha256(payload).hexdigest()
+        return hashlib.sha256(ReceiptBuilder._signature_payload(receipt)).hexdigest()
+
+    @staticmethod
+    def _signature_payload(receipt: DecisionReceipt) -> bytes:
+        """Serialize the full receipt payload, excluding signature fields."""
+        payload = asdict(receipt)
+        payload["verdict"] = receipt.verdict.value
+        payload["consensus"]["method"] = (
+            receipt.consensus.method.value
+            if isinstance(receipt.consensus.method, ConsensusMethod)
+            else receipt.consensus.method
+        )
+        payload.pop("signature", None)
+        payload.pop("signature_algorithm", None)
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()

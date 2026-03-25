@@ -7,10 +7,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from aragora_debate.receipt import ReceiptBuilder
 from aragora_debate.types import (
+    Claim,
     Consensus,
     ConsensusMethod,
     DebateResult,
     DissentRecord,
+    Evidence,
     Verdict,
 )
 
@@ -98,6 +100,22 @@ class TestReceiptBuilder:
         assert receipt.signature_algorithm == "SHA-256-content-hash"
         assert len(receipt.signature) == 64  # hex SHA-256
 
+    def test_content_hash_detects_consensus_tampering(self):
+        result = _make_result()
+        receipt = ReceiptBuilder.from_result(result)
+
+        assert ReceiptBuilder.verify_content_hash(receipt) is True
+        receipt.consensus.dissenting_agents.append("gpt4")
+        assert ReceiptBuilder.verify_content_hash(receipt) is False
+
+    def test_content_hash_detects_metadata_tampering(self):
+        result = _make_result()
+        receipt = ReceiptBuilder.from_result(result)
+
+        assert ReceiptBuilder.verify_content_hash(receipt) is True
+        receipt.metadata["duration_seconds"] = 999
+        assert ReceiptBuilder.verify_content_hash(receipt) is False
+
 
 class TestHMACSigning:
     def test_sign_and_verify(self):
@@ -123,6 +141,22 @@ class TestHMACSigning:
 
         ReceiptBuilder.sign_hmac(receipt, "key")
         receipt.confidence = 0.99  # tamper
+        assert ReceiptBuilder.verify_hmac(receipt, "key") is False
+
+    def test_hmac_detects_claim_tampering(self):
+        result = _make_result(claims=[Claim(statement="ship it", author="claude")])
+        receipt = ReceiptBuilder.from_result(result)
+
+        ReceiptBuilder.sign_hmac(receipt, "key")
+        receipt.claims[0].statement = "do not ship"
+        assert ReceiptBuilder.verify_hmac(receipt, "key") is False
+
+    def test_hmac_detects_evidence_tampering(self):
+        result = _make_result(evidence=[Evidence(source="benchmark", content="p95=120ms")])
+        receipt = ReceiptBuilder.from_result(result)
+
+        ReceiptBuilder.sign_hmac(receipt, "key")
+        receipt.evidence[0].content = "p95=900ms"
         assert ReceiptBuilder.verify_hmac(receipt, "key") is False
 
     def test_verify_unsigned_receipt(self):
