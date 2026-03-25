@@ -371,6 +371,20 @@ class TestReceiptsHandlerList:
         assert data["pagination"]["total"] == 0
 
     @pytest.mark.asyncio
+    async def test_list_supports_legacy_handler_signature(self, receipts_handler):
+        """Unified server should be able to call the generic legacy handler signature."""
+        http_handler = MagicMock()
+        http_handler.command = "GET"
+        http_handler.headers = {}
+
+        result = await receipts_handler.handle("/api/v2/receipts", {}, http_handler)
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["receipts"] == []
+        assert data["pagination"]["total"] == 0
+
+    @pytest.mark.asyncio
     async def test_list_with_receipts(self, receipts_handler, mock_receipt_store):
         """Test list returns receipts."""
         mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1", "verdict": "APPROVED"})
@@ -514,6 +528,37 @@ class TestReceiptsHandlerExport:
 
         assert result.status_code == 200
         assert result.content_type.startswith("application/json")
+
+    @pytest.mark.asyncio
+    async def test_export_json_filters_extended_payload(self, receipts_handler, mock_receipt_store):
+        """Export should strip newer stored-only fields before reconstruction."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "receipt-001",
+                "gauntlet_id": "gauntlet-001",
+                "timestamp": "2026-03-25T15:00:00Z",
+                "input_summary": "Should we ship the receipt fix?",
+                "verdict": "APPROVED",
+                "confidence": 0.85,
+                "risk_level": "LOW",
+                "risk_score": 0.1,
+                "findings": [],
+                "dissenting_views": [],
+                "verified_claims": [],
+                "input_hash": "sha256:deadbeef",
+            }
+        )
+
+        result = await receipts_handler.handle(
+            "GET",
+            "/api/v2/receipts/receipt-001/export",
+            query_params={"format": "json"},
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["receipt_id"] == "receipt-001"
+        assert data["input_summary"] == "Should we ship the receipt fix?"
 
     @pytest.mark.asyncio
     async def test_export_html(self, receipts_handler, mock_receipt_store):

@@ -37,6 +37,7 @@ import logging
 import secrets
 import zipfile
 from datetime import datetime, timezone
+from inspect import signature
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -190,6 +191,42 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
 </html>"""
 
 
+def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
+    """Extract only the constructor-supported DecisionReceipt payload."""
+    if isinstance(receipt, dict):
+        nested = receipt.get("data")
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        else:
+            payload = dict(receipt)
+        plain = receipt
+    else:
+        nested = getattr(receipt, "data", None)
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        elif hasattr(receipt, "to_dict"):
+            plain_value = receipt.to_dict()
+            payload = dict(plain_value) if isinstance(plain_value, dict) else {}
+        else:
+            payload = {}
+        plain = receipt.to_dict() if hasattr(receipt, "to_dict") else {}
+
+    if isinstance(plain, dict):
+        for key in ("receipt_id", "gauntlet_id", "timestamp", "checksum"):
+            payload.setdefault(key, plain.get(key))
+
+    if not payload:
+        return {}
+
+    try:
+        from aragora.export.decision_receipt import DecisionReceipt
+
+        allowed_fields = signature(DecisionReceipt).parameters
+        return {key: value for key, value in payload.items() if key in allowed_fields}
+    except (ImportError, ValueError, TypeError):
+        return payload
+
+
 class ReceiptsHandler(BaseHandler):
     """
     HTTP handler for decision receipt operations.
@@ -246,17 +283,52 @@ class ReceiptsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
-        self,
-        method: str,
-        path: str,
-        body: dict[str, Any] | None = None,
-        query_params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> HandlerResult:
-        """Route request to appropriate handler method."""
-        query_params = query_params or {}
-        body = body or {}
+    async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult | None:  # type: ignore[override]
+        """Route request to appropriate handler method.
+
+        Supports both (path, query_params, handler) and (method, path, ...) call signatures.
+        """
+        method = kwargs.pop("method", None)
+        path = kwargs.pop("path", None)
+        body = kwargs.pop("body", None)
+        query_params = kwargs.pop("query_params", None)
+        headers = kwargs.pop("headers", None)
+        handler = kwargs.pop("handler", None)
+
+        if args:
+            first = args[0]
+            http_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+            if isinstance(first, str) and first.upper() in http_methods:
+                method = first.upper()
+                path = args[1] if len(args) > 1 else path
+                if body is None and len(args) > 2 and isinstance(args[2], dict):
+                    body = args[2]
+                if query_params is None and len(args) > 3 and isinstance(args[3], dict):
+                    query_params = args[3]
+                if headers is None and len(args) > 4 and isinstance(args[4], dict):
+                    headers = args[4]
+                if handler is None and len(args) > 5:
+                    handler = args[5]
+            else:
+                path = first
+                if query_params is None and len(args) > 1 and isinstance(args[1], dict):
+                    query_params = args[1]
+                if handler is None and len(args) > 2:
+                    handler = args[2]
+
+        if method is None:
+            method = getattr(handler, "command", "GET") if handler else "GET"
+        if path is None or not isinstance(path, str):
+            return error_response("Invalid receipt path", 400)
+        if query_params is None:
+            query_params = {}
+        if body is None:
+            if handler and method in {"POST", "PUT", "PATCH"}:
+                body = self.read_json_body(handler) or {}
+            else:
+                body = {}
+        if headers is None:
+            headers = dict(handler.headers) if handler and hasattr(handler, "headers") else {}
 
         try:
             # Stats endpoint
@@ -631,7 +703,7 @@ class ReceiptsHandler(BaseHandler):
             from aragora.export.decision_receipt import DecisionReceipt
 
             # Reconstruct DecisionReceipt from stored data
-            decision_receipt = DecisionReceipt.from_dict(receipt.data)
+            decision_receipt = DecisionReceipt.from_dict(_extract_decision_receipt_payload(receipt))
 
             if export_format == "json":
                 content = decision_receipt.to_json(indent=2)
@@ -937,7 +1009,7 @@ class ReceiptsHandler(BaseHandler):
             from aragora.export.decision_receipt import DecisionReceipt
 
             # Reconstruct DecisionReceipt from stored data
-            decision_receipt = DecisionReceipt.from_dict(receipt.data)
+            decision_receipt = DecisionReceipt.from_dict(_extract_decision_receipt_payload(receipt))
 
             # Format the receipt for the channel
             formatted = format_receipt_for_channel(decision_receipt, channel_type, options)
@@ -1137,7 +1209,7 @@ class ReceiptsHandler(BaseHandler):
             from aragora.channels.formatter import format_receipt_for_channel
             from aragora.export.decision_receipt import DecisionReceipt
 
-            decision_receipt = DecisionReceipt.from_dict(receipt.data)
+            decision_receipt = DecisionReceipt.from_dict(_extract_decision_receipt_payload(receipt))
             formatted = format_receipt_for_channel(decision_receipt, channel_type, options)
 
             return json_response(
@@ -1488,7 +1560,9 @@ class ReceiptsHandler(BaseHandler):
                 try:
                     from aragora.export.decision_receipt import DecisionReceipt
 
-                    decision_receipt = DecisionReceipt.from_dict(receipt.data)
+                    decision_receipt = DecisionReceipt.from_dict(
+                        _extract_decision_receipt_payload(receipt)
+                    )
 
                     # Determine file extension
                     if export_format == "json":
