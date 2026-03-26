@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-03-24
+Last updated: 2026-03-26
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -8,6 +8,7 @@ This is the single source of truth for short-horizon execution priorities.
 [FEATURE_GAP_LIST](../FEATURE_GAP_LIST.md) is the capability and backlog truth.
 [ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) maps the live GitHub issue set and the current doc-driven PMF program.
 [PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) is the operator runbook for the next live proof.
+[2026-03-26-pmf-14-day-execution-plan](../plans/2026-03-26-pmf-14-day-execution-plan.md) is the current two-week operating tranche for inbox-wedge proof and design-partner readiness.
 
 ## Current Reality
 
