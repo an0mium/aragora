@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
+import scripts.publish_codex_automation_branches as mod
 from scripts.publish_codex_automation_branches import (
     BranchSnapshot,
     WorktreeSnapshot,
@@ -164,3 +166,99 @@ def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
 
     tracked.write_text("changed\n", encoding="utf-8")
     assert _worktree_is_dirty(repo) is True
+
+
+def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
+    monkeypatch.setattr(
+        mod, "_push_branch", lambda repo_root, branch, upstream: calls.append(f"push:{branch}")
+    )
+    monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
+    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 1234)
+    monkeypatch.setattr(
+        mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
+    )
+
+    results = mod._publish_decisions(
+        tmp_path,
+        "synaptent/aragora",
+        "main",
+        [
+            mod.PublishDecision(
+                branch="codex/ready-1",
+                eligible=True,
+                reason="eligible",
+                subject="fix one",
+                head_sha="abc1234",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            )
+        ],
+        limit=5,
+        open_pr_count=3,
+        max_open_prs=3,
+        labels=["codex"],
+    )
+
+    assert results == []
+    assert calls == []
+
+
+def test_publish_decisions_uses_remaining_open_pr_capacity(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[str] = []
+    created_numbers = iter([2001, 2002])
+
+    monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
+    monkeypatch.setattr(
+        mod, "_push_branch", lambda repo_root, branch, upstream: calls.append(f"push:{branch}")
+    )
+    monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
+    monkeypatch.setattr(
+        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+    )
+    monkeypatch.setattr(
+        mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
+    )
+
+    results = mod._publish_decisions(
+        tmp_path,
+        "synaptent/aragora",
+        "main",
+        [
+            mod.PublishDecision(
+                branch="codex/ready-1",
+                eligible=True,
+                reason="eligible",
+                subject="fix one",
+                head_sha="abc1234",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            ),
+            mod.PublishDecision(
+                branch="codex/ready-2",
+                eligible=True,
+                reason="eligible",
+                subject="fix two",
+                head_sha="def5678",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            ),
+        ],
+        limit=5,
+        open_pr_count=2,
+        max_open_prs=3,
+        labels=["codex"],
+    )
+
+    assert [item["branch"] for item in results] == ["codex/ready-1"]
+    assert calls == ["push:codex/ready-1", "label:2001"]
