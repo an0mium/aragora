@@ -25,9 +25,11 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import secrets
+import time
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -559,6 +561,55 @@ class TestGetStats:
         assert "stats" in data
         assert "generated_at" in data
         assert data["stats"]["total"] == 3
+
+
+# ===========================================================================
+# Test Async Safety
+# ===========================================================================
+
+
+class TestAsyncSafety:
+    """Sync-backed stores should not block the event loop in async endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_receipts_offloads_sync_store_calls(self):
+        class BlockingReceiptStore(MockReceiptStore):
+            def list(self, **kwargs) -> list[MockReceipt]:
+                time.sleep(0.15)
+                return super().list(**kwargs)
+
+            def count(self, **kwargs) -> int:
+                time.sleep(0.15)
+                return super().count(**kwargs)
+
+        handler = ReceiptsHandler({})
+        handler._store = BlockingReceiptStore(_make_receipts(3))
+
+        list_task = asyncio.create_task(handler._list_receipts({}))
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await list_task
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_stats_offloads_sync_store_calls(self):
+        class BlockingReceiptStore(MockReceiptStore):
+            def get_stats(self) -> dict[str, Any]:
+                time.sleep(0.15)
+                return super().get_stats()
+
+        handler = ReceiptsHandler({})
+        handler._store = BlockingReceiptStore(_make_receipts(3))
+
+        stats_task = asyncio.create_task(handler._get_stats())
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await stats_task
+        assert result.status_code == 200
 
 
 # ===========================================================================

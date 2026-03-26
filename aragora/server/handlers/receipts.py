@@ -33,6 +33,8 @@ These endpoints support the "defensible decisions" pillar with:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import io
 import logging
 import secrets
@@ -61,6 +63,19 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+async def _call_nonblocking(target: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run sync store methods in a worker thread when called from async handlers."""
+
+    method = getattr(target, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 def _render_shared_receipt_html(receipt: Any, token: str) -> str:
@@ -526,7 +541,9 @@ class ReceiptsHandler(BaseHandler):
         order = query_params.get("order", "desc")
 
         # Query store
-        receipts = store.list(
+        receipts = await _call_nonblocking(
+            store,
+            "list",
             limit=limit,
             offset=offset,
             debate_id=debate_id,
@@ -539,7 +556,9 @@ class ReceiptsHandler(BaseHandler):
             order=order,
         )
 
-        total = store.count(
+        total = await _call_nonblocking(
+            store,
+            "count",
             debate_id=debate_id,
             verdict=verdict,
             risk_level=risk_level,
@@ -618,7 +637,9 @@ class ReceiptsHandler(BaseHandler):
         risk_level = query_params.get("risk_level")
 
         # Perform search
-        receipts = store.search(
+        receipts = await _call_nonblocking(
+            store,
+            "search",
             query=query,
             limit=limit,
             offset=offset,
@@ -626,7 +647,9 @@ class ReceiptsHandler(BaseHandler):
             risk_level=risk_level,
         )
 
-        total = store.search_count(
+        total = await _call_nonblocking(
+            store,
+            "search_count",
             query=query,
             verdict=verdict,
             risk_level=risk_level,
@@ -668,11 +691,11 @@ class ReceiptsHandler(BaseHandler):
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific receipt by ID."""
         store = self._get_store()
-        receipt = store.get(receipt_id)
+        receipt = await _call_nonblocking(store, "get", receipt_id)
 
         if not receipt:
             # Try by gauntlet_id
-            receipt = store.get_by_gauntlet(receipt_id)
+            receipt = await _call_nonblocking(store, "get_by_gauntlet", receipt_id)
 
         if not receipt:
             return error_response("Receipt not found", 404)
@@ -717,7 +740,7 @@ class ReceiptsHandler(BaseHandler):
             signed: Include signature if available (true/false)
         """
         store = self._get_store()
-        receipt = store.get(receipt_id)
+        receipt = await _call_nonblocking(store, "get", receipt_id)
 
         if not receipt:
             return error_response("Receipt not found", 404)
@@ -879,8 +902,8 @@ class ReceiptsHandler(BaseHandler):
     async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
         """Verify receipt integrity checksum and signature."""
         store = self._get_store()
-        signature_result = store.verify_signature(receipt_id)
-        integrity_result = store.verify_integrity(receipt_id)
+        signature_result = await _call_nonblocking(store, "verify_signature", receipt_id)
+        integrity_result = await _call_nonblocking(store, "verify_integrity", receipt_id)
 
         signature_error = getattr(signature_result, "error", None)
         integrity_error = (
@@ -920,7 +943,7 @@ class ReceiptsHandler(BaseHandler):
     async def _verify_integrity(self, receipt_id: str) -> HandlerResult:
         """Verify receipt integrity checksum."""
         store = self._get_store()
-        result = store.verify_integrity(receipt_id)
+        result = await _call_nonblocking(store, "verify_integrity", receipt_id)
 
         if "error" in result and result.get("integrity_valid") is False:
             if "not found" in result.get("error", "").lower():
@@ -946,7 +969,7 @@ class ReceiptsHandler(BaseHandler):
     async def _verify_signature(self, receipt_id: str) -> HandlerResult:
         """Verify receipt cryptographic signature."""
         store = self._get_store()
-        result = store.verify_signature(receipt_id)
+        result = await _call_nonblocking(store, "verify_signature", receipt_id)
 
         if result.error and "not found" in result.error.lower():
             return error_response("Receipt not found", 404)
@@ -970,7 +993,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Maximum 100 receipts per batch", 400)
 
         store = self._get_store()
-        results, summary = store.verify_batch(receipt_ids)
+        results, summary = await _call_nonblocking(store, "verify_batch", receipt_ids)
 
         return json_response(
             {
@@ -995,7 +1018,7 @@ class ReceiptsHandler(BaseHandler):
     async def _get_stats(self) -> HandlerResult:
         """Get receipt statistics."""
         store = self._get_store()
-        stats = store.get_stats()
+        stats = await _call_nonblocking(store, "get_stats")
 
         return json_response(
             {
@@ -1110,7 +1133,7 @@ class ReceiptsHandler(BaseHandler):
 
         # Get the receipt
         store = self._get_store()
-        receipt = store.get(receipt_id)
+        receipt = await _call_nonblocking(store, "get", receipt_id)
         if not receipt:
             return error_response("Receipt not found", 404)
 
@@ -1194,7 +1217,7 @@ class ReceiptsHandler(BaseHandler):
             raise ValueError("workspace_id is required for Slack")
 
         store = get_slack_workspace_store()
-        workspace = store.get(workspace_id)
+        workspace = await _call_nonblocking(store, "get", workspace_id)
         if not workspace:
             raise ValueError(f"Slack workspace not found: {workspace_id}")
 
@@ -1228,7 +1251,7 @@ class ReceiptsHandler(BaseHandler):
             raise ValueError("workspace_id (tenant_id) is required for Teams")
 
         store = get_teams_workspace_store()
-        workspace = store.get(workspace_id)
+        workspace = await _call_nonblocking(store, "get", workspace_id)
         if not workspace:
             raise ValueError(f"Teams workspace not found: {workspace_id}")
 
@@ -1330,7 +1353,7 @@ class ReceiptsHandler(BaseHandler):
         Returns the formatted payload without sending it.
         """
         store = self._get_store()
-        receipt = store.get(receipt_id)
+        receipt = await _call_nonblocking(store, "get", receipt_id)
 
         if not receipt:
             return error_response("Receipt not found", 404)
@@ -1365,7 +1388,7 @@ class ReceiptsHandler(BaseHandler):
     async def _get_retention_status(self) -> HandlerResult:
         """Get retention status for GDPR compliance. Endpoint: GET /api/v2/receipts/retention-status"""
         store = self._get_store()
-        status = store.get_retention_status()
+        status = await _call_nonblocking(store, "get_retention_status")
         return json_response(status)
 
     @require_permission("receipts:read")
@@ -1378,7 +1401,13 @@ class ReceiptsHandler(BaseHandler):
         limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
         offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
-        receipts, total = store.get_by_user(user_id=user_id, limit=limit, offset=offset)
+        receipts, total = await _call_nonblocking(
+            store,
+            "get_by_user",
+            user_id=user_id,
+            limit=limit,
+            offset=offset,
+        )
         receipt_data = [r.to_full_dict() for r in receipts]
 
         return json_response(
@@ -1422,7 +1451,7 @@ class ReceiptsHandler(BaseHandler):
             Share URL and token details
         """
         store = self._get_store()
-        receipt = store.get(receipt_id)
+        receipt = await _call_nonblocking(store, "get", receipt_id)
 
         if not receipt:
             return error_response("Receipt not found", 404)
@@ -1437,7 +1466,9 @@ class ReceiptsHandler(BaseHandler):
 
         # Store share link
         share_store = self._get_share_store()
-        share_store.save(
+        await _call_nonblocking(
+            share_store,
+            "save",
             token=token,
             receipt_id=receipt_id,
             expires_at=expires_at,
@@ -1486,7 +1517,7 @@ class ReceiptsHandler(BaseHandler):
         query_params = query_params or {}
         headers = headers or {}
         share_store = self._get_share_store()
-        share_info = share_store.get_by_token(token)
+        share_info = await _call_nonblocking(share_store, "get_by_token", token)
 
         if not share_info:
             return error_response("Share link not found", 404)
@@ -1504,11 +1535,11 @@ class ReceiptsHandler(BaseHandler):
                 return error_response("Share link access limit reached", 410)
 
         # Increment access count
-        share_store.increment_access(token)
+        await _call_nonblocking(share_store, "increment_access", token)
 
         # Get receipt
         store = self._get_store()
-        receipt = store.get(share_info["receipt_id"])
+        receipt = await _call_nonblocking(store, "get", share_info["receipt_id"])
 
         if not receipt:
             return error_response("Receipt not found", 404)
@@ -1606,7 +1637,7 @@ class ReceiptsHandler(BaseHandler):
             signer = ReceiptSigner(backend=backend)
 
             for receipt_id in receipt_ids:
-                receipt = store.get(receipt_id)
+                receipt = await _call_nonblocking(store, "get", receipt_id)
 
                 if not receipt:
                     results.append({"receipt_id": receipt_id, "status": "not_found"})
@@ -1614,7 +1645,7 @@ class ReceiptsHandler(BaseHandler):
                     continue
 
                 # Check if already signed
-                if store.get_signature(receipt_id):
+                if await _call_nonblocking(store, "get_signature", receipt_id):
                     results.append({"receipt_id": receipt_id, "status": "already_signed"})
                     skipped_count += 1
                     continue
@@ -1622,7 +1653,9 @@ class ReceiptsHandler(BaseHandler):
                 try:
                     # Sign the receipt with optional signatory info
                     signature = signer.sign(receipt.data, signatory=signatory)
-                    store.store_signature(receipt_id, signature, algorithm)
+                    await _call_nonblocking(
+                        store, "store_signature", receipt_id, signature, algorithm
+                    )
                     results.append({"receipt_id": receipt_id, "status": "signed"})
                     signed_count += 1
                 except (ValueError, TypeError, OSError) as e:
@@ -1685,7 +1718,7 @@ class ReceiptsHandler(BaseHandler):
             failed_ids = []
 
             for receipt_id in receipt_ids:
-                receipt = store.get(receipt_id)
+                receipt = await _call_nonblocking(store, "get", receipt_id)
 
                 if not receipt:
                     failed_ids.append(receipt_id)
