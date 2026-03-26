@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { extractLeaderboardAgentNames } from '@/lib/leaderboard';
 
 interface ProbeResult {
   probe_id: string;
@@ -104,8 +105,8 @@ function CapabilityProbePanelComponent({
         if (res.status === 429) return { agents: [] };
         return res.json();
       })
-      .then((data: { agents?: Array<{ name: string }> }) => {
-        const agents = (data.agents || []).map((a) => a.name);
+      .then((data: { agents?: Array<{ name: string }>; leaderboard?: Array<{ name: string }> }) => {
+        const agents = extractLeaderboardAgentNames(data);
         setAvailableAgents(agents);
         if (agents.length > 0 && !selectedAgent) {
           setSelectedAgent(agents[0]);
