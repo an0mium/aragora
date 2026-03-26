@@ -397,6 +397,8 @@ def _publish_decisions(
     decisions: list[PublishDecision],
     *,
     limit: int,
+    open_pr_count: int,
+    max_open_prs: int,
     labels: list[str],
 ) -> list[dict[str, Any]]:
     _ensure_gh_auth(repo_root)
@@ -407,6 +409,8 @@ def _publish_decisions(
         if not decision.eligible:
             continue
         if published >= limit:
+            break
+        if open_pr_count + published >= max_open_prs:
             break
 
         _push_branch(repo_root, decision.branch, decision.upstream)
@@ -449,6 +453,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=5,
         help="Maximum number of eligible branches to publish in one apply run",
+    )
+    parser.add_argument(
+        "--max-open-prs",
+        type=int,
+        default=3,
+        help="Maximum number of open codex PRs allowed before publishing pauses",
     )
     parser.add_argument(
         "--branch",
@@ -525,6 +535,8 @@ def main(argv: list[str] | None = None) -> int:
         "repo": str(repo_root),
         "base": args.base,
         "cutoff": cutoff.isoformat(),
+        "open_pr_count": len(open_pr_heads),
+        "max_open_prs": args.max_open_prs,
         "decisions": [asdict(decision) for decision in decisions],
     }
 
@@ -535,6 +547,8 @@ def main(argv: list[str] | None = None) -> int:
             args.base,
             decisions,
             limit=args.limit,
+            open_pr_count=len(open_pr_heads),
+            max_open_prs=args.max_open_prs,
             labels=list(dict.fromkeys(args.labels)),
         )
         payload["published"] = published
