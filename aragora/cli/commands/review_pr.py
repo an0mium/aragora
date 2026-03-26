@@ -7,8 +7,8 @@ import asyncio
 import json
 import logging
 import re
-import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -494,13 +494,34 @@ def _push_fixed_branch(worktree_path: Path, head_ref: str) -> bool:
 
 
 def _cleanup_worktree(repo_root: Path, worktree_path: Path) -> None:
+    cleanup_script = repo_root / "scripts" / "safe_worktree_cleanup.py"
     try:
-        _run_command(["git", "worktree", "remove", "--force", str(worktree_path)], cwd=repo_root)
-    except RuntimeError:
-        logger.debug("could not remove review-pr worktree %s", worktree_path)
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(cleanup_script),
+                "--repo",
+                str(repo_root),
+                "remove",
+                str(worktree_path),
+                "--purge-path",
+                "--json",
+            ],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        logger.debug("could not invoke safe review-pr cleanup for %s", worktree_path)
+        return
+    if proc.returncode != 0:
+        logger.debug(
+            "review-pr safe cleanup skipped for %s: %s",
+            worktree_path,
+            proc.stdout.strip() or proc.stderr.strip(),
+        )
     parent = worktree_path.parent
-    if worktree_path.exists():
-        shutil.rmtree(worktree_path, ignore_errors=True)
     if parent.exists():
         try:
             parent.rmdir()

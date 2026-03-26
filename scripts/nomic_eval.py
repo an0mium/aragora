@@ -64,8 +64,25 @@ def _ensure_worktree(repo: Path, worktree_dir: Path, branch: str, base_ref: str)
 
 
 def _cleanup_worktree(repo: Path, worktree_dir: Path, branch: str) -> None:
-    _run(["git", "worktree", "remove", "--force", str(worktree_dir)], cwd=repo)
-    _run(["git", "branch", "-D", branch], cwd=repo)
+    cleanup_script = repo / "scripts" / "safe_worktree_cleanup.py"
+    result = _run(
+        [
+            sys.executable,
+            str(cleanup_script),
+            "--repo",
+            str(repo),
+            "remove",
+            str(worktree_dir),
+            "--branch",
+            branch,
+            "--delete-branch",
+            "--purge-path",
+            "--json",
+        ],
+        cwd=repo,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stdout.strip() or result.stderr.strip() or "safe cleanup failed")
 
 
 def _git_diff_stats(repo: Path) -> dict:

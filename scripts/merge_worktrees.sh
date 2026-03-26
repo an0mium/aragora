@@ -84,6 +84,17 @@ resolve_worktree_dir() {
         '
 }
 
+safe_remove_worktree() {
+    local tree_dir="$1"
+    local branch="$2"
+    python3 "${REPO_ROOT}/scripts/safe_worktree_cleanup.py" \
+        --repo "${REPO_ROOT}" \
+        remove "${tree_dir}" \
+        --branch "${branch}" \
+        --purge-path \
+        --json
+}
+
 for BRANCH in ${BRANCHES}; do
     # Derive track name from branch (strip prefix and timestamp suffix)
     TRACK=$(echo "${BRANCH}" | sed 's|^work/||; s|^dev/||; s|-[0-9]*-[0-9]*$||; s|-[0-9]\{14\}$||')
@@ -176,10 +187,17 @@ for BRANCH in ${BRANCHES}; do
 
             # Clean up worktree and branch
             echo "  Cleaning up..."
+            cleanup_ok=true
             if [ -n "${TREE_DIR}" ] && [ -d "${TREE_DIR}" ]; then
-                git -C "${REPO_ROOT}" worktree remove "${TREE_DIR}" --force 2>/dev/null || true
+                if ! SAFE_OUTPUT="$(safe_remove_worktree "${TREE_DIR}" "${BRANCH}" 2>&1)"; then
+                    echo "  Safe cleanup blocked removal; leaving branch/worktree in place"
+                    echo "${SAFE_OUTPUT}" | sed 's/^/    /'
+                    cleanup_ok=false
+                fi
             fi
-            git -C "${REPO_ROOT}" branch -d "${BRANCH}" 2>/dev/null || true
+            if ${cleanup_ok}; then
+                git -C "${REPO_ROOT}" branch -d "${BRANCH}" 2>/dev/null || true
+            fi
         else
             echo "  Merge FAILED (conflicts)"
             git -C "${REPO_ROOT}" merge --abort

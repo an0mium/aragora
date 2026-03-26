@@ -75,6 +75,17 @@ resolve_worktree_dir() {
         '
 }
 
+safe_remove_worktree() {
+    local tree_dir="$1"
+    local branch="$2"
+    python3 "${REPO_ROOT}/scripts/safe_worktree_cleanup.py" \
+        --repo "${REPO_ROOT}" \
+        remove "${tree_dir}" \
+        --branch "${branch}" \
+        --purge-path \
+        --json
+}
+
 # Get merged branches
 if ${MERGED_ONLY}; then
     MERGED_BRANCHES=$(git -C "${REPO_ROOT}" branch --merged "${BASE_BRANCH:-main}" \
@@ -139,11 +150,18 @@ for BRANCH in ${BRANCHES}; do
     echo "  Removing: ${BRANCH}"
 
     # Remove worktree directory
+    removed_ok=true
     if [ -n "${TREE_DIR}" ] && [ -d "${TREE_DIR}" ]; then
-        git -C "${REPO_ROOT}" worktree remove "${TREE_DIR}" --force 2>/dev/null || {
-            echo "    Warning: Could not remove worktree dir, trying rm"
-            rm -rf "${TREE_DIR}" 2>/dev/null || true
-        }
+        if ! SAFE_OUTPUT="$(safe_remove_worktree "${TREE_DIR}" "${BRANCH}" 2>&1)"; then
+            echo "    Blocked: safe worktree cleanup refused removal"
+            echo "${SAFE_OUTPUT}" | sed 's/^/      /'
+            removed_ok=false
+        fi
+    fi
+
+    if ! ${removed_ok}; then
+        SKIPPED=$((SKIPPED + 1))
+        continue
     fi
 
     # Delete branch

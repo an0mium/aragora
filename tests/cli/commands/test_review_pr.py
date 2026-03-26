@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import asdict
 from pathlib import Path
 
@@ -223,3 +224,37 @@ def test_build_github_review_body_includes_fix_and_findings(
     assert "- Review route: `claude:max-01`" in body
     assert "### Fix Loop" in body
     assert "- [P1] Crash (aragora/cli/commands/review_pr.py): Guard the empty branch path." in body
+
+
+def test_cleanup_worktree_uses_safe_cleanup_helper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "scripts").mkdir()
+    (repo_root / "scripts" / "safe_worktree_cleanup.py").write_text("# stub\n")
+    worktree_path = tmp_path / "scratch" / "wt"
+    worktree_path.parent.mkdir(parents=True)
+    worktree_path.parent.joinpath("keep").write_text("x")
+
+    calls: list[list[str]] = []
+
+    def _fake_run(*args, **kwargs):
+        calls.append(list(args[0]))
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout='{"status":"removed"}', stderr="")
+
+    monkeypatch.setattr(review_pr.subprocess, "run", _fake_run)
+
+    review_pr._cleanup_worktree(repo_root, worktree_path)
+
+    assert calls == [[
+        review_pr.sys.executable,
+        str(repo_root / "scripts" / "safe_worktree_cleanup.py"),
+        "--repo",
+        str(repo_root),
+        "remove",
+        str(worktree_path),
+        "--purge-path",
+        "--json",
+    ]]

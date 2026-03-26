@@ -34,12 +34,23 @@ cleanup() {
     local wt_path="${BASE}/aragora-${track}"
     local branch="${TRACKS[$track]}"
     if [ -d "$wt_path" ]; then
-      git -C "$REPO" worktree remove "$wt_path" --force 2>/dev/null || true
-      echo "  Removed worktree: $wt_path"
-    fi
-    if git -C "$REPO" rev-parse --verify "refs/heads/${branch}" >/dev/null 2>&1; then
-      git -C "$REPO" branch -D "$branch" 2>/dev/null || true
-      echo "  Deleted branch: $branch"
+      if cleanup_output="$(
+        python3 "$REPO/scripts/safe_worktree_cleanup.py" \
+          --repo "$REPO" \
+          remove "$wt_path" \
+          --branch "$branch" \
+          --purge-path \
+          --json 2>&1
+      )"; then
+        echo "  Removed worktree: $wt_path"
+        if git -C "$REPO" rev-parse --verify "refs/heads/${branch}" >/dev/null 2>&1; then
+          git -C "$REPO" branch -D "$branch" 2>/dev/null || true
+          echo "  Deleted branch: $branch"
+        fi
+      else
+        echo "  Skipped worktree: $wt_path"
+        echo "$cleanup_output" | sed 's/^/    /'
+      fi
     fi
   done
   git -C "$REPO" worktree prune
