@@ -835,13 +835,74 @@ async def test_staged_profile_escalates_high_risk_actions(tmp_path):
     assert execution["execution_tier"] == "escalated"
     assert "high_risk_action" in execution["escalation_reasons"]
     runner._run_fast_tier_once.assert_awaited_once()
-    runner._run_debate_once.assert_awaited_once()
+    runner._run_debate_once.assert_awaited_once_with(
+        {
+            "id": "msg-escalated",
+            "subject": "Escalate",
+            "from_address": "sender@example.com",
+            "body_text": "Body",
+        },
+        tier="escalated",
+        rounds=1,
+        max_agents=None,
+    )
     event_codes = [
         json.loads(line)["code"]
         for line in diagnostics.events_path.read_text().splitlines()
         if line.strip()
     ]
     assert "fast_tier_escalation" in event_codes
+
+
+@pytest.mark.asyncio
+async def test_run_debate_once_disables_introspection(monkeypatch):
+    import aragora.core as core_mod
+    import aragora.debate.orchestrator as orch_mod
+    import aragora.debate.protocol as proto_mod
+
+    captured: dict[str, object] = {}
+
+    class _FakeArena:
+        def __init__(self, env, agents, protocol, **kwargs):
+            captured["env"] = env
+            captured["agents"] = agents
+            captured["protocol"] = protocol
+            captured["kwargs"] = kwargs
+
+        async def run(self):
+            return {
+                "final_answer": "archive",
+                "confidence": 0.91,
+                "consensus_reached": True,
+                "debate_id": "debate-escalated",
+            }
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner._create_triage_agents",
+        lambda max_agents=None: [
+            SimpleNamespace(name="triage-proposer", role="proposer", model_type="openai-api"),
+            SimpleNamespace(name="triage-critic", role="critic", model_type="openai-api"),
+        ],
+    )
+    monkeypatch.setattr(core_mod, "Environment", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(orch_mod, "Arena", _FakeArena)
+
+    runner = InboxTriageRunner(gmail_connector=None, profile="staged_v1")
+    result = await runner._run_debate_once(
+        {
+            "id": "msg-introspection",
+            "subject": "Disable introspection",
+            "from_address": "sender@example.com",
+            "body_text": "Body",
+        },
+        tier="escalated",
+        rounds=1,
+        max_agents=None,
+    )
+
+    assert result["debate_id"] == "debate-escalated"
+    assert captured["kwargs"]["enable_introspection"] is False
 
 
 @pytest.mark.asyncio

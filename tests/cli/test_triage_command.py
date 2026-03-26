@@ -244,7 +244,7 @@ async def test_initialize_triage_storage_bootstraps_shared_pool():
 
 
 @pytest.mark.asyncio
-async def test_shutdown_triage_storage_closes_http_pool():
+async def test_shutdown_triage_storage_closes_http_pool_and_resets_singletons():
     with (
         patch(
             "aragora.server.startup.database.close_postgres_pool",
@@ -262,6 +262,18 @@ async def test_shutdown_triage_storage_closes_http_pool():
             "aragora.storage.connection_factory.close_all_pools",
             AsyncMock(),
         ) as close_all_pools,
+        patch(
+            "aragora.events.dispatcher.shutdown_dispatcher",
+        ) as shutdown_dispatcher,
+        patch(
+            "aragora.storage.webhook_config_store.reset_webhook_config_store",
+        ) as reset_webhook_config_store,
+        patch(
+            "aragora.inbox.trust_wedge.reset_inbox_trust_wedge_service",
+        ) as reset_inbox_trust_wedge_service,
+        patch(
+            "aragora.inbox.trust_wedge.reset_inbox_trust_wedge_store",
+        ) as reset_inbox_trust_wedge_store,
         patch("aragora.cli.commands.triage.asyncio.sleep", AsyncMock()) as sleep,
     ):
         await triage_cmd._shutdown_triage_storage()
@@ -270,6 +282,10 @@ async def test_shutdown_triage_storage_closes_http_pool():
     close_http_pool.assert_awaited_once()
     close_shared_connector.assert_awaited_once()
     close_all_pools.assert_awaited_once()
+    shutdown_dispatcher.assert_called_once_with(wait=True)
+    reset_webhook_config_store.assert_called_once()
+    reset_inbox_trust_wedge_service.assert_called_once()
+    reset_inbox_trust_wedge_store.assert_called_once()
     sleep.assert_awaited_once_with(0.05)
 
 

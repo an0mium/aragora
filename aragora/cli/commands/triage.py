@@ -218,6 +218,31 @@ async def _shutdown_triage_storage() -> None:
     except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
         logger.debug("Triage connection-factory shutdown skipped: %s", exc)
 
+    try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage dispatcher shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.webhook_config_store import reset_webhook_config_store
+
+        reset_webhook_config_store()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage webhook config reset skipped: %s", exc)
+
+    try:
+        from aragora.inbox.trust_wedge import (
+            reset_inbox_trust_wedge_service,
+            reset_inbox_trust_wedge_store,
+        )
+
+        reset_inbox_trust_wedge_service()
+        reset_inbox_trust_wedge_store()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage trust wedge reset skipped: %s", exc)
+
     # Give async transports a brief chance to finish their close callbacks
     # before the triage event loop shuts down.
     await asyncio.sleep(0.05)

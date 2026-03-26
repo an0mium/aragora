@@ -48,6 +48,7 @@ _SUPPORTED_TRIAGE_PROFILES = {"baseline", "staged_v1"}
 _DEFAULT_TRIAGE_PROFILE = "staged_v1"
 _FAST_TIER_CONFIDENCE_THRESHOLD = 0.85
 _FAST_TIER_TIMEOUT_SECONDS = 12.0
+_ESCALATED_TIER_ROUNDS = 1
 _HIGH_RISK_ACTIONS = {InboxWedgeAction.LABEL, InboxWedgeAction.STAR}
 _DEGRADED_DIAGNOSTIC_SEVERITIES = {
     DiagnosticSeverity.BLOCKING.value,
@@ -774,7 +775,7 @@ class InboxTriageRunner:
             escalated_result = await self._run_debate_once(
                 msg,
                 tier="escalated",
-                rounds=2,
+                rounds=_ESCALATED_TIER_ROUNDS,
                 max_agents=None,
             )
             return _attach_triage_execution_metadata(
@@ -938,6 +939,7 @@ class InboxTriageRunner:
                         env,
                         agents=agents,
                         protocol=protocol,
+                        enable_introspection=False,
                         enable_belief_guidance=False,
                         enable_knowledge_retrieval=False,
                         use_rlm_limiter=False,
