@@ -558,7 +558,7 @@ class InboxTriageRunner:
 
         try:
             message_ids, next_page_token = await self._gmail.list_messages(
-                query="is:unread",
+                query="in:inbox is:unread",
                 max_results=batch_size,
                 page_token=page_token,
             )

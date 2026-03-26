@@ -155,7 +155,7 @@ async def test_run_triage_tracks_next_page_token():
 
     assert len(decisions) == 1
     gmail.list_messages.assert_awaited_once_with(
-        query="is:unread",
+        query="in:inbox is:unread",
         max_results=1,
         page_token="cursor-1",
     )

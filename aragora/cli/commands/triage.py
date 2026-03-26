@@ -292,6 +292,7 @@ async def _run_triage(
                     file=sys.stderr,
                 )
                 sys.exit(1)
+            await _sync_gmail_connector_to_token_store(gmail)
 
             from aragora.inbox.trust_wedge import get_inbox_trust_wedge_service
 
@@ -429,6 +430,7 @@ async def _run_gmail_auth() -> None:
     if not success:
         print("Failed to exchange authorization code for tokens.", file=sys.stderr)
         sys.exit(1)
+    await _sync_gmail_connector_to_token_store(connector)
 
     refresh_token = getattr(connector, "_refresh_token", None)
     if refresh_token:
@@ -470,6 +472,27 @@ def _get_gmail_connector():
     except ImportError:
         logger.warning("GmailConnector not available")
         return None
+
+
+async def _sync_gmail_connector_to_token_store(connector: object | None) -> None:
+    """Mirror CLI Gmail auth state into the durable Gmail token store."""
+    refresh_token = str(getattr(connector, "_refresh_token", "") or "").strip()
+    if not refresh_token:
+        return
+
+    try:
+        from aragora.storage.gmail_token_store import GmailUserState, get_gmail_token_store
+
+        user_id = str(getattr(connector, "user_id", "") or "me")
+        store = get_gmail_token_store()
+        existing = await store.get(user_id)
+        state = existing or GmailUserState(user_id=user_id)
+        state.refresh_token = refresh_token
+        state.access_token = str(getattr(connector, "_access_token", "") or state.access_token)
+        state.token_expiry = getattr(connector, "_token_expiry", None) or state.token_expiry
+        await store.save(state)
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI auth sync
+        logger.debug("Gmail token-store sync skipped: %s", exc)
 
 
 def _print_decisions(decisions: list) -> None:
