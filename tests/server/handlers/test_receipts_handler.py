@@ -816,12 +816,12 @@ class TestReceiptsHandlerErrors:
     """Tests for error handling."""
 
     @pytest.mark.asyncio
-    async def test_invalid_path(self, receipts_handler):
-        """Test invalid path returns 404."""
+    async def test_trailing_slash_list_path_normalizes_to_receipt_index(self, receipts_handler):
+        """Trailing slash on the list route should behave like the canonical path."""
         result = await receipts_handler.handle("GET", "/api/v2/receipts/")
-
-        # Path with trailing slash might be parsed differently
-        # Just ensure it doesn't crash
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert "receipts" in data
 
     @pytest.mark.asyncio
     async def test_handle_exception(self, receipts_handler):

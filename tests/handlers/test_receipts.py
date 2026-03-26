@@ -1650,13 +1650,11 @@ class TestErrorHandling:
     """Tests for error handling in the main dispatch."""
 
     @pytest.mark.asyncio
-    async def test_invalid_receipt_path_returns_400(self, handler):
-        """Path with too few segments returns 400."""
+    async def test_trailing_slash_list_path_returns_receipt_index(self, handler):
+        """Trailing slash on the list route should not become an empty receipt lookup."""
         result = await handler.handle("GET", "/api/v2/receipts/")
-        # The path "/api/v2/receipts/" splits to ["", "api", "v2", "receipts", ""]
-        # len(parts) is 5, receipt_id is "", so it should get the receipt with id ""
-        # which won't be found
-        assert _status(result) in (400, 404)
+        assert _status(result) == 200
+        assert "receipts" in _body(result)
 
     @pytest.mark.asyncio
     async def test_not_found_for_unknown_path(self, handler):

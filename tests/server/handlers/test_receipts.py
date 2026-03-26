@@ -1115,11 +1115,10 @@ class TestHandleRouting:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_handle_invalid_receipt_path(self, handler):
-        # Path with < 5 parts after splitting on /
+    async def test_handle_trailing_slash_list_path(self, handler):
         result = await handler.handle("GET", "/api/v2/receipts/", {}, {}, {})
-        # This hits the receipt-specific route with empty receipt_id
-        assert result is not None
+        assert result.status_code == 200
+        assert "receipts" in _parse_body(result)
 
     @pytest.mark.asyncio
     async def test_handle_internal_error(self, handler):

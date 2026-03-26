@@ -289,6 +289,22 @@ class ReceiptsHandler(BaseHandler):
             return method == "POST"
         return False
 
+    @staticmethod
+    def _normalize_receipt_path(path: str) -> str:
+        """Collapse optional trailing slashes on receipt routes.
+
+        The handler registry explicitly routes ``/api/v2/receipts/`` to this
+        handler, so the list endpoint should treat that path the same as the
+        canonical ``/api/v2/receipts`` route instead of falling through to an
+        empty receipt_id lookup.
+        """
+        if path == "/api/v1/receipts/deliveries/":
+            return "/api/v1/receipts/deliveries"
+        if path.startswith("/api/v2/receipts/"):
+            normalized = path.rstrip("/")
+            return normalized or path
+        return path
+
     @rate_limit(requests_per_minute=60)
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult | None:  # type: ignore[override]
         """Route request to appropriate handler method.
@@ -327,6 +343,7 @@ class ReceiptsHandler(BaseHandler):
             method = getattr(handler, "command", "GET") if handler else "GET"
         if path is None or not isinstance(path, str):
             return error_response("Invalid receipt path", 400)
+        path = self._normalize_receipt_path(path)
         if query_params is None:
             query_params = {}
         if body is None:
