@@ -22,6 +22,73 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 
+def _load_local_dotenv() -> None:
+    """Best-effort dotenv loading for local founder runs."""
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        load_dotenv("/etc/aragora/.env")
+    except Exception:
+        return
+
+
+def _get_secret_fallback(name: str) -> str:
+    """Resolve a secret via Aragora's secret loader when available."""
+    try:
+        from aragora.config.secrets import get_secret
+
+        return str(get_secret(name) or "")
+    except Exception:
+        return ""
+
+
+def _resolve_gmail_oauth_credentials() -> tuple[str, str]:
+    """Resolve Gmail OAuth client credentials from env, dotenv, or secrets."""
+    _load_local_dotenv()
+
+    client_id_candidates = (
+        "GMAIL_CLIENT_ID",
+        "GOOGLE_GMAIL_CLIENT_ID",
+        "GOOGLE_CLIENT_ID",
+    )
+    client_secret_candidates = (
+        "GMAIL_CLIENT_SECRET",
+        "GOOGLE_GMAIL_CLIENT_SECRET",
+        "GOOGLE_CLIENT_SECRET",
+    )
+
+    client_id = ""
+    for name in client_id_candidates:
+        value = os.environ.get(name)
+        if value:
+            client_id = value
+            break
+    if not client_id:
+        for name in client_id_candidates:
+            value = _get_secret_fallback(name)
+            if value:
+                client_id = value
+                os.environ.setdefault("GMAIL_CLIENT_ID", value)
+                break
+
+    client_secret = ""
+    for name in client_secret_candidates:
+        value = os.environ.get(name)
+        if value:
+            client_secret = value
+            break
+    if not client_secret:
+        for name in client_secret_candidates:
+            value = _get_secret_fallback(name)
+            if value:
+                client_secret = value
+                os.environ.setdefault("GMAIL_CLIENT_SECRET", value)
+                break
+
+    return client_id, client_secret
+
+
 def _action_value(action: object) -> str:
     if isinstance(action, Enum):
         return str(action.value)
@@ -118,6 +185,20 @@ async def _shutdown_triage_storage() -> None:
         logger.debug("Triage shared-pool shutdown skipped: %s", exc)
 
     try:
+        from aragora.server.http_client_pool import close_http_pool
+
+        await close_http_pool()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage HTTP client pool shutdown skipped: %s", exc)
+
+    try:
+        from aragora.agents.api_agents.common import close_shared_connector
+
+        await close_shared_connector()
+    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+        logger.debug("Triage API connector shutdown skipped: %s", exc)
+
+    try:
         from aragora.storage.connection_factory import close_all_pools
 
         await close_all_pools()
@@ -138,7 +219,7 @@ async def _run_triage(batch_size: int, auto_approve: bool, dry_run: bool = False
         print("Error: inbox triage module not available", file=sys.stderr)
         sys.exit(1)
 
-    profile = os.getenv("ARAGORA_TRIAGE_PROFILE", "baseline")
+    profile = os.getenv("ARAGORA_TRIAGE_PROFILE", "staged_v1")
     verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
     diagnostics = TriageRunDiagnostics(
         profile=profile,
@@ -221,22 +302,12 @@ async def _run_triage(batch_size: int, auto_approve: bool, dry_run: bool = False
 
 async def _run_gmail_auth() -> None:
     """Run interactive Gmail OAuth flow from CLI."""
-    import os
     import webbrowser
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from pathlib import Path
     from urllib.parse import parse_qs, urlparse
 
-    client_id = (
-        os.environ.get("GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_CLIENT_ID")
-    )
-    client_secret = (
-        os.environ.get("GMAIL_CLIENT_SECRET")
-        or os.environ.get("GOOGLE_GMAIL_CLIENT_SECRET")
-        or os.environ.get("GOOGLE_CLIENT_SECRET")
-    )
+    client_id, client_secret = _resolve_gmail_oauth_credentials()
 
     if not client_id or not client_secret:
         print(
@@ -321,14 +392,10 @@ async def _run_gmail_auth() -> None:
 
 def _get_gmail_connector():
     """Build and return an authenticated GmailConnector, or None."""
-    import os
     from pathlib import Path
 
-    if not (
-        os.environ.get("GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_CLIENT_ID")
-    ):
+    client_id, client_secret = _resolve_gmail_oauth_credentials()
+    if not (client_id and client_secret):
         return None
 
     try:
@@ -403,16 +470,11 @@ def _print_run_footer(decisions: list, meta: dict[str, object], diagnostics: obj
 
 def _show_status() -> None:
     """Show triage configuration status."""
-    import os
-
     print("Inbox Triage Status")
     print(f"{'─' * 40}")
 
-    has_gmail = bool(
-        os.environ.get("GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
-        or os.environ.get("GOOGLE_CLIENT_ID")
-    )
+    client_id, client_secret = _resolve_gmail_oauth_credentials()
+    has_gmail = bool(client_id and client_secret)
     print(f"  Gmail configured:     {'yes' if has_gmail else 'NO'}")
 
     from pathlib import Path

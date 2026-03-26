@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -44,6 +45,7 @@ from aragora.inbox.triage_diagnostics import (
 logger = logging.getLogger(__name__)
 
 _SUPPORTED_TRIAGE_PROFILES = {"baseline", "staged_v1"}
+_DEFAULT_TRIAGE_PROFILE = "staged_v1"
 _FAST_TIER_CONFIDENCE_THRESHOLD = 0.85
 _FAST_TIER_TIMEOUT_SECONDS = 12.0
 _HIGH_RISK_ACTIONS = {InboxWedgeAction.LABEL, InboxWedgeAction.STAR}
@@ -51,6 +53,7 @@ _DEGRADED_DIAGNOSTIC_SEVERITIES = {
     DiagnosticSeverity.BLOCKING.value,
     DiagnosticSeverity.DEGRADED.value,
 }
+_FAST_TIER_JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 _ACTION_PATTERNS = {
     AllowedAction.ARCHIVE: re.compile(r"\barchiv(?:e|ed|ing)\b", re.IGNORECASE),
@@ -151,11 +154,77 @@ def _result_status(debate_result: Any) -> str:
     return ""
 
 
+def _extract_fast_tier_json(raw_text: str) -> dict[str, Any] | None:
+    text = str(raw_text or "").strip()
+    if not text:
+        return None
+
+    match = _FAST_TIER_JSON_BLOCK_RE.search(text)
+    if match:
+        text = match.group(1).strip()
+    else:
+        brace_match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if brace_match:
+            text = brace_match.group(1).strip()
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _build_fast_tier_prompt(*, sender: str, subject: str, body: str) -> str:
+    return (
+        "You are triaging a single email for a founder inbox assistant.\n"
+        "Return ONLY valid JSON with keys action, confidence, rationale.\n"
+        "- action must be one of: archive, star, label, ignore\n"
+        "- confidence must be a number between 0 and 1\n"
+        "- rationale must be under 80 words\n\n"
+        "Confidence rubric:\n"
+        "- 0.90 to 1.00: routine, low-risk, obvious newsletters/promotions/spam or clearly ignorable mail\n"
+        "- 0.70 to 0.89: likely correct but not fully obvious\n"
+        "- below 0.70: uncertain, ambiguous, or potentially consequential\n\n"
+        "Use high confidence for obvious marketing/newsletter/archive cases.\n\n"
+        f"From: {sender}\n"
+        f"Subject: {subject}\n"
+        f"Body: {body[:2000]}\n"
+    )
+
+
+def _create_fast_triage_agent() -> Any | None:
+    from aragora.agents.base import create_agent
+
+    candidates = [
+        ("GEMINI_API_KEY", "gemini", "gemini-2.0-flash"),
+        ("GOOGLE_API_KEY", "gemini", "gemini-2.0-flash"),
+        ("OPENAI_API_KEY", "openai-api", "gpt-4.1-mini"),
+        ("ANTHROPIC_API_KEY", "anthropic-api", "claude-haiku-4-5-20251001"),
+        ("OPENROUTER_API_KEY", "openrouter", "deepseek/deepseek-chat"),
+    ]
+
+    seen_providers: set[str] = set()
+    for env_var, provider, model in candidates:
+        if not os.environ.get(env_var) or provider in seen_providers:
+            continue
+        seen_providers.add(provider)
+        try:
+            return create_agent(
+                provider,
+                name="triage-fast",
+                role="analyst",
+                model=model,
+            )
+        except (ImportError, RuntimeError, ValueError, OSError):
+            logger.debug("Fast triage agent unavailable: provider=%s", provider)
+    return None
+
+
 def _normalize_triage_profile(profile: str | None) -> str:
-    normalized = str(profile or "baseline").strip().lower()
+    normalized = str(profile or _DEFAULT_TRIAGE_PROFILE).strip().lower()
     if normalized in _SUPPORTED_TRIAGE_PROFILES:
         return normalized
-    return "baseline"
+    return _DEFAULT_TRIAGE_PROFILE
 
 
 def _result_triage_execution_metadata(debate_result: Any) -> dict[str, Any]:
@@ -596,12 +665,7 @@ class InboxTriageRunner:
         message_id = str(msg.get("id", ""))
         if self._profile == "staged_v1":
             fast_task = asyncio.create_task(
-                self._run_debate_once(
-                    msg,
-                    tier="fast",
-                    rounds=1,
-                    max_agents=2,
-                )
+                self._run_fast_tier_once(msg)
             )
             try:
                 fast_result = await asyncio.wait_for(
@@ -720,6 +784,70 @@ class InboxTriageRunner:
             profile=self._profile,
         )
 
+    async def _run_fast_tier_once(self, msg: dict[str, Any]) -> Any:
+        subject = msg.get("subject", "(no subject)")
+        sender = msg.get("from_address", msg.get("sender", "(unknown)"))
+        body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
+        agent = _create_fast_triage_agent()
+        if agent is None:
+            logger.warning("No fast triage agent available; returning blocked fast-tier result")
+            return {
+                "final_answer": "",
+                "confidence": 0.0,
+                "debate_id": f"fast-no-agent-{uuid.uuid4().hex[:8]}",
+                "status": "insufficient_participation",
+            }
+
+        prompt = _build_fast_tier_prompt(sender=sender, subject=subject, body=body)
+        try:
+            raw = await agent.generate(prompt)
+        except (RuntimeError, OSError, ValueError, TypeError) as exc:
+            logger.warning("Fast triage failed, returning blocked fast-tier result: %s", exc)
+            return {
+                "final_answer": "",
+                "confidence": 0.0,
+                "debate_id": f"fast-err-{uuid.uuid4().hex[:8]}",
+                "status": "failed",
+            }
+
+        parsed = _extract_fast_tier_json(str(raw))
+        if parsed is None:
+            logger.warning("Fast triage returned non-JSON output; returning blocked result")
+            return {
+                "final_answer": "",
+                "confidence": 0.0,
+                "debate_id": f"fast-parse-{uuid.uuid4().hex[:8]}",
+                "status": "failed",
+            }
+
+        action = str(parsed.get("action", "")).strip().lower()
+        if action not in {member.value for member in AllowedAction}:
+            logger.warning("Fast triage returned unsupported action '%s'", action)
+            return {
+                "final_answer": "",
+                "confidence": 0.0,
+                "debate_id": f"fast-action-{uuid.uuid4().hex[:8]}",
+                "status": "failed",
+            }
+
+        try:
+            confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        rationale = str(parsed.get("rationale", "")).strip()
+        final_answer = f"{action}: {rationale}" if rationale else action
+        provider = getattr(agent, "model_type", None) or getattr(agent, "name", "fast-triage")
+        return {
+            "final_answer": final_answer,
+            "confidence": confidence,
+            "consensus_reached": True,
+            "debate_id": f"fast-{uuid.uuid4().hex[:8]}",
+            "status": "completed",
+            "metadata": {
+                "triage_fast_provider": str(provider),
+            },
+        }
+
     async def _run_debate_once(
         self,
         msg: dict[str, Any],
@@ -757,8 +885,10 @@ class InboxTriageRunner:
                 env = Environment(task=question)
                 protocol = DebateProtocol(
                     rounds=rounds,
-                    consensus="majority",
+                    consensus="judge",
                     enable_research=False,
+                    convergence_detection=False,
+                    vote_grouping=False,
                     enable_trickster=False,
                     role_rotation=False,
                     role_matching=False,
@@ -795,7 +925,9 @@ class InboxTriageRunner:
                         env,
                         agents=agents,
                         protocol=protocol,
+                        enable_belief_guidance=False,
                         enable_knowledge_retrieval=False,
+                        use_rlm_limiter=False,
                         disable_post_debate_pipeline=True,
                     )
                     result = await arena.run()

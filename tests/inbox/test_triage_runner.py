@@ -11,7 +11,12 @@ import pytest
 
 from aragora.core import DebateResult
 from aragora.inbox.triage_diagnostics import DiagnosticSeverity, TriageRunDiagnostics
-from aragora.inbox.triage_runner import InboxTriageRunner, _create_triage_agents
+from aragora.inbox.triage_runner import (
+    InboxTriageRunner,
+    _create_triage_agents,
+    _extract_fast_tier_json,
+    _normalize_triage_profile,
+)
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
     ReceiptState,
@@ -61,6 +66,25 @@ def _make_envelope(
         receipt=SimpleNamespace(receipt_id=receipt_id, state=state),
         provider_route=decision.provider_route,
     )
+
+
+def test_normalize_triage_profile_defaults_to_staged_v1():
+    assert _normalize_triage_profile(None) == "staged_v1"
+    assert _normalize_triage_profile("unknown-profile") == "staged_v1"
+
+
+def test_extract_fast_tier_json_parses_fenced_payload():
+    parsed = _extract_fast_tier_json(
+        """```json
+        {"action":"archive","confidence":0.95,"rationale":"Promotional email."}
+        ```"""
+    )
+
+    assert parsed == {
+        "action": "archive",
+        "confidence": 0.95,
+        "rationale": "Promotional email.",
+    }
 
 
 @pytest.mark.asyncio
@@ -400,7 +424,7 @@ async def test_triage_message_uses_from_address_and_body_text_when_present():
 
 @pytest.mark.asyncio
 async def test_triage_message_falls_back_to_body_when_body_text_missing():
-    runner = InboxTriageRunner(gmail_connector=None)
+    runner = InboxTriageRunner(gmail_connector=None, profile="baseline")
     runner._run_debate = AsyncMock(
         return_value={
             "final_answer": "ignore",
@@ -454,7 +478,7 @@ async def test_run_debate_uses_fast_agent_subset_and_explicit_action_prompt(monk
     monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(orch_mod, "Arena", _Arena)
 
-    runner = InboxTriageRunner(gmail_connector=None)
+    runner = InboxTriageRunner(gmail_connector=None, profile="baseline")
     result = await runner._run_debate(
         {
             "id": "msg-prompt",
@@ -505,7 +529,7 @@ async def test_run_debate_disables_trending_and_post_debate_pipeline(monkeypatch
     monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(orch_mod, "Arena", _Arena)
 
-    runner = InboxTriageRunner(gmail_connector=None)
+    runner = InboxTriageRunner(gmail_connector=None, profile="baseline")
     await runner._run_debate(
         {
             "id": "msg-runtime-flags",
@@ -516,8 +540,12 @@ async def test_run_debate_disables_trending_and_post_debate_pipeline(monkeypatch
     )
 
     assert captured_kwargs["disable_post_debate_pipeline"] is True
+    assert captured_kwargs["enable_belief_guidance"] is False
     assert captured_kwargs["enable_knowledge_retrieval"] is False
+    assert captured_kwargs["use_rlm_limiter"] is False
+    assert captured_protocol["convergence_detection"] is False
     assert captured_protocol["enable_research"] is False
+    assert captured_protocol["vote_grouping"] is False
     assert "ARAGORA_DISABLE_TRENDING" not in os.environ
 
 
@@ -537,7 +565,7 @@ async def test_run_debate_returns_blocked_result_when_fewer_than_two_agents(monk
     monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(orch_mod, "Arena", MagicMock())
 
-    runner = InboxTriageRunner(gmail_connector=None)
+    runner = InboxTriageRunner(gmail_connector=None, profile="baseline")
     result = await runner._run_debate(
         {
             "id": "msg-stub",
@@ -667,7 +695,7 @@ async def test_stub_debate_result_is_blocked_instead_of_silent_ignore(monkeypatc
     monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
     monkeypatch.setattr(orch_mod, "Arena", MagicMock())
 
-    runner = InboxTriageRunner(gmail_connector=None)
+    runner = InboxTriageRunner(gmail_connector=None, profile="baseline")
     result = await runner._run_debate(
         {
             "id": "msg-stub",
@@ -693,7 +721,7 @@ async def test_staged_profile_uses_fast_tier_without_escalation(tmp_path):
         diagnostics_dir=tmp_path,
     )
     runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
-    runner._run_debate_once = AsyncMock(
+    runner._run_fast_tier_once = AsyncMock(
         return_value={
             "final_answer": "archive",
             "confidence": 0.96,
@@ -715,16 +743,13 @@ async def test_staged_profile_uses_fast_tier_without_escalation(tmp_path):
     execution = result["metadata"]["triage_execution"]
     assert execution["execution_tier"] == "fast"
     assert execution["escalation_reasons"] == []
-    runner._run_debate_once.assert_awaited_once_with(
+    runner._run_fast_tier_once.assert_awaited_once_with(
         {
             "id": "msg-fast",
             "subject": "Fast path",
             "from_address": "sender@example.com",
             "body_text": "Body",
         },
-        tier="fast",
-        rounds=1,
-        max_agents=2,
     )
 
 
@@ -739,21 +764,21 @@ async def test_staged_profile_escalates_high_risk_actions(tmp_path):
         diagnostics_dir=tmp_path,
     )
     runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
+    runner._run_fast_tier_once = AsyncMock(
+        return_value={
+            "final_answer": "star",
+            "confidence": 0.97,
+            "consensus_reached": True,
+            "debate_id": "debate-fast",
+        }
+    )
     runner._run_debate_once = AsyncMock(
-        side_effect=[
-            {
-                "final_answer": "star",
-                "confidence": 0.97,
-                "consensus_reached": True,
-                "debate_id": "debate-fast",
-            },
-            {
-                "final_answer": "archive",
-                "confidence": 0.91,
-                "consensus_reached": True,
-                "debate_id": "debate-escalated",
-            },
-        ]
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.91,
+            "consensus_reached": True,
+            "debate_id": "debate-escalated",
+        }
     )
 
     with diagnostics.activate(), diagnostics.message_scope("msg-escalated"):
@@ -769,7 +794,8 @@ async def test_staged_profile_escalates_high_risk_actions(tmp_path):
     execution = result["metadata"]["triage_execution"]
     assert execution["execution_tier"] == "escalated"
     assert "high_risk_action" in execution["escalation_reasons"]
-    assert runner._run_debate_once.await_count == 2
+    runner._run_fast_tier_once.assert_awaited_once()
+    runner._run_debate_once.assert_awaited_once()
     event_codes = [
         json.loads(line)["code"]
         for line in diagnostics.events_path.read_text().splitlines()
@@ -789,7 +815,7 @@ async def test_staged_profile_truthfully_stops_on_no_consensus(tmp_path):
         diagnostics_dir=tmp_path,
     )
     runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
-    runner._run_debate_once = AsyncMock(
+    runner._run_fast_tier_once = AsyncMock(
         return_value={
             "final_answer": "archive",
             "confidence": 0.84,
@@ -811,7 +837,7 @@ async def test_staged_profile_truthfully_stops_on_no_consensus(tmp_path):
     execution = result["metadata"]["triage_execution"]
     assert execution["execution_tier"] == "fast"
     assert execution["escalation_reasons"] == ["no_consensus"]
-    runner._run_debate_once.assert_awaited_once()
+    runner._run_fast_tier_once.assert_awaited_once()
     event_codes = [
         json.loads(line)["code"]
         for line in diagnostics.events_path.read_text().splitlines()
@@ -831,7 +857,7 @@ async def test_staged_profile_truthfully_stops_on_parse_failed_fast_result(tmp_p
         diagnostics_dir=tmp_path,
     )
     runner = InboxTriageRunner(gmail_connector=None, diagnostics=diagnostics, profile="staged_v1")
-    runner._run_debate_once = AsyncMock(
+    runner._run_fast_tier_once = AsyncMock(
         return_value={
             "final_answer": "archive or ignore depending on urgency",
             "confidence": 0.94,
@@ -853,7 +879,7 @@ async def test_staged_profile_truthfully_stops_on_parse_failed_fast_result(tmp_p
     execution = result["metadata"]["triage_execution"]
     assert execution["execution_tier"] == "fast"
     assert execution["escalation_reasons"] == ["parse_failed"]
-    runner._run_debate_once.assert_awaited_once()
+    runner._run_fast_tier_once.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -878,7 +904,7 @@ async def test_staged_profile_returns_blocked_timeout_without_escalation(tmp_pat
         }
 
     monkeypatch.setattr("aragora.inbox.triage_runner._FAST_TIER_TIMEOUT_SECONDS", 0.01)
-    runner._run_debate_once = AsyncMock(side_effect=_slow_debate)
+    runner._run_fast_tier_once = AsyncMock(side_effect=_slow_debate)
 
     with diagnostics.activate(), diagnostics.message_scope("msg-timeout-fast"):
         result = await runner._run_debate(
@@ -894,7 +920,7 @@ async def test_staged_profile_returns_blocked_timeout_without_escalation(tmp_pat
     assert execution["execution_tier"] == "fast"
     assert execution["escalation_reasons"] == ["fast_timeout", "no_consensus", "parse_failed"]
     assert result["status"] == "timeout"
-    runner._run_debate_once.assert_awaited_once()
+    runner._run_fast_tier_once.assert_awaited_once()
     event_codes = [
         json.loads(line)["code"]
         for line in diagnostics.events_path.read_text().splitlines()

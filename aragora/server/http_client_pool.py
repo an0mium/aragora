@@ -541,6 +541,20 @@ def get_http_pool() -> HTTPClientPool:
     return HTTPClientPool.get_instance()
 
 
+async def close_http_pool() -> None:
+    """Close the global HTTP client pool singleton when one exists."""
+    pool = HTTPClientPool._instance
+    if pool is None:
+        return
+
+    try:
+        await pool.aclose()
+    finally:
+        with HTTPClientPool._lock:
+            if HTTPClientPool._instance is pool:
+                HTTPClientPool._instance = None
+
+
 __all__ = [
     "HTTPClientPool",
     "HTTPPoolConfig",
@@ -548,4 +562,5 @@ __all__ = [
     "ProviderMetrics",
     "PROVIDER_CONFIGS",
     "get_http_pool",
+    "close_http_pool",
 ]

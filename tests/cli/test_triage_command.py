@@ -106,6 +106,37 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
 
 
 @pytest.mark.asyncio
+async def test_run_triage_defaults_to_staged_profile(tmp_path, monkeypatch):
+    decision = TriageDecision.create(
+        final_action="archive",
+        confidence=0.92,
+        dissent_summary="",
+        receipt_id="receipt-default-profile",
+    )
+    monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
+    monkeypatch.delenv("ARAGORA_TRIAGE_PROFILE", raising=False)
+    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]))
+    fake_service = SimpleNamespace(review_receipt=object())
+    captured: dict[str, object] = {}
+
+    def _runner_factory(**kwargs):
+        captured.update(kwargs)
+        return fake_runner
+
+    with (
+        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch("aragora.inbox.triage_runner.InboxTriageRunner", side_effect=_runner_factory),
+        patch(
+            "aragora.inbox.trust_wedge.get_inbox_trust_wedge_service",
+            return_value=fake_service,
+        ),
+    ):
+        await triage_cmd._run_triage(batch_size=1, auto_approve=False, dry_run=True)
+
+    assert captured["profile"] == "staged_v1"
+
+
+@pytest.mark.asyncio
 async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkeypatch):
     decision = TriageDecision.create(
         final_action="archive",
@@ -193,6 +224,36 @@ async def test_initialize_triage_storage_bootstraps_shared_pool():
     mocked.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_shutdown_triage_storage_closes_http_pool():
+    with (
+        patch(
+            "aragora.server.startup.database.close_postgres_pool",
+            AsyncMock(),
+        ) as close_postgres_pool,
+        patch(
+            "aragora.server.http_client_pool.close_http_pool",
+            AsyncMock(),
+        ) as close_http_pool,
+        patch(
+            "aragora.agents.api_agents.common.close_shared_connector",
+            AsyncMock(),
+        ) as close_shared_connector,
+        patch(
+            "aragora.storage.connection_factory.close_all_pools",
+            AsyncMock(),
+        ) as close_all_pools,
+        patch("aragora.cli.commands.triage.asyncio.sleep", AsyncMock()) as sleep,
+    ):
+        await triage_cmd._shutdown_triage_storage()
+
+    close_postgres_pool.assert_awaited_once()
+    close_http_pool.assert_awaited_once()
+    close_shared_connector.assert_awaited_once()
+    close_all_pools.assert_awaited_once()
+    sleep.assert_awaited_once_with(0.05)
+
+
 def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkeypatch):
     class _FakeConnector:
         def __init__(self):
@@ -209,6 +270,39 @@ def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkey
     with patch(
         "aragora.connectors.enterprise.communication.gmail.GmailConnector",
         _FakeConnector,
+    ):
+        connector = triage_cmd._get_gmail_connector()
+
+    assert connector is not None
+    assert connector._refresh_token == "refresh-from-file"
+
+
+def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monkeypatch):
+    class _FakeConnector:
+        def __init__(self):
+            self._refresh_token = None
+
+    token_dir = Path(tmp_path) / ".aragora"
+    token_dir.mkdir()
+    (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+
+    with (
+        patch.object(
+            triage_cmd,
+            "_get_secret_fallback",
+            side_effect=lambda name: {
+                "GMAIL_CLIENT_ID": "secret-client-id",
+                "GMAIL_CLIENT_SECRET": "secret-client-secret",
+            }.get(name, ""),
+        ),
+        patch(
+            "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+            _FakeConnector,
+        ),
     ):
         connector = triage_cmd._get_gmail_connector()
 
@@ -233,6 +327,32 @@ def test_show_status_reports_refresh_token(tmp_path, monkeypatch, capsys):
     assert "Durable signing key:  yes" in out
     assert "Gmail refresh token:  yes" in out
     assert "OpenRouter fallback:  yes" in out
+
+
+def test_show_status_reports_gmail_from_secret_fallback(tmp_path, monkeypatch, capsys):
+    token_dir = Path(tmp_path) / ".aragora"
+    token_dir.mkdir()
+    (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
+    (token_dir / "signing.key").write_text("dummy-signing-key")
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+
+    with patch.object(
+        triage_cmd,
+        "_get_secret_fallback",
+        side_effect=lambda name: {
+            "GMAIL_CLIENT_ID": "secret-client-id",
+            "GMAIL_CLIENT_SECRET": "secret-client-secret",
+        }.get(name, ""),
+    ):
+        triage_cmd._show_status()
+
+    out = capsys.readouterr().out
+    assert "Gmail configured:     yes" in out
+    assert "Durable signing key:  yes" in out
+    assert "Gmail refresh token:  yes" in out
 
 
 @pytest.mark.asyncio
