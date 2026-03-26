@@ -121,6 +121,8 @@ class BackupHandler(BaseHandler):
         method: str = getattr(handler, "command", "GET") if handler else "GET"
         body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
         query_params = query_params or {}
+        if path.rstrip("/") == "/api/v2/backups":
+            path = "/api/v2/backups"
 
         try:
             # Stats endpoint

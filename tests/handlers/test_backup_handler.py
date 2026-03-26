@@ -283,6 +283,15 @@ class TestListBackups:
         assert data["pagination"]["total"] == 0
 
     @pytest.mark.asyncio
+    async def test_list_trailing_slash_routes_to_index(self, handler, mock_manager):
+        mock_manager.list_backups.return_value = [_make_backup("bk-1")]
+        result = await handler.handle("/api/v2/backups/", {}, _http("GET"))
+        assert result.status_code == 200
+        data = _body(result)
+        assert len(data["backups"]) == 1
+        assert data["backups"][0]["id"] == "bk-1"
+
+    @pytest.mark.asyncio
     async def test_list_returns_backups(self, handler, mock_manager):
         mock_manager.list_backups.return_value = [_make_backup("bk-1"), _make_backup("bk-2")]
         result = await handler.handle("/api/v2/backups", {}, _http("GET"))

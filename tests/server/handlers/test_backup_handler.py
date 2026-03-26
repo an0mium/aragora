@@ -320,6 +320,13 @@ class TestListBackups:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_list_backups_trailing_slash_routes_to_index(self, handler):
+        """Test trailing slash routes to the list endpoint instead of empty backup id lookup."""
+        mock_request = MockHTTPHandler("GET")
+        result = await handler.handle("/api/v2/backups/", {}, mock_request)
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
     async def test_list_backups_with_filters(self, handler):
         """Test listing backups with query filters."""
         mock_request = MockHTTPHandler("GET")

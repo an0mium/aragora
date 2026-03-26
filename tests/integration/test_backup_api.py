@@ -143,6 +143,19 @@ class TestBackupAPIEndpoints:
             assert result.status_code in (200, 500)  # 500 if manager unavailable
 
     @pytest.mark.asyncio
+    async def test_list_backups_trailing_slash(self, backup_handler, mock_backup_manager):
+        """Test listing backups endpoint with a trailing slash alias."""
+        with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
+            result = await backup_handler.handle(
+                path="/api/v2/backups/",
+                query_params={"limit": "10"},
+                handler=None,
+            )
+
+            assert result is not None
+            assert result.status_code in (200, 500)
+
+    @pytest.mark.asyncio
     async def test_create_backup(self, backup_handler, mock_backup_manager):
         """Test creating a backup."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
