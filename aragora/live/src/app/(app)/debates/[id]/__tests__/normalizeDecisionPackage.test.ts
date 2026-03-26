@@ -38,6 +38,25 @@ describe('normalizeDecisionPackage', () => {
     expect(normalized.next_steps).toEqual(['step one', 'step two']);
   });
 
+  it('normalizes structured next-step objects into display strings', () => {
+    const normalized = normalizeDecisionPackage(
+      {
+        id: 'debate-4',
+        next_steps: [
+          { action: 'Proceed with implementation', priority: 'high' },
+          { unexpected: true },
+          'Document the rollout',
+        ],
+      },
+      'fallback-id'
+    );
+
+    expect(normalized.next_steps).toEqual([
+      'Proceed with implementation',
+      'Document the rollout',
+    ]);
+  });
+
   it('normalizes malformed receipt to null', () => {
     const normalized = normalizeDecisionPackage(
       {

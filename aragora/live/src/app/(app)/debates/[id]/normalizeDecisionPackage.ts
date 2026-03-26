@@ -94,6 +94,17 @@ function normalizeReceipt(value: unknown): DecisionPackage['receipt'] {
   };
 }
 
+function normalizeNextSteps(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      const obj = asObject(item);
+      return obj ? asString(obj.action) : '';
+    })
+    .filter(Boolean);
+}
+
 export function normalizeDecisionPackage(raw: unknown, fallbackId: string): DecisionPackage {
   const obj = asObject(raw) ?? {};
 
@@ -111,7 +122,7 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
     cost_breakdown: normalizeCostBreakdown(obj.cost_breakdown),
     total_cost: asNumber(obj.total_cost, 0),
     receipt: normalizeReceipt(obj.receipt),
-    next_steps: asStringArray(obj.next_steps),
+    next_steps: normalizeNextSteps(obj.next_steps),
     created_at: asString(obj.created_at, new Date().toISOString()),
     duration_seconds: asNumber(obj.duration_seconds, 0),
   };
