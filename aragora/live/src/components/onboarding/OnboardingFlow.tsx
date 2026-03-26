@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/utils/logger';
 import {
@@ -26,7 +26,7 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   const router = useRouter();
-  const apiBase = API_BASE_URL;
+  const apiBase = getRuntimeBackendConfig().config.api;
   const {
     currentStep,
     nextStep,

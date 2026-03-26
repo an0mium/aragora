@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { TEMPLATES, type TemplateCategory } from '@/components/templates/templateData';
 
@@ -25,7 +25,7 @@ export function TryDebateStep() {
   const fallbackTemplates = TEMPLATES.filter((t) => t.category === 'general');
   const templates = industryTemplates.length > 0 ? industryTemplates : fallbackTemplates;
 
-  const apiBase = API_BASE_URL;
+  const apiBase = getRuntimeBackendConfig().config.api;
 
   const runTrial = useCallback(async () => {
     setLoading(true);

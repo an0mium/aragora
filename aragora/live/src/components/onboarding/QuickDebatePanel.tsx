@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { logger } from '@/utils/logger';
 
 const DEFAULT_QUESTIONS: Record<string, string> = {
@@ -15,6 +15,7 @@ const DEFAULT_QUESTIONS: Record<string, string> = {
 };
 
 export function QuickDebatePanel() {
+  const apiBase = getRuntimeBackendConfig().config.api;
   const selectedTemplate = useOnboardingStore((s) => s.selectedTemplate);
   const debateStatus = useOnboardingStore((s) => s.debateStatus);
   const debateError = useOnboardingStore((s) => s.debateError);
@@ -39,7 +40,7 @@ export function QuickDebatePanel() {
     setFirstDebateTopic(question);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/debates`, {
+      const res = await fetch(`${apiBase}/api/v1/debates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,7 +74,7 @@ export function QuickDebatePanel() {
       await new Promise((r) => setTimeout(r, 3000));
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/v1/debates/${debateId}/status`
+          `${apiBase}/api/v1/debates/${debateId}/status`
         );
         if (!res.ok) continue;
         const data = await res.json();
