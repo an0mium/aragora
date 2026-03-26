@@ -94,6 +94,13 @@ describe('OnboardingPage', () => {
       expect.stringContaining('https://api.aragora.ai/api/debate'),
       expect.anything(),
     );
+    const [, requestInit] = mockFetch.mock.calls.at(-1) as [string, RequestInit];
+    expect(JSON.parse(requestInit.body as string)).toEqual(
+      expect.objectContaining({
+        question: 'Should we raise our next round now or wait 6 months?',
+        agents: ['anthropic-api', 'openai-api', 'mistral'],
+      }),
+    );
     expect(mockPush).toHaveBeenCalledWith('/debate/debate-123');
   });
 });
