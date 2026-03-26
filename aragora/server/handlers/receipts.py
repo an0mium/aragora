@@ -300,9 +300,8 @@ class ReceiptsHandler(BaseHandler):
         """
         if path == "/api/v1/receipts/deliveries/":
             return "/api/v1/receipts/deliveries"
-        if path.startswith("/api/v2/receipts/"):
-            normalized = path.rstrip("/")
-            return normalized or path
+        if path == "/api/v2/receipts/":
+            return "/api/v2/receipts"
         return path
 
     @rate_limit(requests_per_minute=60)
