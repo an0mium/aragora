@@ -118,43 +118,38 @@ export function useOrchCanvas(canvasId: string | null) {
     const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
     if (!pipelineId) return null;
 
-    // Mark all nodes as creating workflow
+    // Mark all nodes as entering execution while the orchestration plan queues.
     setNodes((nds) => nds.map((n) => ({
       ...n, data: { ...n.data, workflowStatus: 'creating' as const },
     })));
 
-    // Run the pipeline
-    await fetch('/api/v1/canvas/pipeline/run', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pipeline_id: pipelineId }),
-    });
-
-    // Trigger workflow creation from the pipeline
-    let workflowId: string | undefined;
     try {
-      const wfRes = await fetch(`/api/v2/pipeline/runs/${pipelineId}/execute-workflow`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const executionRes = await fetch(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dry_run: false, enable_receipts: true }),
       });
-      if (wfRes.ok) {
-        const wfData = await wfRes.json();
-        workflowId = wfData.workflow_id as string;
-        // Mark nodes as started
+
+      if (executionRes.ok) {
+        const executionData = await executionRes.json();
         setNodes((nds) => nds.map((n) => ({
           ...n, data: { ...n.data, workflowStatus: 'started' as const },
         })));
+        return {
+          pipelineId: (executionData.pipeline_id as string | undefined) || pipelineId,
+        };
       } else {
-        // Workflow creation failed — reset status
         setNodes((nds) => nds.map((n) => ({
           ...n, data: { ...n.data, workflowStatus: 'failed' as const },
         })));
+        return null;
       }
     } catch {
       setNodes((nds) => nds.map((n) => ({
         ...n, data: { ...n.data, workflowStatus: 'failed' as const },
       })));
+      return null;
     }
-
-    return { pipelineId, workflowId };
   }, [canvasId, canvasMeta, setNodes]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
