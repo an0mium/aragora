@@ -34,6 +34,7 @@ from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
 from aragora.billing.tier_gating import require_tier
 from aragora.rbac.decorators import require_permission
+from aragora.utils.async_utils import run_async
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -536,7 +537,8 @@ class TeamsWorkspaceHandler(SecureHandler):
             tenant_id: Azure AD tenant ID
 
         Query Parameters:
-            team_id: Optional team ID to filter channels
+            team_id: Team ID to list channels for (required)
+            include_private: Whether to include private channels (default: false)
 
         Returns:
             JSON response with channel list:
@@ -567,32 +569,42 @@ class TeamsWorkspaceHandler(SecureHandler):
             return error_response("Workspace not found", 404)
 
         team_id = get_string_param(handler, "team_id", None)
+        if not team_id:
+            return error_response("team_id is required to list Teams channels", 400)
 
-        # Try to fetch channels from Teams API
+        include_private = (
+            get_string_param(handler, "include_private", "false") or "false"
+        ).lower() in {"1", "true", "yes", "on"}
+
         channels: list[dict[str, Any]] = []
 
         try:
-            from aragora.connectors.enterprise.collaboration.teams import (
-                TeamsEnterpriseConnector,
-            )
+            from aragora.connectors.chat.teams import TeamsConnector
 
-            _connector = TeamsEnterpriseConnector(  # noqa: F841
+            connector = TeamsConnector(
+                app_id=workspace.bot_id,
+                app_password=workspace.access_token,
                 tenant_id=workspace.tenant_id,
             )
-            # Note: In production, this would make actual API calls
-            # For now, return placeholder indicating API integration needed
+            connector_channels = run_async(
+                connector.list_channels(
+                    team_id=team_id,
+                    include_private=include_private,
+                )
+            )
             channels = [
                 {
-                    "id": "placeholder",
-                    "team_id": team_id or "default",
-                    "display_name": "Channel listing requires Graph API integration",
-                    "description": "Configure Microsoft Graph API credentials to list channels",
-                    "web_url": "",
+                    "id": channel.id,
+                    "team_id": channel.team_id or team_id,
+                    "display_name": channel.name,
+                    "description": channel.metadata.get("description", ""),
+                    "web_url": channel.metadata.get("web_url", ""),
                 }
+                for channel in connector_channels
             ]
         except ImportError:
             logger.warning("Teams connector not available")
-        except (RuntimeError, ValueError, OSError) as e:
+        except (RuntimeError, ValueError, OSError, TimeoutError) as e:
             logger.warning("Failed to list Teams channels: %s", e)
 
         return json_response(

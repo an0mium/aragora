@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.connectors.chat.models import ChatChannel
 from aragora.server.handlers.sme.slack_workspace import SlackWorkspaceHandler
 
 
@@ -335,13 +336,57 @@ class TestListChannels:
         workspace = MockSlackWorkspace()
         mock_workspace_store.get.return_value = workspace
 
-        request = MockRequest(command="GET")
-        result = handler._list_channels(request, {}, "T12345678", user=MockUser())
+        request = MockRequest(
+            command="GET",
+            query_params={"types": "public_channel,private_channel"},
+        )
+        connector_channels = [
+            ChatChannel(
+                id="C12345678",
+                platform="slack",
+                name="general",
+                metadata={"num_members": 42},
+            ),
+            ChatChannel(
+                id="C99999999",
+                platform="slack",
+                name="private-room",
+                is_private=True,
+                metadata={"num_members": 3},
+            ),
+        ]
+
+        with patch("aragora.connectors.chat.slack.SlackConnector") as mock_connector_cls:
+            mock_connector = MagicMock()
+            mock_connector.list_channels = AsyncMock(return_value=connector_channels)
+            mock_connector_cls.return_value = mock_connector
+            result = handler._list_channels(request, {}, "T12345678", user=MockUser())
 
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert "channels" in body
+        assert body["channels"] == [
+            {
+                "id": "C12345678",
+                "name": "general",
+                "is_private": False,
+                "num_members": 42,
+            },
+            {
+                "id": "C99999999",
+                "name": "private-room",
+                "is_private": True,
+                "num_members": 3,
+            },
+        ]
         assert body["workspace_id"] == "T12345678"
+        mock_connector_cls.assert_called_once_with(
+            bot_token=workspace.access_token,
+            workspace_id=workspace.workspace_id,
+        )
+        mock_connector.list_channels.assert_awaited_once_with(
+            types="public_channel,private_channel",
+            limit=100,
+        )
 
 
 class TestSubscribeChannel:

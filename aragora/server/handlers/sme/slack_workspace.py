@@ -35,6 +35,7 @@ from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
 from aragora.billing.tier_gating import require_tier
 from aragora.rbac.decorators import require_permission
+from aragora.utils.async_utils import run_async
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -579,6 +580,7 @@ class SlackWorkspaceHandler(SecureHandler):
 
         Query Parameters:
             types: Channel types to include (public_channel, private_channel)
+            limit: Maximum number of channels to return (default: 100)
 
         Returns:
             JSON response with channel list:
@@ -607,28 +609,36 @@ class SlackWorkspaceHandler(SecureHandler):
         if workspace.tenant_id != org.id:
             return error_response("Workspace not found", 404)
 
-        _types = get_string_param(handler, "types", "public_channel")  # noqa: F841
+        channel_types = get_string_param(handler, "types", "public_channel")
+        limit = int(get_string_param(handler, "limit", "100"))
 
-        # Try to fetch channels from Slack API
         channels: list[dict[str, Any]] = []
 
         try:
             from aragora.connectors.chat.slack import SlackConnector
 
-            _connector = SlackConnector(token=workspace.access_token)  # noqa: F841
-            # Note: In production, this would make actual API calls
-            # For now, return placeholder indicating API integration needed
+            connector = SlackConnector(
+                bot_token=workspace.access_token,
+                workspace_id=workspace.workspace_id,
+            )
+            connector_channels = run_async(
+                connector.list_channels(
+                    types=channel_types or "public_channel",
+                    limit=limit,
+                )
+            )
             channels = [
                 {
-                    "id": "placeholder",
-                    "name": "Channel listing requires Slack Web API integration",
-                    "is_private": False,
-                    "num_members": 0,
+                    "id": channel.id,
+                    "name": channel.name,
+                    "is_private": channel.is_private,
+                    "num_members": channel.metadata.get("num_members", 0),
                 }
+                for channel in connector_channels
             ]
         except ImportError:
             logger.warning("Slack connector not available")
-        except (RuntimeError, ValueError, OSError) as e:
+        except (RuntimeError, ValueError, OSError, TimeoutError) as e:
             logger.warning("Failed to list Slack channels: %s", e)
 
         return json_response(

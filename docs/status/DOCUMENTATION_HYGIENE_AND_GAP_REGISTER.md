@@ -73,8 +73,8 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - `aragora/server/handlers/agent_evolution_dashboard.py` still raises `NotImplementedError("No real pending changes store yet")` for pending-change retrieval.
 - `aragora/server/handlers/goal_canvas.py` still returns placeholder data for advancing a canvas into the actions stage.
 - `aragora/server/handlers/spectate_ws.py` now serves `/api/v1/spectate/stream` as a finite buffered SSE snapshot with JSON preview fallback; full real-time streaming on that endpoint still has not shipped.
-- `aragora/server/handlers/sme/slack_workspace.py` has placeholder channel listing plus placeholder SME OAuth start/callback endpoints.
-- `aragora/server/handlers/sme/teams_workspace.py` has placeholder channel listing plus placeholder SME OAuth start/callback endpoints.
+- `aragora/server/handlers/sme/slack_workspace.py` now uses the live Slack connector for channel listing, but the SME OAuth start/callback endpoints are still placeholder-backed.
+- `aragora/server/handlers/sme/teams_workspace.py` now uses the live Teams connector for channel listing when `team_id` is supplied, but the SME OAuth start/callback endpoints are still placeholder-backed.
 - `aragora/inbox/triage_runner.py` can still fall back to stub debates when agents or engine wiring are unavailable.
 - `aragora/server/handlers/gauntlet/receipts.py` and the compliance UI still have placeholder or optional anchor-verification paths.
 - `aragora/server/handlers/security_debate.py` exposes an async-status endpoint that is explicitly a placeholder because debates are synchronous and not persisted.
@@ -91,7 +91,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 
 ### Documentation Positioning Needed
 
-- Slack and Teams integration docs should distinguish between shipped general integrations and still-placeholder SME workspace onboarding/channel enumeration surfaces.
+- Slack and Teams integration docs should distinguish between shipped general integrations and still-partial SME workspace onboarding/OAuth helper surfaces.
 - `docs/status/FEATURE_DISCOVERY.md` still contains some optimistic `Stable` labels for backend-conditional or placeholder-backed surfaces and should continue to be tightened.
 - RLM and unified memory inventory entries need to reference current file paths (`aragora/server/handlers/rlm.py`, `aragora/memory/gateway.py`, related modules) rather than stale package layouts.
 - Knowledge Mound adapter counts need a dedicated normalization sweep: many current docs still say `45`, while the current factory registry exposes `42` adapter specs.

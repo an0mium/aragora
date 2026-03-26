@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.connectors.chat.models import ChatChannel
 from aragora.server.handlers.sme.teams_workspace import TeamsWorkspaceHandler
 
 
@@ -378,18 +379,67 @@ class TestListChannels:
 
         assert result.status_code == 404
 
-    def test_list_channels_success(self, handler, mock_workspace_store):
-        """Test listing channels successfully."""
+    def test_list_channels_requires_team_id(self, handler, mock_workspace_store):
+        """Test listing channels requires a team_id query parameter."""
         workspace = MockTeamsWorkspace()
         mock_workspace_store.get.return_value = workspace
 
         request = MockRequest(command="GET")
         result = handler._list_channels(request, {}, "tenant-123", user=MockUser())
 
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert body["error"] == "team_id is required to list Teams channels"
+
+    def test_list_channels_success(self, handler, mock_workspace_store):
+        """Test listing channels successfully."""
+        workspace = MockTeamsWorkspace()
+        mock_workspace_store.get.return_value = workspace
+
+        request = MockRequest(
+            command="GET",
+            query_params={"team_id": "team-123", "include_private": "true"},
+        )
+        connector_channels = [
+            ChatChannel(
+                id="channel-123",
+                platform="teams",
+                name="General",
+                team_id="team-123",
+                metadata={
+                    "description": "Main discussion channel",
+                    "web_url": "https://teams.example/channel-123",
+                },
+            )
+        ]
+
+        with patch("aragora.connectors.chat.teams.TeamsConnector") as mock_connector_cls:
+            mock_connector = MagicMock()
+            mock_connector.list_channels = AsyncMock(return_value=connector_channels)
+            mock_connector_cls.return_value = mock_connector
+            result = handler._list_channels(request, {}, "tenant-123", user=MockUser())
+
         assert result.status_code == 200
         body = json.loads(result.body)
-        assert "channels" in body
+        assert body["channels"] == [
+            {
+                "id": "channel-123",
+                "team_id": "team-123",
+                "display_name": "General",
+                "description": "Main discussion channel",
+                "web_url": "https://teams.example/channel-123",
+            }
+        ]
         assert body["tenant_id"] == "tenant-123"
+        mock_connector_cls.assert_called_once_with(
+            app_id=workspace.bot_id,
+            app_password=workspace.access_token,
+            tenant_id=workspace.tenant_id,
+        )
+        mock_connector.list_channels.assert_awaited_once_with(
+            team_id="team-123",
+            include_private=True,
+        )
 
 
 class TestSubscribeChannel:
