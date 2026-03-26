@@ -14,6 +14,8 @@ Provides async receipt management endpoints:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from datetime import datetime, timezone
 from enum import Enum
@@ -223,6 +225,19 @@ async def get_receipt_store(request: Request):
         raise HTTPException(status_code=503, detail="Receipt store not available")
 
 
+async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run receipt store methods without blocking the FastAPI event loop."""
+
+    method = getattr(store, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -365,11 +380,19 @@ async def list_receipts(
             filter_kwargs["verdict"] = verdict
 
         if hasattr(store, "list_recent"):
-            results = store.list_recent(limit=limit, offset=offset, verdict=verdict)
+            results = await _call_store_method(
+                store,
+                "list_recent",
+                limit=limit,
+                offset=offset,
+                verdict=verdict,
+            )
         elif hasattr(store, "list"):
-            results = store.list(limit=limit, offset=offset, **filter_kwargs)
+            results = await _call_store_method(
+                store, "list", limit=limit, offset=offset, **filter_kwargs
+            )
         elif hasattr(store, "list_all"):
-            all_receipts = store.list_all()
+            all_receipts = await _call_store_method(store, "list_all")
             if verdict:
                 all_receipts = [
                     r
@@ -382,7 +405,7 @@ async def list_receipts(
             results = []
 
         if hasattr(store, "count"):
-            total = store.count(verdict=verdict)
+            total = await _call_store_method(store, "count", verdict=verdict)
         else:
             total = len(results)
 
@@ -429,14 +452,20 @@ async def search_receipts(
             search_kwargs["date_to"] = date_to
 
         if hasattr(store, "search"):
-            raw_results = store.search(query=q, **search_kwargs)
+            raw_results = await _call_store_method(store, "search", query=q, **search_kwargs)
             results = list(raw_results)
             if hasattr(store, "search_count"):
-                total = store.search_count(query=q, verdict=verdict, risk_level=risk_level)
+                total = await _call_store_method(
+                    store,
+                    "search_count",
+                    query=q,
+                    verdict=verdict,
+                    risk_level=risk_level,
+                )
             else:
                 total = len(results)
         elif hasattr(store, "list_all"):
-            all_receipts = store.list_all()
+            all_receipts = await _call_store_method(store, "list_all")
             query_lower = q.lower()
             for r in all_receipts:
                 data = r if isinstance(r, dict) else (r.to_dict() if hasattr(r, "to_dict") else {})
@@ -466,7 +495,7 @@ async def get_receipt_stats(
         stats: dict[str, Any] = {}
 
         if hasattr(store, "get_stats"):
-            raw_stats = store.get_stats()
+            raw_stats = await _call_store_method(store, "get_stats")
             if isinstance(raw_stats, dict):
                 stats = raw_stats
 
@@ -498,9 +527,9 @@ async def batch_verify_receipts(
             try:
                 receipt_data = None
                 if hasattr(store, "get"):
-                    receipt_data = store.get(rid)
+                    receipt_data = await _call_store_method(store, "get", rid)
                 elif hasattr(store, "get_by_id"):
-                    receipt_data = store.get_by_id(rid)
+                    receipt_data = await _call_store_method(store, "get_by_id", rid)
 
                 if not receipt_data:
                     results.append(
@@ -598,9 +627,9 @@ async def batch_export_receipts(
             try:
                 receipt_data = None
                 if hasattr(store, "get"):
-                    receipt_data = store.get(rid)
+                    receipt_data = await _call_store_method(store, "get", rid)
                 elif hasattr(store, "get_by_id"):
-                    receipt_data = store.get_by_id(rid)
+                    receipt_data = await _call_store_method(store, "get_by_id", rid)
 
                 if not receipt_data:
                     failed_ids.append(rid)
@@ -657,9 +686,9 @@ async def get_receipt(
         receipt_data = None
 
         if hasattr(store, "get"):
-            receipt_data = store.get(receipt_id)
+            receipt_data = await _call_store_method(store, "get", receipt_id)
         elif hasattr(store, "get_by_id"):
-            receipt_data = store.get_by_id(receipt_id)
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
 
         if not receipt_data:
             raise NotFoundError(f"Receipt {receipt_id} not found")
@@ -722,9 +751,9 @@ async def verify_receipt(
         receipt_data = None
 
         if hasattr(store, "get"):
-            receipt_data = store.get(receipt_id)
+            receipt_data = await _call_store_method(store, "get", receipt_id)
         elif hasattr(store, "get_by_id"):
-            receipt_data = store.get_by_id(receipt_id)
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
 
         if not receipt_data:
             raise NotFoundError(f"Receipt {receipt_id} not found")
@@ -793,9 +822,9 @@ async def export_receipt(
         receipt_data = None
 
         if hasattr(store, "get"):
-            receipt_data = store.get(receipt_id)
+            receipt_data = await _call_store_method(store, "get", receipt_id)
         elif hasattr(store, "get_by_id"):
-            receipt_data = store.get_by_id(receipt_id)
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
 
         if not receipt_data:
             raise NotFoundError(f"Receipt {receipt_id} not found")
