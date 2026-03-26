@@ -6,6 +6,7 @@ import DebateDetailClient from '../DebateDetailClient';
 const mockFetch = jest.fn();
 const mockSetContext = jest.fn();
 const mockClearContext = jest.fn();
+const mockSearchParamsGet = jest.fn();
 const mockGetAuthHeaders = jest.fn(() => ({
   'Content-Type': 'application/json',
   Authorization: 'Bearer test-token',
@@ -15,6 +16,9 @@ global.fetch = mockFetch as unknown as typeof fetch;
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'debate-123' }),
+  useSearchParams: () => ({
+    get: mockSearchParamsGet,
+  }),
 }));
 
 jest.mock('next/link', () => ({
@@ -122,7 +126,11 @@ describe('DebateDetailClient bridge actions', () => {
             rounds: 3,
             duration_seconds: 42,
             final_answer: 'Bridge it.',
-            receipt: { signers: ['sig-1'] },
+            receipt: {
+              hash: 'sha256:test-receipt',
+              timestamp: '2026-03-26T20:00:00Z',
+              signers: ['sig-1'],
+            },
             cost_breakdown: null,
             total_cost: 0,
           }),
@@ -135,6 +143,8 @@ describe('DebateDetailClient bridge actions', () => {
 
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
     });
+
+    mockSearchParamsGet.mockReturnValue(null);
   });
 
   it('sends authenticated headers when triggering the bridge action', async () => {
@@ -161,5 +171,14 @@ describe('DebateDetailClient bridge actions', () => {
 
     expect(mockGetAuthHeaders).toHaveBeenCalled();
     expect(await screen.findByText(/jira triggered/i)).toBeInTheDocument();
+  });
+
+  it('opens the receipt tab directly when requested in the URL', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => (key === 'tab' ? 'receipt' : null));
+
+    render(<DebateDetailClient />);
+
+    expect(await screen.findByText(/cryptographic receipt/i)).toBeInTheDocument();
+    expect(screen.getByText('sha256:test-receipt')).toBeInTheDocument();
   });
 });

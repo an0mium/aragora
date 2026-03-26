@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
@@ -22,6 +22,7 @@ type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
 
 export default function DebateDetailClient() {
   const params = useParams<{ id?: string | string[] }>();
+  const searchParams = useSearchParams();
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] || '' : rawId || '';
   const { config: backendConfig } = useBackend();
@@ -42,6 +43,7 @@ export default function DebateDetailClient() {
   const [isPaused, setIsPaused] = useState(false);
 
   const { setContext, clearContext } = useRightSidebar();
+  const requestedTab = searchParams.get('tab');
 
   // WebSocket hook — only connect when debate is in_progress
   const ws = useDebateWebSocket({
@@ -209,6 +211,18 @@ export default function DebateDetailClient() {
     { key: 'receipt', label: 'RECEIPT' },
     { key: 'export', label: 'EXPORT' },
   ];
+
+  useEffect(() => {
+    if (
+      requestedTab === 'overview' ||
+      requestedTab === 'arguments' ||
+      requestedTab === 'graph' ||
+      requestedTab === 'receipt' ||
+      requestedTab === 'export'
+    ) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   // Live streaming view — debate is in progress
   if (debateStatus === 'in_progress') {

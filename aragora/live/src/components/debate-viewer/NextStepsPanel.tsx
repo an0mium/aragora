@@ -105,7 +105,7 @@ export function NextStepsPanel({ debateId }: NextStepsPanelProps) {
 
         {/* View Receipt */}
         <Link
-          href={`/receipt/${debateId}`}
+          href={`/debates/${debateId}?tab=receipt`}
           className="group block bg-surface border border-acid-green/30 rounded p-4 hover:border-acid-green hover:bg-acid-green/5 transition-all"
         >
           <div className="flex items-start gap-3">
