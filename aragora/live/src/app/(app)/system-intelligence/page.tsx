@@ -14,7 +14,7 @@ import {
   useImprovementQueue,
   type SystemOverview,
 } from '@/hooks/useSystemIntelligence';
-import type { SystemOverview } from '@/hooks/useSystemIntelligence';
+import type { SystemOverview as SystemOverviewData } from '@/hooks/useSystemIntelligence';
 import {
   useSystemHealth,
   useAgentPoolHealth,
@@ -245,7 +245,7 @@ function normalizeKMSyncStatus(
 
 function normalizeNomicCycleStatus(
   state: NomicStatePayload | null | undefined,
-  overview: SystemOverview | null
+  overview: SystemOverviewData | null
 ): NomicCycleStatus | null {
   if (!state && !overview) return null;
 
