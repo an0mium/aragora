@@ -410,7 +410,7 @@ class TestPipelineExecution:
         store = MagicMock()
         monkeypatch.setattr(
             "aragora.server.fastapi.routes.canvas_pipeline._get_result_or_404",
-            lambda _: pipeline,
+            AsyncMock(return_value=pipeline),
         )
         monkeypatch.setattr(
             "aragora.server.fastapi.routes.canvas_pipeline._get_store",

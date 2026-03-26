@@ -52,6 +52,7 @@ Agent Management:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
 import uuid
@@ -351,6 +352,19 @@ def _get_store() -> Any:
     return get_pipeline_store()
 
 
+async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run pipeline store methods without blocking the FastAPI event loop."""
+
+    method = getattr(store, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 # In-memory live pipeline objects (for advance_stage)
 _pipeline_objects: dict[str, Any] = {}
 
@@ -426,21 +440,21 @@ def _summarize_result(result: Any) -> PipelineCreateResponse:
     )
 
 
-def _store_result(result: Any) -> None:
+async def _store_result(result: Any) -> None:
     """Persist pipeline result to store and keep live object."""
     result_dict = attach_unified_live_state(result.to_dict()) if hasattr(result, "to_dict") else {}
-    _get_store().save(result.pipeline_id, result_dict)
+    await _call_store_method(_get_store(), "save", result.pipeline_id, result_dict)
     _pipeline_objects[result.pipeline_id] = result
-    _persist_universal_graph(result)
-    _persist_pipeline_to_km(result)
+    await asyncio.to_thread(_persist_universal_graph, result)
+    await asyncio.to_thread(_persist_pipeline_to_km, result)
 
 
-def _get_result_or_404(pipeline_id: str) -> Any:
+async def _get_result_or_404(pipeline_id: str) -> Any:
     """Load pipeline result from live objects or persistent store."""
     result = _pipeline_objects.get(pipeline_id)
     if result is not None:
         return result
-    stored = _get_store().load(pipeline_id)
+    stored = await _call_store_method(_get_store(), "load", pipeline_id)
     if stored is None:
         raise NotFoundError(f"Pipeline {pipeline_id} not found")
     return stored
@@ -475,7 +489,7 @@ async def create_from_debate(
             event_callback=event_cb,
             pipeline_id=pipeline_id,
         )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -507,7 +521,7 @@ async def create_from_ideas(
             event_callback=event_cb,
             pipeline_id=pipeline_id,
         )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -559,7 +573,7 @@ async def create_from_braindump(
             pipeline_id=pipeline_id,
             event_callback=event_cb,
         )
-        _store_result(result)
+        await _store_result(result)
         response = _summarize_result(result)
         if orchestrator_summary is None:
             return response
@@ -623,7 +637,7 @@ async def create_from_template(
                 event_callback=event_cb,
                 pipeline_id=pipeline_id,
             )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except NotFoundError:
@@ -653,7 +667,7 @@ async def create_from_system_metrics(
         result = await IdeaToExecutionPipeline.from_system_metrics(
             pipeline_id=pipeline_id,
         )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
@@ -685,7 +699,7 @@ async def create_demo_pipeline(
             auto_advance=True,
             pipeline_id=pipeline_id,
         )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -730,7 +744,7 @@ async def advance_pipeline(
             except (ImportError, ValueError):
                 target = next_stage  # type: ignore[assignment]
             result = pipeline.advance_stage(result, target)
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except NotFoundError:
@@ -773,7 +787,7 @@ async def run_pipeline(
                 pipeline_id=pipeline_id,
             )
 
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -810,7 +824,7 @@ async def auto_run_pipeline(
                 pipeline_id=pipeline_id,
             )
 
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -825,7 +839,7 @@ async def execute_pipeline(
     auth: AuthorizationContext = Depends(require_permission("pipeline:create")),
 ) -> PipelineCreateResponse:
     """Execute a completed pipeline's orchestration stage."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
     data_dict = data.to_dict() if hasattr(data, "to_dict") else data
     if not isinstance(data_dict, dict):
         raise HTTPException(status_code=500, detail="Pipeline execution failed")
@@ -899,7 +913,7 @@ async def execute_pipeline(
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }
-        _get_store().save(pipeline_id, data_dict)
+        await _call_store_method(_get_store(), "save", pipeline_id, data_dict)
 
         async def _execute() -> None:
             current_data = dict(data_dict)
@@ -909,7 +923,7 @@ async def execute_pipeline(
                     **(current_execution if isinstance(current_execution, dict) else {}),
                     "status": "running",
                 }
-                _get_store().save(pipeline_id, current_data)
+                await _call_store_method(_get_store(), "save", pipeline_id, current_data)
                 outcome, record, decision_receipt = await execute_queued_plan(
                     plan,
                     execution_id=launch["execution_id"],
@@ -949,7 +963,7 @@ async def execute_pipeline(
                 }
                 current_data["receipt"] = receipt_bundle
                 current_data = attach_unified_live_state(current_data)
-                _get_store().save(pipeline_id, current_data)
+                await _call_store_method(_get_store(), "save", pipeline_id, current_data)
             except Exception as exc:  # noqa: BLE001 - background task must persist terminal failure
                 logger.error("Pipeline execute failed: %s", exc)
                 current_data["execution"] = {
@@ -958,7 +972,7 @@ async def execute_pipeline(
                     "error": str(exc),
                 }
                 current_data = attach_unified_live_state(current_data)
-                _get_store().save(pipeline_id, current_data)
+                await _call_store_method(_get_store(), "save", pipeline_id, current_data)
 
         asyncio.create_task(_execute())
 
@@ -993,7 +1007,7 @@ async def trigger_self_improve(
     auth: AuthorizationContext = Depends(require_permission("pipeline:create")),
 ) -> dict[str, Any]:
     """Trigger self-improvement from pipeline insights."""
-    _get_result_or_404(pipeline_id)
+    await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.nomic.meta_planner import MetaPlanner
@@ -1026,13 +1040,13 @@ async def approve_transition(
     auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
 ) -> TransitionApprovalResponse:
     """Approve or reject a stage transition."""
-    _get_result_or_404(pipeline_id)
+    await _get_result_or_404(pipeline_id)
 
     try:
         result = _pipeline_objects.get(pipeline_id)
         if result and hasattr(result, "approve_transition"):
             result.approve_transition(approved=body.approved, feedback=body.feedback)
-            _store_result(result)
+            await _store_result(result)
 
         action = "approved" if body.approved else "rejected"
         logger.info("Pipeline %s transition %s by %s", pipeline_id, action, auth.user_id)
@@ -1088,7 +1102,7 @@ async def list_templates() -> PipelineTemplatesResponse:
 @router.get("/canvas/pipeline/{pipeline_id}", response_model=PipelineCreateResponse)
 async def get_pipeline(pipeline_id: str) -> PipelineCreateResponse:
     """Get a pipeline result by ID."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     if isinstance(data, dict):
         result_data = attach_unified_live_state(data)
@@ -1106,7 +1120,7 @@ async def get_pipeline(pipeline_id: str) -> PipelineCreateResponse:
 @router.get("/canvas/pipeline/{pipeline_id}/status", response_model=PipelineStatusResponse)
 async def get_pipeline_status(pipeline_id: str) -> PipelineStatusResponse:
     """Get per-stage status for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     if isinstance(data, dict):
         stage_status = data.get("stage_status", {})
@@ -1131,7 +1145,7 @@ async def get_pipeline_status(pipeline_id: str) -> PipelineStatusResponse:
 @router.get("/canvas/pipeline/{pipeline_id}/stage/{stage}", response_model=PipelineStageResponse)
 async def get_pipeline_stage(pipeline_id: str, stage: str) -> PipelineStageResponse:
     """Get specific stage canvas data."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     canvas_map = {
         "ideas": "ideas_canvas",
@@ -1179,7 +1193,7 @@ async def get_pipeline_graph(
     stage: str | None = Query(None, description="Stage to get graph for"),
 ) -> PipelineGraphResponse:
     """Get React Flow graph JSON for a pipeline stage."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     try:
         # Try universal graph first
@@ -1215,7 +1229,7 @@ async def get_pipeline_graph(
 @router.get("/canvas/pipeline/{pipeline_id}/receipt", response_model=PipelineReceiptResponse)
 async def get_pipeline_receipt(pipeline_id: str) -> PipelineReceiptResponse:
     """Get the DecisionReceipt for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
     data_dict = (
         data.to_dict() if hasattr(data, "to_dict") else (data if isinstance(data, dict) else {})
     )
@@ -1388,7 +1402,7 @@ async def debate_to_pipeline(
             event_callback=event_cb,
             pipeline_id=pipeline_id,
         )
-        _store_result(result)
+        await _store_result(result)
         return _summarize_result(result)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
@@ -1404,7 +1418,7 @@ async def debate_to_pipeline(
 @router.get("/canvas/pipeline/{pipeline_id}/intelligence", response_model=IntelligenceResponse)
 async def get_intelligence(pipeline_id: str) -> IntelligenceResponse:
     """Get intelligence overlay for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     beliefs: list[dict[str, Any]] = []
     explanations: list[dict[str, Any]] = []
@@ -1452,7 +1466,7 @@ async def get_intelligence(pipeline_id: str) -> IntelligenceResponse:
 @router.get("/canvas/pipeline/{pipeline_id}/beliefs")
 async def get_beliefs(pipeline_id: str) -> dict[str, Any]:
     """Get belief network for a pipeline."""
-    _get_result_or_404(pipeline_id)
+    await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.reasoning.belief import BeliefNetwork
@@ -1469,7 +1483,7 @@ async def get_beliefs(pipeline_id: str) -> dict[str, Any]:
 @router.get("/canvas/pipeline/{pipeline_id}/explanations")
 async def get_explanations(pipeline_id: str) -> dict[str, Any]:
     """Get explainability data for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.explainability.builder import ExplanationBuilder
@@ -1486,7 +1500,7 @@ async def get_explanations(pipeline_id: str) -> dict[str, Any]:
 @router.get("/canvas/pipeline/{pipeline_id}/precedents")
 async def get_precedents(pipeline_id: str) -> dict[str, Any]:
     """Get historical precedents for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.pipeline.km_bridge import PipelineKMBridge
@@ -1507,7 +1521,7 @@ async def get_precedents(pipeline_id: str) -> dict[str, Any]:
 @router.get("/pipeline/{pipeline_id}/agents", response_model=AgentListResponse)
 async def get_pipeline_agents(pipeline_id: str) -> AgentListResponse:
     """List agents assigned to a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     agents: list[AgentAssignment] = []
     if isinstance(data, dict):
@@ -1552,7 +1566,7 @@ async def approve_agent(
     auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
 ) -> AgentActionResponse:
     """Approve an agent assignment for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
@@ -1590,7 +1604,7 @@ async def reject_agent(
     auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
 ) -> AgentActionResponse:
     """Reject an agent assignment for a pipeline."""
-    data = _get_result_or_404(pipeline_id)
+    data = await _get_result_or_404(pipeline_id)
 
     try:
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
@@ -1633,7 +1647,7 @@ async def save_canvas_state(
     try:
         store = _get_store()
 
-        existing = store.load(pipeline_id)
+        existing = await _call_store_method(store, "load", pipeline_id)
         if existing is None:
             existing = {"pipeline_id": pipeline_id}
 
@@ -1644,7 +1658,7 @@ async def save_canvas_state(
             existing.update(body.canvas_data)
 
         existing["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-        store.save(pipeline_id, existing)
+        await _call_store_method(store, "save", pipeline_id, existing)
 
         return {"saved": True, "pipeline_id": pipeline_id}
 
