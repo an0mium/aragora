@@ -298,6 +298,83 @@ function sameReceiptList(a: ReceiptListItem[], b: ReceiptListItem[]): boolean {
   return a.length === b.length && a.every((item, index) => sameReceiptItem(item, b[index]!));
 }
 
+function receiptIdentifiers(item: ReceiptListItem): string[] {
+  return Array.from(
+    new Set(
+      [item.receiptId, item.gauntletId, item.id].filter(
+        (value): value is string => Boolean(value)
+      )
+    )
+  );
+}
+
+function hasReceiptFindings(summary?: RiskSummary): boolean {
+  return totalFindings(summary) > 0;
+}
+
+function mergeReceiptItems(
+  preferred: ReceiptListItem,
+  fallback: ReceiptListItem
+): ReceiptListItem {
+  return {
+    ...preferred,
+    receiptId: preferred.receiptId ?? fallback.receiptId,
+    gauntletId: preferred.gauntletId ?? fallback.gauntletId,
+    verdict: preferred.verdict ?? fallback.verdict,
+    confidence: preferred.confidence ?? fallback.confidence,
+    created_at: preferred.created_at || fallback.created_at,
+    input_summary: preferred.input_summary ?? fallback.input_summary,
+    risk_summary: hasReceiptFindings(preferred.risk_summary)
+      ? preferred.risk_summary
+      : fallback.risk_summary ?? preferred.risk_summary,
+    risk_level: preferred.risk_level ?? fallback.risk_level,
+    vulnerabilities_found:
+      preferred.vulnerabilities_found && preferred.vulnerabilities_found > 0
+        ? preferred.vulnerabilities_found
+        : fallback.vulnerabilities_found ?? preferred.vulnerabilities_found,
+  };
+}
+
+function compareReceiptItems(a: ReceiptListItem, b: ReceiptListItem): number {
+  if (a.created_at && b.created_at && a.created_at !== b.created_at) {
+    return b.created_at.localeCompare(a.created_at);
+  }
+
+  if (a.created_at && !b.created_at) return -1;
+  if (!a.created_at && b.created_at) return 1;
+
+  return preferredReceiptId(a).localeCompare(preferredReceiptId(b));
+}
+
+function mergeReceiptSources(...sources: ReceiptListItem[][]): ReceiptListItem[] {
+  const merged: ReceiptListItem[] = [];
+  const identifierToIndex = new Map<string, number>();
+
+  for (const sourceItems of sources) {
+    for (const item of sourceItems) {
+      const identifiers = receiptIdentifiers(item);
+      const existingIndex = identifiers
+        .map((identifier) => identifierToIndex.get(identifier))
+        .find((index): index is number => index !== undefined);
+
+      if (existingIndex === undefined) {
+        const nextIndex = merged.length;
+        merged.push(item);
+        identifiers.forEach((identifier) => identifierToIndex.set(identifier, nextIndex));
+        continue;
+      }
+
+      const nextItem = mergeReceiptItems(merged[existingIndex]!, item);
+      merged[existingIndex] = nextItem;
+      receiptIdentifiers(nextItem).forEach((identifier) =>
+        identifierToIndex.set(identifier, existingIndex)
+      );
+    }
+  }
+
+  return merged.sort(compareReceiptItems);
+}
+
 function normalizeProvenanceChain(value: unknown): ProvenanceRecord[] {
   if (!Array.isArray(value)) return [];
 
@@ -471,17 +548,17 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
 function buildDetailUrls(item: ReceiptListItem, backendUrl: string): string[] {
   const urls = new Set<string>();
 
-  if (item.gauntletId) {
-    urls.add(`${backendUrl}/api/v1/gauntlet/${item.gauntletId}/receipt`);
-    urls.add(`${backendUrl}/api/gauntlet/${item.gauntletId}/receipt`);
-  }
-
   if (item.receiptId) {
     urls.add(`${backendUrl}/api/v2/receipts/${item.receiptId}`);
   }
 
   if (!item.receiptId && item.id) {
     urls.add(`${backendUrl}/api/v2/receipts/${item.id}`);
+  }
+
+  if (item.gauntletId) {
+    urls.add(`${backendUrl}/api/v1/gauntlet/${item.gauntletId}/receipt`);
+    urls.add(`${backendUrl}/api/gauntlet/${item.gauntletId}/receipt`);
   }
 
   return Array.from(urls);
@@ -495,17 +572,17 @@ function buildExportUrls(
   const exportFormat = format === 'markdown' ? 'md' : format;
   const urls = new Set<string>();
 
-  if (item.gauntletId) {
-    urls.add(`${backendUrl}/api/v1/gauntlet/${item.gauntletId}/receipt?format=${exportFormat}`);
-    urls.add(`${backendUrl}/api/gauntlet/${item.gauntletId}/receipt?format=${exportFormat}`);
-  }
-
   if (item.receiptId) {
     urls.add(`${backendUrl}/api/v2/receipts/${item.receiptId}/export?format=${exportFormat}`);
   }
 
   if (!item.receiptId && item.id) {
     urls.add(`${backendUrl}/api/v2/receipts/${item.id}/export?format=${exportFormat}`);
+  }
+
+  if (item.gauntletId) {
+    urls.add(`${backendUrl}/api/v1/gauntlet/${item.gauntletId}/receipt?format=${exportFormat}`);
+    urls.add(`${backendUrl}/api/gauntlet/${item.gauntletId}/receipt?format=${exportFormat}`);
   }
 
   return Array.from(urls);
@@ -573,16 +650,13 @@ export default function ReceiptsPage() {
     'gauntlet-receipts'
   );
 
-  const shouldFetchV2Receipts =
-    !gauntletReceiptsLoading && gauntletReceiptItems.length === 0;
-
   const {
     data: receiptsData,
     error: receiptsError,
     isLoading: receiptsLoading,
     mutate: mutateReceipts,
   } = useSWRFetch<ApiListResponse>(
-    shouldFetchV2Receipts ? '/api/v2/receipts?limit=50' : null,
+    '/api/v2/receipts?limit=50',
     {
       refreshInterval: 30000,
       baseUrl: backendUrl,
@@ -592,8 +666,9 @@ export default function ReceiptsPage() {
   const v2ReceiptItems = normalizeListResponse(receiptsData, 'v2-receipts');
 
   const shouldFetchGauntletResults =
-    shouldFetchV2Receipts &&
+    !gauntletReceiptsLoading &&
     !receiptsLoading &&
+    gauntletReceiptItems.length === 0 &&
     v2ReceiptItems.length === 0;
 
   const {
@@ -614,6 +689,12 @@ export default function ReceiptsPage() {
     'gauntlet-results'
   );
 
+  const mergedReceiptItems = mergeReceiptSources(
+    v2ReceiptItems,
+    gauntletReceiptItems,
+    gauntletResultItems
+  );
+
   const loading =
     results.length === 0 &&
     (gauntletReceiptsLoading || receiptsLoading || gauntletResultsLoading);
@@ -622,12 +703,8 @@ export default function ReceiptsPage() {
     let nextResults: ReceiptListItem[] = [];
     let nextError: string | null = null;
 
-    if (gauntletReceiptItems.length > 0) {
-      nextResults = gauntletReceiptItems;
-    } else if (v2ReceiptItems.length > 0) {
-      nextResults = v2ReceiptItems;
-    } else if (gauntletResultItems.length > 0) {
-      nextResults = gauntletResultItems;
+    if (mergedReceiptItems.length > 0) {
+      nextResults = mergedReceiptItems;
     } else {
       const allLoaded =
         !gauntletReceiptsLoading &&
@@ -648,9 +725,7 @@ export default function ReceiptsPage() {
     setResults((current) => (sameReceiptList(current, nextResults) ? current : nextResults));
     setError((current) => (current === nextError ? current : nextError));
   }, [
-    gauntletReceiptItems,
-    v2ReceiptItems,
-    gauntletResultItems,
+    mergedReceiptItems,
     gauntletReceiptsLoading,
     receiptsLoading,
     gauntletResultsLoading,

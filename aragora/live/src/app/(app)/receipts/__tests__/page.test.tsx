@@ -52,15 +52,34 @@ const mockUseSWRFetch = useSWRFetch as jest.Mock;
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
+type ReceiptRecord = Record<string, unknown>;
+
 function setSearchQuery(query: string) {
   mockQuery = query;
 }
 
-function configureListMocks() {
+function configureListMocks({
+  gauntletReceipts = [],
+  v2Receipts = [
+    {
+      id: 'receipt-123',
+      receipt_id: 'receipt-123',
+      verdict: 'PASS',
+      confidence: 0.91,
+      created_at: '2026-03-25T12:34:56Z',
+      input_summary: 'Receipt 123 summary',
+    },
+  ],
+  gauntletResults = [],
+}: {
+  gauntletReceipts?: ReceiptRecord[];
+  v2Receipts?: ReceiptRecord[];
+  gauntletResults?: ReceiptRecord[];
+} = {}) {
   mockUseSWRFetch.mockImplementation((endpoint: string | null) => {
     if (endpoint === '/api/v1/gauntlet/receipts?limit=50') {
       return {
-        data: { receipts: [] },
+        data: { receipts: gauntletReceipts },
         error: null,
         isLoading: false,
         mutate: jest.fn(),
@@ -69,18 +88,16 @@ function configureListMocks() {
 
     if (endpoint === '/api/v2/receipts?limit=50') {
       return {
-        data: {
-          receipts: [
-            {
-              id: 'receipt-123',
-              receipt_id: 'receipt-123',
-              verdict: 'PASS',
-              confidence: 0.91,
-              created_at: '2026-03-25T12:34:56Z',
-              input_summary: 'Receipt 123 summary',
-            },
-          ],
-        },
+        data: { receipts: v2Receipts },
+        error: null,
+        isLoading: false,
+        mutate: jest.fn(),
+      };
+    }
+
+    if (endpoint === '/api/gauntlet/results?limit=50') {
+      return {
+        data: { results: gauntletResults },
         error: null,
         isLoading: false,
         mutate: jest.fn(),
@@ -188,5 +205,58 @@ describe('ReceiptsPage', () => {
     });
 
     expect(screen.queryByText('Decision Receipt')).not.toBeInTheDocument();
+  });
+
+  it('renders receipts from both gauntlet and v2 feeds when both contain unique items', async () => {
+    configureListMocks({
+      gauntletReceipts: [
+        {
+          id: 'legacy-receipt-456',
+          receipt_id: 'legacy-receipt-456',
+          gauntlet_id: 'run-456',
+          verdict: 'CONDITIONAL',
+          confidence: 0.74,
+          created_at: '2026-03-24T10:00:00Z',
+          input_summary: 'Legacy receipt summary',
+        },
+      ],
+    });
+
+    render(<ReceiptsPage />);
+
+    expect(
+      await screen.findByRole('button', { name: /Receipt 123 summary/i })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /Legacy receipt summary/i })
+    ).toBeInTheDocument();
+  });
+
+  it('prefers the v2 receipt detail endpoint when a receipt exists in both feeds', async () => {
+    configureListMocks({
+      gauntletReceipts: [
+        {
+          id: 'legacy-receipt-123',
+          receipt_id: 'receipt-123',
+          gauntlet_id: 'run-123',
+          verdict: 'PASS',
+          confidence: 0.9,
+          created_at: '2026-03-25T12:34:56Z',
+          input_summary: 'Legacy receipt 123 summary',
+        },
+      ],
+    });
+
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+
+    await waitFor(() => {
+      expect(mockFetch.mock.calls[0]?.[0]).toBe(
+        'http://localhost:8080/api/v2/receipts/receipt-123'
+      );
+    });
   });
 });
