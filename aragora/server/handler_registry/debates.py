@@ -101,6 +101,9 @@ DebateInterventionsHandler = _safe_import(
 DecisionPackageHandler = _safe_import(
     "aragora.server.handlers.debates.decision_package", "DecisionPackageHandler"
 )
+DebateDecisionBridgeHandler = _safe_import(
+    "aragora.server.handlers.debates.bridge", "DebateDecisionBridgeHandler"
+)
 SettlementHandler = _safe_import("aragora.server.handlers.settlements", "SettlementHandler")
 SpectateStreamHandler = _safe_import("aragora.server.handlers.spectate_ws", "SpectateStreamHandler")
 ReceiptExportHandler = _safe_import(
@@ -158,6 +161,7 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_debate_interventions_handler", DebateInterventionsHandler),
     # Decision package
     ("_decision_package_handler", DecisionPackageHandler),
+    ("_debate_decision_bridge_handler", DebateDecisionBridgeHandler),
     # Settlements
     ("_settlement_handler", SettlementHandler),
     # Spectate stream
@@ -213,6 +217,7 @@ __all__ = [
     "PublicDebateViewerHandler",
     "DebateInterventionsHandler",
     "DecisionPackageHandler",
+    "DebateDecisionBridgeHandler",
     "SettlementHandler",
     "SpectateStreamHandler",
     "ReceiptExportHandler",

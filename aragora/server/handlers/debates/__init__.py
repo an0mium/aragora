@@ -57,6 +57,7 @@ from .routing import (
 from .search import SearchOperationsMixin
 from .interventions import DebateInterventionsHandler, INTERVENTION_ROUTES
 from .decision_package import DecisionPackageHandler
+from .bridge import DebateDecisionBridgeHandler
 from .public_viewer import PublicDebateViewerHandler
 from .share import (
     DebateShareHandler,
@@ -120,6 +121,7 @@ __all__ = [
     # Interventions
     "DebateInterventionsHandler",
     "INTERVENTION_ROUTES",
+    "DebateDecisionBridgeHandler",
     # Utilities
     "_graph_limiter",
 ]
