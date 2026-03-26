@@ -4,6 +4,8 @@ Receipt Endpoints (FastAPI v2).
 Provides async receipt management endpoints:
 - List receipts with pagination
 - Get receipt by ID
+- Create receipt share links
+- Access shared receipts
 - Verify receipt integrity
 - Export receipt in various formats (json, markdown, sarif)
 - Batch verify multiple receipts
@@ -23,6 +25,7 @@ from inspect import signature
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..middleware.error_handling import NotFoundError
@@ -198,6 +201,41 @@ class ReceiptStatsResponse(BaseModel):
     generated_at: str = ""
 
 
+class CreateShareRequest(BaseModel):
+    """Request body for POST /receipts/{receipt_id}/share."""
+
+    expires_in_hours: int = Field(
+        24,
+        ge=1,
+        le=720,
+        description="Hours until the share link expires (max 30 days)",
+    )
+    max_accesses: int | None = Field(
+        None,
+        ge=1,
+        description="Optional maximum number of times the link can be accessed",
+    )
+
+
+class ShareReceiptResponse(BaseModel):
+    """Response for receipt share-link creation."""
+
+    success: bool
+    receipt_id: str
+    share_url: str
+    token: str
+    expires_at: str
+    max_accesses: int | None = None
+
+
+class SharedReceiptResponse(BaseModel):
+    """JSON response for a publicly shared receipt."""
+
+    receipt: dict[str, Any]
+    shared: bool
+    access_count: int
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -223,6 +261,25 @@ async def get_receipt_store(request: Request):
     except (ImportError, RuntimeError, OSError, ValueError) as e:
         logger.warning("Receipt store not available: %s", e)
         raise HTTPException(status_code=503, detail="Receipt store not available")
+
+
+async def get_receipt_share_store(request: Request):
+    """Dependency to get the receipt share store."""
+    ctx = getattr(request.app.state, "context", None)
+    if ctx:
+        store = ctx.get("receipt_share_store")
+        if store:
+            return store
+
+    try:
+        from aragora.storage.receipt_share_store import (
+            get_receipt_share_store as _get_share_store,
+        )
+
+        return _get_share_store()
+    except (ImportError, RuntimeError, OSError, ValueError) as e:
+        logger.warning("Receipt share store not available: %s", e)
+        raise HTTPException(status_code=503, detail="Receipt share store not available")
 
 
 async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
@@ -358,6 +415,47 @@ def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
         return {key: value for key, value in payload.items() if key in allowed_fields}
     except (ImportError, ValueError, TypeError):
         return payload
+
+
+def _reconstruct_decision_receipt(receipt: Any) -> Any | None:
+    """Rebuild a DecisionReceipt when callers only have stored payload data."""
+    if hasattr(receipt, "to_html"):
+        return receipt
+
+    payload = _extract_decision_receipt_payload(receipt)
+    if not payload:
+        return None
+
+    try:
+        from aragora.export.decision_receipt import DecisionReceipt
+
+        return DecisionReceipt.from_dict(payload)
+    except (ImportError, ValueError, TypeError, KeyError):
+        return None
+
+
+def _render_shared_receipt_html(receipt: Any, token: str) -> str:
+    """Render a lightweight standalone HTML view for shared receipts."""
+    title = getattr(receipt, "receipt_id", None) or token
+    if hasattr(receipt, "to_html"):
+        body = receipt.to_html()
+    else:
+        body = "<html><body><p>Receipt preview unavailable.</p></body></html>"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="Aragora Decision Receipt {title}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="/api/v2/receipts/share/{token}" />
+    <title>Aragora Decision Receipt {title}</title>
+  </head>
+  <body>
+{body}
+  </body>
+</html>"""
 
 
 # =============================================================================
@@ -511,6 +609,67 @@ async def get_receipt_stats(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting receipt stats: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get receipt stats")
+
+
+@router.get("/receipts/share/{token}", response_model=SharedReceiptResponse)
+async def get_shared_receipt(
+    token: str,
+    request: Request,
+    format: str | None = Query(None, description="Response format override (html or json)"),
+    store=Depends(get_receipt_store),
+    share_store=Depends(get_receipt_share_store),
+) -> SharedReceiptResponse | Response:
+    """Access a receipt via public share token."""
+    try:
+        share_info = await _call_store_method(share_store, "get_by_token", token)
+        if not share_info:
+            raise HTTPException(status_code=404, detail="Share link not found")
+
+        expires_at = share_info.get("expires_at")
+        if expires_at and expires_at < datetime.now(timezone.utc).timestamp():
+            raise HTTPException(status_code=410, detail="Share link has expired")
+
+        max_accesses = share_info.get("max_accesses")
+        access_count = share_info.get("access_count", 0)
+        if max_accesses and access_count >= max_accesses:
+            raise HTTPException(status_code=410, detail="Share link access limit reached")
+
+        await _call_store_method(share_store, "increment_access", token)
+
+        receipt_id = share_info.get("receipt_id", "")
+        receipt_data = None
+        if hasattr(store, "get"):
+            receipt_data = await _call_store_method(store, "get", receipt_id)
+        elif hasattr(store, "get_by_id"):
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
+
+        if not receipt_data:
+            raise NotFoundError(f"Receipt {receipt_id} not found")
+
+        wants_html = (format or "").lower() == "html" or (
+            not format and "text/html" in request.headers.get("accept", "").lower()
+        )
+        if wants_html:
+            receipt = _reconstruct_decision_receipt(receipt_data)
+            if receipt is not None:
+                return Response(
+                    content=_render_shared_receipt_html(receipt, token),
+                    media_type="text/html; charset=utf-8",
+                )
+
+        return SharedReceiptResponse(
+            receipt=_extract_receipt_payload(receipt_data),
+            shared=True,
+            access_count=access_count + 1,
+        )
+
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting shared receipt %s: %s", token, e)
+        raise HTTPException(status_code=500, detail="Failed to load shared receipt")
 
 
 @router.post("/receipts/batch-verify", response_model=BatchVerifyResponse)
@@ -730,6 +889,53 @@ async def get_receipt(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting receipt %s: %s", receipt_id, e)
         raise HTTPException(status_code=500, detail="Failed to get receipt")
+
+
+@router.post("/receipts/{receipt_id}/share", response_model=ShareReceiptResponse)
+async def share_receipt(
+    receipt_id: str,
+    body: CreateShareRequest,
+    store=Depends(get_receipt_store),
+    share_store=Depends(get_receipt_share_store),
+) -> ShareReceiptResponse:
+    """Create a time-limited public share link for a receipt."""
+    try:
+        import secrets
+
+        receipt_data = None
+        if hasattr(store, "get"):
+            receipt_data = await _call_store_method(store, "get", receipt_id)
+        elif hasattr(store, "get_by_id"):
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
+
+        if not receipt_data:
+            raise NotFoundError(f"Receipt {receipt_id} not found")
+
+        token = secrets.token_urlsafe(24)
+        expires_at_ts = datetime.now(timezone.utc).timestamp() + (body.expires_in_hours * 3600)
+        await _call_store_method(
+            share_store,
+            "save",
+            token=token,
+            receipt_id=receipt_id,
+            expires_at=expires_at_ts,
+            max_accesses=body.max_accesses,
+        )
+
+        return ShareReceiptResponse(
+            success=True,
+            receipt_id=receipt_id,
+            share_url=f"/api/v2/receipts/share/{token}",
+            token=token,
+            expires_at=datetime.fromtimestamp(expires_at_ts, tz=timezone.utc).isoformat(),
+            max_accesses=body.max_accesses,
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error sharing receipt %s: %s", receipt_id, e)
+        raise HTTPException(status_code=500, detail="Failed to share receipt")
 
 
 @router.post("/receipts/{receipt_id}/verify", response_model=VerifyResponse)

@@ -1,9 +1,11 @@
 """
 Tests for FastAPI receipt route endpoints.
 
-Covers:
+ Covers:
 - List receipts with pagination
 - Get receipt by ID
+- Create receipt share links
+- Access shared receipts
 - Verify receipt integrity
 - Export receipt in various formats
 """
@@ -37,7 +39,17 @@ def mock_receipt_store():
 
 
 @pytest.fixture
-def client(app, mock_receipt_store):
+def mock_receipt_share_store():
+    """Create a mock receipt share store."""
+    store = MagicMock()
+    store.save = MagicMock()
+    store.get_by_token = MagicMock(return_value=None)
+    store.increment_access = MagicMock(return_value=True)
+    return store
+
+
+@pytest.fixture
+def client(app, mock_receipt_store, mock_receipt_share_store):
     """Create a test client with mocked context."""
     app.state.context = {
         "storage": MagicMock(),
@@ -46,6 +58,7 @@ def client(app, mock_receipt_store):
         "rbac_checker": MagicMock(),
         "decision_service": MagicMock(),
         "receipt_store": mock_receipt_store,
+        "receipt_share_store": mock_receipt_share_store,
     }
     return TestClient(app, raise_server_exceptions=False)
 
@@ -459,6 +472,79 @@ class TestReceiptStats:
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 0
+
+
+class TestShareReceipt:
+    """Tests for POST /api/v2/receipts/{receipt_id}/share."""
+
+    def test_share_receipt_not_found(self, client):
+        response = client.post("/api/v2/receipts/missing/share", json={})
+        assert response.status_code == 404
+
+    def test_share_receipt_success(
+        self, client, mock_receipt_store, mock_receipt_share_store, sample_receipt_dict
+    ):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/rcpt_test123/share",
+            json={"expires_in_hours": 12, "max_accesses": 3},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["share_url"].startswith("/api/v2/receipts/share/")
+        assert data["max_accesses"] == 3
+        mock_receipt_share_store.save.assert_called_once()
+
+
+class TestGetSharedReceipt:
+    """Tests for GET /api/v2/receipts/share/{token}."""
+
+    def test_get_shared_receipt_not_found(self, client):
+        response = client.get("/api/v2/receipts/share/bad-token")
+        assert response.status_code == 404
+
+    def test_get_shared_receipt_success_json(
+        self, client, mock_receipt_store, mock_receipt_share_store, sample_receipt_dict
+    ):
+        mock_receipt_share_store.get_by_token.return_value = {
+            "token": "valid-token",
+            "receipt_id": "rcpt_test123",
+            "expires_at": None,
+            "max_accesses": 5,
+            "access_count": 1,
+        }
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/share/valid-token")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["shared"] is True
+        assert data["access_count"] == 2
+        assert data["receipt"]["receipt_id"] == "rcpt_test123"
+        mock_receipt_share_store.increment_access.assert_called_once_with("valid-token")
+
+    def test_get_shared_receipt_success_html(
+        self, client, mock_receipt_store, mock_receipt_share_store, sample_receipt_dict
+    ):
+        mock_receipt_share_store.get_by_token.return_value = {
+            "token": "html-token",
+            "receipt_id": "rcpt_test123",
+            "expires_at": None,
+            "max_accesses": None,
+            "access_count": 0,
+        }
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get(
+            "/api/v2/receipts/share/html-token",
+            headers={"Accept": "text/html"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert "Aragora Decision Receipt" in response.text
 
 
 # =============================================================================
