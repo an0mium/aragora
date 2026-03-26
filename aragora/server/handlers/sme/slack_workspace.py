@@ -23,6 +23,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlencode
 
 from ..base import (
     error_response,
@@ -117,37 +118,35 @@ class SlackWorkspaceHandler(SecureHandler):
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
             method = handler.command
+        if user is None and hasattr(handler, "user"):
+            user = handler.user
 
         # Handle static routes
         if path == "/api/v1/sme/slack/workspaces":
             if method == "GET":
-                return self._list_workspaces(handler, query_params)
+                return self._list_workspaces(handler, query_params, user=user)
             if method == "POST":
-                return self._create_workspace(handler, query_params)
+                return self._create_workspace(handler, query_params, user=user)
             return error_response("Method not allowed", 405)
 
         if path == "/api/v1/sme/slack/oauth/start":
             if method == "GET":
-                return self._handle_oauth_start(handler, query_params)
+                return self._handle_oauth_start(handler, query_params, user=user)
             return error_response("Method not allowed", 405)
 
         if path == "/api/v1/sme/slack/oauth/callback":
             if method == "GET":
-                code = query_params.get("code")
-                state = query_params.get("state")
-                if not code:
-                    return error_response("Missing OAuth code", 400)
-                return self._handle_oauth_callback(code, state, handler)
+                return self._handle_oauth_callback(query_params, handler)
             return error_response("Method not allowed", 405)
 
         if path == "/api/v1/sme/slack/subscribe":
             if method == "POST":
-                return self._subscribe_channel(handler, query_params)
+                return self._subscribe_channel(handler, query_params, user=user)
             return error_response("Method not allowed", 405)
 
         if path == "/api/v1/sme/slack/subscriptions":
             if method == "GET":
-                return self._list_subscriptions(handler, query_params)
+                return self._list_subscriptions(handler, query_params, user=user)
             return error_response("Method not allowed", 405)
 
         # Handle parameterized routes
@@ -155,26 +154,26 @@ class SlackWorkspaceHandler(SecureHandler):
         if route_name:
             if route_name == "workspace_detail":
                 if method == "GET":
-                    return self._get_workspace(handler, query_params, param_id)
+                    return self._get_workspace(handler, query_params, param_id, user=user)
                 elif method == "PATCH":
-                    return self._update_workspace(handler, query_params, param_id)
+                    return self._update_workspace(handler, query_params, param_id, user=user)
                 elif method == "DELETE":
-                    return self._disconnect_workspace(handler, query_params, param_id)
+                    return self._disconnect_workspace(handler, query_params, param_id, user=user)
                 return error_response("Method not allowed", 405)
 
             if route_name == "workspace_test":
                 if method == "POST":
-                    return self._test_connection(handler, query_params, param_id)
+                    return self._test_connection(handler, query_params, param_id, user=user)
                 return error_response("Method not allowed", 405)
 
             if route_name in ("workspace_channels", "channels"):
                 if method == "GET":
-                    return self._list_channels(handler, query_params, param_id)
+                    return self._list_channels(handler, query_params, param_id, user=user)
                 return error_response("Method not allowed", 405)
 
             if route_name == "subscription_detail":
                 if method == "DELETE":
-                    return self._delete_subscription(handler, query_params, param_id)
+                    return self._delete_subscription(handler, query_params, param_id, user=user)
                 return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)
@@ -867,13 +866,25 @@ class SlackWorkspaceHandler(SecureHandler):
         query_params: dict,
         user: Any = None,
     ) -> HandlerResult:
-        """Start Slack OAuth flow (placeholder for SME flow)."""
-        # In production this should redirect to Slack OAuth.
-        return json_response(
-            {
-                "status": "oauth_start",
-                "message": "Slack OAuth flow not configured for SME endpoint",
-            }
+        """Start Slack OAuth flow by delegating to the canonical install route."""
+        db_user, org, error = self._get_user_and_org(handler, user)
+        if error:
+            return error
+
+        redirect_params: dict[str, Any] = {"tenant_id": org.id}
+        host = query_params.get("host")
+        if host:
+            redirect_params["host"] = host
+
+        location = f"/api/integrations/slack/install?{urlencode(redirect_params, doseq=True)}"
+        return HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=b"",
+            headers={
+                "Location": location,
+                "Cache-Control": "no-store",
+            },
         )
 
     @api_endpoint(
@@ -883,18 +894,30 @@ class SlackWorkspaceHandler(SecureHandler):
         tags=["SME", "Slack", "OAuth"],
     )
     @handle_errors("Slack OAuth callback")
-    @require_permission("sme:workspaces:write")
     def _handle_oauth_callback(
         self,
-        code: str,
-        state: str | None,
+        query_params: dict[str, Any],
         handler: Any,
         user: Any = None,
     ) -> HandlerResult:
-        """Handle Slack OAuth callback (placeholder)."""
-        if not code:
+        """Delegate Slack OAuth callback handling to the canonical integration route."""
+        if not query_params.get("code") and not query_params.get("error"):
             return error_response("Missing OAuth code", 400)
-        return json_response({"status": "oauth_callback", "code": code, "state": state})
+
+        encoded = urlencode(query_params, doseq=True)
+        location = "/api/integrations/slack/callback"
+        if encoded:
+            location = f"{location}?{encoded}"
+
+        return HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=b"",
+            headers={
+                "Location": location,
+                "Cache-Control": "no-store",
+            },
+        )
 
 
 __all__ = ["SlackWorkspaceHandler"]

@@ -367,6 +367,45 @@ class TestDisconnectWorkspace:
         mock_subscription_store.deactivate.assert_called_once_with("sub-123")
 
 
+class TestOAuth:
+    """Tests for SME Teams OAuth helpers."""
+
+    def test_oauth_start_redirects_to_canonical_install(self, handler):
+        """Test OAuth start delegates to the canonical Teams install route."""
+        request = MockRequest(command="GET", query_params={"host": "localhost:8080"})
+
+        result = handler._handle_oauth_start(request, request, user=MockUser())
+
+        assert result.status_code == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/teams/install?org_id=org-456&host=localhost%3A8080"
+        )
+
+    def test_oauth_callback_redirects_to_canonical_callback(self, handler):
+        """Test OAuth callback delegates to the canonical Teams callback route."""
+        request = MockRequest(command="GET")
+
+        result = handler._handle_oauth_callback(
+            {"code": "auth-code-123", "state": "state-123"},
+            request,
+        )
+
+        assert result.status_code == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/teams/callback?code=auth-code-123&state=state-123"
+        )
+
+    def test_oauth_callback_requires_code_or_error(self, handler):
+        """Test OAuth callback rejects empty helper callbacks."""
+        request = MockRequest(command="GET")
+
+        result = handler._handle_oauth_callback({"state": "state-123"}, request)
+
+        assert result.status_code == 400
+
+
 class TestListChannels:
     """Tests for listing channels."""
 

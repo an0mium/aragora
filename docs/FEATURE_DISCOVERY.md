@@ -351,9 +351,9 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Platform | Status | Features | Key Files |
 |----------|--------|----------|-----------|
-| **Slack** | Partial | Core bot/OAuth/webhook support exists; SME workspace channel listing now uses the live connector, but SME OAuth helper endpoints are still placeholder-backed | `aragora/connectors/chat/slack/`, `aragora/server/handlers/sme/slack_workspace.py` |
+| **Slack** | Partial | Core bot/OAuth/webhook support exists; SME workspace channel listing now uses the live connector and SME OAuth helpers now delegate into the canonical Slack install/callback flow | `aragora/connectors/chat/slack/`, `aragora/server/handlers/sme/slack_workspace.py` |
 | **Discord** | Stable | Guilds, channels, DMs, reactions, Ed25519 verification | `aragora/connectors/chat/discord.py` |
-| **Teams** | Partial | Core Teams support exists; SME workspace channel listing now uses the live connector when `team_id` is supplied, but SME OAuth helper endpoints are still placeholder-backed | `aragora/connectors/chat/teams.py`, `aragora/server/handlers/sme/teams_workspace.py` |
+| **Teams** | Partial | Core Teams support exists; SME workspace channel listing now uses the live connector when `team_id` is supplied and SME OAuth helpers now delegate into the canonical Teams install/callback flow | `aragora/connectors/chat/teams.py`, `aragora/server/handlers/sme/teams_workspace.py` |
 | **Google Chat** | Stable | Spaces, messages, JWT verification | `aragora/connectors/chat/google_chat.py` |
 | **Telegram** | Stable | Bot integration with TTS support | `aragora/connectors/chat/telegram.py` |
 | **WhatsApp** | Stable | Business API with voice notes | `aragora/connectors/chat/whatsapp.py` |

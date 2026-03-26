@@ -319,6 +319,45 @@ class TestDisconnectWorkspace:
         mock_workspace_store.deactivate.assert_called_once_with("T12345678")
 
 
+class TestOAuth:
+    """Tests for SME Slack OAuth helpers."""
+
+    def test_oauth_start_redirects_to_canonical_install(self, handler):
+        """Test OAuth start delegates to the canonical Slack install route."""
+        request = MockRequest(command="GET", query_params={"host": "localhost:8080"})
+
+        result = handler._handle_oauth_start(request, request, user=MockUser())
+
+        assert result.status_code == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/slack/install?tenant_id=org-456&host=localhost%3A8080"
+        )
+
+    def test_oauth_callback_redirects_to_canonical_callback(self, handler):
+        """Test OAuth callback delegates to the canonical Slack callback route."""
+        request = MockRequest(command="GET")
+
+        result = handler._handle_oauth_callback(
+            {"code": "auth-code-123", "state": "state-123"},
+            request,
+        )
+
+        assert result.status_code == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/slack/callback?code=auth-code-123&state=state-123"
+        )
+
+    def test_oauth_callback_requires_code_or_error(self, handler):
+        """Test OAuth callback rejects empty helper callbacks."""
+        request = MockRequest(command="GET")
+
+        result = handler._handle_oauth_callback({"state": "state-123"}, request)
+
+        assert result.status_code == 400
+
+
 class TestListChannels:
     """Tests for listing channels."""
 

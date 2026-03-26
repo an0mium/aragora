@@ -351,12 +351,7 @@ class TestDeleteTenant:
 
 
 class TestOAuth:
-    """Tests for OAuth flow.
-
-    Note: The TeamsWorkspaceHandler does not currently expose dedicated
-    /oauth/* routes. These tests verify the subscribe endpoint which is
-    the handler's entry point for workspace configuration.
-    """
+    """Tests for OAuth flow."""
 
     def test_subscribe_endpoint_success(self, teams_handler, mock_user):
         """Test subscribe endpoint (used for workspace config)."""
@@ -367,10 +362,27 @@ class TestOAuth:
         )
         assert result is not None
 
-    def test_oauth_callback_success(self, teams_handler, mock_user):
-        """Test OAuth callback endpoint."""
-        http_handler = MockHandler(path="/api/v1/sme/teams/oauth/callback", method="GET")
+    def test_oauth_start_redirects_to_install(self, teams_handler, mock_user):
+        """Test OAuth start endpoint redirects into the canonical install flow."""
+        http_handler = MockHandler(path="/api/v1/sme/teams/oauth/start", method="GET")
         http_handler.user = mock_user
+
+        result = teams_handler.handle(
+            "/api/v1/sme/teams/oauth/start",
+            {"host": "localhost:8080"},
+            http_handler,
+            method="GET",
+        )
+        assert result is not None
+        assert result.status == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/teams/install?org_id=org-123&host=localhost%3A8080"
+        )
+
+    def test_oauth_callback_redirects_to_canonical_callback(self, teams_handler, mock_user):
+        """Test OAuth callback endpoint delegates to canonical callback route."""
+        http_handler = MockHandler(path="/api/v1/sme/teams/oauth/callback", method="GET")
 
         result = teams_handler.handle(
             "/api/v1/sme/teams/oauth/callback",
@@ -379,10 +391,11 @@ class TestOAuth:
             method="GET",
         )
         assert result is not None
-        assert result.status == 200
-        data = result.to_dict()
-        assert data["body"]["status"] == "oauth_callback"
-        assert data["body"]["code"] == "auth-code-123"
+        assert result.status == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/teams/callback?code=auth-code-123&state=state-123"
+        )
 
 
 # ===========================================================================

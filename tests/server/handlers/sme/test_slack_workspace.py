@@ -371,12 +371,7 @@ class TestDeleteWorkspace:
 
 
 class TestOAuth:
-    """Tests for OAuth flow.
-
-    Note: The SlackWorkspaceHandler does not currently expose dedicated
-    /oauth/* routes. These tests verify the subscribe endpoint which is
-    the handler's entry point for workspace configuration.
-    """
+    """Tests for OAuth flow."""
 
     def test_subscribe_endpoint_success(self, slack_handler, mock_user):
         """Test subscribe endpoint (used for workspace config)."""
@@ -387,10 +382,27 @@ class TestOAuth:
         )
         assert result is not None
 
-    def test_oauth_callback_success(self, slack_handler, mock_user):
-        """Test OAuth callback endpoint."""
-        http_handler = MockHandler(path="/api/v1/sme/slack/oauth/callback", method="GET")
+    def test_oauth_start_redirects_to_install(self, slack_handler, mock_user):
+        """Test OAuth start endpoint redirects into the canonical install flow."""
+        http_handler = MockHandler(path="/api/v1/sme/slack/oauth/start", method="GET")
         http_handler.user = mock_user
+
+        result = slack_handler.handle(
+            "/api/v1/sme/slack/oauth/start",
+            {"host": "localhost:8080"},
+            http_handler,
+            method="GET",
+        )
+        assert result is not None
+        assert result.status == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/slack/install?tenant_id=org-123&host=localhost%3A8080"
+        )
+
+    def test_oauth_callback_redirects_to_canonical_callback(self, slack_handler, mock_user):
+        """Test OAuth callback endpoint delegates to canonical callback route."""
+        http_handler = MockHandler(path="/api/v1/sme/slack/oauth/callback", method="GET")
 
         result = slack_handler.handle(
             "/api/v1/sme/slack/oauth/callback",
@@ -399,10 +411,11 @@ class TestOAuth:
             method="GET",
         )
         assert result is not None
-        assert result.status == 200
-        data = result.to_dict()
-        assert data["body"]["status"] == "oauth_callback"
-        assert data["body"]["code"] == "auth-code-123"
+        assert result.status == 302
+        assert (
+            result.headers["Location"]
+            == "/api/integrations/slack/callback?code=auth-code-123&state=state-123"
+        )
 
     def test_oauth_callback_missing_code(self, slack_handler):
         """Test OAuth callback without code."""
