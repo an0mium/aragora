@@ -15,6 +15,7 @@ import types
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -190,6 +191,11 @@ class TestRoutes:
             "/api/system-intelligence/agent-performance",
             "/api/system-intelligence/institutional-memory",
             "/api/system-intelligence/improvement-queue",
+            "/api/system-intelligence/anomalies",
+            "/api/system-intelligence/events",
+            "/api/system-intelligence/km-sync",
+            "/api/system-intelligence/nomic-status",
+            "/api/system-intelligence/debate-queue",
         ]
         for route in expected:
             assert route in SystemIntelligenceHandler.ROUTES, f"Missing route: {route}"
@@ -201,6 +207,11 @@ class TestRoutes:
             "/api/v1/system-intelligence/agent-performance",
             "/api/v1/system-intelligence/institutional-memory",
             "/api/v1/system-intelligence/improvement-queue",
+            "/api/v1/system-intelligence/anomalies",
+            "/api/v1/system-intelligence/events",
+            "/api/v1/system-intelligence/km-sync",
+            "/api/v1/system-intelligence/nomic-status",
+            "/api/v1/system-intelligence/debate-queue",
         ]
         for path in versioned_paths:
             assert handler.can_handle(path), f"Should handle versioned: {path}"
@@ -968,6 +979,161 @@ class TestImprovementQueue:
         expected_keys = ["items", "totalSize", "sourceBreakdown"]
         for key in expected_keys:
             assert key in data, f"Missing key: {key}"
+
+
+# ---------------------------------------------------------------------------
+# Additional live dashboard panels
+# ---------------------------------------------------------------------------
+
+
+class TestAdditionalLivePanels:
+    """Test the extra live panels used by the system-intelligence page."""
+
+    @pytest.mark.asyncio
+    async def test_anomalies_returns_dashboard_alerts(self, handler):
+        detector = MagicMock()
+        detector.get_recent_anomalies.return_value = [
+            {
+                "id": "anom-1",
+                "severity": "high",
+                "anomaly_type": "rate.api_spike",
+                "description": "API request volume spiked above baseline",
+                "timestamp": "2026-03-25T02:00:00Z",
+                "resolved": False,
+            }
+        ]
+
+        with patch(
+            "aragora.security.anomaly_detection.get_anomaly_detector",
+            return_value=detector,
+        ):
+            result = await handler._get_anomalies()
+
+        data = _get_data(result)
+        assert data["alerts"] == [
+            {
+                "id": "anom-1",
+                "severity": "warning",
+                "message": "API request volume spiked above baseline",
+                "source": "rate.api_spike",
+                "timestamp": "2026-03-25T02:00:00Z",
+                "resolved": False,
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_events_reads_nomic_history_file(self, handler, tmp_path):
+        (tmp_path / "events.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "evt-1",
+                        "event_type": "debate_completed",
+                        "agent": "codex",
+                        "timestamp": "2026-03-25T03:00:00Z",
+                        "event_data": {"message": "Founder loop completed"},
+                    }
+                ]
+            )
+        )
+        handler.ctx["nomic_dir"] = tmp_path
+
+        result = await handler._get_events({"limit": "10"})
+
+        data = _get_data(result)
+        assert data["events"] == [
+            {
+                "id": "evt-1",
+                "type": "debate_completed",
+                "message": "Founder loop completed",
+                "timestamp": "2026-03-25T03:00:00Z",
+                "source": "codex",
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_km_sync_aggregates_adapter_and_scheduler_state(self, handler):
+        scheduler = MagicMock()
+        scheduler.get_stats.return_value = {"recent": {"total": 4, "success_rate": 0.75}}
+        scheduler.get_history.return_value = [
+            SimpleNamespace(started_at=datetime(2026, 3, 25, 4, 0, tzinfo=timezone.utc))
+        ]
+
+        with (
+            patch(
+                "aragora.server.handlers.system_health.SystemHealthDashboardHandler._collect_adapters",
+                return_value={"active": 3, "total": 4, "available": True},
+            ),
+            patch(
+                "aragora.knowledge.mound.ops.federation_scheduler.get_federation_scheduler",
+                return_value=scheduler,
+            ),
+        ):
+            result = await handler._get_km_sync()
+
+        data = _get_data(result)
+        assert data == {
+            "last_sync": "2026-03-25T04:00:00+00:00",
+            "pending_items": 0,
+            "adapters_active": 3,
+            "adapters_total": 4,
+            "sync_healthy": True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_nomic_status_aggregates_state_file_and_cycle_store(self, handler, tmp_path):
+        (tmp_path / "nomic_state.json").write_text(
+            json.dumps({"running": True, "phase": "debate", "current_cycle": 7})
+        )
+        handler.ctx["nomic_dir"] = tmp_path
+
+        cycle_store = MagicMock()
+        cycle_store.get_recent_cycles.return_value = [
+            SimpleNamespace(success=True, completed_at=1711335600.0),
+            SimpleNamespace(success=False, completed_at=1711339200.0),
+        ]
+
+        with patch("aragora.nomic.cycle_store.get_cycle_store", return_value=cycle_store):
+            result = await handler._get_nomic_status()
+
+        data = _get_data(result)
+        assert data == {
+            "active": True,
+            "current_cycle": 7,
+            "current_phase": "debate",
+            "last_completed_at": "2024-03-25T04:00:00+00:00",
+            "success_rate": 0.5,
+            "total_cycles": 2,
+        }
+
+    @pytest.mark.asyncio
+    async def test_debate_queue_combines_active_and_batch_counts(self, handler):
+        now = datetime.now(timezone.utc).timestamp()
+        state_manager = MagicMock()
+        state_manager.get_stats.return_value = {"active_debates": 2}
+        debate_queue = SimpleNamespace(
+            _active_count=1,
+            _batches={
+                "batch-1": SimpleNamespace(
+                    items=[
+                        SimpleNamespace(status="queued", started_at=None, completed_at=None),
+                        SimpleNamespace(status="completed", started_at=now - 5, completed_at=now),
+                    ]
+                )
+            },
+        )
+
+        with (
+            patch("aragora.server.state.get_state_manager", return_value=state_manager),
+            patch("aragora.server.debate_queue.get_debate_queue_sync", return_value=debate_queue),
+        ):
+            result = await handler._get_debate_queue()
+
+        data = _get_data(result)
+        assert data["active_debates"] == 2
+        assert data["queued_debates"] == 1
+        assert data["completed_today"] == 1
+        assert data["avg_duration_ms"] == 5000.0
 
 
 # ---------------------------------------------------------------------------

@@ -9,15 +9,23 @@ Endpoints:
 - GET /api/v1/system-intelligence/agent-performance  - ELO, calibration, win rates
 - GET /api/v1/system-intelligence/institutional-memory - Cross-debate injection stats
 - GET /api/v1/system-intelligence/improvement-queue   - Queue contents + breakdown
+- GET /api/v1/system-intelligence/anomalies          - Recent anomaly alerts
+- GET /api/v1/system-intelligence/events             - Recent system events
+- GET /api/v1/system-intelligence/km-sync            - Knowledge sync status
+- GET /api/v1/system-intelligence/nomic-status       - Nomic loop status
+- GET /api/v1/system-intelligence/debate-queue       - Debate activity summary
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.server.validation.query_params import safe_query_int
 
 from .base import (
     HandlerResult,
@@ -55,6 +63,11 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         "/api/system-intelligence/agent-performance",
         "/api/system-intelligence/institutional-memory",
         "/api/system-intelligence/improvement-queue",
+        "/api/system-intelligence/anomalies",
+        "/api/system-intelligence/events",
+        "/api/system-intelligence/km-sync",
+        "/api/system-intelligence/nomic-status",
+        "/api/system-intelligence/debate-queue",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -74,6 +87,11 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             "/api/system-intelligence/agent-performance": self._get_agent_performance,
             "/api/system-intelligence/institutional-memory": self._get_institutional_memory,
             "/api/system-intelligence/improvement-queue": self._get_improvement_queue,
+            "/api/system-intelligence/anomalies": self._get_anomalies,
+            "/api/system-intelligence/events": lambda: self._get_events(query_params),
+            "/api/system-intelligence/km-sync": self._get_km_sync,
+            "/api/system-intelligence/nomic-status": self._get_nomic_status,
+            "/api/system-intelligence/debate-queue": self._get_debate_queue,
         }
 
         endpoint_handler = handlers.get(path)
@@ -471,6 +489,322 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                     "items": items,
                     "totalSize": total_size,
                     "sourceBreakdown": source_breakdown,
+                }
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/system-intelligence/anomalies
+    # ------------------------------------------------------------------
+
+    async def _get_anomalies(self) -> HandlerResult:
+        """Recent anomaly alerts formatted for the dashboard."""
+        alerts: list[dict[str, Any]] = []
+
+        try:
+            from aragora.security.anomaly_detection import get_anomaly_detector
+
+            detector = get_anomaly_detector()
+            recent = detector.get_recent_anomalies(hours=24)
+
+            for idx, anomaly in enumerate(recent[:50]):
+                if not isinstance(anomaly, dict):
+                    continue
+
+                raw_severity = str(anomaly.get("severity", "info")).lower()
+                if raw_severity == "critical":
+                    severity = "critical"
+                elif raw_severity in {"warning", "high", "medium", "low"}:
+                    severity = "warning"
+                else:
+                    severity = "info"
+
+                source = str(anomaly.get("anomaly_type") or anomaly.get("source") or "anomaly")
+                message = str(anomaly.get("description") or anomaly.get("message") or source)
+
+                alerts.append(
+                    {
+                        "id": str(anomaly.get("id") or f"anomaly-{idx}"),
+                        "severity": severity,
+                        "message": message,
+                        "source": source,
+                        "timestamp": str(
+                            anomaly.get("timestamp") or datetime.now(timezone.utc).isoformat()
+                        ),
+                        "resolved": bool(anomaly.get("resolved", False)),
+                    }
+                )
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("Anomaly detector not available for system intelligence: %s", e)
+
+        return json_response({"data": {"alerts": alerts}})
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/system-intelligence/events
+    # ------------------------------------------------------------------
+
+    async def _get_events(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Recent system events normalized for the dashboard timeline."""
+        limit = safe_query_int(query_params, "limit", default=30, min_val=1, max_val=100)
+        events: list[dict[str, Any]] = []
+
+        nomic_dir = self.get_nomic_dir()
+        if nomic_dir:
+            events_file = nomic_dir / "events.json"
+            try:
+                if events_file.exists():
+                    with open(events_file) as f:
+                        raw_events = json.load(f)
+                    if isinstance(raw_events, list):
+                        for idx, raw in enumerate(raw_events[:limit]):
+                            if not isinstance(raw, dict):
+                                continue
+                            event_data = raw.get("event_data")
+                            if not isinstance(event_data, dict):
+                                event_data = (
+                                    raw.get("data") if isinstance(raw.get("data"), dict) else {}
+                                )
+
+                            event_type = str(raw.get("event_type") or raw.get("type") or "event")
+                            source = str(
+                                raw.get("source")
+                                or raw.get("agent")
+                                or event_data.get("source")
+                                or event_type
+                            )
+                            message = str(
+                                raw.get("message")
+                                or raw.get("summary")
+                                or raw.get("description")
+                                or event_data.get("message")
+                                or event_data.get("summary")
+                                or event_data.get("title")
+                                or event_type.replace("_", " ")
+                            )
+                            timestamp = str(
+                                raw.get("timestamp")
+                                or raw.get("created_at")
+                                or event_data.get("timestamp")
+                                or datetime.now(timezone.utc).isoformat()
+                            )
+
+                            events.append(
+                                {
+                                    "id": str(
+                                        raw.get("id") or raw.get("event_id") or f"event-{idx}"
+                                    ),
+                                    "type": event_type,
+                                    "message": message,
+                                    "timestamp": timestamp,
+                                    "source": source,
+                                }
+                            )
+            except (OSError, ValueError, TypeError) as e:
+                logger.debug("System intelligence events unavailable: %s", e)
+
+        return json_response({"data": {"events": events}})
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/system-intelligence/km-sync
+    # ------------------------------------------------------------------
+
+    async def _get_km_sync(self) -> HandlerResult:
+        """Knowledge Mound sync snapshot for the dashboard."""
+        last_sync: str | None = None
+        pending_items = 0
+        adapters_active = 0
+        adapters_total = 0
+        sync_healthy = False
+
+        try:
+            from aragora.server.handlers.system_health import SystemHealthDashboardHandler
+
+            adapter_snapshot = SystemHealthDashboardHandler(self.ctx)._collect_adapters()
+            adapters_active = int(adapter_snapshot.get("active", 0))
+            adapters_total = int(adapter_snapshot.get("total", 0))
+            sync_healthy = bool(adapter_snapshot.get("available", False))
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("KM adapter snapshot unavailable: %s", e)
+
+        try:
+            from aragora.knowledge.mound.ops.federation_scheduler import get_federation_scheduler
+
+            scheduler = get_federation_scheduler()
+            stats = scheduler.get_stats()
+            history = scheduler.get_history(limit=1)
+
+            if history:
+                started_at = getattr(history[0], "started_at", None)
+                if hasattr(started_at, "isoformat"):
+                    last_sync = started_at.isoformat()
+
+            if isinstance(stats, dict):
+                recent = stats.get("recent", {})
+                if isinstance(recent, dict) and int(recent.get("total", 0)) > 0:
+                    sync_healthy = sync_healthy and float(recent.get("success_rate", 0.0)) >= 0.5
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("KM federation scheduler unavailable: %s", e)
+
+        return json_response(
+            {
+                "data": {
+                    "last_sync": last_sync,
+                    "pending_items": pending_items,
+                    "adapters_active": adapters_active,
+                    "adapters_total": adapters_total,
+                    "sync_healthy": sync_healthy,
+                }
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/system-intelligence/nomic-status
+    # ------------------------------------------------------------------
+
+    async def _get_nomic_status(self) -> HandlerResult:
+        """Condensed Nomic loop status used by the live dashboard."""
+        active = False
+        current_cycle = 0
+        current_phase = "idle"
+        last_completed_at: str | None = None
+        success_rate = 0.0
+        total_cycles = 0
+
+        nomic_dir = self.get_nomic_dir()
+        if nomic_dir:
+            state_file = nomic_dir / "nomic_state.json"
+            try:
+                if state_file.exists():
+                    with open(state_file) as f:
+                        state = json.load(f)
+                    if isinstance(state, dict):
+                        active = bool(
+                            state.get("running")
+                            or str(state.get("status", "")).lower() == "running"
+                        )
+                        current_cycle = int(state.get("current_cycle", 0) or 0)
+                        current_phase = str(
+                            state.get("phase")
+                            or state.get("current_phase")
+                            or current_phase
+                            or "idle"
+                        )
+            except (OSError, ValueError, TypeError) as e:
+                logger.debug("Nomic state file unavailable: %s", e)
+
+        try:
+            from aragora.nomic.cycle_store import get_cycle_store
+
+            store = get_cycle_store()
+            recent_cycles = store.get_recent_cycles(100)
+            total_cycles = len(recent_cycles)
+            if total_cycles > 0:
+                success_count = 0
+                completed_timestamps: list[float] = []
+
+                for cycle in recent_cycles:
+                    cycle_success = (
+                        bool(cycle.get("success", False))
+                        if isinstance(cycle, dict)
+                        else bool(getattr(cycle, "success", False))
+                    )
+                    if cycle_success:
+                        success_count += 1
+
+                    completed_at = (
+                        cycle.get("completed_at")
+                        if isinstance(cycle, dict)
+                        else getattr(cycle, "completed_at", None)
+                    )
+                    if isinstance(completed_at, (int, float)):
+                        completed_timestamps.append(float(completed_at))
+
+                success_rate = round(success_count / total_cycles, 4)
+                if completed_timestamps:
+                    last_completed_at = datetime.fromtimestamp(
+                        max(completed_timestamps), tz=timezone.utc
+                    ).isoformat()
+                if current_cycle == 0:
+                    current_cycle = total_cycles + (1 if active else 0)
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("Nomic cycle store unavailable: %s", e)
+
+        return json_response(
+            {
+                "data": {
+                    "active": active,
+                    "current_cycle": current_cycle,
+                    "current_phase": current_phase,
+                    "last_completed_at": last_completed_at,
+                    "success_rate": success_rate,
+                    "total_cycles": total_cycles,
+                }
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/system-intelligence/debate-queue
+    # ------------------------------------------------------------------
+
+    async def _get_debate_queue(self) -> HandlerResult:
+        """Debate activity summary from active state and batch queue."""
+        active_debates = 0
+        queued_debates = 0
+        completed_today = 0
+        avg_duration_ms = 0.0
+
+        try:
+            from aragora.server.state import get_state_manager
+
+            state_stats = get_state_manager().get_stats()
+            active_debates = int(state_stats.get("active_debates", 0))
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("State manager unavailable for debate queue: %s", e)
+
+        try:
+            from aragora.server.debate_queue import get_debate_queue_sync
+
+            queue = get_debate_queue_sync()
+            if queue is not None:
+                active_debates = max(active_debates, int(getattr(queue, "_active_count", 0)))
+                today = datetime.now(timezone.utc).date()
+                completed_durations: list[float] = []
+
+                for batch in getattr(queue, "_batches", {}).values():
+                    for item in getattr(batch, "items", []):
+                        status_value = getattr(item, "status", "")
+                        if hasattr(status_value, "value"):
+                            status_value = status_value.value
+                        status = str(status_value).lower()
+
+                        if status == "queued":
+                            queued_debates += 1
+
+                        completed_at = getattr(item, "completed_at", None)
+                        started_at = getattr(item, "started_at", None)
+                        if status == "completed" and isinstance(completed_at, (int, float)):
+                            completed_date = datetime.fromtimestamp(
+                                float(completed_at), tz=timezone.utc
+                            ).date()
+                            if completed_date == today:
+                                completed_today += 1
+                            if isinstance(started_at, (int, float)):
+                                completed_durations.append(
+                                    max(0.0, (float(completed_at) - float(started_at)) * 1000)
+                                )
+
+                if completed_durations:
+                    avg_duration_ms = round(sum(completed_durations) / len(completed_durations), 1)
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("Debate queue unavailable for system intelligence: %s", e)
+
+        return json_response(
+            {
+                "data": {
+                    "active_debates": active_debates,
+                    "queued_debates": queued_debates,
+                    "completed_today": completed_today,
+                    "avg_duration_ms": avg_duration_ms,
                 }
             }
         )
