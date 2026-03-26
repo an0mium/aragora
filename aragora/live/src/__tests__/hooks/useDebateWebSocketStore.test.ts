@@ -124,6 +124,20 @@ describe('useDebateWebSocketStore', () => {
       });
     });
 
+    it('does not create a second socket when status updates to streaming', () => {
+      renderHook(() =>
+        useDebateWebSocketStore({ debateId, wsUrl: 'wss://test.com/ws' })
+      );
+
+      expect(MockWebSocket.instances).toHaveLength(1);
+
+      act(() => {
+        getLatestWs().simulateOpen();
+      });
+
+      expect(MockWebSocket.instances).toHaveLength(1);
+    });
+
     it('sets status to streaming on connect', () => {
       // Note: The hook has connectionStatus in useEffect deps, which causes
       // the effect to re-run when status changes. This test verifies the

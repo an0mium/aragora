@@ -23,6 +23,7 @@ ALLOWED_QUERY_PARAMS = {
     "limit": None,
     "offset": None,
     "min_debates": None,
+    "since": None,
     # Filtering (string, need length limits)
     "domain": 100,
     "loop_id": 100,

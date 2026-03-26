@@ -48,6 +48,21 @@ else:
     DEFAULT_ORIGINS = _DEV_ORIGINS | _PROD_ORIGINS
 
 
+def _is_local_dev_origin(origin: str) -> bool:
+    """Return True for localhost-style origins used in development."""
+    parsed = urlparse(origin)
+    hostname = parsed.hostname or ""
+    if parsed.scheme not in ("http", "https"):
+        return False
+    return (
+        hostname == "localhost"
+        or hostname == "127.0.0.1"
+        or hostname.startswith("192.168.")
+        or hostname.startswith("10.")
+        or hostname.endswith(".local")
+    )
+
+
 def _is_production_mode(env_mode_override: str | None = None) -> bool:
     """Determine if we are in production mode.
 
@@ -75,6 +90,7 @@ class CORSConfig:
                        When None, uses the module-level _IS_PRODUCTION detection.
         """
         is_production = _is_production_mode(_env_mode)
+        self._is_production = is_production
 
         env_origins = os.getenv("ARAGORA_ALLOWED_ORIGINS", "").strip()
         if env_origins:
@@ -149,6 +165,12 @@ class CORSConfig:
     def is_origin_allowed(self, origin: str) -> bool:
         """Check if an origin is in the allowlist."""
         if self._allow_all:
+            return True
+        if (
+            not self._is_production
+            and not self._using_env_config
+            and _is_local_dev_origin(origin)
+        ):
             return True
         return origin in self.allowed_origins
 

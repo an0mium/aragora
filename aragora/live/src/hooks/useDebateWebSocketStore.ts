@@ -349,7 +349,7 @@ export function useDebateWebSocketStore({
     if (!enabled) return;
 
     // Don't reconnect if max attempts reached
-    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS && connectionStatus === 'error') {
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
       return;
     }
 
@@ -387,7 +387,7 @@ export function useDebateWebSocketStore({
     ws.onclose = (event) => {
       wsRef.current = null;
 
-      if (event.code === 1000 || connectionStatus === 'complete') {
+      if (event.code === 1000 || useDebateStore.getState().current.connectionStatus === 'complete') {
         setConnectionStatus('complete');
         return;
       }
@@ -407,9 +407,16 @@ export function useDebateWebSocketStore({
       }
     };
   }, [
-    enabled, wsUrl, debateId, handleMessage, reconnectAttempt,
-    scheduleReconnect, connectionStatus, setDebateId, setConnectionStatus,
-    setError, resetReconnectAttempt
+    enabled,
+    wsUrl,
+    debateId,
+    handleMessage,
+    reconnectAttempt,
+    scheduleReconnect,
+    setDebateId,
+    setConnectionStatus,
+    setError,
+    resetReconnectAttempt,
   ]);
 
   // Return actions only (state is accessed via store)

@@ -87,6 +87,11 @@ class TestQueryParamValidation:
         valid, error = validate_query_params({"limit": ["99999999999"]})
         assert valid is True
 
+    def test_since_param_is_allowed_for_event_polling(self):
+        """Debate event polling cursor should pass the global whitelist."""
+        valid, error = validate_query_params({"since": ["0"]})
+        assert valid is True
+
     def test_multiple_values_all_validated(self):
         """All values in a multi-value param should be validated."""
         # Mixed valid and invalid
@@ -316,26 +321,33 @@ class TestRunAsyncInEventLoop:
 
     @pytest.mark.asyncio
     async def test_from_async_context(self):
-        """run_async should work from async context (uses thread pool)."""
+        """run_async should reject unrelated async contexts."""
 
         async def inner():
             return "from_thread"
 
-        # This is called from within an async test (has running loop)
-        result = run_async(inner())
-        assert result == "from_thread"
+        coro = inner()
+        try:
+            with pytest.raises(RuntimeError, match="cannot be called from an async context"):
+                run_async(coro)
+        finally:
+            coro.close()
 
     @pytest.mark.asyncio
     async def test_concurrent_run_async(self):
-        """Multiple run_async calls should be safe."""
+        """Repeated async-context calls should fail consistently."""
 
         async def task(n):
             await asyncio.sleep(0.01)
             return n * 2
 
-        # Run multiple in parallel (each spawns thread pool)
-        results = [run_async(task(i)) for i in range(3)]
-        assert results == [0, 2, 4]
+        for i in range(3):
+            coro = task(i)
+            try:
+                with pytest.raises(RuntimeError, match="cannot be called from an async context"):
+                    run_async(coro)
+            finally:
+                coro.close()
 
 
 class TestQueryParamWhitelistCompleteness:
@@ -345,6 +357,7 @@ class TestQueryParamWhitelistCompleteness:
         """Pagination params should be allowed."""
         assert "limit" in ALLOWED_QUERY_PARAMS
         assert "offset" in ALLOWED_QUERY_PARAMS
+        assert "since" in ALLOWED_QUERY_PARAMS
 
     def test_search_params_allowed(self):
         """Search params should be allowed."""

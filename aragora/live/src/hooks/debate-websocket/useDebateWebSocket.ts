@@ -400,7 +400,12 @@ export function useDebateWebSocket({
 
     // Check if event belongs to this debate
     const eventData = data.data as Record<string, unknown> | undefined;
-    const eventDebateId = data.loop_id || eventData?.debate_id || eventData?.loop_id;
+    const eventDebateId =
+      (data.loop_id as string | undefined)
+      || (data.debate_id as string | undefined)
+      || (eventData?.debate_id as string | undefined)
+      || (eventData?.loop_id as string | undefined)
+      || (eventData?.id as string | undefined);
     const isOurDebate = !eventDebateId || eventDebateId === debateId;
 
     if (!isOurDebate) return;

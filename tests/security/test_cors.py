@@ -43,6 +43,7 @@ class TestCORSConfig:
 
         config = CORSConfig()
         assert config.is_origin_allowed("http://localhost:3000")
+        assert config.is_origin_allowed("http://127.0.0.1:3114")
         assert config.is_origin_allowed("https://aragora.ai")
 
     def test_is_origin_allowed_invalid(self):
@@ -169,13 +170,20 @@ class TestCORSOriginValidation:
         # Production domain with HTTP should be rejected
         assert not config.is_origin_allowed("http://aragora.ai")
 
-    def test_port_mismatch(self):
-        """Test that port mismatch is rejected."""
+    def test_localhost_port_variation_allowed_in_dev_defaults(self):
+        """Dev defaults should allow localhost on arbitrary ports."""
         from aragora.server.cors_config import CORSConfig
 
         config = CORSConfig()
-        # localhost:3001 should be rejected when only 3000 is allowed
-        assert not config.is_origin_allowed("http://localhost:3001")
+        assert config.is_origin_allowed("http://localhost:3001")
+        assert config.is_origin_allowed("http://127.0.0.1:3114")
+
+    def test_production_origin_port_mismatch_still_rejected(self):
+        """Explicit production origins should still require exact ports."""
+        from aragora.server.cors_config import CORSConfig
+
+        config = CORSConfig()
+        assert not config.is_origin_allowed("https://aragora.ai:444")
 
     def test_case_sensitivity(self):
         """Test origin matching is case-sensitive for host."""

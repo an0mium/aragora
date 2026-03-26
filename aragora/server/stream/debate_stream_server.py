@@ -60,7 +60,7 @@ from aragora.config import WS_MAX_MESSAGE_SIZE
 from aragora.server.auth import auth_config
 
 # Centralized CORS configuration
-from aragora.server.cors_config import WS_ALLOWED_ORIGINS
+from aragora.server.cors_config import cors_config
 
 # Trusted proxies for X-Forwarded-For header validation
 TRUSTED_PROXIES = frozenset(
@@ -410,8 +410,9 @@ class DebateStreamServer(ServerBase):
         loop_id = event.loop_id
         with self._debate_states_lock:
             if event.type == StreamEventType.DEBATE_START:
+                existing_state = self.debate_states.get(loop_id, {})
                 # Enforce max size with LRU eviction (only evict ended debates)
-                if len(self.debate_states) >= self.config.max_debate_states:
+                if loop_id not in self.debate_states and len(self.debate_states) >= self.config.max_debate_states:
                     # Find oldest ended debate to evict
                     ended_states = [
                         (k, self._debate_states_last_access.get(k, 0))
@@ -422,18 +423,21 @@ class DebateStreamServer(ServerBase):
                         oldest = min(ended_states, key=lambda x: x[1])[0]
                         self.debate_states.pop(oldest, None)
                         self._debate_states_last_access.pop(oldest, None)
+                task = event.data.get("task") or existing_state.get("task", "")
+                agents = event.data.get("agents") or existing_state.get("agents", [])
                 self.debate_states[loop_id] = {
                     "id": loop_id,
-                    "task": event.data.get("task", ""),
-                    "agents": event.data.get("agents", []),
-                    "messages": [],
-                    "consensus_reached": False,
-                    "consensus_confidence": 0.0,
-                    "consensus_answer": "",
-                    "started_at": event.timestamp,
+                    "debate_id": loop_id,
+                    "task": task,
+                    "agents": agents,
+                    "messages": existing_state.get("messages", []),
+                    "consensus_reached": existing_state.get("consensus_reached", False),
+                    "consensus_confidence": existing_state.get("consensus_confidence", 0.0),
+                    "consensus_answer": existing_state.get("consensus_answer", ""),
+                    "started_at": existing_state.get("started_at", event.timestamp),
                     "rounds": 0,
                     "ended": False,
-                    "duration": 0.0,
+                    "duration": existing_state.get("duration", 0.0),
                 }
                 self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.AGENT_MESSAGE:
@@ -886,9 +890,9 @@ class DebateStreamServer(ServerBase):
             await websocket.close(4029, rate_error)
             return (False, client_ip, "", 0, False, None)
 
-        # Validate origin
+        # Validate origin against the centralized CORS policy.
         origin = self._extract_ws_origin(websocket)
-        if origin and origin not in WS_ALLOWED_ORIGINS:
+        if origin and not cors_config.is_origin_allowed(origin):
             self._release_ws_connection(client_ip)
             logger.warning("[ws] Origin not allowed for %s: %s", client_ip, origin)
             await websocket.close(4003, "Origin not allowed")
@@ -967,7 +971,12 @@ class DebateStreamServer(ServerBase):
                 json.dumps(
                     {
                         "type": "sync",
-                        "data": state,
+                        "loop_id": debate_id,
+                        "data": {
+                            **state,
+                            "debate_id": debate_id,
+                            "loop_id": debate_id,
+                        },
                         "debate_id": debate_id,
                     }
                 )
@@ -1629,10 +1638,7 @@ class DebateStreamServer(ServerBase):
             self.handler,
             self.host,
             self.port,
-            max_size=WS_MAX_MESSAGE_SIZE,
-            ping_interval=30,  # Send ping every 30s
-            ping_timeout=10,  # Close connection if no pong within 10s
-            compression="deflate",  # Enable permessage-deflate for reduced bandwidth
+            **self._websocket_serve_kwargs(),
         ):
             logger.info(
                 "WebSocket server: ws://%s:%s (max message size: %s bytes)",
@@ -1641,6 +1647,16 @@ class DebateStreamServer(ServerBase):
                 WS_MAX_MESSAGE_SIZE,
             )
             await self._stop_event.wait()  # Run until shutdown signal
+
+    def _websocket_serve_kwargs(self) -> dict[str, Any]:
+        """Return stable websockets.serve kwargs for the debate stream server."""
+        return {
+            "max_size": WS_MAX_MESSAGE_SIZE,
+            "subprotocols": ["aragora-v1"],
+            "ping_interval": 30,
+            "ping_timeout": 10,
+            "compression": "deflate",
+        }
 
     def stop(self) -> None:
         """Stop the server."""

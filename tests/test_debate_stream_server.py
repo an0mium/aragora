@@ -281,6 +281,29 @@ class TestDebateStreamServerIpExtraction:
 class TestDebateStreamServerOrigin:
     """Tests for origin header extraction."""
 
+    @pytest.mark.asyncio
+    async def test_setup_connection_allows_localhost_dev_port(self):
+        """Dev localhost ports should pass centralized origin validation."""
+        server = DebateStreamServer()
+        server._clients_lock = asyncio.Lock()
+
+        mock_ws = MagicMock()
+        mock_ws.remote_address = ("127.0.0.1", 12345)
+        mock_ws.request.headers = {"Origin": "http://127.0.0.1:3114"}
+
+        with patch.object(server, '_validate_ws_auth', return_value=True), \
+             patch.object(server, '_extract_ws_token', return_value=None):
+            success, client_ip, client_id, ws_id, is_authenticated, ws_token = await server._setup_connection(mock_ws)
+
+        assert success is True
+        assert client_ip == "127.0.0.1"
+        assert client_id
+        assert ws_id == id(mock_ws)
+        assert is_authenticated is True
+        assert ws_token is None
+        mock_ws.close.assert_not_called()
+
+
     def test_extracts_origin_from_request(self):
         """Should extract origin from request headers."""
         server = DebateStreamServer()
@@ -765,6 +788,70 @@ class TestDebateStreamServerLifecycle:
         assert len(server.clients) == 0
         mock_client.close.assert_called_once()
 
+    def test_websocket_serve_kwargs_advertise_browser_subprotocol(self):
+        """The server should negotiate the browser-visible Aragora subprotocol."""
+        server = DebateStreamServer()
+
+        kwargs = server._websocket_serve_kwargs()
+
+        assert kwargs["subprotocols"] == ["aragora-v1"]
+        assert kwargs["max_size"] > 0
+
+    @pytest.mark.asyncio
+    async def test_send_debate_state_scopes_sync_to_subscribed_debate(self):
+        """sync payloads should include debate identifiers where the client filter expects them."""
+        server = DebateStreamServer()
+        websocket = AsyncMock()
+        debate_id = "adhoc_123"
+        server.debate_states[debate_id] = {
+            "id": debate_id,
+            "task": "Should we preserve debate metadata?",
+            "agents": ["openai-api", "mistral"],
+            "messages": [],
+            "ended": False,
+        }
+
+        await server._send_debate_state(websocket, debate_id)
+
+        first_payload = json.loads(websocket.send.await_args_list[0].args[0])
+        assert first_payload["type"] == "sync"
+        assert first_payload["loop_id"] == debate_id
+        assert first_payload["data"]["debate_id"] == debate_id
+        assert first_payload["data"]["loop_id"] == debate_id
+        assert first_payload["data"]["task"] == "Should we preserve debate metadata?"
+        assert first_payload["data"]["agents"] == ["openai-api", "mistral"]
+
+    def test_debate_start_merge_preserves_existing_task_and_agents(self):
+        """Later sparse debate_start events should not wipe the cached task/agents."""
+        server = DebateStreamServer()
+        debate_id = "adhoc_456"
+        server.debate_states[debate_id] = {
+            "id": debate_id,
+            "task": "Original task",
+            "agents": ["openai-api", "mistral"],
+            "messages": [{"agent": "openai-api", "content": "hello"}],
+            "consensus_reached": False,
+            "consensus_confidence": 0.0,
+            "consensus_answer": "",
+            "started_at": 123.0,
+            "rounds": 0,
+            "ended": False,
+            "duration": 0.0,
+        }
+
+        server._update_debate_state(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"details": "spectator only"},
+                loop_id=debate_id,
+            )
+        )
+
+        state = server.debate_states[debate_id]
+        assert state["task"] == "Original task"
+        assert state["agents"] == ["openai-api", "mistral"]
+        assert state["messages"] == [{"agent": "openai-api", "content": "hello"}]
+
 
 # ============================================================================
 # Message Parsing Tests
@@ -782,8 +869,10 @@ class TestDebateStreamServerMessageParsing:
         result = await server._parse_message('{"type": "test", "data": 123}')
 
         assert result is not None
-        assert result["type"] == "test"
-        assert result["data"] == 123
+        parsed, error_reason = result
+        assert error_reason is None
+        assert parsed["type"] == "test"
+        assert parsed["data"] == 123
 
     @pytest.mark.asyncio
     async def test_parse_invalid_json(self):
@@ -792,7 +881,7 @@ class TestDebateStreamServerMessageParsing:
 
         result = await server._parse_message("not valid json")
 
-        assert result is None
+        assert result == (None, "invalid_json")
 
     @pytest.mark.asyncio
     async def test_parse_oversized_message(self):
@@ -806,4 +895,4 @@ class TestDebateStreamServerMessageParsing:
 
         result = await server._parse_message(large_message)
 
-        assert result is None
+        assert result == (None, "message_too_large")

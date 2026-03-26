@@ -209,6 +209,28 @@ describe('useDebateWebSocket', () => {
   });
 
   describe('debate events', () => {
+    it('should scope sync events using top-level debate_id and payload id', () => {
+      const { result } = renderHook(() =>
+        useDebateWebSocket({ debateId: 'test-debate-1' })
+      );
+
+      act(() => {
+        getLatestWs().simulateOpen();
+        getLatestWs().simulateMessage({
+          type: 'sync',
+          debate_id: 'test-debate-1',
+          data: {
+            id: 'test-debate-1',
+            task: 'Scoped sync task',
+            agents: ['Agent A', 'Agent B'],
+          },
+        });
+      });
+
+      expect(result.current.task).toBe('Scoped sync task');
+      expect(result.current.agents).toEqual(['Agent A', 'Agent B']);
+    });
+
     it('should handle debate_start event', () => {
       const { result } = renderHook(() =>
         useDebateWebSocket({ debateId: 'test-debate-1' })
