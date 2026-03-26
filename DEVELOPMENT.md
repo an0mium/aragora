@@ -109,20 +109,20 @@ make guard-strict  # includes untracked artifacts
 # Baseline command (same tooling and addopts as CI)
 python scripts/run_test_baseline.py
 
-# Run all tests
-pytest tests/ -v
+# Direct pytest invocation: disable pytest-rerunfailures to keep local and sandbox runs deterministic
+python -m pytest -p no:rerunfailures tests/ -v
 
 # Run specific test file
-pytest tests/test_orchestrator.py -v
+python -m pytest -p no:rerunfailures tests/test_orchestrator.py -v
 
 # Run tests matching pattern
-pytest tests/ -k "consensus" -v
+python -m pytest -p no:rerunfailures tests/ -k "consensus" -v
 
 # Run with coverage
-pytest tests/ --cov=aragora --cov-report=html
+python -m pytest -p no:rerunfailures tests/ --cov=aragora --cov-report=html
 
 # Run only fast tests (skip slow integration tests)
-pytest tests/ -v --timeout=10
+python -m pytest -p no:rerunfailures tests/ -v --timeout=10
 
 # Run mutation testing
 mutmut run --paths-to-mutate=aragora/debate/
@@ -217,7 +217,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ### Pull Request Checklist
 
-- [ ] Tests pass locally (`pytest tests/ -v`)
+- [ ] Tests pass locally (`python -m pytest -p no:rerunfailures tests/ -v`)
 - [ ] Baseline gate passes locally (`python scripts/run_test_baseline.py`)
 - [ ] Code is formatted (`black .`)
 - [ ] Linting passes (`ruff check .`)

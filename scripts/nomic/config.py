@@ -68,7 +68,7 @@ NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "1") == "1"
 
 # Test command to run inside TestFixer
 NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
-    "NOMIC_TESTFIXER_TEST_COMMAND", "pytest tests/ -q --maxfail=1"
+    "NOMIC_TESTFIXER_TEST_COMMAND", "python -m pytest -p no:rerunfailures tests/ -q --maxfail=1"
 )
 
 # Per-test run timeout (seconds)

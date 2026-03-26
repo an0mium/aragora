@@ -6,8 +6,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import re
-import subprocess
-import sys
 from importlib import metadata
 
 
@@ -47,18 +45,18 @@ def _check_module_import(module_name: str) -> tuple[bool, str]:
     return True, f"{module_name} importable"
 
 
-def _check_pytest_reruns_flag() -> tuple[bool, str]:
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "--help"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        return False, "pytest --help failed"
-    if "--reruns" not in proc.stdout:
-        return False, "pytest-rerunfailures plugin not active (--reruns flag missing)"
-    return True, "pytest --reruns flag available"
+def _check_pytest_reruns_entrypoint() -> tuple[bool, str]:
+    entries = metadata.entry_points()
+    if hasattr(entries, "select"):
+        plugins = entries.select(group="pytest11")
+    else:
+        plugins = [entry for entry in entries if entry.group == "pytest11"]
+
+    for entry in plugins:
+        if entry.name == "rerunfailures" and entry.value == "pytest_rerunfailures":
+            return True, "pytest-rerunfailures entrypoint registered"
+
+    return False, "pytest-rerunfailures pytest11 entrypoint missing"
 
 
 def main() -> int:
@@ -72,7 +70,7 @@ def main() -> int:
 
     checks.append(_check_module_import("jwt"))
     checks.append(_check_module_import("pytest_rerunfailures"))
-    checks.append(_check_pytest_reruns_flag())
+    checks.append(_check_pytest_reruns_entrypoint())
 
     failures = [msg for ok, msg in checks if not ok]
 

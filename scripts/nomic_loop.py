@@ -256,7 +256,7 @@ NOMIC_AUTO_CHECKPOINT = os.environ.get("NOMIC_AUTO_CHECKPOINT", "1") == "1"
 
 NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "1") == "1"
 NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
-    "NOMIC_TESTFIXER_TEST_COMMAND", "pytest tests/ -q --maxfail=1"
+    "NOMIC_TESTFIXER_TEST_COMMAND", "python -m pytest -p no:rerunfailures tests/ -q --maxfail=1"
 )
 NOMIC_TESTFIXER_TEST_TIMEOUT = int(os.environ.get("NOMIC_TESTFIXER_TEST_TIMEOUT", "600"))
 NOMIC_TESTFIXER_MAX_ITERATIONS = int(os.environ.get("NOMIC_TESTFIXER_MAX_ITERATIONS", "5"))

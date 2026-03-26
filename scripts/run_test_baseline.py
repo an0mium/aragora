@@ -13,6 +13,7 @@ DEFAULT_MARKERS = (
     "and not integration_minimal and not benchmark and not performance"
 )
 DEFAULT_PATHS = ["tests/"]
+DEFAULT_PYTEST_ARGS = ["-p", "no:rerunfailures"]
 DEFAULT_IGNORE_PATHS = (
     "tests/benchmarks/test_debate_perf.py",
     "tests/cli/test_demo_command.py",
@@ -30,6 +31,7 @@ def _build_pytest_command(args: argparse.Namespace) -> list[str]:
         sys.executable,
         "-m",
         "pytest",
+        *DEFAULT_PYTEST_ARGS,
         *args.paths,
         "-m",
         args.markers,
