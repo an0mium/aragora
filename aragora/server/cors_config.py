@@ -166,11 +166,7 @@ class CORSConfig:
         """Check if an origin is in the allowlist."""
         if self._allow_all:
             return True
-        if (
-            not self._is_production
-            and not self._using_env_config
-            and _is_local_dev_origin(origin)
-        ):
+        if not self._is_production and not self._using_env_config and _is_local_dev_origin(origin):
             return True
         return origin in self.allowed_origins
 

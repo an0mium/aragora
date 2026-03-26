@@ -412,7 +412,10 @@ class DebateStreamServer(ServerBase):
             if event.type == StreamEventType.DEBATE_START:
                 existing_state = self.debate_states.get(loop_id, {})
                 # Enforce max size with LRU eviction (only evict ended debates)
-                if loop_id not in self.debate_states and len(self.debate_states) >= self.config.max_debate_states:
+                if (
+                    loop_id not in self.debate_states
+                    and len(self.debate_states) >= self.config.max_debate_states
+                ):
                     # Find oldest ended debate to evict
                     ended_states = [
                         (k, self._debate_states_last_access.get(k, 0))

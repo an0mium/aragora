@@ -291,9 +291,18 @@ class TestDebateStreamServerOrigin:
         mock_ws.remote_address = ("127.0.0.1", 12345)
         mock_ws.request.headers = {"Origin": "http://127.0.0.1:3114"}
 
-        with patch.object(server, '_validate_ws_auth', return_value=True), \
-             patch.object(server, '_extract_ws_token', return_value=None):
-            success, client_ip, client_id, ws_id, is_authenticated, ws_token = await server._setup_connection(mock_ws)
+        with (
+            patch.object(server, "_validate_ws_auth", return_value=True),
+            patch.object(server, "_extract_ws_token", return_value=None),
+        ):
+            (
+                success,
+                client_ip,
+                client_id,
+                ws_id,
+                is_authenticated,
+                ws_token,
+            ) = await server._setup_connection(mock_ws)
 
         assert success is True
         assert client_ip == "127.0.0.1"
@@ -302,7 +311,6 @@ class TestDebateStreamServerOrigin:
         assert is_authenticated is True
         assert ws_token is None
         mock_ws.close.assert_not_called()
-
 
     def test_extracts_origin_from_request(self):
         """Should extract origin from request headers."""

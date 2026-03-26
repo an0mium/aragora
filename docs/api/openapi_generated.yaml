@@ -107968,10 +107968,11 @@ paths:
       - SME
       - Slack
       description: "List available channels for a Slack workspace.\n\nPath Parameters:\n    workspace_id: Slack workspace\
-        \ ID\n\nQuery Parameters:\n    types: Channel types to include (public_channel, private_channel)\n\nReturns:\n   \
-        \ JSON response with channel list:\n    {\n        \"channels\": [\n            {\n                \"id\": \"C123...\"\
-        ,\n                \"name\": \"general\",\n                \"is_private\": false,\n                \"num_members\"\
-        : 42\n            }\n        ],\n        \"workspace_id\": \"...\"\n    }"
+        \ ID\n\nQuery Parameters:\n    types: Channel types to include (public_channel, private_channel)\n    limit: Maximum\
+        \ number of channels to return (default: 100)\n\nReturns:\n    JSON response with channel list:\n    {\n        \"\
+        channels\": [\n            {\n                \"id\": \"C123...\",\n                \"name\": \"general\",\n     \
+        \           \"is_private\": false,\n                \"num_members\": 42\n            }\n        ],\n        \"workspace_id\"\
+        : \"...\"\n    }"
       operationId: _list_channels
       parameters:
       - name: workspace_id
