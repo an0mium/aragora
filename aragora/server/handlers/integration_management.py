@@ -106,6 +106,13 @@ class IntegrationsHandler(BaseHandler):
             return method in ("GET", "POST", "DELETE")
         return False
 
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Collapse optional trailing slashes on integration routes."""
+        if path == "/api/v2/integrations/" or path.startswith("/api/v2/integrations/"):
+            return path.rstrip("/") or path
+        return path
+
     @rate_limit(requests_per_minute=60)
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult | None:
         """Route request to appropriate handler method.
@@ -144,6 +151,7 @@ class IntegrationsHandler(BaseHandler):
             return _legacy_error_response(
                 "Invalid integration request path", 400, code="INVALID_PATH"
             )
+        path = self._normalize_path(path)
         if query_params is None:
             query_params = {}
 

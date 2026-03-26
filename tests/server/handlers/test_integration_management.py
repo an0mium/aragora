@@ -168,6 +168,18 @@ class TestListIntegrations:
         assert data["pagination"]["total"] == 2
 
     @pytest.mark.asyncio
+    async def test_list_all_integrations_with_trailing_slash(self, handler):
+        slack_ws = _make_slack_workspace()
+        teams_ws = _make_teams_workspace()
+        handler._slack_store.list_active.return_value = [slack_ws]
+        handler._teams_store.list_active.return_value = [teams_ws]
+
+        result = await handler.handle("GET", "/api/v2/integrations/")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert len(data["integrations"]) == 2
+
+    @pytest.mark.asyncio
     async def test_list_with_type_filter_slack(self, handler):
         slack_ws = _make_slack_workspace()
         handler._slack_store.list_active.return_value = [slack_ws]
@@ -240,6 +252,21 @@ class TestGetIntegration:
         assert data["type"] == "slack"
         assert data["connected"] is True
         assert "workspace" in data
+
+    @pytest.mark.asyncio
+    async def test_get_slack_by_workspace_id_with_trailing_slash(self, handler):
+        ws = _make_slack_workspace()
+        handler._slack_store.get.return_value = ws
+
+        with patch.object(handler, "_check_slack_health", return_value={"status": "healthy"}):
+            result = await handler.handle(
+                "GET",
+                "/api/v2/integrations/slack/",
+                query_params={"workspace_id": "ws-slack-001"},
+            )
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["type"] == "slack"
 
     @pytest.mark.asyncio
     async def test_get_slack_not_found(self, handler):
@@ -598,6 +625,22 @@ class TestStats:
         assert data["stats"]["teams"]["active_workspaces"] == 2
         assert data["stats"]["total_integrations"] == 5
         assert "generated_at" in data
+
+    @pytest.mark.asyncio
+    async def test_get_stats_with_trailing_slash(self, handler):
+        handler._slack_store.get_stats.return_value = {
+            "active_workspaces": 3,
+            "total_workspaces": 5,
+        }
+        handler._teams_store.get_stats.return_value = {
+            "active_workspaces": 2,
+            "total_workspaces": 4,
+        }
+
+        result = await handler.handle("GET", "/api/v2/integrations/stats/")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["stats"]["total_integrations"] == 5
 
 
 # ============================================================================
