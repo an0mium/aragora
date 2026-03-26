@@ -49,6 +49,7 @@ Migration Notes:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from enum import Enum
@@ -332,6 +333,24 @@ def _get_analytics_response(path: str) -> dict[str, Any]:
 
 async def _await_if_needed(result: Any) -> Any:
     """Await async dashboard results while tolerating sync test doubles."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+async def _call_debate_store_method(
+    store: Any,
+    method_name: str,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    """Run debate-store methods without blocking the FastAPI event loop."""
+
+    method = getattr(store, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
     if inspect.isawaitable(result):
         return await result
     return result
@@ -1162,7 +1181,9 @@ async def get_deliberation_summary(
         from aragora.memory.debate_store import get_debate_store
 
         store = get_debate_store()
-        stats = store.get_deliberation_stats(
+        stats = await _call_debate_store_method(
+            store,
+            "get_deliberation_stats",
             org_id=org_id,
             start_time=period_start,
             end_time=period_end,
@@ -1220,7 +1241,9 @@ async def get_deliberation_by_channel(
         from aragora.memory.debate_store import get_debate_store
 
         store = get_debate_store()
-        channel_stats = store.get_deliberation_stats_by_channel(
+        channel_stats = await _call_debate_store_method(
+            store,
+            "get_deliberation_stats_by_channel",
             org_id=org_id,
             start_time=period_start,
             end_time=period_end,
@@ -1294,7 +1317,9 @@ async def get_consensus_rates(
         from aragora.memory.debate_store import get_debate_store
 
         store = get_debate_store()
-        consensus_stats = store.get_consensus_stats(
+        consensus_stats = await _call_debate_store_method(
+            store,
+            "get_consensus_stats",
             org_id=org_id,
             start_time=period_start,
             end_time=period_end,
@@ -1347,7 +1372,9 @@ async def get_deliberation_performance(
         from aragora.memory.debate_store import get_debate_store
 
         store = get_debate_store()
-        perf_stats = store.get_deliberation_performance(
+        perf_stats = await _call_debate_store_method(
+            store,
+            "get_deliberation_performance",
             org_id=org_id,
             start_time=period_start,
             end_time=period_end,
