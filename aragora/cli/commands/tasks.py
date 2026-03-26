@@ -12,8 +12,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from aragora.worktree.fleet import resolve_repo_root
-
 
 def _resolve(result: Any) -> Any:
     """Resolve an awaitable from sync CLI code."""
@@ -23,6 +21,8 @@ def _resolve(result: Any) -> Any:
 
 
 def _repo_root() -> Path:
+    from aragora.worktree.fleet import resolve_repo_root
+
     return resolve_repo_root(Path.cwd())
 
 

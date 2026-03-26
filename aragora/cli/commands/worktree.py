@@ -22,19 +22,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from aragora.swarm.reporter import build_integrator_view
-from aragora.worktree import (
-    AutopilotRequest,
-    FleetIntegrationWorker,
-    FleetIntegrationWorkerConfig,
-    resolve_repo_root,
-    run_autopilot,
-)
-from aragora.worktree.fleet import (
-    FleetCoordinationStore,
-    build_fleet_rows,
-)
-
 
 def add_worktree_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register the 'worktree' subcommand and its sub-subcommands."""
@@ -261,6 +248,8 @@ Workflow:
 
 def cmd_worktree(args: argparse.Namespace) -> None:
     """Dispatch worktree subcommand."""
+    from aragora.worktree import resolve_repo_root
+
     action = getattr(args, "wt_action", None)
     if not action:
         print(
@@ -648,6 +637,9 @@ def _cmd_worktree_fleet_status(
     args: argparse.Namespace, *, repo_path: Path, base_branch: str
 ) -> None:
     """Show active session state and recent logs across all git worktrees."""
+    from aragora.swarm.reporter import build_integrator_view
+    from aragora.worktree.fleet import FleetCoordinationStore, build_fleet_rows
+
     tail_count = max(0, int(getattr(args, "tail", 500)))
     rows = build_fleet_rows(repo_path, base_branch=base_branch, tail=tail_count)
     store = FleetCoordinationStore(repo_path)
@@ -801,6 +793,8 @@ def _cmd_worktree_fleet_status(
 
 def _cmd_worktree_fleet_claims(args: argparse.Namespace, *, repo_path: Path) -> None:
     """List ownership claims."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     store = FleetCoordinationStore(repo_path)
     claims = store.list_claims()
     if getattr(args, "json", False):
@@ -816,6 +810,8 @@ def _cmd_worktree_fleet_claims(args: argparse.Namespace, *, repo_path: Path) -> 
 
 def _cmd_worktree_fleet_claim(args: argparse.Namespace, *, repo_path: Path) -> None:
     """Claim ownership of files for a session."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     store = FleetCoordinationStore(repo_path)
     result = store.claim_paths(
         session_id=str(args.session_id),
@@ -837,6 +833,8 @@ def _cmd_worktree_fleet_claim(args: argparse.Namespace, *, repo_path: Path) -> N
 
 def _cmd_worktree_fleet_release(args: argparse.Namespace, *, repo_path: Path) -> None:
     """Release ownership claims for a session."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     store = FleetCoordinationStore(repo_path)
     paths = [str(path) for path in args.paths] if args.paths else None
     result = store.release_paths(session_id=str(args.session_id), paths=paths)
@@ -895,6 +893,8 @@ def _format_claim_session_values(values: object, *, limit: int = 6) -> str:
 
 def _cmd_worktree_fleet_reap_claims(args: argparse.Namespace, *, repo_path: Path) -> None:
     """Reap stale ownership claims and report what was cleaned up."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     store = FleetCoordinationStore(repo_path)
     claim_snapshot = store.list_claims()
     details_by_session = _claim_snapshot_by_session(
@@ -966,6 +966,8 @@ def _cmd_worktree_fleet_reap_claims(args: argparse.Namespace, *, repo_path: Path
 
 def _cmd_worktree_fleet_queue_add(args: argparse.Namespace, *, repo_path: Path) -> None:
     """Enqueue merge work for a branch."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     store = FleetCoordinationStore(repo_path)
     result = store.enqueue_merge(
         session_id=str(args.session_id),
@@ -985,6 +987,8 @@ def _cmd_worktree_fleet_queue_add(args: argparse.Namespace, *, repo_path: Path) 
 
 def _cmd_worktree_fleet_queue_list(args: argparse.Namespace, *, repo_path: Path) -> None:
     """List merge queue entries."""
+    from aragora.worktree.fleet import FleetCoordinationStore
+
     status_filter = str(getattr(args, "status", "")).strip() or None
     store = FleetCoordinationStore(repo_path)
     queue = store.list_merge_queue(status=status_filter)
@@ -1002,6 +1006,8 @@ def _cmd_worktree_fleet_queue_list(args: argparse.Namespace, *, repo_path: Path)
 
 def _cmd_worktree_fleet_queue_process_next(args: argparse.Namespace, *, repo_path: Path) -> None:
     """Process the next queued merge item with the fleet integration worker."""
+    from aragora.worktree import FleetIntegrationWorker, FleetIntegrationWorkerConfig
+
     worker = FleetIntegrationWorker(
         repo_path=repo_path,
         config=FleetIntegrationWorkerConfig(
@@ -1034,6 +1040,8 @@ def _cmd_worktree_fleet_queue_process_next(args: argparse.Namespace, *, repo_pat
 
 def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_branch: str) -> None:
     """Run codex worktree autopilot through the main Aragora CLI."""
+    from aragora.worktree import AutopilotRequest, run_autopilot
+
     request = AutopilotRequest(
         action=args.auto_action,
         managed_dir=args.managed_dir,

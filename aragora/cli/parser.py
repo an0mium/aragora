@@ -1191,10 +1191,53 @@ def _add_external_parsers(subparsers) -> None:
 
 
 def _add_review_pr_parser(subparsers) -> None:
-    """Add the PR review/fix loop parser."""
-    from aragora.cli.commands.review_pr import add_review_pr_parser
-
-    add_review_pr_parser(subparsers)
+    """Add the PR review/fix loop parser without importing its heavy runtime."""
+    parser = subparsers.add_parser(
+        "review-pr",
+        help="Review a live GitHub PR head and optionally run a fixer loop",
+        description=(
+            "Fetch the current remote PR head, run a reviewer against that truth source, "
+            "persist structured findings, and optionally dispatch a fixer in a detached worktree."
+        ),
+    )
+    parser.add_argument("pr", help="PR number or GitHub PR URL")
+    parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to the current repo context.",
+    )
+    parser.add_argument(
+        "--reviewer",
+        default="claude",
+        help="Preferred review model/provider (default: claude)",
+    )
+    parser.add_argument(
+        "--fixer",
+        default=None,
+        help="Optional fixer model/provider to run after blocking findings (for example: codex)",
+    )
+    parser.add_argument(
+        "--auto-rerun",
+        action="store_true",
+        help="Re-review the PR head automatically after a successful fixer push",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        default=None,
+        help="Directory for run artifacts (default: .aragora/review-pr under repo root)",
+    )
+    parser.add_argument(
+        "--keep-worktree",
+        action="store_true",
+        help="Keep the detached fixer worktree instead of removing it after the run",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Print the final run summary as JSON",
+    )
+    parser.set_defaults(func=_lazy("aragora.cli.commands.review_pr", "cmd_review_pr"))
 
     # Audit command (compliance audit logs)
     from aragora.cli.audit import create_audit_parser
