@@ -17,6 +17,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.connectors.credentials import get_credential_provider
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +63,44 @@ class DecisionBridge:
             return list(explicit)
         return list(self._default_targets)
 
+    @staticmethod
+    def _get_metadata_value(plan: Any, key: str) -> str | None:
+        metadata = getattr(plan, "metadata", None) or {}
+        value = metadata.get(key)
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    async def _get_config_value(self, plan: Any, key: str) -> str | None:
+        metadata_value = self._get_metadata_value(plan, key.lower())
+        if metadata_value:
+            return metadata_value
+
+        provider = get_credential_provider()
+        value = await provider.get_credential(key)
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    async def _resolve_jira_config(self, plan: Any) -> tuple[str, str]:
+        base_url = await self._get_config_value(plan, "JIRA_BASE_URL")
+        project_key = await self._get_config_value(plan, "JIRA_PROJECT_KEY")
+        if not base_url or not project_key:
+            raise ValueError(
+                "Jira bridge requires JIRA_BASE_URL and JIRA_PROJECT_KEY configuration"
+            )
+        return base_url, project_key
+
+    async def _resolve_linear_config(self, plan: Any) -> tuple[str, str, str | None]:
+        api_key = await self._get_config_value(plan, "LINEAR_API_KEY")
+        base_url = await self._get_config_value(plan, "LINEAR_BASE_URL")
+        team_id = await self._get_config_value(plan, "LINEAR_TEAM_ID")
+        if not api_key:
+            raise ValueError("Linear bridge requires LINEAR_API_KEY configuration")
+        return api_key, (base_url or "https://api.linear.app/graphql"), team_id
+
     async def handle_decision_plan(self, plan: Any) -> BridgeResult:
         """Route a DecisionPlan to configured integrations.
 
@@ -96,7 +136,7 @@ class DecisionBridge:
                 ValueError,
                 RuntimeError,
             ) as e:
-                error_msg = f"Decision bridge failed for {target}"
+                error_msg = f"Decision bridge failed for {target}: {e}"
                 logger.warning("%s: %s", error_msg, e)
                 result.errors.append(error_msg)
 
@@ -106,7 +146,8 @@ class DecisionBridge:
         """Create Jira issues from DecisionPlan tasks."""
         from aragora.connectors.enterprise.collaboration.jira import JiraConnector
 
-        connector = JiraConnector(base_url="")
+        base_url, project_key = await self._resolve_jira_config(plan)
+        connector = JiraConnector(base_url=base_url, projects=[project_key])
         created: list[dict[str, Any]] = []
 
         implement_plan = getattr(plan, "implement_plan", None)
@@ -118,6 +159,7 @@ class DecisionBridge:
             description = getattr(task, "description", "")
             issue_data = {
                 "fields": {
+                    "project": {"key": project_key},
                     "summary": f"[Aragora] {title}",
                     "description": (
                         f"Auto-created from decision plan: {plan_title}\n\n{description}"
@@ -127,7 +169,7 @@ class DecisionBridge:
             }
             try:
                 response = await connector._api_request(
-                    "/rest/api/3/issue", method="POST", json_data=issue_data
+                    "/issue", method="POST", json_data=issue_data
                 )
                 created.append(
                     {"key": response.get("key", ""), "id": response.get("id", ""), "summary": title}
@@ -145,7 +187,10 @@ class DecisionBridge:
             LinearCredentials,
         )
 
-        connector = LinearConnector(credentials=LinearCredentials(api_key=""))
+        api_key, base_url, team_id = await self._resolve_linear_config(plan)
+        connector = LinearConnector(
+            credentials=LinearCredentials(api_key=api_key, base_url=base_url)
+        )
         created: list[dict[str, Any]] = []
 
         implement_plan = getattr(plan, "implement_plan", None)
@@ -157,7 +202,7 @@ class DecisionBridge:
         if not teams:
             logger.warning("No Linear teams found; cannot create issues")
             return created
-        default_team_id = teams[0].id
+        default_team_id = team_id or teams[0].id
 
         for task in tasks:
             title = getattr(task, "title", "") or getattr(task, "description", "Untitled task")

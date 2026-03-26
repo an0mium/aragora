@@ -12,6 +12,7 @@ import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
 import { ExplanationPanel } from '@/components/ExplanationPanel';
 import { RelatedKnowledge } from '@/components/debates/RelatedKnowledge';
 import { InterventionPanel } from '@/components/debate-viewer/InterventionPanel';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 import { useDebateWebSocket } from '@/hooks/debate-websocket';
 import { LiveDebateStream } from '@/components/debate/LiveDebateStream';
 import { logger } from '@/utils/logger';
@@ -24,6 +25,7 @@ export default function DebateDetailClient() {
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] || '' : rawId || '';
   const { config: backendConfig } = useBackend();
+  const { getAuthHeaders } = useAuthFetch();
 
   const [pkg, setPkg] = useState<DecisionPackage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -665,7 +667,7 @@ export default function DebateDetailClient() {
                             `${backendConfig.api}/api/v1/debates/${pkg.id}/bridge`,
                             {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
+                              headers: getAuthHeaders(),
                               body: JSON.stringify({ target }),
                             }
                           );
