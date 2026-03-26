@@ -5,7 +5,7 @@ Covers:
 - All primary keys set -> returns primary providers
 - No keys at all -> raises ValueError mentioning OPENROUTER_API_KEY
 - Mix of primary + OpenRouter -> primary first, OpenRouter fills remaining
-- _resolve_playground_agents converts tags correctly
+- _resolve_playground_agents converts tags into DebateFactory-compatible specs
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
+from aragora.agents.spec import AgentSpec
 from aragora.server.handlers.playground import (
     OPENROUTER_PLAYGROUND_MODELS,
     _get_available_live_agents,
@@ -185,9 +186,9 @@ class TestResolvePlaygroundAgents:
         ]
         result = _resolve_playground_agents(tags)
         expected = (
-            "openrouter/anthropic/claude-sonnet-4,"
-            "openrouter/openai/gpt-4o,"
-            "openrouter/google/gemini-2.0-flash-001"
+            "openrouter|anthropic/claude-sonnet-4,"
+            "openrouter|openai/gpt-4o,"
+            "openrouter|google/gemini-2.0-flash-001"
         )
         assert result == expected
 
@@ -199,7 +200,19 @@ class TestResolvePlaygroundAgents:
     def test_mixed_tags(self):
         tags = ["anthropic-api", "openrouter:openai/gpt-4o", "openrouter:deepseek/deepseek-chat"]
         result = _resolve_playground_agents(tags)
-        assert result == "anthropic-api,openrouter/openai/gpt-4o,openrouter/deepseek/deepseek-chat"
+        assert result == "anthropic-api,openrouter|openai/gpt-4o,openrouter|deepseek/deepseek-chat"
+
+    def test_resolved_agents_parse_with_agent_spec(self):
+        tags = ["anthropic-api", "openrouter:anthropic/claude-opus-4.6", "openai-api"]
+        result = _resolve_playground_agents(tags)
+
+        specs = AgentSpec.coerce_list(result, warn=False)
+
+        assert [(spec.provider, spec.model) for spec in specs] == [
+            ("anthropic-api", None),
+            ("openrouter", "anthropic/claude-opus-4.6"),
+            ("openai-api", None),
+        ]
 
     def test_empty_list(self):
         assert _resolve_playground_agents([]) == ""

@@ -2423,14 +2423,16 @@ def _get_available_live_agents(count: int) -> list[str]:
 def _resolve_playground_agents(agent_tags: list[str]) -> str:
     """Convert playground agent tags to comma-separated string for DebateFactory.
 
-    Tags like 'openrouter:anthropic/claude-sonnet-4' become 'openrouter/anthropic/claude-sonnet-4'.
+    Tags like 'openrouter:anthropic/claude-sonnet-4' become
+    'openrouter|anthropic/claude-sonnet-4' so DebateFactory can parse them as
+    provider + model instead of treating the combined string as a provider name.
     Tags like 'anthropic-api' pass through unchanged.
     """
     resolved = []
     for tag in agent_tags:
         if tag.startswith("openrouter:"):
             model = tag.split(":", 1)[1]
-            resolved.append(f"openrouter/{model}")
+            resolved.append(f"openrouter|{model}")
         else:
             resolved.append(tag)
     return ",".join(resolved)

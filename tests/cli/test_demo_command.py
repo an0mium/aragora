@@ -235,13 +235,9 @@ class TestMain:
         main(args)
         mock_server.assert_called_once()
 
-    @patch("aragora.cli.demo.asyncio")
-    def test_custom_topic(self, mock_asyncio):
-        from aragora_debate.types import DebateResult
-
-        mock_result = DebateResult(task="test", confidence=0.8)
-        mock_asyncio.run.return_value = (mock_result, 0.1)
-
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_custom_topic(self, _mock_has_any_api_key, mock_run_mock_demo):
         args = argparse.Namespace(
             list_demos=False,
             server=False,
@@ -249,10 +245,11 @@ class TestMain:
             name=None,
         )
         main(args)
-        mock_asyncio.run.assert_called_once()
+        mock_run_mock_demo.assert_called_once_with(args)
 
-    @patch("aragora.cli.demo.run_demo")
-    def test_named_demo(self, mock_run_demo):
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_named_demo(self, _mock_has_any_api_key, mock_run_mock_demo):
         args = argparse.Namespace(
             list_demos=False,
             server=False,
@@ -260,10 +257,11 @@ class TestMain:
             name="auth",
         )
         main(args)
-        mock_run_demo.assert_called_once_with("auth", receipt_path=None)
+        mock_run_mock_demo.assert_called_once_with(args)
 
-    @patch("aragora.cli.demo.run_demo")
-    def test_defaults_to_microservices(self, mock_run_demo):
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_defaults_to_microservices(self, _mock_has_any_api_key, mock_run_mock_demo):
         args = argparse.Namespace(
             list_demos=False,
             server=False,
@@ -271,7 +269,7 @@ class TestMain:
             name=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO, receipt_path=None)
+        mock_run_mock_demo.assert_called_once_with(args)
 
 
 # ---------------------------------------------------------------------------

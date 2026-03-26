@@ -94,9 +94,10 @@ class TestRunDemo:
 class TestMain:
     """Tests for main CLI function."""
 
-    @patch("aragora.cli.demo.run_demo")
-    def test_main_calls_run_demo(self, mock_run_demo):
-        """Main function calls run_demo."""
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_main_calls_mock_demo_without_keys(self, _mock_has_any_api_key, mock_run_mock_demo):
+        """Main function falls back to the offline demo when no keys are available."""
         args = argparse.Namespace(
             name="rate-limiter",
             list_demos=False,
@@ -104,10 +105,11 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with("rate-limiter", receipt_path=None)
+        mock_run_mock_demo.assert_called_once_with(args)
 
-    @patch("aragora.cli.demo.run_demo")
-    def test_main_defaults_to_default_demo(self, mock_run_demo):
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_main_defaults_to_default_demo(self, _mock_has_any_api_key, mock_run_mock_demo):
         """Main function defaults to the default demo."""
         args = argparse.Namespace(
             name=None,
@@ -116,10 +118,11 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO, receipt_path=None)
+        mock_run_mock_demo.assert_called_once_with(args)
 
-    @patch("aragora.cli.demo.run_demo")
-    def test_main_with_custom_demo(self, mock_run_demo):
+    @patch("aragora.cli.demo._run_mock_demo")
+    @patch("aragora.cli.demo._has_any_api_key", return_value=False)
+    def test_main_with_custom_demo(self, _mock_has_any_api_key, mock_run_mock_demo):
         """Main function uses specified demo."""
         args = argparse.Namespace(
             name="auth",
@@ -128,7 +131,7 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with("auth", receipt_path=None)
+        mock_run_mock_demo.assert_called_once_with(args)
 
     def test_main_list_flag(self, capsys):
         """Main function lists demos with --list flag."""
