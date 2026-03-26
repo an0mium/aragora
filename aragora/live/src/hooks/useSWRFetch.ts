@@ -2,6 +2,7 @@
 
 import useSWR, { SWRConfiguration, mutate, useSWRConfig } from 'swr';
 import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 
 const TOKENS_KEY = 'aragora_tokens';
 
@@ -17,11 +18,18 @@ function getAccessToken(): string | null {
   }
 }
 
+function resolveApiBaseUrl(baseUrl?: string): string {
+  if (baseUrl !== undefined) return baseUrl;
+
+  const runtimeBaseUrl = getRuntimeBackendConfig().config.api;
+  return runtimeBaseUrl ?? API_BASE_URL;
+}
+
 function isInternalApiRequest(url: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const parsed = new URL(url, window.location.origin);
-    const apiOrigin = new URL(API_BASE_URL, window.location.origin).origin;
+    const apiOrigin = new URL(resolveApiBaseUrl(), window.location.origin).origin;
     const isApiPath = parsed.pathname.startsWith('/api/');
     const isTrustedOrigin = parsed.origin === window.location.origin || parsed.origin === apiOrigin;
     return isApiPath && isTrustedOrigin;
@@ -105,12 +113,12 @@ export function useSWRFetch<T = unknown>(
   options: UseSWRFetchOptions<T> = {}
 ) {
   const {
-    baseUrl = API_BASE_URL,
+    baseUrl,
     enabled = true,
     ...swrOptions
   } = options;
 
-  const url = endpoint && enabled ? `${baseUrl}${endpoint}` : null;
+  const url = endpoint && enabled ? `${resolveApiBaseUrl(baseUrl)}${endpoint}` : null;
 
   const {
     data,
@@ -158,10 +166,11 @@ export function useSWRFetchMultiple<T = unknown>(
   endpoints: (string | null)[],
   options: UseSWRFetchOptions<T> = {}
 ) {
-  const { baseUrl = API_BASE_URL, enabled = true } = options;
+  const { baseUrl, enabled = true } = options;
+  const resolvedBaseUrl = resolveApiBaseUrl(baseUrl);
 
   const results = endpoints.map((endpoint) => {
-    const url = endpoint && enabled ? `${baseUrl}${endpoint}` : null;
+    const url = endpoint && enabled ? `${resolvedBaseUrl}${endpoint}` : null;
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useSWR<T>(url, swrFetcher);
   });
@@ -185,8 +194,8 @@ export function useSWRFetchMultiple<T = unknown>(
  *   onMouseEnter={() => prefetchData('/api/debates/123')}
  * >
  */
-export function prefetchData(endpoint: string, baseUrl: string = API_BASE_URL) {
-  const url = `${baseUrl}${endpoint}`;
+export function prefetchData(endpoint: string, baseUrl?: string) {
+  const url = `${resolveApiBaseUrl(baseUrl)}${endpoint}`;
   return mutate(url, swrFetcher(url));
 }
 
@@ -199,8 +208,8 @@ export function prefetchData(endpoint: string, baseUrl: string = API_BASE_URL) {
  * await createDebate(data);
  * invalidateCache('/api/debates');
  */
-export function invalidateCache(endpoint: string, baseUrl: string = API_BASE_URL) {
-  const url = `${baseUrl}${endpoint}`;
+export function invalidateCache(endpoint: string, baseUrl?: string) {
+  const url = `${resolveApiBaseUrl(baseUrl)}${endpoint}`;
   return mutate(url);
 }
 
@@ -230,9 +239,9 @@ export function invalidateCachePattern(pattern: RegExp) {
 export function updateCache<T>(
   endpoint: string,
   updater: (current: T | undefined) => T,
-  baseUrl: string = API_BASE_URL
+  baseUrl?: string
 ) {
-  const url = `${baseUrl}${endpoint}`;
+  const url = `${resolveApiBaseUrl(baseUrl)}${endpoint}`;
   return mutate(url, updater, { revalidate: false });
 }
 

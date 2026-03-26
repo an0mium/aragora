@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 
 export type BackendType = 'production' | 'development';
 
-interface BackendConfig {
+export interface BackendConfig {
   api: string;
   ws: string;
   controlPlaneWs?: string;
@@ -94,6 +94,16 @@ function resolveBackendConfig(
     };
   }
   return config;
+}
+
+export function getRuntimeBackendConfig(): { backend: BackendType; config: BackendConfig } {
+  const localHost =
+    typeof window !== 'undefined' && isLocalHost(window.location.hostname);
+  const backend = getDefaultBackend();
+  return {
+    backend,
+    config: resolveBackendConfig(backend, localHost ? 'localhost' : null),
+  };
 }
 
 interface BackendSelectorProps {
@@ -265,7 +275,7 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
 export function useBackend(): { backend: BackendType; config: BackendConfig } {
   const localHost =
     typeof window !== 'undefined' && isLocalHost(window.location.hostname);
-  const [backend, setBackend] = useState<BackendType>(getDefaultBackend);
+  const [backend, setBackend] = useState<BackendType>(() => getRuntimeBackendConfig().backend);
 
   useEffect(() => {
     const saved = getSavedBackend();

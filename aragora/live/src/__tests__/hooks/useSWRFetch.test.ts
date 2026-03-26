@@ -37,9 +37,12 @@ jest.mock('swr', () => {
 });
 
 describe('useSWRFetch', () => {
+  const mockUseSWR = jest.requireMock('swr').default as jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetch.mockReset();
+    localStorage.clear();
   });
 
   describe('swrFetcher', () => {
@@ -79,6 +82,27 @@ describe('useSWRFetch', () => {
         expect((error as { status: number }).status).toBe(500);
       }
     });
+
+    it('sends auth headers to the selected backend api origin', async () => {
+      localStorage.setItem('aragora-backend', 'production');
+      localStorage.setItem('aragora_tokens', JSON.stringify({ access_token: 'token-123' }));
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      await swrFetcher('https://api.aragora.ai/api/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/test',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer token-123',
+          }),
+        }),
+      );
+    });
   });
 
   describe('useSWRFetch hook', () => {
@@ -106,6 +130,18 @@ describe('useSWRFetch', () => {
       const { result } = renderHook(() => useSWRFetch('/api/test'));
 
       expect(typeof result.current.mutate).toBe('function');
+    });
+
+    it('uses the selected backend api base by default', () => {
+      localStorage.setItem('aragora-backend', 'production');
+
+      renderHook(() => useSWRFetch('/api/test'));
+
+      expect(mockUseSWR).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/test',
+        swrFetcher,
+        expect.any(Object),
+      );
     });
   });
 
@@ -138,6 +174,21 @@ describe('useSWRFetch', () => {
       updateCache('/api/test', updater);
 
       expect(mutate).toHaveBeenCalled();
+    });
+
+    it('prefetchData uses the selected backend api base by default', async () => {
+      localStorage.setItem('aragora-backend', 'production');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: 'prefetched' }),
+      });
+
+      await prefetchData('/api/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/test',
+        expect.any(Object),
+      );
     });
   });
 
