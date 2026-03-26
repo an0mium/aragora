@@ -911,6 +911,20 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     return errors
 
 
+def _supports_route_dispatch_without_can_handle(handler: Any) -> bool:
+    """Return True when a handler uses route registration without can_handle()."""
+    has_routes = hasattr(handler, "ROUTES")
+    has_register = hasattr(handler, "register_routes") and callable(
+        getattr(handler, "register_routes")
+    )
+    has_handle_star = any(
+        attr.startswith("handle_")
+        for attr in dir(handler)
+        if not attr.startswith("__") and callable(getattr(handler, attr, None))
+    )
+    return has_routes or has_register or has_handle_star
+
+
 def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
     """
     Validate an instantiated handler works correctly.
@@ -926,6 +940,13 @@ def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
 
     if handler is None:
         errors.append(f"{handler_name}: Handler instance is None")
+        return errors
+
+    has_can_handle = hasattr(handler, "can_handle") and callable(getattr(handler, "can_handle"))
+    if not has_can_handle:
+        if _supports_route_dispatch_without_can_handle(handler):
+            return errors
+        errors.append(f"{handler_name}: Missing required method 'can_handle'")
         return errors
 
     # Verify can_handle doesn't crash with a test path

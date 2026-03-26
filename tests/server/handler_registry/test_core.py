@@ -95,6 +95,15 @@ class _WrongReturnType:
         return None
 
 
+class _RoutesOnlyHandler:
+    """Handler that relies on route registration instead of can_handle."""
+
+    ROUTES = ["/api/routes-only"]
+
+    def handle_get(self, path: str, query: dict, request_handler: Any) -> Any:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # _safe_import tests
 # ---------------------------------------------------------------------------
@@ -294,6 +303,10 @@ class TestValidateHandlerClass:
         errors = validate_handler_class(_NonCallableMethods, "NonCallable")
         assert any("not callable" in e for e in errors)
 
+    def test_routes_only_handler(self) -> None:
+        errors = validate_handler_class(_RoutesOnlyHandler, "RoutesOnly")
+        assert errors == []
+
     def test_handler_without_routes_is_valid(self) -> None:
         """Missing ROUTES is a debug-level note, not an error."""
         errors = validate_handler_class(_MinimalHandler, "Minimal")
@@ -324,6 +337,11 @@ class TestValidateHandlerInstance:
         errors = validate_handler_instance(handler, "WrongReturn")
         assert len(errors) == 1
         assert "non-bool" in errors[0]
+
+    def test_routes_only_handler_without_can_handle(self) -> None:
+        handler = _RoutesOnlyHandler()
+        errors = validate_handler_instance(handler, "RoutesOnly")
+        assert errors == []
 
 
 class TestValidateAllHandlers:
