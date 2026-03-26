@@ -206,6 +206,18 @@ class TestDRStatus:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_base_path_routes_to_status(self, handler):
+        """Test canonical DR base path routes to the status response."""
+        result = await handler.handle("GET", "/api/v2/dr")
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_trailing_slash_base_path_routes_to_status(self, handler):
+        """Test trailing-slash DR base path routes to the status response."""
+        result = await handler.handle("GET", "/api/v2/dr/")
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
     async def test_get_status_no_backups(self, handler, mock_backup_manager):
         """Test DR status handles no backups."""
         mock_backup_manager._backups.clear()

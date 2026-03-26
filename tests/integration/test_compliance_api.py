@@ -108,6 +108,34 @@ class TestComplianceAPIEndpoints:
         assert result.status_code in (200, 500)
 
     @pytest.mark.asyncio
+    async def test_get_compliance_status_from_base_path(
+        self, compliance_handler, mock_compliance_data
+    ):
+        """Test bare compliance base path resolves to status."""
+        result = await compliance_handler.handle(
+            path="/api/v2/compliance",
+            query_params={},
+            handler=None,
+        )
+
+        assert result is not None
+        assert result.status_code in (200, 500)
+
+    @pytest.mark.asyncio
+    async def test_get_compliance_status_from_trailing_slash_base_path(
+        self, compliance_handler, mock_compliance_data
+    ):
+        """Test trailing-slash compliance base path resolves to status."""
+        result = await compliance_handler.handle(
+            path="/api/v2/compliance/",
+            query_params={},
+            handler=None,
+        )
+
+        assert result is not None
+        assert result.status_code in (200, 500)
+
+    @pytest.mark.asyncio
     async def test_get_soc2_report_json(self, compliance_handler, mock_compliance_data):
         """Test generating SOC 2 report in JSON format."""
         result = await compliance_handler.handle(

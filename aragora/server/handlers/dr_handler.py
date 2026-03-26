@@ -134,6 +134,9 @@ class DRHandler(BaseHandler):
 
         resolved_body = resolved_body or {}
 
+        if resolved_method == "GET" and resolved_path in {"/api/v2/dr", "/api/v2/dr/"}:
+            resolved_path = "/api/v2/dr/status"
+
         try:
             # Status endpoint
             if resolved_path == "/api/v2/dr/status" and resolved_method == "GET":

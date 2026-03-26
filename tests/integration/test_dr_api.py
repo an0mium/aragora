@@ -98,6 +98,30 @@ class TestDRAPIEndpoints:
             assert result.status_code in (200, 500)
 
     @pytest.mark.asyncio
+    async def test_get_dr_status_from_base_path(self, dr_handler, mock_dr_manager):
+        """Test bare DR base path resolves to status."""
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
+            result = await dr_handler.handle(
+                method="GET",
+                path="/api/v2/dr",
+            )
+
+            assert result is not None
+            assert result.status_code in (200, 500)
+
+    @pytest.mark.asyncio
+    async def test_get_dr_status_from_trailing_slash_base_path(self, dr_handler, mock_dr_manager):
+        """Test trailing-slash DR base path resolves to status."""
+        with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):
+            result = await dr_handler.handle(
+                method="GET",
+                path="/api/v2/dr/",
+            )
+
+            assert result is not None
+            assert result.status_code in (200, 500)
+
+    @pytest.mark.asyncio
     async def test_run_dr_drill(self, dr_handler, mock_dr_manager):
         """Test running a DR drill."""
         with patch.object(dr_handler, "_get_backup_manager", return_value=mock_dr_manager):

@@ -139,6 +139,9 @@ class ComplianceHandler(
         )
         query_params = query_params or {}
 
+        if method == "GET" and path in {"/api/v2/compliance", "/api/v2/compliance/"}:
+            path = "/api/v2/compliance/status"
+
         try:
             # RBAC coverage endpoint (v1)
             if path == "/api/v1/compliance/rbac-coverage" and method == "GET":

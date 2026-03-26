@@ -680,6 +680,22 @@ class TestComplianceStatus:
         assert "hipaa" in body["frameworks"]
 
     @pytest.mark.asyncio
+    async def test_base_path_routes_to_status(self, handler):
+        result = await handler.handle("GET", "/api/v2/compliance")
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "status" in body
+        assert "compliance_score" in body
+
+    @pytest.mark.asyncio
+    async def test_trailing_slash_base_path_routes_to_status(self, handler):
+        result = await handler.handle("GET", "/api/v2/compliance/")
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "status" in body
+        assert "compliance_score" in body
+
+    @pytest.mark.asyncio
     async def test_status_score_consistency(self, handler):
         result = await handler.handle("GET", "/api/v2/compliance/status")
         body = json.loads(result.body)

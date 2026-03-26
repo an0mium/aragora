@@ -273,6 +273,24 @@ class TestRouteDispatch:
         assert "compliance_score" in body
 
     @pytest.mark.asyncio
+    async def test_base_status_path_dispatches_to_status(self, handler):
+        mock_h = _MockHTTPHandler("GET")
+        result = await handler.handle("/api/v2/compliance", {}, mock_h)
+        body = _body(result)
+        assert _status(result) == 200
+        assert "status" in body
+        assert "compliance_score" in body
+
+    @pytest.mark.asyncio
+    async def test_trailing_slash_base_status_path_dispatches_to_status(self, handler):
+        mock_h = _MockHTTPHandler("GET")
+        result = await handler.handle("/api/v2/compliance/", {}, mock_h)
+        body = _body(result)
+        assert _status(result) == 200
+        assert "status" in body
+        assert "compliance_score" in body
+
+    @pytest.mark.asyncio
     async def test_get_soc2_report_dispatches(self, handler):
         mock_h = _MockHTTPHandler("GET")
         result = await handler.handle("/api/v2/compliance/soc2-report", {}, mock_h)

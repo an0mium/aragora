@@ -211,6 +211,30 @@ class TestRouting:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_base_status_path_normalizes_to_status_endpoint(self, handler, mock_manager):
+        """Test GET /api/v2/dr resolves to the readiness status endpoint."""
+        backup = _make_backup()
+        mock_manager.list_backups.return_value = [backup]
+        mock_manager.get_latest_backup.return_value = backup
+        result = await handler.handle("GET", "/api/v2/dr")
+        assert result.status_code == 200
+        body = parse_body(result)
+        assert "readiness_score" in body
+
+    @pytest.mark.asyncio
+    async def test_base_status_trailing_slash_normalizes_to_status_endpoint(
+        self, handler, mock_manager
+    ):
+        """Test GET /api/v2/dr/ resolves to the readiness status endpoint."""
+        backup = _make_backup()
+        mock_manager.list_backups.return_value = [backup]
+        mock_manager.get_latest_backup.return_value = backup
+        result = await handler.handle("GET", "/api/v2/dr/")
+        assert result.status_code == 200
+        body = parse_body(result)
+        assert "readiness_score" in body
+
+    @pytest.mark.asyncio
     async def test_positional_extended_style(self, handler, mock_manager):
         """Test handle(method, path, body) positional style."""
         backup = _make_backup()
