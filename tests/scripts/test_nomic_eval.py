@@ -32,25 +32,29 @@ def test_cleanup_worktree_uses_safe_cleanup_helper(
 
     def _fake_run(cmd, cwd=None, env=None):
         calls.append(list(cmd))
-        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='{"status":"removed"}', stderr="")
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout='{"status":"removed"}', stderr=""
+        )
 
     monkeypatch.setattr(mod, "_run", _fake_run)
 
     mod._cleanup_worktree(repo_root, worktree_dir, "codex/test")
 
-    assert calls == [[
-        sys.executable,
-        str(repo_root / "scripts" / "safe_worktree_cleanup.py"),
-        "--repo",
-        str(repo_root),
-        "remove",
-        str(worktree_dir),
-        "--branch",
-        "codex/test",
-        "--delete-branch",
-        "--purge-path",
-        "--json",
-    ]]
+    assert calls == [
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "safe_worktree_cleanup.py"),
+            "--repo",
+            str(repo_root),
+            "remove",
+            str(worktree_dir),
+            "--branch",
+            "codex/test",
+            "--delete-branch",
+            "--purge-path",
+            "--json",
+        ]
+    ]
 
 
 def test_cleanup_worktree_raises_when_safe_cleanup_fails(
