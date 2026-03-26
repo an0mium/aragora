@@ -664,9 +664,7 @@ class InboxTriageRunner:
     async def _run_debate(self, msg: dict[str, Any]) -> Any:
         message_id = str(msg.get("id", ""))
         if self._profile == "staged_v1":
-            fast_task = asyncio.create_task(
-                self._run_fast_tier_once(msg)
-            )
+            fast_task = asyncio.create_task(self._run_fast_tier_once(msg))
             try:
                 fast_result = await asyncio.wait_for(
                     fast_task,

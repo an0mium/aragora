@@ -63707,6 +63707,38 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       x-aragora-stability: experimental
+  /api/v1/debates/{id}/bridge:
+    post:
+      summary: Bridge a debate plan to external tools
+      tags:
+      - Debates
+      description: Resolve the latest DecisionPlan for the debate and route it to one configured external target such as Jira,
+        Linear, or n8n.
+      operationId: handle_post
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Bridge dispatched successfully
+        '400':
+          description: Invalid request body or unsupported target
+        '404':
+          description: No DecisionPlan found for the debate
+        '409':
+          description: DecisionPlan has no implementation tasks for this target
+        '502':
+          description: Bridge target was reached but no external artifact was produced
+      security:
+      - bearerAuth: []
   /api/v1/debates/{id}/broadcast:
     post:
       tags:
