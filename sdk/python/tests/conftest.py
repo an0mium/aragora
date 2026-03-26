@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from aragora_sdk.client import AragoraAsyncClient, AragoraClient
+# Allow running SDK tests from the repo root without requiring an editable install.
+_SDK_ROOT = Path(__file__).resolve().parents[1]
+_sdk_root = str(_SDK_ROOT)
+if _sdk_root not in sys.path:
+    sys.path.insert(0, _sdk_root)
+
+from aragora_sdk.client import AragoraAsyncClient, AragoraClient  # noqa: E402
 
 
 @pytest.fixture
