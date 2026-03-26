@@ -12,6 +12,7 @@ import {
   useAgentPerformance,
   useInstitutionalMemory,
   useImprovementQueue,
+  type SystemOverview,
 } from '@/hooks/useSystemIntelligence';
 import {
   useSystemHealth,
