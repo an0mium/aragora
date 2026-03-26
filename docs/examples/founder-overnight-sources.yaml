@@ -1,0 +1,136 @@
+manifest_version: 1
+queue_id: founder-overnight-2026-03-24
+
+sources:
+  - id: canonical-narrative
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1298
+    priority: 10
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Produce the canonical founder narrative for Aragora as a crisp category
+      statement that defines what Aragora is, is not, and why now. Keep the
+      work bounded to reusable roadmap/outreach/onboarding artifacts.
+    allowed_write_scope:
+      - README.md
+      - ROADMAP.md
+      - docs/strategy/**
+      - docs/outreach/**
+
+  - id: icp-wedge
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1299
+    priority: 20
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Define the initial ideal customer profile, the first painful recurring
+      workflow, and the trust trigger that makes the wedge urgent enough to
+      buy.
+    allowed_write_scope:
+      - ROADMAP.md
+      - docs/strategy/**
+      - docs/outreach/**
+
+  - id: inbox-trust-journey
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1303
+    priority: 30
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Define the inbox trust wedge default journey, truth contract, failure
+      modes, and success criteria so the product story stays truthful.
+    allowed_write_scope:
+      - ROADMAP.md
+      - docs/plans/**
+      - docs/strategy/**
+      - docs/outreach/**
+
+  - id: pmf-scorecard
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1304
+    priority: 40
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Define the founder-facing PMF scorecard, evidence thresholds, and weekly
+      operating cadence for Aragora's current wedge.
+    allowed_write_scope:
+      - ROADMAP.md
+      - docs/plans/**
+      - docs/strategy/**
+
+  - id: design-partner-motion
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1301
+    priority: 50
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Tighten the design partner motion into a bounded founder sales artifact
+      with qualification rules, pilot structure, and conversion logic.
+    allowed_write_scope:
+      - docs/outreach/**
+      - docs/plans/**
+      - docs/strategy/**
+
+  - id: pricing-hypotheses
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1302
+    priority: 60
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Produce the first pricing and packaging hypothesis set for Aragora's
+      initial offers without pretending confidence that does not exist yet.
+    allowed_write_scope:
+      - docs/strategy/**
+      - docs/outreach/**
+      - docs/plans/**
+
+  - id: execution-map
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1300
+    priority: 70
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Rebuild the 30/60/90 execution map from current repo reality, using the
+      founder loop and inbox wedge as the baseline and making stop-doing
+      guidance explicit.
+    allowed_write_scope:
+      - ROADMAP.md
+      - docs/plans/**
+      - docs/strategy/**
+
+  - id: dependency-map
+    kind: issue
+    mode: execute
+    url: https://github.com/synaptent/aragora/issues/1305
+    priority: 80
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: adaptive
+    objective: >-
+      Produce the near-term roadmap dependency map and make the critical path,
+      defer list, and stop-doing list explicit.
+    allowed_write_scope:
+      - ROADMAP.md
+      - docs/plans/**
+      - docs/strategy/**
