@@ -221,10 +221,16 @@ async def _call_storage_method(storage: Any, method_name: str, *args: Any, **kwa
     """Run storage methods without blocking the FastAPI event loop."""
 
     method = getattr(storage, method_name)
-    if inspect.iscoroutinefunction(method):
-        return await method(*args, **kwargs)
+    return await _call_sync_aware(method, *args, **kwargs)
 
-    result = await asyncio.to_thread(method, *args, **kwargs)
+
+async def _call_sync_aware(func: Any, *args: Any, **kwargs: Any) -> Any:
+    """Run sync callables in a worker thread while awaiting async callables directly."""
+
+    if inspect.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+
+    result = await asyncio.to_thread(func, *args, **kwargs)
     if inspect.isawaitable(result):
         return await result
     return result
@@ -725,7 +731,7 @@ async def create_debate(
             if not callable(controller_getter):
                 raise HTTPException(status_code=503, detail="Debate orchestrator not available")
             controller = controller_getter()
-            response = controller.start_debate(debate_request)
+            response = await _call_sync_aware(controller.start_debate, debate_request)
         except ImportError:
             logger.warning("Debate controller not available")
             raise HTTPException(status_code=503, detail="Debate orchestrator not available")

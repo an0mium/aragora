@@ -8,7 +8,8 @@ import pytest
 
 os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "0")
 
-from aragora.server.fastapi.routes.debates import list_debates
+import aragora.server.debate_controller as debate_controller_mod
+from aragora.server.fastapi.routes.debates import CreateDebateRequest, create_debate, list_debates
 
 
 class _SlowSyncStorage:
@@ -19,6 +20,19 @@ class _SlowSyncStorage:
     def count_debates(self, status: str | None = None) -> int:
         time.sleep(0.2)
         return 0
+
+
+class _SlowStartResponse:
+    debate_id = "debate-123"
+
+    def to_dict(self) -> dict[str, str]:
+        return {"debate_id": self.debate_id, "status": "started"}
+
+
+class _SlowSyncController:
+    def start_debate(self, request):
+        time.sleep(0.2)
+        return _SlowStartResponse()
 
 
 @pytest.mark.asyncio
@@ -46,3 +60,39 @@ async def test_list_debates_does_not_block_event_loop_for_sync_storage() -> None
     assert response.total == 0
     assert response.debates == []
     assert ticks >= 10
+
+
+@pytest.mark.asyncio
+async def test_create_debate_does_not_block_event_loop_for_sync_controller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def ticker(done: asyncio.Event) -> int:
+        ticks = 0
+        while not done.is_set():
+            await asyncio.sleep(0.01)
+            ticks += 1
+        return ticks
+
+    monkeypatch.setattr(
+        debate_controller_mod,
+        "get_debate_controller",
+        lambda: _SlowSyncController(),
+        raising=False,
+    )
+
+    done = asyncio.Event()
+    tick_task = asyncio.create_task(ticker(done))
+    await asyncio.sleep(0)
+
+    response = await create_debate(
+        body=CreateDebateRequest(question="Should we cache debate summaries?"),
+        request=None,
+        auth=None,
+        storage=object(),
+    )
+    done.set()
+    ticks = await tick_task
+
+    assert response.debate_id == "debate-123"
+    assert response.status == "started"
+    assert ticks >= 5
