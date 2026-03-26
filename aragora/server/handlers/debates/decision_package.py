@@ -31,6 +31,93 @@ from aragora.server.handlers.base import (
 logger = logging.getLogger(__name__)
 
 
+def _coerce_non_negative_int(value: Any) -> int:
+    """Best-effort int coercion for round/token metadata."""
+
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(value, 0)
+    if isinstance(value, float):
+        return max(int(value), 0)
+    if isinstance(value, str):
+        try:
+            return max(int(value), 0)
+        except ValueError:
+            return 0
+    return 0
+
+
+def _normalize_string_list(values: Any) -> list[str]:
+    """Return only string items from a list-like payload."""
+
+    if not isinstance(values, list):
+        return []
+    return [item for item in values if isinstance(item, str)]
+
+
+def _build_arguments(messages: Any) -> tuple[list[dict[str, Any]], int]:
+    """Convert stored debate messages into detail-page argument entries."""
+
+    if not isinstance(messages, list):
+        return [], 0
+
+    arguments: list[dict[str, Any]] = []
+    rounds = 0
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+
+        round_num = _coerce_non_negative_int(message.get("round"))
+        rounds = max(rounds, round_num)
+
+        agent = message.get("agent") or message.get("author") or message.get("role") or "unknown"
+        if not isinstance(agent, str):
+            agent = str(agent)
+
+        position = message.get("position") or message.get("role") or ""
+        if not isinstance(position, str):
+            position = str(position)
+
+        content = message.get("content", "")
+        if not isinstance(content, str):
+            content = str(content)
+
+        arguments.append(
+            {
+                "agent": agent,
+                "round": round_num,
+                "position": position,
+                "content": content,
+            }
+        )
+
+    return arguments, rounds
+
+
+def _build_cost_breakdown(
+    per_agent_cost: Any,
+    per_agent_tokens: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Convert per-agent cost maps into the live UI's array form."""
+
+    if not isinstance(per_agent_cost, dict):
+        return []
+
+    token_map = per_agent_tokens if isinstance(per_agent_tokens, dict) else {}
+    breakdown: list[dict[str, Any]] = []
+    for agent_name, cost in per_agent_cost.items():
+        breakdown.append(
+            {
+                "agent": str(agent_name),
+                "tokens": _coerce_non_negative_int(token_map.get(agent_name, 0)),
+                "cost": float(cost) if isinstance(cost, int | float) else 0.0,
+            }
+        )
+
+    return breakdown
+
+
 def _generate_next_steps(
     verdict: str,
     confidence: float,
@@ -279,6 +366,7 @@ class DecisionPackageHandler(BaseHandler):
             store = get_receipt_store()
             receipt = store.get_by_gauntlet(f"debate-{debate_id}")
             if receipt:
+                receipt_created_at = str(receipt.created_at) if receipt.created_at else None
                 receipt_dict = {
                     "receipt_id": receipt.receipt_id,
                     "verdict": receipt.verdict,
@@ -286,7 +374,11 @@ class DecisionPackageHandler(BaseHandler):
                     "risk_level": receipt.risk_level,
                     "risk_score": getattr(receipt, "risk_score", None),
                     "checksum": receipt.checksum,
-                    "created_at": str(receipt.created_at) if receipt.created_at else None,
+                    "created_at": receipt_created_at,
+                    # Frontend compatibility aliases for the live receipt tab.
+                    "hash": receipt.checksum,
+                    "timestamp": receipt_created_at,
+                    "signers": [],
                 }
         except (
             ImportError,
@@ -344,18 +436,28 @@ class DecisionPackageHandler(BaseHandler):
             logger.debug("Argument map not available for %s: %s", debate_id, exc)
 
         # -- Cost --
+        per_agent_cost = result_data.get("per_agent_cost", {})
         cost = {
             "total_cost_usd": result_data.get("total_cost_usd", 0.0),
-            "per_agent_cost": result_data.get("per_agent_cost", {}),
+            "per_agent_cost": per_agent_cost,
         }
+        cost_breakdown = _build_cost_breakdown(per_agent_cost, result_data.get("per_agent_tokens"))
 
         # -- Next steps --
         consensus_reached = result_data.get("consensus_reached", False)
         question = debate.get("question", "")
         next_steps = _generate_next_steps(verdict, confidence, consensus_reached, question)
+        participants = _normalize_string_list(
+            result_data.get("participants", debate.get("agents", []))
+        )
+        arguments, rounds = _build_arguments(debate.get("messages", []))
+        assembled_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        created_at = debate.get("created_at") or result_data.get("created_at") or assembled_at
 
         package: dict[str, Any] = {
             "debate_id": debate_id,
+            # Frontend-compatible aliases kept alongside the historical contract.
+            "id": debate_id,
             "question": question,
             "status": status,
             "verdict": verdict,
@@ -363,13 +465,23 @@ class DecisionPackageHandler(BaseHandler):
             "consensus_reached": consensus_reached,
             "final_answer": result_data.get("final_answer", ""),
             "explanation_summary": result_data.get("explanation_summary", ""),
-            "participants": result_data.get("participants", debate.get("agents", [])),
+            "explanation": result_data.get("explanation_summary", ""),
+            "participants": participants,
+            "agents": participants,
+            "rounds": result_data.get("rounds", rounds),
+            "arguments": arguments,
             "receipt": receipt_dict,
             "cost": cost,
+            "cost_breakdown": cost_breakdown,
+            "total_cost": cost["total_cost_usd"],
             "argument_map": argument_map,
             "next_steps": next_steps,
             "export_formats": ["json", "markdown", "csv", "html", "txt"],
-            "assembled_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "created_at": created_at,
+            "duration_seconds": result_data.get(
+                "duration_seconds", debate.get("duration_seconds", 0.0)
+            ),
+            "assembled_at": assembled_at,
         }
 
         return package, None

@@ -769,6 +769,24 @@ class TestAssemblePackageCompleted:
         assert body["cost"]["total_cost_usd"] == 0.0042
         assert "claude" in body["cost"]["per_agent_cost"]
 
+    def test_frontend_compatibility_fields_present(self, handler_with_storage, http_handler):
+        result = handler_with_storage.handle(
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
+        )
+        body = _body(result)
+        assert body["id"] == "test-debate-001"
+        assert body["explanation"] == "All agents agreed on microservices."
+        assert body["agents"] == ["claude", "gpt-4", "gemini"]
+        assert body["rounds"] == 1
+        assert len(body["arguments"]) == 2
+        assert body["total_cost"] == 0.0042
+        assert body["cost_breakdown"] == [
+            {"agent": "claude", "tokens": 0, "cost": 0.002},
+            {"agent": "gpt-4", "tokens": 0, "cost": 0.0022},
+        ]
+
     def test_export_formats_listed(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
             "/api/v1/debates/test-debate-001/package",
@@ -1251,6 +1269,9 @@ class TestEdgeCases:
 
         body = _body(result)
         assert body["receipt"]["created_at"] is None
+        assert body["receipt"]["hash"] == "abc"
+        assert body["receipt"]["timestamp"] is None
+        assert body["receipt"]["signers"] == []
 
     def test_debate_status_is_included(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
@@ -1349,6 +1370,7 @@ class TestJSONStructure:
         body = _body(result)
         expected_keys = {
             "debate_id",
+            "id",
             "question",
             "status",
             "verdict",
@@ -1356,11 +1378,19 @@ class TestJSONStructure:
             "consensus_reached",
             "final_answer",
             "explanation_summary",
+            "explanation",
             "participants",
+            "agents",
+            "rounds",
+            "arguments",
             "receipt",
             "cost",
+            "cost_breakdown",
+            "total_cost",
             "argument_map",
             "next_steps",
+            "created_at",
+            "duration_seconds",
             "export_formats",
             "assembled_at",
         }
