@@ -37,6 +37,23 @@ function isProductionEnvironment(): boolean {
   );
 }
 
+export function isLocalDevHostname(hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.') ||
+    hostname.endsWith('.local')
+  );
+}
+
+function isLocalBrowserDev(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (isProductionEnvironment()) return false;
+  return isLocalDevHostname(window.location.hostname);
+}
+
 // Configuration validation
 // In production: API calls use relative URLs (via Next.js rewrites), WS needs explicit URL
 // In development: Both default to localhost
@@ -60,7 +77,9 @@ if (typeof window !== 'undefined') {
     // In development, just warn
     if (!_API_BASE_URL) {
       console.warn(
-        '[Aragora] NEXT_PUBLIC_API_URL not set, using localhost:8080 fallback (dev mode).'
+        isLocalBrowserDev()
+          ? '[Aragora] NEXT_PUBLIC_API_URL not set, using same-origin /api proxy (local dev mode).'
+          : '[Aragora] NEXT_PUBLIC_API_URL not set, using localhost:8080 fallback (dev mode).'
       );
     }
     if (!_WS_URL) {
@@ -100,6 +119,10 @@ function resolveApiBaseUrl(): string {
 
   if (isProd) {
     return host.startsWith('api.') ? `https://${host}` : `https://api.${host}`;
+  }
+
+  if (isLocalBrowserDev()) {
+    return '';
   }
 
   return 'http://localhost:8080';
@@ -230,7 +253,9 @@ export function getEnvWarnings(): EnvWarning[] {
   if (!_API_BASE_URL) {
     warnings.push({
       key: 'NEXT_PUBLIC_API_URL',
-      message: 'API URL not set, using localhost:8080',
+      message: isLocalBrowserDev()
+        ? 'API URL not set, using same-origin /api proxy'
+        : 'API URL not set, using localhost:8080',
       severity: 'warning',
     });
   }

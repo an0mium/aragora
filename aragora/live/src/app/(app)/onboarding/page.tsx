@@ -64,7 +64,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { isAuthenticated, tokens } = useAuth();
   const { config: backendConfig } = useBackend();
-  const apiBase = backendConfig?.api || BACKENDS.production.api;
+  const apiBase = backendConfig?.api ?? BACKENDS.production.api;
   const { markOnboardingComplete } = useDashboardPreferences();
   const {
     setSelectedIndustry,
