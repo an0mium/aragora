@@ -13,7 +13,9 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -51,6 +53,16 @@ def _status(result: HandlerResult) -> int:
 def _body_bytes(result: HandlerResult) -> bytes:
     """Get raw body bytes."""
     return result.body
+
+
+async def _ticker(duration: float = 0.45) -> int:
+    """Measure whether another async task can keep making progress."""
+    ticks = 0
+    start = time.perf_counter()
+    while time.perf_counter() - start < duration:
+        await asyncio.sleep(0.01)
+        ticks += 1
+    return ticks
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +401,43 @@ class TestGetReceiptJSON:
             result = await mixin._get_receipt("g-val", {})
 
         assert _status(result) == 500
+
+
+class TestGetReceiptAsyncSafety:
+    """Async-safety checks for gauntlet receipt retrieval."""
+
+    @pytest.mark.asyncio
+    async def test_storage_lookup_does_not_block_event_loop(self, mixin, mock_receipt):
+        """Slow sync storage should be offloaded from the async receipt path."""
+
+        class _SlowStorage:
+            def get(self, gauntlet_id: str) -> dict[str, Any]:
+                time.sleep(0.2)
+                return {
+                    "total_findings": 2,
+                    "verdict": "PASS",
+                    "confidence": 0.95,
+                    "robustness_score": 0.9,
+                    "input_summary": f"Stored decision for {gauntlet_id}",
+                    "input_hash": "stored-hash",
+                }
+
+        task = asyncio.create_task(_ticker())
+        await asyncio.sleep(0)
+
+        with (
+            patch(
+                "aragora.server.handlers.gauntlet.receipts._get_storage_proxy",
+                return_value=_SlowStorage(),
+            ),
+            patch(_DR, return_value=mock_receipt),
+        ):
+            result = await mixin._get_receipt("g-slow-store", {"signed": "false"})
+
+        ticks = await task
+
+        assert _status(result) == 200
+        assert ticks >= 30
 
 
 # ============================================================================
@@ -1449,6 +1498,41 @@ class TestAutoPersistReceipt:
         ):
             MockDR.from_mode_result.return_value = mock_receipt
             await mixin._auto_persist_receipt(fake_result, "g-autosign-err")
+
+    @pytest.mark.asyncio
+    async def test_persist_save_does_not_block_event_loop(self, mixin, mock_receipt):
+        """Slow sync receipt-store saves should be offloaded."""
+        fake_result = FakeResult()
+
+        class _SlowStore:
+            def save(self, receipt_dict: dict[str, Any], signed_receipt=None) -> None:
+                time.sleep(0.2)
+
+            def update_signature(self, *args: Any, **kwargs: Any) -> None:
+                time.sleep(0.2)
+
+        task = asyncio.create_task(_ticker())
+        await asyncio.sleep(0)
+
+        with (
+            patch(_DR) as MockDR,
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.storage.receipt_store": MagicMock(
+                        StoredReceipt=MagicMock(return_value=MagicMock(checksum="abc")),
+                        get_receipt_store=MagicMock(return_value=_SlowStore()),
+                    ),
+                    "aragora.knowledge.mound.adapters.receipt_adapter": None,
+                },
+            ),
+        ):
+            MockDR.from_mode_result.return_value = mock_receipt
+            await mixin._auto_persist_receipt(fake_result, "g-slow-persist")
+
+        ticks = await task
+
+        assert ticks >= 30
 
     @pytest.mark.asyncio
     async def test_risk_level_used_in_stored_receipt(self, mixin, mock_receipt):

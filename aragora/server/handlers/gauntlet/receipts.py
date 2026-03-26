@@ -10,7 +10,9 @@ This module contains:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -33,6 +35,19 @@ def _get_storage_proxy():
 
 
 logger = logging.getLogger(__name__)
+
+
+async def _call_nonblocking(target: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run sync store methods in a worker thread when called from async handlers."""
+
+    method = getattr(target, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 class GauntletReceiptsMixin:
@@ -183,7 +198,7 @@ class GauntletReceiptsMixin:
             # Check persistent storage
             try:
                 storage = _get_storage_proxy()
-                stored = storage.get(gauntlet_id)
+                stored = await _call_nonblocking(storage, "get", gauntlet_id)
                 if stored:
                     result = stored
                 else:
@@ -556,7 +571,12 @@ class GauntletReceiptsMixin:
                     },
                 }
 
-            store.save(receipt_dict, signed_receipt=signed_receipt)
+            await _call_nonblocking(
+                store,
+                "save",
+                receipt_dict,
+                signed_receipt=signed_receipt,
+            )
             logger.info("Decision receipt auto-persisted: %s", receipt.receipt_id)
 
             # Emit receipt generated webhook
@@ -636,7 +656,9 @@ class GauntletReceiptsMixin:
                     from aragora.gauntlet.signing import sign_receipt
 
                     signed = sign_receipt(receipt.to_dict())
-                    store.update_signature(
+                    await _call_nonblocking(
+                        store,
+                        "update_signature",
                         receipt.receipt_id,
                         signature=signed.signature,
                         algorithm=signed.signature_metadata.algorithm,
