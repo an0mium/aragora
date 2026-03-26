@@ -211,6 +211,35 @@ class TestLiveDebate:
         assert "title" in cta
         assert "action_url" in cta
 
+    def test_mistral_only_key_still_uses_live_path(self):
+        pg = PlaygroundHandler()
+        mock_result = {
+            "status": "completed",
+            "consensus_reached": True,
+            "confidence": 0.81,
+            "participants": ["mistral"],
+            "final_answer": "Live answer",
+        }
+        env = {
+            "ANTHROPIC_API_KEY": "",
+            "OPENAI_API_KEY": "",
+            "OPENROUTER_API_KEY": "",
+            "MISTRAL_API_KEY": "mistral-test",
+        }
+        with patch.dict("os.environ", env, clear=False):
+            with patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                return_value=mock_result,
+            ):
+                handler = _make_handler_with_body({"topic": "Test"})
+                result = pg.handle_post("/api/v1/playground/debate/live", {}, handler)
+
+        data = _parse(result)
+        assert data["is_live"] is True
+        assert data.get("mock_fallback") is not True
+        assert data["participants"] == ["mistral"]
+        assert data["final_answer"] == "Live answer"
+
     def test_timeout_returns_408(self):
         pg = PlaygroundHandler()
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}):

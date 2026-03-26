@@ -2210,14 +2210,11 @@ class PlaygroundHandler(BaseHandler):
             rounds = _DEFAULT_ROUNDS
         rounds = max(1, min(rounds, _MAX_ROUNDS))
 
-        # Check if any API keys are available
-        has_api_keys = bool(
-            _get_api_key("ANTHROPIC_API_KEY")
-            or _get_api_key("OPENAI_API_KEY")
-            or _get_api_key("OPENROUTER_API_KEY")
-        )
-
-        if not has_api_keys:
+        # Keep the readiness gate aligned with the actual live debate resolver.
+        # Otherwise provider-specific keys can incorrectly fall back to mock mode.
+        try:
+            _get_available_live_agents(agent_count)
+        except ValueError:
             # Fall back to mock debate with a note
             result = self._run_debate(
                 topic,
