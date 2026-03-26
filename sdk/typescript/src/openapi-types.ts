@@ -50456,6 +50456,7 @@ export interface paths {
          *
          *     Query Parameters:
          *         types: Channel types to include (public_channel, private_channel)
+         *         limit: Maximum number of channels to return (default: 100)
          *
          *     Returns:
          *         JSON response with channel list:
