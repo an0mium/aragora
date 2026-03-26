@@ -1007,10 +1007,11 @@ class TestNotFound:
 
     @pytest.mark.asyncio
     async def test_invalid_short_path(self, handler):
-        """Path /api/v2/backups/ with trailing slash: backup_id is empty string, returns 404."""
+        """Trailing slash on the list route should normalize to the backup index."""
         result = await handler.handle("/api/v2/backups/", {}, _http("GET"))
-        # The empty backup_id won't match any backup, so we get 404
-        assert result.status_code == 404
+        assert result.status_code == 200
+        data = _body(result)
+        assert data["backups"] == []
 
     @pytest.mark.asyncio
     async def test_unknown_sub_route(self, handler):
