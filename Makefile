@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status worktree-inspect worktree-safe-remove codex-session branch-start pr-open
 
 # Default target
 help:
@@ -58,6 +58,10 @@ help:
 	@echo "  make worktree-maintainer-install Install launchd auto-maintainer (macOS)"
 	@echo "  make worktree-maintainer-uninstall Uninstall launchd auto-maintainer"
 	@echo "  make worktree-maintainer-status Show launchd auto-maintainer status"
+	@echo "  make worktree-inspect WT_PATH=/abs/path"
+	@echo "                    Inspect a side worktree for active-session/open-PR blockers"
+	@echo "  make worktree-safe-remove WT_PATH=/abs/path [DELETE_BRANCH=1] [PURGE_PATH=1]"
+	@echo "                    Safely remove a side worktree after guard checks"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         Generate documentation"
@@ -211,6 +215,23 @@ worktree-maintainer-uninstall:
 
 worktree-maintainer-status:
 	./scripts/status_worktree_maintainer_launchd.sh
+
+worktree-inspect:
+	@if [ -z "$(WT_PATH)" ]; then \
+		echo "Usage: make worktree-inspect WT_PATH=/abs/path"; \
+		exit 1; \
+	fi
+	python3 scripts/safe_worktree_cleanup.py inspect "$(WT_PATH)"
+
+worktree-safe-remove:
+	@if [ -z "$(WT_PATH)" ]; then \
+		echo "Usage: make worktree-safe-remove WT_PATH=/abs/path [DELETE_BRANCH=1] [PURGE_PATH=1]"; \
+		exit 1; \
+	fi
+	@cmd="python3 scripts/safe_worktree_cleanup.py remove \"$(WT_PATH)\""; \
+	if [ -n "$(DELETE_BRANCH)" ]; then cmd="$$cmd --delete-branch"; fi; \
+	if [ -n "$(PURGE_PATH)" ]; then cmd="$$cmd --purge-path"; fi; \
+	eval "$$cmd"
 
 branch-start:
 	@if [ -z "$(TYPE)" ] || [ -z "$(SLUG)" ]; then \

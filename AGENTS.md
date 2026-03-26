@@ -8,6 +8,8 @@ When many agents are committing concurrently, use disposable worktrees with freq
 
 - Start sessions with `./scripts/codex_session.sh` (or `make codex-session`).
   This writes an active-session lock so background maintenance skips in-use worktrees.
+- Do not delete side worktrees with raw `git worktree remove` plus `rm -rf`.
+  Inspect/remove them with `python3 scripts/safe_worktree_cleanup.py` so active-session locks and open PR branches block accidental deletion.
 - Auto-heal unexpected worktree/branch drift with:
   `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
 - Prefer one-shot upkeep during rapid churn:
