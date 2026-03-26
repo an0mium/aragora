@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { API_BASE_URL } from "@/config";
+import { getRuntimeBackendConfig } from "@/components/BackendSelector";
 
 interface RecordedEvent {
   type: "proposal" | "critique" | "vote" | "consensus";
@@ -1448,7 +1448,8 @@ export default function PublicDemoPage() {
       timers.forEach((timer) => window.clearTimeout(timer));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate`, {
+      const { config } = getRuntimeBackendConfig();
+      const response = await fetch(`${config.api}/api/v1/playground/debate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { TeaserResult } from '@/components/try/TeaserResult';
-import { API_BASE_URL } from '@/config';
 
 const EXAMPLE_QUESTIONS = [
   'Should we migrate our monolithic app to microservices?',
@@ -99,7 +99,8 @@ function TryPageInner() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate`, {
+      const { config } = getRuntimeBackendConfig();
+      const response = await fetch(`${config.api}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.trim(), source: 'try' }),
