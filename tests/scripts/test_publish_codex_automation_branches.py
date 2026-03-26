@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from scripts.publish_codex_automation_branches import (
     BranchSnapshot,
     WorktreeSnapshot,
+    _worktree_is_dirty,
     select_publishable_branches,
 )
 
@@ -121,3 +124,43 @@ def test_select_publishable_branches_skips_branches_with_historical_prs() -> Non
     )
 
     assert decisions[0].reason == "historical_pr_exists"
+
+
+def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    tracked = repo / "tracked.txt"
+    tracked.write_text("base\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "tracked.txt"], cwd=repo, check=True, capture_output=True, text=True
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    (repo / "untracked.txt").write_text("scratch\n", encoding="utf-8")
+    assert _worktree_is_dirty(repo) is False
+
+    tracked.write_text("changed\n", encoding="utf-8")
+    assert _worktree_is_dirty(repo) is True

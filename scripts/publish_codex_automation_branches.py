@@ -143,7 +143,9 @@ def _has_active_session(path: Path) -> bool:
 
 
 def _worktree_is_dirty(path: Path) -> bool:
-    proc = _run(["git", "status", "--porcelain"], cwd=path)
+    # Ignore untracked files here so unrelated local docs/scratch files in an
+    # attached worktree do not block publishing an already committed branch.
+    proc = _run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=path)
     if proc.returncode != 0:
         return False
     return bool(proc.stdout.strip())
