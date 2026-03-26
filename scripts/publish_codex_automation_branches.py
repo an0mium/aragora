@@ -20,6 +20,7 @@ from typing import Any
 
 UTC = timezone.utc
 DEFAULT_SINCE_HOURS = 72
+CODEX_BRANCH_PREFIX = "codex/"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
@@ -213,7 +214,9 @@ def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
     return {
         item["headRefName"]
         for item in payload
-        if isinstance(item, dict) and isinstance(item.get("headRefName"), str)
+        if isinstance(item, dict)
+        and isinstance(item.get("headRefName"), str)
+        and item["headRefName"].startswith(CODEX_BRANCH_PREFIX)
     }
 
 

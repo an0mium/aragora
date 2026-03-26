@@ -128,6 +128,30 @@ def test_select_publishable_branches_skips_branches_with_historical_prs() -> Non
     assert decisions[0].reason == "historical_pr_exists"
 
 
+def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:
+    payload = """
+    [
+      {"headRefName": "codex/fix-one"},
+      {"headRefName": "dependabot/npm_and_yarn/picomatch-4.0.4"},
+      {"headRefName": "feature/manual-branch"},
+      {"headRefName": "codex/fix-two"}
+    ]
+    """.strip()
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+
+    assert mod._open_pr_heads(tmp_path, "synaptent/aragora") == {
+        "codex/fix-one",
+        "codex/fix-two",
+    }
+
+
 def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
