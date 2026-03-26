@@ -546,6 +546,19 @@ class OAuthWizardHandler(SecureHandler):
                 return value
         return value
 
+    def _record_value(self, record: Any, *field_names: str, default: Any = None) -> Any:
+        """Return the first matching field from a dict-like or attribute-based record."""
+        if isinstance(record, dict):
+            for field_name in field_names:
+                if field_name in record:
+                    return record[field_name]
+            return default
+
+        for field_name in field_names:
+            if hasattr(record, field_name):
+                return getattr(record, field_name)
+        return default
+
     def _normalize_mock_side_effect(self, func: Any) -> None:
         """Ensure mock side_effect lists behave as iterators for AsyncMock."""
         side_effect = getattr(func, "side_effect", None)
@@ -699,7 +712,7 @@ class OAuthWizardHandler(SecureHandler):
                 return {"success": False, "error": "No active workspaces configured"}
 
             workspace = workspaces[0]
-            token = workspace.get("access_token")
+            token = self._record_value(workspace, "access_token")
             if not token:
                 return {"success": False, "error": "No access token available"}
 
@@ -744,7 +757,7 @@ class OAuthWizardHandler(SecureHandler):
                 return {"success": False, "error": "No active tenants configured"}
 
             tenant = tenants[0]
-            token = tenant.get("access_token")
+            token = self._record_value(tenant, "access_token")
             if not token:
                 return {"success": False, "error": "No access token available"}
 
@@ -852,10 +865,10 @@ class OAuthWizardHandler(SecureHandler):
         workspaces = store.list_active(limit=100)
         return [
             {
-                "id": ws.get("workspace_id"),
-                "name": ws.get("name", "Unknown"),
-                "is_active": ws.get("is_active", True),
-                "connected_at": ws.get("created_at"),
+                "id": self._record_value(ws, "workspace_id", "id"),
+                "name": self._record_value(ws, "workspace_name", "name", default="Unknown"),
+                "is_active": self._record_value(ws, "is_active", default=True),
+                "connected_at": self._record_value(ws, "created_at", "installed_at"),
             }
             for ws in workspaces
         ]
@@ -868,10 +881,10 @@ class OAuthWizardHandler(SecureHandler):
         tenants = store.list_active(limit=100)
         return [
             {
-                "id": t.get("tenant_id"),
-                "name": t.get("name", "Unknown"),
-                "is_active": t.get("is_active", True),
-                "connected_at": t.get("created_at"),
+                "id": self._record_value(t, "tenant_id", "id"),
+                "name": self._record_value(t, "tenant_name", "name", default="Unknown"),
+                "is_active": self._record_value(t, "is_active", default=True),
+                "connected_at": self._record_value(t, "created_at", "installed_at"),
             }
             for t in tenants
         ]

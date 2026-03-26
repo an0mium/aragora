@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import time
 from collections import defaultdict
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -32,6 +33,8 @@ from aragora.server.handlers.oauth_wizard import (
     PROVIDERS,
     create_oauth_wizard_handler,
 )
+from aragora.storage.slack_workspace_store import SlackWorkspace
+from aragora.storage.teams_tenant_store import TeamsTenant
 
 
 # ---------------------------------------------------------------------------
@@ -1401,6 +1404,45 @@ class TestSlackApiTest:
         assert result["success"] is False
 
     @pytest.mark.asyncio
+    async def test_slack_api_accepts_dataclass_workspace(self, handler):
+        mock_store = MagicMock()
+        mock_store.list_active.return_value = [
+            SlackWorkspace(
+                workspace_id="W1",
+                workspace_name="Acme Workspace",
+                access_token="xoxb-test",
+                bot_user_id="B1",
+                installed_at=time.time(),
+            )
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "team": "Acme Workspace",
+            "user": "aragora-bot",
+            "team_id": "W1",
+        }
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        session = AsyncMock()
+        session.__aenter__.return_value = mock_client
+        session.__aexit__.return_value = False
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value = session
+
+        with (
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_store,
+            ),
+            patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool),
+        ):
+            result = await handler._test_slack_api()
+
+        assert result["success"] is True
+        assert result["team"] == "Acme Workspace"
+
+    @pytest.mark.asyncio
     async def test_discord_no_bot_token(self, handler):
         result = await handler._test_discord_api()
         assert result["success"] is False
@@ -1445,6 +1487,105 @@ class TestSlackApiTest:
             result = await handler._test_teams_api()
         assert result["success"] is False
         assert "No access token" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_teams_api_accepts_dataclass_tenant(self, handler):
+        mock_store = MagicMock()
+        mock_store.list_active.return_value = [
+            TeamsTenant(
+                tenant_id="T1",
+                tenant_name="Contoso",
+                access_token="teams-token",
+                bot_id="bot-1",
+                installed_at=time.time(),
+            )
+        ]
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"displayName": "Contoso Bot"}
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_response
+        session = AsyncMock()
+        session.__aenter__.return_value = mock_client
+        session.__aexit__.return_value = False
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value = session
+
+        with (
+            patch(
+                "aragora.storage.teams_tenant_store.get_teams_tenant_store",
+                return_value=mock_store,
+            ),
+            patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool),
+        ):
+            result = await handler._test_teams_api()
+
+        assert result["success"] is True
+        assert result["display_name"] == "Contoso Bot"
+
+
+class TestWorkspaceRecordNormalization:
+    """Tests for mapping real store records into wizard workspace payloads."""
+
+    @pytest.mark.asyncio
+    async def test_get_slack_workspaces_accepts_dataclass_records(self, handler):
+        mock_store = MagicMock()
+        installed_at = time.time()
+        mock_store.list_active.return_value = [
+            SlackWorkspace(
+                workspace_id="W1",
+                workspace_name="Acme Workspace",
+                access_token="xoxb-test",
+                bot_user_id="B1",
+                installed_at=installed_at,
+                is_active=False,
+            )
+        ]
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_store,
+        ):
+            result = await handler._get_slack_workspaces()
+
+        assert result == [
+            {
+                "id": "W1",
+                "name": "Acme Workspace",
+                "is_active": False,
+                "connected_at": installed_at,
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_teams_tenants_accepts_dataclass_records(self, handler):
+        mock_store = MagicMock()
+        installed_at = time.time()
+        mock_store.list_active.return_value = [
+            TeamsTenant(
+                tenant_id="T1",
+                tenant_name="Contoso",
+                access_token="teams-token",
+                bot_id="bot-1",
+                installed_at=installed_at,
+                is_active=False,
+            )
+        ]
+
+        with patch(
+            "aragora.storage.teams_tenant_store.get_teams_tenant_store",
+            return_value=mock_store,
+        ):
+            result = await handler._get_teams_tenants()
+
+        assert result == [
+            {
+                "id": "T1",
+                "name": "Contoso",
+                "is_active": False,
+                "connected_at": installed_at,
+            }
+        ]
 
 
 # ============================================================================
