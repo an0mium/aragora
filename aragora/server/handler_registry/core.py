@@ -850,6 +850,20 @@ class HandlerValidationError(Exception):
     pass
 
 
+def _supports_route_dispatch_without_can_handle(handler: Any) -> bool:
+    """Return True when a handler uses registered route dispatch without can_handle()."""
+    has_routes = hasattr(handler, "ROUTES")
+    has_register = hasattr(handler, "register_routes") and callable(
+        getattr(handler, "register_routes")
+    )
+    has_handle_star = any(
+        attr.startswith("handle_")
+        for attr in dir(handler)
+        if not attr.startswith("__") and callable(getattr(handler, attr, None))
+    )
+    return has_routes or has_register or has_handle_star
+
+
 def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     """
     Validate that a handler class has required methods and attributes.
@@ -872,10 +886,12 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     # - ROUTES + handle_* methods (cost, voice, inbox)
     # - register_routes (alert, autonomous)
     # - ROUTES only (facade handlers for OpenAPI discovery)
-    has_can_handle = hasattr(handler_class, "can_handle") and callable(
-        getattr(handler_class, "can_handle")
-    )
-    has_handle = hasattr(handler_class, "handle") and callable(getattr(handler_class, "handle"))
+    can_handle_attr = getattr(handler_class, "can_handle", None)
+    handle_attr = getattr(handler_class, "handle", None)
+    has_can_handle_attr = hasattr(handler_class, "can_handle")
+    has_handle_attr = hasattr(handler_class, "handle")
+    has_can_handle = has_can_handle_attr and callable(can_handle_attr)
+    has_handle = has_handle_attr and callable(handle_attr)
     has_handle_star = any(
         attr.startswith("handle_")
         for attr in dir(handler_class)
@@ -886,8 +902,10 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     )
     has_routes = hasattr(handler_class, "ROUTES")
 
-    if not has_can_handle:
-        if has_handle or has_handle_star or has_register or has_routes:
+    if has_can_handle_attr and not has_can_handle:
+        errors.append(f"{handler_name}: Method 'can_handle' is not callable")
+    elif not has_can_handle:
+        if _supports_route_dispatch_without_can_handle(handler_class):
             logger.debug(
                 "%s: No can_handle() method (dispatched via ROUTES/handle*/register_routes)",
                 handler_name,
@@ -895,7 +913,9 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
         else:
             errors.append(f"{handler_name}: Missing required method 'can_handle'")
 
-    if not has_handle and not has_handle_star and not has_register:
+    if has_handle_attr and not has_handle:
+        errors.append(f"{handler_name}: Method 'handle' is not callable")
+    elif not has_handle and not has_handle_star and not has_register:
         if has_routes:
             logger.debug(
                 "%s: No handle() method (ROUTES-only facade for OpenAPI discovery)",
@@ -909,20 +929,6 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
         logger.debug("%s: No ROUTES attribute (will use prefix matching only)", handler_name)
 
     return errors
-
-
-def _supports_route_dispatch_without_can_handle(handler: Any) -> bool:
-    """Return True when a handler uses route registration without can_handle()."""
-    has_routes = hasattr(handler, "ROUTES")
-    has_register = hasattr(handler, "register_routes") and callable(
-        getattr(handler, "register_routes")
-    )
-    has_handle_star = any(
-        attr.startswith("handle_")
-        for attr in dir(handler)
-        if not attr.startswith("__") and callable(getattr(handler, attr, None))
-    )
-    return has_routes or has_register or has_handle_star
 
 
 def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
@@ -942,7 +948,12 @@ def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
         errors.append(f"{handler_name}: Handler instance is None")
         return errors
 
-    has_can_handle = hasattr(handler, "can_handle") and callable(getattr(handler, "can_handle"))
+    has_can_handle_attr = hasattr(handler, "can_handle")
+    can_handle_attr = getattr(handler, "can_handle", None)
+    has_can_handle = has_can_handle_attr and callable(can_handle_attr)
+    if has_can_handle_attr and not has_can_handle:
+        errors.append(f"{handler_name}: Method 'can_handle' is not callable")
+        return errors
     if not has_can_handle:
         if _supports_route_dispatch_without_can_handle(handler):
             return errors
