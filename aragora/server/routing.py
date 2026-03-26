@@ -567,6 +567,21 @@ def create_default_routes() -> list[Route]:
         api_route("/api/memory/entries", "MemoryHandler"),
         api_route("/api/memory/viewer", "MemoryHandler"),
         api_route("/api/memory/critiques", "MemoryHandler"),
+        # Versioned memory routes served by MemoryHandler and referenced by
+        # the FastAPI surface, SDK, and frontend.
+        api_route("/api/v1/memory/continuum/retrieve", "MemoryHandler"),
+        api_route("/api/v1/memory/continuum/consolidate", "MemoryHandler", method="POST"),
+        api_route("/api/v1/memory/continuum/cleanup", "MemoryHandler", method="POST"),
+        api_route("/api/v1/memory/tier-stats", "MemoryHandler"),
+        api_route("/api/v1/memory/archive-stats", "MemoryHandler"),
+        api_route("/api/v1/memory/pressure", "MemoryHandler"),
+        api_route("/api/v1/memory/tiers", "MemoryHandler"),
+        api_route("/api/v1/memory/search", "MemoryHandler"),
+        api_route("/api/v1/memory/search-index", "MemoryHandler"),
+        api_route("/api/v1/memory/search-timeline", "MemoryHandler"),
+        api_route("/api/v1/memory/entries", "MemoryHandler"),
+        api_route("/api/v1/memory/viewer", "MemoryHandler"),
+        api_route("/api/v1/memory/critiques", "MemoryHandler"),
         # Leaderboard view
         api_route("/api/leaderboard-view", "LeaderboardViewHandler"),
         # Metrics

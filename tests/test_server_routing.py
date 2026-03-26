@@ -308,6 +308,26 @@ class TestDefaultRoutes:
         assert "/api/debates" in patterns
         assert "/api/debates/{id}" in patterns
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/memory/tier-stats",
+            "/api/v1/memory/archive-stats",
+            "/api/v1/memory/pressure",
+            "/api/v1/memory/tiers",
+            "/api/v1/memory/search",
+        ],
+    )
+    def test_versioned_memory_routes_dispatch_to_memory_handler(self, path):
+        """Versioned memory routes should resolve in the default registry."""
+        registry = RouteRegistry()
+        registry.register(*create_default_routes())
+
+        match = registry.match(path, "GET")
+
+        assert match is not None
+        assert match.handler_name == "MemoryHandler"
+
 
 class TestGlobalRegistry:
     """Test global registry management."""
