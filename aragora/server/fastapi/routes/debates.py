@@ -26,6 +26,8 @@ Migration Notes:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json as json_mod
 import logging
 import os
@@ -215,6 +217,19 @@ async def get_storage(request: Request):
     return storage
 
 
+async def _call_storage_method(storage: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Run storage methods without blocking the FastAPI event loop."""
+
+    method = getattr(storage, method_name)
+    if inspect.iscoroutinefunction(method):
+        return await method(*args, **kwargs)
+
+    result = await asyncio.to_thread(method, *args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 def get_nomic_dir() -> Path | None:
     """Get the nomic directory from environment."""
     nomic_dir_str = os.environ.get("ARAGORA_NOMIC_DIR", ".")
@@ -245,7 +260,9 @@ async def list_debates(
     try:
         # Get debates from storage
         if hasattr(storage, "list_debates"):
-            debates_raw = storage.list_debates(
+            debates_raw = await _call_storage_method(
+                storage,
+                "list_debates",
                 limit=limit,
                 offset=offset,
                 status=status,
@@ -257,7 +274,7 @@ async def list_debates(
 
         # Get total count
         if hasattr(storage, "count_debates"):
-            total = storage.count_debates(status=status)
+            total = await _call_storage_method(storage, "count_debates", status=status)
         else:
             total = len(storage.debates) if hasattr(storage, "debates") else 0
 
@@ -318,7 +335,7 @@ async def get_debate(
     try:
         # Get debate from storage
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
@@ -390,7 +407,7 @@ async def get_debate_messages(
     try:
         # Get debate
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
@@ -451,7 +468,7 @@ async def get_debate_convergence(
     try:
         # Get debate
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
@@ -527,7 +544,7 @@ async def update_debate(
     try:
         # Get debate from storage
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
@@ -565,7 +582,7 @@ async def update_debate(
 
         # Save updated debate
         if hasattr(storage, "save_debate"):
-            storage.save_debate(debate_id, debate)
+            await _call_storage_method(storage, "save_debate", debate_id, debate)
 
         logger.info("Debate %s updated: %s", debate_id, list(updates.keys()))
 
@@ -623,7 +640,7 @@ async def delete_debate(
     try:
         # Check debate exists
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
@@ -635,7 +652,12 @@ async def delete_debate(
         # Perform deletion
         deleted = False
         if hasattr(storage, "delete_debate"):
-            deleted = storage.delete_debate(debate_id, cascade_critiques=True)
+            deleted = await _call_storage_method(
+                storage,
+                "delete_debate",
+                debate_id,
+                cascade_critiques=True,
+            )
         elif hasattr(storage, "debates") and debate_id in storage.debates:
             del storage.debates[debate_id]
             deleted = True
@@ -761,7 +783,7 @@ async def export_debate(
     try:
         # Get debate from storage
         if hasattr(storage, "get_debate"):
-            debate = storage.get_debate(debate_id)
+            debate = await _call_storage_method(storage, "get_debate", debate_id)
         elif hasattr(storage, "debates"):
             debate = storage.debates.get(debate_id)
         else:
