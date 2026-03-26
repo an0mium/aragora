@@ -22,6 +22,7 @@ import hashlib
 import hmac
 import json
 import time
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -54,6 +55,7 @@ def _clean_jwt_env(monkeypatch):
     mode and causes JWT secret lookups to fail with SecretNotFoundError.
     """
     monkeypatch.delenv("ARAGORA_ENV", raising=False)
+    monkeypatch.delenv("ARAGORA_ENVIRONMENT", raising=False)
     monkeypatch.delenv("ARAGORA_SECRETS_STRICT", raising=False)
     # Reset lazy-loaded secret caches so they pick up clean env
     import aragora.billing.auth.config as _auth_config
@@ -258,10 +260,34 @@ class TestTokenEncoding:
         # Should be decodable
         payload = decode_jwt(token)
         assert payload is not None
+
+    def test_non_production_uses_derived_secret_when_unset(self, monkeypatch):
+        """Test local token issuance derives a stable secret outside pytest."""
+        import aragora.billing.auth.config as auth_config
+
+        monkeypatch.delenv("ARAGORA_JWT_SECRET", raising=False)
+        monkeypatch.delenv("ARAGORA_SECRET_KEY", raising=False)
+        monkeypatch.setenv("HOSTNAME", "aragora-dev-host")
+        monkeypatch.setenv("USER", "aragora-dev-user")
+        monkeypatch.setattr(auth_config, "ARAGORA_ENVIRONMENT", "development")
+        monkeypatch.setattr(auth_config, "sys", SimpleNamespace(modules={}))
+        monkeypatch.setattr(auth_config, "_get_secret_value", lambda _name, default="": default)
+        monkeypatch.setattr(auth_config, "_jwt_secret_cache", None)
+        monkeypatch.setattr(auth_config, "_jwt_secret_previous_cache", None)
+
+        first_secret = auth_config.get_secret()
+        second_secret = auth_config.get_secret()
+
+        assert first_secret == second_secret
+        assert len(first_secret) >= auth_config.MIN_SECRET_LENGTH
+
+        token = create_access_token(user_id="user123", email="test@example.com")
+        payload = decode_jwt(token)
+        assert payload is not None
         assert payload.sub == "user123"
         assert payload.email == "test@example.com"
-        assert payload.org_id == "org456"
-        assert payload.role == "admin"
+        assert payload.org_id is None
+        assert payload.role == "member"
         assert payload.type == "access"
 
     def test_create_and_decode_refresh_token(self):

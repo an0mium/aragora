@@ -8,6 +8,7 @@ for JWT token handling.
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 import os
 import sys
@@ -145,40 +146,64 @@ def validate_secret_strength(secret: str) -> bool:
     return len(secret) >= MIN_SECRET_LENGTH
 
 
+def _derive_non_production_secret() -> str:
+    """Derive a stable local-only JWT secret for non-production fallbacks."""
+    machine_id = os.environ.get("HOSTNAME", "") + os.environ.get("USER", "")
+    if not machine_id:
+        machine_id = "local-development"
+    return hashlib.sha256(f"aragora-jwt-{machine_id}".encode()).hexdigest()
+
+
 def get_secret() -> bytes:
     """
     Get JWT secret with strict validation.
 
-    ARAGORA_JWT_SECRET must be set in all environments except pytest.
-    This prevents issues with:
-    - Load balancing (different instances need same secret)
-    - Server restarts invalidating all tokens
+    Production requires ARAGORA_JWT_SECRET. Non-production may fall back to
+    ARAGORA_SECRET_KEY or a stable machine-local derived secret to keep local
+    signup and auth flows working without manual secret bootstrapping.
 
     Raises:
-        RuntimeError: If secret is missing or weak (except in pytest).
+        RuntimeError: If secret is missing or weak in production.
     """
     global _jwt_secret_cache
     running_under_pytest = "pytest" in sys.modules
 
     jwt_secret = _get_jwt_secret()
+    secret_source = "ARAGORA_JWT_SECRET"
     if not jwt_secret:
         if running_under_pytest:
             # Allow ephemeral secret only in test environments
             _jwt_secret_cache = base64.b64encode(os.urandom(32)).decode("utf-8")
             jwt_secret = _jwt_secret_cache
+            secret_source = "pytest-ephemeral"
             logger.debug("TEST MODE: Using ephemeral JWT secret")
-        else:
+        elif is_production():
             logger.error("[JWT_DEBUG] get_secret: ARAGORA_JWT_SECRET is NOT SET!")
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason="ARAGORA_JWT_SECRET must be set. "
                 'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
             )
+        else:
+            jwt_secret = _get_secret_value("ARAGORA_SECRET_KEY", "")
+            if jwt_secret:
+                secret_source = "ARAGORA_SECRET_KEY"
+                logger.warning(
+                    "JWT auth: ARAGORA_JWT_SECRET is not set. Using ARAGORA_SECRET_KEY in non-production."
+                )
+            else:
+                jwt_secret = _derive_non_production_secret()
+                secret_source = "derived-non-production"
+                logger.warning(
+                    "JWT auth: No ARAGORA_JWT_SECRET or ARAGORA_SECRET_KEY set. "
+                    "Using derived secret in non-production."
+                )
+            _jwt_secret_cache = jwt_secret
 
     if not validate_secret_strength(jwt_secret):
         if running_under_pytest:
             logger.debug("TEST MODE: JWT secret is weak (< %s chars)", MIN_SECRET_LENGTH)
-        else:
+        elif is_production():
             logger.error(
                 "[JWT_DEBUG] get_secret: Secret too weak! Length=%s, required=%s",
                 len(jwt_secret),
@@ -189,15 +214,21 @@ def get_secret() -> bytes:
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
                 f"Current length: {len(jwt_secret)}",
             )
+        else:
+            logger.warning(
+                "JWT auth: non-production secret is weak (source=%s length=%s min=%s)",
+                secret_source,
+                len(jwt_secret),
+                MIN_SECRET_LENGTH,
+            )
 
     # Log secret fingerprint (first 4 chars of hash) for debugging without exposing secret
-    import hashlib
-
     secret_fingerprint = hashlib.sha256(jwt_secret.encode()).hexdigest()[:8]
     logger.info(
-        "[JWT_DEBUG] get_secret: Using secret with fingerprint=%s, length=%s",
+        "[JWT_DEBUG] get_secret: Using secret with fingerprint=%s, length=%s source=%s",
         secret_fingerprint,
         len(jwt_secret),
+        secret_source,
     )
 
     return jwt_secret.encode("utf-8")
