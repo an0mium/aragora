@@ -29,7 +29,13 @@ class _DummyGmail:
     connector_id = "gmail"
     user_id = "me"
 
-    async def list_messages(self, *, query: str, max_results: int):
+    async def list_messages(
+        self,
+        *,
+        query: str,
+        max_results: int,
+        page_token: str | None = None,
+    ):
         return ["msg-1"], None
 
     async def get_message(self, _message_id: str):
@@ -120,6 +126,40 @@ async def test_run_triage_creates_persisted_receipt():
     assert decision.intent.user_id == "me"
     assert wedge_service.create_receipt.call_args.kwargs["auto_approve"] is False
     wedge_service.execute_receipt.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_run_triage_tracks_next_page_token():
+    gmail = _DummyGmail()
+    gmail.list_messages = AsyncMock(return_value=(["msg-1"], "next-page-123"))
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-page-token",
+            state=ReceiptState.APPROVED if auto_approve else ReceiptState.CREATED,
+        )
+    )
+
+    runner = InboxTriageRunner(gmail_connector=gmail, wedge_service=wedge_service)
+    runner._run_debate = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.91,
+            "debate_id": "debate-page-token",
+        }
+    )
+
+    decisions = await runner.run_triage(batch_size=1, auto_approve=False, page_token="cursor-1")
+
+    assert len(decisions) == 1
+    gmail.list_messages.assert_awaited_once_with(
+        query="is:unread",
+        max_results=1,
+        page_token="cursor-1",
+    )
+    assert runner.next_page_token == "next-page-123"
 
 
 @pytest.mark.asyncio

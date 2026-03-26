@@ -21,12 +21,15 @@ def test_add_triage_parser_supports_auth_and_dry_run():
     subparsers = parser.add_subparsers(dest="command")
     triage_cmd.add_triage_parser(subparsers)
 
-    run_args = parser.parse_args(["triage", "run", "--batch", "3", "--dry-run"])
+    run_args = parser.parse_args(
+        ["triage", "run", "--batch", "3", "--dry-run", "--page-token", "next-123"]
+    )
     auth_args = parser.parse_args(["triage", "auth"])
 
     assert run_args.triage_command == "run"
     assert run_args.batch == 3
     assert run_args.dry_run is True
+    assert run_args.page_token == "next-123"
     assert auth_args.triage_command == "auth"
 
 
@@ -81,7 +84,10 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
         receipt_id="receipt-2",
     )
     monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
-    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]))
+    fake_runner = SimpleNamespace(
+        run_triage=AsyncMock(return_value=[decision]),
+        next_page_token="next-page-xyz",
+    )
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (
@@ -95,14 +101,24 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
             return_value=fake_service,
         ),
     ):
-        await triage_cmd._run_triage(batch_size=2, auto_approve=True, dry_run=True)
+        await triage_cmd._run_triage(
+            batch_size=2,
+            auto_approve=True,
+            dry_run=True,
+            page_token="cursor-2",
+        )
 
-    fake_runner.run_triage.assert_awaited_once_with(batch_size=2, auto_approve=False)
+    fake_runner.run_triage.assert_awaited_once_with(
+        batch_size=2,
+        auto_approve=False,
+        page_token="cursor-2",
+    )
     out = capsys.readouterr().out
     assert "[DRY RUN] Fetching up to 2 unread messages" in out
     assert "[DRY RUN] Proposed triage decisions" in out
     assert "archive" in out
     assert "Run summary:" in out
+    assert "Next page token: next-page-xyz" in out
 
 
 @pytest.mark.asyncio
@@ -115,7 +131,7 @@ async def test_run_triage_defaults_to_staged_profile(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
     monkeypatch.delenv("ARAGORA_TRIAGE_PROFILE", raising=False)
-    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]))
+    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]), next_page_token=None)
     fake_service = SimpleNamespace(review_receipt=object())
     captured: dict[str, object] = {}
 
@@ -146,7 +162,7 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
     )
     monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
 
-    async def _run_triage(*, batch_size, auto_approve):
+    async def _run_triage(*, batch_size, auto_approve, page_token=None):
         record_triage_diagnostic(
             code="provider_fallback",
             severity=DiagnosticSeverity.DEGRADED,
@@ -156,7 +172,10 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
         )
         return [decision]
 
-    fake_runner = SimpleNamespace(run_triage=AsyncMock(side_effect=_run_triage))
+    fake_runner = SimpleNamespace(
+        run_triage=AsyncMock(side_effect=_run_triage),
+        next_page_token=None,
+    )
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (
