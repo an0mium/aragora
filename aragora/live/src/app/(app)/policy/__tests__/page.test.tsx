@@ -27,7 +27,8 @@ jest.mock('@/components/ThemeToggle', () => ({
 const mockBackendConfig = { api: 'http://localhost:8080' };
 jest.mock('@/components/BackendSelector', () => ({
   BackendSelector: () => <div data-testid="backend-selector">Backend</div>,
-  useBackend: () => ({ config: mockBackendConfig }),
+  useBackend: () => ({ backend: 'development', config: mockBackendConfig }),
+  getRuntimeBackendConfig: () => ({ backend: 'development', config: mockBackendConfig }),
 }));
 
 // Mock ErrorWithRetry
