@@ -158,6 +158,9 @@ class TestCanHandle:
     def test_handles_debate_path(self, handler):
         assert handler.can_handle("/api/v1/playground/debate") is True
 
+    def test_handles_trailing_slash_debate_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/debate/") is True
+
     def test_handles_status_path(self, handler):
         assert handler.can_handle("/api/v1/playground/status") is True
 
@@ -214,6 +217,15 @@ class TestDebateEndpoint:
         assert "participants" in data
         assert len(data["participants"]) == 3  # default agent count
         assert data["duration_seconds"] >= 0
+
+    def test_debate_with_trailing_slash_path(self, handler, mock_http_handler):
+        """Trailing-slash create path is accepted for same-origin dev proxies."""
+        h = mock_http_handler({})
+        result = handler.handle_post("/api/v1/playground/debate/", {}, h)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert "id" in data
 
     def test_debate_with_custom_topic(self, handler, mock_http_handler):
         """Custom topic is passed through correctly."""

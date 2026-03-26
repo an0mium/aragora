@@ -306,6 +306,7 @@ class AuthChecksMixin:
             # "/api/v1/nomic/state",
             # Playground - only mock debate is free (no API credits used)
             "/api/v1/playground/debate",
+            "/api/v1/playground/debate/",
             # Live debate + TTS: NOT exempt — require auth + budget gate
             # (handled by _check_live_streaming_budget in the request pipeline)
             "/api/v1/playground/status",

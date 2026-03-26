@@ -109,6 +109,12 @@ PUBLIC_ENDPOINTS = [
         description="Public playground debate",
     ),
     EndpointAuth(
+        "/api/v1/playground/debate/",
+        "post",
+        AuthLevel.PUBLIC,
+        description="Public playground debate",
+    ),
+    EndpointAuth(
         "/api/v1/playground/status",
         "get",
         AuthLevel.PUBLIC,

@@ -1546,13 +1546,17 @@ class PlaygroundHandler(BaseHandler):
     ]
 
     _DEBATE_ID_PATTERN = re.compile(r"^/api/v1/playground/debate/([a-f0-9]{16,32})$")
+    _CREATE_PATHS = {
+        "/api/v1/playground/debate",
+        "/api/v1/playground/debate/",
+    }
 
     def __init__(self, ctx: dict | None = None):
         self.ctx = ctx or {}
 
     def can_handle(self, path: str) -> bool:
         if path in (
-            "/api/v1/playground/debate",
+            *self._CREATE_PATHS,
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
@@ -1716,7 +1720,7 @@ class PlaygroundHandler(BaseHandler):
             return self._handle_cost_estimate(handler)
         if path == "/api/v1/playground/debate/live":
             return self._handle_live_debate(handler)
-        if path != "/api/v1/playground/debate":
+        if path not in self._CREATE_PATHS:
             return None
 
         # Parse body early so we can check cache before rate limiting
