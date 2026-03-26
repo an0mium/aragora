@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
-import { API_BASE_URL } from '@/config';
+import { useBackend } from '@/components/BackendSelector';
 import { DecisionPackageView } from '@/components/debates/DecisionPackageView';
 import { CostBreakdown } from '@/components/debates/CostBreakdown';
 import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
@@ -23,6 +23,7 @@ export default function DebateDetailClient() {
   const params = useParams<{ id?: string | string[] }>();
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] || '' : rawId || '';
+  const { config: backendConfig } = useBackend();
 
   const [pkg, setPkg] = useState<DecisionPackage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,7 @@ export default function DebateDetailClient() {
   // WebSocket hook — only connect when debate is in_progress
   const ws = useDebateWebSocket({
     debateId: id || 'unknown-debate',
+    wsUrl: backendConfig.ws,
     enabled: Boolean(id) && debateStatus === 'in_progress',
   });
 
@@ -57,7 +59,7 @@ export default function DebateDetailClient() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE_URL}/api/v1/debates/${id}/package`);
+      const res = await fetch(`${backendConfig.api}/api/v1/debates/${id}/package`);
       if (res.status === 404) {
         setError('not_found');
         return;
@@ -74,7 +76,7 @@ export default function DebateDetailClient() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [backendConfig.api, id]);
 
   // When WebSocket reports debate complete, reload the package
   const handleStreamComplete = useCallback(() => {
@@ -89,7 +91,7 @@ export default function DebateDetailClient() {
     async function checkAndLoad() {
       try {
         // Try to get debate status first
-        const statusRes = await fetch(`${API_BASE_URL}/api/v1/debates/${id}`, {
+        const statusRes = await fetch(`${backendConfig.api}/api/v1/debates/${id}`, {
           signal: AbortSignal.timeout(5000),
         });
 
@@ -112,7 +114,7 @@ export default function DebateDetailClient() {
     }
 
     checkAndLoad();
-  }, [id, fetchDebatePackage]);
+  }, [backendConfig.api, id, fetchDebatePackage]);
 
   const handleShare = useCallback(async () => {
     if (!id) return;
@@ -565,7 +567,7 @@ export default function DebateDetailClient() {
                     onClick={async () => {
                       setExporting('md');
                       try {
-                        const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/md`);
+                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/md`);
                         if (res.ok) {
                           const text = await res.text();
                           const blob = new Blob([text], { type: 'text/markdown' });
@@ -593,7 +595,7 @@ export default function DebateDetailClient() {
                     onClick={async () => {
                       setExporting('csv');
                       try {
-                        const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/csv`);
+                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/csv`);
                         if (res.ok) {
                           const text = await res.text();
                           const blob = new Blob([text], { type: 'text/csv' });
@@ -660,7 +662,7 @@ export default function DebateDetailClient() {
                         setBridgeResult(null);
                         try {
                           const res = await fetch(
-                            `${API_BASE_URL}/api/v1/debates/${pkg.id}/bridge`,
+                            `${backendConfig.api}/api/v1/debates/${pkg.id}/bridge`,
                             {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },

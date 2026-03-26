@@ -10,7 +10,7 @@ import { logger } from '@/utils/logger';
 import { DebatesEmptyState } from '@/components/ui/EmptyState';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useRightSidebar } from '@/context/RightSidebarContext';
-import { API_BASE_URL } from '@/config';
+import { useBackend } from '@/components/BackendSelector';
 import { DebateInput } from '@/components/DebateInput';
 
 const PAGE_SIZE = 20;
@@ -71,6 +71,7 @@ function normalizeBackendDebate(d: NonNullable<BackendDebatesResponse['debates']
 
 export default function DebatesPage() {
   const router = useRouter();
+  const { config: backendConfig } = useBackend();
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -153,7 +154,7 @@ export default function DebatesPage() {
   const fetchDebatesFromBackend = useCallback(async (limit: number, offset: number): Promise<{ debates: DebateArtifact[]; hasMore: boolean; source: 'backend' | 'supabase' } | null> => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/debates?limit=${limit}&offset=${offset}&sort=created_at:desc`,
+        `${backendConfig.api}/api/v1/debates?limit=${limit}&offset=${offset}&sort=created_at:desc`,
         {
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(10000),
@@ -169,7 +170,7 @@ export default function DebatesPage() {
       logger.warn('Backend debates fetch failed, trying Supabase:', err);
       return null;
     }
-  }, []);
+  }, [backendConfig.api]);
 
   const fetchDebatesFromSupabase = useCallback(async (limit: number): Promise<{ debates: DebateArtifact[]; hasMore: boolean; source: 'supabase' }> => {
     const data = await fetchRecentDebates(limit);
@@ -485,7 +486,7 @@ export default function DebatesPage() {
               </div>
               <div className="px-6 py-6">
                 <DebateInput
-                  apiBase={API_BASE_URL}
+                  apiBase={backendConfig.api}
                   onDebateStarted={(debateId) => {
                     setShowCreateModal(false);
                     router.push(`/debates/${debateId}`);
