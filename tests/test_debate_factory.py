@@ -299,6 +299,32 @@ class TestDebateFactoryCreateAgents:
             assert result.success_count == 1
             assert result.failure_count == 0
 
+    def test_create_agents_does_not_force_enable_fallback_kwarg(self):
+        """DebateFactory should not pass stale enable_fallback kwargs to provider ctors."""
+        import aragora.server.debate_factory as factory_module
+
+        calls = []
+
+        def _fake_create_agent(**kwargs):
+            calls.append(kwargs)
+            agent = Mock()
+            agent.api_key = "fake-key"
+            agent.enable_fallback = False
+            return agent
+
+        with patch.object(factory_module, "create_agent", side_effect=_fake_create_agent):
+            factory = DebateFactory()
+            specs = [
+                AgentSpec(provider="mistral"),
+                AgentSpec(provider="openai-api"),
+            ]
+
+            result = factory.create_agents(specs)
+
+            assert result.success_count == 2
+            assert result.failure_count == 0
+            assert all("enable_fallback" not in call for call in calls)
+
     def test_create_agents_with_stream_wrapper(self):
         """Applies stream wrapper to created agents."""
         import aragora.server.debate_factory as factory_module
@@ -381,6 +407,7 @@ class TestDebateFactoryCreateArena:
             "with_loop_id",
             "with_strict_loop_scoping",
             "with_enable_position_ledger",
+            "with_agent_selection",
         ]
         for method in chain_methods:
             getattr(mock_builder, method).return_value = mock_builder
@@ -389,6 +416,7 @@ class TestDebateFactoryCreateArena:
             patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]),
             patch("aragora.core_types.Environment") as environment_cls,
             patch("aragora.debate.arena_builder.ArenaBuilder", return_value=mock_builder),
+            patch.object(DebateFactory, "_resolve_knowledge_mound", return_value=None),
         ):
             factory = DebateFactory()
             config = DebateConfig(
@@ -403,6 +431,9 @@ class TestDebateFactoryCreateArena:
 
             assert environment_cls.called
             assert environment_cls.call_args.kwargs["context"] == "Decision-specific context"
+            mock_builder.with_agent_selection.assert_called_once_with(
+                use_performance_selection=True
+            )
 
     def test_create_arena_insufficient_agents_raises(self):
         """Raises ValueError when not enough agents created."""

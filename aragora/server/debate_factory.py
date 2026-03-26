@@ -302,7 +302,6 @@ class DebateFactory:
                     name=spec.name,
                     role=role,
                     model=model,
-                    enable_fallback=True,
                 )
 
                 # Apply persona as system prompt modifier if specified
@@ -692,7 +691,7 @@ class DebateFactory:
         builder = builder.with_enable_position_ledger(True)
 
         # Enable performance-aware agent selection (integrates ProviderRouter hints)
-        builder = builder.with_performance_selection(use_performance_selection=True)
+        builder = builder.with_agent_selection(use_performance_selection=True)
 
         # Pass feature flags from config if specified
         if any(
