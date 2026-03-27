@@ -1042,10 +1042,13 @@ class TestWorktreeInfoTracking:
         ]
         coordinator = BranchCoordinator(repo_path=Path("/tmp/repo"))
 
-        with patch.object(Path, "mkdir"), patch.object(
-            coordinator,
-            "_ref_exists",
-            return_value=True,
+        with (
+            patch.object(Path, "mkdir"),
+            patch.object(
+                coordinator,
+                "_ref_exists",
+                return_value=True,
+            ),
         ):
             branch = await coordinator._create_worktree_branch("dev/test", "main")
 
