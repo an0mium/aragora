@@ -109,7 +109,9 @@ def _load_runtime_registry_static() -> set[str]:
         for node in ast.walk(tree):
             decorators = getattr(node, "decorator_list", [])
             for decorator in decorators:
-                if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
+                if not isinstance(decorator, ast.Call) or not isinstance(
+                    decorator.func, ast.Attribute
+                ):
                     continue
                 if decorator.func.attr != "register":
                     continue

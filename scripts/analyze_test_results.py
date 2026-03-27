@@ -408,7 +408,9 @@ def main():
         results = parse_pytest_output(content)
     else:
         missing_reason = (
-            f"JUnit report not found: {args.junit}" if args.junit else "Provide --junit file or --stdin"
+            f"JUnit report not found: {args.junit}"
+            if args.junit
+            else "Provide --junit file or --stdin"
         )
 
     if missing_reason:
