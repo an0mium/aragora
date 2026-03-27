@@ -14,6 +14,7 @@ import type { Node, Edge } from '@xyflow/react';
 import { useSWRFetch } from './useSWRFetch';
 import { apiFetch } from '@/lib/api';
 import type { ExecutionHistoryEntry } from '@/components/unified-dag/ExecutionSidebar';
+import type { PipelineResultResponse } from '@/components/pipeline-canvas/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,33 +65,350 @@ export const STAGE_COLORS: Record<DAGStage, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeStage(value: unknown): DAGStage {
+  switch (String(value || '').toLowerCase()) {
+    case 'goals':
+      return 'goals';
+    case 'actions':
+      return 'actions';
+    case 'orchestration':
+      return 'orchestration';
+    default:
+      return 'ideas';
+  }
+}
+
+function normalizeStatus(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    const normalized = String(candidate || '').trim().toLowerCase();
+    if (!normalized) continue;
+    switch (normalized) {
+      case 'succeeded':
+      case 'complete':
+      case 'completed':
+      case 'approved':
+        return 'succeeded';
+      case 'in_progress':
+      case 'running':
+      case 'active':
+        return 'running';
+      case 'ready':
+        return 'ready';
+      case 'failed':
+      case 'rejected':
+        return 'failed';
+      case 'partial':
+      case 'awaiting_human':
+      case 'archived':
+      case 'blocked':
+        return 'blocked';
+      case 'pending':
+        return 'pending';
+      default:
+        return normalized;
+    }
+  }
+  return 'pending';
+}
+
+function priorityToRank(value: unknown): number {
+  switch (String(value || '').toLowerCase()) {
+    case 'critical':
+      return 4;
+    case 'high':
+      return 3;
+    case 'medium':
+      return 2;
+    case 'low':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function getNumericPosition(value: unknown): { x: number; y: number } | null {
+  if (!isRecord(value)) return null;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function getLanePosition(stage: DAGStage, index: number, rawPosition?: unknown): { x: number; y: number } {
+  const position = getNumericPosition(rawPosition);
+  if (!position) {
+    return { x: STAGE_X[stage] + 40, y: 80 + index * 120 };
+  }
+  const laneOffset = Math.max(24, Math.min(220, position.x));
+  return {
+    x: STAGE_X[stage] + laneOffset,
+    y: Math.max(40, position.y),
+  };
+}
+
+function ensureStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item)).filter(Boolean);
+}
+
+function createDAGEdge(edge: {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  crossStage?: boolean;
+  animated?: boolean;
+  color?: string;
+}): Edge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: edge.crossStage ? 'crossStage' : 'default',
+    label: edge.label,
+    animated: edge.animated ?? edge.crossStage ?? false,
+    style: { stroke: edge.color ?? '#6366f1' },
+    data: edge.crossStage ? { crossStage: true } : undefined,
+  };
+}
+
 function serverNodeToReactFlow(n: Record<string, unknown>, yIndex: number): Node<DAGNodeData> {
-  const stage = (n.stage as DAGStage) || 'ideas';
+  const data = isRecord(n.data) ? n.data : {};
+  const metadata = isRecord(n.metadata) ? n.metadata : {};
+  const stage = normalizeStage(n.stage ?? data.stage);
+  const position = getLanePosition(stage, yIndex, {
+    x: n.position_x ?? (isRecord(n.position) ? n.position.x : undefined),
+    y: n.position_y ?? (isRecord(n.position) ? n.position.y : undefined),
+  });
+  const assignedAgent = data.assigned_agent ?? data.assignedAgent ?? metadata.assigned_agent;
+  const capabilities = ensureStringArray(data.capabilities ?? metadata.capabilities);
   return {
     id: n.id as string,
     type: `${stage}Node`,
-    position: { x: STAGE_X[stage] + Math.random() * 60, y: 80 + yIndex * 120 },
+    position,
     data: {
-      label: (n.label as string) || '',
-      description: (n.description as string) || '',
+      label: String(n.label ?? data.label ?? ''),
+      description: String(n.description ?? data.description ?? data.full_content ?? data.output_preview ?? ''),
       stage,
-      subtype: (n.subtype as string) || '',
-      status: (n.status as string) || 'pending',
-      priority: (n.priority as number) || 0,
-      metadata: (n.metadata as Record<string, unknown>) || {},
+      subtype: String(n.node_subtype ?? n.subtype ?? data.node_subtype ?? data.subtype ?? ''),
+      status: normalizeStatus(
+        n.execution_status,
+        data.execution_status,
+        n.status,
+        data.status,
+        n.approval_status,
+        data.approval_status,
+      ),
+      priority: priorityToRank(data.priority ?? metadata.priority),
+      metadata: {
+        ...metadata,
+        ...(isRecord(data.metadata) ? data.metadata : {}),
+        ...(assignedAgent ? { agents: [String(assignedAgent)] } : {}),
+        ...(capabilities.length > 0 ? { capabilities } : {}),
+      },
+      confidence: n.confidence ?? data.confidence,
+      approvalStatus: n.approval_status ?? data.approval_status,
+      executionStatus: n.execution_status ?? data.execution_status,
+      assignedAgent,
+      capabilities,
     },
   };
 }
 
 function serverEdgeToReactFlow(e: Record<string, unknown>): Edge {
-  return {
-    id: (e.id as string) || `${e.source}-${e.target}`,
-    source: e.source as string,
-    target: e.target as string,
-    label: (e.label as string) || (e.edge_type as string) || undefined,
-    animated: (e.edge_type as string) === 'SIMILARITY',
-    style: { stroke: '#6366f1' },
+  const source = String(e.source ?? e.source_id ?? '');
+  const target = String(e.target ?? e.target_id ?? '');
+  return createDAGEdge({
+    id: String(e.id ?? `${source}-${target}`),
+    source,
+    target,
+    label: String(e.label ?? e.edge_type ?? '').trim() || undefined,
+    crossStage: Boolean(e.cross_stage ?? (isRecord(e.data) && e.data.crossStage)),
+    animated: Boolean(e.cross_stage),
+  });
+}
+
+function pipelineResultToReactFlowGraph(result: PipelineResultResponse): GraphSnapshot {
+  const graphNodes: Node<DAGNodeData>[] = [];
+  const graphEdges: Edge[] = [];
+  const seenEdges = new Set<string>();
+  const nodeIds = new Set<string>();
+
+  const addEdge = (edge: Edge | null) => {
+    if (!edge) return;
+    if (!edge.source || !edge.target) return;
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) return;
+    if (seenEdges.has(edge.id)) return;
+    seenEdges.add(edge.id);
+    graphEdges.push(edge);
   };
+
+  const stageStatus = result.stage_status ?? {};
+
+  const ideas = Array.isArray(result.ideas?.nodes) ? result.ideas.nodes : [];
+  ideas.forEach((node, index) => {
+    const data = isRecord(node.data) ? node.data : {};
+    const dagNode: Node<DAGNodeData> = {
+      id: String(node.id ?? `idea-${index}`),
+      type: 'ideasNode',
+      position: getLanePosition('ideas', index, node.position),
+      data: {
+        label: String(data.label ?? node.id ?? ''),
+        description: String(data.full_content ?? data.fullContent ?? data.description ?? ''),
+        stage: 'ideas',
+        subtype: String(data.idea_type ?? data.ideaType ?? data.nodeType ?? 'concept'),
+        status: normalizeStatus(stageStatus.ideas),
+        priority: 0,
+        metadata: {
+          contentHash: data.content_hash ?? data.contentHash,
+          agent: data.agent,
+        },
+      },
+    };
+    graphNodes.push(dagNode);
+    nodeIds.add(dagNode.id);
+  });
+
+  const goalsData = isRecord(result.goals) ? result.goals : {};
+  const goals = Array.isArray(goalsData.goals) ? goalsData.goals.filter(isRecord) : [];
+  goals.forEach((goal, index) => {
+    const dagNode: Node<DAGNodeData> = {
+      id: String(goal.id ?? `goal-${index}`),
+      type: 'goalsNode',
+      position: getLanePosition('goals', index),
+      data: {
+        label: String(goal.title ?? goal.label ?? goal.id ?? ''),
+        description: String(goal.description ?? ''),
+        stage: 'goals',
+        subtype: String(goal.type ?? 'goal'),
+        status: normalizeStatus(goal.status, stageStatus.goals),
+        priority: priorityToRank(goal.priority),
+        metadata: {
+          confidence: goal.confidence,
+          sourceIdeaIds: ensureStringArray(goal.source_idea_ids),
+          measurable: goal.measurable,
+          priority: goal.priority,
+        },
+      },
+    };
+    graphNodes.push(dagNode);
+    nodeIds.add(dagNode.id);
+  });
+
+  const actions = Array.isArray(result.actions?.nodes) ? result.actions.nodes : [];
+  actions.forEach((node, index) => {
+    const data = isRecord(node.data) ? node.data : {};
+    const dagNode: Node<DAGNodeData> = {
+      id: String(node.id ?? `action-${index}`),
+      type: 'actionsNode',
+      position: getLanePosition('actions', index, node.position),
+      data: {
+        label: String(data.label ?? node.id ?? ''),
+        description: String(data.description ?? ''),
+        stage: 'actions',
+        subtype: String(data.step_type ?? data.stepType ?? 'task'),
+        status: normalizeStatus(data.status, stageStatus.actions),
+        priority: priorityToRank(data.priority),
+        metadata: {
+          optional: data.optional,
+          assignee: data.assignee,
+          sourceGoalId: data.source_goal_id ?? data.sourceGoalId,
+          timeout: data.timeout ?? data.timeoutSeconds,
+        },
+      },
+    };
+    graphNodes.push(dagNode);
+    nodeIds.add(dagNode.id);
+  });
+
+  const orchestration = Array.isArray(result.orchestration?.nodes) ? result.orchestration.nodes : [];
+  orchestration.forEach((node, index) => {
+    const data = isRecord(node.data) ? node.data : {};
+    const assignedAgent = data.assigned_agent ?? data.assignedAgent;
+    const capabilities = ensureStringArray(data.capabilities);
+    const dagNode: Node<DAGNodeData> = {
+      id: String(node.id ?? `orch-${index}`),
+      type: 'orchestrationNode',
+      position: getLanePosition('orchestration', index, node.position),
+      data: {
+        label: String(data.label ?? node.id ?? ''),
+        description: String(
+          data.description
+            ?? data.output_preview
+            ?? data.outputPreview
+            ?? data.selection_rationale
+            ?? data.selectionRationale
+            ?? '',
+        ),
+        stage: 'orchestration',
+        subtype: String(data.orch_type ?? data.orchType ?? 'agent_task'),
+        status: normalizeStatus(data.execution_status, data.executionStatus, data.status, stageStatus.orchestration),
+        priority: priorityToRank(data.priority),
+        metadata: {
+          agents: assignedAgent ? [String(assignedAgent)] : [],
+          capabilities,
+          agentType: data.agent_type ?? data.agentType,
+          executionStatus: data.execution_status ?? data.executionStatus,
+          approvalStatus: data.approval_status ?? data.approvalStatus,
+          eloScore: data.elo_score ?? data.eloScore,
+          outputPreview: data.output_preview ?? data.outputPreview,
+        },
+      },
+    };
+    graphNodes.push(dagNode);
+    nodeIds.add(dagNode.id);
+  });
+
+  const stageEdges = [
+    ...(Array.isArray(result.ideas?.edges) ? result.ideas.edges : []),
+    ...(Array.isArray(result.actions?.edges) ? result.actions.edges : []),
+    ...(Array.isArray(result.orchestration?.edges) ? result.orchestration.edges : []),
+  ];
+
+  stageEdges.forEach((edge) => {
+    addEdge(
+      createDAGEdge({
+        id: String(edge.id ?? `${edge.source}-${edge.target}`),
+        source: String(edge.source ?? ''),
+        target: String(edge.target ?? ''),
+        label: typeof edge.label === 'string' ? edge.label : undefined,
+      }),
+    );
+  });
+
+  goals.forEach((goal) => {
+    const target = String(goal.id ?? '');
+    ensureStringArray(goal.dependencies).forEach((dependencyId) => {
+      addEdge(
+        createDAGEdge({
+          id: `goal-dep-${dependencyId}-${target}`,
+          source: dependencyId,
+          target,
+          label: 'depends on',
+          color: STAGE_COLORS.goals,
+        }),
+      );
+    });
+  });
+
+  const provenance = Array.isArray(result.provenance) ? result.provenance.filter(isRecord) : [];
+  provenance.forEach((link, index) => {
+    addEdge(
+      createDAGEdge({
+        id: `prov-${String(link.source_node_id ?? index)}-${String(link.target_node_id ?? index)}-${index}`,
+        source: String(link.source_node_id ?? ''),
+        target: String(link.target_node_id ?? ''),
+        label: String(link.method ?? 'derived from'),
+        crossStage: true,
+      }),
+    );
+  });
+
+  return { nodes: graphNodes, edges: graphEdges };
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +417,10 @@ function serverEdgeToReactFlow(e: Record<string, unknown>): Edge {
 
 const API_PREFIX = '/api/v1/pipeline/dag';
 
-export function useUnifiedDAG(graphId: string | null) {
+export function useUnifiedDAG(
+  graphId: string | null,
+  pipelineData?: PipelineResultResponse | null,
+) {
   // React Flow state
   const [nodes, setNodes] = useState<Node<DAGNodeData>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -117,13 +438,27 @@ export function useUnifiedDAG(graphId: string | null) {
 
   // Sync server graph → React Flow
   useEffect(() => {
-    if (!graphData?.data) return;
-    const g = graphData.data;
-    const serverNodes = (g.nodes as Record<string, unknown>[]) || [];
-    const serverEdges = (g.edges as Record<string, unknown>[]) || [];
-    setNodes(serverNodes.map((n, i) => serverNodeToReactFlow(n, i)));
-    setEdges(serverEdges.map(serverEdgeToReactFlow));
-  }, [graphData]);
+    const embeddedGraph = isRecord(pipelineData?.universal_graph) ? pipelineData.universal_graph : null;
+    const activeGraph = graphData?.data ?? embeddedGraph ?? null;
+
+    if (isRecord(activeGraph) && Array.isArray(activeGraph.nodes) && Array.isArray(activeGraph.edges)) {
+      const serverNodes = activeGraph.nodes.filter(isRecord);
+      const serverEdges = activeGraph.edges.filter(isRecord);
+      setNodes(serverNodes.map((node, index) => serverNodeToReactFlow(node, index)));
+      setEdges(serverEdges.map(serverEdgeToReactFlow));
+      return;
+    }
+
+    if (pipelineData) {
+      const pipelineGraph = pipelineResultToReactFlowGraph(pipelineData);
+      setNodes(pipelineGraph.nodes);
+      setEdges(pipelineGraph.edges);
+      return;
+    }
+
+    setNodes([]);
+    setEdges([]);
+  }, [graphData, pipelineData]);
 
   // -------------------------------------------------------------------------
   // Snapshot helpers

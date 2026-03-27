@@ -403,4 +403,12 @@ export interface PipelineResultResponse {
   repair?: Record<string, unknown> | null;
   repairs?: Record<string, unknown> | Array<Record<string, unknown>> | null;
   merge_gate?: Record<string, unknown> | null;
+  universal_graph?: {
+    id: string;
+    name?: string;
+    nodes: Array<Record<string, unknown>>;
+    edges: Array<Record<string, unknown>>;
+    transitions?: Array<Record<string, unknown>>;
+    metadata?: Record<string, unknown>;
+  } | null;
 }

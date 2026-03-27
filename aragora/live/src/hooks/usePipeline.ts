@@ -139,6 +139,7 @@ export function usePipeline() {
       const result = await api.post('/api/v1/canvas/pipeline/from-debate', {
         cartographer_data: cartographerData,
         auto_advance: autoAdvance,
+        use_universal: true,
       });
       if (result?.result) {
         setPipelineData(result.result);
@@ -153,6 +154,7 @@ export function usePipeline() {
       const result = await api.post('/api/v1/canvas/pipeline/from-ideas', {
         ideas,
         auto_advance: autoAdvance,
+        use_universal: true,
       });
       if (result?.result) {
         setPipelineData(result.result);
@@ -169,6 +171,7 @@ export function usePipeline() {
         context: context ?? '',
         use_unified_orchestrator: true,
         skip_execution: true,
+        use_universal: true,
       });
       if (result?.result) {
         setPipelineData(result.result);

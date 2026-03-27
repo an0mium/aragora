@@ -20,6 +20,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useUnifiedDAG, STAGE_COLORS, type DAGNodeData, type DAGOperationResult, type DAGStage } from '@/hooks/useUnifiedDAG';
+import type { PipelineResultResponse } from '@/components/pipeline-canvas/types';
 import { DAGStageLanes } from './DAGStageLanes';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AIOperationPanel } from './AIOperationPanel';
@@ -53,11 +54,12 @@ const edgeTypes = {
 // ---------------------------------------------------------------------------
 
 interface UnifiedDAGCanvasProps {
-  graphId: string;
+  graphId?: string | null;
+  pipelineData?: PipelineResultResponse | null;
 }
 
-export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
-  const dag = useUnifiedDAG(graphId);
+export function UnifiedDAGCanvas({ graphId = null, pipelineData }: UnifiedDAGCanvasProps) {
+  const dag = useUnifiedDAG(graphId, pipelineData);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -77,6 +79,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
 
   // Stage filter
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const readOnly = !graphId;
 
   // Filter nodes by stage
   const filteredNodes = useMemo(() => {
@@ -194,18 +197,27 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         {/* Execution toggle button */}
         <div className="w-px h-6 bg-border" />
         <button
-          onClick={() => setShowExecution(!showExecution)}
+          onClick={() => {
+            if (readOnly) return;
+            setShowExecution(!showExecution);
+          }}
+          disabled={readOnly}
           className={`px-3 py-1.5 text-sm font-mono rounded transition-colors ${
             showExecution
               ? 'bg-emerald-600 text-white'
               : 'bg-surface border border-border text-text-muted hover:text-text'
-          }`}
+          } ${readOnly ? 'cursor-not-allowed opacity-50' : ''}`}
           data-testid="execution-toggle"
         >
           {dag.graphStats.completionPct > 0
             ? `Execution (${dag.graphStats.completionPct}%)`
             : 'Execution'}
         </button>
+        {readOnly && (
+          <span className="text-xs font-mono text-text-muted">
+            Read-only stage view
+          </span>
+        )}
       </DAGToolbar>
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -249,7 +261,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         </div>
 
         {/* Context Menu */}
-        {contextMenu && (
+        {contextMenu && !readOnly && (
           <NodeContextMenu
             nodeId={contextMenu.nodeId}
             stage={contextMenu.stage}
@@ -267,7 +279,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         )}
 
         {/* AI Operation Panel */}
-        {showPanel && (
+        {showPanel && !readOnly && (
           <AIOperationPanel
             loading={dag.operationLoading}
             error={dag.operationError}
@@ -280,7 +292,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         )}
 
         {/* Execution Sidebar */}
-        {showExecution && (
+        {showExecution && !readOnly && (
           <ExecutionSidebar
             nodes={dag.nodes}
             executing={dag.batchExecuting}

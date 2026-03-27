@@ -911,7 +911,8 @@ function PipelinePageContent() {
           viewMode === 'dag' ? (
             <UnifiedDAGCanvas
               key={`dag-${key}`}
-              graphId={pipelineData.pipeline_id}
+              graphId={pipelineData.universal_graph?.id ?? null}
+              pipelineData={pipelineData}
             />
           ) : viewMode === 'scenario' ? (
             <div className="h-full p-4 overflow-auto">
