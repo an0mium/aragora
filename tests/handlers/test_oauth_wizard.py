@@ -981,16 +981,21 @@ class TestDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect_email_success(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle("/api/v2/integrations/wizard/email/disconnect", {}, mock)
+        with patch.object(handler, "_disconnect_email_config", new_callable=AsyncMock) as mock_d:
+            mock_d.return_value = {"success": True, "message": "Email configuration cleared"}
+            result = await handler.handle("/api/v2/integrations/wizard/email/disconnect", {}, mock)
         body = _body(result)
         assert body["disconnected"] is True
         assert "cleared" in body["message"].lower()
 
     @pytest.mark.asyncio
-    async def test_disconnect_unsupported_provider(self, handler):
+    async def test_disconnect_github_managed_elsewhere(self, handler):
         mock = _make_handler("POST", {})
         result = await handler.handle("/api/v2/integrations/wizard/github/disconnect", {}, mock)
-        assert _status(result) == 501
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["disconnected"] is False
+        assert "github app" in body["message"].lower()
 
     @pytest.mark.asyncio
     async def test_disconnect_exception(self, handler):
@@ -1721,6 +1726,35 @@ class TestDisconnectInternals:
         ):
             result = await handler._disconnect_gmail_account("unknown@example.com")
         assert result["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_disconnect_email_config_success(self, handler):
+        mock_store = MagicMock()
+        mock_store.delete_user_config.return_value = True
+        with patch(
+            "aragora.storage.email_store.get_email_store",
+            return_value=mock_store,
+        ):
+            result = await handler._disconnect_email_config("user-1", "default")
+        mock_store.delete_user_config.assert_called_once_with("user-1", "default")
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_disconnect_email_config_not_found(self, handler):
+        mock_store = MagicMock()
+        mock_store.delete_user_config.return_value = False
+        with patch(
+            "aragora.storage.email_store.get_email_store",
+            return_value=mock_store,
+        ):
+            result = await handler._disconnect_email_config("user-1", "default")
+        assert result["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_disconnect_github_installation(self, handler):
+        result = await handler._disconnect_github_installation()
+        assert result["success"] is False
+        assert "github app" in result["message"].lower()
 
     @pytest.mark.asyncio
     async def test_check_gmail_connection_connected(self, handler):

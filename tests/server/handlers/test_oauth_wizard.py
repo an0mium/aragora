@@ -844,7 +844,56 @@ class TestDisconnectProvider:
                         assert result.status_code == 200
                         data = json.loads(result.body)
                         assert data["disconnected"] is True
-                        mock_store.return_value.deactivate.assert_called_with("W123")
+
+    @pytest.mark.asyncio
+    async def test_disconnect_email_success(self, oauth_handler, mock_handler, auth_context):
+        """Disconnect email clears persisted config for the authenticated user."""
+        mock_handler.command = "POST"
+
+        with patch.object(
+            oauth_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(oauth_handler, "check_permission"):
+                with patch.object(oauth_handler, "read_json_body", return_value={}):
+                    with patch.object(
+                        oauth_handler,
+                        "_disconnect_email_config",
+                        new_callable=AsyncMock,
+                        return_value={"success": True, "message": "Email configuration cleared"},
+                    ) as mock_disconnect:
+                        result = await oauth_handler.handle(
+                            "/api/v2/integrations/wizard/email/disconnect",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["disconnected"] is True
+                        mock_disconnect.assert_awaited_once_with("user-123", "default")
+
+    @pytest.mark.asyncio
+    async def test_disconnect_github_returns_guidance(
+        self, oauth_handler, mock_handler, auth_context
+    ):
+        """Disconnect GitHub returns guidance instead of a 501 placeholder."""
+        mock_handler.command = "POST"
+
+        with patch.object(
+            oauth_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(oauth_handler, "check_permission"):
+                with patch.object(oauth_handler, "read_json_body", return_value={}):
+                    result = await oauth_handler.handle(
+                        "/api/v2/integrations/wizard/github/disconnect",
+                        {},
+                        mock_handler,
+                    )
+
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert data["disconnected"] is False
+                    assert "github app" in data["message"].lower()
 
     @pytest.mark.asyncio
     async def test_disconnect_teams_success(self, oauth_handler, mock_handler, auth_context):

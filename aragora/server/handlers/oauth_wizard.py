@@ -266,7 +266,7 @@ class OAuthWizardHandler(SecureHandler):
 
                 # Disconnect
                 if len(parts) == 7 and parts[6] == "disconnect" and method == "POST":
-                    return await self._disconnect_provider(provider_id, body)
+                    return await self._disconnect_provider(provider_id, body, auth_context)
 
             return error_response("Not found", 404)
 
@@ -1128,7 +1128,12 @@ class OAuthWizardHandler(SecureHandler):
             for t in tenants
         ]
 
-    async def _disconnect_provider(self, provider_id: str, body: dict[str, Any]) -> HandlerResult:
+    async def _disconnect_provider(
+        self,
+        provider_id: str,
+        body: dict[str, Any],
+        auth_context: Any,
+    ) -> HandlerResult:
         """
         Disconnect a workspace/tenant from a provider.
 
@@ -1158,12 +1163,15 @@ class OAuthWizardHandler(SecureHandler):
                 user_id = body.get("user_id", "default")
                 result = await self._disconnect_gmail_account(user_id)
             elif provider_id == "email":
-                # SMTP email doesn't have OAuth tokens - just remove config
-                result = {"success": True, "message": "Email configuration cleared"}
+                workspace_id = body.get("workspace_id", "default")
+                user_id = getattr(auth_context, "user_id", "default")
+                result = await self._disconnect_email_config(user_id, workspace_id)
+            elif provider_id == "github":
+                result = await self._disconnect_github_installation()
             else:
                 return error_response(
                     f"Disconnect not implemented for provider '{provider_id}'. "
-                    "Supported providers: slack, discord, gmail, email.",
+                    "Supported providers: slack, teams, discord, gmail, email, github.",
                     501,
                 )
 
@@ -1219,6 +1227,37 @@ class OAuthWizardHandler(SecureHandler):
             return {"success": True, "message": f"Gmail disconnected for user {user_id}"}
         else:
             return {"success": False, "message": f"Gmail integration not found for user {user_id}"}
+
+    async def _disconnect_email_config(self, user_id: str, workspace_id: str) -> dict[str, Any]:
+        """Disconnect SMTP email by deleting the persisted email config."""
+        from aragora.storage.email_store import get_email_store
+
+        store = get_email_store()
+        deleted = store.delete_user_config(user_id, workspace_id)
+        if deleted:
+            logger.info(
+                "Disconnected email config for user=%s workspace=%s",
+                user_id,
+                workspace_id,
+            )
+            return {
+                "success": True,
+                "message": f"Email configuration cleared for workspace {workspace_id}",
+            }
+        return {
+            "success": False,
+            "message": f"No email configuration found for workspace {workspace_id}",
+        }
+
+    async def _disconnect_github_installation(self) -> dict[str, Any]:
+        """Explain how GitHub app installs are disconnected truthfully."""
+        return {
+            "success": False,
+            "message": (
+                "GitHub integrations are managed through GitHub App installations. "
+                "Uninstall the Aragora GitHub App in GitHub to disconnect it."
+            ),
+        }
 
 
 # Handler factory function for registration
