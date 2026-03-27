@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,11 @@ from typing import Any
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+# Route validation is an offline contract check. Disable AWS Secrets Manager
+# lookups so importing handlers does not stall or fail on network-restricted dev/CI
+# environments when no secrets are actually needed.
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 DEFAULT_EXCLUDED_PREFIXES = (
     "/api/v1/control-plane/",
