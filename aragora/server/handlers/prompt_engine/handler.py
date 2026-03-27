@@ -220,7 +220,10 @@ class PromptEngineHandler(SecureHandler):
 
         validator = SpecValidator()
         validation = validator.validate_heuristic(result.specification)
-        spec_bundle = SpecBundle.from_prompt_spec(result.specification, validation=validation)
+        spec_bundle = validator.last_spec_bundle or SpecBundle.from_prompt_spec(
+            result.specification,
+            validation=validation,
+        )
 
         payload = {
             "specification": result.specification.to_dict(),
@@ -252,6 +255,7 @@ class PromptEngineHandler(SecureHandler):
                 metadata=plan_request["metadata"],
                 implementation_profile=plan_request["implementation_profile"],
                 validation_result=validation,
+                spec_bundle=spec_bundle,
                 fail_closed_spec_validation=True,
             )
         except ValueError as exc:
@@ -498,6 +502,9 @@ class PromptEngineHandler(SecureHandler):
 
         validator = SpecValidator()
         result = validator.validate_heuristic(spec)
-        spec_bundle = SpecBundle.from_prompt_spec(spec, validation=result)
+        spec_bundle = validator.last_spec_bundle or SpecBundle.from_prompt_spec(
+            spec,
+            validation=result,
+        )
 
         return json_response({"validation": result.to_dict(), "spec_bundle": spec_bundle.to_dict()})

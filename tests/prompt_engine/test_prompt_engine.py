@@ -445,6 +445,26 @@ class TestPromptResearcher:
         assert len(report.evidence) >= 1
 
     @pytest.mark.asyncio()
+    async def test_research_reuses_cached_related_knowledge(self, mock_agent: AsyncMock) -> None:
+        from aragora.prompt_engine.researcher import PromptResearcher
+
+        km = AsyncMock()
+        researcher = PromptResearcher(agent=mock_agent, knowledge_mound=km)
+        intent = _make_intent()
+        intent.related_knowledge = [
+            {
+                "title": "Prior debate",
+                "content": "Keep it simple",
+                "metadata": {"source": "debate"},
+            }
+        ]
+
+        report = await researcher.research(intent)
+
+        assert len(report.evidence) >= 1
+        km.query.assert_not_called()
+
+    @pytest.mark.asyncio()
     async def test_research_with_answered_questions(self, mock_agent: AsyncMock) -> None:
         from aragora.prompt_engine.researcher import PromptResearcher
 
@@ -590,6 +610,15 @@ class TestConductorConfig:
 
         config = ConductorConfig.from_profile("nonexistent")
         assert config.autonomy == AutonomyLevel.PROPOSE_AND_APPROVE
+
+    def test_from_profile_returns_fresh_config_instances(self) -> None:
+        from aragora.prompt_engine.conductor import ConductorConfig
+
+        first = ConductorConfig.from_profile("founder")
+        first.skip_research = True
+
+        second = ConductorConfig.from_profile("founder")
+        assert second.skip_research is False
 
 
 # ===========================================================================

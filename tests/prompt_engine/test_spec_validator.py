@@ -254,6 +254,25 @@ class TestSpecValidatorHeuristic:
             "validate.tech_debt_auditor",
         ]
 
+    def test_caches_normalized_spec_bundle(self):
+        spec = _FakeSpec(
+            title="Settings search",
+            problem_statement="Users can't find settings",
+            proposed_solution="Add settings search",
+            constraints=["Keep navigation stable"],
+            success_criteria=["Users find settings faster"],
+            risks=[_FakeRisk(description="Regression", mitigation="Rollback")],
+            file_changes=[_FakeFile(path="aragora/example.py")],
+        )
+
+        result = self.validator.validate_heuristic(spec)
+        bundle = self.validator.last_spec_bundle
+
+        assert bundle is not None
+        assert bundle.title == "Settings search"
+        assert bundle.confidence == result.overall_confidence
+        assert bundle.extras["validation_passed"] is result.passed
+
 
 class TestSpecValidatorAsync:
     def test_async_validate_delegates_to_heuristic(self):

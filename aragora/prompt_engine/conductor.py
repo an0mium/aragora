@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 from aragora.prompt_engine.decomposer import PromptDecomposer
@@ -47,6 +48,30 @@ from aragora.prompt_engine.types import (
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=len(UserProfile) + 1)
+def _cached_profile_settings(
+    profile_value: str,
+) -> tuple[AutonomyLevel, InterrogationDepth, float]:
+    defaults = PROFILE_DEFAULTS.get(profile_value, {})
+    autonomy = defaults.get("autonomy_level", AutonomyLevel.PROPOSE_AND_APPROVE)
+    depth = defaults.get("interrogation_depth", InterrogationDepth.THOROUGH)
+    threshold = float(defaults.get("auto_execute_threshold", 0.9))
+
+    if isinstance(autonomy, str):
+        try:
+            autonomy = AutonomyLevel(autonomy)
+        except ValueError:
+            autonomy = AutonomyLevel.PROPOSE_AND_APPROVE
+
+    if isinstance(depth, str):
+        try:
+            depth = InterrogationDepth(depth)
+        except ValueError:
+            depth = InterrogationDepth.THOROUGH
+
+    return autonomy, depth, threshold
+
+
 @dataclass
 class ConductorConfig:
     """Configuration for the PromptConductor."""
@@ -67,11 +92,11 @@ class ConductorConfig:
             except ValueError:
                 profile = UserProfile.FOUNDER
 
-        defaults = PROFILE_DEFAULTS.get(profile.value, {})
+        autonomy, depth, threshold = _cached_profile_settings(profile.value)
         return cls(
-            autonomy=defaults.get("autonomy_level", AutonomyLevel.PROPOSE_AND_APPROVE),
-            interrogation_depth=defaults.get("interrogation_depth", InterrogationDepth.THOROUGH),
-            auto_execute_threshold=defaults.get("auto_execute_threshold", 0.9),
+            autonomy=autonomy,
+            interrogation_depth=depth,
+            auto_execute_threshold=threshold,
         )
 
 

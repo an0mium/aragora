@@ -11,10 +11,15 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
+from aragora.prompt_engine.llm_utils import (
+    append_json_context,
+    format_answered_questions,
+    format_knowledge_items,
+    parse_json_mapping,
+)
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
@@ -104,14 +109,10 @@ class PromptResearcher:
         agent = await self._get_agent()
         append_timing(timings, "research.get_agent", timer, category="setup")
 
-        clarification_text = ""
-        if answered_questions:
-            lines = []
-            for q in answered_questions:
-                if q.is_answered:
-                    lines.append(f"Q: {q.question}\nA: {q.answer}")
-            if lines:
-                clarification_text = "Clarifications received:\n" + "\n\n".join(lines)
+        clarification_text = format_answered_questions(
+            answered_questions,
+            header="Clarifications received:",
+        )
 
         timer = start_timer()
         km_context = await self._get_km_context(intent)
@@ -137,8 +138,7 @@ class PromptResearcher:
             knowledge_context=knowledge_text,
         )
 
-        if context:
-            prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        prompt = append_json_context(prompt, context)
 
         timer = start_timer()
         response = await agent.generate(prompt)
@@ -166,6 +166,14 @@ class PromptResearcher:
 
     async def _get_km_context(self, intent: PromptIntent) -> str:
         """Query Knowledge Mound for relevant context."""
+        if intent.related_knowledge:
+            return format_knowledge_items(
+                intent.related_knowledge,
+                max_items=10,
+                content_limit=300,
+                include_source=True,
+            )
+
         if self._km is None:
             return ""
 
@@ -177,13 +185,12 @@ class PromptResearcher:
             if not isinstance(results, list) or not results:
                 return ""
 
-            lines = []
-            for item in results[:10]:
-                title = item.get("title", item.get("document_id", "Unknown"))
-                content = item.get("content", "")[:300]
-                source = item.get("metadata", {}).get("source", "km")
-                lines.append(f"- [{source}] {title}: {content}")
-            return "\n".join(lines)
+            return format_knowledge_items(
+                results,
+                max_items=10,
+                content_limit=300,
+                include_source=True,
+            )
         except (RuntimeError, ValueError, AttributeError) as e:
             logger.debug("KM research query failed: %s", e)
             return ""
@@ -191,25 +198,11 @@ class PromptResearcher:
     def _parse_report(self, response: str, km_context: str) -> ResearchReport:
         """Parse LLM response into a ResearchReport."""
         text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
 
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse research response")
-                    return self._fallback_report(text)
-            else:
-                return self._fallback_report(text)
+        data = parse_json_mapping(text)
+        if data is None:
+            logger.warning("Could not parse research response")
+            return self._fallback_report(text)
 
         try:
             evidence = []

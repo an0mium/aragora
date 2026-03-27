@@ -228,12 +228,14 @@ class DecisionPlanFactory:
         metadata: dict[str, Any] | None = None,
         implementation_profile: ImplementationProfile | dict[str, Any] | None = None,
         validation_result: ValidationResult | Any | None = None,
+        spec_bundle: SpecBundle | None = None,
         fail_closed_spec_validation: bool = True,
     ) -> DecisionPlan:
         """Create a DecisionPlan directly from a prompt-engine specification."""
         spec_bundle = DecisionPlanFactory.validate_execution_grade_specification(
             specification,
             validation_result=validation_result,
+            spec_bundle=spec_bundle,
             fail_closed=fail_closed_spec_validation,
         )
 
@@ -300,6 +302,7 @@ class DecisionPlanFactory:
         specification: Any,
         *,
         validation_result: ValidationResult | Any | None = None,
+        spec_bundle: SpecBundle | None = None,
         fail_closed: bool = False,
     ) -> SpecBundle:
         """Normalize a prompt/interrogation specification to the canonical spec bundle.
@@ -307,7 +310,10 @@ class DecisionPlanFactory:
         When ``fail_closed`` is true, incomplete execution-grade specifications raise
         ``ValueError`` so automated lanes cannot proceed silently.
         """
-        bundle = SpecBundle.from_prompt_spec(specification, validation=validation_result)
+        bundle = spec_bundle or SpecBundle.from_prompt_spec(
+            specification,
+            validation=validation_result,
+        )
         if fail_closed and bundle.missing_required_fields:
             missing = ", ".join(bundle.missing_required_fields)
             raise ValueError(f"Specification is not execution-grade: missing {missing}")

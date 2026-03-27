@@ -60,11 +60,17 @@ class SpecValidator:
 
     def __init__(self) -> None:
         self._last_operation_timings: list[OperationTiming] = []
+        self._last_spec_bundle: SpecBundle | None = None
 
     @property
     def last_operation_timings(self) -> list[OperationTiming]:
         """Timing records from the most recent validation run."""
         return list(self._last_operation_timings)
+
+    @property
+    def last_spec_bundle(self) -> SpecBundle | None:
+        """Normalized specification bundle from the most recent validation run."""
+        return self._last_spec_bundle
 
     def validate_heuristic(self, spec: Specification) -> ValidationResult:
         """Structural validation without LLM calls."""
@@ -74,6 +80,7 @@ class SpecValidator:
         timer = start_timer()
         execution_bundle = SpecBundle.from_prompt_spec(spec)
         append_timing(timings, "validate.build_spec_bundle", timer, category="compute")
+        missing_required_fields = execution_bundle.missing_required_fields
 
         # Devil's advocate: completeness
         timer = start_timer()
@@ -84,7 +91,7 @@ class SpecValidator:
             da_issues.append("Missing problem statement")
         if not solution:
             da_issues.append("Missing proposed solution")
-        for field_name in execution_bundle.missing_required_fields:
+        for field_name in missing_required_fields:
             da_issues.append(f"Missing execution-grade field: {field_name}")
         da_passed = not da_issues
         role_results[ValidatorRole.DEVILS_ADVOCATE] = {
@@ -204,8 +211,11 @@ class SpecValidator:
         confidences = [r["confidence"] for r in role_results.values()]
         overall = sum(confidences) / len(confidences) if confidences else 0
         all_passed = all(r["passed"] for r in role_results.values())
+        execution_bundle.confidence = overall
+        execution_bundle.extras["validation_passed"] = all_passed
 
         self._last_operation_timings = timings
+        self._last_spec_bundle = execution_bundle
         logger.debug("SpecValidator timings: %s", format_timings(timings))
 
         return ValidationResult(

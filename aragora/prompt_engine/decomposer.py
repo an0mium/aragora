@@ -11,10 +11,15 @@ Usage:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
+from functools import lru_cache
 from typing import Any
 
+from aragora.prompt_engine.llm_utils import (
+    append_json_context,
+    format_knowledge_items,
+    parse_json_mapping,
+)
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     Ambiguity,
@@ -104,9 +109,7 @@ class PromptDecomposer:
         agent = await self._get_agent()
         append_timing(timings, "decompose.get_agent", timer, category="setup")
 
-        user_prompt = f"User prompt:\n{prompt}"
-        if context:
-            user_prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        user_prompt = append_json_context(f"User prompt:\n{prompt}", context)
 
         timer = start_timer()
         km_context = await self._get_km_context(prompt)
@@ -161,12 +164,11 @@ class PromptDecomposer:
             if not self._km_results:
                 return ""
 
-            lines = []
-            for item in self._km_results[:5]:
-                title = item.get("title", item.get("document_id", "Unknown"))
-                content = item.get("content", "")[:200]
-                lines.append(f"- {title}: {content}")
-            return "\n".join(lines)
+            return format_knowledge_items(
+                self._km_results,
+                max_items=5,
+                content_limit=200,
+            )
         except (RuntimeError, ValueError, AttributeError) as e:
             logger.debug("KM query failed: %s", e)
             self._km_results = []
@@ -175,25 +177,11 @@ class PromptDecomposer:
     def _parse_response(self, response: str, original_prompt: str) -> PromptIntent:
         """Parse the LLM response into a PromptIntent."""
         text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
 
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse decomposition response")
-                    return self._fallback_intent(original_prompt)
-            else:
-                return self._fallback_intent(original_prompt)
+        data = parse_json_mapping(text)
+        if data is None:
+            logger.warning("Could not parse decomposition response")
+            return self._fallback_intent(original_prompt)
 
         try:
             ambiguities = [
@@ -260,6 +248,7 @@ class PromptDecomposer:
         )
 
     @staticmethod
+    @lru_cache(maxsize=4096)
     def prompt_hash(prompt: str) -> str:
         """Generate a stable hash for a prompt."""
         return hashlib.sha256(prompt.encode()).hexdigest()[:16]
