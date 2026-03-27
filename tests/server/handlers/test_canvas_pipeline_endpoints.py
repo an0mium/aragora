@@ -20,6 +20,38 @@ def _body(result) -> dict:
     return json.loads(result.body)
 
 
+def _assert_real_stage_data(result_data: dict) -> None:
+    """Assert the stored pipeline payload includes real stage containers."""
+    assert result_data["pipeline_id"].startswith("pipe-")
+
+    ideas = result_data["ideas"]
+    assert ideas is not None
+    assert ideas["nodes"]
+    assert ideas["nodes"][0]["data"]["label"]
+
+    goals = result_data["goals"]
+    assert goals is not None
+    assert goals["goals"]
+    assert goals["goals"][0]["title"]
+
+    actions = result_data["actions"]
+    assert actions is not None
+    assert actions["nodes"]
+    assert actions["nodes"][0]["data"]["label"]
+
+    orchestration = result_data["orchestration"]
+    assert orchestration is not None
+    assert orchestration["nodes"]
+    assert any(
+        node.get("data", {}).get("orch_type") or node.get("data", {}).get("orchType")
+        for node in orchestration["nodes"]
+    )
+
+    assert result_data["provenance_count"] == len(result_data["provenance"])
+    assert len(result_data["transitions"]) >= 3
+    assert "live_state" in result_data
+
+
 @pytest.fixture(autouse=True)
 def _clear_stores():
     """Clear in-memory stores between tests."""
@@ -115,6 +147,8 @@ class TestHandleFromDebate:
         assert body["pipeline_id"].startswith("pipe-")
         assert "stage_status" in body
         assert "result" in body
+        assert body["result"]["stage_status"] == body["stage_status"]
+        _assert_real_stage_data(body["result"])
 
     @pytest.mark.asyncio
     async def test_from_debate_stores_result(self, handler, sample_cartographer_data):
@@ -191,6 +225,8 @@ class TestHandleFromIdeas:
         assert body["pipeline_id"].startswith("pipe-")
         assert "stage_status" in body
         assert "result" in body
+        assert body["result"]["stage_status"] == body["stage_status"]
+        _assert_real_stage_data(body["result"])
 
     @pytest.mark.asyncio
     async def test_from_ideas_stores_result(self, handler):
@@ -342,9 +378,7 @@ class TestHandleGetPipeline:
 
         result = await handler.handle_get_pipeline(pid)
         body = _body(result)
-        assert "pipeline_id" in body
-        assert "ideas" in body
-        assert "goals" in body
+        _assert_real_stage_data(body)
 
 
 # =========================================================================
@@ -384,7 +418,8 @@ class TestHandleGetStage:
         result = await handler.handle_get_stage(pid, "ideas")
         body = _body(result)
         assert body["stage"] == "ideas"
-        assert "data" in body
+        assert body["data"]["nodes"]
+        assert body["data"]["nodes"][0]["data"]["label"]
 
     @pytest.mark.asyncio
     async def test_get_goals_stage(self, handler):
@@ -399,7 +434,8 @@ class TestHandleGetStage:
         result = await handler.handle_get_stage(pid, "goals")
         body = _body(result)
         assert body["stage"] == "goals"
-        assert "data" in body
+        assert body["data"]["goals"]
+        assert body["data"]["goals"][0]["title"]
 
     @pytest.mark.asyncio
     async def test_get_actions_stage(self, handler):
@@ -412,7 +448,11 @@ class TestHandleGetStage:
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "actions")
-        assert _body(result)["stage"] == "actions"
+        body = _body(result)
+        assert body["stage"] == "actions"
+        assert body["data"]["nodes"]
+        assert body["data"]["edges"]
+        assert body["data"]["nodes"][0]["data"]["label"]
 
     @pytest.mark.asyncio
     async def test_get_orchestration_stage(self, handler):
@@ -425,7 +465,13 @@ class TestHandleGetStage:
         pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "orchestration")
-        assert _body(result)["stage"] == "orchestration"
+        body = _body(result)
+        assert body["stage"] == "orchestration"
+        assert body["data"]["nodes"]
+        assert any(
+            node.get("data", {}).get("orch_type") or node.get("data", {}).get("orchType")
+            for node in body["data"]["nodes"]
+        )
 
 
 # =========================================================================
@@ -533,6 +579,7 @@ class TestHandleListOrLatest:
         body = _body(result)
         assert body is not None
         assert body["pipeline_id"] == pipeline_id
+        _assert_real_stage_data(body)
 
     @pytest.mark.asyncio
     async def test_list_mode(self, handler, sample_cartographer_data):

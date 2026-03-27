@@ -223,6 +223,7 @@ class TestHandleGraph:
         goals_graph = body["graphs"].get("goals", {})
         assert len(goals_graph.get("nodes", [])) == 2
         assert len(goals_graph.get("edges", [])) == 1
+        assert goals_graph["nodes"][0]["data"]["title"] == "Goal 1"
 
     @pytest.mark.asyncio
     async def test_graph_with_workflow(self, handler, mock_store):
@@ -246,16 +247,51 @@ class TestHandleGraph:
 
     @pytest.mark.asyncio
     async def test_graph_stage_filter(self, handler, mock_store):
-        mock_store.get.return_value = {
-            "pipeline_id": "pipe-test",
-            "goals": {"goals": [{"id": "g1", "title": "G1", "dependencies": []}]},
-            "actions": {"nodes": [], "edges": []},
-        }
-        result = await handler.handle_graph("pipe-test", {"stage": "goals"})
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Protect API latency", "Reduce 429 retries"],
+                "auto_advance": True,
+            }
+        )
+        pipeline_id = _body(create_result)["pipeline_id"]
+
+        result = await handler.handle_graph(pipeline_id, {"stage": "goals"})
         body = _body(result)
-        assert "goals" in body["graphs"]
-        # Actions should not be in result when filtering to goals
+        assert body["pipeline_id"] == pipeline_id
+        assert list(body["graphs"]) == ["goals"]
+        assert body["graphs"]["goals"]["nodes"]
+        assert body["graphs"]["goals"]["nodes"][0]["data"]["title"]
         assert "actions" not in body["graphs"]
+
+    @pytest.mark.asyncio
+    async def test_graph_uses_real_stage_data(self, handler):
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Protect API latency", "Route hot paths through cache"],
+                "auto_advance": True,
+            }
+        )
+        pipeline_id = _body(create_result)["pipeline_id"]
+        stored = _body(await handler.handle_get_pipeline(pipeline_id))
+
+        result = await handler.handle_graph(pipeline_id)
+        body = _body(result)
+
+        assert body["pipeline_id"] == pipeline_id
+        assert len(body["graphs"]["ideas"]["nodes"]) == len(stored["ideas"]["nodes"])
+        assert len(body["graphs"]["goals"]["nodes"]) == len(stored["goals"]["goals"])
+        assert len(body["graphs"]["actions"]["nodes"]) == len(stored["actions"]["nodes"])
+        assert len(body["graphs"]["orchestration"]["nodes"]) == len(
+            stored["orchestration"]["nodes"]
+        )
+        assert (
+            body["graphs"]["ideas"]["nodes"][0]["data"]["label"]
+            == stored["ideas"]["nodes"][0]["data"]["label"]
+        )
+        assert (
+            body["graphs"]["goals"]["nodes"][0]["data"]["title"]
+            == stored["goals"]["goals"][0]["title"]
+        )
 
     @pytest.mark.asyncio
     async def test_graph_goal_nodes_have_rf_format(self, handler, mock_store):

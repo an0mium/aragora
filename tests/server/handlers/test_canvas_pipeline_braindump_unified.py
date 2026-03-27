@@ -31,11 +31,87 @@ def handler() -> CanvasPipelineHandler:
 def _mock_pipeline_result() -> MagicMock:
     result = MagicMock()
     result.pipeline_id = "pipe-brain1234"
-    result.stage_status = {"ideas": "complete", "goals": "pending"}
-    result.goal_graph = None
+    result.stage_status = {
+        "ideas": "complete",
+        "goals": "complete",
+        "actions": "complete",
+        "orchestration": "complete",
+    }
+    result.goal_graph = MagicMock()
+    result.goal_graph.goals = [
+        {
+            "id": "goal-1",
+            "title": "Protect API latency",
+            "dependencies": [],
+        }
+    ]
     result.to_dict.return_value = {
         "pipeline_id": "pipe-brain1234",
-        "stage_status": {"ideas": "complete", "goals": "pending"},
+        "ideas": {
+            "nodes": [
+                {
+                    "id": "idea-1",
+                    "type": "ideaNode",
+                    "position": {"x": 0, "y": 0},
+                    "data": {"label": "Rate limit burst traffic"},
+                }
+            ],
+            "edges": [],
+            "metadata": {},
+        },
+        "goals": {
+            "id": "goals-1",
+            "goals": [
+                {
+                    "id": "goal-1",
+                    "title": "Protect API latency",
+                    "description": "Keep p95 latency within budget",
+                    "dependencies": [],
+                    "priority": "high",
+                }
+            ],
+            "provenance": [],
+            "transition": None,
+            "metadata": {},
+        },
+        "actions": {
+            "nodes": [
+                {
+                    "id": "action-1",
+                    "type": "actionNode",
+                    "position": {"x": 0, "y": 0},
+                    "data": {"label": "Ship rate limiter"},
+                }
+            ],
+            "edges": [],
+            "metadata": {},
+        },
+        "orchestration": {
+            "nodes": [
+                {
+                    "id": "orch-1",
+                    "type": "orchestrationNode",
+                    "position": {"x": 0, "y": 0},
+                    "data": {
+                        "label": "Backend implementer",
+                        "orch_type": "agent_task",
+                    },
+                }
+            ],
+            "edges": [],
+            "metadata": {},
+        },
+        "principles": None,
+        "transitions": [],
+        "provenance": [],
+        "provenance_count": 0,
+        "stage_status": {
+            "ideas": "complete",
+            "goals": "complete",
+            "actions": "complete",
+            "orchestration": "complete",
+        },
+        "integrity_hash": "abc123",
     }
     return result
 
@@ -84,9 +160,15 @@ class TestFromBraindumpUnifiedOrchestrator:
             body = _body(result)
             assert body["pipeline_id"] == "pipe-brain1234"
             assert body["ideas_parsed"] == 2
+            assert body["goals_count"] == 1
             assert body["unified_orchestrator"]["run_id"] == "run-123"
             assert body["debate_id"] == "debate-42"
             assert body["debate_url"] == "/debates/debate-42"
+            assert (
+                body["result"]["ideas"]["nodes"][0]["data"]["label"] == "Rate limit burst traffic"
+            )
+            assert body["result"]["goals"]["goals"][0]["title"] == "Protect API latency"
+            assert body["result"]["orchestration"]["nodes"][0]["data"]["orch_type"] == "agent_task"
 
             mock_orchestrator.assert_awaited_once()
             parse_input = MockParser.return_value.parse.call_args.args[0]
@@ -123,5 +205,6 @@ class TestFromBraindumpUnifiedOrchestrator:
             body = _body(result)
             assert body["pipeline_id"] == "pipe-brain1234"
             assert body["ideas_parsed"] == 1
+            assert body["result"]["actions"]["nodes"][0]["data"]["label"] == "Ship rate limiter"
             assert body["unified_orchestrator"]["succeeded"] is False
             assert "orchestrator unavailable" in body["unified_orchestrator"]["errors"][0]
