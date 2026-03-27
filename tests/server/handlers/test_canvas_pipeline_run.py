@@ -246,7 +246,7 @@ class TestHandleGraph:
         assert len(wf_graph.get("edges", [])) == 1
 
     @pytest.mark.asyncio
-    async def test_graph_stage_filter(self, handler, mock_store):
+    async def test_graph_stage_filter(self, handler):
         create_result = await handler.handle_from_ideas(
             {
                 "ideas": ["Protect API latency", "Reduce 429 retries"],

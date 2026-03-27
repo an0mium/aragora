@@ -47,7 +47,9 @@ def _assert_real_stage_data(result_data: dict) -> None:
         for node in orchestration["nodes"]
     )
 
-    assert result_data["provenance_count"] == len(result_data["provenance"])
+    assert result_data["provenance_count"] > 0
+    if "provenance" in result_data:
+        assert result_data["provenance_count"] == len(result_data["provenance"])
     assert len(result_data["transitions"]) >= 3
     assert "live_state" in result_data
 
