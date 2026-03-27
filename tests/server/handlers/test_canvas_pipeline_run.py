@@ -114,7 +114,8 @@ class TestHandleRun:
             }
         )
         body = _body(result)
-        assert body["stages"] == ["ideation", "goals"]
+        assert [stage["stage"] for stage in body["stages"]] == ["ideas", "goals"]
+        assert all(stage["status"] == "pending" for stage in body["stages"])
 
     @pytest.mark.asyncio
     async def test_run_stores_pipeline(self, handler):
@@ -159,6 +160,7 @@ class TestHandleStatus:
         assert status_body["pipeline_id"] == pid
         assert status_body["status"] in ("running", "completed")
         assert "stage_status" in status_body
+        assert "stages" in status_body
 
     @pytest.mark.asyncio
     async def test_status_after_completion(self, handler):
@@ -181,6 +183,60 @@ class TestHandleStatus:
         status = await handler.handle_status(pid)
         status_body = _body(status)
         assert status_body["pipeline_id"] == pid
+
+    @pytest.mark.asyncio
+    async def test_status_serializes_stage_timing_and_metadata(self, handler):
+        pipeline_id = "pipe-stage-summary"
+        live_result = MagicMock()
+        live_result.to_dict.return_value = {
+            "pipeline_id": pipeline_id,
+            "ideas": {
+                "nodes": [{"id": "idea-1", "data": {"label": "Idea"}}],
+                "edges": [{"id": "edge-1", "source": "idea-1", "target": "idea-1"}],
+                "metadata": {"canvas_name": "Idea Map"},
+            },
+            "goals": {
+                "goals": [{"id": "goal-1", "title": "Goal", "dependencies": []}],
+            },
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "in_progress",
+                "actions": "pending",
+                "orchestration": "pending",
+            },
+            "stage_results": [
+                {
+                    "stage_name": "ideation",
+                    "status": "completed",
+                    "duration": 1.5,
+                    "output_summary": {"type": "Canvas"},
+                },
+                {
+                    "stage_name": "goals",
+                    "status": "running",
+                    "duration": 0.75,
+                    "output_summary": {"type": "GoalGraph"},
+                },
+            ],
+            "transitions": [],
+            "provenance": [],
+            "provenance_count": 0,
+            "integrity_hash": "abc123",
+        }
+        _pipeline_objects[pipeline_id] = live_result
+
+        result = await handler.handle_status(pipeline_id)
+        body = _body(result)
+
+        ideas_stage = next(stage for stage in body["stages"] if stage["stage"] == "ideas")
+        goals_stage = next(stage for stage in body["stages"] if stage["stage"] == "goals")
+
+        assert ideas_stage["timing"]["duration_seconds"] == pytest.approx(1.5)
+        assert ideas_stage["metadata"]["node_count"] == 1
+        assert ideas_stage["metadata"]["edge_count"] == 1
+        assert goals_stage["status"] == "in_progress"
+        assert goals_stage["timing"]["duration_ms"] == 750
+        assert goals_stage["metadata"]["goal_count"] == 1
 
 
 # =========================================================================

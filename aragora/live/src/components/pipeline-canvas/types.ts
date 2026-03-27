@@ -385,6 +385,20 @@ export interface UnifiedPipelineLiveState {
   merge_gate: UnifiedLiveMergeGateState;
 }
 
+export interface PipelineStageTiming {
+  duration_seconds?: number | null;
+  duration_ms?: number | null;
+}
+
+export interface PipelineStageSummary {
+  stage: PipelineStageType;
+  status: string;
+  has_data: boolean;
+  timing: PipelineStageTiming;
+  metadata: Record<string, unknown>;
+  error?: string;
+}
+
 export interface PipelineResultResponse {
   pipeline_id: string;
   ideas: ReactFlowData | null;
@@ -397,10 +411,16 @@ export interface PipelineResultResponse {
   provenance_count: number;
   stage_status: Record<PipelineStageType, string>;
   integrity_hash: string;
+  stages?: PipelineStageSummary[];
+  stage_results?: Array<Record<string, unknown>>;
   live_state?: UnifiedPipelineLiveState | null;
   execution?: Record<string, unknown> | null;
   agents?: Array<Record<string, unknown>>;
   repair?: Record<string, unknown> | null;
   repairs?: Record<string, unknown> | Array<Record<string, unknown>> | null;
   merge_gate?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+  status?: string;
+  created_at?: number | null;
+  updated_at?: number | null;
 }

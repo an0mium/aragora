@@ -12,7 +12,12 @@ import { ExecutionProgressOverlay } from '@/components/pipeline-canvas/Execution
 import { FeedbackLoopPanel } from '@/components/pipeline-canvas/FeedbackLoopPanel';
 import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
-import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
+import type {
+  PipelineStageType,
+  PipelineResultResponse,
+  PipelineStageSummary,
+  ExecutionStatus,
+} from '@/components/pipeline-canvas/types';
 import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
 
 const PipelineCanvas = dynamic(
@@ -272,6 +277,33 @@ function deriveGoldenPathFromPipeline(data: PipelineResultResponse | null): Gold
       },
     ],
   };
+}
+
+function readNumericMetric(summary: PipelineStageSummary, key: string): number | null {
+  const value = summary.metadata[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function getStagePrimaryMetric(summary: PipelineStageSummary): string | null {
+  const goalCount = readNumericMetric(summary, 'goal_count');
+  if (goalCount != null) {
+    return `${goalCount} goal${goalCount === 1 ? '' : 's'}`;
+  }
+
+  const nodeCount = readNumericMetric(summary, 'node_count');
+  if (nodeCount != null) {
+    return `${nodeCount} node${nodeCount === 1 ? '' : 's'}`;
+  }
+
+  return null;
+}
+
+function getStageCanvasName(summary: PipelineStageSummary): string | null {
+  const canvas = summary.metadata.canvas;
+  if (!isRecord(canvas)) return null;
+
+  const name = canvas.canvas_name ?? canvas.canvasName;
+  return typeof name === 'string' && name.trim() ? name.trim() : null;
 }
 
 export default function PipelinePage() {
@@ -572,6 +604,26 @@ function PipelinePageContent() {
     () => deriveGoldenPathFromPipeline(pipelineData),
     [pipelineData],
   );
+
+  const stageSummaries = useMemo(() => {
+    if (!pipelineData) return [];
+
+    const orderedStages = ['ideas', 'goals', 'actions', 'orchestration'] as const;
+    const summaries = Array.isArray(pipelineData.stages) ? pipelineData.stages : [];
+    const summaryByStage = new Map(
+      summaries.map((summary) => [summary.stage, summary] as const),
+    );
+
+    return orderedStages.map((stage) => (
+      summaryByStage.get(stage) ?? {
+        stage,
+        status: pipelineData.stage_status?.[stage] ?? 'pending',
+        has_data: false,
+        timing: {},
+        metadata: {},
+      }
+    ));
+  }, [pipelineData]);
 
   const handleSuggestionApprove = useCallback(
     (suggestion: TransitionSuggestion) => {
@@ -889,6 +941,37 @@ function PipelinePageContent() {
             sourceLabel={pipelineGoldenPath.sourceLabel}
             signals={pipelineGoldenPath.signals}
           />
+        </div>
+      )}
+
+      {pipelineData && stageSummaries.length > 0 && (
+        <div className="border-b border-border bg-surface/40 px-6 py-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {stageSummaries.map((summary) => {
+              const durationSeconds = summary.timing.duration_seconds;
+              const primaryMetric = getStagePrimaryMetric(summary);
+              const canvasName = getStageCanvasName(summary);
+
+              return (
+                <div
+                  key={summary.stage}
+                  className="rounded-lg border border-border bg-bg/70 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono uppercase tracking-wide text-text">
+                      {summary.stage}
+                    </span>
+                    <StatusBadge status={mapStageStatus(summary.status)} size="sm" />
+                  </div>
+                  <div className="mt-2 space-y-1 text-xs font-mono text-text-muted">
+                    <div>{primaryMetric ?? 'No stage artifacts yet'}</div>
+                    <div>{durationSeconds != null ? `${durationSeconds.toFixed(2)}s runtime` : 'Runtime pending'}</div>
+                    <div>{canvasName ?? 'Awaiting serialized metadata'}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

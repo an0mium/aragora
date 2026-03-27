@@ -349,13 +349,225 @@ def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def attach_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
+_CANONICAL_STAGE_ORDER = (
+    "ideas",
+    "principles",
+    "goals",
+    "actions",
+    "orchestration",
+)
+
+_STAGE_NAME_ALIASES = {
+    "ideation": "ideas",
+    "ideas": "ideas",
+    "principles": "principles",
+    "goals": "goals",
+    "workflow": "actions",
+    "actions": "actions",
+    "orchestration": "orchestration",
+}
+
+
+def _canonical_stage_name(stage_name: Any) -> str:
+    """Map internal stage names to the frontend-facing stage identifiers."""
+    normalized = str(stage_name or "").strip().lower()
+    return _STAGE_NAME_ALIASES.get(normalized, normalized)
+
+
+def _normalize_pipeline_stage_status(status: Any) -> str:
+    """Normalize mixed pipeline/task status values into the UI status vocabulary."""
+    normalized = str(status or "pending").strip().lower()
+    return {
+        "completed": "complete",
+        "running": "in_progress",
+    }.get(normalized, normalized or "pending")
+
+
+def _coerce_duration_seconds(value: Any) -> float | None:
+    """Convert duration-like values to a non-negative float when possible."""
+    try:
+        duration = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(duration, 0.0)
+
+
+def _serialize_stage_metadata(stage_name: str, stage_data: Any) -> dict[str, Any]:
+    """Extract lightweight stage metadata for status cards and summaries."""
+    if not isinstance(stage_data, dict):
+        return {}
+
+    metadata: dict[str, Any] = {}
+    raw_metadata = stage_data.get("metadata")
+    if isinstance(raw_metadata, dict) and raw_metadata:
+        metadata["canvas"] = dict(raw_metadata)
+
+    if stage_name == "goals":
+        goals = stage_data.get("goals")
+        if isinstance(goals, list):
+            metadata["goal_count"] = len([goal for goal in goals if isinstance(goal, dict)])
+        provenance = stage_data.get("provenance")
+        if isinstance(provenance, list):
+            metadata["provenance_count"] = len(provenance)
+        transition = stage_data.get("transition")
+        if isinstance(transition, dict) and transition.get("id"):
+            metadata["transition_id"] = str(transition["id"])
+        return metadata
+
+    nodes = stage_data.get("nodes")
+    edges = stage_data.get("edges")
+    metadata["node_count"] = len(nodes) if isinstance(nodes, list) else 0
+    metadata["edge_count"] = len(edges) if isinstance(edges, list) else 0
+    return metadata
+
+
+def _has_stage_payload(stage_name: str, stage_data: Any) -> bool:
+    """Check whether a stage contains meaningful serialized data."""
+    if not isinstance(stage_data, dict):
+        return stage_data is not None
+
+    if stage_name == "goals":
+        goals = stage_data.get("goals")
+        return (
+            bool(goals) or bool(stage_data.get("transition")) or bool(stage_data.get("provenance"))
+        )
+
+    return (
+        bool(stage_data.get("nodes"))
+        or bool(stage_data.get("edges"))
+        or bool(stage_data.get("metadata"))
+    )
+
+
+def _build_stage_summaries(
+    pipeline_data: dict[str, Any],
+    *,
+    requested_stages: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Build a stable serialized view of stage status, timing, and metadata."""
+    raw_stage_status = pipeline_data.get("stage_status")
+    stage_status = raw_stage_status if isinstance(raw_stage_status, dict) else {}
+
+    stage_result_items = (
+        pipeline_data.get("stage_results")
+        if isinstance(pipeline_data.get("stage_results"), list)
+        else []
+    )
+    stage_results_by_name: dict[str, dict[str, Any]] = {}
+    for item in stage_result_items:
+        if not isinstance(item, dict):
+            continue
+        canonical_name = _canonical_stage_name(item.get("stage_name"))
+        if canonical_name not in _CANONICAL_STAGE_ORDER:
+            continue
+        stage_results_by_name[canonical_name] = item
+
+    if requested_stages:
+        ordered_stages = [
+            stage
+            for stage in (_canonical_stage_name(name) for name in requested_stages)
+            if stage in _CANONICAL_STAGE_ORDER
+        ]
+        seen: set[str] = set()
+        stage_names = [stage for stage in ordered_stages if not (stage in seen or seen.add(stage))]
+    else:
+        stage_names = [
+            stage_name
+            for stage_name in _CANONICAL_STAGE_ORDER
+            if (
+                stage_name in stage_status
+                or stage_name in stage_results_by_name
+                or _has_stage_payload(stage_name, pipeline_data.get(stage_name))
+            )
+        ]
+
+    summaries: list[dict[str, Any]] = []
+    for stage_name in stage_names:
+        stage_result = stage_results_by_name.get(stage_name, {})
+        stage_data = pipeline_data.get(stage_name)
+        duration_seconds = _coerce_duration_seconds(stage_result.get("duration"))
+        metadata = _serialize_stage_metadata(stage_name, stage_data)
+        output_summary = stage_result.get("output_summary")
+        if isinstance(output_summary, dict) and output_summary:
+            metadata["output_summary"] = dict(output_summary)
+
+        summary: dict[str, Any] = {
+            "stage": stage_name,
+            "status": _normalize_pipeline_stage_status(
+                stage_status.get(stage_name) or stage_result.get("status")
+            ),
+            "has_data": _has_stage_payload(stage_name, stage_data),
+            "timing": {
+                "duration_seconds": duration_seconds,
+                "duration_ms": int(duration_seconds * 1000)
+                if duration_seconds is not None
+                else None,
+            },
+            "metadata": metadata,
+        }
+        if stage_result.get("error"):
+            summary["error"] = str(stage_result["error"])
+        summaries.append(summary)
+
+    return summaries
+
+
+def attach_unified_live_state(
+    pipeline_data: dict[str, Any],
+    *,
+    requested_stages: list[str] | None = None,
+) -> dict[str, Any]:
     """Return a shallow copy of pipeline data with normalized live state attached."""
     if not isinstance(pipeline_data, dict):
         return {}
     normalized = dict(pipeline_data)
     normalized["live_state"] = build_unified_live_state(normalized)
+    normalized["stages"] = _build_stage_summaries(
+        normalized,
+        requested_stages=requested_stages,
+    )
     return normalized
+
+
+def _serialize_pipeline_payload(
+    pipeline_data: dict[str, Any],
+    *,
+    requested_stages: list[str] | None = None,
+) -> dict[str, Any]:
+    """Normalize a pipeline payload for API responses."""
+    return attach_unified_live_state(
+        pipeline_data,
+        requested_stages=requested_stages,
+    )
+
+
+def _get_pipeline_payload(pipeline_id: str) -> dict[str, Any] | None:
+    """Load the best-available pipeline payload, preferring live objects."""
+    stored = _get_store().get(pipeline_id)
+    live_result = _pipeline_objects.get(pipeline_id)
+
+    if live_result is None:
+        return _serialize_pipeline_payload(stored) if stored else None
+
+    try:
+        live_payload = live_result.to_dict()
+    except (AttributeError, TypeError, ValueError):
+        live_payload = {}
+
+    if stored:
+        merged = dict(stored)
+        merged.update(live_payload)
+        if stored.get("execution") and not merged.get("execution"):
+            merged["execution"] = stored["execution"]
+        if stored.get("receipt") and not merged.get("receipt"):
+            merged["receipt"] = stored["receipt"]
+        if stored.get("created_at") is not None:
+            merged["created_at"] = stored["created_at"]
+        if stored.get("updated_at") is not None:
+            merged["updated_at"] = stored["updated_at"]
+        return _serialize_pipeline_payload(merged)
+
+    return _serialize_pipeline_payload(live_payload)
 
 
 def _persist_universal_graph(result: Any) -> None:
@@ -841,7 +1053,7 @@ class CanvasPipelineHandler:
             )
 
             # Persist result and keep live object in memory
-            result_dict = attach_unified_live_state(result.to_dict())
+            result_dict = _serialize_pipeline_payload(result.to_dict())
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
 
@@ -920,7 +1132,7 @@ class CanvasPipelineHandler:
                 pipeline_id=pipeline_id,
             )
 
-            result_dict = attach_unified_live_state(result.to_dict())
+            result_dict = _serialize_pipeline_payload(result.to_dict())
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
             _persist_universal_graph(result)
@@ -1010,7 +1222,7 @@ class CanvasPipelineHandler:
             event_callback=event_cb,
         )
 
-        result_dict = attach_unified_live_state(result.to_dict())
+        result_dict = _serialize_pipeline_payload(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
@@ -1058,7 +1270,7 @@ class CanvasPipelineHandler:
         pipeline = IdeaToExecutionPipeline()
         result = pipeline.from_ideas(ideas, auto_advance=True)
 
-        result_dict = attach_unified_live_state(result.to_dict())
+        result_dict = _serialize_pipeline_payload(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
 
@@ -1128,7 +1340,7 @@ class CanvasPipelineHandler:
             result_obj = pipeline.advance_stage(result_obj, stage)
 
             # Persist updated result and keep live object
-            result_dict = attach_unified_live_state(result_obj.to_dict())
+            result_dict = _serialize_pipeline_payload(result_obj.to_dict())
             _get_store().save(pipeline_id, result_dict)
             _pipeline_objects[pipeline_id] = result_obj
 
@@ -1173,21 +1385,21 @@ class CanvasPipelineHandler:
             return json_response(None)
 
         latest_id = pipelines[0]["id"]
-        result = store.get(latest_id)
+        result = _get_pipeline_payload(latest_id)
         if not result:
             return json_response(None)
-        return json_response(attach_unified_live_state(result))
+        return json_response(result)
 
     async def handle_get_pipeline(self, pipeline_id: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}"""
-        result = _get_store().get(pipeline_id)
+        result = _get_pipeline_payload(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
-        return json_response(attach_unified_live_state(result))
+        return json_response(result)
 
     async def handle_get_stage(self, pipeline_id: str, stage: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/stage/{stage}"""
-        result = _get_store().get(pipeline_id)
+        result = _get_pipeline_payload(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
@@ -1199,10 +1411,14 @@ class CanvasPipelineHandler:
             "orchestration": "orchestration",
         }.get(stage)
 
-        if not stage_key or stage_key not in result:
+        if not stage_key or not _has_stage_payload(stage_key, result.get(stage_key)):
             return error_response(f"Stage {stage} not found", 404)
 
-        return json_response({"stage": stage, "data": result[stage_key]})
+        stage_summary = next(
+            (item for item in result.get("stages", []) if item.get("stage") == stage_key),
+            None,
+        )
+        return json_response({"stage": stage, "data": result[stage_key], "summary": stage_summary})
 
     async def handle_convert_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/convert/debate
@@ -1310,7 +1526,7 @@ class CanvasPipelineHandler:
             pipeline_id=pipeline_id,
         )
 
-        result_dict = attach_unified_live_state(result.to_dict())
+        result_dict = _serialize_pipeline_payload(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
@@ -1389,7 +1605,7 @@ class CanvasPipelineHandler:
                 if emitter:
                     config.event_callback = emitter.as_event_callback(pipeline_id)
                 result = await pipeline.run(input_text, config, pipeline_id=pipeline_id)
-                result_dict = attach_unified_live_state(result.to_dict())
+                result_dict = _serialize_pipeline_payload(result.to_dict())
                 _get_store().save(pipeline_id, result_dict)
                 _pipeline_objects[pipeline_id] = result
                 _persist_universal_graph(result)
@@ -1403,7 +1619,7 @@ class CanvasPipelineHandler:
             store = _get_store()
             store.save(
                 pipeline_id,
-                attach_unified_live_state(
+                _serialize_pipeline_payload(
                     {
                         "stage_status": {
                             "ideas": "pending",
@@ -1411,7 +1627,8 @@ class CanvasPipelineHandler:
                             "actions": "pending",
                             "orchestration": "pending",
                         },
-                    }
+                    },
+                    requested_stages=config.stages_to_run,
                 ),
             )
 
@@ -1430,7 +1647,17 @@ class CanvasPipelineHandler:
                 {
                     "pipeline_id": pipeline_id,
                     "status": "running",
-                    "stages": config.stages_to_run,
+                    "stages": _build_stage_summaries(
+                        {
+                            "stage_status": {
+                                "ideas": "pending",
+                                "goals": "pending",
+                                "actions": "pending",
+                                "orchestration": "pending",
+                            },
+                        },
+                        requested_stages=config.stages_to_run,
+                    ),
                 },
                 202,
             )
@@ -1443,7 +1670,7 @@ class CanvasPipelineHandler:
 
         Get per-stage status for a pipeline.
         """
-        result = _get_store().get(pipeline_id)
+        result = _get_pipeline_payload(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
@@ -1455,6 +1682,7 @@ class CanvasPipelineHandler:
             "pipeline_id": pipeline_id,
             "status": "running" if is_running else "completed",
             "stage_status": result.get("stage_status", {}),
+            "stages": result.get("stages", []),
         }
 
         if result.get("stage_results"):
@@ -1476,7 +1704,7 @@ class CanvasPipelineHandler:
         Query params (via request_data):
             stage: str (optional) — specific stage (ideas, goals, actions, orchestration)
         """
-        result = _get_store().get(pipeline_id)
+        result = _get_pipeline_payload(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
@@ -1549,7 +1777,7 @@ class CanvasPipelineHandler:
 
         Get the DecisionReceipt for a completed pipeline.
         """
-        result = _get_store().get(pipeline_id)
+        result = _get_pipeline_payload(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
@@ -1999,7 +2227,7 @@ class CanvasPipelineHandler:
                 if stage_data.get("nodes"):
                     existing.setdefault("stage_status", {})[stage_name] = "complete"
 
-        existing = attach_unified_live_state(existing)
+        existing = _serialize_pipeline_payload(existing)
         store.save(pipeline_id, existing)
 
         return json_response(
@@ -2079,7 +2307,7 @@ class CanvasPipelineHandler:
                 stage_status[to_stage] = "active"
             existing["stage_status"] = stage_status
 
-        existing = attach_unified_live_state(existing)
+        existing = _serialize_pipeline_payload(existing)
         store.save(pipeline_id, existing)
 
         return json_response(
@@ -2289,7 +2517,7 @@ class CanvasPipelineHandler:
             if pipeline_graph:
                 synced_workflow = sync_canvas_to_workflow(pipeline_graph)
                 existing["synced_workflow"] = synced_workflow
-                existing = attach_unified_live_state(existing)
+                existing = _serialize_pipeline_payload(existing)
                 store.save(pipeline_id, existing)
                 logger.info(
                     "Synced canvas to workflow for pipeline %s: %d steps",
@@ -2391,7 +2619,7 @@ class CanvasPipelineHandler:
                     "receipt_id": getattr(outcome, "receipt_id", None),
                 }
                 current_state["receipt"] = receipt_bundle
-                current_state = attach_unified_live_state(current_state)
+                current_state = _serialize_pipeline_payload(current_state)
                 store.save(pipeline_id, current_state)
 
                 if emitter:
@@ -2404,7 +2632,7 @@ class CanvasPipelineHandler:
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                     "error": str(exc),
                 }
-                current_state = attach_unified_live_state(current_state)
+                current_state = _serialize_pipeline_payload(current_state)
                 store.save(pipeline_id, current_state)
                 if emitter:
                     await emitter.emit_failed(pipeline_id, str(exc))
@@ -2477,7 +2705,7 @@ class CanvasPipelineHandler:
             auto_advance=auto_advance,
         )
 
-        result_dict = attach_unified_live_state(result.to_dict())
+        result_dict = _serialize_pipeline_payload(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)

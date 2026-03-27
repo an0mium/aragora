@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -345,6 +346,56 @@ class TestHandleGetPipeline:
         assert "pipeline_id" in body
         assert "ideas" in body
         assert "goals" in body
+        assert "stages" in body
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_prefers_live_stage_serialization(self, handler):
+        pipeline_id = "pipe-live-stage-data"
+        _get_store().save(pipeline_id, {"stage_status": {"ideas": "pending"}})
+        live_result = MagicMock()
+        live_result.to_dict.return_value = {
+            "pipeline_id": pipeline_id,
+            "ideas": {
+                "nodes": [
+                    {
+                        "id": "idea-1",
+                        "data": {"label": "Live idea"},
+                    }
+                ],
+                "edges": [],
+                "metadata": {"canvas_name": "Live Ideas"},
+            },
+            "goals": {
+                "goals": [{"id": "goal-1", "title": "Live goal", "dependencies": []}],
+            },
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "pending",
+                "orchestration": "pending",
+            },
+            "stage_results": [
+                {
+                    "stage_name": "ideation",
+                    "status": "completed",
+                    "duration": 1.25,
+                    "output_summary": {"type": "Canvas"},
+                }
+            ],
+            "transitions": [],
+            "provenance": [],
+            "provenance_count": 0,
+            "integrity_hash": "abc123",
+        }
+        _pipeline_objects[pipeline_id] = live_result
+
+        result = await handler.handle_get_pipeline(pipeline_id)
+        body = _body(result)
+
+        assert body["ideas"]["nodes"][0]["id"] == "idea-1"
+        assert body["stages"][0]["stage"] == "ideas"
+        assert body["stages"][0]["timing"]["duration_seconds"] == pytest.approx(1.25)
+        assert body["stages"][0]["metadata"]["node_count"] == 1
 
 
 # =========================================================================
