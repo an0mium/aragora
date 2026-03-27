@@ -15,6 +15,7 @@ import json
 import logging
 from typing import Any
 
+from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     Ambiguity,
     Assumption,
@@ -58,6 +59,12 @@ class PromptDecomposer:
         self._agent = agent
         self._km = knowledge_mound
         self._km_results: list[dict[str, Any]] = []
+        self._last_operation_timings: list[OperationTiming] = []
+
+    @property
+    def last_operation_timings(self) -> list[OperationTiming]:
+        """Timing records from the most recent decomposition run."""
+        return list(self._last_operation_timings)
 
     async def _get_agent(self) -> Any:
         """Lazy-load the default agent."""
@@ -91,22 +98,55 @@ class PromptDecomposer:
         Returns:
             Structured PromptIntent with classifications and ambiguities
         """
+        timings: list[OperationTiming] = []
+
+        timer = start_timer()
         agent = await self._get_agent()
+        append_timing(timings, "decompose.get_agent", timer, category="setup")
 
         user_prompt = f"User prompt:\n{prompt}"
         if context:
             user_prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
 
+        timer = start_timer()
         km_context = await self._get_km_context(prompt)
+        append_timing(
+            timings,
+            "decompose.km_query",
+            timer,
+            category="io",
+            result_count=len(self._km_results),
+        )
         if km_context:
             user_prompt += f"\n\nRelevant knowledge:\n{km_context}"
 
         full_prompt = f"{_DECOMPOSITION_PROMPT}\n\n{user_prompt}"
+        timer = start_timer()
         response = await agent.generate(full_prompt)
+        append_timing(
+            timings,
+            "decompose.agent_generate",
+            timer,
+            category="llm",
+            prompt_chars=len(full_prompt),
+            response_chars=len(response),
+        )
+        timer = start_timer()
         parsed = self._parse_response(response, prompt)
+        append_timing(
+            timings,
+            "decompose.parse_response",
+            timer,
+            category="compute",
+            ambiguity_count=len(parsed.ambiguities),
+            assumption_count=len(parsed.assumptions),
+        )
 
         if self._km_results:
             parsed.related_knowledge = self._km_results
+
+        self._last_operation_timings = timings
+        logger.debug("PromptDecomposer timings: %s", format_timings(timings))
 
         return parsed
 

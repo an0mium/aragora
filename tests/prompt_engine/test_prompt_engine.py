@@ -6,6 +6,7 @@ spec_builder, and conductor orchestration. All LLM calls are mocked.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock
 
@@ -199,6 +200,14 @@ class TestPromptDecomposer:
         intent = await decomposer.decompose("Add dark mode")
         assert intent.related_knowledge
         km.query.assert_called_once()
+
+        operation_names = [timing.operation for timing in decomposer.last_operation_timings]
+        assert operation_names == [
+            "decompose.get_agent",
+            "decompose.km_query",
+            "decompose.agent_generate",
+            "decompose.parse_response",
+        ]
 
     @pytest.mark.asyncio()
     async def test_decompose_fallback_on_bad_json(self) -> None:
@@ -693,6 +702,49 @@ class TestPromptConductor:
         assert "interrogate" in result.stages_completed
         assert "research" in result.stages_completed
         assert "specify" in result.stages_completed
+        assert result.timing.is_within_target is True
+        assert set(result.timing.stage_durations_ms) == {
+            "decompose",
+            "interrogate",
+            "research",
+            "specify",
+        }
+        assert result.timing.top_operations(limit=1)[0].operation.endswith(".agent_generate")
+
+    @pytest.mark.asyncio()
+    async def test_full_pipeline_reports_bottlenecks_against_target(self) -> None:
+        from aragora.prompt_engine.conductor import ConductorConfig, PromptConductor
+
+        async def side_effect(prompt: str) -> str:
+            prompt_lower = prompt.lower()
+            if "technical researcher" in prompt_lower:
+                await asyncio.sleep(0.03)
+                return _RESEARCH_RESPONSE
+            if "clarifying" in prompt_lower:
+                await asyncio.sleep(0.005)
+                return _INTERROGATE_RESPONSE
+            if "software architect" in prompt_lower or "specification" in prompt_lower:
+                await asyncio.sleep(0.02)
+                return _SPEC_RESPONSE
+            await asyncio.sleep(0.005)
+            return _DECOMPOSE_RESPONSE
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(side_effect=side_effect)
+
+        config = ConductorConfig(
+            autonomy=AutonomyLevel.FULL_AUTO,
+            latency_target_ms=25,
+        )
+        conductor = PromptConductor(config=config, agent=agent)
+        result = await conductor.run("Improve onboarding")
+
+        assert result.timing.is_within_target is False
+        bottlenecks = result.timing.bottlenecks()
+        assert [timing.operation for timing in bottlenecks[:2]] == [
+            "research.agent_generate",
+            "specify.agent_generate",
+        ]
 
     @pytest.mark.asyncio()
     async def test_skip_interrogation(self, mock_agent: AsyncMock) -> None:

@@ -26,6 +26,13 @@ from aragora.prompt_engine.decomposer import PromptDecomposer
 from aragora.prompt_engine.interrogator import PromptInterrogator
 from aragora.prompt_engine.researcher import PromptResearcher
 from aragora.prompt_engine.spec_builder import SpecBuilder
+from aragora.prompt_engine.timing import (
+    PROMPT_ENGINE_TARGET_DURATION_MS,
+    PipelineTiming,
+    elapsed_ms,
+    format_timings,
+    start_timer,
+)
 from aragora.prompt_engine.types import (
     PROFILE_DEFAULTS,
     AutonomyLevel,
@@ -49,6 +56,7 @@ class ConductorConfig:
     auto_execute_threshold: float = 0.9
     skip_research: bool = False
     skip_interrogation: bool = False
+    latency_target_ms: float = PROMPT_ENGINE_TARGET_DURATION_MS
 
     @classmethod
     def from_profile(cls, profile: UserProfile | str) -> ConductorConfig:
@@ -77,6 +85,7 @@ class ConductorResult:
     research: ResearchReport | None = None
     auto_approved: bool = False
     stages_completed: list[str] = field(default_factory=list)
+    timing: PipelineTiming = field(default_factory=PipelineTiming)
 
 
 # Type alias for the question handler callback
@@ -124,19 +133,28 @@ class PromptConductor:
             ConductorResult with specification and full provenance
         """
         stages: list[str] = []
+        stage_durations_ms: dict[str, float] = {}
+        operation_timings = []
+        pipeline_start = start_timer()
 
         # Stage 1: Decompose
         logger.info("Conductor: decomposing prompt")
+        stage_start = start_timer()
         intent = await self._decomposer.decompose(prompt, context)
+        stage_durations_ms["decompose"] = elapsed_ms(stage_start)
+        operation_timings.extend(self._decomposer.last_operation_timings)
         stages.append("decompose")
 
         # Stage 2: Interrogate (if not skipped)
         questions: list[ClarifyingQuestion] = []
         if not self._config.skip_interrogation and intent.needs_clarification:
             logger.info("Conductor: generating clarifying questions")
+            stage_start = start_timer()
             questions = await self._interrogator.interrogate(
                 intent, depth=self._config.interrogation_depth
             )
+            stage_durations_ms["interrogate"] = elapsed_ms(stage_start)
+            operation_timings.extend(self._interrogator.last_operation_timings)
             stages.append("interrogate")
 
             # If we have a question handler, let the user answer
@@ -153,21 +171,27 @@ class PromptConductor:
         research: ResearchReport | None = None
         if not self._config.skip_research:
             logger.info("Conductor: researching context")
+            stage_start = start_timer()
             research = await self._researcher.research(
                 intent,
                 answered_questions=questions,
                 context=context,
             )
+            stage_durations_ms["research"] = elapsed_ms(stage_start)
+            operation_timings.extend(self._researcher.last_operation_timings)
             stages.append("research")
 
         # Stage 4: Build specification
         logger.info("Conductor: building specification")
+        stage_start = start_timer()
         spec = await self._spec_builder.build(
             intent,
             answered_questions=questions,
             research=research,
             context=context,
         )
+        stage_durations_ms["specify"] = elapsed_ms(stage_start)
+        operation_timings.extend(self._spec_builder.last_operation_timings)
         stages.append("specify")
 
         # Determine if auto-approved
@@ -176,6 +200,27 @@ class PromptConductor:
             and spec.confidence >= self._config.auto_execute_threshold
         )
 
+        timing = PipelineTiming(
+            total_duration_ms=elapsed_ms(pipeline_start),
+            stage_durations_ms=stage_durations_ms,
+            operation_timings=operation_timings,
+            target_duration_ms=self._config.latency_target_ms,
+        )
+
+        logger.info(
+            "Conductor latency total=%.1fms target=%.1fms stages=%s top_ops=%s",
+            timing.total_duration_ms,
+            timing.target_duration_ms,
+            ", ".join(f"{name}={duration:.1f}ms" for name, duration in stage_durations_ms.items()),
+            format_timings(timing.top_operations(limit=4)),
+        )
+        if not timing.is_within_target:
+            logger.warning(
+                "Conductor exceeded latency target by %.1fms bottlenecks=%s",
+                timing.overrun_ms,
+                format_timings(timing.bottlenecks()),
+            )
+
         return ConductorResult(
             specification=spec,
             intent=intent,
@@ -183,6 +228,7 @@ class PromptConductor:
             research=research,
             auto_approved=auto_approved,
             stages_completed=stages,
+            timing=timing,
         )
 
     async def decompose_only(

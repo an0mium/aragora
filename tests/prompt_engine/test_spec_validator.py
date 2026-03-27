@@ -234,6 +234,26 @@ class TestSpecValidatorHeuristic:
         expected = sum(confidences) / len(confidences)
         assert abs(result.overall_confidence - expected) < 1e-9
 
+    def test_records_role_timings(self):
+        spec = _FakeSpec(
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["criterion"],
+            constraints=["Constraint"],
+            risks=[_FakeRisk(description="Regression", mitigation="Rollback")],
+            file_changes=[_FakeFile(path="aragora/example.py")],
+        )
+        self.validator.validate_heuristic(spec)
+        operation_names = [timing.operation for timing in self.validator.last_operation_timings]
+        assert operation_names == [
+            "validate.build_spec_bundle",
+            "validate.devils_advocate",
+            "validate.scope_detector",
+            "validate.security_reviewer",
+            "validate.ux_advocate",
+            "validate.tech_debt_auditor",
+        ]
+
 
 class TestSpecValidatorAsync:
     def test_async_validate_delegates_to_heuristic(self):

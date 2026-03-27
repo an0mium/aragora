@@ -14,6 +14,7 @@ import json
 import logging
 from typing import Any
 
+from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
     InterrogationDepth,
@@ -63,6 +64,12 @@ class PromptInterrogator:
 
     def __init__(self, agent: Any | None = None) -> None:
         self._agent = agent
+        self._last_operation_timings: list[OperationTiming] = []
+
+    @property
+    def last_operation_timings(self) -> list[OperationTiming]:
+        """Timing records from the most recent interrogation run."""
+        return list(self._last_operation_timings)
 
     async def _get_agent(self) -> Any:
         """Lazy-load the default agent."""
@@ -130,9 +137,32 @@ class PromptInterrogator:
         if context:
             prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
 
+        timings: list[OperationTiming] = []
+        timer = start_timer()
         agent = await self._get_agent()
+        append_timing(timings, "interrogate.get_agent", timer, category="setup")
+        timer = start_timer()
         response = await agent.generate(prompt)
-        return self._parse_questions(response, intent)
+        append_timing(
+            timings,
+            "interrogate.agent_generate",
+            timer,
+            category="llm",
+            prompt_chars=len(prompt),
+            response_chars=len(response),
+        )
+        timer = start_timer()
+        questions = self._parse_questions(response, intent)
+        append_timing(
+            timings,
+            "interrogate.parse_questions",
+            timer,
+            category="compute",
+            question_count=len(questions),
+        )
+        self._last_operation_timings = timings
+        logger.debug("PromptInterrogator timings: %s", format_timings(timings))
+        return questions
 
     def _parse_questions(self, response: str, intent: PromptIntent) -> list[ClarifyingQuestion]:
         """Parse LLM response into ClarifyingQuestion objects."""

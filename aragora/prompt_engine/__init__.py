@@ -25,6 +25,11 @@ from aragora.prompt_engine.spec_validator import (
     ValidationResult,
     ValidatorRole,
 )
+from aragora.prompt_engine.timing import (
+    PROMPT_ENGINE_TARGET_DURATION_MS,
+    OperationTiming,
+    PipelineTiming,
+)
 from aragora.prompt_engine.types import (
     PROFILE_DEFAULTS,
     Ambiguity,
@@ -60,6 +65,9 @@ __all__ = [
     "EvidenceLink",
     "IntentType",
     "InterrogationDepth",
+    "OperationTiming",
+    "PROMPT_ENGINE_TARGET_DURATION_MS",
+    "PipelineTiming",
     "PROFILE_DEFAULTS",
     "PromptConductor",
     "PromptDecomposer",

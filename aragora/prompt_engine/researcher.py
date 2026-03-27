@@ -15,6 +15,7 @@ import json
 import logging
 from typing import Any
 
+from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
     EvidenceLink,
@@ -56,6 +57,12 @@ class PromptResearcher:
     ) -> None:
         self._agent = agent
         self._km = knowledge_mound
+        self._last_operation_timings: list[OperationTiming] = []
+
+    @property
+    def last_operation_timings(self) -> list[OperationTiming]:
+        """Timing records from the most recent research run."""
+        return list(self._last_operation_timings)
 
     async def _get_agent(self) -> Any:
         """Lazy-load the default agent."""
@@ -91,7 +98,11 @@ class PromptResearcher:
         Returns:
             ResearchReport with findings
         """
+        timings: list[OperationTiming] = []
+
+        timer = start_timer()
         agent = await self._get_agent()
+        append_timing(timings, "research.get_agent", timer, category="setup")
 
         clarification_text = ""
         if answered_questions:
@@ -102,7 +113,15 @@ class PromptResearcher:
             if lines:
                 clarification_text = "Clarifications received:\n" + "\n\n".join(lines)
 
+        timer = start_timer()
         km_context = await self._get_km_context(intent)
+        append_timing(
+            timings,
+            "research.km_query",
+            timer,
+            category="io",
+            has_context=bool(km_context),
+        )
         knowledge_text = (
             f"Relevant knowledge from Knowledge Mound:\n{km_context}"
             if km_context
@@ -121,8 +140,29 @@ class PromptResearcher:
         if context:
             prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
 
+        timer = start_timer()
         response = await agent.generate(prompt)
-        return self._parse_report(response, km_context)
+        append_timing(
+            timings,
+            "research.agent_generate",
+            timer,
+            category="llm",
+            prompt_chars=len(prompt),
+            response_chars=len(response),
+        )
+        timer = start_timer()
+        report = self._parse_report(response, km_context)
+        append_timing(
+            timings,
+            "research.parse_report",
+            timer,
+            category="compute",
+            evidence_count=len(report.evidence),
+            recommendation_count=len(report.recommendations),
+        )
+        self._last_operation_timings = timings
+        logger.debug("PromptResearcher timings: %s", format_timings(timings))
+        return report
 
     async def _get_km_context(self, intent: PromptIntent) -> str:
         """Query Knowledge Mound for relevant context."""

@@ -16,6 +16,7 @@ import re
 from typing import Any
 
 from aragora.prompt_engine.decomposer import PromptDecomposer
+from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
     PromptIntent,
@@ -63,6 +64,12 @@ class SpecBuilder:
 
     def __init__(self, agent: Any | None = None) -> None:
         self._agent = agent
+        self._last_operation_timings: list[OperationTiming] = []
+
+    @property
+    def last_operation_timings(self) -> list[OperationTiming]:
+        """Timing records from the most recent specification build."""
+        return list(self._last_operation_timings)
 
     async def _get_agent(self) -> Any:
         """Lazy-load the default agent."""
@@ -100,7 +107,11 @@ class SpecBuilder:
         Returns:
             Formal Specification
         """
+        timings: list[OperationTiming] = []
+
+        timer = start_timer()
         agent = await self._get_agent()
+        append_timing(timings, "specify.get_agent", timer, category="setup")
 
         clarification_text = ""
         if answered_questions:
@@ -136,8 +147,26 @@ class SpecBuilder:
         if context:
             prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
 
+        timer = start_timer()
         response = await agent.generate(prompt)
+        append_timing(
+            timings,
+            "specify.agent_generate",
+            timer,
+            category="llm",
+            prompt_chars=len(prompt),
+            response_chars=len(response),
+        )
+        timer = start_timer()
         spec = self._parse_spec(response)
+        append_timing(
+            timings,
+            "specify.parse_spec",
+            timer,
+            category="compute",
+            file_change_count=len(spec.file_changes),
+            risk_count=len(spec.risks),
+        )
 
         # Attach provenance chain
         spec.provenance = SpecProvenance(
@@ -147,6 +176,9 @@ class SpecBuilder:
             research=research,
             prompt_hash=PromptDecomposer.prompt_hash(intent.raw_prompt),
         )
+
+        self._last_operation_timings = timings
+        logger.debug("SpecBuilder timings: %s", format_timings(timings))
 
         return spec
 

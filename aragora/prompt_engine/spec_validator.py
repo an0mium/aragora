@@ -13,6 +13,7 @@ from enum import Enum
 from typing import Any
 
 from aragora.pipeline.backbone_contracts import SpecBundle
+from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import Specification
 
 logger = logging.getLogger(__name__)
@@ -57,13 +58,25 @@ class SpecValidator:
     5. Tech Debt Auditor -- assesses maintenance burden and risk mitigation
     """
 
+    def __init__(self) -> None:
+        self._last_operation_timings: list[OperationTiming] = []
+
+    @property
+    def last_operation_timings(self) -> list[OperationTiming]:
+        """Timing records from the most recent validation run."""
+        return list(self._last_operation_timings)
+
     def validate_heuristic(self, spec: Specification) -> ValidationResult:
         """Structural validation without LLM calls."""
+        timings: list[OperationTiming] = []
         issues: list[str] = []
         role_results: dict[ValidatorRole, dict[str, Any]] = {}
+        timer = start_timer()
         execution_bundle = SpecBundle.from_prompt_spec(spec)
+        append_timing(timings, "validate.build_spec_bundle", timer, category="compute")
 
         # Devil's advocate: completeness
+        timer = start_timer()
         da_issues: list[str] = []
         problem = getattr(spec, "problem_statement", None) or ""
         solution = getattr(spec, "proposed_solution", None) or ""
@@ -79,9 +92,17 @@ class SpecValidator:
             "confidence": 0.8 if da_passed else 0.3,
             "issues": da_issues,
         }
+        append_timing(
+            timings,
+            "validate.devils_advocate",
+            timer,
+            category="compute",
+            issue_count=len(da_issues),
+        )
         issues.extend(f"[devils_advocate] {i}" for i in da_issues)
 
         # Scope detector: plan size
+        timer = start_timer()
         plan = getattr(spec, "implementation_plan", None) or []
         if not isinstance(plan, list):
             plan = []
@@ -96,9 +117,17 @@ class SpecValidator:
             "confidence": 0.9 if scope_passed else 0.4,
             "issues": scope_issues,
         }
+        append_timing(
+            timings,
+            "validate.scope_detector",
+            timer,
+            category="compute",
+            issue_count=len(scope_issues),
+        )
         issues.extend(f"[scope_detector] {i}" for i in scope_issues)
 
         # Security reviewer: risk mitigations
+        timer = start_timer()
         risks = getattr(spec, "risks", None) or getattr(spec, "risk_register", None) or []
         sec_issues: list[str] = []
         for risk in risks:
@@ -112,9 +141,17 @@ class SpecValidator:
             "confidence": 0.85 if sec_passed else 0.4,
             "issues": sec_issues,
         }
+        append_timing(
+            timings,
+            "validate.security_reviewer",
+            timer,
+            category="compute",
+            issue_count=len(sec_issues),
+        )
         issues.extend(f"[security_reviewer] {i}" for i in sec_issues)
 
         # UX advocate: success criteria
+        timer = start_timer()
         criteria = getattr(spec, "success_criteria", None) or []
         ux_issues: list[str] = []
         if not criteria:
@@ -127,9 +164,17 @@ class SpecValidator:
             "confidence": 0.8 if ux_passed else 0.3,
             "issues": ux_issues,
         }
+        append_timing(
+            timings,
+            "validate.ux_advocate",
+            timer,
+            category="compute",
+            issue_count=len(ux_issues),
+        )
         issues.extend(f"[ux_advocate] {i}" for i in ux_issues)
 
         # Tech debt auditor: risk mitigation coverage
+        timer = start_timer()
         td_issues: list[str] = []
         for risk in risks:
             desc = getattr(risk, "description", "") or ""
@@ -146,12 +191,22 @@ class SpecValidator:
             "confidence": 0.8 if td_passed else 0.4,
             "issues": td_issues,
         }
+        append_timing(
+            timings,
+            "validate.tech_debt_auditor",
+            timer,
+            category="compute",
+            issue_count=len(td_issues),
+        )
         issues.extend(f"[tech_debt_auditor] {i}" for i in td_issues)
 
         # Overall
         confidences = [r["confidence"] for r in role_results.values()]
         overall = sum(confidences) / len(confidences) if confidences else 0
         all_passed = all(r["passed"] for r in role_results.values())
+
+        self._last_operation_timings = timings
+        logger.debug("SpecValidator timings: %s", format_timings(timings))
 
         return ValidationResult(
             role_results=role_results,
