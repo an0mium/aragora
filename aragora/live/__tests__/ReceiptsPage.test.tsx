@@ -211,7 +211,7 @@ describe('ReceiptsPage', () => {
     });
   });
 
-  it('opens receipt detail through the versioned gauntlet endpoint and normalizes the payload', async () => {
+  it('opens receipt detail through the v2 receipt endpoint and normalizes the payload', async () => {
     queueHookResponses([
       hookResult({
         data: {
@@ -270,7 +270,7 @@ describe('ReceiptsPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/gauntlet/gauntlet-123/receipt',
+        'http://localhost:8080/api/v2/receipts/receipt-123',
         expect.any(Object)
       );
       expect(screen.getByText('Decision Receipt')).toBeInTheDocument();

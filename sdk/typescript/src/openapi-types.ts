@@ -55821,6 +55821,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/receipts/share/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get shared receipt
+         * @description Access a receipt via public share token.
+         */
+        get: operations["getSharedReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/receipts/stats": {
         parameters: {
             query?: never;
@@ -167832,6 +167852,66 @@ export interface operations {
             };
         };
     };
+    getSharedReceipt: {
+        parameters: {
+            query?: {
+                /** @description Output format (e.g., json, yaml, csv) */
+                format?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shared receipt payload */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        receipt?: Record<string, never>;
+                        shared?: boolean;
+                        access_count?: number;
+                    };
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Share link expired or access limit reached */
+            410: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getReceiptStats: {
         parameters: {
             query?: never;
@@ -168250,9 +168330,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        success?: boolean;
                         receipt_id?: string;
-                        shared?: boolean;
                         share_url?: string;
+                        token?: string;
+                        expires_at?: string;
+                        max_accesses?: number | null;
                     };
                 };
             };
