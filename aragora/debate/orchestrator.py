@@ -8,6 +8,7 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 import asyncio
 from collections import deque
+import inspect
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast
 import warnings  # noqa: F401 - used for deprecation warnings in __init__
@@ -1105,19 +1106,43 @@ class Arena(ArenaDelegatesMixin):
     def _log_phase_failures(self, execution_result: Any) -> None:
         self._lifecycle.log_phase_failures(execution_result)
 
-    async def _cleanup(self) -> None:
-        await self._lifecycle.cleanup()
-        await self._teardown_agent_channels()
-        if hasattr(self, "context_gatherer") and self.context_gatherer:
-            self.context_gatherer.clear_cache()
-        self._cleanup_convergence_cache()
-        # Close shared HTTP connector to prevent resource leak warnings
+    async def _close_agent_resources(self) -> None:
+        """Close agent-owned transports that outlive a single request."""
+        for agent in getattr(self, "agents", []):
+            close = getattr(agent, "close", None)
+            if not callable(close):
+                continue
+            try:
+                result = close()
+                if inspect.isawaitable(result):
+                    await result
+            except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "Agent resource cleanup skipped: agent=%s error=%s",
+                    getattr(agent, "name", type(agent).__name__),
+                    exc,
+                )
+
+    async def _close_network_resources(self) -> None:
+        """Close debate-scoped HTTP clients/connectors before loop shutdown."""
+        await self._close_agent_resources()
         try:
             from aragora.agents.api_agents.common import close_shared_connector
 
             await close_shared_connector()
         except (ImportError, RuntimeError, OSError):
             pass
+
+        # Yield once so connector transport shutdown callbacks can complete.
+        await asyncio.sleep(0)
+
+    async def _cleanup(self) -> None:
+        await self._lifecycle.cleanup()
+        await self._teardown_agent_channels()
+        if hasattr(self, "context_gatherer") and self.context_gatherer:
+            self.context_gatherer.clear_cache()
+        self._cleanup_convergence_cache()
+        await self._close_network_resources()
 
     async def _setup_agent_channels(self, ctx: DebateContext, debate_id: str) -> None:
         await _setup_agent_channels(self, ctx, debate_id)
@@ -1152,13 +1177,7 @@ class Arena(ArenaDelegatesMixin):
                     )
             return await self._run_inner(correlation_id=correlation_id)
         finally:
-            # Close shared HTTP connector to prevent resource leak warnings
-            try:
-                from aragora.agents.api_agents.common import close_shared_connector
-
-                await close_shared_connector()
-            except (ImportError, RuntimeError, OSError):
-                pass
+            await self._close_network_resources()
 
     async def _run_inner(self, correlation_id: str = "") -> DebateResult:
         """Internal debate execution orchestrator coordinating all phases."""

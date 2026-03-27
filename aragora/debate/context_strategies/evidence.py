@@ -12,6 +12,8 @@ Connectors:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -72,6 +74,45 @@ class EvidenceStrategy(CachingStrategy):
         except ImportError:
             return False
 
+    async def _cleanup_collector_resources(self, collector: Any | None) -> None:
+        """Close temporary connector resources created for one-off evidence gathering."""
+        if collector is None:
+            return
+
+        connectors: list[Any] = []
+        collector_connectors = getattr(collector, "connectors", None)
+        if isinstance(collector_connectors, dict):
+            connectors.extend(collector_connectors.values())
+
+        document_connector = getattr(collector, "_document_connector", None)
+        if document_connector is not None:
+            connectors.append(document_connector)
+
+        seen: set[int] = set()
+        for connector in connectors:
+            if connector is None:
+                continue
+            connector_id = id(connector)
+            if connector_id in seen:
+                continue
+            seen.add(connector_id)
+
+            cleanup = getattr(connector, "cleanup", None)
+            if not callable(cleanup):
+                cleanup = getattr(connector, "close", None)
+            if not callable(cleanup):
+                continue
+
+            try:
+                result = cleanup()
+                if inspect.isawaitable(result):
+                    await result
+            except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.debug("Evidence connector cleanup skipped: %s", exc)
+
+        # Yield once so transport close callbacks can run before the event loop exits.
+        await asyncio.sleep(0)
+
     async def gather(self, task: str, **kwargs: Any) -> str | None:
         """
         Gather evidence from web, GitHub, and local docs connectors.
@@ -82,6 +123,7 @@ class EvidenceStrategy(CachingStrategy):
         Returns:
             Formatted evidence context, or None if unavailable.
         """
+        collector: Any | None = None
         try:
             from aragora.evidence.collector import EvidenceCollector
 
@@ -153,5 +195,7 @@ class EvidenceStrategy(CachingStrategy):
             logger.warning("Evidence collection failed: %s", e)
         except Exception as e:  # noqa: BLE001
             logger.warning("Unexpected error in evidence collection: %s", e)
+        finally:
+            await self._cleanup_collector_resources(collector)
 
         return None

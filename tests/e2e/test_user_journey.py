@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -106,6 +106,21 @@ SHARED_ANSWER = (
 DEBATE_TOPIC = "What rate limiting strategy should we use for our public API?"
 
 
+def _build_journey_arena(
+    env: Environment,
+    agents: list[JourneyMockAgent],
+    protocol: DebateProtocol,
+) -> Arena:
+    """Keep the E2E smoke test deterministic and local-only."""
+    return Arena(
+        env,
+        agents,
+        protocol,
+        enable_knowledge_retrieval=False,
+        disable_post_debate_pipeline=True,
+    )
+
+
 @pytest.fixture
 def journey_agents() -> list[JourneyMockAgent]:
     """Three agents that converge to guarantee consensus."""
@@ -126,6 +141,7 @@ def journey_protocol() -> DebateProtocol:
     return DebateProtocol(
         rounds=2,
         consensus="majority",
+        enable_research=False,
         enable_calibration=False,
         enable_rhetorical_observer=False,
         enable_trickster=False,
@@ -216,7 +232,7 @@ class TestStep3And4DebateLifecycle:
         journey_agents: list[JourneyMockAgent],
     ):
         """Arena initializes, runs the debate loop, and returns a DebateResult."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         assert result is not None
@@ -233,11 +249,38 @@ class TestStep3And4DebateLifecycle:
         journey_agents: list[JourneyMockAgent],
     ):
         """Every agent is called during the debate."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         await arena.run()
 
         for agent in journey_agents:
             assert agent.generate_calls > 0, f"Agent {agent.name} was never asked to generate"
+
+    @pytest.mark.asyncio
+    async def test_arena_run_closes_agents_with_explicit_cleanup(
+        self,
+        journey_env: Environment,
+        journey_protocol: DebateProtocol,
+    ):
+        """Arena.run closes agent-owned transports when agents expose close()."""
+
+        class ClosableJourneyMockAgent(JourneyMockAgent):
+            def __init__(self, name: str, shared_answer: str):
+                super().__init__(name, shared_answer)
+                self.closed = False
+
+            async def close(self) -> None:
+                self.closed = True
+
+        agents = [
+            ClosableJourneyMockAgent("analyst-claude", SHARED_ANSWER),
+            ClosableJourneyMockAgent("critic-gpt4", SHARED_ANSWER),
+            ClosableJourneyMockAgent("synthesizer-gemini", SHARED_ANSWER),
+        ]
+        arena = _build_journey_arena(journey_env, agents, journey_protocol)
+
+        await arena.run()
+
+        assert all(agent.closed for agent in agents)
 
 
 # =============================================================================
@@ -256,7 +299,7 @@ class TestStep5ResultVerification:
         journey_agents: list[JourneyMockAgent],
     ):
         """Debate reaches consensus when agents agree."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         assert result.consensus_reached is True
@@ -270,7 +313,7 @@ class TestStep5ResultVerification:
         journey_agents: list[JourneyMockAgent],
     ):
         """Debate result contains messages from participating agents."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         assert len(result.messages) > 0
@@ -289,7 +332,7 @@ class TestStep5ResultVerification:
         journey_agents: list[JourneyMockAgent],
     ):
         """A tamper-evident DecisionReceipt can be generated from the result."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         receipt = DecisionReceipt.from_debate_result(result)
@@ -312,7 +355,7 @@ class TestStep5ResultVerification:
         journey_agents: list[JourneyMockAgent],
     ):
         """Receipt integrity hash is tamper-evident."""
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         receipt = DecisionReceipt.from_debate_result(result)
@@ -339,7 +382,7 @@ class TestStep6KnowledgeMoundIngestion:
         from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
 
         # Run the debate first
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         assert result.final_answer is not None
@@ -501,7 +544,7 @@ class TestFullUserJourney:
         assert api_key.startswith("ak_"), "API key prefix wrong"
 
         # -- Step 3: Run debate --
-        arena = Arena(journey_env, journey_agents, journey_protocol)
+        arena = _build_journey_arena(journey_env, journey_agents, journey_protocol)
         result = await arena.run()
 
         assert result is not None, "Debate returned None"
