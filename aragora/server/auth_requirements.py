@@ -208,12 +208,6 @@ AUTHENTICATED_ENDPOINTS = [
     EndpointAuth(
         "/api/user/settings", "put", AuthLevel.AUTHENTICATED, description="Update settings"
     ),
-    EndpointAuth(
-        "/api/v2/receipts/{receipt_id}/share",
-        "post",
-        AuthLevel.AUTHENTICATED,
-        description="Create receipt share link",
-    ),
 ]
 
 # =============================================================================

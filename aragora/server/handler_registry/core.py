@@ -359,6 +359,26 @@ class _DeferredImport:
             return repr(self._resolved)
         return f"<DeferredImport {self._module_path}:{self._class_name}>"
 
+    @property
+    def __name__(self) -> str:
+        """Expose the underlying class name for diagnostics and test discovery."""
+        resolved = self.resolve()
+        if resolved is not None:
+            return resolved.__name__
+        return self._class_name
+
+    def __getattr__(self, name: str) -> Any:
+        """Proxy class metadata access to the resolved handler class.
+
+        This keeps registry introspection working for diagnostics, OpenAPI-style
+        route discovery, and tests that examine ``ROUTES``/``can_handle`` on the
+        lazy registry entries directly.
+        """
+        resolved = self.resolve()
+        if resolved is None:
+            raise AttributeError(f"{self._class_name} could not be imported; no attribute {name!r}")
+        return getattr(resolved, name)
+
 
 def _safe_import(module_path: str, class_name: str) -> _DeferredImport:
     """Create a deferred import spec for a handler class.
