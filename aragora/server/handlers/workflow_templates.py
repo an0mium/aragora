@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -42,6 +43,26 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Async Workflow Execution Support
 # =============================================================================
+
+
+def _run_workflow_execution_in_thread(
+    workflow: Any,
+    execution_id: str,
+    inputs: dict[str, Any] | None,
+    tenant_id: str,
+) -> threading.Thread:
+    """Run workflow execution in a daemon thread when no event loop is available."""
+
+    def _runner() -> None:
+        asyncio.run(_execute_workflow_async(workflow, execution_id, inputs, tenant_id))
+
+    thread = threading.Thread(
+        target=_runner,
+        name=f"workflow-{execution_id}",
+        daemon=True,
+    )
+    thread.start()
+    return thread
 
 
 def _get_workflow_store():
@@ -156,10 +177,8 @@ def _start_workflow_execution(
             name=f"workflow_{execution_id}",
         )
     except RuntimeError:
-        # No running event loop - create one for sync context
-        asyncio.create_task(
-            _execute_workflow_async(workflow, execution_id, inputs, tenant_id),
-        )
+        # No running event loop - dispatch to a daemon thread with its own loop.
+        _run_workflow_execution_in_thread(workflow, execution_id, inputs, tenant_id)
 
     logger.info("Started workflow execution %s for workflow %s", execution_id, workflow.id)
     return execution_id
