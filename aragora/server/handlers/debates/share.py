@@ -1,7 +1,7 @@
 """
 Public Spectator Share Handler.
 
-Allows debate owners to generate public share links for spectating,
+Allows debate owners to generate public share links for the public debate viewer,
 and provides a public SSE endpoint for shared debates.
 
 Routes:
@@ -251,7 +251,9 @@ class DebateShareHandler(BaseHandler):
         if handler and hasattr(handler, "headers"):
             host = handler.headers.get("Host", _DEFAULT_HOST)
 
-        share_url = f"/api/v1/debates/{debate_id}/spectate/public"
+        # Share links should land on the public debate viewer page. The
+        # spectate API endpoint remains available separately via `sse_url`.
+        share_url = f"/debate/{debate_id}"
 
         return json_response(
             {

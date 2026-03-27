@@ -136,8 +136,8 @@ class TestShareEndpoint:
         data = _parse(result)
         assert data["debate_id"] == "my-debate"
         assert data["public_spectate"] is True
-        assert "my-debate" in data["share_url"]
-        assert "spectate/public" in data["share_url"]
+        assert data["share_url"] == "/debate/my-debate"
+        assert data["full_url"] == "https://example.com/debate/my-debate"
 
     def test_share_sets_public_state(self):
         h = DebateShareHandler()

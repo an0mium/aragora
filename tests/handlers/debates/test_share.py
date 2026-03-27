@@ -341,8 +341,8 @@ class TestSharePost:
         body = _body(result)
         assert body["debate_id"] == "my-debate"
         assert body["public_spectate"] is True
-        assert "my-debate" in body["share_url"]
-        assert "spectate/public" in body["share_url"]
+        assert body["share_url"] == "/debate/my-debate"
+        assert body["full_url"] == "https://example.com/debate/my-debate"
 
     def test_share_sets_public_state(self):
         h = DebateShareHandler()
@@ -354,8 +354,7 @@ class TestSharePost:
         handler = _make_http_handler(host="debates.example.org")
         result = h.handle_post("/api/v1/debates/test-1/share", {}, handler)
         body = _body(result)
-        assert "debates.example.org" in body["full_url"]
-        assert body["full_url"].startswith("https://")
+        assert body["full_url"] == "https://debates.example.org/debate/test-1"
 
     def test_full_url_uses_default_host_when_header_missing(self):
         h = DebateShareHandler()
