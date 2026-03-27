@@ -781,6 +781,16 @@ class TestReceiptVerify:
 class TestAsyncSafety:
     """Sync-backed stores should not block the event loop in async endpoints."""
 
+    @staticmethod
+    def _make_handler(store: MockAuditTrailStore) -> AuditTrailHandler:
+        with patch(
+            "aragora.storage.audit_trail_store.get_audit_trail_store",
+            return_value=store,
+        ):
+            handler = AuditTrailHandler({})
+        handler._store = store
+        return handler
+
     @pytest.mark.asyncio
     async def test_list_audit_trails_offloads_sync_store_calls(self):
         class BlockingAuditTrailStore(MockAuditTrailStore):
@@ -792,8 +802,7 @@ class TestAsyncSafety:
                 time.sleep(0.15)
                 return super().count_trails(**kwargs)
 
-        handler = AuditTrailHandler({})
-        handler._store = BlockingAuditTrailStore()
+        handler = self._make_handler(BlockingAuditTrailStore())
 
         list_task = asyncio.create_task(handler._list_audit_trails({}))
         heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
@@ -810,8 +819,7 @@ class TestAsyncSafety:
                 time.sleep(0.15)
                 return super().get_trail(trail_id)
 
-        handler = AuditTrailHandler({})
-        handler._store = BlockingAuditTrailStore()
+        handler = self._make_handler(BlockingAuditTrailStore())
         handler._store.trails["trail-test123"] = make_sample_trail()
 
         get_task = asyncio.create_task(handler._get_audit_trail("trail-test123"))
@@ -833,8 +841,7 @@ class TestAsyncSafety:
                 time.sleep(0.15)
                 return super().count_receipts(**kwargs)
 
-        handler = AuditTrailHandler({})
-        handler._store = BlockingAuditTrailStore()
+        handler = self._make_handler(BlockingAuditTrailStore())
 
         list_task = asyncio.create_task(handler._list_receipts({}))
         heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
@@ -851,8 +858,7 @@ class TestAsyncSafety:
                 time.sleep(0.15)
                 return super().get_receipt(receipt_id)
 
-        handler = AuditTrailHandler({})
-        handler._store = BlockingAuditTrailStore()
+        handler = self._make_handler(BlockingAuditTrailStore())
         handler._store.receipts["receipt-test123"] = make_sample_receipt()
 
         get_task = asyncio.create_task(handler._get_receipt("receipt-test123"))
