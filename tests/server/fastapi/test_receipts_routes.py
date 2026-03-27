@@ -17,7 +17,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi import create_app
+from aragora.server.fastapi.dependencies.auth import require_authenticated
 from aragora.storage.receipt_store import StoredReceipt
 
 
@@ -61,6 +63,18 @@ def client(app, mock_receipt_store, mock_receipt_share_store):
         "receipt_share_store": mock_receipt_share_store,
     }
     return TestClient(app, raise_server_exceptions=False)
+
+
+def _override_auth(client: TestClient) -> None:
+    """Override auth dependency with a minimal authenticated context."""
+    auth_ctx = AuthorizationContext(
+        user_id="user-1",
+        org_id="org-1",
+        workspace_id="ws-1",
+        roles={"member"},
+        permissions=set(),
+    )
+    client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
 
 
 @pytest.fixture
@@ -477,19 +491,27 @@ class TestReceiptStats:
 class TestShareReceipt:
     """Tests for POST /api/v2/receipts/{receipt_id}/share."""
 
+    def test_share_receipt_requires_auth(self, client):
+        response = client.post("/api/v2/receipts/rcpt_test123/share", json={})
+        assert response.status_code == 401
+
     def test_share_receipt_not_found(self, client):
+        _override_auth(client)
         response = client.post("/api/v2/receipts/missing/share", json={})
+        client.app.dependency_overrides.clear()
         assert response.status_code == 404
 
     def test_share_receipt_success(
         self, client, mock_receipt_store, mock_receipt_share_store, sample_receipt_dict
     ):
         mock_receipt_store.get.return_value = sample_receipt_dict
+        _override_auth(client)
 
         response = client.post(
             "/api/v2/receipts/rcpt_test123/share",
             json={"expires_in_hours": 12, "max_accesses": 3},
         )
+        client.app.dependency_overrides.clear()
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -545,6 +567,17 @@ class TestGetSharedReceipt:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
         assert "Aragora Decision Receipt" in response.text
+
+    def test_runtime_openapi_has_receipt_share_paths(self, app):
+        spec = app.openapi()
+
+        assert "/api/v2/receipts/share/{token}" in spec["paths"]
+        assert "security" not in spec["paths"]["/api/v2/receipts/share/{token}"]["get"]
+
+        assert "/api/v2/receipts/{receipt_id}/share" in spec["paths"]
+        assert spec["paths"]["/api/v2/receipts/{receipt_id}/share"]["post"]["security"] == [
+            {"bearerAuth": []}
+        ]
 
 
 # =============================================================================

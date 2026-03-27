@@ -97,6 +97,19 @@ class ReceiptShareStore:
         )
         conn.commit()
 
+    @staticmethod
+    def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+        """Normalize a receipt share row into the API-facing shape."""
+        return {
+            "token": row["token"],
+            "receipt_id": row["receipt_id"],
+            "created_at": row["created_at"],
+            "expires_at": row["expires_at"],
+            "max_accesses": row["max_accesses"],
+            "access_count": row["access_count"],
+            "created_by": row["created_by"],
+        }
+
     def save(
         self,
         token: str,
@@ -157,15 +170,7 @@ class ReceiptShareStore:
         if not row:
             return None
 
-        return {
-            "token": row["token"],
-            "receipt_id": row["receipt_id"],
-            "created_at": row["created_at"],
-            "expires_at": row["expires_at"],
-            "max_accesses": row["max_accesses"],
-            "access_count": row["access_count"],
-            "created_by": row["created_by"],
-        }
+        return self._row_to_dict(row)
 
     def get_by_receipt(self, receipt_id: str) -> list[dict[str, Any]]:
         """
@@ -188,18 +193,40 @@ class ReceiptShareStore:
             (receipt_id,),
         ).fetchall()
 
-        return [
-            {
-                "token": row["token"],
-                "receipt_id": row["receipt_id"],
-                "created_at": row["created_at"],
-                "expires_at": row["expires_at"],
-                "max_accesses": row["max_accesses"],
-                "access_count": row["access_count"],
-                "created_by": row["created_by"],
-            }
-            for row in rows
-        ]
+        return [self._row_to_dict(row) for row in rows]
+
+    def consume_access(self, token: str, now: float | None = None) -> dict[str, Any] | None:
+        """Atomically increment access_count only when the token is still usable."""
+        conn = self._get_connection()
+        now_ts = now if now is not None else datetime.now(timezone.utc).timestamp()
+
+        cursor = conn.execute(
+            """
+            UPDATE receipt_shares
+            SET access_count = access_count + 1
+            WHERE token = ?
+              AND (expires_at IS NULL OR expires_at >= ?)
+              AND (max_accesses IS NULL OR access_count < max_accesses)
+            """,
+            (token, now_ts),
+        )
+        if cursor.rowcount == 0:
+            conn.commit()
+            return None
+
+        row = conn.execute(
+            """
+            SELECT token, receipt_id, created_at, expires_at, max_accesses, access_count, created_by
+            FROM receipt_shares
+            WHERE token = ?
+            """,
+            (token,),
+        ).fetchone()
+        conn.commit()
+
+        if not row:
+            return None
+        return self._row_to_dict(row)
 
     def increment_access(self, token: str) -> bool:
         """

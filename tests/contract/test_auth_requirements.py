@@ -89,6 +89,7 @@ class TestAuthManifestIntegrity:
                 "/api/v1/public",
                 "/api/v1/spectate",
                 "/api/v1/onboarding",
+                "/api/v2/receipts/share",
             ]
             is_allowed_public = any(
                 req.path.startswith(prefix) for prefix in allowed_public_prefixes
@@ -304,12 +305,14 @@ class TestAuthConsistency:
         assert not requires_auth("/api/health", "get")
         assert not requires_auth("/api/healthz", "get")
         assert not requires_auth("/api/openapi", "get")
+        assert not requires_auth("/api/v2/receipts/share/{token}", "get")
 
         # Protected prefixes should require auth by default
         assert requires_auth("/api/debates", "get")
         assert requires_auth("/api/debates/123", "get")
         assert requires_auth("/api/agents", "get")
         assert requires_auth("/api/admin/users", "get")
+        assert requires_auth("/api/v2/receipts/{receipt_id}/share", "post")
 
     def test_get_required_permission_helper(self) -> None:
         """The get_required_permission helper should work correctly."""

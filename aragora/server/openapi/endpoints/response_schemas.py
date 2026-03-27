@@ -8,7 +8,12 @@ _autogenerate_missing_paths re-adds them without schemas).
 These definitions use /api/v1/ versioned paths to survive the pipeline.
 """
 
-from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
+from aragora.server.openapi.helpers import (
+    AUTH_REQUIREMENTS,
+    STANDARD_ERRORS,
+    STANDARD_RESPONSE_HEADERS,
+    _ok_response,
+)
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -718,14 +723,57 @@ _RECEIPT_ENDPOINTS = {
                 "200": _ok_response(
                     "Receipt shared",
                     {
+                        "success": {"type": "boolean"},
                         "receipt_id": {"type": "string"},
-                        "shared": {"type": "boolean"},
                         "share_url": {"type": "string"},
+                        "token": {"type": "string"},
+                        "expires_at": {"type": "string"},
+                        "max_accesses": {"type": "integer", "nullable": True},
                     },
                 ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v2/receipts/share/{token}": {
+        "get": {
+            "tags": ["Receipts", "Sharing"],
+            "summary": "Get shared receipt",
+            "operationId": "getSharedReceipt",
+            "description": "Access a receipt via public share token.",
+            "parameters": [
+                {
+                    "name": "token",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "required": False,
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Shared receipt payload",
+                    {
+                        "receipt": {"type": "object"},
+                        "shared": {"type": "boolean"},
+                        "access_count": {"type": "integer"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+                "410": {
+                    "description": "Share link expired or access limit reached",
+                    "headers": STANDARD_RESPONSE_HEADERS,
+                    "content": {
+                        "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+                    },
+                },
             },
         }
     },

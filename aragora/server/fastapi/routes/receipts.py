@@ -28,6 +28,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from aragora.rbac.models import AuthorizationContext
+
+from ..dependencies.auth import require_authenticated
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -293,6 +296,11 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     if inspect.isawaitable(result):
         return await result
     return result
+
+
+def _store_supports_method(store: Any, method_name: str) -> bool:
+    """Check whether a concrete store class implements a method."""
+    return callable(getattr(type(store), method_name, None))
 
 
 # =============================================================================
@@ -621,20 +629,41 @@ async def get_shared_receipt(
 ) -> SharedReceiptResponse | Response:
     """Access a receipt via public share token."""
     try:
-        share_info = await _call_store_method(share_store, "get_by_token", token)
-        if not share_info:
-            raise HTTPException(status_code=404, detail="Share link not found")
+        now_ts = datetime.now(timezone.utc).timestamp()
+        if _store_supports_method(share_store, "consume_access"):
+            share_info = await _call_store_method(share_store, "consume_access", token, now=now_ts)
+            if not share_info:
+                share_info = await _call_store_method(share_store, "get_by_token", token)
+                if not share_info:
+                    raise HTTPException(status_code=404, detail="Share link not found")
 
-        expires_at = share_info.get("expires_at")
-        if expires_at and expires_at < datetime.now(timezone.utc).timestamp():
-            raise HTTPException(status_code=410, detail="Share link has expired")
+                expires_at = share_info.get("expires_at")
+                if expires_at and expires_at < now_ts:
+                    raise HTTPException(status_code=410, detail="Share link has expired")
 
-        max_accesses = share_info.get("max_accesses")
-        access_count = share_info.get("access_count", 0)
-        if max_accesses and access_count >= max_accesses:
-            raise HTTPException(status_code=410, detail="Share link access limit reached")
+                max_accesses = share_info.get("max_accesses")
+                access_count = share_info.get("access_count", 0)
+                if max_accesses and access_count >= max_accesses:
+                    raise HTTPException(status_code=410, detail="Share link access limit reached")
 
-        await _call_store_method(share_store, "increment_access", token)
+                raise HTTPException(status_code=409, detail="Share link could not be consumed")
+        else:
+            share_info = await _call_store_method(share_store, "get_by_token", token)
+            if not share_info:
+                raise HTTPException(status_code=404, detail="Share link not found")
+
+            expires_at = share_info.get("expires_at")
+            if expires_at and expires_at < now_ts:
+                raise HTTPException(status_code=410, detail="Share link has expired")
+
+            max_accesses = share_info.get("max_accesses")
+            access_count = share_info.get("access_count", 0)
+            if max_accesses and access_count >= max_accesses:
+                raise HTTPException(status_code=410, detail="Share link access limit reached")
+
+            await _call_store_method(share_store, "increment_access", token)
+            share_info = dict(share_info)
+            share_info["access_count"] = access_count + 1
 
         receipt_id = share_info.get("receipt_id", "")
         receipt_data = None
@@ -660,7 +689,7 @@ async def get_shared_receipt(
         return SharedReceiptResponse(
             receipt=_extract_receipt_payload(receipt_data),
             shared=True,
-            access_count=access_count + 1,
+            access_count=share_info.get("access_count", 0),
         )
 
     except HTTPException:
@@ -891,10 +920,15 @@ async def get_receipt(
         raise HTTPException(status_code=500, detail="Failed to get receipt")
 
 
-@router.post("/receipts/{receipt_id}/share", response_model=ShareReceiptResponse)
+@router.post(
+    "/receipts/{receipt_id}/share",
+    response_model=ShareReceiptResponse,
+    openapi_extra={"security": [{"bearerAuth": []}]},
+)
 async def share_receipt(
     receipt_id: str,
     body: CreateShareRequest,
+    auth: AuthorizationContext = Depends(require_authenticated),
     store=Depends(get_receipt_store),
     share_store=Depends(get_receipt_share_store),
 ) -> ShareReceiptResponse:

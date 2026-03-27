@@ -147,6 +147,12 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="List available public API surfaces",
     ),
+    EndpointAuth(
+        "/api/v2/receipts/share/{token}",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Public receipt share link access",
+    ),
 ]
 
 # =============================================================================
@@ -200,6 +206,12 @@ AUTHENTICATED_ENDPOINTS = [
     EndpointAuth("/api/user/settings", "get", AuthLevel.AUTHENTICATED, description="Get settings"),
     EndpointAuth(
         "/api/user/settings", "put", AuthLevel.AUTHENTICATED, description="Update settings"
+    ),
+    EndpointAuth(
+        "/api/v2/receipts/{receipt_id}/share",
+        "post",
+        AuthLevel.AUTHENTICATED,
+        description="Create receipt share link",
     ),
 ]
 
