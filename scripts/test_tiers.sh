@@ -35,7 +35,7 @@ echo -e "${GREEN}Running test tier: ${tier}${NC}"
 
 case "$tier" in
   smoke)
-    ${PYTEST_BIN} -m smoke \
+    ${PYTEST_BIN} tests/ -m smoke \
       --timeout=60 \
       -v \
       --tb=short \

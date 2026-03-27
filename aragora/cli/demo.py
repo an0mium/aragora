@@ -631,21 +631,37 @@ def _save_live_demo_receipt(
 def _run_mock_demo(args: argparse.Namespace) -> None:
     """Run the offline mock demo using aragora-debate package or builtin."""
     if not HAS_ARAGORA_DEBATE:
+        topic = getattr(args, "topic", None) or DEMO_TASKS.get(
+            getattr(args, "name", None) or _DEFAULT_DEMO, {}
+        ).get("topic", "Should we adopt microservices?")
+        mock_agents = ["Analyst", "Critic", "Synthesizer"]
+        _print_banner(topic, mock_agents)
         print()
         print("  Running in offline mode (no aragora-debate package).")
         print("  Set OPENROUTER_API_KEY for real AI debates.")
         print()
-        # Simple inline mock output
-        topic = getattr(args, "topic", None) or DEMO_TASKS.get(
-            getattr(args, "name", None) or _DEFAULT_DEMO, {}
-        ).get("topic", "Should we adopt microservices?")
-        print(f"  Topic: {topic}")
         print("  [Mock] Analyst: Considers multiple perspectives...")
         print("  [Mock] Critic: Identifies potential issues...")
         print("  [Mock] Synthesizer: Finds common ground...")
         print()
-        print("  Verdict: CONSENSUS REACHED (mock)")
+        print("=" * 64)
+        print("  DECISION SUMMARY")
+        print("=" * 64)
+        print()
+        print("  Verdict:    Consensus Reached (mock)")
         print("  Confidence: 75%")
+        print("  Rounds:     2")
+        print("  Duration:   0.00s")
+        print()
+        print("  WINNING POSITION:")
+        print("  " + "-" * 40)
+        print("    Mock agents converged on a stable offline demonstration result.")
+        print()
+        print("  DECISION RECEIPT:")
+        print("  " + "-" * 40)
+        print("    ID:        DR-MOCK-DEMO")
+        print("    Integrity: offline-demo")
+        print("    Mode:      Offline")
         print()
         return
 

@@ -21,6 +21,7 @@ from aragora.cli.demo import (
     _DEFAULT_DEMO,
     _print_banner,
     _print_result,
+    _run_mock_demo,
     _wrap,
     list_demos,
     main,
@@ -322,3 +323,17 @@ class TestDemoIntegration:
         assert result.receipt.receipt_id.startswith("DR-")
         assert result.receipt.signature is not None
         assert result.receipt.signature_algorithm == "SHA-256-content-hash"
+
+
+class TestOfflineMockFallback:
+    def test_builtin_fallback_prints_standard_markers(self, capsys):
+        args = argparse.Namespace(name="microservices", topic=None, receipt=None)
+
+        with patch("aragora.cli.demo.HAS_ARAGORA_DEBATE", False):
+            _run_mock_demo(args)
+
+        captured = capsys.readouterr()
+        assert "ARAGORA DEMO" in captured.out
+        assert "DECISION SUMMARY" in captured.out
+        assert "WINNING POSITION" in captured.out
+        assert "DECISION RECEIPT" in captured.out

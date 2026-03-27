@@ -193,6 +193,7 @@ class TestWebSocketConnectivity:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(
                     live_server.ws_url,
+                    protocols=("aragora-v1",),
                     timeout=5,
                 ) as ws:
                     # Connection established successfully
