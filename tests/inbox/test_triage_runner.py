@@ -226,6 +226,42 @@ async def test_run_triage_executes_auto_approved_receipts():
 
 
 @pytest.mark.asyncio
+async def test_financial_subject_forces_manual_review_even_with_high_confidence_archive():
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-finance-guard",
+            state=ReceiptState.APPROVED if auto_approve else ReceiptState.CREATED,
+        )
+    )
+
+    runner = InboxTriageRunner(gmail_connector=None, wedge_service=wedge_service)
+    runner._run_debate = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.99,
+            "debate_id": "debate-finance-guard",
+        }
+    )
+
+    decision = await runner._triage_message(
+        {
+            "id": "msg-finance-guard",
+            "subject": "Your receipt from Loom, Inc.",
+            "from": "billing@example.com",
+            "body": "Payment confirmed.",
+        },
+        auto_approve=True,
+    )
+
+    assert wedge_service.create_receipt.call_args.kwargs["auto_approve"] is False
+    assert decision.receipt_state == ReceiptState.CREATED.value
+    wedge_service.execute_receipt.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_dissent_blocks_auto_approval_before_receipt_execution():
     gmail = _DummyGmail()
     wedge_service = SimpleNamespace()

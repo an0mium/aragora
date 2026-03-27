@@ -15,6 +15,7 @@ Rules:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from aragora.inbox.trust_wedge import (
@@ -35,6 +36,14 @@ _AUTO_APPROVABLE_ACTIONS: frozenset[str] = frozenset(
 )
 
 _DEFAULT_CONFIDENCE_THRESHOLD = 0.85
+_MANUAL_REVIEW_SUBJECT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\breceipt\b", re.IGNORECASE),
+    re.compile(r"\bstatement\b", re.IGNORECASE),
+    re.compile(r"\bpayment\b", re.IGNORECASE),
+    re.compile(r"\binvoice\b", re.IGNORECASE),
+    re.compile(r"\bportfolio\b", re.IGNORECASE),
+    re.compile(r"\bbilling\b", re.IGNORECASE),
+)
 
 
 class AutoApprovalPolicy:
@@ -56,6 +65,21 @@ class AutoApprovalPolicy:
     @property
     def confidence_threshold(self) -> float:
         return self._confidence_threshold
+
+    def _subject_requires_manual_review(self, decision: TriageDecision) -> bool:
+        subject = str(getattr(getattr(decision, "intent", None), "_subject", "") or "").strip()
+        if not subject:
+            return False
+
+        for pattern in _MANUAL_REVIEW_SUBJECT_PATTERNS:
+            if pattern.search(subject):
+                logger.debug(
+                    "Auto-approval blocked: subject requires manual review (%s)",
+                    subject[:120],
+                )
+                return True
+
+        return False
 
     def can_auto_approve(self, decision: TriageDecision) -> bool:
         """Check whether *decision* is eligible for auto-approval.
@@ -94,6 +118,9 @@ class AutoApprovalPolicy:
                 "Auto-approval blocked: receipt state %s (expected CREATED)",
                 decision.receipt_state,
             )
+            return False
+
+        if self._subject_requires_manual_review(decision):
             return False
 
         return True
