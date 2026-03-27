@@ -58,6 +58,13 @@ from aragora.pipeline.adapters import (
     universal_graph_to_canvas,
 )
 from aragora.pipeline.graph_store import GraphStore, get_graph_store
+from aragora.pipeline.dag_model import (
+    PipelineDAGDependency,
+    PipelineDAGSnapshot,
+    PipelineDAGStage,
+    PipelineLiveUpdate,
+    PipelineNodeRuntime,
+)
 from aragora.pipeline.stage_transitions import (
     actions_to_orchestration,
     goals_to_actions,
@@ -134,6 +141,11 @@ __all__ = [
     "UniversalNode",
     "UniversalEdge",
     "UniversalGraph",
+    "PipelineNodeRuntime",
+    "PipelineDAGDependency",
+    "PipelineDAGStage",
+    "PipelineDAGSnapshot",
+    "PipelineLiveUpdate",
     # Graph persistence
     "GraphStore",
     "get_graph_store",

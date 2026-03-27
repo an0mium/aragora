@@ -347,6 +347,12 @@ class UniversalGraph:
         combined = ":".join(hashes)
         return hashlib.sha256(combined.encode()).hexdigest()[:16]
 
+    def to_dag_snapshot(self) -> Any:
+        """Build a normalized DAG snapshot for visualization and live updates."""
+        from aragora.pipeline.dag_model import PipelineDAGSnapshot
+
+        return PipelineDAGSnapshot.from_graph(self)
+
     # -- Export helpers -----------------------------------------------------
 
     def to_react_flow(self, stage_filter: PipelineStage | None = None) -> dict[str, Any]:

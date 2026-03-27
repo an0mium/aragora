@@ -160,6 +160,13 @@ class GraphStore:
         finally:
             conn.close()
 
+    def get_dag_snapshot(self, graph_id: str) -> Any | None:
+        """Retrieve a normalized DAG snapshot for visualization."""
+        graph = self.get(graph_id)
+        if graph is None:
+            return None
+        return graph.to_dag_snapshot()
+
     def list(
         self,
         owner_id: str | None = None,
