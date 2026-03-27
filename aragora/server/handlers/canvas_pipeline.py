@@ -252,6 +252,8 @@ def _build_stage_response(pipeline_data: dict[str, Any], stage: str) -> dict[str
     public_stage = _normalize_pipeline_stage_name(stage)
     if public_stage is None:
         return None
+    if public_stage not in _PIPELINE_STAGE_ALIASES.values():
+        return None
 
     payload = pipeline_data.get(public_stage)
     node_count, edge_count = _count_stage_graph_items(public_stage, payload)
