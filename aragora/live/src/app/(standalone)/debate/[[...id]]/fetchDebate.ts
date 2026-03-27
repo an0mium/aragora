@@ -12,7 +12,7 @@ export interface SavedDebate {
   critiques: Array<{ agent: string; target: string; text: string }>;
   votes: Array<{ agent: string; choice: string; confidence: number }>;
   final_answer: string;
-  receipt_hash: string;
+  receipt_hash: string | null;
 }
 
 const API_BASE =
@@ -38,7 +38,7 @@ function parseSavedDebate(payload: unknown): SavedDebate | null {
     || !Array.isArray(debate.critiques)
     || !Array.isArray(debate.votes)
     || typeof debate.final_answer !== 'string'
-    || typeof debate.receipt_hash !== 'string'
+    || (debate.receipt_hash !== null && typeof debate.receipt_hash !== 'string')
   ) {
     return null;
   }
