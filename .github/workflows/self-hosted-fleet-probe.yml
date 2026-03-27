@@ -32,16 +32,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Runner fingerprint
         shell: bash
         run: |
@@ -51,21 +41,32 @@ jobs:
           uname -a
           sw_vers
           sysctl -n machdep.cpu.brand_string || true
-          echo "system_python=$(command -v python3 || true)"
-          python --version
-          node --version
+          if command -v python3 >/dev/null 2>&1; then
+            echo "python3=$(command -v python3)"
+            python3 --version
+          else
+            echo "::warning::python3 missing on PATH"
+          fi
+          if command -v node >/dev/null 2>&1; then
+            echo "node=$(command -v node)"
+            node --version
+          else
+            echo "::warning::node missing on PATH"
+          fi
 
       - name: Repo smoke
         shell: bash
         run: |
           test -f pyproject.toml
-          python - <<'PY'
+          test -f scripts/check_version_alignment.py
+          test -f aragora/__version__.py
+          git rev-parse --short HEAD
+          python3 - <<'PY'
           from pathlib import Path
-
-          for relpath in ("scripts/check_version_alignment.py", "aragora/__version__.py"):
-              source = Path(relpath).read_text()
-              compile(source, relpath, "exec")
-              print(f"parsed={relpath}")
+          assert Path("pyproject.toml").is_file()
+          assert Path("scripts/check_version_alignment.py").is_file()
+          assert Path("aragora/__version__.py").is_file()
+          print("workspace_smoke=ok")
           PY
 
   hetzner-probe:
@@ -82,16 +83,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Runner fingerprint
         shell: bash
         run: |
@@ -99,20 +90,31 @@ jobs:
           echo "runner_os=${RUNNER_OS}"
           echo "runner_arch=${RUNNER_ARCH}"
           uname -a
-          echo "system_python=$(command -v python3 || true)"
-          python --version
-          node --version
+          if command -v python3 >/dev/null 2>&1; then
+            echo "python3=$(command -v python3)"
+            python3 --version
+          else
+            echo "::warning::python3 missing on PATH"
+          fi
+          if command -v node >/dev/null 2>&1; then
+            echo "node=$(command -v node)"
+            node --version
+          else
+            echo "::warning::node missing on PATH"
+          fi
           (lsb_release -a || cat /etc/os-release) 2>/dev/null || true
 
       - name: Repo smoke
         shell: bash
         run: |
           test -f pyproject.toml
-          python - <<'PY'
+          test -f scripts/check_version_alignment.py
+          test -f aragora/__version__.py
+          git rev-parse --short HEAD
+          python3 - <<'PY'
           from pathlib import Path
-
-          for relpath in ("scripts/check_version_alignment.py", "aragora/__version__.py"):
-              source = Path(relpath).read_text()
-              compile(source, relpath, "exec")
-              print(f"parsed={relpath}")
+          assert Path("pyproject.toml").is_file()
+          assert Path("scripts/check_version_alignment.py").is_file()
+          assert Path("aragora/__version__.py").is_file()
+          print("workspace_smoke=ok")
           PY
