@@ -56,6 +56,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "watch": False,
         "claude_runner_profiles": None,
         "runner_rotation_interval": 1800.0,
+        "boss_max_parallel_dispatches": 1,
         "interval_seconds": 5.0,
         "max_ticks": None,
         "all_runs": False,
@@ -205,6 +206,20 @@ class TestSwarmParser:
         )
         assert args.claude_runner_profiles == "max-02,max-03,max-04"
         assert args.runner_rotation_interval == 900.0
+
+    def test_swarm_boss_parser_accepts_parallel_dispatch_limit(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "boss-loop",
+                "--boss-max-parallel-dispatches",
+                "3",
+            ]
+        )
+        assert args.boss_max_parallel_dispatches == 3
 
     def test_swarm_integrator_parser(self):
         from aragora.cli.parser import build_parser

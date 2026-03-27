@@ -38,13 +38,13 @@ def _fresh_result() -> RunnerFreshnessResult:
     )
 
 
-def _issue() -> GitHubIssue:
+def _issue(number: int = 101, title: str = "Improve routed execution") -> GitHubIssue:
     return GitHubIssue(
-        number=101,
-        title="Improve routed execution",
+        number=number,
+        title=title,
         body="## Acceptance Criteria\n- [ ] It works\n\n## Validation\npytest -q tests/swarm/",
         labels=["boss-ready"],
-        url="https://github.com/synaptent/aragora/issues/101",
+        url=f"https://github.com/synaptent/aragora/issues/{number}",
         state="open",
         created_at="2026-03-27T00:00:00Z",
     )
@@ -182,3 +182,62 @@ def test_run_iteration_passes_profile_pool_and_rotation_to_freshness_checker() -
     assert captured["requested_runner_type"] == "claude"
     assert captured["allowed_profiles"] == {"max-02", "max-03"}
     assert captured["rotation_interval_seconds"] == 900.0
+
+
+def test_boss_loop_can_dispatch_multiple_issues_in_one_iteration() -> None:
+    feed = MagicMock()
+    feed.fetch.return_value = [
+        _issue(101, "First issue"),
+        _issue(102, "Second issue"),
+    ]
+    freshness = RunnerFreshnessResult(
+        fresh=True,
+        runner_ids=["claude-runner-1", "claude-runner-2"],
+        checked_at=datetime.now(UTC).isoformat(),
+        details={
+            "routing": {
+                "selected_runner_ids": ["claude-runner-1", "claude-runner-2"],
+                "selected_runners": [
+                    {
+                        "runner_id": "claude-runner-1",
+                        "runner_type": "claude",
+                        "cost_class": "subscription",
+                        "available_capacity": 1,
+                    },
+                    {
+                        "runner_id": "claude-runner-2",
+                        "runner_type": "claude",
+                        "cost_class": "subscription",
+                        "available_capacity": 1,
+                    },
+                ],
+                "fallback_reason": None,
+            }
+        },
+    )
+    loop = BossLoop(
+        config=BossLoopConfig(
+            max_iterations=1,
+            iteration_interval_seconds=0.0,
+            default_target_agent="claude",
+            default_reviewer_agent="codex",
+            max_parallel_dispatches=2,
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **_kwargs: freshness,
+    )
+
+    with patch.object(
+        loop,
+        "_dispatch_issue",
+        AsyncMock(side_effect=[{"status": "completed"}, {"status": "completed"}]),
+    ):
+        result = asyncio.run(loop.run())
+
+    assert len(result.issues_attempted) == 2
+    assert len(result.issues_completed) == 2
+    assert len(result.iteration_statuses) == 2
+    assert [status["selected_issue"]["number"] for status in result.iteration_statuses] == [
+        101,
+        102,
+    ]

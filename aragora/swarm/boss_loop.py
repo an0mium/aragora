@@ -613,6 +613,7 @@ class BossLoopConfig:
     default_reviewer_agent: str | None = None
     allowed_runner_profiles: set[str] | None = None
     runner_rotation_interval_seconds: float = 1800.0
+    max_parallel_dispatches: int = 1
 
     # Autonomy: when True, treat needs_human with a deliverable as completed
     # instead of stopping the loop. Only stop when there's genuinely no output.
@@ -1007,17 +1008,27 @@ class BossLoop:
         while iteration < self.config.max_iterations:
             iteration += 1
 
-            status = await self._run_iteration(iteration)
-            self._iteration_statuses.append(status)
+            statuses = await self._run_iteration_statuses(iteration)
+            self._iteration_statuses.extend(statuses)
 
-            if on_status is not None:
-                try:
-                    on_status(status)
-                except Exception:
-                    pass
+            for status in statuses:
+                if on_status is not None:
+                    try:
+                        on_status(status)
+                    except Exception:
+                        pass
 
-            if status.stop_reason and status.stop_reason != BossStopReason.STILL_RUNNING.value:
-                self._stop_reason = status.stop_reason
+            terminal_status = next(
+                (
+                    status
+                    for status in statuses
+                    if status.stop_reason
+                    and status.stop_reason != BossStopReason.STILL_RUNNING.value
+                ),
+                None,
+            )
+            if terminal_status is not None:
+                self._stop_reason = terminal_status.stop_reason
                 break
 
             # Periodic status logging
@@ -1055,6 +1066,11 @@ class BossLoop:
         )
         self._emit_terminal_receipt(result)
         return result
+
+    async def _run_iteration_statuses(self, iteration: int) -> list[BossIterationStatus]:
+        if int(self.config.max_parallel_dispatches or 1) <= 1:
+            return [await self._run_iteration(iteration)]
+        return await self._run_iteration_batch(iteration)
 
     async def _run_iteration(self, iteration: int) -> BossIterationStatus:
         """Execute a single Boss loop iteration."""
@@ -1178,20 +1194,249 @@ class BossLoop:
         )
 
         worker_result = await self._dispatch_issue(selected, freshness)
+        return self._finalize_worker_result(
+            iteration=iteration,
+            timestamp=now,
+            runner_freshness=freshness_dict,
+            issue=selected,
+            issue_dict=issue_dict,
+            worker_result=worker_result,
+            elapsed_seconds=time.monotonic() - iter_start,
+        )
+
+    async def _run_iteration_batch(self, iteration: int) -> list[BossIterationStatus]:
+        import asyncio
+
+        now = datetime.now(UTC).isoformat()
+        iter_start = time.monotonic()
+
+        freshness = self._freshness_checker(
+            freshness_ttl_seconds=self.config.freshness_ttl_seconds,
+            registry_path=self.config.registry_path,
+            env=self._env,
+            requested_runner_type=self.config.default_target_agent,
+            allowed_profiles=self.config.allowed_runner_profiles,
+            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
+        )
+        freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
+
+        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+            blocked_reason = (
+                freshness.blocked_reason
+                if hasattr(freshness, "blocked_reason")
+                else freshness_dict.get("blocked_reason", "runner_not_fresh")
+            )
+            return [
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=None,
+                    worker_status="blocked",
+                    stop_reason=BossStopReason.NO_FRESH_RUNNER.value,
+                    needs_human_reasons=[f"No fresh runner: {blocked_reason}"],
+                    next_actions=[
+                        "Re-register or refresh the Codex runner before resuming the Boss loop.",
+                        f"Blocked reason: {blocked_reason}",
+                    ],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                )
+            ]
+
+        try:
+            issues = self._feed.fetch()
+        except Exception as exc:
+            logger.warning("Issue feed error: %s", exc)
+            return [
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=None,
+                    worker_status="blocked",
+                    stop_reason=BossStopReason.ISSUE_FEED_ERROR.value,
+                    needs_human_reasons=["GitHub issue feed is unreachable."],
+                    next_actions=["Check GitHub CLI authentication and network."],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                    error="issue_feed_error",
+                )
+            ]
+
+        already_maxed = {
+            num
+            for num, count in self._issue_attempt_counts.items()
+            if count >= self.config.max_retries_per_issue
+        }
+        candidate_issues = [i for i in issues if i.number not in already_maxed]
+        parallel_limit = self._parallel_dispatch_limit(freshness)
+        selected_issues = self._select_issues_for_iteration(
+            candidate_issues,
+            limit=parallel_limit,
+        )
+
+        if not selected_issues:
+            if self.config.issue_number is not None:
+                needs_human_reasons = [
+                    f"Target issue #{self.config.issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
+                ]
+                next_actions = [
+                    f"Verify issue #{self.config.issue_number} is still open, eligible, and has not exceeded retry limits.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ]
+            else:
+                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
+                next_actions = [
+                    "Create a new issue with actionable scope, or adjust label filters.",
+                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
+                ]
+            return [
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=None,
+                    worker_status="idle",
+                    stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
+                    needs_human_reasons=needs_human_reasons,
+                    next_actions=next_actions,
+                    elapsed_seconds=time.monotonic() - iter_start,
+                )
+            ]
+
+        issue_dicts: list[dict[str, Any]] = []
+        for issue in selected_issues:
+            issue_dict = issue.to_dict()
+            issue_dicts.append(issue_dict)
+            self._attempted_issues.append(issue_dict)
+            self._issue_attempt_counts[issue.number] = (
+                self._issue_attempt_counts.get(issue.number, 0) + 1
+            )
+
+        worker_results = await asyncio.gather(
+            *(self._dispatch_issue(issue, freshness) for issue in selected_issues)
+        )
 
         elapsed = time.monotonic() - iter_start
+        statuses: list[BossIterationStatus] = []
+        for issue, issue_dict, worker_result in zip(
+            selected_issues,
+            issue_dicts,
+            worker_results,
+            strict=False,
+        ):
+            statuses.append(
+                self._finalize_worker_result(
+                    iteration=iteration,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    issue=issue,
+                    issue_dict=issue_dict,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed,
+                )
+            )
+        return statuses
 
+    def _parallel_dispatch_limit(self, freshness: RunnerFreshnessResult) -> int:
+        configured_limit = max(1, int(self.config.max_parallel_dispatches or 1))
+        details = freshness.details if isinstance(freshness.details, dict) else {}
+        routing = details.get("routing") if isinstance(details, dict) else {}
+        selected_runners = routing.get("selected_runners") if isinstance(routing, dict) else None
+        if not isinstance(selected_runners, list):
+            return configured_limit
+        available_capacity = 0
+        for item in selected_runners:
+            if not isinstance(item, dict):
+                continue
+            available_capacity += max(0, int(item.get("available_capacity", 0) or 0))
+        if available_capacity <= 0:
+            return 1
+        return max(1, min(configured_limit, available_capacity))
+
+    def _select_issues_for_iteration(
+        self,
+        issues: list[GitHubIssue],
+        *,
+        limit: int,
+    ) -> list[GitHubIssue]:
+        if limit <= 1:
+            if self.config.issue_number is not None:
+                target_issue = next(
+                    (issue for issue in issues if issue.number == self.config.issue_number),
+                    None,
+                )
+                selected = (
+                    select_eligible_issue(
+                        [target_issue],
+                        skip_labels=self.config.skip_labels,
+                        require_labels=self.config.require_labels,
+                    )
+                    if target_issue is not None
+                    else None
+                )
+                return [selected] if selected is not None else []
+            selected = select_eligible_issue(
+                issues,
+                skip_labels=self.config.skip_labels,
+                require_labels=self.config.require_labels,
+            )
+            return [selected] if selected is not None else []
+
+        if self.config.issue_number is not None:
+            target_issue = next(
+                (issue for issue in issues if issue.number == self.config.issue_number),
+                None,
+            )
+            selected = (
+                select_eligible_issue(
+                    [target_issue],
+                    skip_labels=self.config.skip_labels,
+                    require_labels=self.config.require_labels,
+                )
+                if target_issue is not None
+                else None
+            )
+            return [selected] if selected is not None else []
+
+        selected_issues: list[GitHubIssue] = []
+        for issue in issues:
+            candidate = select_eligible_issue(
+                [issue],
+                skip_labels=self.config.skip_labels,
+                require_labels=self.config.require_labels,
+            )
+            if candidate is None:
+                continue
+            selected_issues.append(candidate)
+            if len(selected_issues) >= limit:
+                break
+        return selected_issues
+
+    def _finalize_worker_result(
+        self,
+        *,
+        iteration: int,
+        timestamp: str,
+        runner_freshness: dict[str, Any],
+        issue: GitHubIssue,
+        issue_dict: dict[str, Any],
+        worker_result: dict[str, Any],
+        elapsed_seconds: float,
+    ) -> BossIterationStatus:
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0
             worker_run_id = str(worker_result.get("run_id", "")).strip()
             next_actions = [
                 (
-                    f"Supervisor run {worker_run_id} is active for issue #{selected.number}; "
+                    f"Supervisor run {worker_run_id} is active for issue #{issue.number}; "
                     "the boss loop returned after this bounded dispatch tick."
                 )
                 if worker_run_id
                 else (
-                    f"Issue #{selected.number} dispatched successfully; "
+                    f"Issue #{issue.number} dispatched successfully; "
                     "the boss loop returned after this bounded dispatch tick."
                 ),
                 "Inspect the active supervisor run before starting another live boss-loop tick.",
@@ -1199,42 +1444,40 @@ class BossLoop:
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
+                timestamp=timestamp,
+                runner_freshness=runner_freshness,
                 selected_issue=issue_dict,
                 worker_status="running",
                 stop_reason=None,
                 needs_human_reasons=[],
                 next_actions=next_actions,
-                elapsed_seconds=elapsed,
+                elapsed_seconds=elapsed_seconds,
                 worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
 
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
-            self._emit_lane_receipt(worker_result, issue_dict, elapsed)
+            self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
+                timestamp=timestamp,
+                runner_freshness=runner_freshness,
                 selected_issue=issue_dict,
                 worker_status="completed",
                 stop_reason=None,
                 needs_human_reasons=[],
                 next_actions=["Proceeding to next issue."],
-                elapsed_seconds=elapsed,
+                elapsed_seconds=elapsed_seconds,
             )
 
         if worker_result.get("status") == "needs_human":
             has_deliverable = bool(worker_result.get("deliverable"))
             if self.config.auto_continue_on_needs_human and has_deliverable:
-                # Treat as completed — the worker produced output, just needs
-                # review which can happen asynchronously.
                 self._completed_issues.append(issue_dict)
                 self._consecutive_failures = 0
-                self._emit_lane_receipt(worker_result, issue_dict, elapsed)
+                self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
                 logger.info(
                     "boss_loop_auto_continue issue=#%s (needs_human with deliverable → treating as completed)",
                     issue_dict.get("number", "?"),
@@ -1242,18 +1485,17 @@ class BossLoop:
                 return BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
-                    timestamp=now,
-                    runner_freshness=freshness_dict,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
                     selected_issue=issue_dict,
                     worker_status="completed",
                     stop_reason=None,
                     needs_human_reasons=[],
                     next_actions=["Auto-continuing: deliverable created, review can happen async."],
-                    elapsed_seconds=elapsed,
+                    elapsed_seconds=elapsed_seconds,
                 )
             self._failed_issues.append(issue_dict)
             if self.config.auto_continue_on_needs_human:
-                # No deliverable but auto-continue is on — don't stop, just skip this issue
                 self._consecutive_failures += 1
                 logger.warning(
                     "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
@@ -1262,16 +1504,16 @@ class BossLoop:
                 return BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
-                    timestamp=now,
-                    runner_freshness=freshness_dict,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
                     selected_issue=issue_dict,
                     worker_status="needs_human",
-                    stop_reason=None,  # Don't stop — continue to next issue
+                    stop_reason=None,
                     needs_human_reasons=worker_result.get(
                         "reasons", ["Worker requires human input."]
                     ),
                     next_actions=["Skipping to next issue (auto-continue mode)."],
-                    elapsed_seconds=elapsed,
+                    elapsed_seconds=elapsed_seconds,
                 )
             next_actions = [
                 str(item).strip()
@@ -1281,26 +1523,24 @@ class BossLoop:
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
+                timestamp=timestamp,
+                runner_freshness=runner_freshness,
                 selected_issue=issue_dict,
                 worker_status="needs_human",
                 stop_reason=BossStopReason.NEEDS_HUMAN.value,
                 needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
                 next_actions=next_actions,
-                elapsed_seconds=elapsed,
+                elapsed_seconds=elapsed_seconds,
             )
 
-        # Worker failed
         self._failed_issues.append(issue_dict)
         self._consecutive_failures += 1
-
         if self._consecutive_failures >= self.config.max_consecutive_failures:
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
+                timestamp=timestamp,
+                runner_freshness=runner_freshness,
                 selected_issue=issue_dict,
                 worker_status="failed",
                 stop_reason=BossStopReason.CONSECUTIVE_FAILURES.value,
@@ -1311,25 +1551,25 @@ class BossLoop:
                     "Investigate the last failures before resuming.",
                     f"Error: {worker_result.get('error', 'unknown')}",
                 ],
-                elapsed_seconds=elapsed,
+                elapsed_seconds=elapsed_seconds,
                 error=worker_result.get("error"),
             )
 
         return BossIterationStatus(
             iteration=iteration,
             run_id=self.run_id,
-            timestamp=now,
-            runner_freshness=freshness_dict,
+            timestamp=timestamp,
+            runner_freshness=runner_freshness,
             selected_issue=issue_dict,
             worker_status="failed",
             stop_reason=None,
             needs_human_reasons=[],
             next_actions=[
-                f"Issue #{selected.number} failed (attempt "
-                f"{self._issue_attempt_counts[selected.number]}/{self.config.max_retries_per_issue}). "
+                f"Issue #{issue.number} failed (attempt "
+                f"{self._issue_attempt_counts[issue.number]}/{self.config.max_retries_per_issue}). "
                 "Will retry with next iteration.",
             ],
-            elapsed_seconds=elapsed,
+            elapsed_seconds=elapsed_seconds,
             error=worker_result.get("error"),
         )
 

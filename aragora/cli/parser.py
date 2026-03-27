@@ -2470,6 +2470,12 @@ def _add_swarm_parser(subparsers) -> None:
         help="Stop boss-loop or tranche queue after N consecutive hard failures (default: 3)",
     )
     swarm_parser.add_argument(
+        "--boss-max-parallel-dispatches",
+        type=int,
+        default=1,
+        help="Maximum boss-loop issues to dispatch concurrently in one tick (default: 1)",
+    )
+    swarm_parser.add_argument(
         "--allow-missing-validation-contract",
         action="store_true",
         help="Allow boss-loop dispatch even when the issue body lacks explicit validation criteria",
