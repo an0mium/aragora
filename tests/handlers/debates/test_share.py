@@ -858,11 +858,10 @@ class TestPublicSpectateSSEGenerator:
         debate_id = "sse-cleanup"
         set_public_spectate(debate_id, True)
 
-        async def collect():
-            async for frame in public_spectate_sse_generator(debate_id):
-                break  # Disconnect immediately after first frame
-
-        await asyncio.wait_for(collect(), timeout=2.0)
+        generator = public_spectate_sse_generator(debate_id)
+        frame = await asyncio.wait_for(generator.__anext__(), timeout=2.0)
+        assert "connected" in frame
+        await generator.aclose()
 
         # After disconnect, the queue should be removed
         collectors = get_public_collectors()
@@ -876,14 +875,10 @@ class TestPublicSpectateSSEGenerator:
         set_public_spectate(debate_id, True)
         assert debate_id not in get_public_collectors()
 
-        frames = []
-
-        async def collect():
-            async for frame in public_spectate_sse_generator(debate_id):
-                frames.append(frame)
-                break  # Disconnect after connected event
-
-        await asyncio.wait_for(collect(), timeout=2.0)
+        generator = public_spectate_sse_generator(debate_id)
+        frame = await asyncio.wait_for(generator.__anext__(), timeout=2.0)
+        assert "connected" in frame
+        await generator.aclose()
         # Queue was registered then cleaned up
         # But the entry may remain as empty set - that's fine
 
@@ -892,11 +887,10 @@ class TestPublicSpectateSSEGenerator:
         debate_id = "sse-qsize"
         set_public_spectate(debate_id, True)
 
-        async def collect():
-            async for frame in public_spectate_sse_generator(debate_id, max_queue_size=10):
-                break
-
-        await asyncio.wait_for(collect(), timeout=2.0)
+        generator = public_spectate_sse_generator(debate_id, max_queue_size=10)
+        frame = await asyncio.wait_for(generator.__anext__(), timeout=2.0)
+        assert "connected" in frame
+        await generator.aclose()
         # Just verifying it doesn't crash with custom queue size
 
 
