@@ -19,7 +19,9 @@ import type { ExecutionHistoryEntry } from '@/components/unified-dag/ExecutionSi
 // Types
 // ---------------------------------------------------------------------------
 
-export type DAGStage = 'ideas' | 'goals' | 'actions' | 'orchestration';
+export const DAG_STAGES = ['ideas', 'principles', 'goals', 'actions', 'orchestration'] as const;
+
+export type DAGStage = (typeof DAG_STAGES)[number];
 
 export interface DAGNodeData {
   label: string;
@@ -44,53 +46,492 @@ interface GraphSnapshot {
   edges: Edge[];
 }
 
+type ServerGraphNode = Record<string, unknown>;
+type ServerGraphEdge = Record<string, unknown>;
+
 // Stage → swim-lane x position
 const STAGE_X: Record<DAGStage, number> = {
   ideas: 0,
-  goals: 300,
-  actions: 600,
-  orchestration: 900,
+  principles: 320,
+  goals: 640,
+  actions: 960,
+  orchestration: 1280,
 };
 
 // Stage → color hint
 export const STAGE_COLORS: Record<DAGStage, string> = {
   ideas: '#6366f1',       // indigo
+  principles: '#8b5cf6',  // violet
   goals: '#10b981',       // emerald
   actions: '#f59e0b',     // amber
   orchestration: '#ec4899', // pink
 };
 
+const NODE_TOP_PADDING = 96;
+const NODE_VERTICAL_GAP = 160;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function serverNodeToReactFlow(n: Record<string, unknown>, yIndex: number): Node<DAGNodeData> {
-  const stage = (n.stage as DAGStage) || 'ideas';
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasOwn(obj: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function getNumericValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+}
+
+function normalizeStage(value: unknown): DAGStage {
+  const raw = String(value || 'ideas').toLowerCase();
+  if ((DAG_STAGES as readonly string[]).includes(raw)) {
+    return raw as DAGStage;
+  }
+  return 'ideas';
+}
+
+function getNodeLabel(node: ServerGraphNode, data: Record<string, unknown>): string {
+  const rawLabel = node.label ?? data.label ?? node.id;
+  return typeof rawLabel === 'string' ? rawLabel : String(rawLabel || '');
+}
+
+function getNodeSubtype(node: ServerGraphNode, data: Record<string, unknown>): string {
+  const rawSubtype = node.node_subtype ?? data.nodeSubtype ?? data.subtype ?? node.subtype;
+  return typeof rawSubtype === 'string' ? rawSubtype : String(rawSubtype || '');
+}
+
+function getBaselineSortIndex(node: ServerGraphNode): [number, number, number, string] {
+  const data = isRecord(node.data) ? node.data : {};
+  const explicitY = getNumericValue(node.position_y ?? data.position_y ?? data.positionY);
+  const priority = getNumericValue(node.priority ?? data.priority) ?? 0;
+  const createdAt = getNumericValue(node.created_at) ?? Number.MAX_SAFE_INTEGER;
+  const label = getNodeLabel(node, data).toLowerCase();
+
+  return [
+    explicitY ?? Number.MAX_SAFE_INTEGER,
+    priority * -1,
+    createdAt,
+    label,
+  ];
+}
+
+export function normalizeDagStatus(node: ServerGraphNode): string {
+  const data = isRecord(node.data) ? node.data : {};
+  const rawStatus =
+    node.execution_status
+    ?? data.execution_status
+    ?? data.executionStatus
+    ?? node.status
+    ?? data.status
+    ?? node.approval_status
+    ?? data.approval_status
+    ?? data.approvalStatus
+    ?? 'pending';
+
+  switch (String(rawStatus).toLowerCase()) {
+    case 'active':
+      return 'ready';
+    case 'in_progress':
+      return 'running';
+    case 'completed':
+    case 'approved':
+      return 'succeeded';
+    case 'rejected':
+      return 'failed';
+    case 'revised':
+    case 'partial':
+      return 'blocked';
+    default:
+      return String(rawStatus || 'pending').toLowerCase();
+  }
+}
+
+function buildLayoutLinks(
+  serverNodes: ServerGraphNode[],
+  serverEdges: ServerGraphEdge[],
+): Array<{ source: string; target: string }> {
+  const links: Array<{ source: string; target: string }> = [];
+  const seen = new Set<string>();
+  const validNodeIds = new Set(serverNodes.map((node) => String(node.id || '')));
+
+  const pushLink = (source: string, target: string) => {
+    if (!source || !target || source === target) return;
+    if (!validNodeIds.has(source) || !validNodeIds.has(target)) return;
+    const key = `${source}->${target}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push({ source, target });
+  };
+
+  for (const edge of serverEdges) {
+    pushLink(
+      String(edge.source ?? edge.source_id ?? ''),
+      String(edge.target ?? edge.target_id ?? ''),
+    );
+  }
+
+  for (const node of serverNodes) {
+    const nodeId = String(node.id || '');
+    for (const parentId of getStringList(node.parent_ids)) {
+      pushLink(parentId, nodeId);
+    }
+  }
+
+  return links;
+}
+
+function sortStageNodes(
+  stageNodes: ServerGraphNode[],
+  scores: Map<string, number | null>,
+  fallbackOrder: Map<string, number>,
+): ServerGraphNode[] {
+  return [...stageNodes].sort((left, right) => {
+    const leftId = String(left.id || '');
+    const rightId = String(right.id || '');
+    const leftScore = scores.get(leftId) ?? null;
+    const rightScore = scores.get(rightId) ?? null;
+
+    if (leftScore !== null && rightScore !== null && leftScore !== rightScore) {
+      return leftScore - rightScore;
+    }
+    if (leftScore !== null) return -1;
+    if (rightScore !== null) return 1;
+
+    const leftFallback = fallbackOrder.get(leftId) ?? Number.MAX_SAFE_INTEGER;
+    const rightFallback = fallbackOrder.get(rightId) ?? Number.MAX_SAFE_INTEGER;
+    if (leftFallback !== rightFallback) {
+      return leftFallback - rightFallback;
+    }
+
+    const [leftY, leftPriority, leftCreatedAt, leftLabel] = getBaselineSortIndex(left);
+    const [rightY, rightPriority, rightCreatedAt, rightLabel] = getBaselineSortIndex(right);
+
+    if (leftY !== rightY) return leftY - rightY;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    if (leftCreatedAt !== rightCreatedAt) return leftCreatedAt - rightCreatedAt;
+    if (leftLabel !== rightLabel) return leftLabel.localeCompare(rightLabel);
+
+    return leftId.localeCompare(rightId);
+  });
+}
+
+function computeNodePositions(
+  serverNodes: ServerGraphNode[],
+  serverEdges: ServerGraphEdge[],
+): Map<string, { x: number; y: number }> {
+  const nodesByStage = new Map<DAGStage, ServerGraphNode[]>();
+  const nodeById = new Map<string, ServerGraphNode>();
+  const incoming = new Map<string, string[]>();
+  const outgoing = new Map<string, string[]>();
+  const fallbackOrder = new Map<string, number>();
+
+  for (const stage of DAG_STAGES) {
+    nodesByStage.set(stage, []);
+  }
+
+  for (const node of serverNodes) {
+    const stage = normalizeStage(node.stage);
+    nodesByStage.get(stage)?.push(node);
+    nodeById.set(String(node.id || ''), node);
+  }
+
+  for (const stage of DAG_STAGES) {
+    const ordered = [...(nodesByStage.get(stage) ?? [])].sort((left, right) => {
+      const leftBaseline = getBaselineSortIndex(left);
+      const rightBaseline = getBaselineSortIndex(right);
+      if (leftBaseline[0] !== rightBaseline[0]) return leftBaseline[0] - rightBaseline[0];
+      if (leftBaseline[1] !== rightBaseline[1]) return leftBaseline[1] - rightBaseline[1];
+      if (leftBaseline[2] !== rightBaseline[2]) return leftBaseline[2] - rightBaseline[2];
+      return leftBaseline[3].localeCompare(rightBaseline[3]);
+    });
+    ordered.forEach((node, index) => {
+      fallbackOrder.set(String(node.id || ''), index);
+    });
+  }
+
+  for (const link of buildLayoutLinks(serverNodes, serverEdges)) {
+    incoming.set(link.target, [...(incoming.get(link.target) ?? []), link.source]);
+    outgoing.set(link.source, [...(outgoing.get(link.source) ?? []), link.target]);
+  }
+
+  const stageOrders = new Map<DAGStage, string[]>();
+  const forwardRank = new Map<string, number>();
+
+  for (const stage of DAG_STAGES) {
+    const stageNodes = nodesByStage.get(stage) ?? [];
+    const scores = new Map<string, number | null>();
+
+    for (const node of stageNodes) {
+      const nodeId = String(node.id || '');
+      const upstreamRanks = (incoming.get(nodeId) ?? [])
+        .map((sourceId) => forwardRank.get(sourceId))
+        .filter((value): value is number => value !== undefined);
+
+      scores.set(
+        nodeId,
+        upstreamRanks.length > 0
+          ? upstreamRanks.reduce((sum, rank) => sum + rank, 0) / upstreamRanks.length
+          : null,
+      );
+    }
+
+    const orderedNodes = sortStageNodes(stageNodes, scores, fallbackOrder);
+    const orderedIds = orderedNodes.map((node) => String(node.id || ''));
+    stageOrders.set(stage, orderedIds);
+    orderedIds.forEach((id, index) => forwardRank.set(id, index));
+  }
+
+  const backwardRank = new Map<string, number>();
+
+  for (const stage of [...DAG_STAGES].reverse()) {
+    const orderedIds = stageOrders.get(stage) ?? [];
+    const stageNodes = orderedIds
+      .map((id) => nodeById.get(id))
+      .filter((node): node is ServerGraphNode => node !== undefined);
+    const scores = new Map<string, number | null>();
+
+    for (const node of stageNodes) {
+      const nodeId = String(node.id || '');
+      const downstreamRanks = (outgoing.get(nodeId) ?? [])
+        .map((targetId) => backwardRank.get(targetId))
+        .filter((value): value is number => value !== undefined);
+
+      scores.set(
+        nodeId,
+        downstreamRanks.length > 0
+          ? downstreamRanks.reduce((sum, rank) => sum + rank, 0) / downstreamRanks.length
+          : fallbackOrder.get(nodeId) ?? null,
+      );
+    }
+
+    const refinedNodes = sortStageNodes(stageNodes, scores, fallbackOrder);
+    const refinedIds = refinedNodes.map((node) => String(node.id || ''));
+    stageOrders.set(stage, refinedIds);
+    refinedIds.forEach((id, index) => backwardRank.set(id, index));
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+
+  for (const stage of DAG_STAGES) {
+    let nextY = NODE_TOP_PADDING;
+    const orderedIds = stageOrders.get(stage) ?? [];
+
+    orderedIds.forEach((id, index) => {
+      const node = nodeById.get(id);
+      if (!node) return;
+
+      const data = isRecord(node.data) ? node.data : {};
+      const explicitX = getNumericValue(node.position_x ?? data.position_x ?? data.positionX);
+      const explicitY = getNumericValue(node.position_y ?? data.position_y ?? data.positionY);
+      const hasExplicitX =
+        hasOwn(node, 'position_x')
+        || hasOwn(data, 'position_x')
+        || hasOwn(data, 'positionX');
+      const hasExplicitY =
+        hasOwn(node, 'position_y')
+        || hasOwn(data, 'position_y')
+        || hasOwn(data, 'positionY');
+
+      const preferredY =
+        hasExplicitY && explicitY !== null
+          ? explicitY
+          : NODE_TOP_PADDING + index * NODE_VERTICAL_GAP;
+      const y = index === 0
+        ? Math.max(NODE_TOP_PADDING, preferredY)
+        : Math.max(nextY, preferredY);
+      const x = hasExplicitX && explicitX !== null ? explicitX : STAGE_X[stage];
+
+      positions.set(id, { x, y });
+      nextY = y + NODE_VERTICAL_GAP;
+    });
+  }
+
+  return positions;
+}
+
+function serverNodeToReactFlow(
+  node: ServerGraphNode,
+  position: { x: number; y: number },
+): Node<DAGNodeData> {
+  const data = isRecord(node.data) ? node.data : {};
+  const metadata = {
+    ...(isRecord(node.metadata) ? node.metadata : {}),
+    ...(isRecord(data.metadata) ? data.metadata : {}),
+  };
+  const stage = normalizeStage(node.stage ?? data.stage);
+  const subtype = getNodeSubtype(node, data);
+  const executionStatus = node.execution_status ?? data.execution_status ?? data.executionStatus;
+  const approvalStatus = node.approval_status ?? data.approval_status ?? data.approvalStatus;
+  const priority = getNumericValue(node.priority ?? data.priority) ?? 0;
+
   return {
-    id: n.id as string,
+    id: String(node.id || ''),
     type: `${stage}Node`,
-    position: { x: STAGE_X[stage] + Math.random() * 60, y: 80 + yIndex * 120 },
+    position,
     data: {
-      label: (n.label as string) || '',
-      description: (n.description as string) || '',
+      ...data,
+      label: getNodeLabel(node, data),
+      description: typeof node.description === 'string'
+        ? node.description
+        : typeof data.description === 'string'
+          ? data.description
+          : '',
       stage,
-      subtype: (n.subtype as string) || '',
-      status: (n.status as string) || 'pending',
-      priority: (n.priority as number) || 0,
-      metadata: (n.metadata as Record<string, unknown>) || {},
+      subtype,
+      status: normalizeDagStatus(node),
+      priority,
+      metadata,
+      contentHash: node.content_hash ?? data.content_hash ?? data.contentHash ?? '',
+      approvalStatus: approvalStatus ? String(approvalStatus) : undefined,
+      approval_status: approvalStatus ? String(approvalStatus) : undefined,
+      executionStatus: executionStatus ? String(executionStatus) : undefined,
+      execution_status: executionStatus ? String(executionStatus) : undefined,
     },
+    style: isRecord(node.style) ? (node.style as Node<DAGNodeData>['style']) : undefined,
   };
 }
 
-function serverEdgeToReactFlow(e: Record<string, unknown>): Edge {
+function serverEdgeToReactFlow(
+  edge: ServerGraphEdge,
+  stageByNodeId: Map<string, DAGStage>,
+): Edge {
+  const rawData = isRecord(edge.data) ? edge.data : {};
+  const source = String(edge.source ?? edge.source_id ?? '');
+  const target = String(edge.target ?? edge.target_id ?? '');
+  const sourceStage = stageByNodeId.get(source) ?? 'ideas';
+  const targetStage = stageByNodeId.get(target);
+  const edgeType = String(edge.edge_type ?? rawData.edgeType ?? edge.type ?? 'default');
+  const crossStage = Boolean(
+    edge.cross_stage
+    ?? rawData.crossStage
+    ?? (targetStage ? sourceStage !== targetStage : false),
+  );
+
   return {
-    id: (e.id as string) || `${e.source}-${e.target}`,
-    source: e.source as string,
-    target: e.target as string,
-    label: (e.label as string) || (e.edge_type as string) || undefined,
-    animated: (e.edge_type as string) === 'SIMILARITY',
-    style: { stroke: '#6366f1' },
+    id: String(edge.id ?? `${source}-${target}`),
+    source,
+    target,
+    type: crossStage ? 'crossStage' : String(edge.type ?? 'default'),
+    label: edge.label ? String(edge.label) : edgeType || undefined,
+    animated: Boolean(edge.animated ?? crossStage || edgeType.toLowerCase() === 'similarity'),
+    data: {
+      edgeType,
+      crossStage,
+      ...rawData,
+    },
+    style: crossStage
+      ? {
+          stroke: STAGE_COLORS[sourceStage],
+          strokeDasharray: '6 4',
+        }
+      : {
+          stroke: STAGE_COLORS[sourceStage],
+        },
   };
+}
+
+export function mapServerGraphToReactFlow(graph: Record<string, unknown>): GraphSnapshot {
+  const serverNodes = Array.isArray(graph.nodes)
+    ? graph.nodes.filter(isRecord)
+    : [];
+  const serverEdges = Array.isArray(graph.edges)
+    ? graph.edges.filter(isRecord)
+    : [];
+  const positions = computeNodePositions(serverNodes, serverEdges);
+  const nodes = serverNodes.map((node) =>
+    serverNodeToReactFlow(
+      node,
+      positions.get(String(node.id || '')) ?? { x: STAGE_X[normalizeStage(node.stage)], y: NODE_TOP_PADDING },
+    ),
+  );
+  const stageByNodeId = new Map(nodes.map((node) => [node.id, node.data.stage]));
+  const edges = serverEdges
+    .map((edge) => serverEdgeToReactFlow(edge, stageByNodeId))
+    .filter((edge) => edge.source && edge.target);
+
+  return { nodes, edges };
+}
+
+export function validateDagGraph(
+  nodes: Node<DAGNodeData>[],
+  edges: Edge[],
+): string[] {
+  const errors: string[] = [];
+  if (nodes.length === 0) {
+    errors.push('Graph is empty — add at least one idea node');
+    return errors;
+  }
+
+  const byStage = Object.fromEntries(
+    DAG_STAGES.map((stage) => [stage, [] as Node<DAGNodeData>[]]),
+  ) as Record<DAGStage, Node<DAGNodeData>[]>;
+
+  for (const node of nodes) {
+    const stage = normalizeStage((node.data as DAGNodeData).stage);
+    byStage[stage].push(node);
+  }
+
+  if (byStage.ideas.length === 0) {
+    errors.push('No idea nodes — ideas are required to start the pipeline');
+  }
+
+  for (let index = 1; index < DAG_STAGES.length; index += 1) {
+    const stage = DAG_STAGES[index];
+    if (byStage[stage].length === 0) continue;
+
+    const upstreamStages = DAG_STAGES.slice(0, index).filter(
+      (candidate) => byStage[candidate].length > 0,
+    );
+    const upstreamNodeIds = new Set(
+      upstreamStages.flatMap((candidate) => byStage[candidate].map((node) => node.id)),
+    );
+
+    const hasIncoming = byStage[stage].some((node) =>
+      edges.some((edge) => edge.target === node.id && upstreamNodeIds.has(edge.source)),
+    );
+
+    if (!hasIncoming) {
+      const nearestUpstream = upstreamStages.at(-1) ?? 'earlier stages';
+      errors.push(
+        `${stage} nodes have no connections from ${nearestUpstream} — add cross-stage edges`,
+      );
+    }
+  }
+
+  const nodesWithEdges = new Set<string>();
+  for (const edge of edges) {
+    nodesWithEdges.add(edge.source);
+    nodesWithEdges.add(edge.target);
+  }
+  const orphans = nodes.filter((node) => !nodesWithEdges.has(node.id));
+  if (orphans.length > 0 && nodes.length > 1) {
+    errors.push(`${orphans.length} orphan node(s) with no connections`);
+  }
+
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,11 +559,9 @@ export function useUnifiedDAG(graphId: string | null) {
   // Sync server graph → React Flow
   useEffect(() => {
     if (!graphData?.data) return;
-    const g = graphData.data;
-    const serverNodes = (g.nodes as Record<string, unknown>[]) || [];
-    const serverEdges = (g.edges as Record<string, unknown>[]) || [];
-    setNodes(serverNodes.map((n, i) => serverNodeToReactFlow(n, i)));
-    setEdges(serverEdges.map(serverEdgeToReactFlow));
+    const { nodes: nextNodes, edges: nextEdges } = mapServerGraphToReactFlow(graphData.data);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
   }, [graphData]);
 
   // -------------------------------------------------------------------------
@@ -280,50 +719,7 @@ export function useUnifiedDAG(graphId: string | null) {
   // -------------------------------------------------------------------------
 
   const validateGraph = useCallback((): string[] => {
-    const errors: string[] = [];
-    if (nodes.length === 0) {
-      errors.push('Graph is empty — add at least one idea node');
-      return errors;
-    }
-
-    const stages: DAGStage[] = ['ideas', 'goals', 'actions', 'orchestration'];
-    const byStage: Record<DAGStage, Node<DAGNodeData>[]> = {
-      ideas: [], goals: [], actions: [], orchestration: [],
-    };
-    for (const n of nodes) {
-      const s = (n.data as unknown as DAGNodeData).stage;
-      if (byStage[s]) byStage[s].push(n);
-    }
-
-    if (byStage.ideas.length === 0) {
-      errors.push('No idea nodes — ideas are required to start the pipeline');
-    }
-
-    // Check that each non-first stage has at least one incoming edge from a previous stage
-    for (let i = 1; i < stages.length; i++) {
-      const stage = stages[i];
-      if (byStage[stage].length === 0) continue;
-      const prevStageNodeIds = new Set(byStage[stages[i - 1]].map((n) => n.id));
-      const hasIncoming = byStage[stage].some((n) =>
-        edges.some((e) => e.target === n.id && prevStageNodeIds.has(e.source))
-      );
-      if (!hasIncoming) {
-        errors.push(`${stage} nodes have no connections from ${stages[i - 1]} — add cross-stage edges`);
-      }
-    }
-
-    // Check for orphan nodes with no edges
-    const nodesWithEdges = new Set<string>();
-    for (const e of edges) {
-      nodesWithEdges.add(e.source);
-      nodesWithEdges.add(e.target);
-    }
-    const orphans = nodes.filter((n) => !nodesWithEdges.has(n.id));
-    if (orphans.length > 0 && nodes.length > 1) {
-      errors.push(`${orphans.length} orphan node(s) with no connections`);
-    }
-
-    return errors;
+    return validateDagGraph(nodes, edges);
   }, [nodes, edges]);
 
   // -------------------------------------------------------------------------

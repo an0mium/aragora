@@ -8,14 +8,21 @@ const STATUS_CONFIG: Record<string, { ring: string; bg: string; label: string; p
   pending: { ring: '#6b7280', bg: 'bg-gray-500/15', label: 'Pending', pulse: false },
   ready: { ring: '#3b82f6', bg: 'bg-blue-500/15', label: 'Ready', pulse: false },
   running: { ring: '#f59e0b', bg: 'bg-amber-500/15', label: 'Running', pulse: true },
+  in_progress: { ring: '#f59e0b', bg: 'bg-amber-500/15', label: 'Running', pulse: true },
   succeeded: { ring: '#10b981', bg: 'bg-emerald-500/15', label: 'Done', pulse: false },
+  completed: { ring: '#10b981', bg: 'bg-emerald-500/15', label: 'Done', pulse: false },
+  approved: { ring: '#10b981', bg: 'bg-emerald-500/15', label: 'Done', pulse: false },
   failed: { ring: '#ef4444', bg: 'bg-red-500/15', label: 'Failed', pulse: false },
+  rejected: { ring: '#ef4444', bg: 'bg-red-500/15', label: 'Failed', pulse: false },
   blocked: { ring: '#6b7280', bg: 'bg-gray-500/10', label: 'Blocked', pulse: false },
+  partial: { ring: '#f59e0b', bg: 'bg-amber-500/10', label: 'Partial', pulse: false },
+  active: { ring: '#3b82f6', bg: 'bg-blue-500/15', label: 'Ready', pulse: false },
 };
 
 /** Stage-specific icons for node headers. */
 const STAGE_ICONS: Record<DAGStage, string> = {
   ideas: '\u2726',       // four-pointed star
+  principles: '\u25C8',  // diamond
   goals: '\u25CE',       // bullseye
   actions: '\u2611',     // ballot box with check
   orchestration: '\u2699', // gear
@@ -38,6 +45,11 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
   const icon = STAGE_ICONS[stage];
   const agents = (nodeData.metadata?.agents as string[]) || [];
   const progress = (nodeData.metadata?.progress as number) || 0;
+  const executeHandler =
+    onExecuteNode
+    ?? (typeof nodeData.onExecuteNode === 'function'
+      ? (nodeData.onExecuteNode as (nodeId: string) => void)
+      : undefined);
 
   return (
     <div
@@ -113,11 +125,11 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
         )}
 
         {/* Inline execute button for ready/failed nodes */}
-        {(status === 'ready' || status === 'failed') && onExecuteNode && (
+        {(status === 'ready' || status === 'failed') && executeHandler && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onExecuteNode(id);
+              executeHandler(id);
             }}
             className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/40 transition-colors"
             title={status === 'failed' ? 'Retry execution' : 'Execute this node'}

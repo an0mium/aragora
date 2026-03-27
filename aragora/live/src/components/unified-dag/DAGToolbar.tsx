@@ -15,7 +15,7 @@ interface DAGToolbarProps {
   children?: ReactNode;
 }
 
-const STAGES = ['ideas', 'goals', 'actions', 'orchestration'] as const;
+const STAGES = ['ideas', 'principles', 'goals', 'actions', 'orchestration'] as const;
 
 export function DAGToolbar({
   onBrainDump,

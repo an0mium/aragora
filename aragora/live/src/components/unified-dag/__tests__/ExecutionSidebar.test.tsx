@@ -63,6 +63,7 @@ describe('ExecutionSidebar', () => {
   it('renders stage progress sections', () => {
     render(<ExecutionSidebar {...defaultProps} />);
     expect(screen.getByText('ideas')).toBeInTheDocument();
+    expect(screen.getByText('principles')).toBeInTheDocument();
     expect(screen.getByText('goals')).toBeInTheDocument();
     expect(screen.getByText('actions')).toBeInTheDocument();
     expect(screen.getByText('orchestration')).toBeInTheDocument();

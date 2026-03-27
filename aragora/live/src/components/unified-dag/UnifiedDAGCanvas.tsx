@@ -36,6 +36,7 @@ import { CrossStageEdge } from './edges/CrossStageEdge';
 
 const nodeTypes = {
   ideasNode: ExecutionDAGNode,
+  principlesNode: ExecutionDAGNode,
   goalsNode: ExecutionDAGNode,
   actionsNode: ExecutionDAGNode,
   orchestrationNode: ExecutionDAGNode,
@@ -83,6 +84,14 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
     if (!stageFilter) return dag.nodes;
     return dag.nodes.filter((n) => (n.data as DAGNodeData).stage === stageFilter);
   }, [dag.nodes, stageFilter]);
+
+  const filteredEdges = useMemo(() => {
+    if (!stageFilter) return dag.edges;
+    const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
+    return dag.edges.filter(
+      (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+    );
+  }, [dag.edges, filteredNodes, stageFilter]);
 
   // Right-click handler
   const handleNodeContextMenu: NodeMouseHandler = useCallback(
@@ -178,6 +187,18 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
     [dag, withResult],
   );
 
+  const interactiveNodes = useMemo(
+    () =>
+      filteredNodes.map((node) => ({
+        ...node,
+        data: {
+          ...(node.data as DAGNodeData),
+          onExecuteNode: _handleExecuteNode,
+        },
+      })),
+    [filteredNodes, _handleExecuteNode],
+  );
+
   return (
     <div className="flex flex-col h-full">
       <DAGToolbar
@@ -210,10 +231,10 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
 
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 h-full relative">
-          <DAGStageLanes />
+          <DAGStageLanes activeStage={stageFilter as DAGStage | null} />
           <ReactFlow
-            nodes={filteredNodes}
-            edges={dag.edges}
+            nodes={interactiveNodes}
+            edges={filteredEdges}
             onNodesChange={(changes) => {
               // Apply position changes directly
               dag.setNodes((nds) => {

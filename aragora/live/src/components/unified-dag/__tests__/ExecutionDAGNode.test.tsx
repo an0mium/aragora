@@ -84,6 +84,17 @@ describe('ExecutionDAGNode', () => {
     expect(screen.getByText('Retry')).toBeInTheDocument();
   });
 
+  it('uses the execute callback embedded in node data', () => {
+    const onExecuteNode = jest.fn();
+    render(
+      <ExecutionDAGNode
+        {...makeProps({ data: { status: 'ready', onExecuteNode } })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('run-btn-node-1'));
+    expect(onExecuteNode).toHaveBeenCalledWith('node-1');
+  });
+
   it('does not show Run button for pending nodes', () => {
     render(<ExecutionDAGNode {...makeProps()} />);
     expect(screen.queryByText('Run')).not.toBeInTheDocument();
@@ -136,5 +147,15 @@ describe('ExecutionDAGNode', () => {
     );
     const node = container.querySelector('[data-testid="dag-node-node-1"]');
     expect(node?.className).toContain('ring-2');
+  });
+
+  it('renders the principles stage icon and label', () => {
+    render(
+      <ExecutionDAGNode
+        {...makeProps({ data: { stage: 'principles', status: 'active' } })}
+      />,
+    );
+    expect(screen.getByText('principles')).toBeInTheDocument();
+    expect(screen.getByText('Ready')).toBeInTheDocument();
   });
 });

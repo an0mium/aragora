@@ -49,7 +49,7 @@ export function NodeContextMenu({
       label: 'Debate',
       icon: '\u2694',
       action: () => { onDebate(nodeId); onClose(); },
-      stages: ['ideas', 'goals'],
+      stages: ['ideas', 'principles', 'goals'],
     },
     {
       label: 'Decompose',
@@ -79,7 +79,7 @@ export function NodeContextMenu({
       label: 'Find Precedents',
       icon: '\u{1F50D}',
       action: () => { onFindPrecedents(nodeId); onClose(); },
-      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+      stages: ['ideas', 'principles', 'goals', 'actions', 'orchestration'],
     },
     {
       label: 'Validate',
@@ -91,19 +91,19 @@ export function NodeContextMenu({
       label: 'Enrich with Knowledge',
       icon: '\u{1F4DA}',
       action: () => { onEnrich?.(nodeId); onClose(); },
-      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+      stages: ['ideas', 'principles', 'goals', 'actions', 'orchestration'],
     },
     {
       label: 'Improve This',
       icon: '\u2728',
       action: () => { onImprove?.(nodeId); onClose(); },
-      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+      stages: ['ideas', 'principles', 'goals', 'actions', 'orchestration'],
     },
     {
       label: 'Delete',
       icon: '\u{1F5D1}',
       action: () => { onDelete(nodeId); onClose(); },
-      stages: ['ideas', 'goals', 'actions', 'orchestration'],
+      stages: ['ideas', 'principles', 'goals', 'actions', 'orchestration'],
     },
   ];
 

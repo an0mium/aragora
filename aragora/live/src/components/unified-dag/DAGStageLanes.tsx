@@ -4,6 +4,7 @@ import { STAGE_COLORS, type DAGStage } from '@/hooks/useUnifiedDAG';
 
 const LANES: { stage: DAGStage; label: string }[] = [
   { stage: 'ideas', label: 'Ideas' },
+  { stage: 'principles', label: 'Principles' },
   { stage: 'goals', label: 'Goals' },
   { stage: 'actions', label: 'Actions' },
   { stage: 'orchestration', label: 'Orchestration' },
@@ -11,7 +12,11 @@ const LANES: { stage: DAGStage; label: string }[] = [
 
 const LANE_WIDTH = 280;
 
-export function DAGStageLanes() {
+interface DAGStageLanesProps {
+  activeStage?: DAGStage | null;
+}
+
+export function DAGStageLanes({ activeStage = null }: DAGStageLanesProps) {
   return (
     <div className="absolute inset-0 pointer-events-none flex" style={{ zIndex: 0 }}>
       {LANES.map(({ stage, label }, i) => (
@@ -23,6 +28,7 @@ export function DAGStageLanes() {
             marginLeft: i === 0 ? 0 : 20,
             background: `${STAGE_COLORS[stage]}08`,
             borderRight: `1px dashed ${STAGE_COLORS[stage]}30`,
+            opacity: activeStage && activeStage !== stage ? 0.3 : 1,
           }}
         >
           <span
