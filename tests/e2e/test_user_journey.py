@@ -112,13 +112,7 @@ def _build_journey_arena(
     protocol: DebateProtocol,
 ) -> Arena:
     """Keep the E2E smoke test deterministic and local-only."""
-    return Arena(
-        env,
-        agents,
-        protocol,
-        enable_knowledge_retrieval=False,
-        disable_post_debate_pipeline=True,
-    )
+    return Arena(env, agents, protocol)
 
 
 @pytest.fixture
