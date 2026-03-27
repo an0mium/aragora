@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any
 
 from aragora.prompt_engine.decomposer import PromptDecomposer
+from aragora.prompt_engine.processing import (
+    append_context_block,
+    extract_json_object_text,
+    format_answered_questions,
+)
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
@@ -113,13 +117,10 @@ class SpecBuilder:
         agent = await self._get_agent()
         append_timing(timings, "specify.get_agent", timer, category="setup")
 
-        clarification_text = ""
-        if answered_questions:
-            lines = []
-            for q in answered_questions:
-                if q.is_answered:
-                    lines.append(f"Q: {q.question}\nA: {q.answer}")
-            clarification_text = "Clarifications:\n" + "\n\n".join(lines) if lines else ""
+        clarification_text = format_answered_questions(
+            answered_questions,
+            header="Clarifications:",
+        )
 
         research_text = ""
         if research:
@@ -144,8 +145,7 @@ class SpecBuilder:
             research_summary=research_text,
         )
 
-        if context:
-            prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        prompt = append_context_block(prompt, context)
 
         timer = start_timer()
         response = await agent.generate(prompt)
@@ -185,17 +185,6 @@ class SpecBuilder:
     def _parse_spec(self, response: str) -> Specification:
         """Parse LLM response into a Specification."""
         text = response.strip()
-
-        # Strip markdown code fences (```json ... ``` or ``` ... ```)
-        fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
-        if fence_match:
-            text = fence_match.group(1).strip()
-        else:
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
 
         data = self._extract_json(text)
         if data is None:
@@ -262,6 +251,14 @@ class SpecBuilder:
     @staticmethod
     def _extract_json(text: str) -> dict[str, Any] | None:
         """Try multiple strategies to extract JSON from LLM response."""
+        candidate = extract_json_object_text(text)
+        if candidate is not None:
+            try:
+                data = json.loads(candidate)
+                return SpecBuilder._unwrap_nested(data)
+            except (json.JSONDecodeError, ValueError):
+                text = candidate
+
         # Strategy 1: direct parse
         try:
             data = json.loads(text)

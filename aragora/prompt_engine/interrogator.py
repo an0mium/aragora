@@ -10,10 +10,10 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
+from aragora.prompt_engine.processing import append_context_block, parse_json_object
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
@@ -134,8 +134,7 @@ class PromptInterrogator:
             max_q=max_q,
         )
 
-        if context:
-            prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        prompt = append_context_block(prompt, context)
 
         timings: list[OperationTiming] = []
         timer = start_timer()
@@ -166,33 +165,19 @@ class PromptInterrogator:
 
     def _parse_questions(self, response: str, intent: PromptIntent) -> list[ClarifyingQuestion]:
         """Parse LLM response into ClarifyingQuestion objects."""
-        text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse interrogation response")
-                    return self._fallback_questions(intent)
-            else:
-                return self._fallback_questions(intent)
+        data = parse_json_object(response)
+        if data is None:
+            logger.warning("Could not parse interrogation response")
+            return self._fallback_questions(intent)
 
         questions_data = data.get("questions", [])
-        if not questions_data:
+        if not isinstance(questions_data, list) or not questions_data:
             return self._fallback_questions(intent)
 
         questions = []
         for i, q in enumerate(questions_data):
+            if not isinstance(q, dict):
+                continue
             try:
                 options = [
                     QuestionOption(
@@ -201,6 +186,7 @@ class PromptInterrogator:
                         tradeoffs=opt.get("tradeoffs", ""),
                     )
                     for j, opt in enumerate(q.get("options", []))
+                    if isinstance(opt, dict)
                 ]
 
                 ambiguity_ref = None

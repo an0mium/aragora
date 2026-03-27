@@ -11,11 +11,15 @@ import json
 import logging
 import os
 import re
+from functools import lru_cache
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+_JSON_CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```")
+_ARRAY_CODE_BLOCK_RE = re.compile(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```")
 
 
 def safe_json_loads(
@@ -41,6 +45,7 @@ def safe_json_loads(
         return default if default is not None else {}
 
 
+@lru_cache(maxsize=1024)
 def _extract_balanced_json(text: str, open_char: str, close_char: str) -> str | None:
     """Extract a balanced JSON structure (object or array) from text.
 
@@ -89,6 +94,7 @@ def _extract_balanced_json(text: str, open_char: str, close_char: str) -> str | 
     return None
 
 
+@lru_cache(maxsize=512)
 def extract_json_from_text(text: str) -> str:
     """Extract JSON from text that might contain other content.
 
@@ -111,12 +117,12 @@ def extract_json_from_text(text: str) -> str:
         '{"key": "value"}'
     """
     # Try to find JSON in code blocks first (```json or ```)
-    code_block_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text)
+    code_block_match = _JSON_CODE_BLOCK_RE.search(text)
     if code_block_match:
         return code_block_match.group(1)
 
     # Try to find JSON array in code blocks
-    array_block_match = re.search(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```", text)
+    array_block_match = _ARRAY_CODE_BLOCK_RE.search(text)
     if array_block_match:
         return array_block_match.group(1)
 

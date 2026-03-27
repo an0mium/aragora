@@ -11,10 +11,17 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
+from collections import OrderedDict
 from typing import Any
 
+from aragora.prompt_engine.processing import (
+    append_context_block,
+    format_answered_questions,
+    format_km_context,
+    parse_json_object,
+    prompt_hash,
+)
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     ClarifyingQuestion,
@@ -24,6 +31,8 @@ from aragora.prompt_engine.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+_KM_CACHE_MAX_SIZE = 32
 
 _RESEARCH_PROMPT = """\
 You are a senior technical researcher. Analyze the user's intent and produce
@@ -58,6 +67,7 @@ class PromptResearcher:
         self._agent = agent
         self._km = knowledge_mound
         self._last_operation_timings: list[OperationTiming] = []
+        self._km_cache: OrderedDict[str, str] = OrderedDict()
 
     @property
     def last_operation_timings(self) -> list[OperationTiming]:
@@ -104,14 +114,10 @@ class PromptResearcher:
         agent = await self._get_agent()
         append_timing(timings, "research.get_agent", timer, category="setup")
 
-        clarification_text = ""
-        if answered_questions:
-            lines = []
-            for q in answered_questions:
-                if q.is_answered:
-                    lines.append(f"Q: {q.question}\nA: {q.answer}")
-            if lines:
-                clarification_text = "Clarifications received:\n" + "\n\n".join(lines)
+        clarification_text = format_answered_questions(
+            answered_questions,
+            header="Clarifications received:",
+        )
 
         timer = start_timer()
         km_context = await self._get_km_context(intent)
@@ -137,8 +143,7 @@ class PromptResearcher:
             knowledge_context=knowledge_text,
         )
 
-        if context:
-            prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        prompt = append_context_block(prompt, context)
 
         timer = start_timer()
         response = await agent.generate(prompt)
@@ -169,47 +174,40 @@ class PromptResearcher:
         if self._km is None:
             return ""
 
+        cache_key = self._km_cache_key(intent)
+        cached = self._km_cache.get(cache_key)
+        if cached is not None:
+            self._km_cache.move_to_end(cache_key)
+            return cached
+
         try:
             results = await self._km.query(
                 query=intent.summary,
                 limit=10,
             )
             if not isinstance(results, list) or not results:
+                self._store_km_cache(cache_key, "")
                 return ""
 
-            lines = []
-            for item in results[:10]:
-                title = item.get("title", item.get("document_id", "Unknown"))
-                content = item.get("content", "")[:300]
-                source = item.get("metadata", {}).get("source", "km")
-                lines.append(f"- [{source}] {title}: {content}")
-            return "\n".join(lines)
+            context = format_km_context(
+                results,
+                limit=10,
+                content_chars=300,
+                include_source=True,
+            )
+            self._store_km_cache(cache_key, context)
+            return context
         except (RuntimeError, ValueError, AttributeError) as e:
             logger.debug("KM research query failed: %s", e)
+            self._store_km_cache(cache_key, "")
             return ""
 
     def _parse_report(self, response: str, km_context: str) -> ResearchReport:
         """Parse LLM response into a ResearchReport."""
-        text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse research response")
-                    return self._fallback_report(text)
-            else:
-                return self._fallback_report(text)
+        data = parse_json_object(response)
+        if data is None:
+            logger.warning("Could not parse research response")
+            return self._fallback_report(response.strip())
 
         try:
             evidence = []
@@ -223,6 +221,8 @@ class PromptResearcher:
                 )
 
             for ev in data.get("evidence", []):
+                if not isinstance(ev, dict):
+                    continue
                 evidence.append(
                     EvidenceLink(
                         source=ev.get("source", "unknown"),
@@ -243,7 +243,7 @@ class PromptResearcher:
             )
         except (KeyError, TypeError, ValueError) as e:
             logger.warning("Error building ResearchReport: %s", e)
-            return self._fallback_report(text)
+            return self._fallback_report(response.strip())
 
     @staticmethod
     def _fallback_report(raw_text: str) -> ResearchReport:
@@ -252,3 +252,29 @@ class PromptResearcher:
             summary="Research completed (unstructured)",
             current_state=raw_text[:1000],
         )
+
+    @staticmethod
+    def _km_cache_key(intent: PromptIntent) -> str:
+        """Build a stable cache key for Knowledge Mound lookups."""
+        scope = (
+            intent.scope_estimate.value
+            if hasattr(intent.scope_estimate, "value")
+            else str(intent.scope_estimate)
+        )
+        return prompt_hash(
+            "\x1f".join(
+                [
+                    intent.summary,
+                    intent.intent_type.value,
+                    scope,
+                    ",".join(intent.domains),
+                ]
+            )
+        )
+
+    def _store_km_cache(self, key: str, value: str) -> None:
+        """Store a bounded Knowledge Mound context cache entry."""
+        self._km_cache[key] = value
+        self._km_cache.move_to_end(key)
+        while len(self._km_cache) > _KM_CACHE_MAX_SIZE:
+            self._km_cache.popitem(last=False)

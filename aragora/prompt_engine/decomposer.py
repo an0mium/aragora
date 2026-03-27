@@ -10,11 +10,17 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
-import json
+import copy
 import logging
+from collections import OrderedDict
 from typing import Any
 
+from aragora.prompt_engine.processing import (
+    append_context_block,
+    format_km_context,
+    parse_json_object,
+    prompt_hash,
+)
 from aragora.prompt_engine.timing import OperationTiming, append_timing, format_timings, start_timer
 from aragora.prompt_engine.types import (
     Ambiguity,
@@ -25,6 +31,8 @@ from aragora.prompt_engine.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+_KM_CACHE_MAX_SIZE = 32
 
 _DECOMPOSITION_PROMPT = """\
 You are an expert product analyst. Your job is to decompose a vague user prompt
@@ -60,6 +68,7 @@ class PromptDecomposer:
         self._km = knowledge_mound
         self._km_results: list[dict[str, Any]] = []
         self._last_operation_timings: list[OperationTiming] = []
+        self._km_cache: OrderedDict[str, tuple[str, list[dict[str, Any]]]] = OrderedDict()
 
     @property
     def last_operation_timings(self) -> list[OperationTiming]:
@@ -104,9 +113,7 @@ class PromptDecomposer:
         agent = await self._get_agent()
         append_timing(timings, "decompose.get_agent", timer, category="setup")
 
-        user_prompt = f"User prompt:\n{prompt}"
-        if context:
-            user_prompt += f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
+        user_prompt = append_context_block(f"User prompt:\n{prompt}", context)
 
         timer = start_timer()
         km_context = await self._get_km_context(prompt)
@@ -155,45 +162,36 @@ class PromptDecomposer:
         if self._km is None:
             return ""
 
+        cache_key = prompt_hash(prompt)
+        cached = self._km_cache.get(cache_key)
+        if cached is not None:
+            self._km_cache.move_to_end(cache_key)
+            cached_context, cached_results = cached
+            self._km_results = copy.deepcopy(cached_results)
+            return cached_context
+
         try:
             results = await self._km.query(query=prompt, limit=5)
             self._km_results = results if isinstance(results, list) else []
             if not self._km_results:
+                self._store_km_cache(cache_key, "", [])
                 return ""
 
-            lines = []
-            for item in self._km_results[:5]:
-                title = item.get("title", item.get("document_id", "Unknown"))
-                content = item.get("content", "")[:200]
-                lines.append(f"- {title}: {content}")
-            return "\n".join(lines)
+            context = format_km_context(self._km_results, limit=5, content_chars=200)
+            self._store_km_cache(cache_key, context, self._km_results)
+            return context
         except (RuntimeError, ValueError, AttributeError) as e:
             logger.debug("KM query failed: %s", e)
             self._km_results = []
+            self._store_km_cache(cache_key, "", [])
             return ""
 
     def _parse_response(self, response: str, original_prompt: str) -> PromptIntent:
         """Parse the LLM response into a PromptIntent."""
-        text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse decomposition response")
-                    return self._fallback_intent(original_prompt)
-            else:
-                return self._fallback_intent(original_prompt)
+        data = parse_json_object(response)
+        if data is None:
+            logger.warning("Could not parse decomposition response")
+            return self._fallback_intent(original_prompt)
 
         try:
             ambiguities = [
@@ -204,6 +202,7 @@ class PromptDecomposer:
                     recommended=a.get("recommended"),
                 )
                 for a in data.get("ambiguities", [])
+                if isinstance(a, dict)
             ]
 
             assumptions = [
@@ -213,6 +212,7 @@ class PromptDecomposer:
                     alternative=a.get("alternative"),
                 )
                 for a in data.get("assumptions", [])
+                if isinstance(a, dict)
             ]
 
             intent_type_str = data.get("intent_type", "improvement")
@@ -262,4 +262,16 @@ class PromptDecomposer:
     @staticmethod
     def prompt_hash(prompt: str) -> str:
         """Generate a stable hash for a prompt."""
-        return hashlib.sha256(prompt.encode()).hexdigest()[:16]
+        return prompt_hash(prompt)
+
+    def _store_km_cache(
+        self,
+        key: str,
+        context: str,
+        results: list[dict[str, Any]],
+    ) -> None:
+        """Store a bounded copy of Knowledge Mound results."""
+        self._km_cache[key] = (context, copy.deepcopy(results))
+        self._km_cache.move_to_end(key)
+        while len(self._km_cache) > _KM_CACHE_MAX_SIZE:
+            self._km_cache.popitem(last=False)

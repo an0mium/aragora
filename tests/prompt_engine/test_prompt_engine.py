@@ -239,6 +239,27 @@ class TestPromptDecomposer:
         assert intent.intent_type == IntentType.FIX
 
     @pytest.mark.asyncio()
+    async def test_decompose_llm_preface_and_code_block(self) -> None:
+        from aragora.prompt_engine.decomposer import PromptDecomposer
+
+        data = {
+            "intent_type": "feature",
+            "summary": "Add exports",
+            "domains": ["reporting"],
+            "ambiguities": [],
+            "assumptions": [],
+            "scope_estimate": "small",
+        }
+        agent = AsyncMock()
+        agent.generate = AsyncMock(
+            return_value=f"Here is the analysis:\n```json\n{json.dumps(data)}\n```\nProceed."
+        )
+        decomposer = PromptDecomposer(agent=agent)
+        intent = await decomposer.decompose("Add exports")
+        assert intent.intent_type == IntentType.FEATURE
+        assert intent.summary == "Add exports"
+
+    @pytest.mark.asyncio()
     async def test_decompose_invalid_intent_type_fallback(self) -> None:
         from aragora.prompt_engine.decomposer import PromptDecomposer
 
@@ -288,6 +309,32 @@ class TestPromptDecomposer:
         decomposer = PromptDecomposer(agent=agent, knowledge_mound=km)
         intent = await decomposer.decompose("test")
         assert intent.summary == "test"
+
+    @pytest.mark.asyncio()
+    async def test_decompose_reuses_km_cache_for_same_prompt(self) -> None:
+        from aragora.prompt_engine.decomposer import PromptDecomposer
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(
+            return_value=json.dumps(
+                {
+                    "intent_type": "feature",
+                    "summary": "test",
+                    "domains": ["x"],
+                    "ambiguities": [],
+                    "assumptions": [],
+                    "scope_estimate": "small",
+                }
+            )
+        )
+        km = AsyncMock()
+        km.query = AsyncMock(return_value=[{"title": "Dark mode", "content": "cached"}])
+        decomposer = PromptDecomposer(agent=agent, knowledge_mound=km)
+
+        await decomposer.decompose("test")
+        await decomposer.decompose("test")
+
+        km.query.assert_called_once()
 
 
 # ===========================================================================
@@ -390,6 +437,33 @@ class TestPromptInterrogator:
         questions = await interrogator.interrogate(intent)
         assert len(questions) >= 1
 
+    @pytest.mark.asyncio()
+    async def test_interrogate_llm_preface_and_code_block(self) -> None:
+        from aragora.prompt_engine.interrogator import PromptInterrogator
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(
+            return_value=(
+                "Questions follow:\n```json\n"
+                + json.dumps(
+                    {
+                        "questions": [
+                            {
+                                "question": "Which audience?",
+                                "why_it_matters": "Changes UX",
+                                "options": [{"label": "New", "description": "New users"}],
+                            }
+                        ]
+                    }
+                )
+                + "\n```"
+            )
+        )
+        interrogator = PromptInterrogator(agent=agent)
+        intent = _make_intent()
+        questions = await interrogator.interrogate(intent)
+        assert questions[0].question == "Which audience?"
+
 
 # ===========================================================================
 # Researcher tests
@@ -467,6 +541,63 @@ class TestPromptResearcher:
         intent = _make_intent()
         report = await researcher.research(intent)
         assert "unstructured" in report.summary.lower()
+
+    @pytest.mark.asyncio()
+    async def test_research_llm_preface_and_code_block(self) -> None:
+        from aragora.prompt_engine.researcher import PromptResearcher
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(
+            return_value=(
+                "Research complete:\n```json\n"
+                + json.dumps(
+                    {
+                        "summary": "Done",
+                        "current_state": "Existing flow",
+                        "related_decisions": [],
+                        "recommendations": ["Keep it simple"],
+                    }
+                )
+                + "\n```"
+            )
+        )
+        researcher = PromptResearcher(agent=agent)
+        intent = _make_intent()
+        report = await researcher.research(intent)
+        assert report.summary == "Done"
+
+    @pytest.mark.asyncio()
+    async def test_research_reuses_km_cache_for_same_intent(self) -> None:
+        from aragora.prompt_engine.researcher import PromptResearcher
+
+        agent = AsyncMock()
+        agent.generate = AsyncMock(
+            return_value=json.dumps(
+                {
+                    "summary": "Done",
+                    "current_state": "Existing flow",
+                    "related_decisions": [],
+                    "recommendations": ["Keep it simple"],
+                }
+            )
+        )
+        km = AsyncMock()
+        km.query = AsyncMock(
+            return_value=[
+                {
+                    "title": "Prior debate",
+                    "content": "Keep it simple",
+                    "metadata": {"source": "debate"},
+                }
+            ]
+        )
+        researcher = PromptResearcher(agent=agent, knowledge_mound=km)
+        intent = _make_intent()
+
+        await researcher.research(intent)
+        await researcher.research(intent)
+
+        km.query.assert_called_once()
 
 
 # ===========================================================================
