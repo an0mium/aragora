@@ -19,6 +19,7 @@ from aragora.swarm.worker_launcher import LaunchConfig
 UTC = timezone.utc
 VERIFIED_AUTH_MODES = {"chatgpt_login", "api_key", "subscription"}
 DEFAULT_RUNNER_STALE_AFTER_SECONDS = 3600
+DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS = 1800.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +106,13 @@ def _env_flag_int(env: dict[str, str], key: str, default: int) -> int:
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _optional_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _normalized_runner_type(value: str | None) -> str:
@@ -751,15 +759,18 @@ class LocalRunnerRegistry:
         *,
         owner_context: AuthorizationContext | None,
         requested_runner_type: str | None = None,
+        allowed_profiles: set[str] | None = None,
+        rotation_interval_seconds: float = DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS,
     ) -> BossRoutingDecision:
         owner_binding = owner_binding_from_context(owner_context)
         requested = (
             _normalized_runner_type(requested_runner_type) if requested_runner_type else None
         )
+        allowed_profile_set = {item for item in (allowed_profiles or set()) if _text(item)}
         selection_basis = (
             "registered=true, freshness_status=fresh, availability=available, auth_mode verified, "
-            "owner_binding compatible, capacity available, ordered by requested runner type then "
-            "priority_weight and cost preference"
+            "owner_binding compatible, capacity available, ordered by requested runner type, "
+            "priority_weight, cost preference, and rotation-aware profile balancing"
         )
         if owner_context is None or not _text(owner_context.user_id):
             return BossRoutingDecision(
@@ -777,11 +788,20 @@ class LocalRunnerRegistry:
         rejected_runner_ids: list[str] = []
         saw_compatible_nonfresh = False
         saw_requested_type = False
+        now = datetime.now(UTC)
         for runner in self.list_registrations():
+            runner_type = _text(runner.get("runner_type"))
+            if allowed_profile_set and runner_type == "claude":
+                runner_profile = _text(runner.get("profile"))
+                if runner_profile not in allowed_profile_set:
+                    runner_id = _text(runner.get("runner_id"))
+                    if runner_id:
+                        rejected_runner_ids.append(runner_id)
+                    continue
             if self._is_owner_compatible(runner, owner_context=owner_context):
                 if bool(runner.get("registered")) and self._freshness_status(runner) != "fresh":
                     saw_compatible_nonfresh = True
-                if requested and _text(runner.get("runner_type")) == requested:
+                if requested and runner_type == requested:
                     saw_requested_type = True
             if not self._is_runner_eligible(runner, owner_context=owner_context):
                 runner_id = _text(runner.get("runner_id"))
@@ -815,6 +835,14 @@ class LocalRunnerRegistry:
                 0 if requested and item["runner_type"] == requested else 1,
                 -int(item.get("priority_weight", 0)),
                 self._cost_rank(_text(item.get("cost_class"))),
+                self._rotation_rank(
+                    item,
+                    now=now,
+                    rotation_interval_seconds=rotation_interval_seconds,
+                ),
+                int(item.get("claimed_lanes", 0)),
+                int(item.get("selection_count", 0)),
+                self._last_selected_sort_key(item),
                 -int(item.get("available_capacity", 0)),
                 _text(item.get("runner_id")),
             )
@@ -839,10 +867,89 @@ class LocalRunnerRegistry:
             fallback_reason=fallback_reason,
         )
 
+    def claim_runner(
+        self,
+        runner_id: str,
+        *,
+        owner_context: AuthorizationContext | None,
+    ) -> dict[str, Any] | None:
+        normalized_runner_id = _text(runner_id)
+        if not normalized_runner_id:
+            return None
+        records = self._load()
+        registrations = [
+            dict(item) for item in records.get("registrations", []) if isinstance(item, dict)
+        ]
+        updated_entry: dict[str, Any] | None = None
+        for item in registrations:
+            if _text(item.get("runner_id")) != normalized_runner_id:
+                continue
+            if owner_context is not None and not self._is_owner_compatible(
+                item,
+                owner_context=owner_context,
+            ):
+                return None
+            claimed_lanes = _optional_int(item.get("claimed_lanes"))
+            max_parallel = int(dict(item.get("capabilities") or {}).get("max_parallel_lanes") or 1)
+            if self._effective_active_lanes(item) >= max_parallel:
+                return None
+            updated_entry = {
+                **item,
+                "claimed_lanes": claimed_lanes + 1,
+                "last_selected_at": _utcnow(),
+                "selection_count": _optional_int(item.get("selection_count")) + 1,
+            }
+            break
+        if updated_entry is None:
+            return None
+        records["registrations"] = [
+            updated_entry if _text(item.get("runner_id")) == normalized_runner_id else item
+            for item in registrations
+        ]
+        self._save(records)
+        return self._runner_summary(updated_entry)
+
+    def release_runner_claim(
+        self,
+        runner_id: str,
+        *,
+        owner_context: AuthorizationContext | None = None,
+    ) -> dict[str, Any] | None:
+        normalized_runner_id = _text(runner_id)
+        if not normalized_runner_id:
+            return None
+        records = self._load()
+        registrations = [
+            dict(item) for item in records.get("registrations", []) if isinstance(item, dict)
+        ]
+        updated_entry: dict[str, Any] | None = None
+        for item in registrations:
+            if _text(item.get("runner_id")) != normalized_runner_id:
+                continue
+            if owner_context is not None and not self._is_owner_compatible(
+                item,
+                owner_context=owner_context,
+            ):
+                return None
+            updated_entry = {
+                **item,
+                "claimed_lanes": max(0, _optional_int(item.get("claimed_lanes")) - 1),
+            }
+            break
+        if updated_entry is None:
+            return None
+        records["registrations"] = [
+            updated_entry if _text(item.get("runner_id")) == normalized_runner_id else item
+            for item in registrations
+        ]
+        self._save(records)
+        return self._runner_summary(updated_entry)
+
     def _runner_summary(self, runner: dict[str, Any]) -> dict[str, Any]:
         capabilities = dict(runner.get("capabilities") or {})
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
-        active_lanes = int(capabilities.get("active_lanes") or runner.get("active_lanes") or 0)
+        claimed_lanes = _optional_int(runner.get("claimed_lanes"))
+        active_lanes = self._effective_active_lanes(runner)
         return {
             "runner_id": _text(runner.get("runner_id")),
             "runner_type": _text(runner.get("runner_type")),
@@ -857,6 +964,9 @@ class LocalRunnerRegistry:
             ),
             "owner_binding": dict(runner.get("owner_binding") or {}),
             "capabilities": capabilities,
+            "claimed_lanes": claimed_lanes,
+            "selection_count": _optional_int(runner.get("selection_count")),
+            "last_selected_at": _text(runner.get("last_selected_at")) or None,
             "available_capacity": max(0, max_parallel - active_lanes),
             "active_lanes": active_lanes,
             "command_path": _text(runner.get("command_path") or runner.get("codex_path")) or None,
@@ -882,10 +992,47 @@ class LocalRunnerRegistry:
             return False
         capabilities = dict(runner.get("capabilities") or {})
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
-        active_lanes = int(capabilities.get("active_lanes") or runner.get("active_lanes") or 0)
+        active_lanes = self._effective_active_lanes(runner)
         if active_lanes >= max_parallel:
             return False
         return True
+
+    @staticmethod
+    def _effective_active_lanes(runner: dict[str, Any]) -> int:
+        capabilities = dict(runner.get("capabilities") or {})
+        base_active = _optional_int(capabilities.get("active_lanes") or runner.get("active_lanes"))
+        return base_active + _optional_int(runner.get("claimed_lanes"))
+
+    @staticmethod
+    def _last_selected_sort_key(runner: dict[str, Any]) -> float:
+        value = _text(runner.get("last_selected_at"))
+        if not value:
+            return 0.0
+        parsed = LocalRunnerRegistry._parse_timestamp(value)
+        if parsed is None:
+            return 0.0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.timestamp()
+
+    @staticmethod
+    def _rotation_rank(
+        runner: dict[str, Any],
+        *,
+        now: datetime,
+        rotation_interval_seconds: float,
+    ) -> tuple[int, float]:
+        value = _text(runner.get("last_selected_at"))
+        if not value:
+            return (0, 0.0)
+        parsed = LocalRunnerRegistry._parse_timestamp(value)
+        if parsed is None:
+            return (0, 0.0)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        age_seconds = max(0.0, (now - parsed).total_seconds())
+        hot = 1 if age_seconds < rotation_interval_seconds else 0
+        return (hot, -age_seconds)
 
     @staticmethod
     def _is_owner_compatible(

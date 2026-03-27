@@ -54,6 +54,8 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "refresh_scaling": False,
         "no_dispatch": False,
         "watch": False,
+        "claude_runner_profiles": None,
+        "runner_rotation_interval": 1800.0,
         "interval_seconds": 5.0,
         "max_ticks": None,
         "all_runs": False,
@@ -184,6 +186,25 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "boss-loop"
         assert args.boss_issue_list == "101,102"
         assert args.worker_model == "claude"
+
+    def test_swarm_boss_parser_accepts_claude_profile_pool(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "boss-loop",
+                "--worker-model",
+                "claude",
+                "--claude-runner-profiles",
+                "max-02,max-03,max-04",
+                "--runner-rotation-interval",
+                "900",
+            ]
+        )
+        assert args.claude_runner_profiles == "max-02,max-03,max-04"
+        assert args.runner_rotation_interval == 900.0
 
     def test_swarm_integrator_parser(self):
         from aragora.cli.parser import build_parser

@@ -9,6 +9,7 @@ from aragora.swarm.runner_registry import (
     ClaudeRunnerInspector,
     CodexRunnerInspection,
     CodexRunnerInspector,
+    DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS,
     LocalRunnerRegistry,
     authorization_context_from_env,
     configured_claude_runner_profiles,
@@ -486,7 +487,8 @@ class TestLocalRunnerRegistry:
             selection_basis=(
                 "registered=true, freshness_status=fresh, availability=available, auth_mode "
                 "verified, owner_binding compatible, capacity available, ordered by requested "
-                "runner type then priority_weight and cost preference"
+                "runner type, priority_weight, cost preference, and rotation-aware profile "
+                "balancing"
             ),
             blocked_reason="missing_owner_context",
             next_action=(
@@ -648,3 +650,168 @@ class TestLocalRunnerRegistry:
         assert decision.is_blocked is False
         assert decision.selected_runner_ids == ["codex-runner-1"]
         assert decision.fallback_reason == "requested_runner_type_unavailable"
+
+    def test_resolve_boss_routing_rotates_across_claude_profiles(self, tmp_path: Path) -> None:
+        now = datetime.now(UTC)
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-hot",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now.isoformat(),
+                            "stale_after_seconds": 3600,
+                            "last_selected_at": now.isoformat(),
+                            "selection_count": 4,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                        {
+                            "runner_id": "claude-runner-cool",
+                            "runner_type": "claude",
+                            "profile": "max-03",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now.isoformat(),
+                            "stale_after_seconds": 3600,
+                            "last_selected_at": (now - timedelta(hours=2)).isoformat(),
+                            "selection_count": 1,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        decision = LocalRunnerRegistry(path=registry_path).resolve_boss_routing(
+            owner_context=authorization_context_from_env(
+                {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+            ),
+            requested_runner_type="claude",
+            rotation_interval_seconds=DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS,
+        )
+
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids[:2] == ["claude-runner-cool", "claude-runner-hot"]
+
+    def test_claim_runner_updates_capacity_until_released(self, tmp_path: Path) -> None:
+        now = datetime.now(UTC).isoformat()
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        owner_context = authorization_context_from_env(
+            {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+        )
+        registry = LocalRunnerRegistry(path=registry_path)
+
+        claimed = registry.claim_runner("claude-runner-1", owner_context=owner_context)
+
+        assert claimed is not None
+        assert claimed["claimed_lanes"] == 1
+        blocked = registry.resolve_boss_routing(
+            owner_context=owner_context,
+            requested_runner_type="claude",
+        )
+        assert blocked.is_blocked is True
+        assert blocked.blocked_reason == "no_eligible_registered_runners"
+
+        released = registry.release_runner_claim("claude-runner-1", owner_context=owner_context)
+
+        assert released is not None
+        assert released["claimed_lanes"] == 0
+        decision = registry.resolve_boss_routing(
+            owner_context=owner_context,
+            requested_runner_type="claude",
+        )
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids == ["claude-runner-1"]
+
+    def test_resolve_boss_routing_honors_allowed_claude_profiles(self, tmp_path: Path) -> None:
+        now = datetime.now(UTC).isoformat()
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                        {
+                            "runner_id": "claude-runner-2",
+                            "runner_type": "claude",
+                            "profile": "max-03",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        decision = LocalRunnerRegistry(path=registry_path).resolve_boss_routing(
+            owner_context=authorization_context_from_env(
+                {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+            ),
+            requested_runner_type="claude",
+            allowed_profiles={"max-03"},
+        )
+
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids == ["claude-runner-2"]

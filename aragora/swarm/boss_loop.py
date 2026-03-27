@@ -366,6 +366,8 @@ def check_runner_freshness(
     registry_path: str | None = None,
     env: dict[str, str] | None = None,
     requested_runner_type: str | None = None,
+    allowed_profiles: set[str] | None = None,
+    rotation_interval_seconds: float = 1800.0,
 ) -> RunnerFreshnessResult:
     """Verify that at least one registered runner is fresh and eligible.
 
@@ -379,6 +381,7 @@ def check_runner_freshness(
     from aragora.swarm.runner_registry import (
         LocalRunnerRegistry,
         authorization_context_from_env,
+        configured_claude_runner_profiles,
         make_runner_inspector,
     )
 
@@ -395,9 +398,12 @@ def check_runner_freshness(
         )
 
     registry = LocalRunnerRegistry(path=registry_path) if registry_path else LocalRunnerRegistry()
+    allowed_profile_set = set(allowed_profiles or configured_claude_runner_profiles(env))
     routing = registry.resolve_boss_routing(
         owner_context=owner_context,
         requested_runner_type=requested_runner_type,
+        allowed_profiles=allowed_profile_set or None,
+        rotation_interval_seconds=rotation_interval_seconds,
     )
 
     if routing.is_blocked:
@@ -605,6 +611,8 @@ class BossLoopConfig:
     dispatch_enabled: bool = True
     default_target_agent: str | None = None
     default_reviewer_agent: str | None = None
+    allowed_runner_profiles: set[str] | None = None
+    runner_rotation_interval_seconds: float = 1800.0
 
     # Autonomy: when True, treat needs_human with a deliverable as completed
     # instead of stopping the loop. Only stop when there's genuinely no output.
@@ -1059,6 +1067,8 @@ class BossLoop:
             registry_path=self.config.registry_path,
             env=self._env,
             requested_runner_type=self.config.default_target_agent,
+            allowed_profiles=self.config.allowed_runner_profiles,
+            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )
         freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
 
@@ -1386,25 +1396,33 @@ class BossLoop:
                 ],
             }
 
-        selected_runner = self._selected_runner_for_dispatch(freshness)
-        result = await dispatch_bounded_spec(
-            spec,
-            target_branch=self.config.target_branch,
-            budget_limit_usd=self.config.budget_limit_usd,
-            max_ticks=360,
-            wait_for_completion=self.config.max_iterations > 1,
-            default_target_agent=self.config.default_target_agent,
-            default_reviewer_agent=self.config.default_reviewer_agent,
-            # The supervisor already provisions the worktree, so the session
-            # script wrapper is redundant and crashes on bash 3.2 (macOS
-            # default) due to ${VAR,,} syntax.  Matches tranche_queue.py.
-            use_managed_session_script=False,
-            selected_runner=selected_runner,
-        )
+        claimed_runner_id: str | None = None
+        selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(freshness)
+        if selected_runner is None:
+            selected_runner = self._selected_runner_for_dispatch(freshness)
+        try:
+            result = await dispatch_bounded_spec(
+                spec,
+                target_branch=self.config.target_branch,
+                budget_limit_usd=self.config.budget_limit_usd,
+                max_ticks=360,
+                wait_for_completion=self.config.max_iterations > 1,
+                default_target_agent=self.config.default_target_agent,
+                default_reviewer_agent=self.config.default_reviewer_agent,
+                # The supervisor already provisions the worktree, so the session
+                # script wrapper is redundant and crashes on bash 3.2 (macOS
+                # default) due to ${VAR,,} syntax.  Matches tranche_queue.py.
+                use_managed_session_script=False,
+                selected_runner=selected_runner,
+            )
+        finally:
+            if claimed_runner_id:
+                self._release_runner_claim(claimed_runner_id)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
             result,
             issue=issue,
             freshness=freshness,
+            selected_runner=selected_runner,
         )
         if result.get("status") == "failed":
             error = str(result.get("error", "")).strip()
@@ -1418,16 +1436,17 @@ class BossLoop:
         *,
         issue: GitHubIssue,
         freshness: RunnerFreshnessResult,
+        selected_runner: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
-        selected_runner: dict[str, Any] = {}
-        if isinstance(routing, dict):
+        selected_runner_payload: dict[str, Any] = dict(selected_runner or {})
+        if not selected_runner_payload and isinstance(routing, dict):
             selected_runners = routing.get("selected_runners")
             if isinstance(selected_runners, list) and selected_runners:
                 first = selected_runners[0]
                 if isinstance(first, dict):
-                    selected_runner = dict(first)
+                    selected_runner_payload = dict(first)
 
         deliverable = (
             result.get("deliverable") if isinstance(result.get("deliverable"), dict) else {}
@@ -1459,37 +1478,91 @@ class BossLoop:
             "requested_reviewer_agent": self.config.default_reviewer_agent,
             "actual_target_agent": actual_target_agent,
             "actual_reviewer_agent": actual_reviewer_agent,
-            "runner_id": selected_runner.get("runner_id"),
-            "runner_type": selected_runner.get("runner_type"),
-            "runner_profile": selected_runner.get("profile"),
-            "cost_class": selected_runner.get("cost_class"),
+            "runner_id": selected_runner_payload.get("runner_id"),
+            "runner_type": selected_runner_payload.get("runner_type"),
+            "runner_profile": selected_runner_payload.get("profile"),
+            "cost_class": selected_runner_payload.get("cost_class"),
             "fallback_reason": routing.get("fallback_reason")
             if isinstance(routing, dict)
             else None,
         }
 
-    def _selected_runner_for_dispatch(
+    def _runner_candidates_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
-    ) -> dict[str, Any] | None:
+    ) -> list[dict[str, Any]]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
         if not isinstance(routing, dict):
-            return None
+            return []
         selected_runners = routing.get("selected_runners")
         if not isinstance(selected_runners, list):
-            return None
+            return []
         requested = str(self.config.default_target_agent or "").strip().lower()
+        candidates: list[dict[str, Any]] = []
         for item in selected_runners:
             if not isinstance(item, dict):
                 continue
             runner_type = str(item.get("runner_type", "")).strip().lower()
             if requested and runner_type == requested:
-                return dict(item)
+                candidates.append(dict(item))
         for item in selected_runners:
             if isinstance(item, dict):
-                return dict(item)
-        return None
+                runner_id = str(item.get("runner_id", "")).strip()
+                if runner_id and all(
+                    str(candidate.get("runner_id", "")).strip() != runner_id
+                    for candidate in candidates
+                ):
+                    candidates.append(dict(item))
+        return candidates
+
+    def _selected_runner_for_dispatch(
+        self,
+        freshness: RunnerFreshnessResult,
+    ) -> dict[str, Any] | None:
+        candidates = self._runner_candidates_for_dispatch(freshness)
+        return dict(candidates[0]) if candidates else None
+
+    def _claim_runner_for_dispatch(
+        self,
+        freshness: RunnerFreshnessResult,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        from aragora.swarm.runner_registry import (
+            LocalRunnerRegistry,
+            authorization_context_from_env,
+        )
+
+        owner_context = authorization_context_from_env(self._env)
+        registry = (
+            LocalRunnerRegistry(path=self.config.registry_path)
+            if self.config.registry_path
+            else LocalRunnerRegistry()
+        )
+        for selected_runner in self._runner_candidates_for_dispatch(freshness):
+            runner_id = str(selected_runner.get("runner_id", "")).strip()
+            if not runner_id:
+                continue
+            claimed = registry.claim_runner(runner_id, owner_context=owner_context)
+            if claimed is not None:
+                return claimed, runner_id
+        return None, None
+
+    def _release_runner_claim(self, runner_id: str) -> None:
+        from aragora.swarm.runner_registry import (
+            LocalRunnerRegistry,
+            authorization_context_from_env,
+        )
+
+        normalized_runner_id = str(runner_id).strip()
+        if not normalized_runner_id:
+            return
+        owner_context = authorization_context_from_env(self._env)
+        registry = (
+            LocalRunnerRegistry(path=self.config.registry_path)
+            if self.config.registry_path
+            else LocalRunnerRegistry()
+        )
+        registry.release_runner_claim(normalized_runner_id, owner_context=owner_context)
 
     def _collect_needs_human_reasons(self) -> list[str]:
         """Collect all needs-human reasons across iterations."""

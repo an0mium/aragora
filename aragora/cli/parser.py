@@ -2513,6 +2513,17 @@ def _add_swarm_parser(subparsers) -> None:
         help="Runner type for 'swarm runner' actions (for example: claude, codex, gemini-cli)",
     )
     swarm_parser.add_argument(
+        "--claude-runner-profiles",
+        default=None,
+        help="Comma-separated Claude profiles to discover/register and prefer for boss-loop routing",
+    )
+    swarm_parser.add_argument(
+        "--runner-rotation-interval",
+        type=float,
+        default=1800.0,
+        help="Seconds before a recently used runner profile becomes preferred again (default: 1800)",
+    )
+    swarm_parser.add_argument(
         "--allow-same-model-review",
         action="store_true",
         help="Allow worker and reviewer to use the same model for experiment runs",

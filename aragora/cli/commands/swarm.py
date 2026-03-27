@@ -50,6 +50,14 @@ def _optional_text(value: object) -> str | None:
     return text or None
 
 
+def _parse_csv_set(value: object) -> set[str] | None:
+    text = _optional_text(value)
+    if not text:
+        return None
+    result = {item.strip() for item in text.split(",") if item.strip()}
+    return result or None
+
+
 def _format_elapsed_seconds(value: object) -> str:
     if value is None:
         return "-"
@@ -98,7 +106,9 @@ def _build_runner_report_payload(
         freshness = str(item.get("freshness_status", "") or "").strip() or "unknown"
         capabilities = dict(item.get("capabilities") or {})
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
+        claimed_lanes = int(item.get("claimed_lanes") or 0)
         active_lanes = int(capabilities.get("active_lanes") or item.get("active_lanes") or 0)
+        active_lanes += claimed_lanes
         available_capacity = max(0, max_parallel - active_lanes)
         if freshness == "fresh":
             fresh_count += 1
@@ -384,7 +394,12 @@ def _build_boss_payload(
     )
 
 
-def _resolve_boss_routing(*, requested_runner_type: str | None = None) -> dict[str, object]:
+def _resolve_boss_routing(
+    *,
+    requested_runner_type: str | None = None,
+    allowed_profiles: set[str] | None = None,
+    rotation_interval_seconds: float = 1800.0,
+) -> dict[str, object]:
     from aragora.swarm.runner_registry import LocalRunnerRegistry, authorization_context_from_env
 
     owner_context = authorization_context_from_env()
@@ -393,6 +408,8 @@ def _resolve_boss_routing(*, requested_runner_type: str | None = None) -> dict[s
         .resolve_boss_routing(
             owner_context=owner_context,
             requested_runner_type=requested_runner_type,
+            allowed_profiles=allowed_profiles,
+            rotation_interval_seconds=rotation_interval_seconds,
         )
         .to_dict()
     )
@@ -575,6 +592,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     refresh_scaling = bool(getattr(args, "refresh_scaling", False))
     no_dispatch = bool(getattr(args, "no_dispatch", False))
     watch = bool(getattr(args, "watch", False))
+    claude_runner_profiles = _optional_text(getattr(args, "claude_runner_profiles", None))
+    if claude_runner_profiles:
+        os.environ["ARAGORA_CLAUDE_RUNNER_PROFILES"] = claude_runner_profiles
+    allowed_runner_profiles = _parse_csv_set(claude_runner_profiles)
+    runner_rotation_interval = float(getattr(args, "runner_rotation_interval", 1800.0) or 1800.0)
     interval_seconds = float(getattr(args, "interval_seconds", 5.0) or 5.0)
     max_ticks = getattr(args, "max_ticks", None)
     all_runs = bool(getattr(args, "all_runs", False))
@@ -680,6 +702,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 routing=registry.resolve_boss_routing(
                     owner_context=authorization_context_from_env(),
                     requested_runner_type=runner_type,
+                    allowed_profiles=allowed_runner_profiles,
+                    rotation_interval_seconds=runner_rotation_interval,
                 ).to_dict(),
                 discovered=[item.to_dict() for item in inspections],
             )
@@ -911,6 +935,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             dispatch_enabled=not no_dispatch,
             default_target_agent=default_target_agent,
             default_reviewer_agent=default_reviewer_agent,
+            allowed_runner_profiles=allowed_runner_profiles,
+            runner_rotation_interval_seconds=runner_rotation_interval,
             auto_continue_on_needs_human=auto_continue,
         )
         loop = BossLoop(config=boss_loop_config)
@@ -1741,7 +1767,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
 
     if boss_mode:
         boss_routing = _resolve_boss_routing(
-            requested_runner_type=str(getattr(args, "worker_model", "") or "").strip() or None
+            requested_runner_type=str(getattr(args, "worker_model", "") or "").strip() or None,
+            allowed_profiles=allowed_runner_profiles,
+            rotation_interval_seconds=runner_rotation_interval,
         )
         blocked_reason = boss_routing.get("blocked_reason")
         if isinstance(blocked_reason, str) and blocked_reason.strip():

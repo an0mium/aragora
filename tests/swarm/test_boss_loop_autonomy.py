@@ -154,3 +154,31 @@ def test_full_auto_skips_needs_human_without_deliverable() -> None:
     assert status.worker_status == "needs_human"
     assert status.stop_reason is None
     assert "Skipping to next issue" in status.next_actions[0]
+
+
+def test_run_iteration_passes_profile_pool_and_rotation_to_freshness_checker() -> None:
+    feed = MagicMock()
+    feed.fetch.return_value = []
+    captured: dict[str, object] = {}
+
+    def _freshness_checker(**kwargs):
+        captured.update(kwargs)
+        return _fresh_result()
+
+    loop = BossLoop(
+        config=BossLoopConfig(
+            max_iterations=1,
+            iteration_interval_seconds=0.0,
+            default_target_agent="claude",
+            allowed_runner_profiles={"max-02", "max-03"},
+            runner_rotation_interval_seconds=900.0,
+        ),
+        issue_feed=feed,
+        freshness_checker=_freshness_checker,
+    )
+
+    asyncio.run(loop._run_iteration(1))
+
+    assert captured["requested_runner_type"] == "claude"
+    assert captured["allowed_profiles"] == {"max-02", "max-03"}
+    assert captured["rotation_interval_seconds"] == 900.0
