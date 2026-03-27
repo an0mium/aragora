@@ -22,10 +22,20 @@ pytest tests/debate/test_orchestrator.py -v
 | `@pytest.mark.unit` | Fast unit tests | Nothing |
 | `@pytest.mark.slow` | Long-running tests (>30s) | Real ML models |
 | `@pytest.mark.integration` | External service tests | Redis, PostgreSQL |
+| `@pytest.mark.integration_minimal` | Lighter integration coverage | Partial external setup |
 | `@pytest.mark.network` | Real API calls | API keys |
 | `@pytest.mark.e2e` | End-to-end tests | Running server |
 | `@pytest.mark.serial` | Must run serially | Nothing |
 | `@pytest.mark.knowledge` | Knowledge Mound tests | Nothing |
+| `@pytest.mark.performance` | SLA and timing-sensitive checks | Stable environment |
+| `@pytest.mark.load` | Load and stress scenarios | Extra runtime |
+| `@pytest.mark.audit` | Audit trail and retention flows | Scenario-specific fixtures |
+| `@pytest.mark.compliance` | Compliance workflows | Scenario-specific fixtures |
+| `@pytest.mark.enterprise` | Enterprise-only capabilities | Enterprise config |
+| `@pytest.mark.new_features` | Newly added feature coverage | Varies by feature |
+| `@pytest.mark.benchmark` | Benchmark-style measurements | Benchmark plugin/runtime |
+| `@pytest.mark.flaky` | Retry-enabled unstable environments | Retry plugin/runtime |
+| `@pytest.mark.rate_limit_test` | Exercises real rate limiting | No rate-limit bypass |
 
 ## Running Without API Keys
 

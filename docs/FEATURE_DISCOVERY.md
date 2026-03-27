@@ -2,7 +2,7 @@
 
 *Complete catalog of 230+ features for developers exploring Aragora capabilities*
 
-> Compatibility mirror for older links. The canonical current feature inventory is [status/FEATURE_DISCOVERY.md](status/FEATURE_DISCOVERY.md).
+> Compatibility mirror for older links. This file is currently the maintained feature inventory; the older `status/FEATURE_DISCOVERY.md` target is not present in the repo.
 
 This document provides a comprehensive inventory of Aragora's features organized by domain. Use this guide to discover what Aragora can do and find the relevant modules for your use case.
 

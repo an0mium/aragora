@@ -305,6 +305,28 @@ requires_no_ci = RUNNING_IN_CI
 # Test Tier Configuration
 # ============================================================================
 
+_CUSTOM_PYTEST_MARKERS: dict[str, str] = {
+    "smoke": "quick sanity tests for fast CI feedback",
+    "integration": "tests requiring external dependencies (APIs, databases)",
+    "integration_minimal": "minimal integration coverage with lighter external setup",
+    "slow": "long-running tests (>30 seconds)",
+    "unit": "isolated unit tests with no external dependencies",
+    "network": "tests requiring external network calls (skip with -m 'not network')",
+    "e2e": "end-to-end tests that exercise full user or system flows",
+    "knowledge": "knowledge mound and retrieval focused tests",
+    "performance": "performance-sensitive scenarios and SLA checks",
+    "load": "load or stress scenarios that may be heavier than standard tests",
+    "audit": "audit trail, retention, or compliance evidence scenarios",
+    "compliance": "regulatory or policy compliance workflows",
+    "enterprise": "enterprise-specific features such as SSO or tenant controls",
+    "new_features": "coverage for newly introduced product surfaces",
+    "serial": "must run serially to avoid shared-state contention",
+    "benchmark": "benchmark-style tests, often exercised in nightly or perf runs",
+    "flaky": "tests using retry semantics for known intermittent environments",
+    "rate_limit_test": "opt out of auth-time rate-limit bypass and exercise real rate limiting",
+    "no_auto_auth": "disable automatic auth bypass for handler tests",
+}
+
 
 def pytest_configure(config):
     """Register custom pytest markers and configure test environment.
@@ -340,18 +362,8 @@ def pytest_configure(config):
     if "ARAGORA_AUTH_CLEANUP_INTERVAL" not in os.environ:
         os.environ["ARAGORA_AUTH_CLEANUP_INTERVAL"] = "1"
 
-    config.addinivalue_line("markers", "smoke: quick sanity tests for fast CI feedback")
-    config.addinivalue_line(
-        "markers", "integration: tests requiring external dependencies (APIs, databases)"
-    )
-    config.addinivalue_line("markers", "slow: long-running tests (>30 seconds)")
-    config.addinivalue_line("markers", "unit: isolated unit tests with no external dependencies")
-    config.addinivalue_line(
-        "markers", "network: tests requiring external network calls (skip with -m 'not network')"
-    )
-    config.addinivalue_line(
-        "markers", "no_auto_auth: disable automatic auth bypass for handler tests"
-    )
+    for marker, description in _CUSTOM_PYTEST_MARKERS.items():
+        config.addinivalue_line("markers", f"{marker}: {description}")
 
 
 # ============================================================================
