@@ -41,6 +41,7 @@ import asyncio
 import logging
 import re
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -1310,36 +1311,51 @@ class TeamsDebateLifecycle:
 
         result = None
         stopped_early = False
+        debate_task: asyncio.Task[Any] | None = None
         try:
             # Run the debate with timeout, but also check for stop requests
             async def _run_with_cancel() -> Any:
-                run_task = asyncio.ensure_future(arena.run())
-                if state is not None:
-                    cancel_task = asyncio.ensure_future(state.cancel_event.wait())
-                    done, pending = await asyncio.wait(
+                run_task = asyncio.create_task(arena.run())
+                cancel_task = (
+                    asyncio.create_task(state.cancel_event.wait()) if state is not None else None
+                )
+                try:
+                    if cancel_task is None:
+                        return await run_task
+
+                    done, _pending = await asyncio.wait(
                         {run_task, cancel_task},
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                    for p in pending:
-                        p.cancel()
-                        try:
-                            await p
-                        except asyncio.CancelledError:
-                            pass
                     if cancel_task in done:
+                        if not run_task.done():
+                            run_task.cancel()
+                            with suppress(asyncio.CancelledError):
+                                await run_task
                         return None
-                    return run_task.result()
-                else:
                     return await run_task
+                except asyncio.CancelledError:
+                    if not run_task.done():
+                        run_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await run_task
+                    raise
+                finally:
+                    if cancel_task is not None:
+                        cancel_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await cancel_task
 
-            result = await asyncio.wait_for(
-                _run_with_cancel(),
-                timeout=config.timeout_seconds,
-            )
+            debate_task = asyncio.create_task(_run_with_cancel())
+            result = await asyncio.wait_for(debate_task, timeout=config.timeout_seconds)
 
             if result is None and state is not None and state.cancel_event.is_set():
                 stopped_early = True
         except asyncio.TimeoutError:
+            if debate_task is not None and not debate_task.done():
+                debate_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await debate_task
             logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
             await self.post_error(channel_id, message_id, "Debate timed out.", debate_id)
             if state:
@@ -1347,6 +1363,10 @@ class TeamsDebateLifecycle:
             _active_debates.pop(debate_id, None)
             return None
         except (RuntimeError, OSError, ValueError) as exc:
+            if debate_task is not None and not debate_task.done():
+                debate_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await debate_task
             logger.error("Debate %s failed: %s", debate_id, exc)
             await self.post_error(channel_id, message_id, "Debate execution failed.", debate_id)
             if state:

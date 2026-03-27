@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from aragora.integrations.slack_debate import (
     SlackDebateConfig,
     SlackDebateLifecycle,
+    _active_debates,
     _build_consensus_blocks,
     _build_debate_started_blocks,
     _build_error_blocks,
@@ -21,6 +23,13 @@ from aragora.integrations.slack_debate import (
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _clean_active_debates():
+    _active_debates.clear()
+    yield
+    _active_debates.clear()
 
 
 @pytest.fixture
@@ -988,6 +997,38 @@ class TestRunDebate:
                             with patch("aragora.DebateProtocol"):
                                 await lifecycle.run_debate("C01ABC", "123.456", "d-123", "Topic")
                                 assert mock_round.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_run_debate_cleans_up_on_timeout(self, lifecycle):
+        """Timeout cleans up active debates and posts error."""
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
+                with patch("aragora.Arena", return_value=MagicMock(run=AsyncMock())):
+                    with patch("aragora.Environment"):
+                        with patch("aragora.DebateProtocol"):
+                            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+                                result = await lifecycle.run_debate(
+                                    "C01ABC", "123.456", "d-timeout", "Topic"
+                                )
+                                assert result is None
+                                mock_error.assert_called_once()
+                                assert "d-timeout" not in _active_debates
+
+    @pytest.mark.asyncio
+    async def test_run_debate_cleans_up_on_error(self, lifecycle):
+        """Runtime error cleans up active debates and posts error."""
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
+                with patch("aragora.Arena", return_value=MagicMock(run=AsyncMock())):
+                    with patch("aragora.Environment"):
+                        with patch("aragora.DebateProtocol"):
+                            with patch("asyncio.wait_for", side_effect=RuntimeError("boom")):
+                                result = await lifecycle.run_debate(
+                                    "C01ABC", "123.456", "d-error", "Topic"
+                                )
+                                assert result is None
+                                mock_error.assert_called_once()
+                                assert "d-error" not in _active_debates
 
 
 # =============================================================================
