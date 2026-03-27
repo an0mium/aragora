@@ -19,7 +19,13 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { useUnifiedDAG, STAGE_COLORS, type DAGNodeData, type DAGOperationResult, type DAGStage } from '@/hooks/useUnifiedDAG';
+import {
+  useUnifiedDAG,
+  STAGE_COLORS,
+  type DAGNodeData,
+  type DAGOperationResult,
+  type DAGStage,
+} from '@/hooks/useUnifiedDAG';
 import { DAGStageLanes } from './DAGStageLanes';
 import { NodeContextMenu } from './NodeContextMenu';
 import { AIOperationPanel } from './AIOperationPanel';
@@ -29,20 +35,6 @@ import { ValueNode } from './nodes/ValueNode';
 import { AgentAssignmentNode } from './nodes/AgentAssignmentNode';
 import { ExecutionDAGNode } from './nodes/ExecutionDAGNode';
 import { CrossStageEdge } from './edges/CrossStageEdge';
-
-// ---------------------------------------------------------------------------
-// Custom node/edge types
-// ---------------------------------------------------------------------------
-
-const nodeTypes = {
-  ideasNode: ExecutionDAGNode,
-  goalsNode: ExecutionDAGNode,
-  actionsNode: ExecutionDAGNode,
-  orchestrationNode: ExecutionDAGNode,
-  valueNode: ValueNode,
-  agentAssignmentNode: AgentAssignmentNode,
-  executionNode: ExecutionDAGNode,
-};
 
 const edgeTypes = {
   crossStage: CrossStageEdge,
@@ -76,13 +68,18 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Stage filter
-  const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<DAGStage | null>(null);
 
-  // Filter nodes by stage
   const filteredNodes = useMemo(() => {
     if (!stageFilter) return dag.nodes;
     return dag.nodes.filter((n) => (n.data as DAGNodeData).stage === stageFilter);
   }, [dag.nodes, stageFilter]);
+  const filteredEdges = useMemo(() => {
+    const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
+    return dag.edges.filter(
+      (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+    );
+  }, [dag.edges, filteredNodes]);
 
   // Right-click handler
   const handleNodeContextMenu: NodeMouseHandler = useCallback(
@@ -145,6 +142,31 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
   const handleFindPrecedents = useCallback(
     (nodeId: string) => withResult(() => dag.findPrecedents(nodeId)),
     [dag, withResult],
+  );
+  const nodeTypes = useMemo(
+    () => ({
+      ideasNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+      principlesNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+      goalsNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+      actionsNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+      orchestrationNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+      valueNode: ValueNode,
+      agentAssignmentNode: AgentAssignmentNode,
+      executionNode: (props: Parameters<typeof ExecutionDAGNode>[0]) => (
+        <ExecutionDAGNode {...props} onExecuteNode={handleExecute} />
+      ),
+    }),
+    [handleExecute],
   );
 
   const handleBrainDump = useCallback((_text: string) => {
@@ -210,10 +232,20 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
 
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 h-full relative">
-          <DAGStageLanes />
+          <DAGStageLanes
+            stages={dag.stages}
+            activeStage={stageFilter}
+          />
+          {dag.isLoading && dag.nodes.length === 0 ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg/70 backdrop-blur-sm">
+              <div className="rounded-xl border border-border bg-surface/90 px-5 py-4 font-mono text-sm text-text-muted">
+                Loading pipeline DAG...
+              </div>
+            </div>
+          ) : null}
           <ReactFlow
             nodes={filteredNodes}
-            edges={dag.edges}
+            edges={filteredEdges}
             onNodesChange={(changes) => {
               // Apply position changes directly
               dag.setNodes((nds) => {
@@ -236,8 +268,8 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
             fitView
             className="bg-bg"
           >
-            <Background color="#334155" gap={20} />
-            <Controls />
+            <Background color="#1e293b" gap={20} />
+            <Controls className="!bg-surface !border-border !shadow-none" />
             <MiniMap
               nodeColor={(node) => {
                 const data = node.data as DAGNodeData;
@@ -283,6 +315,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         {showExecution && (
           <ExecutionSidebar
             nodes={dag.nodes}
+            stages={dag.stages}
             executing={dag.batchExecuting}
             onExecuteAll={handleExecuteAll}
             onAutoAdvance={handleAutoAdvance}

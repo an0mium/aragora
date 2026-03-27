@@ -3,19 +3,21 @@
 /**
  * ExecutionSidebar - Right-hand panel for DAG execution controls.
  *
- * Shows graph validation status, batch execution controls, per-stage
- * progress, and execution history.
+ * Shows graph validation, executable readiness, per-stage status, and
+ * recent execution history for the pipeline DAG.
  */
 
 import { useMemo } from 'react';
 import type { Node } from '@xyflow/react';
-import { STAGE_COLORS, type DAGNodeData, type DAGStage } from '@/hooks/useUnifiedDAG';
+import {
+  DAG_STAGE_ORDER,
+  STAGE_COLORS,
+  type DAGNodeData,
+  type DAGStage,
+  type DAGStageSummary,
+} from '@/hooks/useUnifiedDAG';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ExecutionHistoryEntry {
+export interface ExecutionHistoryEntry {
   id: string;
   nodeId: string;
   nodeLabel: string;
@@ -26,6 +28,7 @@ interface ExecutionHistoryEntry {
 
 interface ExecutionSidebarProps {
   nodes: Node<DAGNodeData>[];
+  stages?: DAGStageSummary[];
   executing: boolean;
   onExecuteAll: () => void;
   onAutoAdvance: () => void;
@@ -35,12 +38,10 @@ interface ExecutionSidebarProps {
   onClose: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 interface StageSummary {
   stage: DAGStage;
+  label: string;
+  status: string;
   total: number;
   ready: number;
   running: number;
@@ -48,19 +49,62 @@ interface StageSummary {
   failed: number;
   blocked: number;
   pending: number;
+  awaitingHuman: number;
 }
 
-function computeStageSummaries(nodes: Node<DAGNodeData>[]): StageSummary[] {
-  const stages: DAGStage[] = ['ideas', 'goals', 'actions', 'orchestration'];
-  return stages.map((stage) => {
-    const stageNodes = nodes.filter((n) => (n.data as unknown as DAGNodeData).stage === stage);
-    const counts = { ready: 0, running: 0, succeeded: 0, failed: 0, blocked: 0, pending: 0 };
-    for (const n of stageNodes) {
-      const s = (n.data as unknown as DAGNodeData).status || 'pending';
-      if (s in counts) counts[s as keyof typeof counts]++;
-      else counts.pending++;
+function computeStageSummaries(
+  nodes: Node<DAGNodeData>[],
+  stages: DAGStageSummary[] = [],
+): StageSummary[] {
+  const stageById = Object.fromEntries(stages.map((stage) => [stage.stage, stage])) as Partial<
+    Record<DAGStage, DAGStageSummary>
+  >;
+
+  return DAG_STAGE_ORDER.map((stage) => {
+    const stageNodes = nodes.filter((node) => node.data.stage === stage);
+    const counts = {
+      ready: 0,
+      running: 0,
+      succeeded: 0,
+      failed: 0,
+      blocked: 0,
+      pending: 0,
+      awaitingHuman: 0,
+    };
+
+    for (const node of stageNodes) {
+      switch (node.data.status) {
+        case 'ready':
+          counts.ready += 1;
+          break;
+        case 'running':
+          counts.running += 1;
+          break;
+        case 'succeeded':
+          counts.succeeded += 1;
+          break;
+        case 'failed':
+          counts.failed += 1;
+          break;
+        case 'blocked':
+          counts.blocked += 1;
+          break;
+        case 'awaiting_human':
+          counts.awaitingHuman += 1;
+          break;
+        default:
+          counts.pending += 1;
+          break;
+      }
     }
-    return { stage, total: stageNodes.length, ...counts };
+
+    return {
+      stage,
+      label: stageById[stage]?.label ?? stage,
+      status: stageById[stage]?.status ?? 'pending',
+      total: stageNodes.length,
+      ...counts,
+    };
   });
 }
 
@@ -70,12 +114,9 @@ function formatDuration(ms: number): string {
   return `${(ms / 60_000).toFixed(1)}m`;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function ExecutionSidebar({
   nodes,
+  stages = [],
   executing,
   onExecuteAll,
   onAutoAdvance,
@@ -84,13 +125,12 @@ export function ExecutionSidebar({
   executionHistory,
   onClose,
 }: ExecutionSidebarProps) {
-  const summaries = useMemo(() => computeStageSummaries(nodes), [nodes]);
+  const summaries = useMemo(() => computeStageSummaries(nodes, stages), [nodes, stages]);
   const totalNodes = nodes.length;
-  const succeededNodes = nodes.filter(
-    (n) => (n.data as unknown as DAGNodeData).status === 'succeeded',
-  ).length;
-  const readyNodes = nodes.filter(
-    (n) => (n.data as unknown as DAGNodeData).status === 'ready',
+  const succeededNodes = nodes.filter((node) => node.data.status === 'succeeded').length;
+  const readyNodes = nodes.filter((node) => node.data.status === 'ready').length;
+  const executableReadyNodes = nodes.filter(
+    (node) => node.data.status === 'ready' && Boolean(node.data.canExecute),
   ).length;
   const completionPct = totalNodes > 0 ? Math.round((succeededNodes / totalNodes) * 100) : 0;
 
@@ -100,7 +140,6 @@ export function ExecutionSidebar({
       data-testid="execution-sidebar"
     >
       <div className="p-4 space-y-5">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">
             Execution
@@ -114,7 +153,6 @@ export function ExecutionSidebar({
           </button>
         </div>
 
-        {/* Overall progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-mono text-text-muted">
             <span>Overall Progress</span>
@@ -131,21 +169,31 @@ export function ExecutionSidebar({
             <span>{succeededNodes}/{totalNodes} nodes complete</span>
             <span>{readyNodes} ready</span>
           </div>
+          <div className="rounded-lg border border-border/60 bg-bg/40 px-3 py-2 text-[10px] font-mono text-text-muted">
+            {executableReadyNodes > 0
+              ? `${executableReadyNodes} orchestration node(s) ready to execute`
+              : 'No orchestration nodes are ready to execute yet'}
+          </div>
         </div>
 
-        {/* Stage breakdown */}
         <div className="space-y-2">
           <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
             Stage Progress
           </h4>
-          {summaries.map((s) => {
-            const color = STAGE_COLORS[s.stage];
-            const pct = s.total > 0 ? Math.round((s.succeeded / s.total) * 100) : 0;
+          {summaries.map((summary) => {
+            const color = STAGE_COLORS[summary.stage];
+            const pct = summary.total > 0 ? Math.round((summary.succeeded / summary.total) * 100) : 0;
             return (
-              <div key={s.stage} className="space-y-1">
+              <div key={summary.stage} className="space-y-1.5 rounded-lg border border-border/40 bg-bg/35 p-2">
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span style={{ color }} className="capitalize font-bold">{s.stage}</span>
-                  <span className="text-text-muted">{s.succeeded}/{s.total}</span>
+                  <span style={{ color }} className="capitalize font-bold">{summary.stage}</span>
+                  <span className="text-text-muted">{summary.succeeded}/{summary.total}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-text-muted">
+                  <span>{summary.status.replace('_', ' ')}</span>
+                  {summary.awaitingHuman > 0 ? (
+                    <span className="text-fuchsia-300">{summary.awaitingHuman} waiting</span>
+                  ) : null}
                 </div>
                 <div className="h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
                   <div
@@ -153,19 +201,17 @@ export function ExecutionSidebar({
                     style={{ width: `${pct}%`, background: color }}
                   />
                 </div>
-                {/* Mini status counts */}
-                <div className="flex gap-2 text-[9px] font-mono text-text-muted">
-                  {s.running > 0 && <span className="text-amber-400">{s.running} running</span>}
-                  {s.ready > 0 && <span className="text-blue-400">{s.ready} ready</span>}
-                  {s.failed > 0 && <span className="text-red-400">{s.failed} failed</span>}
-                  {s.blocked > 0 && <span>{s.blocked} blocked</span>}
+                <div className="flex flex-wrap gap-2 text-[9px] font-mono text-text-muted">
+                  {summary.running > 0 && <span className="text-amber-400">{summary.running} running</span>}
+                  {summary.ready > 0 && <span className="text-blue-400">{summary.ready} ready</span>}
+                  {summary.failed > 0 && <span className="text-red-400">{summary.failed} failed</span>}
+                  {summary.blocked > 0 && <span>{summary.blocked} blocked</span>}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Validation */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
@@ -185,31 +231,30 @@ export function ExecutionSidebar({
             </div>
           ) : (
             <div className="space-y-1">
-              {validationErrors.map((err, i) => (
+              {validationErrors.map((error, index) => (
                 <div
-                  key={i}
+                  key={`${error}-${index}`}
                   className="flex items-start gap-1.5 text-[11px] font-mono text-red-400"
                 >
                   <span className="mt-0.5">{'\u2717'}</span>
-                  <span>{err}</span>
+                  <span>{error}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Batch controls */}
         <div className="space-y-2 pt-2 border-t border-border">
           <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
             Batch Operations
           </h4>
           <button
             onClick={onExecuteAll}
-            disabled={executing || readyNodes === 0}
+            disabled={executing || executableReadyNodes === 0}
             className="w-full px-3 py-2 text-sm font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             data-testid="execute-all-btn"
           >
-            {executing ? 'Executing...' : `Execute All Ready (${readyNodes})`}
+            {executing ? 'Executing...' : `Execute All Ready (${executableReadyNodes})`}
           </button>
           <button
             onClick={onAutoAdvance}
@@ -220,12 +265,11 @@ export function ExecutionSidebar({
             {executing ? 'Advancing...' : 'Auto-Advance All Stages'}
           </button>
           <p className="text-[10px] font-mono text-text-muted">
-            Auto-advance decomposes ideas, sets goals, creates actions, assigns agents, and executes the full pipeline.
+            Validate dependencies before batch execution. Ready orchestration nodes are executed together.
           </p>
         </div>
 
-        {/* Execution history */}
-        {executionHistory.length > 0 && (
+        {executionHistory.length > 0 ? (
           <div className="space-y-2 pt-2 border-t border-border">
             <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
               Recent Executions
@@ -251,10 +295,8 @@ export function ExecutionSidebar({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </aside>
   );
 }
-
-export type { ExecutionHistoryEntry };

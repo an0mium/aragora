@@ -84,6 +84,73 @@ class MockGraph:
         }
 
 
+class MockDagSnapshot:
+    """Mock normalized DAG snapshot."""
+
+    def __init__(self, graph_id: str = "graph-1"):
+        self.graph_id = graph_id
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "graph_id": self.graph_id,
+            "name": "Test DAG",
+            "nodes": [
+                {
+                    "id": "idea-1",
+                    "stage": "ideas",
+                    "node_subtype": "concept",
+                    "label": "Seed idea",
+                    "description": "Start here",
+                    "execution_status": "succeeded",
+                    "metadata": {},
+                }
+            ],
+            "dependencies": [],
+            "runtime": {
+                "idea-1": {
+                    "node_id": "idea-1",
+                    "stage": "ideas",
+                    "execution_status": "succeeded",
+                    "approval_status": "pending",
+                    "confidence": 0.0,
+                    "assigned_agent": None,
+                    "metadata": {},
+                    "updated_at": 0.0,
+                }
+            },
+            "stages": [
+                {
+                    "stage": "ideas",
+                    "label": "Ideas",
+                    "order": 0,
+                    "status": "complete",
+                    "node_ids": ["idea-1"],
+                    "dependency_stage_ids": [],
+                    "node_count": 1,
+                    "status_counts": {"succeeded": 1},
+                    "metadata": {},
+                },
+                {
+                    "stage": "goals",
+                    "label": "Goals",
+                    "order": 2,
+                    "status": "pending",
+                    "node_ids": [],
+                    "dependency_stage_ids": ["ideas"],
+                    "node_count": 0,
+                    "status_counts": {},
+                    "metadata": {},
+                },
+            ],
+            "stage_status": {"ideas": "complete", "goals": "pending"},
+            "dependency_map": {},
+            "metadata": {},
+            "integrity_hash": "abc123",
+            "generated_at": 0.0,
+            "live_updates": [],
+        }
+
+
 class MockGraphStore:
     """Mock graph store."""
 
@@ -92,6 +159,11 @@ class MockGraphStore:
 
     def get(self, graph_id: str) -> MockGraph | None:
         return self._graphs.get(graph_id)
+
+    def get_dag_snapshot(self, graph_id: str) -> MockDagSnapshot | None:
+        if graph_id not in self._graphs:
+            return None
+        return MockDagSnapshot(graph_id=graph_id)
 
 
 class MockCoordinator:
@@ -284,6 +356,9 @@ class TestGetGraph:
         body = _body(result)
         assert "data" in body
         assert body["data"]["graph_id"] == "test-graph"
+        assert "stages" in body["data"]
+        assert "stage_status" in body["data"]
+        assert "dependencies" in body["data"]
         assert _status(result) == 200
 
     @pytest.mark.asyncio

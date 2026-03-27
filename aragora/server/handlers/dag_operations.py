@@ -139,7 +139,18 @@ class DAGOperationsHandler:
         if graph is None:
             return error_response(f"Graph {graph_id} not found", 404)
 
-        return json_response({"data": graph.to_dict()})
+        snapshot = None
+        get_snapshot = getattr(store, "get_dag_snapshot", None)
+        if callable(get_snapshot):
+            snapshot = get_snapshot(graph_id)
+        if snapshot is None and hasattr(graph, "to_dag_snapshot"):
+            snapshot = graph.to_dag_snapshot()
+
+        payload = snapshot.to_dict() if hasattr(snapshot, "to_dict") else snapshot
+        if payload is None:
+            payload = graph.to_dict()
+
+        return json_response({"data": payload})
 
     async def _dispatch_node_op(
         self,

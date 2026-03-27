@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import type { DAGStage } from '@/hooks/useUnifiedDAG';
 
 interface DAGToolbarProps {
   onBrainDump: (text: string) => void;
@@ -10,12 +11,12 @@ interface DAGToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   loading: boolean;
-  stageFilter: string | null;
-  onStageFilterChange: (stage: string | null) => void;
+  stageFilter: DAGStage | null;
+  onStageFilterChange: (stage: DAGStage | null) => void;
   children?: ReactNode;
 }
 
-const STAGES = ['ideas', 'goals', 'actions', 'orchestration'] as const;
+const STAGES: DAGStage[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
 
 export function DAGToolbar({
   onBrainDump,
