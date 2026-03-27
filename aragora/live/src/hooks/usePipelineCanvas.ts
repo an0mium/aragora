@@ -22,11 +22,15 @@ import type {
   PipelineStageType,
   PipelineResultResponse,
   ReactFlowData,
+  PipelineStageResponse,
 } from '../components/pipeline-canvas/types';
 import {
+  extractPipelineStagePayload,
   getDefaultPipelineNodeData,
   getNodeTypeForStage,
+  normalizePipelineStageName,
   PIPELINE_STAGE_CONFIG,
+  unwrapPipelineResultResponse,
 } from '../components/pipeline-canvas/types';
 
 // ---------------------------------------------------------------------------
@@ -204,7 +208,12 @@ export function usePipelineCanvas(
           setError(`Failed to load pipeline: ${res.status}`);
           return;
         }
-        const data: PipelineResultResponse = await res.json();
+        const rawData = await res.json();
+        const data = unwrapPipelineResultResponse(rawData);
+        if (!data) {
+          setError('Failed to load pipeline');
+          return;
+        }
         populateFromResult(data);
         // Load the active stage into React Flow
         loadStageIntoFlow(activeStage);
@@ -224,8 +233,8 @@ export function usePipelineCanvas(
       try {
         const res = await fetch(`${API_PREFIX}/${pipelineId}/stage/${stage}`);
         if (!res.ok) return;
-        const data = await res.json();
-        const stageData = data.data ?? data;
+        const data: PipelineStageResponse = await res.json();
+        const stageData = extractPipelineStagePayload(data);
         stageNodesRef.current[stage] = parseStageNodes(stage, stageData);
         stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
         syncCacheToState();
@@ -282,7 +291,7 @@ export function usePipelineCanvas(
       try {
         const msg = JSON.parse(event.data);
         const eventType: string = msg.type ?? '';
-        const stage: PipelineStageType | undefined = msg.data?.stage ?? msg.stage;
+        const stage = normalizePipelineStageName(String(msg.data?.stage ?? msg.stage ?? '')) ?? undefined;
 
         switch (eventType) {
           case 'pipeline_stage_completed':

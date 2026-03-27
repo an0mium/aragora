@@ -19,10 +19,14 @@ import type {
   ProvenanceBreadcrumb,
   ProvenanceLink,
   ExecutionStatus,
+  PipelineStageResponse,
 } from '../components/pipeline-canvas/types';
 import {
+  extractPipelineStagePayload,
   getNodeTypeForStage,
+  normalizePipelineStageName,
   PIPELINE_STAGE_CONFIG,
+  unwrapPipelineResultResponse,
 } from '../components/pipeline-canvas/types';
 import {
   usePipelineWebSocket,
@@ -279,7 +283,12 @@ export function useMissionControl(
           setError(`Failed to load pipeline: ${res.status}`);
           return;
         }
-        const data: PipelineResultResponse = await res.json();
+        const rawData = await res.json();
+        const data = unwrapPipelineResultResponse(rawData);
+        if (!data) {
+          setError('Failed to load pipeline');
+          return;
+        }
         populateFromResult(data);
       } catch {
         setError('Failed to load pipeline');
@@ -559,7 +568,8 @@ export function useMissionControl(
   }, [stageNodes, stageEdges]);
 
   const handleStageStarted = useCallback((event: PipelineStageEvent) => {
-    const stage = event.stage as PipelineStageType;
+    const stage = normalizePipelineStageName(event.stage);
+    if (!stage) return;
     if (!ALL_STAGES.includes(stage)) return;
     setStageStatus((prev) => ({ ...prev, [stage]: 'running' }));
     setIsExecuting(true);
@@ -568,7 +578,8 @@ export function useMissionControl(
   // -- WebSocket integration ----------------------------------------------
   const handleStageCompleted = useCallback(
     (event: PipelineStageEvent) => {
-      const stage = event.stage as PipelineStageType;
+      const stage = normalizePipelineStageName(event.stage);
+      if (!stage) return;
       if (!ALL_STAGES.includes(stage)) return;
       setStageStatus((prev) => ({ ...prev, [stage]: 'complete' }));
 
@@ -576,9 +587,9 @@ export function useMissionControl(
       if (pipelineId) {
         fetch(`${API_PREFIX}/${pipelineId}/stage/${stage}`)
           .then((res) => res.ok ? res.json() : null)
-          .then((data) => {
+          .then((data: PipelineStageResponse | null) => {
             if (!data) return;
-            const stageData = data.data ?? data;
+            const stageData = extractPipelineStagePayload(data);
             stageNodesRef.current[stage] = parseStageNodes(stage, stageData);
             stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
             syncCacheToState();

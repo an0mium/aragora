@@ -109,12 +109,24 @@ class TestHandleRun:
         result = await handler.handle_run(
             {
                 "input_text": "Test custom stages",
-                "stages": ["ideation", "goals"],
+                "stages": ["ideas", "goals"],
                 "dry_run": True,
             }
         )
         body = _body(result)
-        assert body["stages"] == ["ideation", "goals"]
+        assert body["stages"] == ["ideas", "goals"]
+
+    @pytest.mark.asyncio
+    async def test_run_normalizes_legacy_stage_names(self, handler):
+        result = await handler.handle_run(
+            {
+                "input_text": "Normalize legacy names",
+                "stages": ["ideation", "workflow"],
+                "dry_run": True,
+            }
+        )
+        body = _body(result)
+        assert body["stages"] == ["ideas", "actions"]
 
     @pytest.mark.asyncio
     async def test_run_stores_pipeline(self, handler):

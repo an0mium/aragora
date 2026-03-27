@@ -13,6 +13,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useWebSocketBase, type WebSocketConnectionStatus } from './useWebSocketBase';
 import { useBackend } from '@/components/BackendSelector';
+import { normalizePipelineStageName } from '@/components/pipeline-canvas/types';
 
 export type PipelineEventType =
   | 'pipeline_started'
@@ -55,6 +56,11 @@ export interface PipelineGraphEvent {
     nodes: Array<Record<string, unknown>>;
     edges: Array<Record<string, unknown>>;
   };
+}
+
+function normalizeStageLabel(stage: unknown): string {
+  return normalizePipelineStageName(typeof stage === 'string' ? stage : String(stage ?? ''))
+    ?? String(stage ?? '');
 }
 
 export interface PipelineNodeStatusEvent {
@@ -166,25 +172,25 @@ export function usePipelineWebSocket({
       switch (event.type) {
         case 'pipeline_stage_started':
           onStageStarted?.({
-            stage: data.stage as string,
+            stage: normalizeStageLabel(data.stage),
             config: data.config as Record<string, unknown>,
           });
           break;
 
         case 'pipeline_stage_completed':
           setCompletedStages((prev) => {
-            const stage = data.stage as string;
+            const stage = normalizeStageLabel(data.stage);
             return prev.includes(stage) ? prev : [...prev, stage];
           });
           onStageCompleted?.({
-            stage: data.stage as string,
+            stage: normalizeStageLabel(data.stage),
             summary: data.summary as Record<string, unknown>,
           });
           break;
 
         case 'pipeline_node_added': {
           const nodeEvent: PipelineNodeEvent = {
-            stage: data.stage as string,
+            stage: normalizeStageLabel(data.stage),
             node_id: data.node_id as string,
             node_type: data.node_type as string,
             label: data.label as string,
@@ -197,8 +203,8 @@ export function usePipelineWebSocket({
 
         case 'pipeline_transition_pending': {
           const transEvent: PipelineTransitionEvent = {
-            from_stage: data.from_stage as string,
-            to_stage: data.to_stage as string,
+            from_stage: normalizeStageLabel(data.from_stage),
+            to_stage: normalizeStageLabel(data.to_stage),
             confidence: data.confidence as number,
             ai_rationale: data.ai_rationale as string,
             pending_at: data.pending_at as number,

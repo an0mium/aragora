@@ -2,7 +2,13 @@
 
 import { useState, useCallback } from 'react';
 import { useApi } from './useApi';
-import type { PipelineResultResponse, PipelineStageType } from '@/components/pipeline-canvas/types';
+import {
+  extractPipelineStagePayload,
+  unwrapPipelineResultResponse,
+  type PipelineResultResponse,
+  type PipelineStageResponse,
+  type PipelineStageType,
+} from '@/components/pipeline-canvas/types';
 
 interface PipelineCreateResponse {
   pipeline_id: string;
@@ -127,8 +133,8 @@ const STAGE_ORDER: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestr
 export function usePipeline() {
   const api = useApi<PipelineCreateResponse>();
   const advanceApi = useApi<PipelineAdvanceResponse>();
-  const getApi = useApi<PipelineResultResponse>();
-  const stageApi = useApi<{ stage: string; data: unknown }>();
+  const getApi = useApi<PipelineResultResponse | PipelineCreateResponse>();
+  const stageApi = useApi<PipelineStageResponse>();
   const executeApi = useApi<PipelineExecuteResponse>();
   const selfImproveApi = useApi<{ data: { run_id: string; status: string; goal: string; pipeline_id: string } }>();
   const [pipelineData, setPipelineData] = useState<PipelineResultResponse | null>(null);
@@ -216,17 +222,20 @@ export function usePipeline() {
   const getPipeline = useCallback(
     async (pipelineId: string) => {
       const result = await getApi.get(`/api/v1/canvas/pipeline/${pipelineId}`);
-      if (result) {
-        setPipelineData(result);
+      const pipelineResult = unwrapPipelineResultResponse(result);
+      if (pipelineResult) {
+        setPipelineData(pipelineResult);
       }
-      return result;
+      return pipelineResult;
     },
     [getApi]
   );
 
   const getStage = useCallback(
-    (pipelineId: string, stage: PipelineStageType) =>
-      stageApi.get(`/api/v1/canvas/pipeline/${pipelineId}/stage/${stage}`),
+    async (pipelineId: string, stage: PipelineStageType) => {
+      const result = await stageApi.get(`/api/v1/canvas/pipeline/${pipelineId}/stage/${stage}`);
+      return result ? extractPipelineStagePayload(result) : null;
+    },
     [stageApi]
   );
 

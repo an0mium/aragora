@@ -402,6 +402,24 @@ class TestHandleGetStage:
         assert "data" in body
 
     @pytest.mark.asyncio
+    async def test_get_stage_includes_status_and_counts(self, handler):
+        create_result = await handler.handle_from_ideas(
+            {
+                "ideas": ["Rate limiter", "Caching"],
+                "auto_advance": True,
+            }
+        )
+        pid = _body(create_result)["pipeline_id"]
+
+        result = await handler.handle_get_stage(pid, "goals")
+        body = _body(result)
+        assert body["pipeline_id"] == pid
+        assert body["status"] == "complete"
+        assert body["kind"] == "goal_graph"
+        assert body["node_count"] > 0
+        assert body["edge_count"] >= 0
+
+    @pytest.mark.asyncio
     async def test_get_actions_stage(self, handler):
         create_result = await handler.handle_from_ideas(
             {
@@ -426,6 +444,36 @@ class TestHandleGetStage:
 
         result = await handler.handle_get_stage(pid, "orchestration")
         assert _body(result)["stage"] == "orchestration"
+
+    @pytest.mark.asyncio
+    async def test_get_principles_stage_after_save(self, handler):
+        pipeline_id = "pipe-principles-stage"
+
+        save_result = await handler.handle_save_pipeline(
+            pipeline_id,
+            {
+                "stages": {
+                    "principles": {
+                        "nodes": [
+                            {
+                                "id": "p1",
+                                "type": "principleNode",
+                                "data": {"label": "Safety first"},
+                            }
+                        ],
+                        "edges": [],
+                    }
+                }
+            },
+        )
+        assert _body(save_result)["saved"] is True
+
+        result = await handler.handle_get_stage(pipeline_id, "principles")
+        body = _body(result)
+        assert body["stage"] == "principles"
+        assert body["status"] == "complete"
+        assert body["node_count"] == 1
+        assert body["data"]["nodes"][0]["id"] == "p1"
 
 
 # =========================================================================

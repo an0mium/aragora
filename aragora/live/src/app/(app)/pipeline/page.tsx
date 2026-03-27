@@ -12,7 +12,12 @@ import { ExecutionProgressOverlay } from '@/components/pipeline-canvas/Execution
 import { FeedbackLoopPanel } from '@/components/pipeline-canvas/FeedbackLoopPanel';
 import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
-import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
+import {
+  PIPELINE_STAGE_ORDER,
+  type PipelineStageType,
+  type PipelineResultResponse,
+  type ExecutionStatus,
+} from '@/components/pipeline-canvas/types';
 import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
 
 const PipelineCanvas = dynamic(
@@ -60,7 +65,8 @@ function CanvasLoadingState() {
 
 /** Map transition target stages to the next stage for advancement */
 const _NEXT_STAGE: Record<string, PipelineStageType> = {
-  ideas: 'goals',
+  ideas: 'principles',
+  principles: 'goals',
   goals: 'actions',
   actions: 'orchestration',
 };
@@ -362,6 +368,21 @@ function PipelinePageContent() {
     setExecuteStatus('failed');
     setKey((k) => k + 1);
   }, []);
+
+  const visibleStages = useMemo(() => {
+    if (!pipelineData?.stage_status) {
+      return PIPELINE_STAGE_ORDER.filter((stage) => stage !== 'principles');
+    }
+
+    const available = new Set<PipelineStageType>();
+    for (const rawStage of Object.keys(pipelineData.stage_status)) {
+      if (PIPELINE_STAGE_ORDER.includes(rawStage as PipelineStageType)) {
+        available.add(rawStage as PipelineStageType);
+      }
+    }
+
+    return PIPELINE_STAGE_ORDER.filter((stage) => available.has(stage));
+  }, [pipelineData?.stage_status]);
 
   const { isConnected, completedStages: wsCompletedStages, streamedNodes } = usePipelineWebSocket({
     pipelineId: pipelineData?.pipeline_id,
@@ -676,7 +697,7 @@ function PipelinePageContent() {
           {/* Stage status badges */}
           {pipelineData?.stage_status && (
             <div className="flex items-center gap-1.5">
-              {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
+              {visibleStages.map((stage) => (
                 <div key={stage} className="flex items-center gap-1">
                   <span className="text-[10px] font-mono text-text-muted uppercase">{stage.slice(0, 4)}</span>
                   <StatusBadge status={mapStageStatus(pipelineData.stage_status[stage])} size="sm" />
@@ -966,7 +987,7 @@ function PipelinePageContent() {
                       <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
                         Stage Progress
                       </h4>
-                      {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
+                      {visibleStages.map((stage) => (
                         <div
                           key={stage}
                           className="flex items-center justify-between px-2 py-1.5 rounded bg-bg/50"

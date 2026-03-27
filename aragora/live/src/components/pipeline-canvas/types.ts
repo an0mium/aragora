@@ -11,6 +11,14 @@
 
 export type PipelineStageType = 'ideas' | 'principles' | 'goals' | 'actions' | 'orchestration';
 
+export const PIPELINE_STAGE_ORDER: PipelineStageType[] = [
+  'ideas',
+  'principles',
+  'goals',
+  'actions',
+  'orchestration',
+];
+
 export type IdeaType = 'concept' | 'cluster' | 'question' | 'insight' | 'evidence' | 'assumption' | 'constraint';
 export type PrincipleType = 'value' | 'principle' | 'priority' | 'constraint' | 'connection' | 'theme';
 export type GoalType = 'goal' | 'principle' | 'strategy' | 'milestone' | 'metric' | 'risk';
@@ -403,4 +411,65 @@ export interface PipelineResultResponse {
   repair?: Record<string, unknown> | null;
   repairs?: Record<string, unknown> | Array<Record<string, unknown>> | null;
   merge_gate?: Record<string, unknown> | null;
+}
+
+export interface PipelineResultEnvelope {
+  pipeline_id?: string;
+  stage_status?: Record<string, string>;
+  result?: PipelineResultResponse | null;
+  [key: string]: unknown;
+}
+
+export interface PipelineStageResponse {
+  pipeline_id?: string;
+  stage?: string;
+  status?: string;
+  kind?: string;
+  node_count?: number;
+  edge_count?: number;
+  data?: ReactFlowData | Record<string, unknown> | null;
+  canvas?: ReactFlowData | Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+const PIPELINE_STAGE_ALIASES: Record<string, PipelineStageType> = {
+  ideas: 'ideas',
+  ideation: 'ideas',
+  principles: 'principles',
+  goals: 'goals',
+  actions: 'actions',
+  workflow: 'actions',
+  orchestration: 'orchestration',
+};
+
+function hasPipelineResultShape(value: unknown): value is PipelineResultResponse {
+  return typeof value === 'object' && value !== null && 'pipeline_id' in value;
+}
+
+export function normalizePipelineStageName(stage: string | null | undefined): PipelineStageType | null {
+  if (!stage) return null;
+  return PIPELINE_STAGE_ALIASES[stage.toLowerCase()] ?? null;
+}
+
+export function unwrapPipelineResultResponse(
+  response: PipelineResultResponse | PipelineResultEnvelope | null | undefined,
+): PipelineResultResponse | null {
+  if (!response) return null;
+  if ('result' in response && hasPipelineResultShape(response.result)) {
+    return response.result;
+  }
+  return hasPipelineResultShape(response) ? response : null;
+}
+
+export function extractPipelineStagePayload(
+  response: PipelineStageResponse | Record<string, unknown> | null | undefined,
+): ReactFlowData | Record<string, unknown> | null {
+  if (!response || typeof response !== 'object') return null;
+  if ('data' in response && response.data && typeof response.data === 'object') {
+    return response.data as ReactFlowData | Record<string, unknown>;
+  }
+  if ('canvas' in response && response.canvas && typeof response.canvas === 'object') {
+    return response.canvas as ReactFlowData | Record<string, unknown>;
+  }
+  return response as ReactFlowData | Record<string, unknown>;
 }

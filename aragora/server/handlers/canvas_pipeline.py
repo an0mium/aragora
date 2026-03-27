@@ -146,6 +146,31 @@ _LIVE_ORCHESTRATION_COUNT_KEYS = {
     "awaiting_human",
 }
 
+_PIPELINE_STAGE_ALIASES = {
+    "ideas": "ideas",
+    "ideation": "ideas",
+    "principles": "principles",
+    "goals": "goals",
+    "actions": "actions",
+    "workflow": "actions",
+    "orchestration": "orchestration",
+}
+
+_INTERNAL_PIPELINE_STAGE_NAMES = {
+    "ideas": "ideation",
+    "principles": "principles",
+    "goals": "goals",
+    "actions": "workflow",
+    "orchestration": "orchestration",
+}
+
+_DEFAULT_PUBLIC_PIPELINE_STAGES = [
+    "ideas",
+    "goals",
+    "actions",
+    "orchestration",
+]
+
 
 def _normalize_live_count_key(status: Any) -> str:
     """Normalize orchestration node status values into live-count buckets."""
@@ -157,6 +182,93 @@ def _normalize_live_count_key(status: Any) -> str:
     if normalized in _LIVE_ORCHESTRATION_COUNT_KEYS:
         return normalized
     return "pending"
+
+
+def _normalize_pipeline_stage_name(stage: Any) -> str | None:
+    """Translate legacy/internal stage names into the public API stage model."""
+    normalized = str(stage or "").strip().lower()
+    if not normalized:
+        return None
+    return _PIPELINE_STAGE_ALIASES.get(normalized, normalized)
+
+
+def _to_internal_pipeline_stage_name(stage: Any) -> str | None:
+    """Translate public stage names back to the internal pipeline config names."""
+    public_stage = _normalize_pipeline_stage_name(stage)
+    if public_stage is None:
+        return None
+    return _INTERNAL_PIPELINE_STAGE_NAMES.get(public_stage, public_stage)
+
+
+def _normalize_requested_pipeline_stages(raw_stages: Any) -> list[str]:
+    """Normalize requested pipeline stages into the public API names."""
+    if not isinstance(raw_stages, list):
+        raw_stages = _DEFAULT_PUBLIC_PIPELINE_STAGES
+
+    normalized_stages: list[str] = []
+    seen: set[str] = set()
+    for stage in raw_stages:
+        public_stage = _normalize_pipeline_stage_name(stage)
+        if public_stage is None or public_stage in seen:
+            continue
+        seen.add(public_stage)
+        normalized_stages.append(public_stage)
+
+    return normalized_stages or list(_DEFAULT_PUBLIC_PIPELINE_STAGES)
+
+
+def _count_stage_graph_items(stage: str, payload: Any) -> tuple[int, int]:
+    """Count stage nodes/edges for both canvas and goal-graph payloads."""
+    if not isinstance(payload, dict):
+        return 0, 0
+
+    if stage == "goals":
+        goals = payload.get("goals", [])
+        if not isinstance(goals, list):
+            return 0, 0
+        goal_items = [goal for goal in goals if isinstance(goal, dict)]
+        return (
+            len(goal_items),
+            sum(
+                len(dependencies)
+                for goal in goal_items
+                if isinstance((dependencies := goal.get("dependencies", [])), list)
+            ),
+        )
+
+    nodes = payload.get("nodes", [])
+    edges = payload.get("edges", [])
+    node_count = (
+        len(nodes) if isinstance(nodes, list) else len(nodes) if isinstance(nodes, dict) else 0
+    )
+    edge_count = (
+        len(edges) if isinstance(edges, list) else len(edges) if isinstance(edges, dict) else 0
+    )
+    return node_count, edge_count
+
+
+def _build_stage_response(pipeline_data: dict[str, Any], stage: str) -> dict[str, Any] | None:
+    """Build a stable stage payload envelope for stage-specific API responses."""
+    public_stage = _normalize_pipeline_stage_name(stage)
+    if public_stage is None:
+        return None
+
+    payload = pipeline_data.get(public_stage)
+    node_count, edge_count = _count_stage_graph_items(public_stage, payload)
+    stage_status = pipeline_data.get("stage_status", {})
+    status = (
+        stage_status.get(public_stage, "pending") if isinstance(stage_status, dict) else "pending"
+    )
+
+    return {
+        "pipeline_id": str(pipeline_data.get("pipeline_id") or ""),
+        "stage": public_stage,
+        "status": str(status or "pending"),
+        "kind": "goal_graph" if public_stage == "goals" else "canvas",
+        "node_count": node_count,
+        "edge_count": edge_count,
+        "data": payload if payload is not None else None,
+    }
 
 
 def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
@@ -1191,18 +1303,11 @@ class CanvasPipelineHandler:
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
-        stage_key = {
-            "ideas": "ideas",
-            "principles": "principles",
-            "goals": "goals",
-            "actions": "actions",
-            "orchestration": "orchestration",
-        }.get(stage)
-
-        if not stage_key or stage_key not in result:
+        stage_response = _build_stage_response(result, stage)
+        if stage_response is None:
             return error_response(f"Stage {stage} not found", 404)
 
-        return json_response({"stage": stage, "data": result[stage_key]})
+        return json_response(stage_response)
 
     async def handle_convert_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/convert/debate
@@ -1354,16 +1459,15 @@ class CanvasPipelineHandler:
             if not input_text:
                 return error_response("Missing required field: input_text", 400)
 
+            public_stages = _normalize_requested_pipeline_stages(request_data.get("stages"))
             config = PipelineConfig(
-                stages_to_run=request_data.get(
-                    "stages",
-                    [
-                        "ideation",
-                        "goals",
-                        "workflow",
-                        "orchestration",
-                    ],
-                ),
+                stages_to_run=[
+                    internal_stage
+                    for internal_stage in (
+                        _to_internal_pipeline_stage_name(stage) for stage in public_stages
+                    )
+                    if internal_stage is not None
+                ],
                 debate_rounds=request_data.get("debate_rounds", 3),
                 workflow_mode=request_data.get("workflow_mode", "quick"),
                 dry_run=request_data.get("dry_run", False),
@@ -1405,12 +1509,8 @@ class CanvasPipelineHandler:
                 pipeline_id,
                 attach_unified_live_state(
                     {
-                        "stage_status": {
-                            "ideas": "pending",
-                            "goals": "pending",
-                            "actions": "pending",
-                            "orchestration": "pending",
-                        },
+                        "pipeline_id": pipeline_id,
+                        "stage_status": {stage_name: "pending" for stage_name in public_stages},
                     }
                 ),
             )
@@ -1430,7 +1530,7 @@ class CanvasPipelineHandler:
                 {
                     "pipeline_id": pipeline_id,
                     "status": "running",
-                    "stages": config.stages_to_run,
+                    "stages": public_stages,
                 },
                 202,
             )
@@ -1480,12 +1580,15 @@ class CanvasPipelineHandler:
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
-        stage = (request_data or {}).get("stage", "")
+        stage = _normalize_pipeline_stage_name((request_data or {}).get("stage", "")) or ""
 
         graphs: dict[str, Any] = {}
         if not stage or stage == "ideas":
             if result.get("ideas"):
                 graphs["ideas"] = result["ideas"]
+        if not stage or stage == "principles":
+            if result.get("principles"):
+                graphs["principles"] = result["principles"]
         if not stage or stage == "goals":
             if result.get("goals"):
                 # Convert goals to React Flow nodes
@@ -1988,7 +2091,7 @@ class CanvasPipelineHandler:
             return error_response("Missing required field: stages", 400)
 
         # Merge each stage's canvas data into the stored result
-        for stage_name in ("ideas", "goals", "actions", "orchestration"):
+        for stage_name in ("ideas", "principles", "goals", "actions", "orchestration"):
             stage_data = stages.get(stage_name)
             if stage_data is not None:
                 existing[stage_name] = {

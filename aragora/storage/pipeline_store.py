@@ -23,7 +23,7 @@ class PipelineResultStore(SQLiteStore):
     """Persistent storage for idea-to-execution pipeline results."""
 
     SCHEMA_NAME = "pipeline_results"
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     INITIAL_SCHEMA = """
         CREATE TABLE IF NOT EXISTS pipeline_results (
@@ -31,6 +31,7 @@ class PipelineResultStore(SQLiteStore):
             status TEXT NOT NULL DEFAULT 'pending',
             stage_status_json TEXT DEFAULT '{}',
             ideas_json TEXT,
+            principles_json TEXT,
             goals_json TEXT,
             actions_json TEXT,
             orchestration_json TEXT,
@@ -62,6 +63,17 @@ class PipelineResultStore(SQLiteStore):
             ),
             description="Persist canonical execution metadata",
         )
+        manager.register_migration(
+            from_version=2,
+            to_version=3,
+            function=lambda conn: safe_add_column(
+                conn,
+                "pipeline_results",
+                "principles_json",
+                "TEXT",
+            ),
+            description="Persist principles stage canvas payloads",
+        )
 
     def save(self, pipeline_id: str, result_dict: dict[str, Any]) -> None:
         """Save or update a pipeline result.
@@ -89,14 +101,15 @@ class PipelineResultStore(SQLiteStore):
                 """
                 INSERT INTO pipeline_results (
                     id, status, stage_status_json,
-                    ideas_json, goals_json, actions_json, orchestration_json,
+                    ideas_json, principles_json, goals_json, actions_json, orchestration_json,
                     transitions_json, provenance_count, integrity_hash,
                     receipt_json, execution_json, duration, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     status = excluded.status,
                     stage_status_json = excluded.stage_status_json,
                     ideas_json = excluded.ideas_json,
+                    principles_json = excluded.principles_json,
                     goals_json = excluded.goals_json,
                     actions_json = excluded.actions_json,
                     orchestration_json = excluded.orchestration_json,
@@ -113,6 +126,9 @@ class PipelineResultStore(SQLiteStore):
                     status,
                     json.dumps(stage_status),
                     json.dumps(result_dict.get("ideas")) if result_dict.get("ideas") else None,
+                    json.dumps(result_dict.get("principles"))
+                    if result_dict.get("principles")
+                    else None,
                     json.dumps(result_dict.get("goals")) if result_dict.get("goals") else None,
                     json.dumps(result_dict.get("actions")) if result_dict.get("actions") else None,
                     json.dumps(result_dict.get("orchestration"))
@@ -254,6 +270,7 @@ def _deserialize_row(row: dict[str, Any]) -> dict[str, Any]:
         "status": row["status"],
         "stage_status": _parse_json(row.get("stage_status_json")),
         "ideas": _parse_json(row.get("ideas_json")),
+        "principles": _parse_json(row.get("principles_json")),
         "goals": _parse_json(row.get("goals_json")),
         "actions": _parse_json(row.get("actions_json")),
         "orchestration": _parse_json(row.get("orchestration_json")),
