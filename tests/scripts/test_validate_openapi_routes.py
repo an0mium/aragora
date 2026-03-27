@@ -103,3 +103,17 @@ def test_get_handler_routes_resolves_deferred_imports(monkeypatch):
     routes = validate_openapi_routes.get_handler_routes()
     assert "/api/v1/test/routes" in routes
     assert "/api/v1/test/get" in routes
+
+
+def test_get_openapi_routes_includes_sibling_generated_snapshot(tmp_path: Path):
+    spec = tmp_path / "openapi.json"
+    generated = tmp_path / "openapi_generated.json"
+    spec.write_text(json.dumps({"paths": {"/api/v1/canonical": {"get": {}}}}), encoding="utf-8")
+    generated.write_text(
+        json.dumps({"paths": {"/api/v1/generated": {"get": {}}}}), encoding="utf-8"
+    )
+
+    routes = validate_openapi_routes.get_openapi_routes(str(spec))
+
+    assert "/api/v1/canonical" in routes
+    assert "/api/v1/generated" in routes

@@ -107,24 +107,37 @@ def get_handler_routes() -> set[str]:
     return routes
 
 
+def _iter_spec_paths(spec_path: str) -> list[Path]:
+    """Return the primary spec path plus any supplemental generated snapshots."""
+    primary = Path(spec_path)
+    candidates = [primary]
+    if "_generated" not in primary.stem:
+        generated = primary.with_name(f"{primary.stem}_generated{primary.suffix}")
+        if generated.exists():
+            candidates.append(generated)
+    return candidates
+
+
 def get_openapi_routes(spec_path: str) -> set[str]:
-    """Extract all paths from OpenAPI spec.
+    """Extract all paths from one or more OpenAPI specs.
 
     Args:
-        spec_path: Path to OpenAPI JSON file.
+        spec_path: Path to the primary OpenAPI JSON file.
 
     Returns:
-        Set of API paths from the spec.
+        Set of API paths from the primary spec and any sibling generated snapshot.
     """
     path = Path(spec_path)
     if not path.exists():
         print(f"Error: OpenAPI spec not found at {spec_path}")
         sys.exit(1)
 
-    with open(path) as f:
-        spec = json.load(f)
-
-    return set(spec.get("paths", {}).keys())
+    routes: set[str] = set()
+    for candidate in _iter_spec_paths(spec_path):
+        with open(candidate) as f:
+            spec = json.load(f)
+        routes.update(spec.get("paths", {}).keys())
+    return routes
 
 
 def normalize_route(route: str | tuple) -> str:
