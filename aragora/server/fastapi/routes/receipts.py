@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
 from datetime import datetime, timezone
 from enum import Enum
 from inspect import signature
@@ -445,6 +446,8 @@ def _reconstruct_decision_receipt(receipt: Any) -> Any | None:
 def _render_shared_receipt_html(receipt: Any, token: str) -> str:
     """Render a lightweight standalone HTML view for shared receipts."""
     title = getattr(receipt, "receipt_id", None) or token
+    base_url = os.environ.get("ARAGORA_BASE_URL", "https://aragora.ai").rstrip("/")
+    share_url = f"{base_url}/api/v2/receipts/share/{token}"
     if hasattr(receipt, "to_html"):
         body = receipt.to_html()
     else:
@@ -457,7 +460,8 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:title" content="Aragora Decision Receipt {title}" />
     <meta property="og:type" content="article" />
-    <meta property="og:url" content="/api/v2/receipts/share/{token}" />
+    <meta property="og:url" content="{share_url}" />
+    <link rel="canonical" href="{share_url}" />
     <title>Aragora Decision Receipt {title}</title>
   </head>
   <body>

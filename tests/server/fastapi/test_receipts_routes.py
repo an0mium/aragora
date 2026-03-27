@@ -567,6 +567,14 @@ class TestGetSharedReceipt:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
         assert "Aragora Decision Receipt" in response.text
+        assert (
+            '<meta property="og:url" content="https://aragora.ai/api/v2/receipts/share/html-token" />'
+            in response.text
+        )
+        assert (
+            '<link rel="canonical" href="https://aragora.ai/api/v2/receipts/share/html-token" />'
+            in response.text
+        )
 
     def test_runtime_openapi_has_receipt_share_paths(self, app):
         spec = app.openapi()
