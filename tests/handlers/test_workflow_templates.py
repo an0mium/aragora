@@ -29,6 +29,7 @@ Covers all routes and behavior of the handler classes:
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 from typing import Any
@@ -1944,6 +1945,9 @@ class TestAsyncWorkflowExecution:
         assert saved["status"] == "running"
         assert saved["tenant_id"] == "t1"
         mock_loop.create_task.assert_called_once()
+        scheduled_coro = mock_loop.create_task.call_args.args[0]
+        assert asyncio.iscoroutine(scheduled_coro)
+        scheduled_coro.close()
 
     @patch("aragora.server.handlers.workflow_templates._get_workflow_store")
     @patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop"))
@@ -2077,9 +2081,11 @@ class TestEdgeCases:
 
         with patch("aragora.server.handlers.workflow_templates.WorkflowDefinition") as mock_wd:
             mock_wd.from_dict.return_value = MagicMock()
-            with patch("asyncio.run", return_value=mock_result):
-                h = _make_handler(method="POST", body={"template_id": "test"})
-                result = templates_handler.handle("/api/v1/workflow/templates", {}, h)
+            with patch("aragora.workflow.engine.WorkflowEngine") as mock_engine_cls:
+                mock_engine_cls.return_value.execute.return_value = object()
+                with patch("asyncio.run", return_value=mock_result):
+                    h = _make_handler(method="POST", body={"template_id": "test"})
+                    result = templates_handler.handle("/api/v1/workflow/templates", {}, h)
         # Should not crash - uses result directly instead of result.to_dict()
         assert _status(result) == 200
 

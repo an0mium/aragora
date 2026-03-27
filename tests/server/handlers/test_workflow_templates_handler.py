@@ -1139,6 +1139,10 @@ class TestAsyncWorkflowExecution:
                 assert saved["workflow_id"] == "wf_test"
                 assert saved["status"] == "running"
                 assert saved["inputs"] == {"task": "test"}
+                mock_loop.create_task.assert_called_once()
+                scheduled_coro = mock_loop.create_task.call_args.args[0]
+                assert asyncio.iscoroutine(scheduled_coro)
+                scheduled_coro.close()
 
     def test_start_workflow_execution_no_running_loop(self):
         """_start_workflow_execution handles no running event loop."""
