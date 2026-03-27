@@ -270,6 +270,18 @@ class TestPermissionRequirements:
             f"Permissions with invalid format (should be category:action): {invalid_format}"
         )
 
+    def test_receipt_share_route_is_listed_once(self) -> None:
+        """The receipt share POST route should have a single manifest entry."""
+        from aragora.server.auth_requirements import PERMISSION_ENDPOINTS
+
+        matches = [
+            req
+            for req in PERMISSION_ENDPOINTS
+            if req.path == "/api/v2/receipts/{receipt_id}/share" and req.method == "post"
+        ]
+
+        assert len(matches) == 1
+
 
 # =============================================================================
 # Consistency Tests

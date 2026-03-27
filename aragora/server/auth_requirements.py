@@ -339,13 +339,6 @@ PERMISSION_ENDPOINTS = [
         permission="apikeys:delete",
         description="Revoke API key",
     ),
-    EndpointAuth(
-        "/api/v2/receipts/{receipt_id}/share",
-        "post",
-        AuthLevel.PERMISSION,
-        permission="receipts:share",
-        description="Create a shared receipt link",
-    ),
 ]
 
 # =============================================================================

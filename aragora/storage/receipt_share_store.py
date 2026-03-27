@@ -217,9 +217,10 @@ class ReceiptShareStore:
             UPDATE receipt_shares
             SET access_count = access_count + 1
             WHERE token = ?
+              AND expires_at >= ?
               AND (max_accesses IS NULL OR access_count < max_accesses)
             """,
-            (token,),
+            (token, now),
         )
         conn.commit()
 

@@ -45,3 +45,20 @@ def test_consume_access_is_atomic_under_race(tmp_path) -> None:
 
     assert sorted(result["status"] for result in results) == ["limit_reached", "ok"]
     assert store.get_by_token("limited-token")["access_count"] == 1
+
+
+def test_consume_access_does_not_increment_expired_token(tmp_path) -> None:
+    """Expired tokens should be rejected without incrementing access_count."""
+    store = ReceiptShareStore(tmp_path / "receipt_shares.db")
+    store.save(
+        token="expired-token",
+        receipt_id="receipt-123",
+        expires_at=time.time() - 60,
+        max_accesses=2,
+    )
+
+    result = store.consume_access("expired-token")
+
+    assert result["status"] == "expired"
+    assert result["share_info"]["access_count"] == 0
+    assert store.get_by_token("expired-token")["access_count"] == 0
