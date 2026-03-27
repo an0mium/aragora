@@ -136,7 +136,9 @@ async def test_run_triage_defaults_to_staged_profile(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
     monkeypatch.delenv("ARAGORA_TRIAGE_PROFILE", raising=False)
-    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]), next_page_token=None)
+    fake_runner = SimpleNamespace(
+        run_triage=AsyncMock(return_value=[decision]), next_page_token=None
+    )
     fake_service = SimpleNamespace(review_receipt=object())
     captured: dict[str, object] = {}
 
@@ -167,7 +169,9 @@ async def test_run_triage_syncs_connector_state_before_execution(tmp_path, monke
     )
     gmail = SimpleNamespace(_refresh_token="refresh-token", user_id="me")
     monkeypatch.setenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", str(tmp_path / "triage-runs"))
-    fake_runner = SimpleNamespace(run_triage=AsyncMock(return_value=[decision]), next_page_token=None)
+    fake_runner = SimpleNamespace(
+        run_triage=AsyncMock(return_value=[decision]), next_page_token=None
+    )
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (

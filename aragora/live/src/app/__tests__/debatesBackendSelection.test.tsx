@@ -19,6 +19,9 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({
     id: 'debate-123',
   }),
+  useSearchParams: () => ({
+    get: () => null,
+  }),
 }));
 
 jest.mock('next/link', () => {
@@ -55,6 +58,15 @@ jest.mock('@/utils/logger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
   },
+}));
+
+jest.mock('@/hooks/useAuthenticatedFetch', () => ({
+  useAuthFetch: () => ({
+    getAuthHeaders: () => ({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer test-token',
+    }),
+  }),
 }));
 
 jest.mock('@/utils/supabase', () => ({

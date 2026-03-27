@@ -6,7 +6,9 @@ from aragora.inbox.auto_approval import AutoApprovalPolicy
 from aragora.inbox.trust_wedge import InboxWedgeAction, ReceiptState, TriageDecision
 
 
-def _decision(*, subject: str, action: InboxWedgeAction = InboxWedgeAction.ARCHIVE) -> TriageDecision:
+def _decision(
+    *, subject: str, action: InboxWedgeAction = InboxWedgeAction.ARCHIVE
+) -> TriageDecision:
     decision = TriageDecision.create(
         final_action=action,
         confidence=0.95,
