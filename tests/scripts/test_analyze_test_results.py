@@ -56,3 +56,29 @@ def test_main_exit_zero_flag_makes_analysis_advisory(tmp_path: Path) -> None:
         ["analyze_test_results.py", "--junit", str(junit_path), "--exit-zero"],
     ):
         assert module.main() == 0
+
+
+def test_main_exit_zero_writes_placeholder_when_junit_missing(tmp_path: Path) -> None:
+    module = _load_script_module()
+    junit_path = tmp_path / "missing.xml"
+    output_path = tmp_path / "summary.md"
+
+    with patch.object(
+        module.sys,
+        "argv",
+        [
+            "analyze_test_results.py",
+            "--junit",
+            str(junit_path),
+            "--format",
+            "markdown",
+            "--output",
+            str(output_path),
+            "--exit-zero",
+        ],
+    ):
+        assert module.main() == 0
+
+    output = output_path.read_text(encoding="utf-8")
+    assert "No test results were produced." in output
+    assert f"Reason: JUnit report not found: {junit_path}" in output

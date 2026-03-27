@@ -2078,7 +2078,7 @@ jobs:
         # Gating tests run in test-fast and test jobs above.
         continue-on-error: true
         run: |
-          pytest tests/debate tests/agents tests/server \
+          python -m pytest -o addopts='' tests/debate tests/agents tests/server \
             -m "not slow and not load and not e2e" \
             --timeout=60 \
             --reruns=2 \

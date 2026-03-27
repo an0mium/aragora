@@ -67,6 +67,62 @@ class TestAnalysis:
     by_module: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
+def _empty_analysis_output(output_format: str, reason: str) -> str:
+    """Return a placeholder analysis when no results were produced."""
+    if output_format == "json":
+        return json.dumps(
+            {
+                "summary": {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "xfailed": 0,
+                    "xpassed": 0,
+                    "flaky": 0,
+                    "pass_rate": 0,
+                },
+                "note": reason,
+                "flaky_tests": [],
+                "failed_tests": [],
+                "slowest_tests": [],
+                "skip_reasons": {},
+                "by_module": {},
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+            indent=2,
+        )
+    if output_format == "markdown":
+        return "\n".join(
+            [
+                "## Test Results Summary",
+                "",
+                "⚠️ No test results were produced.",
+                "",
+                f"Reason: {reason}",
+            ]
+        )
+    return "\n".join(
+        [
+            "=" * 60,
+            "TEST RESULTS ANALYSIS",
+            "=" * 60,
+            "",
+            "No test results were produced.",
+            f"Reason: {reason}",
+        ]
+    )
+
+
+def _emit_output(output: str, output_path: Path | None) -> None:
+    """Write output to a file or stdout."""
+    if output_path:
+        output_path.write_text(output)
+        print(f"Wrote analysis to {output_path}")
+        return
+    print(output)
+
+
 def parse_junit_xml(xml_path: Path) -> list[TestResult]:
     """Parse JUnit XML report."""
     results = []
@@ -344,16 +400,28 @@ def main():
 
     # Parse results
     results = []
+    missing_reason = ""
     if args.junit and args.junit.exists():
         results = parse_junit_xml(args.junit)
     elif args.stdin:
         content = sys.stdin.read()
         results = parse_pytest_output(content)
     else:
-        print("Error: Provide --junit file or --stdin", file=sys.stderr)
+        missing_reason = (
+            f"JUnit report not found: {args.junit}" if args.junit else "Provide --junit file or --stdin"
+        )
+
+    if missing_reason:
+        if args.exit_zero:
+            _emit_output(_empty_analysis_output(args.format, missing_reason), args.output)
+            return 0
+        print(f"Error: {missing_reason}", file=sys.stderr)
         return 1
 
     if not results:
+        if args.exit_zero:
+            _emit_output(_empty_analysis_output(args.format, "No test results found"), args.output)
+            return 0
         print("No test results found", file=sys.stderr)
         return 1
 
@@ -369,11 +437,7 @@ def main():
         output = format_text(analysis)
 
     # Write output
-    if args.output:
-        args.output.write_text(output)
-        print(f"Wrote analysis to {args.output}")
-    else:
-        print(output)
+    _emit_output(output, args.output)
 
     if args.exit_zero:
         return 0
