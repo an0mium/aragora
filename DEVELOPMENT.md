@@ -109,20 +109,23 @@ make guard-strict  # includes untracked artifacts
 # Baseline command (same tooling and addopts as CI)
 python scripts/run_test_baseline.py
 
-# Direct pytest invocation: disable pytest-rerunfailures to keep local and sandbox runs deterministic
-python -m pytest -p no:rerunfailures tests/ -v
+# Direct pytest invocation now auto-disables pytest-rerunfailures for deterministic local and sandbox runs
+pytest tests/ -v
 
 # Run specific test file
-python -m pytest -p no:rerunfailures tests/test_orchestrator.py -v
+pytest tests/test_orchestrator.py -v
 
 # Run tests matching pattern
-python -m pytest -p no:rerunfailures tests/ -k "consensus" -v
+pytest tests/ -k "consensus" -v
 
 # Run with coverage
-python -m pytest -p no:rerunfailures tests/ --cov=aragora --cov-report=html
+pytest tests/ --cov=aragora --cov-report=html
 
 # Run only fast tests (skip slow integration tests)
-python -m pytest -p no:rerunfailures tests/ -v --timeout=10
+pytest tests/ -v --timeout=10
+
+# Opt back into pytest-rerunfailures when you explicitly want reruns
+ARAGORA_PYTEST_ENABLE_RERUNFAILURES=1 pytest tests/ --reruns 2 -v
 
 # Run mutation testing
 mutmut run --paths-to-mutate=aragora/debate/
