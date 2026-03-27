@@ -35,7 +35,10 @@ echo -e "${GREEN}Running test tier: ${tier}${NC}"
 
 case "$tier" in
   smoke)
+    # Smoke runs should stay on the in-repo lightweight checks and avoid
+    # benchmark imports that rely on optional standalone debate packaging.
     ${PYTEST_BIN} tests/ -m smoke \
+      --ignore=tests/benchmarks \
       --timeout=60 \
       -v \
       --tb=short \
