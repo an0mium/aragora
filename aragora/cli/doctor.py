@@ -13,11 +13,19 @@ Checks:
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import sys
 from pathlib import Path
 
+import httpx
+
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
+_SERVER_UNAVAILABLE_ERRORS = REDIS_CONNECTION_ERRORS + (
+    httpx.RequestError,
+    RuntimeError,
+)
 
 
 def check_icon(ok: bool | None) -> str:
@@ -35,6 +43,16 @@ def print_section(title: str) -> None:
     print("-" * 40)
 
 
+def _module_available(module_name: str) -> bool:
+    """Check whether a module can be resolved without importing it."""
+    if module_name in sys.modules:
+        return True
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except (AttributeError, ImportError, ValueError):
+        return False
+
+
 def check_packages() -> list[tuple[str, str, bool | None]]:
     """Check required and optional packages."""
     checks = []
@@ -42,28 +60,25 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
     # Required packages
     required = ["aiohttp", "pydantic", "sqlite3", "asyncio"]
     for pkg in required:
-        try:
-            __import__(pkg)
+        if _module_available(pkg):
             checks.append((pkg, "installed", True))
-        except ImportError:
+        else:
             checks.append((pkg, "MISSING", False))
 
     # Optional ML packages
     optional_ml = ["torch", "transformers", "sentence_transformers"]
     for pkg in optional_ml:
-        try:
-            __import__(pkg)
+        if _module_available(pkg):
             checks.append((f"{pkg} (ML)", "installed", True))
-        except ImportError:
+        else:
             checks.append((f"{pkg} (ML)", "not installed", None))
 
     # Optional integrations
     optional_int = ["redis", "asyncpg", "boto3", "opentelemetry"]
     for pkg in optional_int:
-        try:
-            __import__(pkg)
+        if _module_available(pkg):
             checks.append((f"{pkg} (integration)", "installed", True))
-        except ImportError:
+        else:
             checks.append((f"{pkg} (integration)", "not installed", None))
 
     return checks
@@ -120,27 +135,23 @@ def check_storage() -> list[tuple[str, str, bool | None]]:
         checks.append(("SQLite", f"error: {e}", False))
 
     # Check PostgreSQL
-    try:
-        import asyncpg  # noqa: F401
-
+    if _module_available("asyncpg"):
         checks.append(("PostgreSQL driver", "available", True))
         if os.getenv("DATABASE_URL"):
             checks.append(("DATABASE_URL", "configured", True))
         else:
             checks.append(("DATABASE_URL", "not set (using SQLite)", None))
-    except ImportError:
+    else:
         checks.append(("PostgreSQL driver", "not installed", None))
 
     # Check Redis
-    try:
-        import redis  # noqa: F401
-
+    if _module_available("redis"):
         checks.append(("Redis driver", "available", True))
         if os.getenv("ARAGORA_REDIS_URL"):
             checks.append(("ARAGORA_REDIS_URL", "configured", True))
         else:
             checks.append(("ARAGORA_REDIS_URL", "not set (using memory)", None))
-    except ImportError:
+    else:
         checks.append(("Redis driver", "not installed", None))
 
     return checks
@@ -163,8 +174,10 @@ async def check_server() -> list[tuple[str, str, bool | None]]:
                     checks.append(
                         ("Server (localhost:8080)", f"unhealthy ({resp.status_code})", False)
                     )
-        except REDIS_CONNECTION_ERRORS:
-            checks.append(("Server (localhost:8080)", "not running", None))
+        except _SERVER_UNAVAILABLE_ERRORS as exc:
+            detail = str(exc).strip()
+            status = f"not running ({detail})" if detail else "not running"
+            checks.append(("Server (localhost:8080)", status, None))
     except ImportError:
         checks.append(("Server check", "http pool not available", None))
 
@@ -244,7 +257,7 @@ def main() -> int:
             print(f"  {check_icon(ok)} {name}: {status}")
             if ok is False:
                 all_ok = False
-    except (OSError, ConnectionError, RuntimeError) as e:
+    except (httpx.RequestError, OSError, ConnectionError, RuntimeError) as e:
         print(f"  {check_icon(None)} Server check: skipped ({e})")
 
     # Summary

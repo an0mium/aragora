@@ -66,7 +66,7 @@ class TestDoctorCommand:
                 main()
 
         captured = capsys.readouterr()
-        assert "ANTHROPIC_API_KEY: set" in captured.out
+        assert "ANTHROPIC_API_KEY: configured" in captured.out
 
     def test_shows_api_key_not_set(self, capsys):
         """Doctor shows 'not set' for missing API keys."""
@@ -119,7 +119,7 @@ class TestDoctorCommand:
 
         captured = capsys.readouterr()
         # Should have at least one positive check
-        assert "[+]" in captured.out or "[o]" in captured.out
+        assert "✓" in captured.out or "○" in captured.out
 
 
 class TestDoctorMain:

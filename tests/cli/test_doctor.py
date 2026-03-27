@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from aragora.cli.doctor import (
@@ -256,6 +257,27 @@ class TestCheckServer:
             result = await check_server()
 
         assert isinstance(result, list)
+
+    @pytest.mark.asyncio
+    async def test_server_connect_error_is_reported_as_not_running(self):
+        """Transport connection failures should not crash the health check."""
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
+
+        mock_context = MagicMock()
+        mock_context.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_context.__aexit__ = AsyncMock(return_value=None)
+
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value = mock_context
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await check_server()
+
+        server_check = [item for item in result if item[0] == "Server (localhost:8080)"]
+        assert len(server_check) == 1
+        assert server_check[0][2] is None
+        assert "not running" in server_check[0][1]
 
     @pytest.mark.asyncio
     async def test_server_running_healthy(self):
