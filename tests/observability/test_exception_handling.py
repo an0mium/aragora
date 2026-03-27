@@ -11,6 +11,7 @@ Validates that:
 from __future__ import annotations
 
 import logging
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -50,10 +51,12 @@ class TestMetricsExceptionHandling:
 
         _init_metrics()
 
-        # Patch at the prometheus_client level
-        with patch(
-            "prometheus_client.start_http_server",
-            side_effect=OSError("Address already in use"),
+        fake_prometheus = MagicMock()
+        fake_prometheus.start_http_server.side_effect = OSError("Address already in use")
+
+        with patch.dict(
+            sys.modules,
+            {"prometheus_client": fake_prometheus},
         ):
             with caplog.at_level(logging.ERROR):
                 result = start_metrics_server(9090)

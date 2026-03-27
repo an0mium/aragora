@@ -91,6 +91,7 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "utils/aiohttp_responses",
         "utils/json_body",
         "utils/lazy_stores",
+        "utils/receipt_delivery_history",
         "utils/safe_fetch",
         "utils/sanitization",
         "utils/tenant_validation",

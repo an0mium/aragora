@@ -449,7 +449,7 @@ class TestAsyncHandlerSupport:
             return "success"
 
         with pytest.raises(MFARequiredError):
-            asyncio.get_event_loop().run_until_complete(async_admin_action(ctx))
+            asyncio.run(async_admin_action(ctx))
 
     def test_async_admin_with_mfa_allowed(self):
         ctx = _make_context(
@@ -462,7 +462,7 @@ class TestAsyncHandlerSupport:
         async def async_admin_action(context: AuthorizationContext) -> str:
             return "async-success"
 
-        result = asyncio.get_event_loop().run_until_complete(async_admin_action(ctx))
+        result = asyncio.run(async_admin_action(ctx))
         assert result == "async-success"
 
     def test_async_non_admin_allowed(self):
@@ -472,7 +472,7 @@ class TestAsyncHandlerSupport:
         async def async_member_action(context: AuthorizationContext) -> str:
             return "async-member"
 
-        result = asyncio.get_event_loop().run_until_complete(async_member_action(ctx))
+        result = asyncio.run(async_member_action(ctx))
         assert result == "async-member"
 
 

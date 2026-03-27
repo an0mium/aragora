@@ -44,6 +44,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -662,38 +663,74 @@ class BeadStore:
 
         try:
 
-            async def _git(*args: str) -> tuple[int, str]:
+            async def _git(
+                *args: str,
+                env: dict[str, str] | None = None,
+            ) -> tuple[int, str, str]:
                 """Run git command with timeout and zombie prevention."""
                 p = await asyncio.create_subprocess_exec(
                     "git",
                     *args,
                     cwd=str(self.bead_dir),
+                    env=env,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
                 try:
-                    out, _ = await asyncio.wait_for(p.communicate(), timeout=15)
+                    out, err = await asyncio.wait_for(p.communicate(), timeout=15)
                 except asyncio.TimeoutError:
                     p.kill()
                     await p.wait()
                     raise
-                return p.returncode or 0, out.decode().strip() if out else ""
+                return (
+                    p.returncode or 0,
+                    out.decode().strip() if out else "",
+                    err.decode().strip() if err else "",
+                )
 
             # Add files
-            await _git("add", "-A")
+            rc, _, err = await _git("add", "-A")
+            if rc != 0:
+                logger.warning("Git add failed: %s", err or f"exit {rc}")
+                return None
 
             # Check if there are changes to commit
-            rc, _ = await _git("diff", "--cached", "--quiet")
+            rc, _, err = await _git("diff", "--cached", "--quiet")
             if rc == 0:
                 logger.debug("No changes to commit")
                 return None
+            if rc != 1:
+                logger.warning("Git diff --cached failed: %s", err or f"exit {rc}")
+                return None
 
             # Commit
-            await _git("commit", "-m", message)
+            git_env = {
+                **os.environ,
+                "GIT_AUTHOR_NAME": os.environ.get("GIT_AUTHOR_NAME", "Aragora Bead Store"),
+                "GIT_AUTHOR_EMAIL": os.environ.get(
+                    "GIT_AUTHOR_EMAIL",
+                    "beads@aragora.local",
+                ),
+                "GIT_COMMITTER_NAME": os.environ.get(
+                    "GIT_COMMITTER_NAME",
+                    "Aragora Bead Store",
+                ),
+                "GIT_COMMITTER_EMAIL": os.environ.get(
+                    "GIT_COMMITTER_EMAIL",
+                    "beads@aragora.local",
+                ),
+            }
+            rc, _, err = await _git("commit", "-m", message, env=git_env)
+            if rc != 0:
+                logger.warning("Git commit failed: %s", err or f"exit {rc}")
+                return None
 
             # Get commit hash
-            _, out = await _git("rev-parse", "HEAD")
-            commit_hash = out[:8]
+            rc, out, err = await _git("rev-parse", "--short=8", "HEAD")
+            if rc != 0 or not out:
+                logger.warning("Git rev-parse failed: %s", err or f"exit {rc}")
+                return None
+            commit_hash = out
 
             logger.info("Committed beads: %s - %s", commit_hash, message)
             return commit_hash

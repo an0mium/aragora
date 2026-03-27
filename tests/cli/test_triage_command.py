@@ -415,12 +415,14 @@ def test_show_status_reports_refresh_token(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
 
-    triage_cmd._show_status()
+    with patch.object(triage_cmd, "_get_secret_fallback", return_value=""):
+        triage_cmd._show_status()
 
     out = capsys.readouterr().out
-    assert "Gmail configured:     yes" in out
+    assert "Gmail configured:     NO" in out
     assert "Durable signing key:  yes" in out
     assert "Gmail refresh token:  yes" in out
     assert "OpenRouter fallback:  yes" in out

@@ -144,6 +144,37 @@ class TestWorktreeBranchCreation:
             assert ".worktrees" in str(wt_path)
 
     @pytest.mark.asyncio
+    async def test_worktree_add_uses_remote_base_when_local_branch_missing(self):
+        """Should fall back to origin/<base> when no local base branch exists."""
+        config = BranchCoordinatorConfig(use_worktrees=True)
+        coordinator = BranchCoordinator(
+            repo_path=Path("/tmp/test-repo"),
+            config=config,
+        )
+
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+            patch.object(
+                coordinator,
+                "_ref_exists",
+                side_effect=lambda ref: ref == "origin/main",
+            ),
+        ):
+            mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            await coordinator.create_track_branch(
+                track=Track.QA,
+                goal="add tests",
+            )
+
+            worktree_calls = [
+                c for c in mock_git.call_args_list if len(c[0]) > 0 and c[0][0] == "worktree"
+            ]
+            assert len(worktree_calls) == 1
+            assert worktree_calls[0][0][-1] == "origin/main"
+
+    @pytest.mark.asyncio
     async def test_existing_branch_reuses_worktree(self):
         """Should handle existing branches gracefully."""
         config = BranchCoordinatorConfig(use_worktrees=True)
@@ -871,7 +902,8 @@ class TestBackwardCompat:
         config = BranchCoordinatorConfig(use_worktrees=False)
         coordinator = BranchCoordinator(config=config)
 
-        await coordinator._create_checkout_branch("dev/legacy", "main")
+        with patch.object(coordinator, "_ref_exists", return_value=True):
+            await coordinator._create_checkout_branch("dev/legacy", "main")
 
         assert "dev/legacy" not in coordinator._active_worktrees
         assert "dev/legacy" not in coordinator._worktree_paths
@@ -1010,7 +1042,11 @@ class TestWorktreeInfoTracking:
         ]
         coordinator = BranchCoordinator(repo_path=Path("/tmp/repo"))
 
-        with patch.object(Path, "mkdir"):
+        with patch.object(Path, "mkdir"), patch.object(
+            coordinator,
+            "_ref_exists",
+            return_value=True,
+        ):
             branch = await coordinator._create_worktree_branch("dev/test", "main")
 
         assert branch in coordinator._active_worktrees

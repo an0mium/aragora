@@ -195,6 +195,26 @@ class BranchCoordinator:
         )
         return result.returncode == 0
 
+    def _ref_exists(self, ref: str) -> bool:
+        """Check whether an arbitrary git ref resolves."""
+        result = self._run_git("rev-parse", "--verify", ref, check=False)
+        return result.returncode == 0
+
+    def _resolve_base_ref(self, base: str) -> str:
+        """Resolve the best available base ref for branch creation.
+
+        CI checkouts often expose only ``origin/<branch>`` without creating a
+        local branch. Prefer the requested base ref when present, then fall
+        back to the matching remote-tracking ref.
+        """
+        if self._ref_exists(base):
+            return base
+        if "/" not in base:
+            remote_ref = f"origin/{base}"
+            if self._ref_exists(remote_ref):
+                return remote_ref
+        return base
+
     def get_worktree_path(self, branch_name: str) -> Path | None:
         """Get the worktree path for a branch.
 
@@ -337,6 +357,8 @@ class BranchCoordinator:
         worktree_path = self._worktree_dir / dir_name
         self._worktree_dir.mkdir(parents=True, exist_ok=True)
 
+        base_ref = self._resolve_base_ref(base)
+
         if self.branch_exists(branch_name):
             logger.warning("Branch %s already exists", branch_name)
             if worktree_path.exists():
@@ -358,7 +380,7 @@ class BranchCoordinator:
                 "-b",
                 branch_name,
                 str(worktree_path),
-                base,
+                base_ref,
             )
             logger.info("Created worktree branch: %s at %s", branch_name, worktree_path)
 
@@ -373,10 +395,11 @@ class BranchCoordinator:
 
     async def _create_checkout_branch(self, branch_name: str, base: str) -> str:
         """Create a branch using traditional git checkout (legacy mode)."""
+        base_ref = self._resolve_base_ref(base)
         # Ensure we're on base branch
         current = self.get_current_branch()
         if current != base:
-            self._run_git("checkout", base)
+            self._run_git("checkout", base_ref)
             self._run_git("pull", "--rebase", "origin", base, check=False)
 
         # Create and checkout new branch
