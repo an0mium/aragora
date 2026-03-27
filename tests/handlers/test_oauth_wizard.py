@@ -128,7 +128,9 @@ def _clean_env(monkeypatch):
         "GOOGLE_OAUTH_CLIENT_SECRET",
         "GOOGLE_OAUTH_REDIRECT_URI",
         "GITHUB_APP_ID",
+        "GITHUB_APP_PRIVATE_KEY",
         "GITHUB_PRIVATE_KEY",
+        "GITHUB_TOKEN",
         "GITHUB_WEBHOOK_SECRET",
     ]
     for var in env_vars:
@@ -615,13 +617,33 @@ class TestValidateConfig:
             "POST",
             {
                 "provider": "github",
-                "config": {"GITHUB_APP_ID": "123", "GITHUB_PRIVATE_KEY": "key"},
+                "config": {"GITHUB_WEBHOOK_SECRET": "secret"},
             },
         )
         result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
         body = _body(result)
         assert body["valid"] is True
         assert body["provider"] == "github"
+
+    @pytest.mark.asyncio
+    async def test_validate_github_provider_accepts_legacy_private_key_alias(self, handler):
+        mock = _make_handler(
+            "POST",
+            {
+                "provider": "github",
+                "config": {
+                    "GITHUB_WEBHOOK_SECRET": "secret",
+                    "GITHUB_APP_ID": "123",
+                    "GITHUB_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+                },
+            },
+        )
+        result = await handler.handle("/api/v2/integrations/wizard/validate", {}, mock)
+        body = _body(result)
+        app_key_check = next(c for c in body["checks"] if c["name"] == "GITHUB_APP_PRIVATE_KEY")
+        assert body["valid"] is True
+        assert app_key_check["present"] is True
+        assert app_key_check["resolved_from"] == "GITHUB_PRIVATE_KEY"
 
     @pytest.mark.asyncio
     async def test_validate_discord_provider(self, handler, monkeypatch):
@@ -755,11 +777,14 @@ class TestTestConnection:
         assert "failed" in body["test_result"]["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_github_test_not_implemented(self, handler):
+    async def test_github_test_reports_webhook_mode(self, handler, monkeypatch):
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "secret")
         mock = _make_handler("POST", {})
         result = await handler.handle("/api/v2/integrations/wizard/github/test", {}, mock)
         body = _body(result)
-        assert body["test_result"]["success"] is False
+        assert body["provider"] == "github"
+        assert body["test_result"]["success"] is True
+        assert body["test_result"]["auth_mode"] == "webhook_only"
 
     @pytest.mark.asyncio
     async def test_gmail_test_returns_result(self, handler):
@@ -864,6 +889,8 @@ class TestListWorkspaces:
         )
         body = _body(result)
         assert body["workspaces"] == []
+        assert body["count"] == 0
+        assert "managed in github" in body["message"].lower()
 
 
 # ============================================================================
@@ -1309,6 +1336,26 @@ class TestCheckProviderConfig:
         assert result["configured"] is True
         assert result["required_vars_present"] == 1
         assert result["required_vars_total"] == 1
+
+    def test_github_requires_webhook_secret(self, handler, monkeypatch):
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "secret")
+        provider = PROVIDERS["github"]
+        result = handler._check_provider_config("github", provider)
+        assert result["configured"] is True
+        assert result["required_vars_present"] == 1
+        assert result["required_vars_total"] == 1
+
+    def test_github_accepts_legacy_private_key_alias(self, handler, monkeypatch):
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "secret")
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv(
+            "GITHUB_PRIVATE_KEY",
+            "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+        )
+        provider = PROVIDERS["github"]
+        result = handler._check_provider_config("github", provider)
+        assert result["configured"] is True
+        assert "GITHUB_APP_PRIVATE_KEY" not in " ".join(result["warnings"])
 
 
 # ============================================================================

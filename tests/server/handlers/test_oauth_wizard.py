@@ -652,6 +652,29 @@ class TestTestConnection:
                         assert data["test_result"]["success"] is True
                         assert data["provider"] == "gmail"
 
+    @pytest.mark.asyncio
+    async def test_test_github_webhook_mode(self, oauth_handler, mock_handler, auth_context):
+        """Test GitHub provider reports webhook-only readiness truthfully."""
+        mock_handler.command = "POST"
+
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": "secret"}, clear=True):
+            with patch.object(
+                oauth_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+            ):
+                with patch.object(oauth_handler, "check_permission"):
+                    with patch.object(oauth_handler, "read_json_body", return_value={}):
+                        result = await oauth_handler.handle(
+                            "/api/v2/integrations/wizard/github/test",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["test_result"]["success"] is True
+                        assert data["test_result"]["auth_mode"] == "webhook_only"
+                        assert data["provider"] == "github"
+
 
 # -----------------------------------------------------------------------------
 # GET /api/v2/integrations/wizard/{provider}/workspaces Tests
@@ -927,6 +950,31 @@ class TestProviderConfigCheck:
 
             assert status["configured"] is True
             assert len(status["warnings"]) > 0
+
+    def test_check_github_uses_runtime_contract(self, oauth_handler):
+        """GitHub should be considered configured with the live webhook secret only."""
+        with patch.dict(os.environ, {"GITHUB_WEBHOOK_SECRET": "secret"}, clear=True):
+            status = oauth_handler._check_provider_config("github", PROVIDERS["github"])
+
+            assert status["configured"] is True
+            assert status["required_vars_present"] == 1
+            assert status["required_vars_total"] == 1
+
+    def test_check_github_accepts_private_key_alias(self, oauth_handler):
+        """Legacy GITHUB_PRIVATE_KEY should satisfy the GitHub App key alias."""
+        with patch.dict(
+            os.environ,
+            {
+                "GITHUB_WEBHOOK_SECRET": "secret",
+                "GITHUB_APP_ID": "123",
+                "GITHUB_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
+            },
+            clear=True,
+        ):
+            status = oauth_handler._check_provider_config("github", PROVIDERS["github"])
+
+            assert status["configured"] is True
+            assert "GITHUB_APP_PRIVATE_KEY" not in " ".join(status["warnings"])
 
 
 # -----------------------------------------------------------------------------
