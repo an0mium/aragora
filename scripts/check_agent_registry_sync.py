@@ -12,6 +12,7 @@ Checks:
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 from pathlib import Path
@@ -57,6 +58,74 @@ def _load_allowlist() -> set[str]:
     from aragora.config.settings import ALLOWED_AGENT_TYPES
 
     return set(ALLOWED_AGENT_TYPES)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _extract_string_literals(node: ast.AST) -> set[str]:
+    if isinstance(node, ast.Call):
+        return _extract_string_literals(node.args[0]) if node.args else set()
+    if isinstance(node, ast.Set | ast.List | ast.Tuple):
+        values: set[str] = set()
+        for elt in node.elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                values.add(elt.value)
+        return values
+    return set()
+
+
+def _load_allowlist_static() -> set[str]:
+    settings_path = _repo_root() / "aragora" / "config" / "settings.py"
+    tree = ast.parse(settings_path.read_text(encoding="utf-8"))
+
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id == "ALLOWED_AGENT_TYPES" and node.value is not None:
+                values = _extract_string_literals(node.value)
+                if values:
+                    return values
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "ALLOWED_AGENT_TYPES":
+                    values = _extract_string_literals(node.value)
+                    if values:
+                        return values
+
+    raise ValueError("Could not parse ALLOWED_AGENT_TYPES from settings.py")
+
+
+def _load_runtime_registry_static() -> set[str]:
+    agents_root = _repo_root() / "aragora" / "agents"
+    registered: set[str] = set()
+
+    for path in agents_root.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+
+        for node in ast.walk(tree):
+            decorators = getattr(node, "decorator_list", [])
+            for decorator in decorators:
+                if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
+                    continue
+                if decorator.func.attr != "register":
+                    continue
+                owner = decorator.func.value
+                if not isinstance(owner, ast.Name) or owner.id != "AgentRegistry":
+                    continue
+                if not decorator.args:
+                    continue
+                first_arg = decorator.args[0]
+                if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
+                    registered.add(first_arg.value)
+
+    if not registered:
+        raise ValueError("Could not parse registered agent types from source")
+
+    return registered
 
 
 def main() -> int:
@@ -111,8 +180,17 @@ def main() -> int:
         runtime_registry = _load_runtime_registry()
         allowlist = _load_allowlist()
     except Exception as exc:  # pragma: no cover - CI/runtime dependency failures
-        print(f"Failed to load runtime registry/allowlist: {exc}", file=sys.stderr)
-        return 2
+        print(
+            f"Runtime imports unavailable ({exc}); falling back to source parsing.",
+            file=sys.stderr,
+        )
+        try:
+            runtime_registry = _load_runtime_registry_static()
+            allowlist = _load_allowlist_static()
+        except Exception as fallback_exc:
+            print(f"Failed to load runtime registry/allowlist: {exc}", file=sys.stderr)
+            print(f"Static fallback failed: {fallback_exc}", file=sys.stderr)
+            return 2
 
     if declared_registered != len(runtime_registry):
         errors.append(

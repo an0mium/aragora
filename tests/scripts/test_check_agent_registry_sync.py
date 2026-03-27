@@ -48,3 +48,16 @@ ALLOWED_AGENT_TYPES, 1 types.
     result = _run("--docs-only", "--agents-doc", str(broken))
     assert result.returncode == 1
     assert "mismatch" in result.stdout.lower() or "declared" in result.stdout.lower()
+
+
+def test_runtime_fallback_passes_without_site_packages():
+    result = subprocess.run(
+        [sys.executable, "-S", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        cwd=str(SCRIPT.parents[1]),
+        env=dict(os.environ),
+    )
+
+    assert result.returncode == 0
+    assert "falling back to source parsing" in result.stderr.lower()

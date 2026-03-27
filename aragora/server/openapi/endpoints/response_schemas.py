@@ -11,7 +11,6 @@ These definitions use /api/v1/ versioned paths to survive the pipeline.
 from aragora.server.openapi.helpers import (
     AUTH_REQUIREMENTS,
     STANDARD_ERRORS,
-    STANDARD_RESPONSE_HEADERS,
     _ok_response,
 )
 
