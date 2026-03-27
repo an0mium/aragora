@@ -250,7 +250,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -270,9 +270,12 @@ class WhatsAppConnector(ChatPlatformConnector):
             payload["context"] = {"message_id": thread_id}
 
         # Check if interactive message (has buttons)
-        if blocks and any(b.get("type") in ("button", "list") for b in blocks):
+        interactive_blocks = [block for block in blocks or [] if block is not None]
+        if interactive_blocks and any(
+            block.get("type") in ("button", "list") for block in interactive_blocks
+        ):
             payload["type"] = "interactive"
-            payload["interactive"] = self._build_interactive(text, blocks)
+            payload["interactive"] = self._build_interactive(text, interactive_blocks)
         else:
             payload["type"] = "text"
             payload["text"] = {"body": text, "preview_url": True}
@@ -299,7 +302,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
@@ -529,7 +532,17 @@ class WhatsAppConnector(ChatPlatformConnector):
         # Verify signature if app secret is set
         if self.signing_secret and headers:
             signature = headers.get("x-hub-signature-256", "")
-            if not self._verify_signature(payload, signature):
+            raw_body = kwargs.get("raw_body")
+            if not isinstance(raw_body, (bytes, bytearray)):
+                logger.warning(
+                    "WhatsApp handle_webhook missing raw_body for signature verification"
+                )
+                return WebhookEvent(
+                    event_type="invalid_signature",
+                    platform="whatsapp",
+                    raw_payload=payload,
+                )
+            if not self._verify_signature(bytes(raw_body), signature):
                 logger.warning("Invalid webhook signature")
                 return WebhookEvent(
                     event_type="invalid_signature",
@@ -577,16 +590,19 @@ class WhatsAppConnector(ChatPlatformConnector):
             raw_payload=payload,
         )
 
-    def _verify_signature(self, payload: dict[str, Any], signature: str) -> bool:
+    def _verify_signature(self, body: bytes, signature: str) -> bool:
         """Verify webhook signature."""
         if not signature.startswith("sha256="):
             return False
+        signing_secret = self.signing_secret
+        if not signing_secret:
+            logger.warning("Webhook signature verification failed: signing secret not configured")
+            return False
 
         expected_sig = signature[7:]
-        body = json.dumps(payload, separators=(",", ":"))
         computed_sig = hmac.new(
-            self.signing_secret.encode(),
-            body.encode(),
+            signing_secret.encode(),
+            body,
             hashlib.sha256,
         ).hexdigest()
 
@@ -892,7 +908,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         channel_id: str,
         template_name: str,
         language_code: str = "en",
-        components: list[dict[str, Any] | None] = None,
+        components: list[dict[str, Any] | None] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a template message.
@@ -906,7 +922,9 @@ class WhatsAppConnector(ChatPlatformConnector):
             "language": {"code": language_code},
         }
         if components:
-            template_data["components"] = components
+            template_data["components"] = [
+                component for component in components if component is not None
+            ]
 
         payload: dict[str, Any] = {
             "messaging_product": "whatsapp",
@@ -1013,7 +1031,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         title: str | None = None,
         body: str | None = None,
-        fields: list[tuple[str, str]] | None = None,
+        fields: list[tuple[str, str] | None] | None = None,
         actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
@@ -1036,6 +1054,8 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         if fields:
             for field in fields:
+                if field is None:
+                    continue
                 # Handle tuple format (label, value)
                 label, value = field
                 blocks.append(
@@ -1154,7 +1174,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         command: BotCommand,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] | None = None,
         ephemeral: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -1173,7 +1193,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         self,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict[str, Any] | None] = None,
+        blocks: list[dict[str, Any] | None] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:

@@ -833,8 +833,9 @@ class TestWebhookHandling:
         """Test webhook rejection with invalid signature."""
         payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
         headers = {"x-hub-signature-256": "sha256=invalid_signature"}
+        body = json.dumps(payload, separators=(",", ":")).encode()
 
-        result = await connector.handle_webhook(payload, headers=headers)
+        result = await connector.handle_webhook(payload, headers=headers, raw_body=body)
 
         assert result.event_type == "invalid_signature"
 
@@ -851,7 +852,7 @@ class TestWebhookHandling:
 
         headers = {"x-hub-signature-256": f"sha256={signature}"}
 
-        result = await connector.handle_webhook(payload, headers=headers)
+        result = await connector.handle_webhook(payload, headers=headers, raw_body=body.encode())
 
         assert result.event_type != "invalid_signature"
 

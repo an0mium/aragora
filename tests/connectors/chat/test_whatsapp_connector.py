@@ -938,16 +938,16 @@ class TestSignatureVerification:
         import hmac
 
         payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
-        body = json.dumps(payload, separators=(",", ":"))
+        body = json.dumps(payload, separators=(",", ":")).encode()
         signature = hmac.new(
             b"test-app-secret",
-            body.encode(),
+            body,
             hashlib.sha256,
         ).hexdigest()
 
         headers = {"x-hub-signature-256": f"sha256={signature}"}
 
-        result = await connector.handle_webhook(payload, headers=headers)
+        result = await connector.handle_webhook(payload, headers=headers, raw_body=body)
 
         # Should process normally (not invalid_signature)
         assert result.event_type != "invalid_signature"
@@ -957,6 +957,17 @@ class TestSignatureVerification:
         """Test webhook processing with invalid signature."""
         payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
         headers = {"x-hub-signature-256": "sha256=invalidsignature"}
+        body = json.dumps(payload, separators=(",", ":")).encode()
+
+        result = await connector.handle_webhook(payload, headers=headers, raw_body=body)
+
+        assert result.event_type == "invalid_signature"
+
+    @pytest.mark.asyncio
+    async def test_missing_raw_body_rejected(self, connector):
+        """Header verification should reject parsed payloads without raw bytes."""
+        payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
+        headers = {"x-hub-signature-256": "sha256=irrelevant"}
 
         result = await connector.handle_webhook(payload, headers=headers)
 
