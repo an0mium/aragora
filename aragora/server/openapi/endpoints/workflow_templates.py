@@ -2,6 +2,21 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
+_PATTERN_TEMPLATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "pattern": {"type": "string"},
+        "version": {"type": "string"},
+        "config": {"type": "object"},
+        "inputs": {"type": "object"},
+        "outputs": {"type": "object"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
 WORKFLOW_TEMPLATES_ENDPOINTS = {
     "/api/workflow/templates": {
         "get": {
@@ -356,5 +371,76 @@ WORKFLOW_TEMPLATES_ENDPOINTS = {
                 "404": STANDARD_ERRORS["404"],
             },
         },
+    },
+    "/api/v1/workflow/pattern-templates/{pattern_id}": {
+        "get": {
+            "tags": ["Workflow Templates"],
+            "summary": "Get pattern template details",
+            "operationId": "getWorkflowPatternTemplate",
+            "description": "Retrieve a specific pattern template exposed by the live workflow template handler.",
+            "parameters": [
+                {
+                    "name": "pattern_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Pattern template identifier.",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Pattern template details", _PATTERN_TEMPLATE_SCHEMA),
+                "404": STANDARD_ERRORS["404"],
+            },
+        }
+    },
+    "/api/v1/workflow/pattern-templates/{pattern_id}/instantiate": {
+        "post": {
+            "tags": ["Workflow Templates"],
+            "summary": "Instantiate a pattern template",
+            "operationId": "createWorkflowPatternTemplateInstantiate",
+            "description": "Build a workflow definition from a specific live pattern template.",
+            "parameters": [
+                {
+                    "name": "pattern_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Pattern template identifier.",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "task": {"type": "string"},
+                                "config": {
+                                    "type": "object",
+                                    "description": "Pattern-specific workflow overrides.",
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "201": _ok_response(
+                    "Workflow instantiated",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "status": {"type": "string"},
+                            "workflow": {"type": "object"},
+                        },
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
     },
 }
