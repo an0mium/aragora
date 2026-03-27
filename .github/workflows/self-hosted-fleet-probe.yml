@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 concurrency:
   group: self-hosted-fleet-probe-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
@@ -29,6 +32,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Runner fingerprint
         shell: bash
         run: |
@@ -38,15 +51,22 @@ jobs:
           uname -a
           sw_vers
           sysctl -n machdep.cpu.brand_string || true
-          python3 --version
+          echo "system_python=$(command -v python3 || true)"
+          python --version
           node --version
 
       - name: Repo smoke
         shell: bash
         run: |
           test -f pyproject.toml
-          python3 -m py_compile scripts/check_version_alignment.py
-          python3 -m py_compile aragora/__version__.py
+          python - <<'PY'
+          from pathlib import Path
+
+          for relpath in ("scripts/check_version_alignment.py", "aragora/__version__.py"):
+              source = Path(relpath).read_text()
+              compile(source, relpath, "exec")
+              print(f"parsed={relpath}")
+          PY
 
   hetzner-probe:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -62,6 +82,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Runner fingerprint
         shell: bash
         run: |
@@ -69,7 +99,8 @@ jobs:
           echo "runner_os=${RUNNER_OS}"
           echo "runner_arch=${RUNNER_ARCH}"
           uname -a
-          python3 --version
+          echo "system_python=$(command -v python3 || true)"
+          python --version
           node --version
           (lsb_release -a || cat /etc/os-release) 2>/dev/null || true
 
@@ -77,5 +108,11 @@ jobs:
         shell: bash
         run: |
           test -f pyproject.toml
-          python3 -m py_compile scripts/check_version_alignment.py
-          python3 -m py_compile aragora/__version__.py
+          python - <<'PY'
+          from pathlib import Path
+
+          for relpath in ("scripts/check_version_alignment.py", "aragora/__version__.py"):
+              source = Path(relpath).read_text()
+              compile(source, relpath, "exec")
+              print(f"parsed={relpath}")
+          PY
