@@ -38,7 +38,7 @@ _BLOCKING_EDGE_TYPES = frozenset(
 )
 _SUCCEEDED_STATUSES = frozenset({"approved", "complete", "completed", "succeeded"})
 _FAILED_STATUSES = frozenset({"error", "failed", "federation_error", "rejected", "timeout"})
-_ACTIVE_STATUSES = frozenset({"active", "in_progress", "running", "submitted"})
+_ACTIVE_STATUSES = frozenset({"in_progress", "running"})
 _WAITING_STATUSES = frozenset({"awaiting_human"})
 
 
@@ -73,8 +73,10 @@ def _normalize_runtime_status(
         return "failed"
     if raw in _WAITING_STATUSES:
         return "awaiting_human"
+    if raw in {"active", "submitted"}:
+        return "pending"
     if raw in _ACTIVE_STATUSES:
-        return "in_progress" if raw != "submitted" else "pending"
+        return "in_progress"
     return "pending"
 
 
