@@ -1361,13 +1361,19 @@ class TeamsIntegrationHandler(BaseHandler):
                             {
                                 "type": "Action.OpenUrl",
                                 "title": "View Receipt",
-                                "url": f"/api/v1/receipts/{receipt_id}",
+                                "url": self._public_receipt_url(str(receipt_id)),
                             }
                         ],
                     }
                 )
 
             return blocks
+
+    @staticmethod
+    def _public_receipt_url(receipt_id: str) -> str:
+        """Build an absolute receipt URL for external chat clients."""
+        base_url = os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai").rstrip("/")
+        return f"{base_url}/api/v1/receipts/{receipt_id}"
 
     def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
         """Read and parse JSON body from request."""

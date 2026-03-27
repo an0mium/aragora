@@ -1442,7 +1442,7 @@ class TestBlockBuilders:
             assert len(decision_texts) >= 1
 
     def test_build_result_blocks_with_receipt(self, handler):
-        """Result blocks include receipt link when receipt_id is present."""
+        """Result blocks include an absolute receipt link when receipt_id is present."""
         mock_result = MagicMock()
         mock_result.consensus = "Adopt"
         mock_result.final_answer = "Adopt"
@@ -1457,7 +1457,33 @@ class TestBlockBuilders:
             blocks = handler._build_result_blocks("Topic", mock_result)
             action_blocks = [b for b in blocks if b.get("type") == "ActionSet"]
             assert len(action_blocks) == 1
-            assert "rcpt_abc" in action_blocks[0]["actions"][0]["url"]
+            assert (
+                action_blocks[0]["actions"][0]["url"]
+                == "https://aragora.ai/api/v1/receipts/rcpt_abc"
+            )
+
+    def test_build_result_blocks_with_receipt_uses_public_base_url(self, handler, monkeypatch):
+        """Receipt links honor the configured public base URL."""
+        mock_result = MagicMock()
+        mock_result.consensus = "Adopt"
+        mock_result.final_answer = "Adopt"
+        mock_result.confidence = 0.9
+        mock_result.rounds_completed = 2
+        mock_result.receipt_id = "rcpt_custom"
+        mock_result.agent_votes = {}
+        mock_result.agent_summaries = {}
+        mock_result.rounds = []
+        monkeypatch.setenv("ARAGORA_PUBLIC_URL", "https://app.example.com/")
+
+        with patch.dict("sys.modules", {"aragora.connectors.chat.teams_adaptive_cards": None}):
+            blocks = handler._build_result_blocks("Topic", mock_result)
+
+        action_blocks = [b for b in blocks if b.get("type") == "ActionSet"]
+        assert len(action_blocks) == 1
+        assert (
+            action_blocks[0]["actions"][0]["url"]
+            == "https://app.example.com/api/v1/receipts/rcpt_custom"
+        )
 
     def test_build_leaderboard_blocks(self, handler):
         rankings = [
