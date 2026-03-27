@@ -297,15 +297,17 @@ async def _run_pipeline(
             },
         )
 
+        target_duration_ms = getattr(
+            config, "latency_target_ms", PipelineTiming().target_duration_ms
+        )
+        if not isinstance(target_duration_ms, int | float):
+            target_duration_ms = PipelineTiming().target_duration_ms
+
         timing = PipelineTiming(
             total_duration_ms=elapsed_ms(pipeline_start),
             stage_durations_ms=stage_durations_ms,
             operation_timings=operation_timings,
-            target_duration_ms=getattr(
-                config,
-                "latency_target_ms",
-                PipelineTiming().target_duration_ms,
-            ),
+            target_duration_ms=float(target_duration_ms),
         )
 
         # Complete
