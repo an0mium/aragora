@@ -62,7 +62,7 @@ class PipelineTiming:
         min_budget_share: float = PROMPT_ENGINE_BOTTLENECK_BUDGET_SHARE,
     ) -> list[OperationTiming]:
         """Return operations consuming a meaningful share of the latency budget."""
-        threshold_ms = max(500.0, self.target_duration_ms * min_budget_share)
+        threshold_ms = max(1.0, self.target_duration_ms * min_budget_share)
         return [
             item
             for item in self.top_operations(limit=len(self.operation_timings))
