@@ -19,8 +19,10 @@ These tests verify the compliance-critical audit trail functionality.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
@@ -769,6 +771,97 @@ class TestReceiptVerify:
         data = json.loads(result.body)
         assert data["valid"] is False
         assert "error" in data
+
+
+# ===========================================================================
+# Test Async Safety
+# ===========================================================================
+
+
+class TestAsyncSafety:
+    """Sync-backed stores should not block the event loop in async endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_audit_trails_offloads_sync_store_calls(self):
+        class BlockingAuditTrailStore(MockAuditTrailStore):
+            def list_trails(self, **kwargs) -> list[dict[str, Any]]:
+                time.sleep(0.15)
+                return super().list_trails(**kwargs)
+
+            def count_trails(self, **kwargs) -> int:
+                time.sleep(0.15)
+                return super().count_trails(**kwargs)
+
+        handler = AuditTrailHandler({})
+        handler._store = BlockingAuditTrailStore()
+
+        list_task = asyncio.create_task(handler._list_audit_trails({}))
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await list_task
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_audit_trail_offloads_sync_store_calls(self):
+        class BlockingAuditTrailStore(MockAuditTrailStore):
+            def get_trail(self, trail_id: str) -> dict[str, Any] | None:
+                time.sleep(0.15)
+                return super().get_trail(trail_id)
+
+        handler = AuditTrailHandler({})
+        handler._store = BlockingAuditTrailStore()
+        handler._store.trails["trail-test123"] = make_sample_trail()
+
+        get_task = asyncio.create_task(handler._get_audit_trail("trail-test123"))
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await get_task
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_list_receipts_offloads_sync_store_calls(self):
+        class BlockingAuditTrailStore(MockAuditTrailStore):
+            def list_receipts(self, **kwargs) -> list[dict[str, Any]]:
+                time.sleep(0.15)
+                return super().list_receipts(**kwargs)
+
+            def count_receipts(self, **kwargs) -> int:
+                time.sleep(0.15)
+                return super().count_receipts(**kwargs)
+
+        handler = AuditTrailHandler({})
+        handler._store = BlockingAuditTrailStore()
+
+        list_task = asyncio.create_task(handler._list_receipts({}))
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await list_task
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_receipt_offloads_sync_store_calls(self):
+        class BlockingAuditTrailStore(MockAuditTrailStore):
+            def get_receipt(self, receipt_id: str) -> dict[str, Any] | None:
+                time.sleep(0.15)
+                return super().get_receipt(receipt_id)
+
+        handler = AuditTrailHandler({})
+        handler._store = BlockingAuditTrailStore()
+        handler._store.receipts["receipt-test123"] = make_sample_receipt()
+
+        get_task = asyncio.create_task(handler._get_receipt("receipt-test123"))
+        heartbeat_task = asyncio.create_task(asyncio.sleep(0.02, result=True))
+
+        assert await asyncio.wait_for(heartbeat_task, timeout=0.05) is True
+
+        result = await get_task
+        assert result.status_code == 200
 
 
 # ===========================================================================

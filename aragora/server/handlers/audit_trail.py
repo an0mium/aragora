@@ -24,6 +24,8 @@ integrity verification for compliance documentation.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -73,6 +75,17 @@ class AuditTrailHandler(BaseHandler):
         if path.startswith("/api/v1/receipts"):
             return method in ("GET", "POST")
         return False
+
+    async def _call_store_nonblocking(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
+        """Run sync-backed store methods without blocking the event loop."""
+        method = getattr(self._store, method_name)
+        if inspect.iscoroutinefunction(method):
+            return await method(*args, **kwargs)
+
+        result = await asyncio.to_thread(method, *args, **kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
@@ -150,12 +163,13 @@ class AuditTrailHandler(BaseHandler):
         verdict = query_params.get("verdict")
 
         # Get trails from database-backed store
-        summaries = self._store.list_trails(
+        summaries = await self._call_store_nonblocking(
+            "list_trails",
             limit=limit,
             offset=offset,
             verdict=verdict,
         )
-        total = self._store.count_trails(verdict=verdict)
+        total = await self._call_store_nonblocking("count_trails", verdict=verdict)
 
         # Fall back to in-memory for backward compatibility
         if not summaries and self._trails:
@@ -190,7 +204,7 @@ class AuditTrailHandler(BaseHandler):
     async def _get_audit_trail(self, trail_id: str) -> HandlerResult:
         """Get a specific audit trail by ID."""
         # Try database-backed store first
-        trail = self._store.get_trail(trail_id)
+        trail = await self._call_store_nonblocking("get_trail", trail_id)
 
         # Fall back to in-memory cache
         if not trail:
@@ -213,7 +227,7 @@ class AuditTrailHandler(BaseHandler):
         format_type = query_params.get("format", "json")
 
         # Try database-backed store first
-        trail = self._store.get_trail(trail_id)
+        trail = await self._call_store_nonblocking("get_trail", trail_id)
         if not trail:
             trail = self._trails.get(trail_id)
         if not trail:
@@ -319,13 +333,16 @@ class AuditTrailHandler(BaseHandler):
         risk_level = query_params.get("risk_level")
 
         # Get from database-backed store
-        summaries = self._store.list_receipts(
+        summaries = await self._call_store_nonblocking(
+            "list_receipts",
             limit=limit,
             offset=offset,
             verdict=verdict,
             risk_level=risk_level,
         )
-        total = self._store.count_receipts(verdict=verdict, risk_level=risk_level)
+        total = await self._call_store_nonblocking(
+            "count_receipts", verdict=verdict, risk_level=risk_level
+        )
 
         # Fall back to in-memory for backward compatibility
         if not summaries and self._receipts:
@@ -360,7 +377,7 @@ class AuditTrailHandler(BaseHandler):
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific decision receipt by ID."""
         # Try database-backed store first
-        receipt = self._store.get_receipt(receipt_id)
+        receipt = await self._call_store_nonblocking("get_receipt", receipt_id)
 
         # Fall back to in-memory cache
         if not receipt:
@@ -378,7 +395,7 @@ class AuditTrailHandler(BaseHandler):
     async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
         """Verify decision receipt integrity."""
         # Try database-backed store first
-        receipt = self._store.get_receipt(receipt_id)
+        receipt = await self._call_store_nonblocking("get_receipt", receipt_id)
         if not receipt:
             receipt = self._receipts.get(receipt_id)
         if not receipt:
@@ -437,7 +454,7 @@ class AuditTrailHandler(BaseHandler):
             gauntlet_id = trail_id
 
         # Try database store first (by gauntlet_id)
-        trail_dict = self._store.get_trail_by_gauntlet(gauntlet_id)
+        trail_dict = await self._call_store_nonblocking("get_trail_by_gauntlet", gauntlet_id)
         if trail_dict:
             return trail_dict
 
@@ -452,7 +469,7 @@ class AuditTrailHandler(BaseHandler):
                     trail = generate_audit_trail(result)
                     trail_dict = trail.to_dict()
                     # Persist to database store
-                    self._store.save_trail(trail_dict)
+                    await self._call_store_nonblocking("save_trail", trail_dict)
                     # Also cache in-memory for backward compatibility
                     self._trails[trail_id] = trail_dict
                     return trail_dict
@@ -474,7 +491,7 @@ class AuditTrailHandler(BaseHandler):
             gauntlet_id = receipt_id
 
         # Try database store first (by gauntlet_id)
-        receipt_dict = self._store.get_receipt_by_gauntlet(gauntlet_id)
+        receipt_dict = await self._call_store_nonblocking("get_receipt_by_gauntlet", gauntlet_id)
         if receipt_dict:
             return receipt_dict
 
@@ -490,7 +507,7 @@ class AuditTrailHandler(BaseHandler):
                     receipt = generate_decision_receipt(result)
                     receipt_dict = receipt.to_dict()
                     # Persist to database store
-                    self._store.save_receipt(receipt_dict)
+                    await self._call_store_nonblocking("save_receipt", receipt_dict)
                     # Also cache in-memory for backward compatibility
                     self._receipts[receipt_id] = receipt_dict
                     return receipt_dict
