@@ -102,6 +102,22 @@ def _stage_sort_key(stage: PipelineStage) -> tuple[int, str]:
     return (_STAGE_SORT_ORDER.get(stage, 999), stage.value)
 
 
+def _stage_dependency_status(source_status: str, *, blocking: bool) -> str:
+    if not blocking:
+        return "informational"
+    if source_status == "complete":
+        return "satisfied"
+    if source_status == "failed":
+        return "blocked"
+    if source_status == "awaiting_human":
+        return "awaiting_human"
+    if source_status == "in_progress":
+        return "in_progress"
+    if source_status == "partial":
+        return "partial"
+    return "pending"
+
+
 @dataclass
 class PipelineNodeRuntime:
     """Live runtime state for a pipeline node."""
@@ -249,6 +265,39 @@ class PipelineDAGDependency:
 
 
 @dataclass
+class PipelineStageDependency:
+    """Aggregated dependency edge between two pipeline stages."""
+
+    id: str
+    source_stage: PipelineStage
+    target_stage: PipelineStage
+    source_status: str
+    target_status: str
+    edge_count: int = 0
+    blocking_edge_count: int = 0
+    status: str = "pending"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def blocking(self) -> bool:
+        return self.blocking_edge_count > 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "source_stage": self.source_stage.value,
+            "target_stage": self.target_stage.value,
+            "source_status": self.source_status,
+            "target_status": self.target_status,
+            "edge_count": self.edge_count,
+            "blocking_edge_count": self.blocking_edge_count,
+            "blocking": self.blocking,
+            "status": self.status,
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass
 class PipelineDAGStage:
     """Visualization summary for a single pipeline stage."""
 
@@ -260,6 +309,11 @@ class PipelineDAGStage:
     dependency_stage_ids: list[str] = field(default_factory=list)
     node_count: int = 0
     status_counts: dict[str, int] = field(default_factory=dict)
+    ready: bool = False
+    blocked_by_stage_ids: list[str] = field(default_factory=list)
+    satisfied_dependency_stage_ids: list[str] = field(default_factory=list)
+    dependency_count: int = 0
+    blocking_dependency_count: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -270,20 +324,32 @@ class PipelineDAGStage:
         node_ids: list[str],
         runtimes: list[PipelineNodeRuntime],
         dependency_stage_ids: list[str],
+        blocked_by_stage_ids: list[str] | None = None,
+        satisfied_dependency_stage_ids: list[str] | None = None,
+        dependency_count: int = 0,
+        blocking_dependency_count: int = 0,
     ) -> PipelineDAGStage:
         statuses = [runtime.execution_status for runtime in runtimes]
         status_counts: dict[str, int] = {}
         for status in statuses:
             status_counts[status] = status_counts.get(status, 0) + 1
+        stage_status = _aggregate_stage_status(statuses)
+        blocked = list(blocked_by_stage_ids or [])
+        satisfied = list(satisfied_dependency_stage_ids or [])
         return cls(
             stage=stage,
             label=_STAGE_LABELS.get(stage, stage.value.title()),
             order=_STAGE_SORT_ORDER.get(stage, 999),
-            status=_aggregate_stage_status(statuses),
+            status=stage_status,
             node_ids=list(node_ids),
             dependency_stage_ids=list(dependency_stage_ids),
             node_count=len(node_ids),
             status_counts=status_counts,
+            ready=not blocked and stage_status in {"pending", "partial"},
+            blocked_by_stage_ids=blocked,
+            satisfied_dependency_stage_ids=satisfied,
+            dependency_count=dependency_count,
+            blocking_dependency_count=blocking_dependency_count,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -296,6 +362,11 @@ class PipelineDAGStage:
             "dependency_stage_ids": list(self.dependency_stage_ids),
             "node_count": self.node_count,
             "status_counts": dict(self.status_counts),
+            "ready": self.ready,
+            "blocked_by_stage_ids": list(self.blocked_by_stage_ids),
+            "satisfied_dependency_stage_ids": list(self.satisfied_dependency_stage_ids),
+            "dependency_count": self.dependency_count,
+            "blocking_dependency_count": self.blocking_dependency_count,
             "metadata": dict(self.metadata),
         }
 
@@ -380,6 +451,7 @@ class PipelineDAGSnapshot:
     metadata: dict[str, Any] = field(default_factory=dict)
     integrity_hash: str = ""
     stages: list[PipelineDAGStage] = field(default_factory=list)
+    stage_dependencies: list[PipelineStageDependency] = field(default_factory=list)
     live_updates: list[PipelineLiveUpdate] = field(default_factory=list)
     generated_at: float = field(default_factory=time.time)
 
@@ -483,11 +555,25 @@ class PipelineDAGSnapshot:
             for target_id, source_ids in sorted(dependency_map.items(), key=lambda item: item[0])
         }
 
+    def stage_dependency_map(self) -> dict[str, list[str]]:
+        dependency_map: dict[str, set[str]] = {}
+        for dependency in self.stage_dependencies:
+            dependency_map.setdefault(dependency.target_stage.value, set()).add(
+                dependency.source_stage.value
+            )
+        return {
+            target_stage: sorted(source_stages)
+            for target_stage, source_stages in sorted(
+                dependency_map.items(), key=lambda item: item[0]
+            )
+        }
+
     def refresh_stage_summaries(self) -> None:
         node_ids_by_stage: dict[PipelineStage, list[str]] = {stage: [] for stage in PipelineStage}
         dependency_stage_ids: dict[PipelineStage, set[PipelineStage]] = {
             stage: set() for stage in PipelineStage
         }
+        stage_dependency_counts: dict[tuple[PipelineStage, PipelineStage], dict[str, int]] = {}
 
         for node in self.nodes:
             stage = _coerce_stage(node.get("stage"))
@@ -499,6 +585,53 @@ class PipelineDAGSnapshot:
         for dependency in self.dependencies:
             if dependency.cross_stage:
                 dependency_stage_ids[dependency.target_stage].add(dependency.source_stage)
+                counts = stage_dependency_counts.setdefault(
+                    (dependency.source_stage, dependency.target_stage),
+                    {"edge_count": 0, "blocking_edge_count": 0},
+                )
+                counts["edge_count"] += 1
+                if dependency.blocking:
+                    counts["blocking_edge_count"] += 1
+
+        stage_status_map: dict[PipelineStage, str] = {}
+        for stage in sorted(PipelineStage, key=_stage_sort_key):
+            runtimes = [
+                self.runtime[node_id]
+                for node_id in node_ids_by_stage[stage]
+                if node_id in self.runtime
+            ]
+            stage_status_map[stage] = _aggregate_stage_status(
+                [runtime.execution_status for runtime in runtimes]
+            )
+
+        stage_dependencies: list[PipelineStageDependency] = []
+        for (source_stage, target_stage), counts in sorted(
+            stage_dependency_counts.items(),
+            key=lambda item: (
+                _STAGE_SORT_ORDER.get(item[0][0], 999),
+                _STAGE_SORT_ORDER.get(item[0][1], 999),
+            ),
+        ):
+            source_status = stage_status_map.get(source_stage, "pending")
+            target_status = stage_status_map.get(target_stage, "pending")
+            stage_dependencies.append(
+                PipelineStageDependency(
+                    id=f"{source_stage.value}->{target_stage.value}",
+                    source_stage=source_stage,
+                    target_stage=target_stage,
+                    source_status=source_status,
+                    target_status=target_status,
+                    edge_count=counts["edge_count"],
+                    blocking_edge_count=counts["blocking_edge_count"],
+                    status=_stage_dependency_status(
+                        source_status,
+                        blocking=counts["blocking_edge_count"] > 0,
+                    ),
+                    metadata={
+                        "dependency_stage_ids": [source_stage.value, target_stage.value],
+                    },
+                )
+            )
 
         stages: list[PipelineDAGStage] = []
         for stage in sorted(PipelineStage, key=_stage_sort_key):
@@ -506,6 +639,19 @@ class PipelineDAGSnapshot:
                 self.runtime[node_id]
                 for node_id in node_ids_by_stage[stage]
                 if node_id in self.runtime
+            ]
+            stage_dependencies_for_target = [
+                dependency for dependency in stage_dependencies if dependency.target_stage == stage
+            ]
+            blocked_by_stage_ids = [
+                dependency.source_stage.value
+                for dependency in stage_dependencies_for_target
+                if dependency.blocking and dependency.status != "satisfied"
+            ]
+            satisfied_dependency_stage_ids = [
+                dependency.source_stage.value
+                for dependency in stage_dependencies_for_target
+                if dependency.status == "satisfied"
             ]
             stages.append(
                 PipelineDAGStage.from_runtime(
@@ -519,11 +665,22 @@ class PipelineDAGSnapshot:
                             key=_stage_sort_key,
                         )
                     ],
+                    blocked_by_stage_ids=blocked_by_stage_ids,
+                    satisfied_dependency_stage_ids=satisfied_dependency_stage_ids,
+                    dependency_count=sum(
+                        dependency.edge_count for dependency in stage_dependencies_for_target
+                    ),
+                    blocking_dependency_count=sum(
+                        dependency.blocking_edge_count
+                        for dependency in stage_dependencies_for_target
+                    ),
                 )
             )
 
         self.stages = stages
+        self.stage_dependencies = stage_dependencies
         self.metadata["stage_status"] = self.stage_status
+        self.metadata["stage_dependency_map"] = self.stage_dependency_map()
 
     def to_react_flow(self, stage_filter: PipelineStage | str | None = None) -> dict[str, Any]:
         from aragora.pipeline.universal_node import UniversalNode
@@ -618,8 +775,10 @@ class PipelineDAGSnapshot:
                 node_id: runtime.to_dict() for node_id, runtime in sorted(self.runtime.items())
             },
             "stages": [stage.to_dict() for stage in self.stages],
+            "stage_dependencies": [dependency.to_dict() for dependency in self.stage_dependencies],
             "stage_status": self.stage_status,
             "dependency_map": self.dependency_map(),
+            "stage_dependency_map": self.stage_dependency_map(),
             "metadata": dict(self.metadata),
             "integrity_hash": self.integrity_hash,
             "live_updates": [update.to_dict() for update in self.live_updates],
@@ -702,6 +861,7 @@ __all__ = [
     "PipelineDAGDependency",
     "PipelineDAGSnapshot",
     "PipelineDAGStage",
+    "PipelineStageDependency",
     "PipelineLiveUpdate",
     "PipelineNodeRuntime",
 ]

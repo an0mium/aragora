@@ -70,16 +70,37 @@ def test_snapshot_builds_stage_summaries_and_dependencies() -> None:
         "action-1": ["goal-1"],
         "goal-1": ["idea-1"],
     }
+    assert snapshot.stage_dependency_map() == {
+        "actions": ["goals"],
+        "goals": ["ideas"],
+    }
     action_dependency = next(
         dependency for dependency in snapshot.dependencies if dependency.target_id == "action-1"
     )
     assert action_dependency.implicit is True
     assert action_dependency.edge_type == StageEdgeType.DERIVED_FROM
 
+    goals_stage_dependency = next(
+        dependency
+        for dependency in snapshot.stage_dependencies
+        if dependency.target_stage == PipelineStage.GOALS
+    )
+    assert goals_stage_dependency.source_stage == PipelineStage.IDEAS
+    assert goals_stage_dependency.edge_count == 1
+    assert goals_stage_dependency.status == "satisfied"
+
     actions_stage = next(stage for stage in snapshot.stages if stage.stage == PipelineStage.ACTIONS)
     assert actions_stage.node_ids == ["action-1"]
     assert actions_stage.dependency_stage_ids == ["goals"]
     assert actions_stage.status_counts == {"pending": 1}
+    assert actions_stage.ready is False
+    assert actions_stage.blocked_by_stage_ids == ["goals"]
+    assert actions_stage.satisfied_dependency_stage_ids == []
+
+    orchestration_stage = next(
+        stage for stage in snapshot.stages if stage.stage == PipelineStage.ORCHESTRATION
+    )
+    assert orchestration_stage.ready is True
 
     react_flow = snapshot.to_react_flow()
     assert {node["id"] for node in react_flow["nodes"]} == {"idea-1", "goal-1", "action-1"}
@@ -148,6 +169,36 @@ def test_snapshot_applies_node_additions() -> None:
     )
     assert orchestration_stage.node_count == 1
     assert orchestration_stage.dependency_stage_ids == ["actions"]
+
+
+def test_snapshot_live_updates_recompute_stage_readiness() -> None:
+    snapshot = _make_graph().to_dag_snapshot()
+
+    snapshot.apply_live_update(
+        PipelineLiveUpdate.from_status_change(
+            pipeline_id="dag-graph",
+            node_id="goal-1",
+            stage=PipelineStage.GOALS,
+            status="succeeded",
+        )
+    )
+
+    goals_stage = next(stage for stage in snapshot.stages if stage.stage == PipelineStage.GOALS)
+    assert goals_stage.status == "complete"
+    assert goals_stage.ready is False
+
+    actions_stage = next(stage for stage in snapshot.stages if stage.stage == PipelineStage.ACTIONS)
+    assert actions_stage.status == "pending"
+    assert actions_stage.ready is True
+    assert actions_stage.blocked_by_stage_ids == []
+    assert actions_stage.satisfied_dependency_stage_ids == ["goals"]
+
+    actions_dependency = next(
+        dependency
+        for dependency in snapshot.stage_dependencies
+        if dependency.target_stage == PipelineStage.ACTIONS
+    )
+    assert actions_dependency.status == "satisfied"
 
 
 def test_graph_store_returns_dag_snapshot(tmp_path) -> None:

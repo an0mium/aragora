@@ -62,6 +62,7 @@ from aragora.pipeline.dag_model import (
     PipelineDAGDependency,
     PipelineDAGSnapshot,
     PipelineDAGStage,
+    PipelineStageDependency,
     PipelineLiveUpdate,
     PipelineNodeRuntime,
 )
@@ -145,6 +146,7 @@ __all__ = [
     "PipelineDAGDependency",
     "PipelineDAGStage",
     "PipelineDAGSnapshot",
+    "PipelineStageDependency",
     "PipelineLiveUpdate",
     # Graph persistence
     "GraphStore",
