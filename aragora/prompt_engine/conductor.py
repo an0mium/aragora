@@ -118,6 +118,16 @@ class PromptConductor:
         self._researcher = PromptResearcher(agent=agent, knowledge_mound=knowledge_mound)
         self._spec_builder = SpecBuilder(agent=agent)
 
+    @property
+    def stage_operation_timings(self) -> dict[str, list[Any]]:
+        """Return the most recent operation timings for each stage."""
+        return {
+            "decompose": self._decomposer.last_operation_timings,
+            "interrogate": self._interrogator.last_operation_timings,
+            "research": self._researcher.last_operation_timings,
+            "specify": self._spec_builder.last_operation_timings,
+        }
+
     async def run(
         self,
         prompt: str,

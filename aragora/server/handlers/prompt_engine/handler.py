@@ -106,6 +106,22 @@ class PromptEngineHandler(SecureHandler):
 
         return PromptConductor(config=config)
 
+    @staticmethod
+    def _component_timing_payload(
+        stage: str,
+        *,
+        total_duration_ms: float,
+        operation_timings: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build a timing payload for a single prompt-engine component."""
+        from aragora.prompt_engine.timing import PipelineTiming
+
+        return PipelineTiming(
+            total_duration_ms=total_duration_ms,
+            stage_durations_ms={stage: total_duration_ms},
+            operation_timings=list(operation_timings or []),
+        ).to_dict()
+
     # ------------------------------------------------------------------
     # Endpoint handlers
     # ------------------------------------------------------------------
@@ -197,7 +213,9 @@ class PromptEngineHandler(SecureHandler):
     def _handle_run(self, handler: Any) -> HandlerResult:
         """Run the full prompt-to-specification pipeline."""
         import asyncio
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -219,8 +237,27 @@ class PromptEngineHandler(SecureHandler):
         from aragora.prompt_engine import SpecValidator
 
         validator = SpecValidator()
+        validation_start = start_timer()
         validation = validator.validate_heuristic(result.specification)
+        validation_duration_ms = elapsed_ms(validation_start)
+        spec_bundle_start = start_timer()
         spec_bundle = SpecBundle.from_prompt_spec(result.specification, validation=validation)
+        spec_bundle_duration_ms = elapsed_ms(spec_bundle_start)
+        timing_payload = (
+            result.timing.to_dict()
+            if hasattr(result, "timing") and hasattr(result.timing, "to_dict")
+            else {}
+        )
+        timing_payload["post_pipeline"] = {
+            "validate": self._component_timing_payload(
+                "validate",
+                total_duration_ms=validation_duration_ms,
+                operation_timings=validator.last_operation_timings,
+            ),
+            "spec_bundle": {
+                "duration_ms": round(spec_bundle_duration_ms, 2),
+            },
+        }
 
         payload = {
             "specification": result.specification.to_dict(),
@@ -231,9 +268,11 @@ class PromptEngineHandler(SecureHandler):
             "auto_approved": result.auto_approved,
             "stages_completed": result.stages_completed,
             "validation": validation.to_dict(),
+            "timing": timing_payload,
         }
 
         if not plan_request:
+            payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
             return json_response(payload)
 
         from aragora.pipeline.decision_plan import DecisionPlanFactory
@@ -259,6 +298,7 @@ class PromptEngineHandler(SecureHandler):
                 "message": str(exc),
                 "missing_required_fields": list(spec_bundle.missing_required_fields),
             }
+            payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
             return json_response(payload, status=422)
 
         store = get_plan_store()
@@ -291,12 +331,15 @@ class PromptEngineHandler(SecureHandler):
                     execution_payload["record"] = record
                 payload["execution"] = execution_payload
 
+        payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
         return json_response(payload)
 
     def _handle_decompose(self, handler: Any) -> HandlerResult:
         """Decompose a vague prompt into structured intent."""
         import asyncio
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -311,12 +354,23 @@ class PromptEngineHandler(SecureHandler):
         context = data.get("context")
         intent = asyncio.run(decomposer.decompose(prompt, context))
 
-        return json_response({"intent": intent.to_dict()})
+        return json_response(
+            {
+                "intent": intent.to_dict(),
+                "timing": self._component_timing_payload(
+                    "decompose",
+                    total_duration_ms=elapsed_ms(request_start),
+                    operation_timings=decomposer.last_operation_timings,
+                ),
+            }
+        )
 
     def _handle_interrogate(self, handler: Any) -> HandlerResult:
         """Generate clarifying questions for an intent."""
         import asyncio
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -354,13 +408,20 @@ class PromptEngineHandler(SecureHandler):
         return json_response(
             {
                 "questions": [q.to_dict() for q in questions],
+                "timing": self._component_timing_payload(
+                    "interrogate",
+                    total_duration_ms=elapsed_ms(request_start),
+                    operation_timings=interrogator.last_operation_timings,
+                ),
             }
         )
 
     def _handle_research(self, handler: Any) -> HandlerResult:
         """Research context for an intent."""
         import asyncio
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -386,12 +447,23 @@ class PromptEngineHandler(SecureHandler):
         context = data.get("context")
         research = asyncio.run(researcher.research(intent, context=context))
 
-        return json_response({"research": research.to_dict()})
+        return json_response(
+            {
+                "research": research.to_dict(),
+                "timing": self._component_timing_payload(
+                    "research",
+                    total_duration_ms=elapsed_ms(request_start),
+                    operation_timings=researcher.last_operation_timings,
+                ),
+            }
+        )
 
     def _handle_specify(self, handler: Any) -> HandlerResult:
         """Build a specification from intent + questions + research."""
         import asyncio
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -444,11 +516,22 @@ class PromptEngineHandler(SecureHandler):
         spec_bundle = SpecBundle.from_prompt_spec(spec)
 
         return json_response(
-            {"specification": spec.to_dict(), "spec_bundle": spec_bundle.to_dict()}
+            {
+                "specification": spec.to_dict(),
+                "spec_bundle": spec_bundle.to_dict(),
+                "timing": self._component_timing_payload(
+                    "specify",
+                    total_duration_ms=elapsed_ms(request_start),
+                    operation_timings=builder.last_operation_timings,
+                ),
+            }
         )
 
     def _handle_validate(self, handler: Any) -> HandlerResult:
         """Validate a specification via SpecValidator."""
+        from aragora.prompt_engine.timing import elapsed_ms, start_timer
+
+        request_start = start_timer()
         data = self._read_body(handler)
         if data is None:
             return error_response("Invalid request body", 400)
@@ -500,4 +583,14 @@ class PromptEngineHandler(SecureHandler):
         result = validator.validate_heuristic(spec)
         spec_bundle = SpecBundle.from_prompt_spec(spec, validation=result)
 
-        return json_response({"validation": result.to_dict(), "spec_bundle": spec_bundle.to_dict()})
+        return json_response(
+            {
+                "validation": result.to_dict(),
+                "spec_bundle": spec_bundle.to_dict(),
+                "timing": self._component_timing_payload(
+                    "validate",
+                    total_duration_ms=elapsed_ms(request_start),
+                    operation_timings=validator.last_operation_timings,
+                ),
+            }
+        )

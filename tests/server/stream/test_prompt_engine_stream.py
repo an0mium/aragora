@@ -152,7 +152,9 @@ class TestRunPipeline:
 
         mock_validation = MagicMock()
         mock_validation.to_dict.return_value = {"passed": True}
-        mock_validator_cls.return_value.validate_heuristic.return_value = mock_validation
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = mock_validation
+        mock_validator.last_operation_timings = []
 
         # Track emitted events
         emitter = PromptEngineStreamEmitter()
@@ -172,6 +174,10 @@ class TestRunPipeline:
         assert "prompt_engine_spec" in event_types
         assert "prompt_engine_validation" in event_types
         assert "prompt_engine_complete" in event_types
+        validation_event = next(event for event in events if event[1] == "prompt_engine_validation")
+        complete_event = next(event for event in events if event[1] == "prompt_engine_complete")
+        assert "timing" in validation_event[2]
+        assert "timing" in complete_event[2]
 
     @pytest.mark.asyncio
     @patch("aragora.prompt_engine.PromptConductor")

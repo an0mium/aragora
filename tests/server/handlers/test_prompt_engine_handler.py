@@ -46,6 +46,26 @@ def _parse(result: tuple[int, dict[str, str], str]) -> dict[str, Any]:
     return {"status": status, "data": parsed_body}
 
 
+class _FakeTiming:
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_duration_ms": 250.0,
+            "target_duration_ms": 15_000.0,
+            "tracking_coverage_pct": 98.0,
+            "stage_breakdown": [
+                {"stage": "research", "duration_ms": 120.0, "share_of_total_pct": 48.0}
+            ],
+            "optimization_targets": [
+                {
+                    "operation": "research.agent_generate",
+                    "duration_ms": 120.0,
+                    "share_of_total_pct": 48.0,
+                    "optimization_hint": "Reduce prompt size, model latency, or round trips.",
+                }
+            ],
+        }
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -150,6 +170,7 @@ class TestDecompose:
         }
         instance = mock_cls.return_value
         instance.decompose = AsyncMock(return_value=mock_intent)
+        instance.last_operation_timings = []
 
         req = _make_handler_request({"prompt": "Build a dashboard"})
         req.path = "/api/prompt-engine/decompose"
@@ -158,6 +179,7 @@ class TestDecompose:
 
         assert parsed["status"] == 200
         assert parsed["data"]["intent"]["intent_type"] == "feature"
+        assert parsed["data"]["timing"]["stage_breakdown"][0]["stage"] == "decompose"
         instance.decompose.assert_called_once()
 
 
@@ -265,6 +287,7 @@ class TestRunPipeline:
         mock_result.research = None
         mock_result.auto_approved = False
         mock_result.stages_completed = ["decompose", "specify"]
+        mock_result.timing = _FakeTiming()
 
         instance = mock_conductor_cls.return_value
         instance.run = AsyncMock(return_value=mock_result)
@@ -272,7 +295,9 @@ class TestRunPipeline:
         # Mock validator
         mock_validation = MagicMock()
         mock_validation.to_dict.return_value = {"passed": True, "overall_confidence": 0.85}
-        mock_validator_cls.return_value.validate_heuristic.return_value = mock_validation
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = mock_validation
+        mock_validator.last_operation_timings = []
 
         # Mock config
         mock_config_cls.return_value = MagicMock()
@@ -288,6 +313,8 @@ class TestRunPipeline:
         assert "spec_bundle" in parsed["data"]
         assert parsed["data"]["validation"]["passed"] is True
         assert "stages_completed" in parsed["data"]
+        assert parsed["data"]["timing"]["total_duration_ms"] == 250.0
+        assert "post_pipeline" in parsed["data"]["timing"]
 
     @patch("aragora.pipeline.executor.store_plan")
     @patch("aragora.pipeline.plan_store.get_plan_store")
@@ -333,6 +360,7 @@ class TestRunPipeline:
             research=None,
             auto_approved=False,
             stages_completed=["decompose", "specify"],
+            timing=_FakeTiming(),
         )
         mock_conductor_cls.return_value.run = AsyncMock(return_value=mock_result)
 
@@ -341,7 +369,9 @@ class TestRunPipeline:
             passed=True,
             overall_confidence=0.95,
         )
-        mock_validator_cls.return_value.validate_heuristic.return_value = validation
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = validation
+        mock_validator.last_operation_timings = []
         mock_config_cls.return_value = MagicMock()
         mock_config_cls.from_profile.return_value = MagicMock()
         mock_get_execution_bridge.return_value.list_execution_records.return_value = [
@@ -399,6 +429,7 @@ class TestRunPipeline:
             research=None,
             auto_approved=False,
             stages_completed=["decompose", "specify"],
+            timing=_FakeTiming(),
         )
         mock_conductor_cls.return_value.run = AsyncMock(return_value=mock_result)
 
@@ -407,7 +438,9 @@ class TestRunPipeline:
             passed=False,
             overall_confidence=0.2,
         )
-        mock_validator_cls.return_value.validate_heuristic.return_value = validation
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = validation
+        mock_validator.last_operation_timings = []
         mock_config_cls.return_value = MagicMock()
         mock_config_cls.from_profile.return_value = MagicMock()
         handler.require_permission_or_error = MagicMock(return_value=(MagicMock(), None))

@@ -46,6 +46,26 @@ class _FakeRecord:
         return dict(self._data)
 
 
+class _FakeTiming:
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "total_duration_ms": 123.0,
+            "target_duration_ms": 15_000.0,
+            "tracking_coverage_pct": 100.0,
+            "stage_breakdown": [
+                {"stage": "specify", "duration_ms": 70.0, "share_of_total_pct": 56.9}
+            ],
+            "optimization_targets": [
+                {
+                    "operation": "specify.agent_generate",
+                    "duration_ms": 70.0,
+                    "share_of_total_pct": 56.9,
+                    "optimization_hint": "Reduce prompt size, model latency, or round trips.",
+                }
+            ],
+        }
+
+
 class _FakePromptConductor:
     last_init: dict[str, object] | None = None
     last_run: dict[str, object] | None = None
@@ -76,6 +96,7 @@ class _FakePromptConductor:
             questions=[_FakeRecord(question="What should improve first?")],
             stages_completed=["decompose", "specify"],
             auto_approved=False,
+            timing=_FakeTiming(),
         )
 
 
@@ -170,6 +191,7 @@ class TestRunSpecPipeline:
         assert result["specification"]["problem_statement"] == "Need a better onboarding flow."
         assert result["questions"] == [{"question": "What should improve first?"}]
         assert result["stages_completed"] == ["decompose", "specify"]
+        assert result["timing"]["total_duration_ms"] == 123.0
 
 
 class TestCmdSpec:
@@ -207,6 +229,22 @@ class TestCmdSpec:
                 "confidence": 0.75,
             },
             "research": {"evidence_links": ["km://onboarding"]},
+            "timing": {
+                "total_duration_ms": 123.0,
+                "target_duration_ms": 15_000.0,
+                "tracking_coverage_pct": 100.0,
+                "stage_breakdown": [
+                    {"stage": "specify", "duration_ms": 70.0, "share_of_total_pct": 56.9}
+                ],
+                "optimization_targets": [
+                    {
+                        "operation": "specify.agent_generate",
+                        "duration_ms": 70.0,
+                        "share_of_total_pct": 56.9,
+                        "optimization_hint": "Reduce prompt size, model latency, or round trips.",
+                    }
+                ],
+            },
         }
         args = argparse.Namespace(
             prompt="Make onboarding better",
@@ -230,6 +268,7 @@ class TestCmdSpec:
         assert "ARAGORA SPEC" in out
         assert "Elapsed:" in out
         assert "Spec saved to:" in out
+        assert '"total_duration_ms": 123.0' in out
         run_spec.assert_awaited_once_with(
             "Make onboarding better",
             depth="quick",

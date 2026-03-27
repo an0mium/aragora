@@ -55,6 +55,7 @@ async def _run_spec_pipeline(
 
     conductor = PromptConductor(config=config, agent=agent)
     result = await conductor.run(prompt)
+    timing = getattr(result, "timing", None)
 
     return {
         "specification": result.specification.to_dict()
@@ -67,7 +68,40 @@ async def _run_spec_pipeline(
         "questions": [q.to_dict() if hasattr(q, "to_dict") else q for q in result.questions],
         "stages_completed": result.stages_completed,
         "auto_approved": result.auto_approved,
+        "timing": timing.to_dict() if hasattr(timing, "to_dict") else timing,
     }
+
+
+def _print_timing_summary(timing: dict[str, Any]) -> None:
+    """Render a concise latency profile for human-readable output."""
+    total_ms = float(timing.get("total_duration_ms", 0.0) or 0.0)
+    target_ms = float(timing.get("target_duration_ms", 0.0) or 0.0)
+    coverage_pct = float(timing.get("tracking_coverage_pct", 0.0) or 0.0)
+
+    print("\n  Latency Profile:")
+    print(f"  Total:        {total_ms:.1f}ms / target {target_ms:.1f}ms")
+    print(f"  Coverage:     {coverage_pct:.1f}% instrumented")
+
+    stage_breakdown = timing.get("stage_breakdown", [])
+    if stage_breakdown:
+        print("  Stage Split:")
+        for item in stage_breakdown[:4]:
+            stage = item.get("stage", "unknown")
+            duration_ms = float(item.get("duration_ms", 0.0) or 0.0)
+            share_pct = float(item.get("share_of_total_pct", 0.0) or 0.0)
+            print(f"    - {stage}: {duration_ms:.1f}ms ({share_pct:.1f}%)")
+
+    targets = timing.get("optimization_targets", [])
+    if targets:
+        print("  Optimization Targets:")
+        for target in targets[:3]:
+            operation = target.get("operation", "unknown")
+            duration_ms = float(target.get("duration_ms", 0.0) or 0.0)
+            share_pct = float(target.get("share_of_total_pct", 0.0) or 0.0)
+            hint = target.get("optimization_hint", "")
+            print(f"    - {operation}: {duration_ms:.1f}ms ({share_pct:.1f}%)")
+            if hint:
+                print(f"      {hint}")
 
 
 def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> None:
@@ -137,6 +171,10 @@ def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> N
         evidence = getattr(research, "evidence_links", None) or research.get("evidence_links", [])
         if evidence:
             print(f"\n  Evidence: {len(evidence)} source(s) found")
+
+    timing = result.get("timing")
+    if isinstance(timing, dict):
+        _print_timing_summary(timing)
 
     print("\n" + "=" * 60)
 
