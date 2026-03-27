@@ -1091,6 +1091,44 @@ class TestRLMContextHandlerStreamEndpoint:
         # Expect success, fallback, or error (when streaming module has issues)
         assert result.status_code in [200, 400, 500, 501]
 
+    def test_stream_with_query_parameter_returns_search_chunks(self, rlm_handler):
+        """Stream endpoint awaits search results and serializes them into chunks."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["search_chunks_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "search_chunks_ctx",
+                "mode": "top_down",
+                "query": "find specific topic",
+                "level": "summary",
+            },
+            with_auth=True,
+        )
+
+        with patch(
+            "aragora.rlm.streaming.StreamingRLMQuery.search",
+            new=AsyncMock(return_value=["first hit", "second hit"]),
+        ):
+            result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["total_chunks"] == 2
+        assert [chunk["content"] for chunk in body["chunks"]] == ["first hit", "second hit"]
+        assert [chunk["level"] for chunk in body["chunks"]] == ["SUMMARY", "SUMMARY"]
+        assert body["chunks"][0]["is_final"] is False
+        assert body["chunks"][1]["is_final"] is True
+
     def test_stream_with_level_parameter(self, rlm_handler):
         """Stream endpoint handles level parameter for targeted mode."""
         mock_context = MagicMock()
@@ -1118,6 +1156,46 @@ class TestRLMContextHandlerStreamEndpoint:
         assert result is not None
         # Expect success, fallback, or error (when streaming module has issues)
         assert result.status_code in [200, 400, 500, 501]
+
+    def test_stream_with_level_parameter_normalizes_drill_down_chunks(self, rlm_handler):
+        """Stream endpoint serializes drill-down tuples into chunk payloads."""
+        mock_context = MagicMock()
+        mock_context.original_tokens = 500
+        mock_context.levels = {}
+
+        rlm_handler._contexts["level_chunks_ctx"] = {
+            "context": mock_context,
+            "created_at": datetime.now().isoformat(),
+            "source_type": "text",
+            "original_tokens": 500,
+        }
+
+        handler = create_request_body(
+            {
+                "context_id": "level_chunks_ctx",
+                "mode": "targeted",
+                "level": "summary",
+            },
+            with_auth=True,
+        )
+
+        async def fake_drill_down(self, query=None, start_level="ABSTRACT"):
+            assert query is None
+            assert start_level == "SUMMARY"
+            yield ("SUMMARY", "summary text")
+            yield ("DETAILED", "detail text")
+
+        with patch("aragora.rlm.streaming.StreamingRLMQuery.drill_down", new=fake_drill_down):
+            result = rlm_handler.handle_post("/api/v1/rlm/stream", {}, handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["total_chunks"] == 2
+        assert [chunk["level"] for chunk in body["chunks"]] == ["SUMMARY", "DETAILED"]
+        assert [chunk["content"] for chunk in body["chunks"]] == ["summary text", "detail text"]
+        assert body["chunks"][0]["is_final"] is False
+        assert body["chunks"][1]["is_final"] is True
 
     def test_stream_default_mode(self, rlm_handler):
         """Stream endpoint uses top_down as default mode."""

@@ -1003,39 +1003,55 @@ class RLMContextHandler(BaseHandler):
             # (WebSocket would allow true streaming)
             chunks = []
 
+            def append_chunk(
+                *,
+                level_name: str,
+                content: str,
+                is_final: bool,
+                metadata: dict[str, Any] | None = None,
+            ) -> None:
+                chunks.append(
+                    {
+                        "level": level_name,
+                        "content": content,
+                        "token_count": stream_query._estimate_tokens(content),
+                        "is_final": is_final,
+                        "metadata": metadata if include_metadata else {},
+                    }
+                )
+
             async def collect_chunks():
                 if query:
-                    async for chunk in stream_query.search(query):
-                        chunks.append(
-                            {
-                                "level": chunk.level,
-                                "content": chunk.content,
-                                "token_count": chunk.token_count,
-                                "is_final": chunk.is_final,
-                                "metadata": chunk.metadata if include_metadata else {},
-                            }
+                    search_level = str(level).upper() if level else "DETAILED"
+                    results = await stream_query.search(query, level=search_level)
+                    for index, content in enumerate(results):
+                        append_chunk(
+                            level_name=search_level,
+                            content=content,
+                            is_final=index == len(results) - 1,
+                            metadata={"result_index": index, "result_count": len(results)},
                         )
                 elif level:
-                    async for chunk in stream_query.drill_down(level):
-                        chunks.append(
-                            {
-                                "level": chunk.level,
-                                "content": chunk.content,
-                                "token_count": chunk.token_count,
-                                "is_final": chunk.is_final,
-                                "metadata": chunk.metadata if include_metadata else {},
-                            }
+                    drill_chunks = []
+                    async for chunk_level, content in stream_query.drill_down(
+                        start_level=str(level).upper()
+                    ):
+                        drill_chunks.append((chunk_level, content))
+
+                    for index, (chunk_level, content) in enumerate(drill_chunks):
+                        append_chunk(
+                            level_name=chunk_level,
+                            content=content,
+                            is_final=index == len(drill_chunks) - 1,
+                            metadata={"chunk_index": index, "chunk_count": len(drill_chunks)},
                         )
                 else:
                     async for chunk in stream_query.stream_all():
-                        chunks.append(
-                            {
-                                "level": chunk.level,
-                                "content": chunk.content,
-                                "token_count": chunk.token_count,
-                                "is_final": chunk.is_final,
-                                "metadata": chunk.metadata if include_metadata else {},
-                            }
+                        append_chunk(
+                            level_name=chunk.level,
+                            content=chunk.content,
+                            is_final=chunk.is_final,
+                            metadata=chunk.metadata,
                         )
 
             # Run async collection
