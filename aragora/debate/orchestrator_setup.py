@@ -30,8 +30,8 @@ from aragora.utils.cache_registry import register_lru_cache
 if TYPE_CHECKING:
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
+    from aragora.debate.cognitive_limiter_rlm import RLMCognitiveLoadLimiter
     from aragora.debate.orchestrator import Arena
-    from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
 
 logger = get_structured_logger(__name__)
 

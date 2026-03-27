@@ -22,17 +22,17 @@ from .prompt_context_providers import PromptContextMixin
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
-    from aragora.agents.flip_detector import FlipDetector
     from aragora.agents.personas import PersonaManager
     from aragora.core import Agent, Environment
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.roles import RoleAssignment, RoleRotator
     from aragora.evidence.collector import EvidencePack
+    from aragora.insights.flip_detector import FlipDetector
     from aragora.knowledge.mound.adapters import SupermemoryAdapter, ContextInjectionResult
     from aragora.memory.consensus import DissentRetriever
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.store import CritiqueStore
-    from aragora.pulse.types import TrendingTopic
+    from aragora.pulse.ingestor import TrendingTopic
     from aragora.ranking.elo import EloSystem
     from aragora.server.question_classifier import QuestionClassification, QuestionClassifier
     from aragora.rlm.types import RLMContext

@@ -291,10 +291,13 @@ class ConsensusProof:
             sort_keys=True,
         )
         # Cache the computed checksum
+        checksum = hashlib.sha256(content.encode()).hexdigest()[:16]
         object.__setattr__(
-            self, "_cached_checksum", hashlib.sha256(content.encode()).hexdigest()[:16]
+            self,
+            "_cached_checksum",
+            checksum,
         )
-        return self._cached_checksum
+        return checksum
 
     @property
     def agreement_ratio(self) -> float:

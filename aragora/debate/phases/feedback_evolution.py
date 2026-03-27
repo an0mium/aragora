@@ -281,8 +281,12 @@ class EvolutionFeedback:
 
         This is a fire-and-forget task so it doesn't block debate completion.
         """
+        population_manager = self.population_manager
+        if population_manager is None:
+            return
+
         try:
-            evolved = self.population_manager.evolve_population(population)
+            evolved = population_manager.evolve_population(population)
             logger.info(
                 "[genesis] Population evolved to generation %d with %d genomes",
                 evolved.generation,
@@ -290,13 +294,14 @@ class EvolutionFeedback:
             )
 
             # Emit event if event_emitter available
-            if self.event_emitter:
+            loop_id = self.loop_id
+            if self.event_emitter and loop_id is not None:
                 from aragora.events.types import StreamEvent, StreamEventType
 
                 self.event_emitter.emit(
                     StreamEvent(
                         type=StreamEventType.GENESIS_EVOLUTION,
-                        loop_id=self.loop_id,
+                        loop_id=loop_id,
                         data={
                             "generation": evolved.generation,
                             "genome_count": len(evolved.genomes),

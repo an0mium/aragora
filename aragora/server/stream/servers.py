@@ -134,7 +134,7 @@ WS_MAX_CONNECTIONS_PER_IP = max(1, min(_raw_max_per_ip, 100))
 
 
 # Mixin method signatures intentionally differ from ServerBase
-class AiohttpUnifiedServer(  # type: ignore[override]
+class AiohttpUnifiedServer(  # type: ignore[misc,override]
     ServerBase,
     StreamAPIHandlersMixin,
     WebSocketHandlerMixin,
@@ -273,7 +273,7 @@ class AiohttpUnifiedServer(  # type: ignore[override]
 
         # PersonaManager for agent specialization
         try:
-            from aragora.personas.manager import PersonaManager
+            from aragora.agents.personas import PersonaManager
 
             personas_path = nomic_dir / DB_PERSONAS_PATH
             if personas_path.exists():

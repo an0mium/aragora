@@ -32,18 +32,19 @@ class PersonaFeedback:
 
     def update_persona_performance(self, ctx: DebateContext) -> None:
         """Update PersonaManager with performance feedback."""
-        if not self.persona_manager:
+        persona_manager = self.persona_manager
+        result = ctx.result
+        if persona_manager is None or result is None:
             return
 
         try:
             from aragora.agents.errors import _build_error_action
 
-            result = ctx.result
             for agent in ctx.agents:
                 success = (agent.name == result.winner) or (
                     result.consensus_reached and result.confidence > 0.7
                 )
-                self.persona_manager.record_performance(
+                persona_manager.record_performance(
                     agent_name=agent.name,
                     domain=ctx.domain,
                     success=success,
@@ -65,7 +66,10 @@ class PersonaFeedback:
         - Consistent prediction accuracy
         - Distinct communication styles
         """
-        if not self.persona_manager or not self.event_emitter:
+        persona_manager = self.persona_manager
+        event_emitter = self.event_emitter
+        loop_id = self.loop_id
+        if persona_manager is None or event_emitter is None or loop_id is None:
             return
 
         try:
@@ -73,7 +77,7 @@ class PersonaFeedback:
 
             for agent in ctx.agents:
                 # Get agent's current traits
-                persona = self.persona_manager.get_persona(agent.name)
+                persona = persona_manager.get_persona(agent.name)
                 if not persona:
                     continue
 
@@ -84,10 +88,10 @@ class PersonaFeedback:
                     new_traits = self.detect_emerging_traits(agent.name, ctx)
 
                 for trait in new_traits:
-                    self.event_emitter.emit(
+                    event_emitter.emit(
                         StreamEvent(
                             type=StreamEventType.TRAIT_EMERGED,
-                            loop_id=self.loop_id,
+                            loop_id=loop_id,
                             data={
                                 "agent": agent.name,
                                 "trait": trait.get("name", "unknown"),
@@ -114,12 +118,17 @@ class PersonaFeedback:
         """
         traits: list[dict[str, Any]] = []
 
+        persona_manager = self.persona_manager
+        if persona_manager is None:
+            return traits
+
         try:
             # Get performance stats if available
-            if not hasattr(self.persona_manager, "get_performance_stats"):
+            stats_getter = getattr(persona_manager, "get_performance_stats", None)
+            if not callable(stats_getter):
                 return traits
 
-            stats = self.persona_manager.get_performance_stats(agent_name)
+            stats = stats_getter(agent_name)
             if not stats:
                 return traits
 

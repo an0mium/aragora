@@ -639,7 +639,7 @@ class WorkflowEngine:
         completed_steps: set[str],
     ) -> Any:
         """Execute workflow starting from a specific step."""
-        current_step_id = start_step
+        current_step_id: str | None = start_step
         final_output = None
         step_count = 0
         workflow_start_time = time.time()

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.evidence.collector import EvidencePack
     from aragora.knowledge.mound.adapters import SupermemoryAdapter
-    from aragora.pulse.types import TrendingTopic
+    from aragora.pulse.ingestor import TrendingTopic
     from aragora.rlm.types import RLMContext
 
 # Check for RLM availability

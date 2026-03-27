@@ -618,9 +618,13 @@ class TeamSelector:
                 ]
                 if cheap_agents:
                     # Apply max_agents limit if configured
-                    max_agents = self.config.budget_warn_max_agents
-                    if max_agents and len(cheap_agents) > max_agents:
-                        cheap_agents = cheap_agents[:max_agents]
+                    warn_max_agents = self.config.budget_warn_max_agents
+                    if (
+                        warn_max_agents is not None
+                        and warn_max_agents > 0
+                        and len(cheap_agents) > warn_max_agents
+                    ):
+                        cheap_agents = cheap_agents[:warn_max_agents]
                     logger.info(
                         "budget_warn_prefer_cheap org=%s cheap_agents=%s from=%s",
                         self.org_id,
@@ -1019,8 +1023,12 @@ class TeamSelector:
         """
         import math
 
+        elo_system = self.elo_system
+        if elo_system is None:
+            return 1.0
+
         try:
-            rating = self.elo_system.get_rating(agent.name)
+            rating = elo_system.get_rating(agent.name)
             agent_debates = getattr(rating, "total_matches", 0)
             if isinstance(rating, (int, float)):
                 agent_debates = 0
@@ -1265,6 +1273,8 @@ class TeamSelector:
             agent_name = getattr(agent, "name", str(agent))
             # AgentRegistry.get() may be sync or async; handle both
             registry = self.control_plane_registry
+            if registry is None:
+                return 0.0
             info = None
             if hasattr(registry, "get_sync"):
                 info = registry.get_sync(agent_name)
@@ -1301,8 +1311,12 @@ class TeamSelector:
         this fires in the background; subsequent calls in the same
         debate will hit the warm cache.
         """
+        knowledge_mound = self.knowledge_mound
+        if knowledge_mound is None:
+            self._culture_recommendations_cache[cache_key] = []
+            return
         try:
-            recommendations = await self.knowledge_mound.recommend_agents(task_type)
+            recommendations = await knowledge_mound.recommend_agents(task_type)
             self._culture_recommendations_cache[cache_key] = recommendations or []
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
             logger.debug("Culture cache warm-up failed for %s: %s", task_type, e)

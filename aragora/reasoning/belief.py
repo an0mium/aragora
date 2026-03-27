@@ -727,10 +727,13 @@ class BeliefNetwork:
                 },
             )
 
-            if hasattr(self._event_emitter, "emit"):
-                self._event_emitter.emit(event)
-            elif hasattr(self._event_emitter, "notify"):
-                self._event_emitter.notify("belief_converged", event.data)
+            event_emitter = self._event_emitter
+            if event_emitter is None:
+                return
+            if hasattr(event_emitter, "emit"):
+                event_emitter.emit(event)
+            elif hasattr(event_emitter, "notify"):
+                event_emitter.notify("belief_converged", event.data)
 
         except ImportError:
             pass  # Events module not available

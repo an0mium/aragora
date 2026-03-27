@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 # These are optional - if not installed, we use Exception as fallback
 _BOTOCORE_AVAILABLE = False
 try:
-    from botocore.exceptions import BotoCoreError, ClientError
+    from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 
     _BOTOCORE_AVAILABLE = True
 except ImportError:
@@ -322,7 +322,7 @@ class SecretManager:
             return self._aws_clients[region]
 
         try:
-            import boto3
+            import boto3  # type: ignore[import-untyped]
 
             client = boto3.client("secretsmanager", region_name=region)
             self._aws_clients[region] = client

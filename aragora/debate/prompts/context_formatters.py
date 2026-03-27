@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.evidence.collector import EvidenceSnippet
-    from aragora.pulse.types import TrendingTopic
+    from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
 

@@ -161,7 +161,7 @@ class ChatMessage:
     edited_at: datetime | None = None
 
     # Rich content
-    blocks: list[dict[str, Any] | None] = None  # Platform-specific rich content
+    blocks: list[dict[str, Any] | None] | None = None  # Platform-specific rich content
     attachments: list[dict[str, Any]] = field(default_factory=list)
 
     # Platform-specific
@@ -281,7 +281,7 @@ class SendMessageRequest:
 
     channel_id: str
     text: str
-    blocks: list[dict[str, Any] | None] = None
+    blocks: list[dict[str, Any] | None] | None = None
     thread_id: str | None = None
     reply_to_id: str | None = None
     attachments: list[dict[str, Any]] = field(default_factory=list)

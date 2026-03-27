@@ -677,7 +677,7 @@ class EloSystem(KMAdapterMixin):
         winner: str | None,
         domain: str | None,
         debate_id: str,
-    ) -> tuple[list[AgentRating], list[tuple[str, float, str]]]:
+    ) -> tuple[list[AgentRating], list[tuple[str, float, str | None]]]:
         """Apply ELO changes to ratings and prepare for batch save."""
         return apply_elo_changes(elo_changes, ratings, winner, domain, debate_id, DEFAULT_ELO)
 
@@ -760,7 +760,15 @@ class EloSystem(KMAdapterMixin):
         elo_changes: dict[str, float],
     ) -> None:
         """Save match to history."""
-        save_match(self._db, debate_id, winner, participants, domain, scores, elo_changes)
+        if debate_id is None:
+            logger.warning(
+                "Skipping ELO match persistence without debate_id participants=%s winner=%s",
+                participants,
+                winner,
+            )
+            return
+        match_scores = scores if scores is not None else {}
+        save_match(self._db, debate_id, winner, participants, domain, match_scores, elo_changes)
 
     def _write_snapshot(self) -> None:
         """Write JSON snapshot for fast reads."""

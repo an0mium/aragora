@@ -138,12 +138,15 @@ class CircuitBreaker:
         """
         # Support both old (timeout_seconds, half_open_max_calls) and
         # new (cooldown_seconds, half_open_max_requests) config field names
-        cooldown = getattr(config, "cooldown_seconds", None) or getattr(
-            config, "timeout_seconds", 30.0
-        )
-        half_open_max = getattr(config, "half_open_max_requests", None) or getattr(
-            config, "half_open_max_calls", 3
-        )
+        cooldown_raw = getattr(config, "cooldown_seconds", None)
+        if cooldown_raw is None:
+            cooldown_raw = getattr(config, "timeout_seconds", 30.0)
+        cooldown = float(cooldown_raw if cooldown_raw is not None else 30.0)
+
+        half_open_max_raw = getattr(config, "half_open_max_requests", None)
+        if half_open_max_raw is None:
+            half_open_max_raw = getattr(config, "half_open_max_calls", 3)
+        half_open_max = int(half_open_max_raw if half_open_max_raw is not None else 3)
         return cls(
             name=name,
             failure_threshold=config.failure_threshold,

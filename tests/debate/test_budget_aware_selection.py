@@ -216,6 +216,21 @@ class TestBudgetWarn:
         # 4 cheap agents: gemini, llama, deepseek, mistral
         assert len(result) == 4
 
+    def test_warn_zero_max_agents_treated_as_no_cap(self, agents, budget_manager):
+        """WARN preserves the legacy 0 == no cap semantics."""
+        budget_manager.check_budget.return_value = (True, "Warning", BudgetAction.WARN)
+        selector = TeamSelector(
+            budget_manager=budget_manager,
+            org_id="org-test",
+            config=TeamSelectionConfig(
+                enable_domain_filtering=False,
+                enable_cv_selection=False,
+                budget_warn_max_agents=0,
+            ),
+        )
+        result = selector.select(agents)
+        assert len(result) == 4
+
 
 # =========================================================================
 # SOFT_LIMIT action tests

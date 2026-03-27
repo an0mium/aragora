@@ -130,7 +130,7 @@ _KNOWLEDGE_MOUND_UNSET = _INIT_KNOWLEDGE_MOUND_UNSET
 
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
-    from aragora.debate.checkpoint_manager import CheckpointManager
+    from aragora.debate.checkpoint import CheckpointManager
     from aragora.debate.checkpoint_ops import CheckpointOperations
     from aragora.debate.context_gatherer import ContextGatherer
     from aragora.debate.event_emission import EventEmitter as _EventEmitter
@@ -147,15 +147,15 @@ if TYPE_CHECKING:
         VotingPhase,
     )
     from aragora.debate.prompt_builder import PromptBuilder
-    from aragora.debate.revalidation_scheduler import RevalidationScheduler
+    from aragora.debate.ml_integration import MLDelegationStrategy
+    from aragora.debate.cognitive_limiter_rlm import RLMCognitiveLoadLimiter
     from aragora.debate.strategy import DebateStrategy
+    from aragora.knowledge.mound.revalidation_scheduler import RevalidationScheduler
     from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.continuum import ContinuumMemory
-    from aragora.ml.delegation import MLDelegationStrategy
     from aragora.ranking.elo import EloSystem
     from aragora.reasoning.citations import CitationExtractor
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
-    from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
     from aragora.types.protocols import EventEmitterProtocol
     from aragora.workflow.engine import Workflow
 

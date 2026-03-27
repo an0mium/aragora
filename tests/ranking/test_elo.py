@@ -899,3 +899,23 @@ class TestVerificationIntegration:
 
         impact = elo_system.get_verification_impact("impact_agent")
         assert isinstance(impact, dict)
+
+
+class TestMatchPersistence:
+    """Tests for ELO match persistence helpers."""
+
+    def test_save_match_logs_when_debate_id_missing(self, elo_system, caplog):
+        """Missing debate IDs should be logged instead of silently skipped."""
+        with patch("aragora.ranking.elo.save_match") as mock_save_match:
+            with caplog.at_level("WARNING"):
+                elo_system._save_match(
+                    debate_id=None,
+                    winner="winner",
+                    participants=["winner", "loser"],
+                    domain="architecture",
+                    scores={"winner": 1.0, "loser": 0.0},
+                    elo_changes={"winner": 12.0, "loser": -12.0},
+                )
+
+        mock_save_match.assert_not_called()
+        assert "Skipping ELO match persistence without debate_id" in caplog.text

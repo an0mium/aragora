@@ -68,29 +68,33 @@ class EloFeedback:
 
     def _emit_match_recorded_event(self, ctx: DebateContext, participants: list[str]) -> None:
         """Emit MATCH_RECORDED event for real-time leaderboard updates."""
-        if not self.event_emitter or not self.elo_system:
+        event_emitter = self.event_emitter
+        elo_system = self.elo_system
+        result = ctx.result
+        loop_id = self.loop_id
+        if event_emitter is None or elo_system is None or result is None or loop_id is None:
             return
 
         try:
             from aragora.events.types import StreamEvent, StreamEventType
 
             # Batch fetch all ratings
-            ratings_batch = self.elo_system.get_ratings_batch(participants)
+            ratings_batch = elo_system.get_ratings_batch(participants)
             elo_changes = {
                 name: ratings_batch[name].elo if name in ratings_batch else 1500.0
                 for name in participants
             }
 
-            self.event_emitter.emit(
+            event_emitter.emit(
                 StreamEvent(
                     type=StreamEventType.MATCH_RECORDED,
-                    loop_id=self.loop_id,
+                    loop_id=loop_id,
                     data={
                         "debate_id": ctx.debate_id,
                         "participants": participants,
                         "elo_changes": elo_changes,
                         "domain": ctx.domain,
-                        "winner": ctx.result.winner,
+                        "winner": result.winner,
                     },
                 )
             )
@@ -99,17 +103,17 @@ class EloFeedback:
             for agent_name in participants:
                 rating = ratings_batch.get(agent_name)
                 if rating:
-                    self.event_emitter.emit(
+                    event_emitter.emit(
                         StreamEvent(
                             type=StreamEventType.AGENT_ELO_UPDATED,
-                            loop_id=self.loop_id,
+                            loop_id=loop_id,
                             agent=agent_name,
                             data={
                                 "agent": agent_name,
                                 "new_elo": rating.elo,
                                 "debate_id": ctx.debate_id,
                                 "domain": ctx.domain,
-                                "is_winner": agent_name == ctx.result.winner,
+                                "is_winner": agent_name == result.winner,
                             },
                         )
                     )
