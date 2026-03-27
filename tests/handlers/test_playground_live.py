@@ -268,8 +268,15 @@ class TestMockFallback:
             "ANTHROPIC_API_KEY": "",
             "OPENAI_API_KEY": "",
             "OPENROUTER_API_KEY": "",
+            "MISTRAL_API_KEY": "",
         }
-        with patch.dict("os.environ", env, clear=False):
+        with (
+            patch.dict("os.environ", env, clear=False),
+            patch(
+                "aragora.server.handlers.playground._get_available_live_agents",
+                side_effect=ValueError("No API keys configured"),
+            ),
+        ):
             # Mock the aragora_debate imports used by _run_debate
             mock_result = MagicMock()
             mock_result.id = "mock-123"
