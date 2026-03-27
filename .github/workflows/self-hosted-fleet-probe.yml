@@ -1,0 +1,81 @@
+name: Self-Hosted Fleet Probe
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/self-hosted-fleet-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-hosted-fleet-probe-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mac-studio-probe:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Mac Studio Probe
+    runs-on:
+      - self-hosted
+      - aragora
+      - macOS
+      - ARM64
+      - mac-studio
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runner fingerprint
+        shell: bash
+        run: |
+          echo "runner_name=${RUNNER_NAME}"
+          echo "runner_os=${RUNNER_OS}"
+          echo "runner_arch=${RUNNER_ARCH}"
+          uname -a
+          sw_vers
+          sysctl -n machdep.cpu.brand_string || true
+          python3 --version
+          node --version
+
+      - name: Repo smoke
+        shell: bash
+        run: |
+          test -f pyproject.toml
+          python3 -m py_compile scripts/check_version_alignment.py
+          python3 -m py_compile aragora/__version__.py
+
+  hetzner-probe:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Hetzner Probe
+    runs-on:
+      - self-hosted
+      - aragora
+      - Linux
+      - X64
+      - hetzner
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runner fingerprint
+        shell: bash
+        run: |
+          echo "runner_name=${RUNNER_NAME}"
+          echo "runner_os=${RUNNER_OS}"
+          echo "runner_arch=${RUNNER_ARCH}"
+          uname -a
+          python3 --version
+          node --version
+          (lsb_release -a || cat /etc/os-release) 2>/dev/null || true
+
+      - name: Repo smoke
+        shell: bash
+        run: |
+          test -f pyproject.toml
+          python3 -m py_compile scripts/check_version_alignment.py
+          python3 -m py_compile aragora/__version__.py
