@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import inspect
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -529,6 +529,8 @@ class OAuthWizardHandler(SecureHandler):
                 return await self._check_teams_connection()
             elif provider_id == "discord":
                 return await self._check_discord_connection()
+            elif provider_id == "gmail":
+                return await self._check_gmail_connection()
             elif provider_id == "email":
                 return await self._check_email_connection()
             else:
@@ -665,6 +667,32 @@ class OAuthWizardHandler(SecureHandler):
             logger.warning("Email connection check failed: %s", e)
             return {"status": "error", "error": "SMTP connection check failed"}
 
+    async def _check_gmail_connection(self) -> dict[str, Any]:
+        """Check Gmail connection status from the persisted token store."""
+        from aragora.storage.gmail_token_store import get_gmail_token_store
+
+        store = get_gmail_token_store()
+        states = await self._maybe_await(store.list_all())
+        if not states:
+            return {"status": "not_connected", "reason": "No Gmail accounts connected"}
+
+        connected_states = [
+            state
+            for state in states
+            if self._record_value(state, "refresh_token")
+            or self._record_value(state, "access_token")
+        ]
+        if not connected_states:
+            return {"status": "not_connected", "reason": "No active Gmail tokens available"}
+
+        primary = connected_states[0]
+        return {
+            "status": "connected",
+            "accounts": len(connected_states),
+            "email": self._record_value(primary, "email_address"),
+            "user_id": self._record_value(primary, "user_id"),
+        }
+
     async def _test_connection(self, provider_id: str) -> HandlerResult:
         """
         Test connection to a provider with an actual API call.
@@ -681,6 +709,10 @@ class OAuthWizardHandler(SecureHandler):
                 result = await self._test_teams_api()
             elif provider_id == "discord":
                 result = await self._test_discord_api()
+            elif provider_id == "gmail":
+                result = await self._test_gmail_api()
+            elif provider_id == "email":
+                result = await self._test_email_connection()
             else:
                 result = {"success": False, "error": f"Test not implemented for {provider_id}"}
 
@@ -822,6 +854,82 @@ class OAuthWizardHandler(SecureHandler):
         ) as e:
             logger.warning("Discord API test failed: %s", e)
             return {"success": False, "error": "Discord API test failed"}
+
+    async def _test_email_connection(self) -> dict[str, Any]:
+        """Test SMTP connectivity using the same low-level socket check as status."""
+        status = await self._check_email_connection()
+        state = status.get("status")
+        if state == "connected":
+            return {
+                "success": True,
+                "smtp_host": status.get("smtp_host"),
+                "smtp_port": status.get("smtp_port"),
+            }
+        if state == "not_configured":
+            return {"success": False, "error": "SMTP is not configured"}
+        if state == "unreachable":
+            return {
+                "success": False,
+                "error": "SMTP host is unreachable",
+                "smtp_host": status.get("smtp_host"),
+                "smtp_port": status.get("smtp_port"),
+            }
+        return {"success": False, "error": status.get("error", "SMTP connection check failed")}
+
+    async def _test_gmail_api(self) -> dict[str, Any]:
+        """Test Gmail connectivity using the first persisted Gmail account."""
+        from aragora.connectors.enterprise.communication.gmail import GmailConnector
+        from aragora.storage.gmail_token_store import get_gmail_token_store
+
+        store = get_gmail_token_store()
+        states = await self._maybe_await(store.list_all())
+        if not states:
+            return {"success": False, "error": "No Gmail accounts connected"}
+
+        state = next(
+            (
+                candidate
+                for candidate in states
+                if self._record_value(candidate, "refresh_token")
+                or self._record_value(candidate, "access_token")
+            ),
+            None,
+        )
+        if state is None:
+            return {"success": False, "error": "No Gmail tokens available"}
+
+        connector = GmailConnector()
+        connector._refresh_token = self._record_value(state, "refresh_token")
+        connector._access_token = self._record_value(state, "access_token")
+
+        token_expiry = self._record_value(state, "token_expiry")
+        if isinstance(token_expiry, datetime):
+            connector._token_expiry = token_expiry
+        elif connector._access_token:
+            connector._token_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+
+        if not connector._refresh_token and not connector._access_token:
+            return {"success": False, "error": "No Gmail tokens available"}
+
+        try:
+            profile = await connector.get_user_info()
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            RuntimeError,
+            KeyError,
+        ) as e:
+            logger.warning("Gmail API test failed: %s", e)
+            return {"success": False, "error": "Gmail API test failed"}
+
+        return {
+            "success": True,
+            "email": profile.get("emailAddress") or self._record_value(state, "email_address"),
+            "messages_total": profile.get("messagesTotal"),
+            "user_id": self._record_value(state, "user_id"),
+        }
 
     async def _list_workspaces(self, provider_id: str) -> HandlerResult:
         """

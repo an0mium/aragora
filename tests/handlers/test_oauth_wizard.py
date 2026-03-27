@@ -20,6 +20,7 @@ import os
 import socket
 import time
 from collections import defaultdict
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,6 +34,7 @@ from aragora.server.handlers.oauth_wizard import (
     PROVIDERS,
     create_oauth_wizard_handler,
 )
+from aragora.storage.gmail_token_store import GmailUserState
 from aragora.storage.slack_workspace_store import SlackWorkspace
 from aragora.storage.teams_tenant_store import TeamsTenant
 
@@ -728,13 +730,15 @@ class TestTestConnection:
         assert body["test_result"]["success"] is True
 
     @pytest.mark.asyncio
-    async def test_unimplemented_provider_test(self, handler):
+    async def test_email_test_returns_result(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle("/api/v2/integrations/wizard/email/test", {}, mock)
+        with patch.object(handler, "_test_email_connection", new_callable=AsyncMock) as mock_api:
+            mock_api.return_value = {"success": True, "smtp_host": "smtp.example.com"}
+            result = await handler.handle("/api/v2/integrations/wizard/email/test", {}, mock)
         body = _body(result)
         assert body["provider"] == "email"
-        assert body["test_result"]["success"] is False
-        assert "not implemented" in body["test_result"]["error"].lower()
+        assert body["test_result"]["success"] is True
+        assert body["test_result"]["smtp_host"] == "smtp.example.com"
 
     @pytest.mark.asyncio
     async def test_test_connection_exception(self, handler):
@@ -758,11 +762,15 @@ class TestTestConnection:
         assert body["test_result"]["success"] is False
 
     @pytest.mark.asyncio
-    async def test_gmail_test_not_implemented(self, handler):
+    async def test_gmail_test_returns_result(self, handler):
         mock = _make_handler("POST", {})
-        result = await handler.handle("/api/v2/integrations/wizard/gmail/test", {}, mock)
+        with patch.object(handler, "_test_gmail_api", new_callable=AsyncMock) as mock_api:
+            mock_api.return_value = {"success": True, "email": "owner@example.com"}
+            result = await handler.handle("/api/v2/integrations/wizard/gmail/test", {}, mock)
         body = _body(result)
-        assert body["test_result"]["success"] is False
+        assert body["provider"] == "gmail"
+        assert body["test_result"]["success"] is True
+        assert body["test_result"]["email"] == "owner@example.com"
 
 
 # ============================================================================
@@ -1209,9 +1217,12 @@ class TestCheckConnection:
         assert result["smtp_port"] == 465
 
     @pytest.mark.asyncio
-    async def test_check_connection_unknown_provider(self, handler):
-        result = await handler._check_connection("gmail")
-        assert result["status"] == "unchecked"
+    async def test_check_connection_gmail(self, handler):
+        with patch.object(handler, "_check_gmail_connection", new_callable=AsyncMock) as mock_check:
+            mock_check.return_value = {"status": "connected", "accounts": 1}
+            result = await handler._check_connection("gmail")
+        assert result["status"] == "connected"
+        assert result["accounts"] == 1
 
     @pytest.mark.asyncio
     async def test_check_connection_exception(self, handler):
@@ -1663,6 +1674,78 @@ class TestDisconnectInternals:
         ):
             result = await handler._disconnect_gmail_account("unknown@example.com")
         assert result["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_check_gmail_connection_connected(self, handler):
+        mock_store = AsyncMock()
+        mock_store.list_all.return_value = [
+            GmailUserState(
+                user_id="user-1",
+                email_address="owner@example.com",
+                refresh_token="refresh-token",
+            )
+        ]
+        with patch(
+            "aragora.storage.gmail_token_store.get_gmail_token_store",
+            return_value=mock_store,
+        ):
+            result = await handler._check_gmail_connection()
+        assert result["status"] == "connected"
+        assert result["accounts"] == 1
+        assert result["email"] == "owner@example.com"
+
+    @pytest.mark.asyncio
+    async def test_check_gmail_connection_not_connected(self, handler):
+        mock_store = AsyncMock()
+        mock_store.list_all.return_value = []
+        with patch(
+            "aragora.storage.gmail_token_store.get_gmail_token_store",
+            return_value=mock_store,
+        ):
+            result = await handler._check_gmail_connection()
+        assert result["status"] == "not_connected"
+
+    @pytest.mark.asyncio
+    async def test_test_email_connection_connected(self, handler):
+        with patch.object(handler, "_check_email_connection", new_callable=AsyncMock) as mock_check:
+            mock_check.return_value = {
+                "status": "connected",
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 587,
+            }
+            result = await handler._test_email_connection()
+        assert result["success"] is True
+        assert result["smtp_port"] == 587
+
+    @pytest.mark.asyncio
+    async def test_test_gmail_api_connected(self, handler):
+        state = GmailUserState(
+            user_id="user-1",
+            email_address="owner@example.com",
+            access_token="access-token",
+        )
+        mock_store = AsyncMock()
+        mock_store.list_all.return_value = [state]
+        mock_connector = SimpleNamespace(
+            get_user_info=AsyncMock(
+                return_value={
+                    "emailAddress": "owner@example.com",
+                    "messagesTotal": 42,
+                }
+            )
+        )
+        with patch(
+            "aragora.storage.gmail_token_store.get_gmail_token_store",
+            return_value=mock_store,
+        ):
+            with patch(
+                "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+                return_value=mock_connector,
+            ):
+                result = await handler._test_gmail_api()
+        assert result["success"] is True
+        assert result["email"] == "owner@example.com"
+        assert result["messages_total"] == 42
 
 
 # ============================================================================

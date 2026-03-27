@@ -26,6 +26,7 @@ from aragora.server.handlers.oauth_wizard import (
     create_oauth_wizard_handler,
 )
 from aragora.rbac.models import AuthorizationContext
+from aragora.storage.gmail_token_store import GmailUserState
 
 
 # -----------------------------------------------------------------------------
@@ -597,6 +598,60 @@ class TestTestConnection:
                         assert data["test_result"]["success"] is True
                         assert data["provider"] == "slack"
 
+    @pytest.mark.asyncio
+    async def test_test_email_success(self, oauth_handler, mock_handler, auth_context):
+        """Test SMTP provider returns a truthful test result."""
+        mock_handler.command = "POST"
+
+        with patch.object(
+            oauth_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(oauth_handler, "check_permission"):
+                with patch.object(oauth_handler, "read_json_body", return_value={}):
+                    with patch.object(
+                        oauth_handler,
+                        "_test_email_connection",
+                        new_callable=AsyncMock,
+                        return_value={"success": True, "smtp_host": "smtp.example.com"},
+                    ):
+                        result = await oauth_handler.handle(
+                            "/api/v2/integrations/wizard/email/test",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["test_result"]["success"] is True
+                        assert data["provider"] == "email"
+
+    @pytest.mark.asyncio
+    async def test_test_gmail_success(self, oauth_handler, mock_handler, auth_context):
+        """Test Gmail provider returns a live-token based result."""
+        mock_handler.command = "POST"
+
+        with patch.object(
+            oauth_handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
+        ):
+            with patch.object(oauth_handler, "check_permission"):
+                with patch.object(oauth_handler, "read_json_body", return_value={}):
+                    with patch.object(
+                        oauth_handler,
+                        "_test_gmail_api",
+                        new_callable=AsyncMock,
+                        return_value={"success": True, "email": "owner@example.com"},
+                    ):
+                        result = await oauth_handler.handle(
+                            "/api/v2/integrations/wizard/gmail/test",
+                            {},
+                            mock_handler,
+                        )
+
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["test_result"]["success"] is True
+                        assert data["provider"] == "gmail"
+
 
 # -----------------------------------------------------------------------------
 # GET /api/v2/integrations/wizard/{provider}/workspaces Tests
@@ -883,11 +938,40 @@ class TestConnectionChecks:
     """Tests for connection check methods."""
 
     @pytest.mark.asyncio
-    async def test_check_connection_unchecked_provider(self, oauth_handler):
-        """Check connection for provider without health check."""
-        result = await oauth_handler._check_connection("gmail")
+    async def test_check_connection_gmail(self, oauth_handler):
+        """Check connection for Gmail uses the token-store health path."""
+        with patch.object(
+            oauth_handler,
+            "_check_gmail_connection",
+            new_callable=AsyncMock,
+            return_value={"status": "connected", "accounts": 1},
+        ):
+            result = await oauth_handler._check_connection("gmail")
 
-        assert result["status"] == "unchecked"
+        assert result["status"] == "connected"
+        assert result["accounts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_check_gmail_connection_connected(self, oauth_handler):
+        """Check Gmail connection with a stored account returns connected."""
+        mock_store = AsyncMock()
+        mock_store.list_all.return_value = [
+            GmailUserState(
+                user_id="user-123",
+                email_address="owner@example.com",
+                refresh_token="refresh-token",
+            )
+        ]
+
+        with patch(
+            "aragora.storage.gmail_token_store.get_gmail_token_store",
+            return_value=mock_store,
+        ):
+            result = await oauth_handler._check_gmail_connection()
+
+        assert result["status"] == "connected"
+        assert result["accounts"] == 1
+        assert result["email"] == "owner@example.com"
 
     @pytest.mark.asyncio
     async def test_check_slack_connection_no_workspaces(self, oauth_handler):
