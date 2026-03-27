@@ -386,7 +386,7 @@ class ReceiptsAPI:
         )
 
     # =========================================================================
-    # Gauntlet Receipts / Results (v2 Gauntlet API)
+    # Gauntlet Receipts / Results
     # =========================================================================
 
     def list_gauntlet(
@@ -409,7 +409,7 @@ class ReceiptsAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if verdict:
             params["verdict"] = verdict
-        return self._client.request("GET", "/api/v2/gauntlet/results", params=params)
+        return self._client.request("GET", "/api/v1/gauntlet/results", params=params)
 
     def get_gauntlet(self, receipt_id: str) -> dict[str, Any]:
         """
@@ -421,7 +421,7 @@ class ReceiptsAPI:
         Returns:
             Gauntlet receipt details
         """
-        return self._client.request("GET", f"/api/v2/gauntlet/{receipt_id}/receipt")
+        return self._client.request("GET", f"/api/v1/gauntlet/{receipt_id}/receipt")
 
     def verify_gauntlet(self, receipt_id: str) -> dict[str, Any]:
         """
@@ -435,7 +435,7 @@ class ReceiptsAPI:
         """
         return self._client.request(
             "POST",
-            f"/api/v2/gauntlet/{receipt_id}/receipt/verify",
+            f"/api/v1/gauntlet/{receipt_id}/receipt/verify",
         )
 
     def export_gauntlet(
@@ -456,7 +456,7 @@ class ReceiptsAPI:
         format_value = "md" if format == "markdown" else format
         return self._client.request(
             "GET",
-            f"/api/v2/gauntlet/{receipt_id}/receipt",
+            f"/api/v1/gauntlet/{receipt_id}/receipt",
             params={"format": format_value},
         )
 
@@ -486,7 +486,7 @@ class ReceiptsAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
         if query:
             params["query"] = query
-        return self._client.request("GET", "/api/receipts/search", params=params)
+        return self._client.request("GET", "/api/v2/receipts/search", params=params)
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -495,7 +495,7 @@ class ReceiptsAPI:
         Returns:
             Dict with receipt stats and breakdowns.
         """
-        return self._client.request("GET", "/api/receipts/stats")
+        return self._client.request("GET", "/api/v2/receipts/stats")
 
     # =========================================================================
     # Helper Methods
@@ -764,7 +764,7 @@ class AsyncReceiptsAPI:
         )
 
     # =========================================================================
-    # Gauntlet Receipts / Results (v2 Gauntlet API)
+    # Gauntlet Receipts / Results
     # =========================================================================
 
     async def list_gauntlet(
@@ -777,20 +777,20 @@ class AsyncReceiptsAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if verdict:
             params["verdict"] = verdict
-        return await self._client.request("GET", "/api/v2/gauntlet/results", params=params)
+        return await self._client.request("GET", "/api/v1/gauntlet/results", params=params)
 
     async def get_gauntlet(self, receipt_id: str) -> dict[str, Any]:
         """Get a gauntlet receipt by gauntlet ID."""
         return await self._client.request(
             "GET",
-            f"/api/v2/gauntlet/{receipt_id}/receipt",
+            f"/api/v1/gauntlet/{receipt_id}/receipt",
         )
 
     async def verify_gauntlet(self, receipt_id: str) -> dict[str, Any]:
         """Verify a gauntlet receipt's integrity."""
         return await self._client.request(
             "POST",
-            f"/api/v2/gauntlet/{receipt_id}/receipt/verify",
+            f"/api/v1/gauntlet/{receipt_id}/receipt/verify",
         )
 
     # Receipt Search & Stats
@@ -805,11 +805,11 @@ class AsyncReceiptsAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
         if query:
             params["query"] = query
-        return await self._client.request("GET", "/api/receipts/search", params=params)
+        return await self._client.request("GET", "/api/v2/receipts/search", params=params)
 
     async def get_stats(self) -> dict[str, Any]:
         """Get receipt statistics."""
-        return await self._client.request("GET", "/api/receipts/stats")
+        return await self._client.request("GET", "/api/v2/receipts/stats")
 
     async def export_gauntlet(
         self,
@@ -820,6 +820,6 @@ class AsyncReceiptsAPI:
         format_value = "md" if format == "markdown" else format
         return await self._client.request(
             "GET",
-            f"/api/v2/gauntlet/{receipt_id}/receipt",
+            f"/api/v1/gauntlet/{receipt_id}/receipt",
             params={"format": format_value},
         )

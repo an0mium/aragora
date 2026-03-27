@@ -357,7 +357,7 @@ export class ReceiptsAPI {
    * Verify a receipt with full signature validation.
    */
   async verifyFull(receiptId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/gauntlet/receipts/${encodeURIComponent(receiptId)}/verify-full`);
+    return this.client.request('GET', `/api/v2/receipts/${encodeURIComponent(receiptId)}/verify`);
   }
 
   // ===========================================================================

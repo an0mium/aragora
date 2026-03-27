@@ -897,6 +897,73 @@ INTEGRATION_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/receipts/{receipt_id}/deliver": {
+        "post": {
+            "tags": ["Receipts", "Integrations"],
+            "summary": "Deliver receipt via legacy bridge",
+            "description": "Legacy/frontend bridge that maps receipt delivery requests onto the v2 channel-delivery flow.",
+            "operationId": "deliverReceiptLegacy",
+            "parameters": [
+                {
+                    "name": "receipt_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Receipt ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "channel_type": {
+                                    "type": "string",
+                                    "enum": ["slack", "teams", "email", "discord"],
+                                },
+                                "channel_id": {"type": "string"},
+                                "channel": {"type": "string"},
+                                "destination": {"type": "string"},
+                                "workspace_id": {"type": "string"},
+                                "message": {"type": "string"},
+                                "options": {"type": "object"},
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _response(
+                    "Receipt delivered successfully",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "sent": {"type": "boolean"},
+                            "receipt_id": {"type": "string"},
+                            "channel_type": {"type": "string"},
+                            "channel_id": {"type": "string"},
+                            "message_ts": {"type": "string"},
+                            "message_id": {"type": "string"},
+                        },
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+                "501": {
+                    "description": "Channel not available",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                        },
+                    },
+                },
+            },
+        },
+    },
     "/api/v2/receipts/{receipt_id}/formatted/{channel_type}": {
         "get": {
             "tags": ["Receipts", "Integrations"],
