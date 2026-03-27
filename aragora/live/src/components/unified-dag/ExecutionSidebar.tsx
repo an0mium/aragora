@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import type { Node } from '@xyflow/react';
-import { STAGE_COLORS, type DAGNodeData, type DAGStage } from '@/hooks/useUnifiedDAG';
+import { DAG_STAGES, STAGE_COLORS, type DAGNodeData, type DAGStage } from '@/hooks/useUnifiedDAG';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,8 +51,7 @@ interface StageSummary {
 }
 
 function computeStageSummaries(nodes: Node<DAGNodeData>[]): StageSummary[] {
-  const stages: DAGStage[] = ['ideas', 'goals', 'actions', 'orchestration'];
-  return stages.map((stage) => {
+  return DAG_STAGES.map((stage) => {
     const stageNodes = nodes.filter((n) => (n.data as unknown as DAGNodeData).stage === stage);
     const counts = { ready: 0, running: 0, succeeded: 0, failed: 0, blocked: 0, pending: 0 };
     for (const n of stageNodes) {
