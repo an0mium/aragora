@@ -149,12 +149,20 @@ PROVIDERS: dict[str, dict[str, Any]] = {
             "Code analysis",
             "Automated comments",
         ],
-        "required_env_vars": ["GITHUB_APP_ID", "GITHUB_PRIVATE_KEY"],
-        "optional_env_vars": ["GITHUB_WEBHOOK_SECRET"],
+        # Webhook delivery is the required live integration surface today.
+        # API credentials unlock deeper GitHub automation but are optional.
+        "required_env_vars": ["GITHUB_WEBHOOK_SECRET"],
+        "optional_env_vars": ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_TOKEN"],
         "oauth_scopes": ["repo", "read:org", "write:discussion"],
         "install_url": "/api/integrations/github/install",
         "docs_url": "https://docs.aragora.ai/integrations/github",
     },
+}
+
+PROVIDER_ENV_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    "github": {
+        "GITHUB_APP_PRIVATE_KEY": ("GITHUB_PRIVATE_KEY",),
+    }
 }
 
 
@@ -444,13 +452,15 @@ class OAuthWizardHandler(SecureHandler):
 
         # Check required environment variables
         for env_var in provider["required_env_vars"]:
-            value = config.get(env_var) or os.environ.get(env_var)
+            value, resolved_from = self._resolve_provider_env_value(provider_id, env_var, config)
             check = {
                 "name": env_var,
                 "type": "env_var",
                 "required": True,
                 "present": bool(value),
             }
+            if resolved_from and resolved_from != env_var:
+                check["resolved_from"] = resolved_from
             if not value:
                 check["error"] = f"Missing required environment variable: {env_var}"
                 validation_results["valid"] = False
@@ -458,15 +468,16 @@ class OAuthWizardHandler(SecureHandler):
 
         # Check optional environment variables
         for env_var in provider["optional_env_vars"]:
-            value = config.get(env_var) or os.environ.get(env_var)
-            validation_results["checks"].append(
-                {
-                    "name": env_var,
-                    "type": "env_var",
-                    "required": False,
-                    "present": bool(value),
-                }
-            )
+            value, resolved_from = self._resolve_provider_env_value(provider_id, env_var, config)
+            check = {
+                "name": env_var,
+                "type": "env_var",
+                "required": False,
+                "present": bool(value),
+            }
+            if resolved_from and resolved_from != env_var:
+                check["resolved_from"] = resolved_from
+            validation_results["checks"].append(check)
 
         # Add recommendations
         validation_results["recommendations"] = []
@@ -497,7 +508,8 @@ class OAuthWizardHandler(SecureHandler):
         # Check required env vars
         missing_required = []
         for env_var in provider["required_env_vars"]:
-            if not os.environ.get(env_var):
+            value, _ = self._resolve_provider_env_value(provider_id, env_var)
+            if not value:
                 missing_required.append(env_var)
 
         if missing_required:
@@ -506,7 +518,8 @@ class OAuthWizardHandler(SecureHandler):
         # Check optional env vars
         missing_optional = []
         for env_var in provider["optional_env_vars"]:
-            if not os.environ.get(env_var):
+            value, _ = self._resolve_provider_env_value(provider_id, env_var)
+            if not value:
                 missing_optional.append(env_var)
 
         if missing_optional:
@@ -529,6 +542,8 @@ class OAuthWizardHandler(SecureHandler):
                 return await self._check_teams_connection()
             elif provider_id == "discord":
                 return await self._check_discord_connection()
+            elif provider_id == "github":
+                return await self._check_github_connection()
             elif provider_id == "gmail":
                 return await self._check_gmail_connection()
             elif provider_id == "email":
@@ -560,6 +575,30 @@ class OAuthWizardHandler(SecureHandler):
             if hasattr(record, field_name):
                 return getattr(record, field_name)
         return default
+
+    def _provider_env_candidates(self, provider_id: str, env_var: str) -> tuple[str, ...]:
+        """Return the preferred env var name followed by any supported aliases."""
+        aliases = PROVIDER_ENV_ALIASES.get(provider_id, {}).get(env_var, ())
+        return (env_var, *aliases)
+
+    def _resolve_provider_env_value(
+        self,
+        provider_id: str,
+        env_var: str,
+        config: dict[str, Any] | None = None,
+    ) -> tuple[str | None, str | None]:
+        """Resolve a provider value from config/env, honoring provider-specific aliases."""
+        config = config or {}
+        for candidate in self._provider_env_candidates(provider_id, env_var):
+            value = config.get(candidate) or os.environ.get(candidate)
+            if value:
+                return value, candidate
+        return None, None
+
+    @staticmethod
+    def _looks_like_private_key(value: str) -> bool:
+        """Cheap PEM-format sanity check for GitHub App keys."""
+        return "BEGIN" in value and "PRIVATE KEY" in value and "END" in value
 
     def _normalize_mock_side_effect(self, func: Any) -> None:
         """Ensure mock side_effect lists behave as iterators for AsyncMock."""
@@ -643,6 +682,66 @@ class OAuthWizardHandler(SecureHandler):
 
         return {"status": "configured", "note": "Bot token present"}
 
+    async def _check_github_connection(self) -> dict[str, Any]:
+        """Check GitHub integration readiness against the live webhook/runtime contract."""
+        webhook_secret = os.environ.get("GITHUB_WEBHOOK_SECRET")
+        if not webhook_secret:
+            return {"status": "not_configured", "reason": "Missing GITHUB_WEBHOOK_SECRET"}
+
+        github_token = os.environ.get("GITHUB_TOKEN")
+        app_id = os.environ.get("GITHUB_APP_ID")
+        private_key, key_source = self._resolve_provider_env_value(
+            "github", "GITHUB_APP_PRIVATE_KEY"
+        )
+
+        base_status: dict[str, Any] = {
+            "webhook_endpoint": "/api/v1/webhooks/github",
+            "webhook_secret_configured": True,
+        }
+
+        if github_token:
+            return {
+                **base_status,
+                "status": "connected",
+                "auth_mode": "personal_token",
+            }
+
+        if app_id and private_key:
+            if not self._looks_like_private_key(private_key):
+                return {
+                    **base_status,
+                    "status": "error",
+                    "error": "GitHub App private key is not PEM formatted",
+                }
+            return {
+                **base_status,
+                "status": "connected",
+                "auth_mode": "github_app",
+                "app_id": app_id,
+                "private_key_source": key_source or "GITHUB_APP_PRIVATE_KEY",
+            }
+
+        if app_id or private_key:
+            missing = []
+            if not app_id:
+                missing.append("GITHUB_APP_ID")
+            if not private_key:
+                missing.append("GITHUB_APP_PRIVATE_KEY")
+            return {
+                **base_status,
+                "status": "degraded",
+                "auth_mode": "webhook_only",
+                "reason": "GitHub App API access is only partially configured",
+                "missing": missing,
+            }
+
+        return {
+            **base_status,
+            "status": "configured",
+            "auth_mode": "webhook_only",
+            "note": "Webhook delivery is configured; API credentials are optional.",
+        }
+
     async def _check_email_connection(self) -> dict[str, Any]:
         """Check email/SMTP connection status."""
         import socket
@@ -709,6 +808,8 @@ class OAuthWizardHandler(SecureHandler):
                 result = await self._test_teams_api()
             elif provider_id == "discord":
                 result = await self._test_discord_api()
+            elif provider_id == "github":
+                result = await self._test_github_api()
             elif provider_id == "gmail":
                 result = await self._test_gmail_api()
             elif provider_id == "email":
@@ -876,6 +977,24 @@ class OAuthWizardHandler(SecureHandler):
             }
         return {"success": False, "error": status.get("error", "SMTP connection check failed")}
 
+    async def _test_github_api(self) -> dict[str, Any]:
+        """Test GitHub integration readiness without requiring a live outbound API call."""
+        status = await self._check_github_connection()
+        state = status.get("status")
+        if state in {"not_configured", "degraded", "error"}:
+            return {
+                "success": False,
+                "error": status.get("error")
+                or status.get("reason", "GitHub integration not ready"),
+                "auth_mode": status.get("auth_mode"),
+            }
+
+        return {
+            "success": True,
+            "auth_mode": status.get("auth_mode", "webhook_only"),
+            "webhook_endpoint": status.get("webhook_endpoint"),
+        }
+
     async def _test_gmail_api(self) -> dict[str, Any]:
         """Test Gmail connectivity using the first persisted Gmail account."""
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -945,6 +1064,18 @@ class OAuthWizardHandler(SecureHandler):
                 workspaces = await self._get_slack_workspaces()
             elif provider_id == "teams":
                 workspaces = await self._get_teams_tenants()
+            elif provider_id == "github":
+                return json_response(
+                    {
+                        "provider": provider_id,
+                        "workspaces": [],
+                        "count": 0,
+                        "message": (
+                            "GitHub App installations are managed in GitHub; Aragora does not "
+                            "persist a local workspace inventory."
+                        ),
+                    }
+                )
             else:
                 return json_response(
                     {
