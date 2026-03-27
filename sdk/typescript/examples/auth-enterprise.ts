@@ -228,14 +228,6 @@ async function main() {
     }
     console.log('');
 
-    // Invite a new user
-    console.log('To invite a new user:');
-    console.log('  const { invitation_id } = await client.rbac.inviteUser(');
-    console.log("    'newuser@example.com',");
-    console.log("    'analyst' // role");
-    console.log('  );');
-    console.log('');
-
     // =========================================================================
     // 8. Audit and Compliance
     // =========================================================================

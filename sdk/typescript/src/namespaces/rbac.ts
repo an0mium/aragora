@@ -288,17 +288,6 @@ export class RBACAPI {
   }
 
   /**
-   * Invite a new user to organization.
-   *
-   * @param email - User email address
-   * @param role - Optional role to assign on acceptance
-   * @returns Invitation details
-   */
-  async inviteUser(email: string, role?: string): Promise<{ invitation_id: string; email: string }> {
-    return this.client.request('POST', '/api/users/invite', { json: { email, role } });
-  }
-
-  /**
    * Remove a user from organization.
    *
    * @param userId - User ID to remove
