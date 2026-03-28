@@ -1,0 +1,94 @@
+name: Self-Hosted Shadow CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: self-hosted-shadow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mac-version-alignment-shadow:
+    name: Mac Version Alignment Shadow
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on:
+      - self-hosted
+      - aragora
+      - macOS
+      - ARM64
+      - mac-studio
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: Set up Python
+        uses: ./repo/.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Runner fingerprint
+        shell: bash
+        run: |
+          echo "runner_name=${RUNNER_NAME}"
+          echo "runner_os=${RUNNER_OS}"
+          echo "runner_arch=${RUNNER_ARCH}"
+          uname -a
+          sw_vers
+          python --version
+
+      - name: Run version alignment check
+        shell: bash
+        working-directory: repo
+        run: |
+          python scripts/check_version_alignment.py
+
+  hetzner-offline-golden-path-shadow:
+    name: Hetzner Offline Golden Path Shadow
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on:
+      - self-hosted
+      - aragora
+      - Linux
+      - X64
+      - hetzner
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: Set up Python
+        uses: ./repo/.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: repo
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/ci_install_project.sh --extras dev,test
+
+      - name: Run offline golden path
+        shell: bash
+        working-directory: repo
+        env:
+          PYTHONPATH: .
+          PYTHONWARNINGS: "error::ResourceWarning"
+        run: |
+          python -m pytest tests/cli/test_offline_golden_path.py -v --timeout=60 --tb=short \
+            -W error::ResourceWarning \
+            -W error::pytest.PytestUnraisableExceptionWarning
