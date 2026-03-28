@@ -697,6 +697,163 @@ class TestInjectCrossDebateContext:
 
 
 # =============================================================================
+# Additional Coverage: Receipt Conclusions Injection Tests
+# =============================================================================
+
+
+class TestInjectReceiptConclusions:
+    """Tests for prior debate conclusion injection from receipt memory."""
+
+    @staticmethod
+    def _make_receipt_results(*items: Any) -> Any:
+        return type("ReceiptQueryResult", (), {"items": list(items)})()
+
+    @staticmethod
+    def _make_receipt_item(
+        content: str,
+        confidence: str = "strong",
+        verdict: str = "adopted",
+    ) -> Any:
+        return type(
+            "ReceiptItem",
+            (),
+            {
+                "content": content,
+                "confidence": confidence,
+                "metadata": {"verdict": verdict},
+            },
+        )()
+
+    @pytest.mark.asyncio
+    async def test_injects_receipt_conclusions_into_builder_prompt(self):
+        """Appends prior conclusions to builder knowledge so prompts reference them."""
+        import hashlib
+
+        from aragora.core import Environment
+        from aragora.debate.phases.context_init import _receipt_conclusions_cache
+        from aragora.debate.prompt_builder import PromptBuilder
+        from aragora.debate.protocol import DebateProtocol
+
+        task = "Should we use a token bucket rate limiter for the public API?"
+        query_hash = hashlib.md5(
+            f"receipt_conclusions:{task}".encode(), usedforsecurity=False
+        ).hexdigest()
+
+        knowledge_mound = MagicMock()
+        knowledge_mound.query = AsyncMock(
+            return_value=self._make_receipt_results(
+                self._make_receipt_item(
+                    content="Previous debate conclusion: use token bucket with burst capacity.",
+                    confidence="high",
+                    verdict="accepted",
+                )
+            )
+        )
+
+        builder = PromptBuilder(protocol=DebateProtocol(), env=Environment(task=task))
+        builder.set_knowledge_context("Existing organizational knowledge.")
+
+        init = ContextInitializer(knowledge_mound=knowledge_mound)
+        ctx = MockDebateContext(env=MockEnv(task=task), debate_id="debate-receipt-1")
+        ctx._prompt_builder = builder
+
+        try:
+            await init._inject_receipt_conclusions(ctx)
+
+            knowledge_text = builder.get_knowledge_mound_context()
+            prompt = builder.build_proposal_prompt(MockAgent())
+
+            assert "Existing organizational knowledge." in knowledge_text
+            assert "PAST DECISION CONCLUSIONS" in knowledge_text
+            assert "token bucket with burst capacity" in knowledge_text
+            assert "institutional precedent" in knowledge_text
+            assert "## Organizational Knowledge" in prompt
+            assert "Previous debate conclusion" in prompt
+        finally:
+            _receipt_conclusions_cache.pop(query_hash, None)
+
+    @pytest.mark.asyncio
+    async def test_receipt_conclusions_fall_back_to_env_context(self):
+        """Without a prompt builder, prior conclusions are appended to env.context."""
+        import hashlib
+
+        from aragora.debate.phases.context_init import _receipt_conclusions_cache
+
+        task = "How should we version our API for mobile clients?"
+        query_hash = hashlib.md5(
+            f"receipt_conclusions:{task}".encode(), usedforsecurity=False
+        ).hexdigest()
+
+        knowledge_mound = MagicMock()
+        knowledge_mound.query = AsyncMock(
+            return_value=self._make_receipt_results(
+                self._make_receipt_item(
+                    content="Previous debate conclusion: keep backward-compatible v1 endpoints during rollout.",
+                    confidence="moderate",
+                    verdict="superseded",
+                )
+            )
+        )
+
+        init = ContextInitializer(knowledge_mound=knowledge_mound)
+        ctx = MockDebateContext(
+            env=MockEnv(task=task, context="Current migration plan under review.")
+        )
+
+        try:
+            await init._inject_receipt_conclusions(ctx)
+
+            assert ctx.env.context.startswith("Current migration plan under review.")
+            assert "PAST DECISION CONCLUSIONS" in ctx.env.context
+            assert "keep backward-compatible v1 endpoints" in ctx.env.context
+            assert "superseded" in ctx.env.context
+        finally:
+            _receipt_conclusions_cache.pop(query_hash, None)
+
+    @pytest.mark.asyncio
+    async def test_cached_receipt_conclusions_skip_query_and_still_append(self):
+        """Cached conclusions still reach the builder without re-querying KM."""
+        import hashlib
+        import time
+
+        from aragora.core import Environment
+        from aragora.debate.phases.context_init import _receipt_conclusions_cache
+        from aragora.debate.prompt_builder import PromptBuilder
+        from aragora.debate.protocol import DebateProtocol
+
+        task = "Should we shard the notification queue by tenant?"
+        query_hash = hashlib.md5(
+            f"receipt_conclusions:{task}".encode(), usedforsecurity=False
+        ).hexdigest()
+        cached_text = (
+            "## PAST DECISION CONCLUSIONS\n"
+            "The following decisions were reached in previous debates on related topics.\n"
+            "- **high confidence [accepted]**: Previous debate conclusion: shard by tenant to isolate noisy neighbors."
+        )
+        _receipt_conclusions_cache[query_hash] = (cached_text, time.time())
+
+        knowledge_mound = MagicMock()
+        knowledge_mound.query = AsyncMock()
+
+        builder = PromptBuilder(protocol=DebateProtocol(), env=Environment(task=task))
+        builder.set_knowledge_context("Base knowledge.")
+
+        init = ContextInitializer(knowledge_mound=knowledge_mound)
+        ctx = MockDebateContext(env=MockEnv(task=task))
+        ctx._prompt_builder = builder
+
+        try:
+            await init._inject_receipt_conclusions(ctx)
+
+            knowledge_mound.query.assert_not_called()
+            knowledge_text = builder.get_knowledge_mound_context()
+            assert "Base knowledge." in knowledge_text
+            assert "shard by tenant to isolate noisy neighbors" in knowledge_text
+        finally:
+            _receipt_conclusions_cache.pop(query_hash, None)
+
+
+# =============================================================================
 # Additional Coverage: Belief Cruxes Injection Tests
 # =============================================================================
 
