@@ -262,11 +262,41 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
     def __init__(self) -> None:
         self._deliveries: dict[str, WebhookDelivery] = {}
         self._lock = asyncio.Lock()
+        self._last_cleanup: float = 0.0
 
     async def save(self, delivery: WebhookDelivery) -> None:
-        """Save or update a delivery."""
+        """Save or update a delivery, with periodic cleanup of terminal entries."""
         async with self._lock:
             self._deliveries[delivery.id] = delivery
+            # Periodic cleanup to prevent unbounded growth
+            import time
+
+            now = time.time()
+            if now - self._last_cleanup > 300:  # every 5 minutes
+                self._cleanup_terminal()
+                self._last_cleanup = now
+
+    def _cleanup_terminal(self) -> None:
+        """Remove DELIVERED/DEAD_LETTER entries older than 1 hour."""
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        to_remove = [
+            did
+            for did, d in self._deliveries.items()
+            if hasattr(d, "status")
+            and str(d.status)
+            in (
+                "delivered",
+                "dead_letter",
+                "DeliveryStatus.DELIVERED",
+                "DeliveryStatus.DEAD_LETTER",
+            )
+            and hasattr(d, "created_at")
+            and d.created_at < cutoff
+        ]
+        for did in to_remove:
+            del self._deliveries[did]
 
     async def get(self, delivery_id: str) -> WebhookDelivery | None:
         """Get a delivery by ID."""

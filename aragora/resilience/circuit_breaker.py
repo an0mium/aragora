@@ -217,8 +217,26 @@ class CircuitBreaker:
                 return True
         return False
 
+    def _prune_stale_entities(self) -> None:
+        """Remove entity state for circuits open longer than 2x cooldown with no activity."""
+        if len(self._failures) < 100:
+            return
+        now = time.time()
+        cutoff = self.cooldown_seconds * 2
+        stale = [
+            entity
+            for entity, opened_at in self._circuit_open_at.items()
+            if (now - opened_at) > cutoff
+        ]
+        for entity in stale:
+            self._failures.pop(entity, None)
+            self._circuit_open_at.pop(entity, None)
+            self._half_open_successes.pop(entity, None)
+            self._half_open_calls.pop(entity, None)
+
     def _record_entity_failure(self, entity: str) -> bool:
         """Record failure for a specific entity."""
+        self._prune_stale_entities()
         self._failures[entity] = self._failures.get(entity, 0) + 1
         self._half_open_successes[entity] = 0
 

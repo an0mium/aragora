@@ -891,6 +891,26 @@ class DebateController:
             quality_pipeline=request.quality_pipeline,
         )
 
+        # Admission control: reject if at capacity
+        try:
+            active = get_state_manager().get_active_debates()
+            running = sum(
+                1
+                for d in active.values()
+                if getattr(d, "status", "") in ("starting", "initializing", "running")
+            )
+            if running >= MAX_CONCURRENT_DEBATES:
+                logger.warning(
+                    "Debate rejected: %d/%d slots in use", running, MAX_CONCURRENT_DEBATES
+                )
+                return DebateResponse(
+                    success=False,
+                    error=f"Server at capacity ({MAX_CONCURRENT_DEBATES} debates running). Try again later.",
+                    debate_id=debate_id,
+                )
+        except (RuntimeError, AttributeError) as exc:
+            logger.debug("Admission control check failed, proceeding: %s", exc)
+
         # Submit to thread pool
         try:
             executor = self._get_executor()
