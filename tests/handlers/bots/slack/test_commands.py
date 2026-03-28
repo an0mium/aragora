@@ -462,6 +462,34 @@ class TestAskSubcommand:
         body = _body(result)
         assert "Starting debate" in body["text"]
 
+    @pytest.mark.asyncio
+    async def test_ask_accepts_quoted_question_and_strips_outer_quotes(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
+        """Quoted questions are accepted and only the outer quotes are stripped."""
+        req = _make_request(text='ask "What\'s the best rollout strategy?"')
+        result = await commands_module.handle_slack_commands.__wrapped__(req)
+        body = _body(result)
+
+        assert "Starting debate" in body["text"]
+        assert '"What' not in body["text"]
+
+        call_kwargs = mock_start_debate.call_args.kwargs
+        assert call_kwargs["topic"] == "What's the best rollout strategy?"
+
+    @pytest.mark.asyncio
+    async def test_ask_allows_apostrophes_without_outer_quotes(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
+        """Apostrophes in ordinary questions are accepted."""
+        req = _make_request(text="ask What's the safest rollout window?")
+        result = await commands_module.handle_slack_commands.__wrapped__(req)
+        body = _body(result)
+
+        assert "Starting debate" in body["text"]
+        call_kwargs = mock_start_debate.call_args.kwargs
+        assert call_kwargs["topic"] == "What's the safest rollout window?"
+
 
 class TestPlanSubcommand:
     """Tests for the plan subcommand."""

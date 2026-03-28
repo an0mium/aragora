@@ -50,9 +50,10 @@ except (ImportError, AttributeError):
 # =============================================================================
 # Input Validation Patterns for Security
 # =============================================================================
-# Patterns to detect potential injection attacks
+# Patterns to detect potential injection attacks while still allowing
+# ordinary quoted natural-language questions from Slack.
 _DANGEROUS_PATTERNS = [
-    re.compile(r"['\";]"),  # SQL injection characters
+    re.compile(r"(?i)\b(?:or|and)\b\s+\d+\s*=\s*\d+\b"),  # Classic SQL boolean injection
     re.compile(r"<[^>]*script", re.IGNORECASE),  # XSS script tags
     re.compile(r"\$\{.*\}"),  # Template injection
     re.compile(r"{{.*}}"),  # Template injection (Jinja/Mustache)

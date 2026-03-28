@@ -319,6 +319,11 @@ class TestValidateSlackInput:
         assert valid is True
         assert err is None
 
+    def test_allows_quoted_natural_language(self):
+        valid, err = validate_slack_input('"What\'s the best rollout plan?"', "topic")
+        assert valid is True
+        assert err is None
+
     def test_empty_input_rejected_by_default(self):
         valid, err = validate_slack_input("", "topic")
         assert valid is False

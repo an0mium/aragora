@@ -198,8 +198,12 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             if perm_error:
                 return perm_error
 
+            topic = args.strip()
+            if len(topic) >= 2 and topic[0] == topic[-1] and topic[0] in {'"', "'"}:
+                topic = topic[1:-1].strip()
+
             # Validate the debate topic
-            valid, error = _validate_slack_input(args, "topic", MAX_TOPIC_LENGTH)
+            valid, error = _validate_slack_input(topic, "topic", MAX_TOPIC_LENGTH)
             if not valid:
                 return json_response(
                     {
@@ -222,7 +226,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     decision_integrity["execution_engine"] = "hybrid"
 
             debate_id = await start_slack_debate(
-                topic=args,
+                topic=topic,
                 channel_id=channel_id,
                 user_id=user_id,
                 response_url=response_url,
@@ -240,12 +244,12 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 {
                     "response_type": "in_channel",
                     "text": (
-                        f"Starting {mode_label}: _{args[:100]}_\n\n"
+                        f"Starting {mode_label}: _{topic[:100]}_\n\n"
                         f"Agents are deliberating... (ID: {debate_id[:8]}...)"
                     ),
                     "blocks": build_debate_message_blocks(
                         debate_id=debate_id,
-                        task=args,
+                        task=topic,
                         agents=[AGENT_DISPLAY_NAMES.get(a, a) for a in DEFAULT_AGENTS],
                         current_round=1,
                         total_rounds=DEFAULT_ROUNDS,
