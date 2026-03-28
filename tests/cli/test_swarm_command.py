@@ -1297,10 +1297,12 @@ class TestSwarmCommand:
 
         with (
             patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
+            patch("aragora.swarm.runner_registry.refresh_discovered_runners") as refresh,
             patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
             discover.return_value = [inspection]
+            refresh.return_value = [inspection]
             auth_ctx.return_value = object()
             registry_cls.return_value.list_registrations.return_value = [
                 {
@@ -1308,6 +1310,7 @@ class TestSwarmCommand:
                     "runner_type": "claude",
                     "cost_class": "subscription",
                     "freshness_status": "fresh",
+                    "probe_status": "passed",
                     "active_lanes": 1,
                     "capabilities": {"max_parallel_lanes": 3, "active_lanes": 1},
                 }
@@ -1320,6 +1323,8 @@ class TestSwarmCommand:
         assert '"mode": "runner"' in out
         assert '"runner_type": "claude"' in out
         assert '"cost_class": "subscription"' in out
+        assert '"selected_verified": 0' in out
+        assert '"execution_verified": 1' in out
         assert '"discovered_runners": [' in out
         assert '"selected_runner_ids": [' in out
 

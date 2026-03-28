@@ -383,6 +383,9 @@ def check_runner_freshness(
         authorization_context_from_env,
         configured_claude_runner_profiles,
         make_runner_inspector,
+        prioritized_probe_candidates,
+        probe_runner_execution,
+        refresh_discovered_runners,
     )
 
     now = datetime.now(UTC)
@@ -398,6 +401,15 @@ def check_runner_freshness(
         )
 
     registry = LocalRunnerRegistry(path=registry_path) if registry_path else LocalRunnerRegistry()
+    discovered: list[Any] = []
+    if requested_runner_type:
+        discovered = refresh_discovered_runners(
+            requested_runner_type,
+            registry=registry,
+            owner_context=owner_context,
+            env=env,
+            repo_root=Path.cwd(),
+        )
     allowed_profile_set = set(allowed_profiles or configured_claude_runner_profiles(env))
     routing = registry.resolve_boss_routing(
         owner_context=owner_context,
@@ -405,6 +417,67 @@ def check_runner_freshness(
         allowed_profiles=allowed_profile_set or None,
         rotation_interval_seconds=rotation_interval_seconds,
     )
+    probe_summary = {
+        "auto_probe_triggered": False,
+        "attempted": 0,
+        "passed": 0,
+        "failed": 0,
+        "verified_target": 0,
+        "results": [],
+    }
+    if requested_runner_type == "claude":
+        try:
+            verified_target = max(
+                1, int(str((env or os.environ).get("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "2")))
+            )
+        except ValueError:
+            verified_target = 2
+        try:
+            probe_limit = max(
+                1, int(str((env or os.environ).get("ARAGORA_BOSS_RUNNER_PROBE_LIMIT", "1")))
+            )
+        except ValueError:
+            probe_limit = 1
+        selected_verified = len(
+            [
+                item
+                for item in routing.selected_runners
+                if isinstance(item, dict) and str(item.get("probe_status", "")).strip() == "passed"
+            ]
+        )
+        probe_summary["verified_target"] = verified_target
+        if selected_verified < verified_target:
+            candidates = prioritized_probe_candidates(
+                registry=registry,
+                runner_type=requested_runner_type,
+                discovered_inspections=discovered,
+                owner_context=owner_context,
+                selected_runners=routing.selected_runners,
+            )
+            for inspection in candidates[:probe_limit]:
+                probe = probe_runner_execution(
+                    inspection,
+                    repo_root=Path.cwd(),
+                )
+                registry.record_probe(
+                    inspection,
+                    probe,
+                    owner_context=owner_context,
+                )
+                probe_summary["results"].append(probe.to_dict())
+                probe_summary["attempted"] += 1
+                if probe.status == "passed":
+                    probe_summary["passed"] += 1
+                elif probe.status == "failed":
+                    probe_summary["failed"] += 1
+            if probe_summary["attempted"]:
+                probe_summary["auto_probe_triggered"] = True
+                routing = registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=requested_runner_type,
+                    allowed_profiles=allowed_profile_set or None,
+                    rotation_interval_seconds=rotation_interval_seconds,
+                )
 
     if routing.is_blocked:
         return RunnerFreshnessResult(
@@ -412,7 +485,7 @@ def check_runner_freshness(
             runner_ids=[],
             checked_at=checked_at,
             blocked_reason=routing.blocked_reason,
-            details={"routing": routing.to_dict()},
+            details={"routing": routing.to_dict(), "probe": probe_summary},
         )
 
     # Live re-inspection: is a selected CLI runner still responding?
@@ -437,6 +510,7 @@ def check_runner_freshness(
             blocked_reason="runner_not_responding",
             details={
                 "routing": routing.to_dict(),
+                "probe": probe_summary,
                 "live_inspections": live_inspections,
             },
         )
@@ -471,6 +545,8 @@ def check_runner_freshness(
             checked_at=checked_at,
             blocked_reason="all_runners_stale",
             details={
+                "routing": routing.to_dict(),
+                "probe": probe_summary,
                 "stale_ids": stale_ids,
                 "freshness_ttl_seconds": freshness_ttl_seconds,
             },
@@ -482,6 +558,7 @@ def check_runner_freshness(
         checked_at=checked_at,
         details={
             "routing": routing.to_dict(),
+            "probe": probe_summary,
             "live_runner_ids": live_runner_ids,
             "live_inspections": live_inspections,
         },

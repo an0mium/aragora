@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aragora.cli.commands.build import (
     _create_issues,
     _decompose_tasks,
+    _dispatch_owner_binding,
     _dispatch_to_boss_loop,
     _generate_spec,
     _preflight_boss_routing,
@@ -243,11 +244,70 @@ def test_preflight_boss_routing_uses_dispatch_owner_binding(monkeypatch) -> None
         "selected_runner_ids": ["claude-runner-1"],
     }
 
-    with patch("aragora.swarm.runner_registry.LocalRunnerRegistry", return_value=registry):
+    with (
+        patch("aragora.swarm.runner_registry.LocalRunnerRegistry", return_value=registry),
+        patch("aragora.swarm.runner_registry.refresh_discovered_runners", return_value=[]),
+    ):
         payload = _preflight_boss_routing(repo="synaptent/aragora", worker_model="claude")
 
     assert payload["blocked"] is False
     assert payload["owner_binding"] == {"user_id": "founder-1", "workspace_id": "workspace-9"}
+
+
+def test_preflight_boss_routing_probes_toward_verified_target(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_USER_ID", "founder-1")
+    monkeypatch.setenv("ARAGORA_WORKSPACE_ID", "workspace-9")
+    monkeypatch.setenv("ARAGORA_BUILD_VERIFIED_RUNNER_TARGET", "2")
+    monkeypatch.setenv("ARAGORA_BUILD_RUNNER_PROBE_LIMIT", "1")
+    registry = MagicMock()
+    inspection = SimpleNamespace(runner_id="claude-runner-2", profile="max-02")
+    probe = SimpleNamespace(
+        status="passed",
+        to_dict=lambda: {
+            "runner_id": "claude-runner-2",
+            "runner_type": "claude",
+            "probe_status": "passed",
+        },
+    )
+    registry.resolve_boss_routing.side_effect = [
+        SimpleNamespace(
+            to_dict=lambda: {
+                "blocked_reason": None,
+                "selected_runner_ids": ["claude-runner-1", "claude-runner-2"],
+                "selected_runners": [
+                    {"runner_id": "claude-runner-1", "probe_status": "passed"},
+                    {"runner_id": "claude-runner-2", "probe_status": None},
+                ],
+            }
+        ),
+        SimpleNamespace(
+            to_dict=lambda: {
+                "blocked_reason": None,
+                "selected_runner_ids": ["claude-runner-1", "claude-runner-2"],
+                "selected_runners": [
+                    {"runner_id": "claude-runner-1", "probe_status": "passed"},
+                    {"runner_id": "claude-runner-2", "probe_status": "passed"},
+                ],
+            }
+        ),
+    ]
+
+    with (
+        patch("aragora.swarm.runner_registry.LocalRunnerRegistry", return_value=registry),
+        patch(
+            "aragora.swarm.runner_registry.refresh_discovered_runners", return_value=[inspection]
+        ),
+        patch(
+            "aragora.swarm.runner_registry.prioritized_probe_candidates", return_value=[inspection]
+        ),
+        patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+    ):
+        payload = _preflight_boss_routing(repo="synaptent/aragora", worker_model="claude")
+
+    assert payload["blocked"] is False
+    assert payload["probe"]["auto_probe_triggered"] is True
+    assert payload["probe"]["attempted"] == 1
+    assert payload["probe"]["passed"] == 1
 
 
 def test_generate_spec_marks_unanswered_questions_as_needing_clarification() -> None:

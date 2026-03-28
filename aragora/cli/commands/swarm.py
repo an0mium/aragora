@@ -100,10 +100,13 @@ def _build_runner_report_payload(
     by_type: dict[str, dict[str, int]] = {}
     by_cost: dict[str, int] = {}
     fresh_count = 0
+    probe_failed = 0
+    execution_verified = 0
     for item in registrations:
         runner_type = str(item.get("runner_type", "") or "").strip() or "unknown"
         cost_class = str(item.get("cost_class", "") or "").strip() or "local"
         freshness = str(item.get("freshness_status", "") or "").strip() or "unknown"
+        probe_status = str(item.get("probe_status", "") or "").strip() or None
         capabilities = dict(item.get("capabilities") or {})
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
         claimed_lanes = int(item.get("claimed_lanes") or 0)
@@ -112,13 +115,28 @@ def _build_runner_report_payload(
         available_capacity = max(0, max_parallel - active_lanes)
         if freshness == "fresh":
             fresh_count += 1
+        if probe_status == "passed":
+            execution_verified += 1
+        elif probe_status == "failed":
+            probe_failed += 1
         by_type.setdefault(
             runner_type,
-            {"registered": 0, "fresh": 0, "active_lanes": 0, "available_capacity": 0},
+            {
+                "registered": 0,
+                "fresh": 0,
+                "execution_verified": 0,
+                "probe_failed": 0,
+                "active_lanes": 0,
+                "available_capacity": 0,
+            },
         )
         by_type[runner_type]["registered"] += 1
         if freshness == "fresh":
             by_type[runner_type]["fresh"] += 1
+        if probe_status == "passed":
+            by_type[runner_type]["execution_verified"] += 1
+        elif probe_status == "failed":
+            by_type[runner_type]["probe_failed"] += 1
         by_type[runner_type]["active_lanes"] += active_lanes
         by_type[runner_type]["available_capacity"] += available_capacity
         by_cost[cost_class] = by_cost.get(cost_class, 0) + 1
@@ -128,6 +146,7 @@ def _build_runner_report_payload(
                 "runner_type": runner_type,
                 "freshness_status": freshness,
                 "cost_class": cost_class,
+                "probe_status": probe_status,
                 "active_lanes": active_lanes,
                 "available_capacity": available_capacity,
             }
@@ -142,15 +161,25 @@ def _build_runner_report_payload(
         for key, value in sorted(by_cost.items(), key=lambda item: item[0])
     ]
     discovered_rows = [dict(item) for item in discovered or [] if isinstance(item, dict)]
+    selected_runners = [
+        item for item in routing.get("selected_runners", []) if isinstance(item, dict)
+    ]
     return {
         "mode": "runner",
         "action": "report",
         "summary": {
             "registered": len(registrations),
             "fresh": fresh_count,
+            "execution_verified": execution_verified,
+            "probe_failed": probe_failed,
             "discovered": len(discovered_rows),
-            "selected_for_routing": len(
-                [item for item in routing.get("selected_runners", []) if isinstance(item, dict)]
+            "selected_for_routing": len(selected_runners),
+            "selected_verified": len(
+                [
+                    item
+                    for item in selected_runners
+                    if str(item.get("probe_status", "")).strip() == "passed"
+                ]
             ),
         },
         "by_runner_type": type_rows,
@@ -643,6 +672,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             LocalRunnerRegistry,
             authorization_context_from_env,
             discover_runner_inspections,
+            refresh_discovered_runners,
         )
 
         subaction = str(goal or "inspect").strip().lower()
@@ -658,12 +688,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             ).strip()
             or "codex"
         )
-        inspections = discover_runner_inspections(
-            runner_type,
-            env=os.environ,
-            repo_root=Path.cwd(),
-        )
+        inspections: list[object] = []
         if subaction == "register":
+            inspections = discover_runner_inspections(
+                runner_type,
+                env=os.environ,
+                repo_root=Path.cwd(),
+            )
             owner_context = authorization_context_from_env()
             payloads = [
                 LocalRunnerRegistry()
@@ -680,6 +711,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else _build_multi_runner_payload(subaction=subaction, runners=payloads)
             )
         elif subaction == "heartbeat":
+            inspections = discover_runner_inspections(
+                runner_type,
+                env=os.environ,
+                repo_root=Path.cwd(),
+            )
             owner_context = authorization_context_from_env()
             payloads = [
                 LocalRunnerRegistry()
@@ -696,11 +732,27 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else _build_multi_runner_payload(subaction=subaction, runners=payloads)
             )
         elif subaction == "report":
+            owner_context = authorization_context_from_env()
             registry = LocalRunnerRegistry()
+            inspections = (
+                refresh_discovered_runners(
+                    runner_type,
+                    registry=registry,
+                    owner_context=owner_context,
+                    env=os.environ,
+                    repo_root=Path.cwd(),
+                )
+                if owner_context is not None
+                else discover_runner_inspections(
+                    runner_type,
+                    env=os.environ,
+                    repo_root=Path.cwd(),
+                )
+            )
             payload = _build_runner_report_payload(
                 registrations=registry.list_registrations(),
                 routing=registry.resolve_boss_routing(
-                    owner_context=authorization_context_from_env(),
+                    owner_context=owner_context,
                     requested_runner_type=runner_type,
                     allowed_profiles=allowed_runner_profiles,
                     rotation_interval_seconds=runner_rotation_interval,
@@ -708,6 +760,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 discovered=[item.to_dict() for item in inspections],
             )
         else:
+            inspections = discover_runner_inspections(
+                runner_type,
+                env=os.environ,
+                repo_root=Path.cwd(),
+            )
             inspection_payloads = [item.to_dict() for item in inspections]
             payload = (
                 inspection_payloads[0]

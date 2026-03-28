@@ -20,6 +20,15 @@ UTC = timezone.utc
 VERIFIED_AUTH_MODES = {"chatgpt_login", "api_key", "subscription"}
 DEFAULT_RUNNER_STALE_AFTER_SECONDS = 3600
 DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS = 1800.0
+DEFAULT_RUNNER_PROBE_TTL_SECONDS = 3600
+RUNNER_PROBE_TOKEN = "ARAGORA_RUNNER_PROBE_OK"
+RUNNER_PROBE_FIELD_KEYS = (
+    "probe_status",
+    "probe_checked_at",
+    "probe_detail",
+    "probe_latency_seconds",
+    "probe_ttl_seconds",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +160,11 @@ class RunnerInspection:
     priority_weight: int = 0
     codex_path: str | None = None  # legacy compatibility for older callers/tests
     profile: str | None = None
+    probe_status: str | None = None
+    probe_checked_at: str | None = None
+    probe_detail: str | None = None
+    probe_latency_seconds: float | None = None
+    probe_ttl_seconds: int | None = None
 
     def __post_init__(self) -> None:
         if self.command_path is None and self.codex_path is not None:
@@ -185,10 +199,44 @@ class RunnerInspection:
             "cost_class": self.cost_class,
             "priority_weight": self.priority_weight,
             "profile": self.profile,
+            "probe_status": self.probe_status,
+            "probe_checked_at": self.probe_checked_at,
+            "probe_detail": self.probe_detail,
+            "probe_latency_seconds": self.probe_latency_seconds,
+            "probe_ttl_seconds": self.probe_ttl_seconds,
         }
 
 
 CodexRunnerInspection = RunnerInspection
+
+
+@dataclass(slots=True)
+class RunnerProbeResult:
+    runner_id: str
+    runner_type: str
+    status: str
+    checked_at: str
+    detail: str | None = None
+    latency_seconds: float | None = None
+    profile: str | None = None
+    ttl_seconds: int = DEFAULT_RUNNER_PROBE_TTL_SECONDS
+
+    def to_runner_fields(self) -> dict[str, Any]:
+        return {
+            "probe_status": self.status,
+            "probe_checked_at": self.checked_at,
+            "probe_detail": self.detail,
+            "probe_latency_seconds": self.latency_seconds,
+            "probe_ttl_seconds": self.ttl_seconds,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "runner_id": self.runner_id,
+            "runner_type": self.runner_type,
+            "profile": self.profile,
+            **self.to_runner_fields(),
+        }
 
 
 @dataclass(slots=True)
@@ -609,6 +657,282 @@ def discover_runner_inspections(
     ]
 
 
+def refresh_discovered_runners(
+    runner_type: str,
+    *,
+    registry: LocalRunnerRegistry,
+    owner_context: AuthorizationContext | None,
+    config: LaunchConfig | None = None,
+    env: dict[str, str] | None = None,
+    repo_root: str | Path | None = None,
+) -> list[RunnerInspection]:
+    if owner_context is None:
+        return []
+    inspections = discover_runner_inspections(
+        runner_type,
+        config=config,
+        env=env,
+        repo_root=repo_root,
+    )
+    for inspection in inspections:
+        registry.refresh(
+            inspection,
+            owner_context=owner_context,
+        )
+    return inspections
+
+
+def prioritized_probe_candidates(
+    *,
+    registry: LocalRunnerRegistry,
+    runner_type: str,
+    discovered_inspections: list[RunnerInspection],
+    owner_context: AuthorizationContext | None,
+    selected_runners: list[dict[str, Any]] | None = None,
+) -> list[RunnerInspection]:
+    inspection_by_id = {
+        _text(inspection.runner_id): inspection
+        for inspection in discovered_inspections
+        if _text(inspection.runner_id)
+    }
+    selected_ids = {
+        _text(item.get("runner_id"))
+        for item in selected_runners or []
+        if isinstance(item, dict) and _text(item.get("runner_id"))
+    }
+    registrations = [item for item in registry.list_registrations() if isinstance(item, dict)]
+    raw_failed_ids: list[str] = []
+    selected_unverified_ids: list[str] = []
+    other_unverified_ids: list[str] = []
+
+    def _append_unique(target: list[str], runner_id: object) -> None:
+        normalized = _text(runner_id)
+        if not normalized or normalized not in inspection_by_id:
+            return
+        if (
+            normalized in raw_failed_ids
+            or normalized in selected_unverified_ids
+            or normalized in other_unverified_ids
+        ):
+            return
+        target.append(normalized)
+
+    for item in registrations:
+        if _text(item.get("runner_type")) != runner_type:
+            continue
+        if owner_context is not None and not registry._is_owner_compatible(
+            item,
+            owner_context=owner_context,
+        ):
+            continue
+        runner_id = item.get("runner_id")
+        raw_probe_status = _text(item.get("probe_status")).lower()
+        live_probe_status = registry._probe_status(item)
+        if raw_probe_status == "failed":
+            _append_unique(raw_failed_ids, runner_id)
+            continue
+        if live_probe_status == "passed":
+            continue
+        if _text(runner_id) in selected_ids:
+            _append_unique(selected_unverified_ids, runner_id)
+        else:
+            _append_unique(other_unverified_ids, runner_id)
+
+    ordered_ids = [*raw_failed_ids, *selected_unverified_ids, *other_unverified_ids]
+    return [inspection_by_id[item] for item in ordered_ids]
+
+
+def probe_runner_execution(
+    inspection: RunnerInspection,
+    *,
+    repo_root: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> RunnerProbeResult:
+    checked_at = _utcnow()
+    ttl_seconds = DEFAULT_RUNNER_PROBE_TTL_SECONDS
+
+    if inspection.runner_type != "claude":
+        return RunnerProbeResult(
+            runner_id=inspection.runner_id,
+            runner_type=inspection.runner_type,
+            status="unsupported",
+            checked_at=checked_at,
+            detail="Active exec probe is currently implemented for Claude runners only.",
+            profile=inspection.profile,
+            ttl_seconds=ttl_seconds,
+        )
+
+    command = _probe_command_for_inspection(inspection, repo_root=repo_root)
+    if not command:
+        return RunnerProbeResult(
+            runner_id=inspection.runner_id,
+            runner_type=inspection.runner_type,
+            status="failed",
+            checked_at=checked_at,
+            detail="No runnable Claude probe command could be constructed for this runner.",
+            profile=inspection.profile,
+            ttl_seconds=ttl_seconds,
+        )
+
+    try:
+        started = datetime.now(UTC)
+        proc = subprocess.run(
+            command,
+            cwd=str(Path(repo_root or Path.cwd()).resolve()),
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        latency_seconds = max(0.0, (datetime.now(UTC) - started).total_seconds())
+    except subprocess.TimeoutExpired:
+        return RunnerProbeResult(
+            runner_id=inspection.runner_id,
+            runner_type=inspection.runner_type,
+            status="failed",
+            checked_at=checked_at,
+            detail=f"Probe timed out after {timeout_seconds:.0f}s.",
+            latency_seconds=timeout_seconds,
+            profile=inspection.profile,
+            ttl_seconds=ttl_seconds,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return RunnerProbeResult(
+            runner_id=inspection.runner_id,
+            runner_type=inspection.runner_type,
+            status="failed",
+            checked_at=checked_at,
+            detail=f"Probe launch failed: {exc}",
+            profile=inspection.profile,
+            ttl_seconds=ttl_seconds,
+        )
+
+    combined = "\n".join(part for part in (proc.stdout, proc.stderr) if part).strip()
+    if proc.returncode == 0 and RUNNER_PROBE_TOKEN in combined:
+        return RunnerProbeResult(
+            runner_id=inspection.runner_id,
+            runner_type=inspection.runner_type,
+            status="passed",
+            checked_at=checked_at,
+            detail="Live prompt probe succeeded.",
+            latency_seconds=latency_seconds,
+            profile=inspection.profile,
+            ttl_seconds=ttl_seconds,
+        )
+
+    return RunnerProbeResult(
+        runner_id=inspection.runner_id,
+        runner_type=inspection.runner_type,
+        status="failed",
+        checked_at=checked_at,
+        detail=_probe_failure_detail(combined, returncode=proc.returncode),
+        latency_seconds=latency_seconds,
+        profile=inspection.profile,
+        ttl_seconds=ttl_seconds,
+    )
+
+
+def _probe_command_for_inspection(
+    inspection: RunnerInspection,
+    *,
+    repo_root: str | Path | None = None,
+) -> list[str] | None:
+    prompt = f"Reply with exactly: {RUNNER_PROBE_TOKEN}"
+    if inspection.runner_type != "claude":
+        return None
+    if inspection.profile:
+        script = _text(inspection.command_path)
+        if not script:
+            candidate = (Path(repo_root or Path.cwd()) / "scripts" / "claude_profile.sh").resolve()
+            script = str(candidate) if candidate.exists() else ""
+        if not script:
+            return None
+        return [script, "exec", inspection.profile, "--", "claude", "-p", prompt]
+    command_path = _text(inspection.command_path) or "claude"
+    return [command_path, "-p", prompt]
+
+
+def _probe_failure_detail(text: str, *, returncode: int) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for line in lines:
+        lowered = line.lower()
+        if any(
+            marker in lowered
+            for marker in ("authentication", "oauth", "expired", "401", "error", "failed")
+        ):
+            return f"Probe failed (exit {returncode}): {line[:240]}"
+    for line in lines:
+        if line.startswith("Using profile home:") or line.startswith("Command:"):
+            continue
+        return f"Probe failed (exit {returncode}): {line[:240]}"
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return f"Probe failed (exit {returncode}): {stripped[:240]}"
+    return f"Probe failed (exit {returncode})."
+
+
+def _probe_next_action(
+    inspection: RunnerInspection,
+    probe: RunnerProbeResult,
+) -> str | None:
+    runner_type = _text(getattr(inspection, "runner_type", ""))
+    profile = _text(getattr(inspection, "profile", "")) or None
+    command_path = _text(getattr(inspection, "command_path", ""))
+    if probe.status == "passed":
+        return "Runner execution probe passed. Boss-mode routing can prefer this runner."
+    if probe.status != "failed":
+        return None
+
+    detail = _text(probe.detail).lower()
+    if runner_type == "claude" and profile:
+        script = command_path
+        if not script:
+            candidate = (Path.cwd() / "scripts" / "claude_profile.sh").resolve()
+            if candidate.exists():
+                script = str(candidate)
+        if any(marker in detail for marker in ("oauth", "authenticate", "401", "expired")):
+            if script:
+                return f"Refresh the local Claude profile login: {script} login {profile}"
+            return f"Refresh the local Claude profile login for {profile}."
+        return (
+            "Re-probe this Claude profile after local inspection: "
+            f"ARAGORA_CLAUDE_RUNNER_PROFILES={profile} python3 -m aragora.cli.main "
+            "swarm runner probe --runner-type claude --json"
+        )
+    return "Re-run the local runner probe after fixing the underlying runner issue."
+
+
+def _inspection_payload(inspection: RunnerInspection) -> dict[str, Any]:
+    to_dict = getattr(inspection, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict):
+            return dict(payload)
+    payload: dict[str, Any] = {}
+    for key in (
+        "runner_id",
+        "runner_type",
+        "profile",
+        "available",
+        "availability",
+        "auth_mode",
+        "command_path",
+        "codex_path",
+        "owner_binding",
+        "capabilities",
+        "cost_class",
+        "priority_weight",
+        "status_summary",
+        "freshness_status",
+        "stale_after_seconds",
+    ):
+        value = getattr(inspection, key, None)
+        if value is not None:
+            payload[key] = value
+    return payload
+
+
 class LocalRunnerRegistry:
     """Minimal local registry for user-owned CLI runners."""
 
@@ -655,15 +979,26 @@ class LocalRunnerRegistry:
         records = self._load()
         now = _utcnow()
         freshness_status = self._freshness_for_inspection(inspection)
-        entry = {
-            **inspection.to_dict(),
-            "owner_binding": owner_binding_from_context(owner_context),
-            "registered": True,
-            "registered_at": now,
-            "heartbeat_at": now,
-            "freshness_status": freshness_status,
-            "updated_at": now,
-        }
+        existing = next(
+            (
+                dict(item)
+                for item in records.get("registrations", [])
+                if isinstance(item, dict) and item.get("runner_id") == inspection.runner_id
+            ),
+            None,
+        )
+        entry = self._preserve_probe_fields(
+            existing,
+            {
+                **inspection.to_dict(),
+                "owner_binding": owner_binding_from_context(owner_context),
+                "registered": True,
+                "registered_at": now,
+                "heartbeat_at": now,
+                "freshness_status": freshness_status,
+                "updated_at": now,
+            },
+        )
         records["registrations"] = [
             item
             for item in records.get("registrations", [])
@@ -723,16 +1058,19 @@ class LocalRunnerRegistry:
         now = _utcnow()
         freshness_status = self._freshness_for_inspection(inspection)
         owner_binding = owner_binding_from_context(owner_context)
-        updated_entry = {
-            **existing,
-            **inspection.to_dict(),
-            "registered": True,
-            "owner_binding": owner_binding,
-            "registered_at": existing.get("registered_at"),
-            "heartbeat_at": now,
-            "freshness_status": freshness_status,
-            "updated_at": now,
-        }
+        updated_entry = self._preserve_probe_fields(
+            existing,
+            {
+                **existing,
+                **inspection.to_dict(),
+                "registered": True,
+                "owner_binding": owner_binding,
+                "registered_at": existing.get("registered_at"),
+                "heartbeat_at": now,
+                "freshness_status": freshness_status,
+                "updated_at": now,
+            },
+        )
         records["registrations"] = [
             updated_entry if item.get("runner_id") == inspection.runner_id else item
             for item in registrations
@@ -748,6 +1086,74 @@ class LocalRunnerRegistry:
             freshness_status, runner_type=inspection.runner_type
         )
         return inspection
+
+    def refresh(
+        self,
+        inspection: RunnerInspection,
+        *,
+        owner_context: AuthorizationContext | None,
+    ) -> RunnerInspection:
+        if owner_context is None:
+            inspection.registered = False
+            inspection.registry_path = str(self.path)
+            inspection.next_action = (
+                "Set `ARAGORA_USER_ID` and optional `ARAGORA_WORKSPACE_ID` before refreshing this "
+                "runner in the local registry."
+            )
+            return inspection
+        existing = next(
+            (
+                item
+                for item in self.list_registrations()
+                if _text(item.get("runner_id")) == _text(inspection.runner_id)
+                and self._is_owner_compatible(item, owner_context=owner_context)
+            ),
+            None,
+        )
+        if existing is None:
+            return self.register(inspection, owner_context=owner_context)
+        return self.heartbeat(inspection, owner_context=owner_context)
+
+    def record_probe(
+        self,
+        inspection: RunnerInspection,
+        probe: RunnerProbeResult,
+        *,
+        owner_context: AuthorizationContext | None,
+    ) -> dict[str, Any]:
+        runner_payload = {
+            **_inspection_payload(inspection),
+            **probe.to_runner_fields(),
+            "next_action": _probe_next_action(inspection, probe),
+        }
+        if owner_context is None:
+            return runner_payload
+
+        records = self._load()
+        registrations = [
+            dict(item) for item in records.get("registrations", []) if isinstance(item, dict)
+        ]
+        updated = False
+        for index, item in enumerate(registrations):
+            if item.get("runner_id") != inspection.runner_id:
+                continue
+            if not self._is_owner_compatible(item, owner_context=owner_context):
+                continue
+            registrations[index] = {
+                **item,
+                **probe.to_runner_fields(),
+                "next_action": _probe_next_action(inspection, probe) or item.get("next_action"),
+                "updated_at": _utcnow(),
+            }
+            runner_payload = dict(registrations[index])
+            updated = True
+            break
+
+        if updated:
+            records["registrations"] = registrations
+            self._save(records)
+
+        return runner_payload
 
     def list_registrations(self) -> list[dict[str, Any]]:
         return [
@@ -769,8 +1175,9 @@ class LocalRunnerRegistry:
         allowed_profile_set = {item for item in (allowed_profiles or set()) if _text(item)}
         selection_basis = (
             "registered=true, freshness_status=fresh, availability=available, auth_mode verified, "
-            "owner_binding compatible, capacity available, ordered by requested runner type, "
-            "priority_weight, cost preference, and rotation-aware profile balancing"
+            "owner_binding compatible, live probe healthy, capacity available, ordered by "
+            "requested runner type, probe health, priority_weight, cost preference, and "
+            "rotation-aware profile balancing"
         )
         if owner_context is None or not _text(owner_context.user_id):
             return BossRoutingDecision(
@@ -833,6 +1240,7 @@ class LocalRunnerRegistry:
         eligible.sort(
             key=lambda item: (
                 0 if requested and item["runner_type"] == requested else 1,
+                self._probe_rank(item.get("probe_status")),
                 -int(item.get("priority_weight", 0)),
                 self._cost_rank(_text(item.get("cost_class"))),
                 self._rotation_rank(
@@ -950,6 +1358,7 @@ class LocalRunnerRegistry:
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
         claimed_lanes = _optional_int(runner.get("claimed_lanes"))
         active_lanes = self._effective_active_lanes(runner)
+        probe_status = self._probe_status(runner)
         return {
             "runner_id": _text(runner.get("runner_id")),
             "runner_type": _text(runner.get("runner_type")),
@@ -970,6 +1379,19 @@ class LocalRunnerRegistry:
             "available_capacity": max(0, max_parallel - active_lanes),
             "active_lanes": active_lanes,
             "command_path": _text(runner.get("command_path") or runner.get("codex_path")) or None,
+            "probe_status": probe_status,
+            "probe_checked_at": (
+                _text(runner.get("probe_checked_at")) or None if probe_status else None
+            ),
+            "probe_detail": _text(runner.get("probe_detail")) or None if probe_status else None,
+            "probe_latency_seconds": (
+                runner.get("probe_latency_seconds") if probe_status else None
+            ),
+            "probe_ttl_seconds": (
+                int(runner.get("probe_ttl_seconds") or DEFAULT_RUNNER_PROBE_TTL_SECONDS)
+                if probe_status
+                else None
+            ),
         }
 
     def _is_runner_eligible(
@@ -989,6 +1411,8 @@ class LocalRunnerRegistry:
         if self._freshness_status(runner) != "fresh":
             return False
         if not self._is_owner_compatible(runner, owner_context=owner_context):
+            return False
+        if self._probe_status(runner) == "failed":
             return False
         capabilities = dict(runner.get("capabilities") or {})
         max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
@@ -1086,6 +1510,46 @@ class LocalRunnerRegistry:
         if age_seconds > stale_after_seconds:
             return "stale"
         return "fresh"
+
+    def _probe_status(self, runner: dict[str, Any]) -> str | None:
+        status = _text(runner.get("probe_status")).lower() or None
+        if not status:
+            return None
+        checked_at = _text(runner.get("probe_checked_at"))
+        if not checked_at:
+            return None
+        checked_dt = self._parse_timestamp(checked_at)
+        if checked_dt is None:
+            return None
+        if checked_dt.tzinfo is None:
+            checked_dt = checked_dt.replace(tzinfo=UTC)
+        ttl_seconds = int(runner.get("probe_ttl_seconds") or DEFAULT_RUNNER_PROBE_TTL_SECONDS)
+        age_seconds = max(0.0, (datetime.now(UTC) - checked_dt).total_seconds())
+        if age_seconds > ttl_seconds:
+            return None
+        return status
+
+    @staticmethod
+    def _probe_rank(status: Any) -> int:
+        normalized = _text(status).lower()
+        if normalized == "passed":
+            return 0
+        if normalized == "failed":
+            return 2
+        return 1
+
+    @staticmethod
+    def _preserve_probe_fields(
+        existing: dict[str, Any] | None,
+        updated: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not existing:
+            return updated
+        merged = dict(updated)
+        for key in RUNNER_PROBE_FIELD_KEYS:
+            if merged.get(key) is None and existing.get(key) is not None:
+                merged[key] = existing.get(key)
+        return merged
 
     @staticmethod
     def _heartbeat_next_action(freshness_status: str, *, runner_type: str) -> str:

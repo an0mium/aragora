@@ -486,9 +486,9 @@ class TestLocalRunnerRegistry:
             owner_binding={"user_id": None, "workspace_id": None, "org_id": None},
             selection_basis=(
                 "registered=true, freshness_status=fresh, availability=available, auth_mode "
-                "verified, owner_binding compatible, capacity available, ordered by requested "
-                "runner type, priority_weight, cost preference, and rotation-aware profile "
-                "balancing"
+                "verified, owner_binding compatible, live probe healthy, capacity available, "
+                "ordered by requested runner type, probe health, priority_weight, cost "
+                "preference, and rotation-aware profile balancing"
             ),
             blocked_reason="missing_owner_context",
             next_action=(

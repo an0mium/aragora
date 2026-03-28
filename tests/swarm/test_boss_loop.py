@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
@@ -501,6 +502,113 @@ class TestRunnerFreshness:
 
         assert result.fresh is True
         inspector_factory.assert_called_with("claude", env=ANY, profile="max-01")
+
+    def test_runner_freshness_probes_toward_verified_target(self, tmp_path, monkeypatch):
+        registry_path = tmp_path / "runners.json"
+        now = datetime.now(UTC).isoformat()
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-01",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                            "probe_status": "passed",
+                            "probe_checked_at": now,
+                            "probe_ttl_seconds": 3600,
+                        },
+                        {
+                            "runner_id": "claude-runner-2",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "2")
+        monkeypatch.setenv("ARAGORA_BOSS_RUNNER_PROBE_LIMIT", "1")
+        inspection = SimpleNamespace(runner_id="claude-runner-2", profile="max-02")
+        probe = SimpleNamespace(
+            status="passed",
+            to_runner_fields=lambda: {
+                "probe_status": "passed",
+                "probe_checked_at": now,
+                "probe_detail": "Live prompt probe succeeded.",
+                "probe_latency_seconds": 1.0,
+                "probe_ttl_seconds": 3600,
+            },
+            to_dict=lambda: {
+                "runner_id": "claude-runner-2",
+                "runner_type": "claude",
+                "probe_status": "passed",
+            },
+        )
+
+        class _Inspector:
+            def __init__(self, runner_id: str) -> None:
+                self._runner_id = runner_id
+
+            def inspect(self) -> MagicMock:
+                inspected = MagicMock()
+                inspected.available = True
+                inspected.auth_mode = "subscription"
+                inspected.runner_id = self._runner_id
+                inspected.to_dict.return_value = {
+                    "runner_id": self._runner_id,
+                    "available": True,
+                    "auth_mode": "subscription",
+                }
+                return inspected
+
+        def _make_inspector(runner_type: str, *, env=None, profile=None):
+            runner_id = "claude-runner-1" if profile == "max-01" else "claude-runner-2"
+            return _Inspector(runner_id)
+
+        with (
+            patch(
+                "aragora.swarm.runner_registry.refresh_discovered_runners",
+                return_value=[inspection],
+            ),
+            patch(
+                "aragora.swarm.runner_registry.prioritized_probe_candidates",
+                return_value=[inspection],
+            ),
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch(
+                "aragora.swarm.runner_registry.make_runner_inspector", side_effect=_make_inspector
+            ),
+        ):
+            result = check_runner_freshness(
+                freshness_ttl_seconds=3600.0,
+                registry_path=str(registry_path),
+                env={"ARAGORA_USER_ID": "user-1", "ARAGORA_WORKSPACE_ID": "ws-1"},
+                requested_runner_type="claude",
+            )
+
+        assert result.fresh is True
+        assert result.details["probe"]["auto_probe_triggered"] is True
+        assert result.details["probe"]["passed"] == 1
 
 
 # ---------------------------------------------------------------------------

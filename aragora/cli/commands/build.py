@@ -608,7 +608,13 @@ def _dispatch_owner_binding(*, repo: str) -> dict[str, str]:
 
 
 def _preflight_boss_routing(*, repo: str, worker_model: str) -> dict[str, Any]:
-    from aragora.swarm.runner_registry import LocalRunnerRegistry, authorization_context_from_env
+    from aragora.swarm.runner_registry import (
+        LocalRunnerRegistry,
+        authorization_context_from_env,
+        prioritized_probe_candidates,
+        probe_runner_execution,
+        refresh_discovered_runners,
+    )
 
     owner_binding = _dispatch_owner_binding(repo=repo)
     env = {
@@ -616,18 +622,82 @@ def _preflight_boss_routing(*, repo: str, worker_model: str) -> dict[str, Any]:
         "ARAGORA_USER_ID": owner_binding["user_id"],
         "ARAGORA_WORKSPACE_ID": owner_binding["workspace_id"],
     }
-    routing = (
-        LocalRunnerRegistry()
-        .resolve_boss_routing(
-            owner_context=authorization_context_from_env(env),
-            requested_runner_type=worker_model,
-        )
-        .to_dict()
+    owner_context = authorization_context_from_env(env)
+    registry = LocalRunnerRegistry()
+    discovered = refresh_discovered_runners(
+        worker_model,
+        registry=registry,
+        owner_context=owner_context,
+        env=env,
+        repo_root=Path.cwd(),
     )
+    routing = registry.resolve_boss_routing(
+        owner_context=owner_context,
+        requested_runner_type=worker_model,
+    ).to_dict()
+    probe_summary = {
+        "auto_probe_triggered": False,
+        "attempted": 0,
+        "passed": 0,
+        "failed": 0,
+        "verified_target": 0,
+        "results": [],
+    }
+    if worker_model == "claude":
+        try:
+            verified_target = max(
+                1,
+                int(str(os.environ.get("ARAGORA_BUILD_VERIFIED_RUNNER_TARGET", "3") or "3")),
+            )
+        except ValueError:
+            verified_target = 3
+        try:
+            probe_limit = max(
+                1,
+                int(str(os.environ.get("ARAGORA_BUILD_RUNNER_PROBE_LIMIT", "2") or "2")),
+            )
+        except ValueError:
+            probe_limit = 2
+        selected = [item for item in routing.get("selected_runners", []) if isinstance(item, dict)]
+        selected_verified = len(
+            [item for item in selected if str(item.get("probe_status", "")).strip() == "passed"]
+        )
+        probe_summary["verified_target"] = verified_target
+        if selected_verified < verified_target:
+            candidates = prioritized_probe_candidates(
+                registry=registry,
+                runner_type=worker_model,
+                discovered_inspections=discovered,
+                owner_context=owner_context,
+                selected_runners=selected,
+            )
+            for inspection in candidates[:probe_limit]:
+                probe = probe_runner_execution(
+                    inspection,
+                    repo_root=Path.cwd(),
+                )
+                registry.record_probe(
+                    inspection,
+                    probe,
+                    owner_context=owner_context,
+                )
+                probe_summary["results"].append(probe.to_dict())
+                probe_summary["attempted"] += 1
+                if probe.status == "passed":
+                    probe_summary["passed"] += 1
+                elif probe.status == "failed":
+                    probe_summary["failed"] += 1
+            if probe_summary["attempted"]:
+                probe_summary["auto_probe_triggered"] = True
+                routing = registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=worker_model,
+                ).to_dict()
     return {
         "owner_binding": owner_binding,
         "blocked": bool(routing.get("blocked_reason")),
         "routing": routing,
+        "probe": probe_summary,
     }
 
 
