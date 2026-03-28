@@ -280,7 +280,7 @@ async def _run_idea_review(
         worker_model=worker_model,
         review_model=review_model,
     )
-    review = _review_founder_handoffs(
+    review = await _review_founder_handoffs(
         brief=brief,
         handoffs=handoffs,
         review_model=review_model,
@@ -511,7 +511,7 @@ def _repo_evidence_for_scope(file_scope: list[str]) -> list[str]:
     return list(dict.fromkeys(evidence))[:5]
 
 
-def _review_founder_handoffs(
+def _deterministic_review_founder_handoffs(
     *,
     brief: dict[str, Any],
     handoffs: list[dict[str, Any]],
@@ -752,6 +752,334 @@ def _review_founder_handoffs(
         "findings": findings,
         "followups": followups,
     }
+
+
+async def _review_founder_handoffs(
+    *,
+    brief: dict[str, Any],
+    handoffs: list[dict[str, Any]],
+    review_model: str,
+) -> dict[str, Any]:
+    deterministic_review = _deterministic_review_founder_handoffs(
+        brief=brief,
+        handoffs=handoffs,
+        review_model=review_model,
+    )
+    model_review = await _model_review_founder_handoffs(
+        brief=brief,
+        handoffs=handoffs,
+        review_model=review_model,
+    )
+    return _merge_review_results(
+        deterministic_review=deterministic_review,
+        model_review=model_review,
+    )
+
+
+async def _model_review_founder_handoffs(
+    *,
+    brief: dict[str, Any],
+    handoffs: list[dict[str, Any]],
+    review_model: str,
+) -> dict[str, Any]:
+    if not handoffs:
+        return {"status": "approved", "summary": "", "findings": [], "followups": []}
+
+    try:
+        from aragora.agents import create_agent
+
+        agent = create_agent(
+            review_model,
+            name="founder-review-red-team",
+            role="critic",
+            enable_fallback=False,
+        )
+        timeout_seconds = float(
+            os.environ.get("ARAGORA_FOUNDER_REVIEW_TIMEOUT_SECONDS", "90") or 90
+        )
+        response = await asyncio.wait_for(
+            agent.generate(_founder_review_model_prompt(brief=brief, handoffs=handoffs)),
+            timeout=timeout_seconds,
+        )
+    except Exception as exc:
+        logger.warning("model founder review unavailable: %s", exc)
+        return {
+            "status": "approved",
+            "summary": f"Model founder review unavailable: {exc}",
+            "findings": [],
+            "followups": [],
+        }
+
+    payload = _extract_first_json_object(response)
+    findings = _normalize_model_review_findings(payload, handoffs=handoffs)
+    followups = _model_review_followups(
+        brief=brief,
+        handoffs=handoffs,
+        findings=findings,
+        review_model=review_model,
+    )
+    return {
+        "status": _review_status_from_findings(findings, followups=followups),
+        "summary": _text(payload.get("summary"))
+        or f"Model founder review produced {len(findings)} finding(s).",
+        "findings": findings,
+        "followups": followups,
+    }
+
+
+def _merge_review_results(
+    *,
+    deterministic_review: dict[str, Any],
+    model_review: dict[str, Any],
+) -> dict[str, Any]:
+    findings = [
+        item
+        for item in [
+            *(deterministic_review.get("findings", []) or []),
+            *(model_review.get("findings", []) or []),
+        ]
+        if isinstance(item, dict)
+    ]
+    followups: list[dict[str, Any]] = []
+    seen_followups: set[tuple[str, str]] = set()
+    for followup in deterministic_review.get("followups", []) or []:
+        if isinstance(followup, dict):
+            _append_followup(followups, seen_followups, followup)
+    for followup in model_review.get("followups", []) or []:
+        if isinstance(followup, dict):
+            _append_followup(followups, seen_followups, followup)
+
+    deterministic_summary = _text(deterministic_review.get("summary"))
+    model_summary = _text(model_review.get("summary"))
+    summary_parts = [item for item in [deterministic_summary, model_summary] if item]
+    return {
+        "status": _review_status_from_findings(findings, followups=followups),
+        "summary": " ".join(summary_parts)
+        or (
+            f"Founder review completed with {len(findings)} finding(s) and "
+            f"{len(followups)} follow-up task(s)."
+        ),
+        "findings": findings,
+        "followups": followups,
+        "layers": {
+            "deterministic": {
+                "findings": len(
+                    [
+                        item
+                        for item in deterministic_review.get("findings", [])
+                        if isinstance(item, dict)
+                    ]
+                ),
+                "followups": len(
+                    [
+                        item
+                        for item in deterministic_review.get("followups", [])
+                        if isinstance(item, dict)
+                    ]
+                ),
+            },
+            "model": {
+                "findings": len(
+                    [item for item in model_review.get("findings", []) if isinstance(item, dict)]
+                ),
+                "followups": len(
+                    [item for item in model_review.get("followups", []) if isinstance(item, dict)]
+                ),
+            },
+        },
+    }
+
+
+def _review_status_from_findings(
+    findings: list[dict[str, Any]],
+    *,
+    followups: list[dict[str, Any]] | None = None,
+) -> str:
+    severities = {str(item.get("severity", "")).strip().lower() for item in findings}
+    if {"high", "medium"} & severities:
+        return "changes_requested"
+    if findings or (followups or []):
+        return "approved_with_followups"
+    return "approved"
+
+
+def _founder_review_model_prompt(
+    *,
+    brief: dict[str, Any],
+    handoffs: list[dict[str, Any]],
+) -> str:
+    compact_handoffs = [
+        {
+            "handoff_id": _text(item.get("handoff_id")),
+            "task_title": _text(item.get("task_title")),
+            "why_now": _text(item.get("why_now")),
+            "repo_evidence": list(item.get("repo_evidence", []) or []),
+            "file_scope": list(item.get("file_scope", []) or []),
+            "acceptance_criteria": list(item.get("acceptance_criteria", []) or []),
+            "validation": list(item.get("validation", []) or []),
+            "risk": _text(item.get("risk")),
+            "merge_class": _text(item.get("merge_class")),
+            "autonomy_mode": _text(item.get("autonomy_mode")),
+            "preferred_worker_agent": _text(item.get("preferred_worker_agent")),
+            "preferred_reviewer_agent": _text(item.get("preferred_reviewer_agent")),
+            "policy_reasons": list(item.get("policy_reasons", []) or []),
+        }
+        for item in handoffs
+    ]
+    prompt_payload = {
+        "initiative": {
+            "title": brief.get("title"),
+            "user_goal": brief.get("user_goal"),
+            "desired_business_outcome": brief.get("desired_business_outcome"),
+            "success_criteria": list(brief.get("success_criteria", []) or []),
+            "constraints": list(brief.get("constraints", []) or []),
+            "explicit_non_goals": list(brief.get("explicit_non_goals", []) or []),
+            "affected_product_surfaces": list(brief.get("affected_product_surfaces", []) or []),
+        },
+        "handoffs": compact_handoffs,
+    }
+    return (
+        "You are performing adversarial founder review on proposed execution handoffs. "
+        "Look for hidden ambiguity, weak acceptance criteria, missing validation, unsafe merge/autonomy "
+        "policy, architectural debt, overlap, or poor cross-model review pairing.\n\n"
+        "Return JSON only with this shape:\n"
+        "{\n"
+        '  "summary": "short summary",\n'
+        '  "findings": [\n'
+        "    {\n"
+        '      "severity": "low|medium|high",\n'
+        '      "category": "short_category",\n'
+        '      "title": "short title",\n'
+        '      "detail": "why this matters",\n'
+        '      "handoff_ids": ["handoff_id"],\n'
+        '      "recommended_action": "specific fix"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
+        "Only include findings that materially improve execution quality or safety.\n\n"
+        f"{json.dumps(prompt_payload, indent=2, sort_keys=True)}"
+    )
+
+
+def _extract_first_json_object(text: str) -> dict[str, Any]:
+    raw = str(text or "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (json.JSONDecodeError, ValueError):
+        pass
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return {}
+    try:
+        parsed = json.loads(raw[start : end + 1])
+        return parsed if isinstance(parsed, dict) else {}
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+
+def _normalize_model_review_findings(
+    payload: dict[str, Any],
+    *,
+    handoffs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    known_handoff_ids = {
+        _text(item.get("handoff_id")) or "" for item in handoffs if _text(item.get("handoff_id"))
+    }
+    findings_raw = payload.get("findings")
+    if not isinstance(findings_raw, list):
+        return []
+    findings: list[dict[str, Any]] = []
+    for item in findings_raw:
+        if not isinstance(item, dict):
+            continue
+        title = _text(item.get("title"))
+        detail = _text(item.get("detail"))
+        if not title or not detail:
+            continue
+        handoff_ids: list[str] = []
+        raw_handoff_ids = item.get("handoff_ids")
+        if isinstance(raw_handoff_ids, list):
+            handoff_ids = [
+                str(value).strip()
+                for value in raw_handoff_ids
+                if str(value).strip() and str(value).strip() in known_handoff_ids
+            ]
+        elif _text(raw_handoff_ids) and _text(raw_handoff_ids) in known_handoff_ids:
+            handoff_ids = [_text(raw_handoff_ids) or ""]
+        severity = _text(item.get("severity")) or "medium"
+        if severity not in {"low", "medium", "high"}:
+            severity = "medium"
+        findings.append(
+            _review_finding(
+                finding_id=f"model_finding_{len(findings) + 1}",
+                severity=severity,
+                category=_text(item.get("category")) or "model_review",
+                title=title,
+                detail=detail,
+                handoff_ids=handoff_ids,
+                recommended_action=(
+                    _text(item.get("recommended_action"))
+                    or "Address this founder-review concern before autonomous execution."
+                ),
+            )
+        )
+    return findings
+
+
+def _model_review_followups(
+    *,
+    brief: dict[str, Any],
+    handoffs: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+    review_model: str,
+) -> list[dict[str, Any]]:
+    followups: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    handoff_by_id = {
+        _text(item.get("handoff_id")) or "": item
+        for item in handoffs
+        if _text(item.get("handoff_id"))
+    }
+    generic_validation = ["python3 -m pytest tests/ -q -k 'not benchmark'"]
+    for finding in findings:
+        severity = _text(finding.get("severity")) or "medium"
+        if severity not in {"high", "medium"}:
+            continue
+        for handoff_id in [
+            str(item).strip() for item in finding.get("handoff_ids", []) if str(item).strip()
+        ]:
+            handoff = handoff_by_id.get(handoff_id)
+            if not isinstance(handoff, dict):
+                continue
+            followup = _review_followup(
+                brief=brief,
+                handoff=handoff,
+                review_model=review_model,
+                title_suffix=_truncate_title(
+                    f"Address model review: {_text(finding.get('title')) or 'follow-up'}"
+                ),
+                description=_text(finding.get("detail"))
+                or "Resolve the model-detected founder review concern before execution.",
+                acceptance_criteria=[
+                    _text(finding.get("recommended_action"))
+                    or "Model-detected founder review concern is addressed.",
+                    "The handoff remains bounded and reviewable after the correction.",
+                ],
+                validation=list(handoff.get("validation", []) or []) or generic_validation,
+            )
+            _append_followup(followups, seen, followup)
+    return followups
+
+
+def _truncate_title(value: str, *, limit: int = 72) -> str:
+    text = _text(value) or ""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
 
 
 def _review_finding(

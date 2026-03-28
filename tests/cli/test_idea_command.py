@@ -321,6 +321,17 @@ def test_run_idea_review_returns_structured_findings_and_followups() -> None:
                 ]
             ),
         ),
+        patch(
+            "aragora.cli.commands.idea._model_review_founder_handoffs",
+            AsyncMock(
+                return_value={
+                    "status": "approved",
+                    "summary": "Model founder review found no additional issues.",
+                    "findings": [],
+                    "followups": [],
+                }
+            ),
+        ),
     ):
         result = asyncio.run(
             _run_idea_review(
@@ -344,6 +355,97 @@ def test_run_idea_review_returns_structured_findings_and_followups() -> None:
     assert len(result["review"]["findings"]) >= 3
     assert result["review"]["followups"]
     assert result["review"]["followups"][0]["task_title"].startswith("Implement intake endpoint:")
+
+
+def test_run_idea_review_merges_model_review_findings() -> None:
+    with (
+        patch(
+            "aragora.cli.commands.idea._generate_spec",
+            AsyncMock(
+                return_value={
+                    "title": "Founder intake",
+                    "user_goal": "Turn vague founder notes into executable work.",
+                    "desired_outcome": "A structured intake brief exists before coding starts.",
+                    "success_criteria": ["The system asks clarifying questions before execution."],
+                    "clarification_status": "decision_complete",
+                    "open_questions": [],
+                    "raw": "server/intake.py frontend",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._generate_founder_handoffs",
+            AsyncMock(
+                return_value=[
+                    {
+                        "handoff_id": "handoff_1",
+                        "task_title": "Implement intake endpoint",
+                        "risk": "medium",
+                        "merge_class": "manual",
+                        "autonomy_mode": "checkpoint",
+                        "preferred_worker_agent": "claude",
+                        "preferred_reviewer_agent": "codex",
+                        "file_scope": ["server/intake.py"],
+                        "acceptance_criteria": ["Founder intake exists"],
+                        "validation": ["python3 -m pytest tests/api/test_intake.py -q"],
+                        "repo_evidence": ["server/intake.py"],
+                        "policy_reasons": [],
+                        "description": "Implement intake endpoint",
+                    }
+                ]
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._model_review_founder_handoffs",
+            AsyncMock(
+                return_value={
+                    "status": "changes_requested",
+                    "summary": "Model review detected a missing non-goal boundary.",
+                    "findings": [
+                        {
+                            "finding_id": "model_finding_1",
+                            "severity": "medium",
+                            "category": "non_goal_boundary",
+                            "title": "Non-goals are still implicit",
+                            "detail": "The handoff could sprawl into adjacent intake UX work.",
+                            "handoff_ids": ["handoff_1"],
+                            "recommended_action": "Explicitly bound the handoff to backend intake API work.",
+                        }
+                    ],
+                    "followups": [
+                        {
+                            "handoff_id": "review_followup_intake-boundary",
+                            "task_title": "Implement intake endpoint: Add non-goal boundary",
+                            "file_scope": ["server/intake.py"],
+                        }
+                    ],
+                }
+            ),
+        ),
+    ):
+        result = asyncio.run(
+            _run_idea_review(
+                idea="Turn founder notes into initiatives",
+                skip_clarify=True,
+                priority="high",
+                track="2",
+                repo="synaptent/aragora",
+                max_tasks=3,
+                risk="medium",
+                merge_class="manual",
+                autonomy_mode="checkpoint",
+                worker_model="claude",
+                review_model="codex",
+                create_issues=False,
+            )
+        )
+
+    assert result["review"]["status"] == "changes_requested"
+    assert any(item.get("category") == "non_goal_boundary" for item in result["review"]["findings"])
+    assert any(
+        item.get("task_title") == "Implement intake endpoint: Add non-goal boundary"
+        for item in result["review"]["followups"]
+    )
 
 
 def test_issue_body_mentions_queue_metadata() -> None:

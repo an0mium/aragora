@@ -289,7 +289,7 @@ async def _plan_reviewed_tasks(
         worker_model=worker_model,
         review_model=review_model,
     )
-    review = _review_founder_handoffs(
+    review = await _review_founder_handoffs(
         brief=brief,
         handoffs=handoffs,
         review_model=review_model,
