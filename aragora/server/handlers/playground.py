@@ -1910,7 +1910,7 @@ class PlaygroundHandler(BaseHandler):
         # --- Content-addressed cache lookup (before rate limiting) ---
         cache_key: str | None = None
         model_ids: list[str] = []
-        if not live_stream_requested:
+        if not live_stream_requested and source != "oracle":
             try:
                 from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
