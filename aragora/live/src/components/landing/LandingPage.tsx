@@ -4,6 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
 import { HowItWorksSection } from './HowItWorksSection';
+import { LiveDemoSection } from './LiveDemoSection';
 import { ProblemSection } from './ProblemSection';
 import { PricingSection } from './PricingSection';
 import { Footer } from './Footer';
@@ -24,6 +25,7 @@ export function LandingPage() {
       <Header />
       <HeroSection />
       <HowItWorksSection />
+      <LiveDemoSection />
       <ProblemSection />
       <PricingSection />
       <Footer />

@@ -20,6 +20,10 @@ jest.mock('../HowItWorksSection', () => ({
   HowItWorksSection: () => <section data-testid="how-it-works">How It Works</section>,
 }));
 
+jest.mock('../LiveDemoSection', () => ({
+  LiveDemoSection: () => <section data-testid="live-demo">Live Demo</section>,
+}));
+
 jest.mock('../ProblemSection', () => ({
   ProblemSection: () => <section data-testid="problem">Problem</section>,
 }));
@@ -44,6 +48,7 @@ describe('LandingPage', () => {
       expect(screen.getByTestId('header')).toBeInTheDocument();
       expect(screen.getByTestId('hero-section')).toBeInTheDocument();
       expect(screen.getByTestId('how-it-works')).toBeInTheDocument();
+      expect(screen.getByTestId('live-demo')).toBeInTheDocument();
       expect(screen.getByTestId('problem')).toBeInTheDocument();
       expect(screen.getByTestId('pricing-section')).toBeInTheDocument();
       expect(screen.getByTestId('footer')).toBeInTheDocument();
