@@ -2524,6 +2524,12 @@ def _add_swarm_parser(subparsers) -> None:
         help="Seconds before a recently used runner profile becomes preferred again (default: 1800)",
     )
     swarm_parser.add_argument(
+        "--probe-limit",
+        type=int,
+        default=None,
+        help="Maximum runners to live-probe for 'swarm runner probe' or 'swarm runner maintain'",
+    )
+    swarm_parser.add_argument(
         "--allow-same-model-review",
         action="store_true",
         help="Allow worker and reviewer to use the same model for experiment runs",

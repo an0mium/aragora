@@ -167,12 +167,22 @@ class TestSwarmParser:
 
         parser = build_parser()
         args = parser.parse_args(
-            ["swarm", "runner", "register", "--runner-type", "claude", "--json"]
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "claude",
+                "--probe-limit",
+                "2",
+                "--json",
+            ]
         )
         assert args.command == "swarm"
         assert args.swarm_action_or_goal == "runner"
-        assert args.swarm_goal == "register"
+        assert args.swarm_goal == "probe"
         assert args.runner_type == "claude"
+        assert args.probe_limit == 2
         assert args.json is True
 
     def test_swarm_boss_parser_accepts_issue_list(self):
@@ -1327,6 +1337,142 @@ class TestSwarmCommand:
         assert '"execution_verified": 1' in out
         assert '"discovered_runners": [' in out
         assert '"selected_runner_ids": [' in out
+
+    def test_cmd_swarm_runner_probe_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="runner",
+            swarm_goal="probe",
+            runner_type="claude",
+            probe_limit=1,
+            json=True,
+        )
+        inspection = SimpleNamespace(
+            runner_id="claude-runner-123",
+            profile="max-02",
+            to_dict=lambda: {
+                "runner_id": "claude-runner-123",
+                "runner_type": "claude",
+                "profile": "max-02",
+                "auth_mode": "subscription",
+                "availability": "available",
+            },
+        )
+        probe = SimpleNamespace(
+            status="passed",
+            to_runner_fields=lambda: {
+                "probe_status": "passed",
+                "probe_checked_at": "2026-03-09T12:05:00+00:00",
+                "probe_detail": "Live prompt probe succeeded.",
+                "probe_latency_seconds": 1.2,
+                "probe_ttl_seconds": 3600,
+            },
+        )
+
+        with (
+            patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
+            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
+        ):
+            discover.return_value = [inspection]
+            auth_ctx.return_value = object()
+            registry_cls.return_value.resolve_boss_routing.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    "selected_runners": [],
+                    "selected_runner_ids": [],
+                    "blocked_reason": None,
+                }
+            )
+            registry_cls.return_value.record_probe.return_value = {
+                "runner_id": "claude-runner-123",
+                "runner_type": "claude",
+                "profile": "max-02",
+                "probe_status": "passed",
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"action": "probe"' in out
+        assert '"attempted": 1' in out
+        assert '"passed": 1' in out
+        assert '"probe_status": "passed"' in out
+
+    def test_cmd_swarm_runner_maintain_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="runner",
+            swarm_goal="maintain",
+            runner_type="claude",
+            probe_limit=1,
+            json=True,
+        )
+        inspection = SimpleNamespace(
+            runner_id="claude-runner-123",
+            profile="max-02",
+            to_dict=lambda: {
+                "runner_id": "claude-runner-123",
+                "runner_type": "claude",
+                "profile": "max-02",
+                "auth_mode": "subscription",
+                "availability": "available",
+            },
+        )
+        probe = SimpleNamespace(
+            status="failed",
+            to_runner_fields=lambda: {
+                "probe_status": "failed",
+                "probe_checked_at": "2026-03-09T12:05:00+00:00",
+                "probe_detail": "Probe failed",
+                "probe_latency_seconds": 2.4,
+                "probe_ttl_seconds": 3600,
+            },
+        )
+        routing_before = SimpleNamespace(
+            to_dict=lambda: {
+                "selected_runners": [{"runner_id": "claude-runner-123"}],
+                "selected_runner_ids": ["claude-runner-123"],
+                "blocked_reason": None,
+            }
+        )
+        routing_after = SimpleNamespace(
+            to_dict=lambda: {
+                "selected_runners": [],
+                "selected_runner_ids": [],
+                "blocked_reason": "no_eligible_registered_runners",
+            }
+        )
+
+        with (
+            patch(
+                "aragora.swarm.runner_registry.refresh_discovered_runners",
+                return_value=[inspection],
+            ),
+            patch(
+                "aragora.swarm.runner_registry.prioritized_probe_candidates",
+                return_value=[inspection],
+            ),
+            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
+        ):
+            auth_ctx.return_value = object()
+            registry_cls.return_value.resolve_boss_routing.side_effect = [
+                routing_before,
+                routing_after,
+            ]
+            registry_cls.return_value.record_probe.return_value = {
+                "runner_id": "claude-runner-123",
+                "runner_type": "claude",
+                "profile": "max-02",
+                "probe_status": "failed",
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"action": "maintain"' in out
+        assert '"attempted": 1' in out
+        assert '"failed": 1' in out
+        assert '"selected_before": 1' in out
+        assert '"selected_after": 0' in out
 
     def test_cmd_swarm_requires_goal_or_spec(self, capsys):
         args = argparse.Namespace(

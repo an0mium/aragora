@@ -278,6 +278,46 @@ def _build_multi_runner_payload(
     }
 
 
+def _build_runner_probe_payload(
+    *,
+    subaction: str,
+    runners: list[dict[str, object]],
+    discovered: list[dict[str, object]],
+    routing_before: dict[str, object] | None = None,
+    routing_after: dict[str, object] | None = None,
+) -> dict[str, object]:
+    attempted = len(runners)
+    passed = len(
+        [item for item in runners if str(item.get("probe_status", "")).strip() == "passed"]
+    )
+    failed = len(
+        [item for item in runners if str(item.get("probe_status", "")).strip() == "failed"]
+    )
+    payload: dict[str, object] = {
+        "mode": "runner",
+        "action": subaction,
+        "summary": {
+            "discovered": len(discovered),
+            "attempted": attempted,
+            "passed": passed,
+            "failed": failed,
+        },
+        "runners": runners,
+        "discovered_runners": discovered,
+    }
+    if routing_before is not None:
+        payload["routing_before"] = routing_before
+        payload["summary"]["selected_before"] = len(
+            [item for item in routing_before.get("selected_runners", []) if isinstance(item, dict)]
+        )
+    if routing_after is not None:
+        payload["routing_after"] = routing_after
+        payload["summary"]["selected_after"] = len(
+            [item for item in routing_after.get("selected_runners", []) if isinstance(item, dict)]
+        )
+    return payload
+
+
 def _render_tranche_queue_status(payload: dict[str, object]) -> None:
     print(
         "queue_id={queue_id} status={status} current_item_id={current_item_id}".format(
@@ -363,6 +403,14 @@ def _run_supervised_or_report(awaitable: object) -> object | None:
     except ValueError as exc:
         print(f"Error: {exc}")
         return None
+
+
+def _probe_limit_arg(args: argparse.Namespace, *, default: int = 1) -> int:
+    raw = getattr(args, "probe_limit", default)
+    try:
+        return max(1, int(raw or default))
+    except (TypeError, ValueError):
+        return default
 
 
 def _load_structured_object(source: str) -> dict[str, object]:
@@ -672,13 +720,16 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             LocalRunnerRegistry,
             authorization_context_from_env,
             discover_runner_inspections,
+            prioritized_probe_candidates,
+            probe_runner_execution,
             refresh_discovered_runners,
         )
 
         subaction = str(goal or "inspect").strip().lower()
-        if subaction not in {"inspect", "register", "heartbeat", "report"}:
+        if subaction not in {"inspect", "register", "heartbeat", "report", "probe", "maintain"}:
             print(
-                "Error: swarm runner action must be 'inspect', 'register', 'heartbeat', or 'report'"
+                "Error: swarm runner action must be 'inspect', 'register', 'heartbeat', "
+                "'report', 'probe', or 'maintain'"
             )
             return
 
@@ -689,6 +740,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             or "codex"
         )
         inspections: list[object] = []
+        probe_limit = _probe_limit_arg(args, default=1 if subaction == "maintain" else 2)
         if subaction == "register":
             inspections = discover_runner_inspections(
                 runner_type,
@@ -759,6 +811,129 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 ).to_dict(),
                 discovered=[item.to_dict() for item in inspections],
             )
+        elif subaction == "probe":
+            owner_context = authorization_context_from_env()
+            registry = LocalRunnerRegistry()
+            inspections = discover_runner_inspections(
+                runner_type,
+                env=os.environ,
+                repo_root=Path.cwd(),
+            )
+            routing_before = (
+                registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=runner_type,
+                    allowed_profiles=allowed_runner_profiles,
+                    rotation_interval_seconds=runner_rotation_interval,
+                ).to_dict()
+                if owner_context is not None
+                else None
+            )
+            probe_payloads: list[dict[str, object]] = []
+            for inspection in inspections[:probe_limit]:
+                probe = probe_runner_execution(
+                    inspection,
+                    repo_root=Path.cwd(),
+                )
+                probe_payloads.append(
+                    registry.record_probe(
+                        inspection,
+                        probe,
+                        owner_context=owner_context,
+                    )
+                )
+            routing_after = (
+                registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=runner_type,
+                    allowed_profiles=allowed_runner_profiles,
+                    rotation_interval_seconds=runner_rotation_interval,
+                ).to_dict()
+                if owner_context is not None
+                else None
+            )
+            payload = _build_runner_probe_payload(
+                subaction=subaction,
+                runners=probe_payloads,
+                discovered=[item.to_dict() for item in inspections],
+                routing_before=routing_before,
+                routing_after=routing_after,
+            )
+        elif subaction == "maintain":
+            owner_context = authorization_context_from_env()
+            registry = LocalRunnerRegistry()
+            inspections = (
+                refresh_discovered_runners(
+                    runner_type,
+                    registry=registry,
+                    owner_context=owner_context,
+                    env=os.environ,
+                    repo_root=Path.cwd(),
+                )
+                if owner_context is not None
+                else discover_runner_inspections(
+                    runner_type,
+                    env=os.environ,
+                    repo_root=Path.cwd(),
+                )
+            )
+            routing_before = (
+                registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=runner_type,
+                    allowed_profiles=allowed_runner_profiles,
+                    rotation_interval_seconds=runner_rotation_interval,
+                ).to_dict()
+                if owner_context is not None
+                else None
+            )
+            candidates = (
+                prioritized_probe_candidates(
+                    registry=registry,
+                    runner_type=runner_type,
+                    discovered_inspections=inspections,
+                    owner_context=owner_context,
+                    selected_runners=(
+                        list(routing_before.get("selected_runners", []))
+                        if isinstance(routing_before, dict)
+                        else None
+                    ),
+                )
+                if owner_context is not None
+                else list(inspections)
+            )
+            if not candidates:
+                candidates = list(inspections)
+            probe_payloads = []
+            for inspection in candidates[:probe_limit]:
+                probe = probe_runner_execution(
+                    inspection,
+                    repo_root=Path.cwd(),
+                )
+                probe_payloads.append(
+                    registry.record_probe(
+                        inspection,
+                        probe,
+                        owner_context=owner_context,
+                    )
+                )
+            routing_after = (
+                registry.resolve_boss_routing(
+                    owner_context=owner_context,
+                    requested_runner_type=runner_type,
+                    allowed_profiles=allowed_runner_profiles,
+                    rotation_interval_seconds=runner_rotation_interval,
+                ).to_dict()
+                if owner_context is not None
+                else None
+            )
+            payload = _build_runner_probe_payload(
+                subaction=subaction,
+                runners=probe_payloads,
+                discovered=[item.to_dict() for item in inspections],
+                routing_before=routing_before,
+                routing_after=routing_after,
+            )
         else:
             inspections = discover_runner_inspections(
                 runner_type,
@@ -779,6 +954,26 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             if subaction == "report":
                 _render_runner_report(payload)
+            elif subaction in {"probe", "maintain"}:
+                summary = (
+                    payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
+                )
+                print(
+                    "Runner {action} discovered={discovered} attempted={attempted} "
+                    "passed={passed} failed={failed}".format(
+                        action=subaction,
+                        discovered=summary.get("discovered", 0),
+                        attempted=summary.get("attempted", 0),
+                        passed=summary.get("passed", 0),
+                        failed=summary.get("failed", 0),
+                    )
+                )
+                print()
+                for item in [
+                    entry for entry in payload.get("runners", []) if isinstance(entry, dict)
+                ]:
+                    print(render_runner_registration_text(item))
+                    print()
             elif "runners" in payload:
                 summary = (
                     payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
