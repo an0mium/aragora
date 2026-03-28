@@ -11,7 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.cli.commands.receipt import cmd_receipt_list, cmd_receipt_show
+from aragora.cli.commands.receipt import (
+    cmd_receipt_inspect,
+    cmd_receipt_list,
+    cmd_receipt_show,
+)
 
 
 @dataclass
@@ -125,3 +129,47 @@ def test_receipt_show_falls_back_to_legacy_when_durable_missing(
     payload = json.loads(output)
     assert payload["receipt_id"] == "legacy-rcpt-456"
     assert payload["gauntlet_id"] == "gauntlet-live-456"
+
+
+def test_receipt_inspect_reads_serialized_agent_response_fields(
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    response_text = "Concrete critique text."
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "receipt_id": "receipt-123",
+                "gauntlet_id": "debate-123",
+                "timestamp": "2026-03-28T08:00:00Z",
+                "input_summary": "Inspect regression repro",
+                "input_hash": "abc123",
+                "risk_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+                "attacks_attempted": 0,
+                "attacks_successful": 0,
+                "probes_run": 0,
+                "vulnerabilities_found": 0,
+                "verdict": "PASS",
+                "confidence": 0.91,
+                "robustness_score": 0.88,
+                "agent_responses": [
+                    {
+                        "agent": "critic-1",
+                        "response": response_text,
+                        "role": "critic",
+                        "round": 1,
+                        "provider": "openai",
+                        "model": "gpt-4.1",
+                    }
+                ],
+            }
+        )
+    )
+
+    cmd_receipt_inspect(argparse.Namespace(receipt=str(receipt_path)))
+
+    output = capsys.readouterr().out
+    assert "critic-1" in output
+    assert f"{len(response_text)} chars" in output
+    assert "unknown [critic]: 0 chars" not in output

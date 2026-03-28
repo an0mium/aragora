@@ -525,10 +525,16 @@ def cmd_receipt_inspect(args: argparse.Namespace) -> None:
     if agent_responses:
         print(f"\n--- Agent Responses ({len(agent_responses)}) ---")
         for resp in agent_responses[:10]:
-            name = resp.get("agent_name", "unknown")
-            role = resp.get("role", "")
-            model = resp.get("llm_label", "")
-            content = resp.get("content", "")
+            name = resp.get("agent") or resp.get("agent_name") or resp.get("name") or "unknown"
+            role = resp.get("role") or resp.get("message_type") or ""
+            model = (
+                resp.get("llm_label")
+                or resp.get("model")
+                or resp.get("provider_display")
+                or resp.get("provider")
+                or ""
+            )
+            content = resp.get("response") or resp.get("content") or ""
             length = len(content)
             label = f"{name}"
             if model:

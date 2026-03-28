@@ -818,8 +818,18 @@ class DecisionReceipt:
         ]
 
         config_used = getattr(result, "config_used", None)
-        if not isinstance(config_used, dict):
+        if isinstance(config_used, dict):
+            config_used = dict(config_used)
+        else:
             config_used = {}
+            result_config = getattr(result, "config", None)
+            if result_config is not None and hasattr(result_config, "to_dict"):
+                try:
+                    candidate_config = result_config.to_dict()
+                except (AttributeError, TypeError, ValueError):
+                    candidate_config = {}
+                if isinstance(candidate_config, dict):
+                    config_used = candidate_config
 
         # Extract structured critique summaries for the audit trail.
         _critiques = list(getattr(result, "critiques", []) or [])
@@ -834,13 +844,6 @@ class DecisionReceipt:
                 for c in _critiques
                 if getattr(c, "issues", None)
             ]
-
-        result_config = getattr(result, "config", None)
-        if not config_used and result_config is not None and hasattr(result_config, "to_dict"):
-            try:
-                config_used = result_config.to_dict()
-            except (AttributeError, TypeError, ValueError):
-                config_used = {}
 
         raw_cost_summary = getattr(result, "cost_summary", None)
         cost_summary = raw_cost_summary if isinstance(raw_cost_summary, dict) else None
@@ -1670,6 +1673,7 @@ class DecisionReceipt:
             "settlement_metadata": self.settlement_metadata,
             "settlement_status": self.settlement_status,
             "explainability": self.explainability,
+            "taint_analysis": self.taint_analysis,
             "thinking_traces": self.thinking_traces,
             "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
@@ -1694,10 +1698,28 @@ class DecisionReceipt:
             for record in provenance_data
         ]
         agent_response_data = data.get("agent_responses") or []
-        agent_responses = [
-            AgentResponseRecord(**record) if isinstance(record, dict) else record
-            for record in agent_response_data
-        ]
+        agent_responses: list[AgentResponseRecord] = []
+        for record in agent_response_data:
+            if isinstance(record, AgentResponseRecord):
+                agent_responses.append(record)
+                continue
+            if not isinstance(record, dict):
+                continue
+            normalized_meta = cls._normalize_agent_model_entry(record)
+            agent_responses.append(
+                AgentResponseRecord(
+                    agent=str(
+                        record.get("agent") or record.get("agent_name") or record.get("name") or ""
+                    ),
+                    response=str(record.get("response") or record.get("content") or ""),
+                    role=str(record.get("role") or record.get("message_type") or ""),
+                    round=cls._coerce_int(record.get("round") or record.get("round_number"), 0),
+                    provider=normalized_meta.get("provider", ""),
+                    provider_display=normalized_meta.get("provider_display", ""),
+                    model=normalized_meta.get("model", ""),
+                    llm_label=normalized_meta.get("llm_label", ""),
+                )
+            )
 
         return cls(
             receipt_id=data.get("receipt_id", ""),
@@ -1724,6 +1746,9 @@ class DecisionReceipt:
             cost_summary=data.get("cost_summary"),
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
+            explainability=data.get("explainability"),
+            taint_analysis=data.get("taint_analysis"),
+            thinking_traces=data.get("thinking_traces"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),

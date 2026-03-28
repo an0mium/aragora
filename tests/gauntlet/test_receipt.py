@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -343,6 +344,120 @@ class TestDecisionReceiptSerialization:
         assert restored.receipt_id == full_receipt.receipt_id
         assert restored.verdict == full_receipt.verdict
         assert restored.artifact_hash == full_receipt.artifact_hash
+
+    def test_round_trip_preserves_extended_metadata(self):
+        """Round-trip serialization keeps explainability, taint, and thinking fields."""
+        receipt = DecisionReceipt(
+            receipt_id="test-extended-123",
+            gauntlet_id="gauntlet-extended-456",
+            timestamp="2024-01-15T10:30:00Z",
+            input_summary="Extended metadata test",
+            input_hash="abc123",
+            risk_summary={"critical": 0, "high": 0, "medium": 0, "low": 0},
+            attacks_attempted=0,
+            attacks_successful=0,
+            probes_run=1,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=0.95,
+            robustness_score=0.9,
+            explainability={"summary": "why this passed"},
+            taint_analysis={"tainted": False, "sources": []},
+            thinking_traces={"critic-1": "trace"},
+        )
+
+        data = receipt.to_dict()
+        restored = DecisionReceipt.from_dict(data)
+
+        assert data["taint_analysis"] == {"tainted": False, "sources": []}
+        assert restored.explainability == receipt.explainability
+        assert restored.taint_analysis == receipt.taint_analysis
+        assert restored.thinking_traces == receipt.thinking_traces
+
+    def test_from_dict_accepts_legacy_agent_response_keys(self):
+        """Legacy agent response keys remain readable after serialization updates."""
+        restored = DecisionReceipt.from_dict(
+            {
+                "receipt_id": "test-legacy-agent-response",
+                "gauntlet_id": "gauntlet-legacy-agent-response",
+                "timestamp": "2024-01-15T10:30:00Z",
+                "input_summary": "Legacy agent response shape",
+                "input_hash": "abc123",
+                "risk_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+                "attacks_attempted": 0,
+                "attacks_successful": 0,
+                "probes_run": 1,
+                "vulnerabilities_found": 0,
+                "verdict": "PASS",
+                "confidence": 0.9,
+                "robustness_score": 0.85,
+                "agent_responses": [
+                    {
+                        "agent_name": "critic-1",
+                        "content": "Legacy content",
+                        "role": "critic",
+                        "round_number": 2,
+                    }
+                ],
+            }
+        )
+
+        assert len(restored.agent_responses) == 1
+        assert restored.agent_responses[0].agent == "critic-1"
+        assert restored.agent_responses[0].response == "Legacy content"
+        assert restored.agent_responses[0].round == 2
+
+    def test_from_mode_result_preserves_config_fallback_with_critiques(self):
+        """Critique summaries should augment config_used instead of replacing config.to_dict()."""
+        result = SimpleNamespace(
+            gauntlet_id="gauntlet-mode-123",
+            all_findings=[],
+            critical_findings=[],
+            high_findings=[],
+            medium_findings=[],
+            low_findings=[],
+            redteam_result=None,
+            probe_report=None,
+            audit_verdict=SimpleNamespace(value="pass"),
+            verdict=SimpleNamespace(value="pass"),
+            confidence=0.75,
+            robustness_score=0.81,
+            risk_score=0.25,
+            coverage_score=0.9,
+            verification_coverage=0.8,
+            created_at="2026-03-28T08:00:00Z",
+            input_summary="Mode result config fallback",
+            config=SimpleNamespace(to_dict=lambda: {"mode": "fallback", "rounds": 3}),
+            critiques=[
+                SimpleNamespace(
+                    agent="critic-1",
+                    target_agent="proposal-1",
+                    severity=0.4,
+                    issues=["Needs more evidence"],
+                )
+            ],
+            dissenting_views=["dissent"],
+            consensus_reached=True,
+            agents_involved=["agent-1"],
+            checksum="hash123",
+            messages=[],
+            proposals={},
+            participants=[],
+            metadata=None,
+        )
+
+        receipt = DecisionReceipt.from_mode_result(result, input_hash="abc123")
+
+        assert receipt.config_used["mode"] == "fallback"
+        assert receipt.config_used["rounds"] == 3
+        assert receipt.config_used["critique_summaries"] == [
+            {
+                "critic": "critic-1",
+                "target": "proposal-1",
+                "issues": ["Needs more evidence"],
+                "severity": 0.4,
+            }
+        ]
 
 
 class TestDecisionReceiptMarkdown:
