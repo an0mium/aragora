@@ -58,6 +58,7 @@ class DebateSummary(BaseModel):
     id: str
     task: str
     status: str
+    receipt_id: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
     round_count: int = 0
@@ -82,6 +83,7 @@ class DebateDetail(BaseModel):
     id: str
     task: str
     status: str
+    receipt_id: str | None = None
     protocol: dict[str, Any] = Field(default_factory=dict)
     agents: list[str] = Field(default_factory=list)
     rounds: list[dict[str, Any]] = Field(default_factory=list)
@@ -245,6 +247,39 @@ def get_nomic_dir() -> Path | None:
     return None
 
 
+def _extract_receipt_id(debate: Any) -> str | None:
+    """Read the persisted receipt identifier from common debate payload shapes."""
+
+    if isinstance(debate, dict):
+        metadata = debate.get("metadata")
+        result = debate.get("result")
+        top_level = debate.get("receipt_id")
+    else:
+        metadata = getattr(debate, "metadata", None)
+        result = getattr(debate, "result", None)
+        top_level = getattr(debate, "receipt_id", None)
+
+    if isinstance(top_level, str) and top_level:
+        return top_level
+
+    if isinstance(result, dict):
+        result_receipt_id = result.get("receipt_id")
+        if isinstance(result_receipt_id, str) and result_receipt_id:
+            return result_receipt_id
+
+    if isinstance(metadata, dict):
+        metadata_receipt_id = metadata.get("receipt_id")
+        if isinstance(metadata_receipt_id, str) and metadata_receipt_id:
+            return metadata_receipt_id
+        metadata_result = metadata.get("result")
+        if isinstance(metadata_result, dict):
+            nested_receipt_id = metadata_result.get("receipt_id")
+            if isinstance(nested_receipt_id, str) and nested_receipt_id:
+                return nested_receipt_id
+
+    return None
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -292,6 +327,7 @@ async def list_debates(
                     id=d.get("id", ""),
                     task=d.get("task", d.get("environment", {}).get("task", "")),
                     status=d.get("status", "unknown"),
+                    receipt_id=_extract_receipt_id(d),
                     created_at=d.get("created_at"),
                     updated_at=d.get("updated_at"),
                     round_count=len(d.get("rounds", [])),
@@ -304,6 +340,7 @@ async def list_debates(
                     id=getattr(d, "id", ""),
                     task=getattr(d, "task", getattr(getattr(d, "environment", None), "task", "")),
                     status=getattr(d, "status", "unknown"),
+                    receipt_id=_extract_receipt_id(d),
                     created_at=str(getattr(d, "created_at", ""))
                     if hasattr(d, "created_at")
                     else None,
@@ -356,6 +393,7 @@ async def get_debate(
                 id=debate.get("id", debate_id),
                 task=debate.get("task", debate.get("environment", {}).get("task", "")),
                 status=debate.get("status", "unknown"),
+                receipt_id=_extract_receipt_id(debate),
                 protocol=debate.get("protocol", {}),
                 agents=debate.get("agents", []),
                 rounds=debate.get("rounds", []),
@@ -373,6 +411,7 @@ async def get_debate(
                     debate, "task", getattr(getattr(debate, "environment", None), "task", "")
                 ),
                 status=getattr(debate, "status", "unknown"),
+                receipt_id=_extract_receipt_id(debate),
                 protocol=getattr(debate, "protocol", {}).__dict__
                 if hasattr(getattr(debate, "protocol", None), "__dict__")
                 else {},
