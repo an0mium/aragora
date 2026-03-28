@@ -203,6 +203,14 @@ export interface DebateCreateRequest {
   trending_category?: "tech" | "science" | "politics" | "business" | "health";
   /** Optional metadata for tracking and integrations */
   metadata?: Record<string, any>;
+  /** Post-consensus quality pipeline configuration. When present, the server applies deterministic quality checks and repairs to the consensus answer. */
+  quality_pipeline?: {
+    enabled?: boolean;
+    required_sections?: string[];
+    output_contract_file?: string;
+    quality_min_score?: number;
+    practicality_min_score?: number;
+  };
 }
 
 export interface DebateCreateResponse {
