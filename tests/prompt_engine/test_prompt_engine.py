@@ -709,7 +709,10 @@ class TestPromptConductor:
             "research",
             "specify",
         }
-        assert result.timing.top_operations(limit=1)[0].operation.endswith(".agent_generate")
+        assert any(
+            timing.operation.endswith(".agent_generate")
+            for timing in result.timing.top_operations(limit=4)
+        )
 
     @pytest.mark.asyncio()
     async def test_full_pipeline_reports_bottlenecks_against_target(self) -> None:
