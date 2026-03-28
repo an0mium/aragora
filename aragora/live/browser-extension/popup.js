@@ -39,6 +39,20 @@ function isTerminalState(state) {
   return TERMINAL_STATUSES.has(normalized) || Boolean(state?.result?.finalAnswer);
 }
 
+function resolveFinalAnswer(result) {
+  return (
+    result?.final_answer ||
+    result?.finalAnswer ||
+    result?.answer ||
+    result?.summary ||
+    result?.consensus?.final_answer ||
+    result?.consensus?.finalAnswer ||
+    result?.consensus?.summary ||
+    result?.consensus?.answer ||
+    ""
+  );
+}
+
 async function getStoredState() {
   const stored = await chrome.storage.local.get(STATE_KEY);
   return stored[STATE_KEY] || null;
@@ -182,6 +196,7 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 function buildResultState(previousState, debate) {
   const confidence = Number(debate?.consensus?.confidence);
   const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
+  const finalAnswer = resolveFinalAnswer(debate);
 
   return {
     ...previousState,
@@ -190,11 +205,7 @@ function buildResultState(previousState, debate) {
     result: {
       debateId: debate.id || previousState.debateId,
       status: debate.status || previousState.status || "running",
-      finalAnswer:
-        debate.final_answer ||
-        debate.consensus?.final_answer ||
-        debate.consensus?.summary ||
-        "",
+      finalAnswer,
       confidence: Number.isNaN(confidence) ? null : confidence,
       task: debate.task || "",
     },

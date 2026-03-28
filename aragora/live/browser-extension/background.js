@@ -7,6 +7,8 @@ const DEFAULT_SETTINGS = {
   rounds: 3,
   consensus: "majority",
 };
+const ADVERSARIAL_REVIEW_PROMPT =
+  "Provide an adversarial review of the selected webpage text. Surface the strongest objections, hidden assumptions, factual uncertainties, risks, and follow-up questions.";
 const QUESTION_LIMIT = 5000;
 const SELECTION_LIMIT = 9000;
 
@@ -84,24 +86,19 @@ function buildRequestPayload(selectionText, source, settings) {
   const titleLine = source.pageTitle ? `Source title: ${source.pageTitle}` : "";
   const urlLine = source.pageUrl ? `Source URL: ${source.pageUrl}` : "";
   const sourceContext = [titleLine, urlLine].filter(Boolean).join("\n");
-
-  let question = selectionText;
-  let context = sourceContext;
-
-  if (selectionText.length > QUESTION_LIMIT) {
-    question = source.pageTitle
-      ? `Analyze the selected text from "${source.pageTitle}".`
-      : "Analyze the selected text from the current page.";
-    context = [sourceContext, "Selected text:", selectionText].filter(Boolean).join("\n\n");
-  }
+  const selectionContext = selectionText.length > QUESTION_LIMIT
+    ? `${selectionText.slice(0, QUESTION_LIMIT)}\n\n[truncated]`
+    : selectionText;
+  const context = [sourceContext, "Selected text:", selectionContext].filter(Boolean).join("\n\n");
 
   const payload = {
-    question,
+    question: ADVERSARIAL_REVIEW_PROMPT,
     rounds: Number(settings.rounds) || DEFAULT_SETTINGS.rounds,
     consensus: settings.consensus || DEFAULT_SETTINGS.consensus,
     auto_select: !String(settings.agents || "").trim(),
     metadata: {
       source: "browser_extension_context_menu",
+      review_type: "adversarial_selection",
       source_title: source.pageTitle || "",
       source_url: source.pageUrl || "",
     },

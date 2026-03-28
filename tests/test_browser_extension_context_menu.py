@@ -30,6 +30,8 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
     manifest = json.loads(_read_file("manifest.json"))
 
     assert manifest["manifest_version"] == 3
+    assert manifest["name"] == "Aragora Adversarial Review"
+    assert "adversarial review" in manifest["description"].lower()
     assert manifest["background"]["service_worker"] == "background.js"
     assert manifest["action"]["default_popup"] == "popup.html"
     assert {"activeTab", "contextMenus", "storage"}.issubset(set(manifest["permissions"]))
@@ -49,6 +51,9 @@ def test_background_script_handles_context_menu_selection_and_api_submission() -
     assert "chrome.storage.local.set" in background_script
     assert "/api/v2/debates" in background_script
     assert 'Authorization: `Bearer ${String(settings.apiKey || "").trim()}`' in background_script
+    assert "Provide an adversarial review of the selected webpage text." in background_script
+    assert '"review_type": "adversarial_selection"' in background_script
+    assert '"Selected text:"' in background_script
 
 
 def test_popup_assets_render_saved_selection_and_latest_result() -> None:
@@ -56,6 +61,7 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     popup_js = _read_file("popup.js")
     content_script = _read_file("content.js")
 
+    assert "Adversarial Review" in popup_html
     assert 'id="selection-preview"' in popup_html
     assert 'id="debate-id"' in popup_html
     assert 'id="result-answer"' in popup_html
@@ -63,6 +69,9 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
 
     assert "chrome.storage.onChanged.addListener" in popup_js
     assert "window.setInterval" in popup_js
+    assert "resolveFinalAnswer" in popup_js
+    assert "result?.answer" in popup_js
+    assert "result?.consensus?.summary" in popup_js
     assert "finalAnswer" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
 
