@@ -32,8 +32,13 @@ export function ForkVisualizer({
   }, [onForkSelect]);
 
   const handleCompareSelect = useCallback((node: ForkNode, slot: 0 | 1) => {
+    const nextSelectedNodes: [ForkNode | null, ForkNode | null] =
+      slot === 0
+        ? [node, fork.selectedNodes[1]]
+        : [fork.selectedNodes[0], node];
+
     fork.selectForComparison(node, slot);
-    if (fork.selectedNodes[0] && fork.selectedNodes[1]) {
+    if (nextSelectedNodes[0] && nextSelectedNodes[1]) {
       setActiveTab('compare');
     }
   }, [fork]);
