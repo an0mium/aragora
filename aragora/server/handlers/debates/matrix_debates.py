@@ -467,9 +467,12 @@ class MatrixDebatesHandler(SecureHandler):
 
             # Process results
             valid_results: list[dict[str, Any]] = []
+            missing_agents = False
             for r in gather_results:
                 if isinstance(r, BaseException):
                     logger.error("Scenario failed: %s", r)
+                    if isinstance(r, ValueError) and str(r).startswith("No valid agents found"):
+                        missing_agents = True
                 else:
                     valid_results.append(r)
                     if r.get("final_answer"):
@@ -480,6 +483,9 @@ class MatrixDebatesHandler(SecureHandler):
                                 "confidence": r["confidence"],
                             }
                         )
+
+            if not valid_results and missing_agents:
+                return error_response("No valid agents found", 400)
 
             # Find universal conclusions (conclusions that appear in all scenarios)
             universal_conclusions = self._find_universal_conclusions(valid_results)
