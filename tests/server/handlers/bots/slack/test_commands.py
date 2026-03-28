@@ -130,6 +130,10 @@ class TestAskCommand:
 
         assert result is not None
         assert result.status_code == 200
+        _, kwargs = mock_start.call_args
+        di = kwargs["decision_integrity"]
+        assert di["include_receipt"] is True
+        assert di["notify_origin"] is True
 
     @pytest.mark.asyncio
     async def test_ask_command_validates_topic(self, mock_request):

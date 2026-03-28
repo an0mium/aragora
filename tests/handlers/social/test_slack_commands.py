@@ -330,8 +330,14 @@ class TestCommandAsk:
         assert "blocks" in body
 
     def test_ask_queues_async_task(self, slack_handler, commands_module, monkeypatch):
-        mock_create = MagicMock()
+        def capture_task(coro, **kwargs):
+            coro.close()
+            return MagicMock()
+
+        mock_create = MagicMock(side_effect=capture_task)
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
+        slack_handler._create_debate_async = AsyncMock()
+        slack_handler._answer_question_async = AsyncMock()
         slack_handler._command_ask(
             "What is quantum computing used for?",
             "U1",
@@ -339,12 +345,28 @@ class TestCommandAsk:
             "https://hooks.slack.com/resp",
         )
         mock_create.assert_called_once()
+        slack_handler._create_debate_async.assert_called_once()
+        slack_handler._answer_question_async.assert_not_called()
+        call = slack_handler._create_debate_async.call_args
+        assert call.args[:5] == (
+            "What is quantum computing used for?",
+            "https://hooks.slack.com/resp",
+            "U1",
+            "C1",
+            None,
+        )
+        di = call.kwargs["decision_integrity"]
+        assert di["include_receipt"] is True
+        assert di["notify_origin"] is True
+        assert di["requested_by"] == "slack:U1"
 
     def test_ask_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()
         monkeypatch.setattr(commands_module, "create_tracked_task", mock_create)
+        slack_handler._create_debate_async = AsyncMock()
         slack_handler._command_ask("What is quantum computing used for?", "U1", "C1", "")
         mock_create.assert_not_called()
+        slack_handler._create_debate_async.assert_not_called()
 
     def test_ask_response_includes_user_id(self, slack_handler, commands_module, monkeypatch):
         monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())

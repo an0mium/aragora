@@ -263,7 +263,7 @@ class CommandsMixin(BlocksMixin):
 `/aragora debate "topic"` - Start a multi-agent debate on a topic
 `/aragora plan "topic"` - Debate with an implementation plan
 `/aragora implement "topic"` - Debate with plan + context snapshot
-`/aragora ask "question"` - Quick Q&A without full debate
+`/aragora ask "question"` - Debate a question and return a receipt
 `/aragora gauntlet "statement"` - Run adversarial stress-test validation
 `/aragora stop [debate_id]` - Stop a running debate
 
@@ -406,7 +406,7 @@ Reply in thread to add suggestions to ongoing debates
         workspace: Any | None = None,
         team_id: str | None = None,
     ) -> HandlerResult:
-        """Quick Q&A without full debate - uses single agent for fast answers.
+        """Start a debate-backed answer flow that returns a receipt.
 
         Args:
             args: The question to answer
@@ -437,13 +437,22 @@ Reply in thread to add suggestions to ongoing debates
                 response_type="ephemeral",
             )
 
-        # Acknowledge immediately
+        decision_integrity = {
+            "include_receipt": True,
+            "notify_origin": True,
+            "requested_by": f"slack:{user_id}",
+        }
+
+        # Acknowledge immediately while the debate runs asynchronously.
         blocks: list[dict[str, Any]] = [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Processing question:*\n_{question[:200]}{'...' if len(question) > 200 else ''}_",
+                    "text": (
+                        f"*Starting debated answer on:*\n"
+                        f"_{question[:200]}{'...' if len(question) > 200 else ''}_"
+                    ),
                 },
             },
             {
@@ -451,22 +460,29 @@ Reply in thread to add suggestions to ongoing debates
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"Asked by <@{user_id}> | Thinking...",
+                        "text": f"Requested by <@{user_id}> | Agents are deliberating...",
                     },
                 ],
             },
         ]
 
-        # Queue the question asynchronously
+        # Queue the debate asynchronously so the final Slack result includes a receipt.
         if response_url:
             create_tracked_task(
-                self._answer_question_async(question, response_url, user_id, channel_id),
+                self._create_debate_async(
+                    question,
+                    response_url,
+                    user_id,
+                    channel_id,
+                    team_id,
+                    decision_integrity=decision_integrity,
+                ),
                 name=f"slack-ask-{question[:30]}",
             )
 
         return self._slack_blocks_response(
             blocks,
-            text=f"Processing: {question[:50]}...",
+            text=f"Starting debated answer: {question[:50]}...",
             response_type="in_channel",
         )
 

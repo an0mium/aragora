@@ -209,14 +209,19 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 )
 
             decision_integrity = None
-            if subcommand in ("plan", "implement"):
+            if subcommand in ("ask", "plan", "implement"):
                 decision_integrity = {
                     "include_receipt": True,
-                    "include_plan": True,
-                    "include_context": subcommand == "implement",
-                    "plan_strategy": "single_task",
                     "notify_origin": True,
                 }
+                if subcommand in ("plan", "implement"):
+                    decision_integrity.update(
+                        {
+                            "include_plan": True,
+                            "include_context": subcommand == "implement",
+                            "plan_strategy": "single_task",
+                        }
+                    )
                 if subcommand == "implement":
                     decision_integrity["execution_mode"] = "execute"
                     decision_integrity["execution_engine"] = "hybrid"
@@ -304,7 +309,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     "response_type": "ephemeral",
                     "text": (
                         "*Aragora Commands*\n\n"
-                        "`/aragora ask <question>` - Start a new debate\n"
+                        "`/aragora ask <question>` - Start a debate with a receipt\n"
                         "`/aragora plan <question>` - Debate + implementation plan\n"
                         "`/aragora implement <question>` - Debate + plan with context snapshot\n"
                         "`/aragora status` - Show active debates\n"

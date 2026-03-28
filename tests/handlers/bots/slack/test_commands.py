@@ -391,7 +391,10 @@ class TestAskSubcommand:
         mock_start_debate.assert_awaited_once()
         call_kwargs = mock_start_debate.call_args
         assert call_kwargs.kwargs["topic"] == "What is the best database?"
-        assert call_kwargs.kwargs["decision_integrity"] is None
+        di = call_kwargs.kwargs["decision_integrity"]
+        assert di["include_receipt"] is True
+        assert di["notify_origin"] is True
+        assert "include_plan" not in di
 
     @pytest.mark.asyncio
     async def test_ask_without_args_returns_help(self, commands_module, mock_rbac_off, mock_audit):
