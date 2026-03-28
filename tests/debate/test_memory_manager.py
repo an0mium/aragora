@@ -516,6 +516,36 @@ class TestMemoryManagerFetchHistoricalContext:
         assert "HISTORICAL CONTEXT" in result
         assert "85% similar" in result
         assert "72% similar" in result
+        assert "Similar debate about testing" in result
+
+    @pytest.mark.asyncio
+    async def test_fetch_surfaces_previous_conclusion(self):
+        """fetch_historical_context highlights the prior conclusion explicitly."""
+        embedded_debate = """
+Debate Context:
+- Loop: loop-1
+- Cycle: 3
+- Phase: final
+- Task: Should we use Redis for rate limiting?
+- Agents: claude, gpt4
+- Consensus: Yes
+- Confidence: 0.91
+- Winning Proposal: Use Redis-backed token buckets with per-key TTLs.
+
+Transcript:
+claude (proposal): Redis keeps shared state consistent.
+        """.strip()
+        mock_embeddings = MagicMock()
+        mock_embeddings.find_similar_debates = AsyncMock(
+            return_value=[("debate-redis", embedded_debate, 0.88)]
+        )
+        manager = MemoryManager(debate_embeddings=mock_embeddings)
+
+        result = await manager.fetch_historical_context("rate limiting")
+
+        assert "Task: Should we use Redis for rate limiting?" in result
+        assert "Previous conclusion: Use Redis-backed token buckets with per-key TTLs." in result
+        assert "Historical outcome: Consensus: Yes, Confidence: 0.91" in result
 
 
 class TestMemoryManagerStoreEvidence:

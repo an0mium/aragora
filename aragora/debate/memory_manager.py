@@ -1093,6 +1093,73 @@ class MemoryManager:
         level_value = getattr(confidence_level, "value", str(confidence_level)).lower()
         return level_map.get(level_value, 0.5)
 
+    @staticmethod
+    def _extract_historical_field(
+        debate_text: str,
+        marker: str,
+        *,
+        stop_markers: tuple[str, ...] = (),
+    ) -> str:
+        """Extract a labeled field from indexed debate text."""
+        _, found, remainder = debate_text.partition(marker)
+        if not found:
+            return ""
+
+        cutoff = len(remainder)
+        for stop_marker in stop_markers:
+            stop_index = remainder.find(stop_marker)
+            if stop_index != -1:
+                cutoff = min(cutoff, stop_index)
+
+        value = remainder[:cutoff]
+        normalized = " ".join(value.strip().split())
+        if normalized == "None":
+            return ""
+        return normalized
+
+    def _format_historical_debate_summary(self, debate_text: str) -> list[str]:
+        """Format a similar debate so prior conclusions are explicit."""
+        task = self._extract_historical_field(debate_text, "- Task:", stop_markers=("\n-",))
+        consensus = self._extract_historical_field(
+            debate_text,
+            "- Consensus:",
+            stop_markers=("\n-",),
+        )
+        confidence = self._extract_historical_field(
+            debate_text,
+            "- Confidence:",
+            stop_markers=("\n-",),
+        )
+        winning_proposal = self._extract_historical_field(
+            debate_text,
+            "- Winning Proposal:",
+            stop_markers=("\nTranscript:", "\n\nTranscript:"),
+        )
+
+        lines: list[str] = []
+        if task:
+            lines.append(f"Task: {task}")
+
+        if winning_proposal:
+            lines.append(f"Previous conclusion: {winning_proposal[:400]}")
+
+        history_bits = []
+        if consensus:
+            history_bits.append(f"Consensus: {consensus}")
+        if confidence:
+            history_bits.append(f"Confidence: {confidence}")
+        if history_bits:
+            lines.append("Historical outcome: " + ", ".join(history_bits))
+
+        if lines:
+            return lines
+
+        fallback = " ".join(debate_text.strip().split())
+        if fallback:
+            return [fallback[:500]]
+
+        return []
+
     async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
 
@@ -1141,7 +1208,13 @@ class MemoryManager:
             lines.append("Learn from these previous debates on similar topics:\n")
 
             for debate_id, excerpt, similarity in results:
-                lines.append(f"**[{similarity:.0%} similar]** {excerpt}")
+                summary_lines = self._format_historical_debate_summary(excerpt)
+                if summary_lines:
+                    first_line, *extra_lines = summary_lines
+                    lines.append(f"**[{similarity:.0%} similar]** {first_line}")
+                    lines.extend(extra_lines)
+                else:
+                    lines.append(f"**[{similarity:.0%} similar]** Debate ID: {debate_id}")
                 lines.append("")  # blank line between entries
 
             return "\n".join(lines)
