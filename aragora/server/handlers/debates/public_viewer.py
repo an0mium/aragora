@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
-import re
 import time
 from typing import Any
 
@@ -24,6 +23,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.validation.entities import validate_debate_id
 
 logger = logging.getLogger(__name__)
 
@@ -68,16 +68,11 @@ def _reset_public_viewer_rate_limits() -> None:
 # Debate retrieval helpers
 # ---------------------------------------------------------------------------
 
-# Debate ID: hex string, 16-32 chars (matches playground IDs)
-_DEBATE_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
-
-# Also support playground-prefixed IDs like playground_abcd1234
-_PLAYGROUND_ID_RE = re.compile(r"^playground_[a-f0-9]{8,16}$")
-
 
 def _is_valid_debate_id(debate_id: str) -> bool:
     """Validate debate ID format to prevent path traversal."""
-    return bool(_DEBATE_ID_RE.match(debate_id) or _PLAYGROUND_ID_RE.match(debate_id))
+    is_valid, _ = validate_debate_id(debate_id)
+    return is_valid
 
 
 def _get_debate_result(debate_id: str) -> dict[str, Any] | None:
@@ -123,8 +118,9 @@ _DEFAULT_OG_IMAGE = "https://aragora.ai/og-card.png"
 def _render_og_html(debate: dict[str, Any], debate_id: str) -> str:
     """Render an HTML page with Open Graph meta tags for social previews."""
     esc = html_mod.escape
+    result = debate.get("result", {}) if isinstance(debate.get("result"), dict) else {}
 
-    topic = debate.get("topic", "Untitled Debate")
+    topic = debate.get("topic") or debate.get("question") or debate.get("task") or "Untitled Debate"
     # Truncate to 60 chars for OG title
     if len(topic) > 60:
         og_title = topic[:57] + "..."
@@ -132,11 +128,19 @@ def _render_og_html(debate: dict[str, Any], debate_id: str) -> str:
         og_title = topic
     og_title = f"Aragora Debate: {og_title}"
 
-    verdict = debate.get("verdict") or debate.get("final_answer") or "Pending"
-    confidence = debate.get("confidence", 0.0)
-    participants = debate.get("participants", [])
+    verdict = (
+        debate.get("verdict")
+        or result.get("verdict")
+        or debate.get("final_answer")
+        or result.get("final_answer")
+        or "Pending"
+    )
+    confidence = debate.get("confidence", result.get("confidence", 0.0))
+    participants = (
+        debate.get("participants") or result.get("participants") or debate.get("agents", [])
+    )
     agent_count = len(participants)
-    consensus = debate.get("consensus_reached", False)
+    consensus = debate.get("consensus_reached", result.get("consensus_reached", False))
 
     # Build description
     desc_parts = []
@@ -238,6 +242,50 @@ class PublicDebateViewerHandler(BaseHandler):
             return parts[5]
         return None
 
+    def _get_storage(self) -> Any | None:
+        """Return the primary debate storage when available."""
+        storage = self.ctx.get("storage")
+        if storage is not None:
+            return storage
+
+        try:
+            from aragora.server.storage import get_debates_db
+
+            return get_debates_db()
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("Primary debate storage unavailable: %s", exc)
+            return None
+
+    def _get_public_debate(self, debate_id: str) -> dict[str, Any] | None:
+        """Load a debate that is safe to expose publicly."""
+        result = _get_debate_result(debate_id)
+        if result is not None and _is_shareable(result):
+            return result
+
+        storage = self._get_storage()
+        if storage is None:
+            return None
+
+        try:
+            from aragora.server.handlers.debates.share import is_publicly_shared
+
+            is_public = False
+            if hasattr(storage, "is_public"):
+                is_public = bool(storage.is_public(debate_id))
+            if not is_public:
+                is_public = is_publicly_shared(debate_id)
+            if not is_public:
+                return None
+
+            if hasattr(storage, "get_debate"):
+                debate = storage.get_debate(debate_id)
+                if isinstance(debate, dict):
+                    return debate
+        except (ImportError, AttributeError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("Public debate lookup failed for %s: %s", debate_id, exc)
+
+        return None
+
     # ------------------------------------------------------------------
     # GET /api/v1/debates/public/{id}
     # GET /api/v1/debates/public/{id}/og
@@ -280,22 +328,16 @@ class PublicDebateViewerHandler(BaseHandler):
 
     def _handle_public_debate(self, debate_id: str) -> HandlerResult:
         """Return the debate result JSON for a publicly shared debate."""
-        result = _get_debate_result(debate_id)
+        result = self._get_public_debate(debate_id)
         if result is None:
-            return error_response("Debate not found", 404)
-
-        if not _is_shareable(result):
             return error_response("Debate not found", 404)
 
         return json_response(result)
 
     def _handle_og(self, debate_id: str) -> HandlerResult:
         """Return HTML with Open Graph meta tags for social previews."""
-        result = _get_debate_result(debate_id)
+        result = self._get_public_debate(debate_id)
         if result is None:
-            return error_response("Debate not found", 404)
-
-        if not _is_shareable(result):
             return error_response("Debate not found", 404)
 
         html_content = _render_og_html(result, debate_id)

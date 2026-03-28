@@ -104,8 +104,16 @@ function jsonResponse(data: unknown, ok = true, status = 200): Response {
 }
 
 describe('DebateDetailClient bridge actions', () => {
+  const mockWriteText = jest.fn().mockResolvedValue(undefined);
+
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: mockWriteText,
+      },
+    });
 
     mockFetch.mockImplementation((input: string | URL | Request) => {
       const url = String(input);
@@ -139,6 +147,15 @@ describe('DebateDetailClient bridge actions', () => {
 
       if (url === 'http://backend.test/api/v1/debates/debate-123/bridge') {
         return Promise.resolve(jsonResponse({ success: true }));
+      }
+
+      if (url === 'http://backend.test/api/v1/debates/debate-123/share') {
+        return Promise.resolve(
+          jsonResponse({
+            share_url: '/debate/debate-123',
+            full_url: 'https://share.test/debate/debate-123',
+          }),
+        );
       }
 
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -180,5 +197,28 @@ describe('DebateDetailClient bridge actions', () => {
 
     expect(await screen.findByText(/cryptographic receipt/i)).toBeInTheDocument();
     expect(screen.getByText('sha256:test-receipt')).toBeInTheDocument();
+  });
+
+  it('creates a public share link before copying it', async () => {
+    const user = userEvent.setup();
+
+    render(<DebateDetailClient />);
+
+    await user.click(await screen.findByRole('button', { name: /^share$/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://backend.test/api/v1/debates/debate-123/share',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+            'Content-Type': 'application/json',
+          }),
+        }),
+      );
+    });
+
+    expect(mockWriteText).toHaveBeenCalledWith('https://share.test/debate/debate-123');
   });
 });

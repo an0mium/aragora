@@ -349,6 +349,60 @@ describe('DebateViewerWrapper', () => {
       expect(screen.queryByTestId('debate-viewer')).not.toBeInTheDocument();
     });
 
+    it('renders the full shared argument text without truncating it', async () => {
+      const longProposal = 'A'.repeat(640);
+      const longFinalAnswer = 'B'.repeat(920);
+
+      setMockPathname('/debate/debate-123');
+      mockFetchDebateClient.mockResolvedValue({
+        id: 'debate-123',
+        topic: 'Should the shared link show the full debate?',
+        status: 'completed',
+        consensus_reached: true,
+        confidence: 0.94,
+        verdict: 'Yes',
+        duration_seconds: 7.1,
+        participants: ['analyst', 'critic'],
+        proposals: {
+          analyst: longProposal,
+          critic: 'Only if critiques and transcript entries stay intact.',
+        },
+        critiques: [
+          {
+            agent: 'critic',
+            target: 'analyst',
+            text: 'The public page must show the counterargument too.',
+          },
+        ],
+        votes: [],
+        final_answer: longFinalAnswer,
+        receipt_hash: 'sha256:test',
+        messages: [
+          {
+            agent: 'analyst',
+            role: 'proposal',
+            content: longProposal,
+            round: 1,
+          },
+          {
+            agent: 'critic',
+            role: 'critique',
+            target: 'analyst',
+            content: 'The public page must show the counterargument too.',
+            round: 1,
+          },
+        ],
+      });
+
+      renderWithProviders(<DebateViewerWrapper />);
+
+      expect(await screen.findByText('Should the shared link show the full debate?')).toBeInTheDocument();
+      expect(screen.getByText(longFinalAnswer)).toBeInTheDocument();
+      expect(screen.getAllByText(longProposal)[0]).toBeInTheDocument();
+      expect(screen.getByText('The public page must show the counterargument too.')).toBeInTheDocument();
+      expect(screen.getByText('Full Argument')).toBeInTheDocument();
+    });
+
     it('shows analysis toggle button for archived debates', async () => {
       setMockPathname('/debate/archived-debate-789');
 

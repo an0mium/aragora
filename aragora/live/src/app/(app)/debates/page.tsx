@@ -12,6 +12,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useBackend } from '@/components/BackendSelector';
 import { DebateInput } from '@/components/DebateInput';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 
 const PAGE_SIZE = 20;
 
@@ -72,6 +73,7 @@ function normalizeBackendDebate(d: NonNullable<BackendDebatesResponse['debates']
 export default function DebatesPage() {
   const router = useRouter();
   const { config: backendConfig } = useBackend();
+  const { getAuthHeaders } = useAuthFetch();
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -252,13 +254,34 @@ export default function DebatesPage() {
   });
 
   const handleCopyLink = async (debateId: string) => {
-    const url = `${window.location.origin}/debates/${debateId}`;
     try {
-      await navigator.clipboard.writeText(url);
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/debates/${encodeURIComponent(debateId)}/share`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to create public debate link (HTTP ${response.status})`);
+      }
+
+      const data = await response.json();
+      const sharePath =
+        typeof data.full_url === 'string' && data.full_url
+          ? data.full_url
+          : typeof data.share_url === 'string' && data.share_url
+            ? data.share_url.startsWith('http')
+              ? data.share_url
+              : `${window.location.origin}${data.share_url}`
+            : `${window.location.origin}/debate/${debateId}`;
+
+      await navigator.clipboard.writeText(sharePath);
       setCopiedId(debateId);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
-      logger.error('Failed to copy link:', err);
+      logger.error('Failed to share debate:', err);
     }
   };
 

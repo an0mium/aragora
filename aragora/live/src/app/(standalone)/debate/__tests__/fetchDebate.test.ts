@@ -79,4 +79,50 @@ describe('fetchDebateClient', () => {
     expect(result?.receipt_hash).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('normalizes persisted debate payloads from the primary debate store', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'debate-123',
+        question: 'Should this shared debate be readable without login?',
+        status: 'completed',
+        messages: [
+          {
+            agent: 'analyst',
+            role: 'proposal',
+            content: 'Yes. Public links should resolve to the full argument.',
+            round: 1,
+          },
+          {
+            agent: 'critic',
+            role: 'critique',
+            target: 'analyst',
+            content: 'Only after the backend serves public debate payloads.',
+            round: 1,
+          },
+        ],
+        result: {
+          consensus_reached: true,
+          confidence: 0.89,
+          final_answer: 'Make the shared link anonymous and keep the full transcript.',
+          participants: ['analyst', 'critic'],
+        },
+      }),
+    } as Response);
+
+    const result = await fetchDebateClient('debate-123');
+
+    expect(result).not.toBeNull();
+    expect(result?.topic).toBe('Should this shared debate be readable without login?');
+    expect(result?.messages).toHaveLength(2);
+    expect(result?.proposals.analyst).toContain('Public links should resolve');
+    expect(result?.critiques[0]).toEqual({
+      agent: 'critic',
+      target: 'analyst',
+      text: 'Only after the backend serves public debate payloads.',
+    });
+  });
 });

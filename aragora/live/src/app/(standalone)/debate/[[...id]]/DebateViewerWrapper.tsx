@@ -26,7 +26,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
 import { useDebateWebSocketStore } from '@/hooks/useDebateWebSocketStore';
 import { DEFAULT_AGENTS } from '@/config';
-import { fetchDebateClient, type SavedDebate } from './fetchDebate';
+import { fetchDebateClient, type SavedDebate, type SavedDebateMessage } from './fetchDebate';
 
 // ---------------------------------------------------------------------------
 // Agent color palette — rotates through neon accents per agent
@@ -43,6 +43,11 @@ function agentColor(index: number) {
   return AGENT_COLORS[index % AGENT_COLORS.length];
 }
 
+function isCritiqueMessage(message: SavedDebateMessage) {
+  const role = message.role.toLowerCase();
+  return role.includes('critique') || role.includes('critic');
+}
+
 // ---------------------------------------------------------------------------
 // Read-only saved-debate renderer
 // ---------------------------------------------------------------------------
@@ -50,6 +55,7 @@ function agentColor(index: number) {
 function SavedDebateView({ debate }: { debate: SavedDebate }) {
   const [copied, setCopied] = useState(false);
   const confidencePercent = Math.round(debate.confidence * 100);
+  const transcript = debate.messages || [];
 
   const isInProgress = debate.status === 'in_progress' || debate.status === 'running';
   const isFailed = debate.status === 'failed' || debate.status === 'error';
@@ -166,9 +172,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                     Synthesis
                   </span>
                   <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {debate.final_answer.length > 800
-                      ? debate.final_answer.slice(0, 800) + '...'
-                      : debate.final_answer}
+                    {debate.final_answer}
                   </p>
                 </div>
               )}
@@ -185,8 +189,6 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                 {debate.participants.map((agent, i) => {
                   const color = agentColor(i);
                   const raw = debate.proposals[agent] ?? '';
-                  const excerpt =
-                    raw.length > 500 ? raw.slice(0, 500) + '...' : raw;
                   return (
                     <div
                       key={agent}
@@ -202,14 +204,106 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       >
                         {agent}
                       </span>
-                      {excerpt && (
+                      {raw && (
                         <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                          {excerpt}
+                          {raw}
                         </p>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* ---- Argument Transcript ---- */}
+          {transcript.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                Full Argument
+              </h2>
+              <div className="space-y-3">
+                {transcript.map((message, index) => {
+                  const participantIndex = debate.participants.indexOf(message.agent);
+                  const color = agentColor(participantIndex >= 0 ? participantIndex : index);
+                  const critique = isCritiqueMessage(message);
+
+                  return (
+                    <div
+                      key={`${message.agent}-${message.round}-${index}`}
+                      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                      style={{
+                        borderLeft: `3px solid ${color.border}`,
+                        backgroundColor: color.bg,
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span
+                          className="text-xs font-mono font-bold uppercase tracking-wider"
+                          style={{ color: color.text }}
+                        >
+                          {message.agent}
+                        </span>
+                        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                          {message.role}
+                        </span>
+                        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                          Round {message.round}
+                        </span>
+                        {critique && message.target && (
+                          <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                            → {message.target}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        {message.content}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ---- Critiques ---- */}
+          {transcript.length === 0 && debate.critiques.length > 0 && (
+            <div className="mb-8 border border-[var(--gold)]/30 bg-[var(--surface)]">
+              <div className="p-4">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                  Critiques
+                </h2>
+                <div className="space-y-3">
+                  {debate.critiques.map((critique, index) => {
+                    const participantIndex = debate.participants.indexOf(critique.agent);
+                    const color = agentColor(participantIndex >= 0 ? participantIndex : index);
+
+                    return (
+                      <div
+                        key={`${critique.agent}-${critique.target}-${index}`}
+                        className="p-3 bg-[var(--bg)]/50 border border-[var(--border)]"
+                        style={{ borderLeft: `3px solid ${color.border}` }}
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span
+                            className="text-xs font-mono font-bold uppercase"
+                            style={{ color: color.text }}
+                          >
+                            {critique.agent}
+                          </span>
+                          {critique.target && (
+                            <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                              → {critique.target}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-mono text-[var(--text)] whitespace-pre-wrap">
+                          {critique.text}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

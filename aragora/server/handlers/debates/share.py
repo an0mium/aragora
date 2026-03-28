@@ -168,6 +168,31 @@ class DebateShareHandler(BaseHandler):
             return parts[4]
         return None
 
+    def _get_storage(self) -> Any | None:
+        """Return the primary debate storage when available."""
+        storage = self.ctx.get("storage")
+        if storage is not None:
+            return storage
+
+        try:
+            from aragora.server.storage import get_debates_db
+
+            return get_debates_db()
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            logger.debug("Primary debate storage unavailable: %s", exc)
+            return None
+
+    def _set_public_access(self, debate_id: str, enabled: bool) -> None:
+        """Mirror share state onto persisted debate storage when possible."""
+        storage = self._get_storage()
+        if storage is None or not hasattr(storage, "set_public"):
+            return
+
+        try:
+            storage.set_public(debate_id, enabled)
+        except (AttributeError, OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Failed to update public access for %s: %s", debate_id, exc)
+
     # ------------------------------------------------------------------
     # GET /api/v1/debates/{id}/spectate/public
     # ------------------------------------------------------------------
@@ -246,6 +271,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, True)
+        self._set_public_access(debate_id, True)
 
         host = _DEFAULT_HOST
         if handler and hasattr(handler, "headers"):
@@ -290,6 +316,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, False)
+        self._set_public_access(debate_id, False)
 
         return json_response(
             {
