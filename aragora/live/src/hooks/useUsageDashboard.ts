@@ -346,9 +346,6 @@ export function useUsageDashboard(
       // Agent metrics
       agents: {
         active: summary.active_agents,
-        total: 15, // Could come from separate endpoint
-        topPerformer: 'Claude', // Could come from rankings
-        avgUptime: 99, // Could come from health endpoint
       },
       // ROI metrics
       roi: roi ? {

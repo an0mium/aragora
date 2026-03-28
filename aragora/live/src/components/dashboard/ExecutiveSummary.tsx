@@ -1,11 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KPICard, KPIGrid, KPIMiniCard } from './KPICards';
 import { useUsageDashboard, type TimeRange } from '@/hooks/useUsageDashboard';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 interface ExecutiveSummaryProps {
   refreshInterval?: number; // ms (now handled by hook)
+}
+
+interface LeaderboardAgent {
+  name?: string;
+  agent_name?: string;
+  elo?: number;
+  win_rate?: number;
+}
+
+interface LeaderboardResponse {
+  agents?: LeaderboardAgent[];
+  rankings?: LeaderboardAgent[];
+}
+
+interface TopAgent {
+  name: string;
+  elo: number | null;
+  winRate: number | null;
 }
 
 export function ExecutiveSummary({
@@ -13,11 +32,22 @@ export function ExecutiveSummary({
 }: ExecutiveSummaryProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const { dashboardData, isLoading, error } = useUsageDashboard(timeRange, { refreshInterval });
+  const {
+    data: leaderboardData,
+    error: leaderboardError,
+    isLoading: leaderboardLoading,
+  } = useSWRFetch<LeaderboardResponse>('/api/leaderboard?limit=3', { refreshInterval });
 
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
+  };
+
+  const formatCurrency = (amount: number): string => {
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+    return `$${amount.toFixed(2)}`;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -44,6 +74,23 @@ export function ExecutiveSummary({
         return range;
     }
   };
+
+  const normalizePercent = (value: number | null | undefined): string => {
+    if (value == null) return '-';
+    const percent = value <= 1 ? value * 100 : value;
+    return `${percent.toFixed(0)}%`;
+  };
+
+  const topAgents = useMemo<TopAgent[]>(() => {
+    const entries = leaderboardData?.agents ?? leaderboardData?.rankings ?? [];
+    return entries.slice(0, 3).map((agent) => ({
+      name: agent.name ?? agent.agent_name ?? 'Unknown agent',
+      elo: typeof agent.elo === 'number' ? agent.elo : null,
+      winRate: typeof agent.win_rate === 'number' ? agent.win_rate : null,
+    }));
+  }, [leaderboardData]);
+
+  const topAgent = topAgents[0] ?? null;
 
   if (error) {
     return (
@@ -88,36 +135,41 @@ export function ExecutiveSummary({
       {/* Primary KPIs */}
       <KPIGrid columns={4}>
         <KPICard
-          title="Debates Today"
-          value={dashboardData?.debates.today ?? '-'}
-          subtitle={`${dashboardData?.debates.week ?? 0} this week`}
-          change={dashboardData ? { value: 12, direction: 'up', period: 'yesterday' } : undefined}
+          title="Total Debates"
+          value={dashboardData?.debates.total ?? '-'}
+          subtitle={`${dashboardData?.debates.completed ?? 0} completed`}
           color="green"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Consensus Rate"
-          value={dashboardData ? `${(dashboardData.consensus.rate * 100).toFixed(0)}%` : '-'}
-          subtitle={`${dashboardData ? (dashboardData.consensus.avgConfidence * 100).toFixed(0) : 0}% avg confidence`}
-          change={dashboardData ? { value: 3, direction: 'up', period: 'last week' } : undefined}
+          title="Avg Confidence"
+          value={dashboardData ? normalizePercent(dashboardData.consensus.avgConfidence) : '-'}
+          subtitle={
+            dashboardData
+              ? `${normalizePercent(dashboardData.consensus.rate)} reached consensus`
+              : undefined
+          }
           color="cyan"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Avg Decision Time"
-          value={dashboardData ? formatDuration(dashboardData.consensus.avgTimeToDecision) : '-'}
-          subtitle="time to consensus"
-          change={dashboardData ? { value: 8, direction: 'down', period: 'last week' } : undefined}
+          title="Top Agent"
+          value={topAgent?.name ?? '-'}
+          subtitle={
+            topAgent
+              ? `${topAgent.elo !== null ? Math.round(topAgent.elo) : '-'} ELO | ${normalizePercent(topAgent.winRate)}`
+              : 'Leaderboard unavailable'
+          }
           color="yellow"
-          loading={isLoading}
+          loading={isLoading || leaderboardLoading}
           icon=""
         />
         <KPICard
-          title="Est. Cost Today"
-          value={dashboardData ? `$${dashboardData.costs.estimatedCost.toFixed(2)}` : '-'}
-          subtitle={`${formatNumber(dashboardData?.costs.todayTokens ?? 0)} tokens`}
+          title="Total Spend"
+          value={dashboardData ? formatCurrency(dashboardData.costs.totalCost) : '-'}
+          subtitle={_getTimeRangeLabel(timeRange)}
           color="purple"
           loading={isLoading}
           icon=""
@@ -126,28 +178,38 @@ export function ExecutiveSummary({
 
       {/* Secondary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Agent Health */}
+        {/* Top agents */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
-            <span></span> AGENT HEALTH
-          </h3>
-          <div className="space-y-1">
-            <KPIMiniCard
-              label="Active Agents"
-              value={`${dashboardData?.agents.active ?? 0}/${dashboardData?.agents.total ?? 0}`}
-              color="green"
-            />
-            <KPIMiniCard
-              label="Avg Uptime"
-              value={`${dashboardData?.agents.avgUptime ?? 0}%`}
-              color="cyan"
-            />
-            <KPIMiniCard
-              label="Top Performer"
-              value={dashboardData?.agents.topPerformer ?? '-'}
-              color="yellow"
-            />
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-mono text-[var(--acid-cyan)] flex items-center gap-2">
+              <span></span> TOP AGENTS
+            </h3>
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+              {dashboardData?.agents.active ?? 0} active
+            </span>
           </div>
+          {leaderboardLoading ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-8 bg-[var(--border)] rounded" />
+              <div className="h-8 bg-[var(--border)] rounded" />
+              <div className="h-8 bg-[var(--border)] rounded" />
+            </div>
+          ) : topAgents.length > 0 ? (
+            <div className="space-y-1">
+              {topAgents.map((agent, index) => (
+                <KPIMiniCard
+                  key={agent.name}
+                  label={`${index + 1}. ${agent.name}`}
+                  value={`${agent.elo !== null ? Math.round(agent.elo) : '-'} ELO | ${normalizePercent(agent.winRate)}`}
+                  color={index === 0 ? 'green' : index === 1 ? 'cyan' : 'yellow'}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs font-mono text-[var(--text-muted)] py-2">
+              {leaderboardError ? 'Leaderboard unavailable' : 'No agent rankings yet'}
+            </div>
+          )}
         </div>
 
         {/* ROI Summary */}
