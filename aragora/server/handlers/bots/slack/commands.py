@@ -44,6 +44,8 @@ from .state import _active_debates
 
 logger = logging.getLogger(__name__)
 
+_MAX_SLASH_COMMAND_TEXT_LENGTH = MAX_TOPIC_LENGTH + MAX_COMMAND_LENGTH
+
 
 @rate_limit(rpm=60)
 async def handle_slack_commands(request: Any) -> HandlerResult:
@@ -100,9 +102,13 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                     }
                 )
 
-        # Validate text input
+        # Validate the overall command text for dangerous patterns first.
+        # Allow debate-producing subcommands to use the larger topic limit.
         valid, error = _validate_slack_input(
-            text, "command text", MAX_COMMAND_LENGTH, allow_empty=True
+            text,
+            "command text",
+            _MAX_SLASH_COMMAND_TEXT_LENGTH,
+            allow_empty=True,
         )
         if not valid:
             return json_response(
@@ -165,6 +171,16 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         subcommand = parts[0].lower() if parts else "help"
         args = parts[1] if len(parts) > 1 else ""
 
+        if subcommand in ("ask", "plan", "implement") and args:
+            valid, error = _validate_slack_input(args, "topic", MAX_TOPIC_LENGTH)
+            if not valid:
+                return json_response(
+                    {
+                        "response_type": "ephemeral",
+                        "text": f"Invalid topic: {error}",
+                    }
+                )
+
         # Audit the command
         audit_data(
             user_id=f"slack:{user_id}",
@@ -197,16 +213,6 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             perm_error = _check_command_permission(PERM_SLACK_DEBATES_CREATE)
             if perm_error:
                 return perm_error
-
-            # Validate the debate topic
-            valid, error = _validate_slack_input(args, "topic", MAX_TOPIC_LENGTH)
-            if not valid:
-                return json_response(
-                    {
-                        "response_type": "ephemeral",
-                        "text": f"Invalid topic: {error}",
-                    }
-                )
 
             decision_integrity = None
             if subcommand in ("plan", "implement"):

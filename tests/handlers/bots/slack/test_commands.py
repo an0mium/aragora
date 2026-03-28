@@ -762,21 +762,29 @@ class TestTopicValidation:
         assert "Invalid" in body["text"]
 
     @pytest.mark.asyncio
-    async def test_topic_too_long(self, commands_module, mock_rbac_off, mock_audit):
-        """Topic exceeding MAX_TOPIC_LENGTH is rejected."""
-        # MAX_TOPIC_LENGTH is 2000 but MAX_COMMAND_LENGTH is 500 for the text field
-        # The text field includes "ask " + topic, so a 500+ char text gets caught first.
-        # We need to test that topic specifically is validated after extraction.
-        # Since command text max is 500, a 496-char topic (+ "ask ") = 500 passes text validation
-        # but the topic itself is within MAX_TOPIC_LENGTH (2000). So we'd need the text to pass
-        # the command text check first.
-        # Actually, the text field allows up to MAX_COMMAND_LENGTH=500 with allow_empty=True
-        # The topic is validated separately against MAX_TOPIC_LENGTH=2000
-        # So text validation passes for a 496-char "ask <topic>" but then topic validation
-        # would fail only for 2000+ char topics, which would exceed command text length first.
-        # This means topic length validation is effectively unreachable for direct slash commands
-        # unless command text validation is bypassed. Let's test that the code path works anyway.
-        pass  # Topic length validation covered by command text length limit
+    async def test_topic_longer_than_legacy_command_limit_is_accepted(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
+        """Debate-producing slash commands accept topics beyond the legacy 500-char cap."""
+        topic = "x" * 1500
+        req = _make_request(text=f"ask {topic}")
+        result = await commands_module.handle_slack_commands.__wrapped__(req)
+        body = _body(result)
+        assert "Starting debate" in body["text"]
+        mock_start_debate.assert_awaited_once()
+        assert mock_start_debate.call_args.kwargs["topic"] == topic
+
+    @pytest.mark.asyncio
+    async def test_topic_too_long(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
+        """Topic exceeding MAX_TOPIC_LENGTH is rejected after subcommand parsing."""
+        topic = "x" * 2001
+        req = _make_request(text=f"ask {topic}")
+        result = await commands_module.handle_slack_commands.__wrapped__(req)
+        body = _body(result)
+        assert "Invalid topic" in body["text"]
+        mock_start_debate.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_valid_topic_accepted(
