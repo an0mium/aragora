@@ -3,6 +3,7 @@
 import { useTheme } from '@/context/ThemeContext';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
+import { LiveDemoSection } from './LiveDemoSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { ProblemSection } from './ProblemSection';
 import { PricingSection } from './PricingSection';
@@ -23,6 +24,7 @@ export function LandingPage() {
     >
       <Header />
       <HeroSection />
+      <LiveDemoSection />
       <HowItWorksSection />
       <ProblemSection />
       <PricingSection />
