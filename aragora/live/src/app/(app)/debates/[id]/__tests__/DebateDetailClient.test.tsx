@@ -181,4 +181,81 @@ describe('DebateDetailClient bridge actions', () => {
     expect(await screen.findByText(/cryptographic receipt/i)).toBeInTheDocument();
     expect(screen.getByText('sha256:test-receipt')).toBeInTheDocument();
   });
+
+  it('renders receipt execution metrics and model usage when present', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => (key === 'tab' ? 'receipt' : null));
+
+    mockFetch.mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+
+      if (url === 'http://backend.test/api/v1/debates/debate-123') {
+        return Promise.resolve(jsonResponse({ status: 'completed' }));
+      }
+
+      if (url === 'http://backend.test/api/v1/debates/debate-123/package') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'debate-123',
+            question: 'Should we bridge this decision?',
+            verdict: 'Yes',
+            confidence: 0.93,
+            consensus_reached: true,
+            agents: ['claude', 'codex'],
+            rounds: 3,
+            duration_seconds: 42,
+            final_answer: 'Bridge it.',
+            receipt: {
+              hash: 'sha256:test-receipt',
+              timestamp: '2026-03-26T20:00:00Z',
+              signers: ['sig-1'],
+              cost_summary: {
+                total_cost_usd: 0.045,
+                total_tokens_in: 3000,
+                total_tokens_out: 1000,
+                total_calls: 6,
+                per_agent: [
+                  {
+                    agent: 'claude',
+                    total_cost_usd: 0.02,
+                    total_tokens_in: 1800,
+                    total_tokens_out: 400,
+                    call_count: 3,
+                    models_used: [{ model: 'claude-sonnet-4', call_count: 3 }],
+                  },
+                ],
+                model_usage: [
+                  {
+                    key: 'anthropic/claude-sonnet-4',
+                    label: 'anthropic/claude-sonnet-4',
+                    provider: 'anthropic',
+                    model: 'claude-sonnet-4',
+                    total_cost_usd: 0.02,
+                    total_tokens_in: 2000,
+                    total_tokens_out: 700,
+                    call_count: 4,
+                  },
+                ],
+              },
+            },
+            cost_breakdown: null,
+            total_cost: 0.045,
+          }),
+        );
+      }
+
+      if (url === 'http://backend.test/api/v1/debates/debate-123/bridge') {
+        return Promise.resolve(jsonResponse({ success: true }));
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+
+    render(<DebateDetailClient />);
+
+    expect(await screen.findByText(/cryptographic receipt/i)).toBeInTheDocument();
+    expect(screen.getByText('API Calls')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(screen.getByText('anthropic/claude-sonnet-4')).toBeInTheDocument();
+    expect(screen.getByText('claude-sonnet-4 x3')).toBeInTheDocument();
+  });
 });

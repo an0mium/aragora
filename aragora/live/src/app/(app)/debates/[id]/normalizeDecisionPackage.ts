@@ -1,3 +1,44 @@
+export interface DecisionPackageReceiptCostAgentModel {
+  model: string;
+  call_count: number;
+}
+
+export interface DecisionPackageReceiptCostAgent {
+  agent: string;
+  total_cost_usd: number;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  call_count: number;
+  models_used: DecisionPackageReceiptCostAgentModel[];
+}
+
+export interface DecisionPackageReceiptModelUsage {
+  key: string;
+  label: string;
+  provider: string;
+  model: string;
+  total_cost_usd: number;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  call_count: number;
+}
+
+export interface DecisionPackageReceiptCostSummary {
+  total_cost_usd: number | null;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  total_calls: number;
+  per_agent: DecisionPackageReceiptCostAgent[];
+  model_usage: DecisionPackageReceiptModelUsage[];
+}
+
+export interface DecisionPackageReceipt {
+  hash: string;
+  timestamp: string;
+  signers: string[];
+  cost_summary: DecisionPackageReceiptCostSummary | null;
+}
+
 export interface DecisionPackage {
   id: string;
   question: string;
@@ -20,11 +61,7 @@ export interface DecisionPackage {
     cost: number;
   }>;
   total_cost: number;
-  receipt: {
-    hash: string;
-    timestamp: string;
-    signers: string[];
-  } | null;
+  receipt: DecisionPackageReceipt | null;
   next_steps: Array<{
     action: string;
     priority: 'high' | 'medium' | 'low';
@@ -54,6 +91,40 @@ function asNumber(value: unknown, fallback = 0): number {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string');
+}
+
+function hasObjectEntries(value: Record<string, unknown> | null): value is Record<string, unknown> {
+  return value !== null && Object.keys(value).length > 0;
+}
+
+function tokenMapFromCostSummary(value: unknown): Record<string, unknown> | null {
+  const obj = asObject(value);
+  const perAgent = asObject(obj?.per_agent);
+  if (!perAgent) return null;
+
+  const tokenMap = Object.fromEntries(
+    Object.entries(perAgent)
+      .map(([agent, summary]) => {
+        const summaryObj = asObject(summary);
+        if (!summaryObj) return null;
+
+        const totalTokens = summaryObj.total_tokens ?? (
+          asNumber(summaryObj.total_tokens_in, 0) + asNumber(summaryObj.total_tokens_out, 0)
+        );
+
+        return [agent, totalTokens];
+      })
+      .filter((entry): entry is [string, unknown] => entry !== null)
+  );
+
+  return Object.keys(tokenMap).length > 0 ? tokenMap : null;
+}
+
+function formatModelLabel(provider: string, model: string, fallback = ''): string {
+  if (provider && model) return `${provider}/${model}`;
+  if (model) return model;
+  if (provider) return provider;
+  return fallback;
 }
 
 function normalizeArguments(value: unknown): DecisionPackage['arguments'] {
@@ -92,16 +163,115 @@ function normalizeCostBreakdown(
 
   const obj = asObject(value);
   const perAgentCost = asObject(obj?.per_agent_cost);
-  if (!perAgentCost) return [];
+  if (perAgentCost) {
+    return Object.entries(perAgentCost).map(([agent, cost]) => ({
+      agent,
+      tokens: asNumber(tokenMap?.[agent], 0),
+      cost: asNumber(cost, 0),
+    }));
+  }
 
-  return Object.entries(perAgentCost).map(([agent, cost]) => ({
-    agent,
-    tokens: asNumber(tokenMap?.[agent], 0),
-    cost: asNumber(cost, 0),
-  }));
+  const perAgent = asObject(obj?.per_agent);
+  if (!perAgent) return [];
+
+  return Object.entries(perAgent).map(([agent, summary]) => {
+    const summaryObj = asObject(summary);
+    const tokens = asNumber(
+      summaryObj?.total_tokens,
+      asNumber(summaryObj?.total_tokens_in, 0) + asNumber(summaryObj?.total_tokens_out, 0)
+    );
+    return {
+      agent,
+      tokens: tokens || asNumber(tokenMap?.[agent], 0),
+      cost: asNumber(summaryObj?.total_cost_usd, asNumber(summary, 0)),
+    };
+  });
 }
 
-function normalizeReceipt(value: unknown, fallbackTimestamp = ''): DecisionPackage['receipt'] {
+function normalizeReceiptCostSummary(value: unknown): DecisionPackageReceiptCostSummary | null {
+  const obj = asObject(value);
+  if (!obj) return null;
+
+  const perAgentRecord = asObject(obj.per_agent);
+  const perAgent = perAgentRecord
+    ? Object.entries(perAgentRecord)
+        .map(([agentName, rawSummary]) => {
+          const summary = asObject(rawSummary);
+          if (!summary) return null;
+
+          const rawModelsUsed = asObject(summary.models_used);
+          const modelsUsed = rawModelsUsed
+            ? Object.entries(rawModelsUsed)
+                .map(([model, callCount]) => ({
+                  model,
+                  call_count: asNumber(callCount, 0),
+                }))
+                .filter((entry) => entry.call_count > 0)
+            : [];
+
+          return {
+            agent: asString(summary.agent_name, agentName),
+            total_cost_usd: asNumber(summary.total_cost_usd, 0),
+            total_tokens_in: asNumber(summary.total_tokens_in, 0),
+            total_tokens_out: asNumber(summary.total_tokens_out, 0),
+            call_count: asNumber(summary.call_count, 0),
+            models_used: modelsUsed,
+          };
+        })
+        .filter((entry): entry is DecisionPackageReceiptCostAgent => entry !== null)
+    : [];
+
+  const modelUsageRecord = asObject(obj.model_usage);
+  const modelUsage = modelUsageRecord
+    ? Object.entries(modelUsageRecord)
+        .map(([key, rawSummary]) => {
+          const summary = asObject(rawSummary);
+          if (!summary) return null;
+
+          const provider = asString(summary.provider);
+          const model = asString(summary.model, key);
+          return {
+            key,
+            label: formatModelLabel(provider, model, key),
+            provider,
+            model,
+            total_cost_usd: asNumber(summary.total_cost_usd, 0),
+            total_tokens_in: asNumber(summary.total_tokens_in, 0),
+            total_tokens_out: asNumber(summary.total_tokens_out, 0),
+            call_count: asNumber(summary.call_count, 0),
+          };
+        })
+        .filter((entry): entry is DecisionPackageReceiptModelUsage => entry !== null)
+    : [];
+
+  const totalCost =
+    obj.total_cost_usd === undefined ? null : asNumber(obj.total_cost_usd, 0);
+
+  if (
+    totalCost === null &&
+    asNumber(obj.total_tokens_in, 0) === 0 &&
+    asNumber(obj.total_tokens_out, 0) === 0 &&
+    asNumber(obj.total_calls, 0) === 0 &&
+    perAgent.length === 0 &&
+    modelUsage.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    total_cost_usd: totalCost,
+    total_tokens_in: asNumber(obj.total_tokens_in, 0),
+    total_tokens_out: asNumber(obj.total_tokens_out, 0),
+    total_calls: asNumber(obj.total_calls, 0),
+    per_agent: perAgent,
+    model_usage: modelUsage,
+  };
+}
+
+function normalizeReceipt(
+  value: unknown,
+  fallbackTimestamp = ''
+): DecisionPackage['receipt'] {
   const obj = asObject(value);
   if (!obj) return null;
 
@@ -113,6 +283,7 @@ function normalizeReceipt(value: unknown, fallbackTimestamp = ''): DecisionPacka
     hash,
     timestamp,
     signers: asStringArray(obj.signers),
+    cost_summary: normalizeReceiptCostSummary(obj.cost_summary),
   };
 }
 
@@ -141,15 +312,18 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
   const agents = asStringArray(obj.agents);
   const participants = asStringArray(obj.participants);
   const argumentsList = normalizeArguments(obj.arguments ?? obj.messages);
-  const cost = asObject(obj.cost);
-  const tokenMap = asObject(obj.per_agent_tokens);
+  const rawReceipt = asObject(obj.receipt);
+  const receiptCostSummary = asObject(rawReceipt?.cost_summary);
+  const explicitCost = asObject(obj.cost);
+  const cost = hasObjectEntries(explicitCost) ? explicitCost : receiptCostSummary;
+  const tokenMap = asObject(obj.per_agent_tokens) ?? tokenMapFromCostSummary(receiptCostSummary);
   const createdAt = asString(obj.created_at, asString(obj.assembled_at, new Date().toISOString()));
 
   return {
     id: asString(obj.id, asString(obj.debate_id, fallbackId)),
     question: asString(obj.question, asString(obj.task)),
-    verdict: asString(obj.verdict, asString(asObject(obj.receipt)?.verdict)),
-    confidence: asNumber(obj.confidence, asNumber(asObject(obj.receipt)?.confidence, 0)),
+    verdict: asString(obj.verdict, asString(rawReceipt?.verdict)),
+    confidence: asNumber(obj.confidence, asNumber(rawReceipt?.confidence, 0)),
     consensus_reached: Boolean(obj.consensus_reached),
     explanation: asString(obj.explanation, asString(obj.explanation_summary)),
     final_answer: asString(obj.final_answer),
@@ -161,7 +335,7 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
     arguments: argumentsList,
     cost_breakdown: normalizeCostBreakdown(obj.cost_breakdown ?? cost, tokenMap),
     total_cost: asNumber(obj.total_cost, asNumber(cost?.total_cost_usd, 0)),
-    receipt: normalizeReceipt(obj.receipt, createdAt),
+    receipt: normalizeReceipt(rawReceipt, createdAt),
     next_steps: normalizeNextSteps(obj.next_steps),
     created_at: createdAt,
     duration_seconds: asNumber(obj.duration_seconds, 0),

@@ -48,6 +48,21 @@ def _coerce_non_negative_int(value: Any) -> int:
     return 0
 
 
+def _coerce_float(value: Any, fallback: float = 0.0) -> float:
+    """Best-effort float coercion for cost metadata."""
+
+    if isinstance(value, bool):
+        return fallback
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return fallback
+    return fallback
+
+
 def _normalize_string_list(values: Any) -> list[str]:
     """Return only string items from a list-like payload."""
 
@@ -116,6 +131,48 @@ def _build_cost_breakdown(
         )
 
     return breakdown
+
+
+def _extract_receipt_cost_maps(
+    cost_summary: Any,
+) -> tuple[float | None, dict[str, float], dict[str, int]]:
+    """Normalize receipt cost_summary into the decision package cost fields."""
+
+    if not isinstance(cost_summary, dict):
+        return None, {}, {}
+
+    total_cost = (
+        _coerce_float(cost_summary.get("total_cost_usd"))
+        if "total_cost_usd" in cost_summary
+        else None
+    )
+
+    per_agent = cost_summary.get("per_agent")
+    if not isinstance(per_agent, dict):
+        return total_cost, {}, {}
+
+    per_agent_cost: dict[str, float] = {}
+    per_agent_tokens: dict[str, int] = {}
+    for agent_name, raw_agent_data in per_agent.items():
+        agent_key = str(agent_name)
+        if isinstance(raw_agent_data, dict):
+            if "total_cost_usd" in raw_agent_data:
+                per_agent_cost[agent_key] = _coerce_float(raw_agent_data.get("total_cost_usd"))
+            elif "cost" in raw_agent_data:
+                per_agent_cost[agent_key] = _coerce_float(raw_agent_data.get("cost"))
+
+            if "total_tokens" in raw_agent_data:
+                per_agent_tokens[agent_key] = _coerce_non_negative_int(
+                    raw_agent_data.get("total_tokens")
+                )
+            else:
+                per_agent_tokens[agent_key] = _coerce_non_negative_int(
+                    raw_agent_data.get("total_tokens_in")
+                ) + _coerce_non_negative_int(raw_agent_data.get("total_tokens_out"))
+        else:
+            per_agent_cost[agent_key] = _coerce_float(raw_agent_data)
+
+    return total_cost, per_agent_cost, per_agent_tokens
 
 
 def _generate_next_steps(
@@ -360,6 +417,9 @@ class DecisionPackageHandler(BaseHandler):
 
         # -- Receipt (graceful degradation) --
         receipt_dict: dict[str, Any] | None = None
+        receipt_total_cost: float | None = None
+        receipt_per_agent_cost: dict[str, float] = {}
+        receipt_per_agent_tokens: dict[str, int] = {}
         try:
             from aragora.storage.receipt_store import get_receipt_store
 
@@ -367,6 +427,10 @@ class DecisionPackageHandler(BaseHandler):
             receipt = store.get_by_gauntlet(f"debate-{debate_id}")
             if receipt:
                 receipt_created_at = str(receipt.created_at) if receipt.created_at else None
+                receipt_cost_summary = getattr(receipt, "cost_summary", None)
+                if not isinstance(receipt_cost_summary, dict):
+                    receipt_cost_summary = None
+
                 receipt_dict = {
                     "receipt_id": receipt.receipt_id,
                     "verdict": receipt.verdict,
@@ -380,6 +444,13 @@ class DecisionPackageHandler(BaseHandler):
                     "timestamp": receipt_created_at,
                     "signers": [],
                 }
+                if receipt_cost_summary:
+                    receipt_dict["cost_summary"] = receipt_cost_summary
+                    (
+                        receipt_total_cost,
+                        receipt_per_agent_cost,
+                        receipt_per_agent_tokens,
+                    ) = _extract_receipt_cost_maps(receipt_cost_summary)
         except (
             ImportError,
             KeyError,
@@ -437,11 +508,31 @@ class DecisionPackageHandler(BaseHandler):
 
         # -- Cost --
         per_agent_cost = result_data.get("per_agent_cost", {})
+        if not isinstance(per_agent_cost, dict):
+            per_agent_cost = {}
+        if not per_agent_cost and receipt_per_agent_cost:
+            per_agent_cost = receipt_per_agent_cost
+
+        per_agent_tokens = result_data.get("per_agent_tokens")
+        if not isinstance(per_agent_tokens, dict):
+            per_agent_tokens = {}
+        if not per_agent_tokens and receipt_per_agent_tokens:
+            per_agent_tokens = receipt_per_agent_tokens
+
+        if "total_cost_usd" in result_data:
+            total_cost_usd = _coerce_float(result_data.get("total_cost_usd"))
+            if total_cost_usd <= 0.0 and receipt_total_cost is not None:
+                total_cost_usd = receipt_total_cost
+        elif receipt_total_cost is not None:
+            total_cost_usd = receipt_total_cost
+        else:
+            total_cost_usd = 0.0
+
         cost = {
-            "total_cost_usd": result_data.get("total_cost_usd", 0.0),
+            "total_cost_usd": total_cost_usd,
             "per_agent_cost": per_agent_cost,
         }
-        cost_breakdown = _build_cost_breakdown(per_agent_cost, result_data.get("per_agent_tokens"))
+        cost_breakdown = _build_cost_breakdown(per_agent_cost, per_agent_tokens)
 
         # -- Next steps --
         consensus_reached = result_data.get("consensus_reached", False)

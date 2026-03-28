@@ -102,7 +102,67 @@ describe('normalizeDecisionPackage', () => {
       hash: 'abc123',
       timestamp: '2026-03-25T12:34:56Z',
       signers: [],
+      cost_summary: null,
     });
     expect(normalized.created_at).toBe('2026-03-25T12:34:56Z');
+  });
+
+  it('preserves receipt cost summary metadata for the receipt tab', () => {
+    const normalized = normalizeDecisionPackage(
+      {
+        debate_id: 'debate-43',
+        participants: ['claude', 'gpt-4'],
+        receipt: {
+          checksum: 'cost123',
+          created_at: '2026-03-25T12:34:56Z',
+          cost_summary: {
+            total_cost_usd: '0.045',
+            total_tokens_in: 3000,
+            total_tokens_out: 1000,
+            total_calls: 6,
+            per_agent: {
+              claude: {
+                agent_name: 'claude',
+                total_cost_usd: '0.020',
+                total_tokens_in: 1800,
+                total_tokens_out: 400,
+                call_count: 3,
+                models_used: {
+                  'claude-sonnet-4': 3,
+                },
+              },
+            },
+            model_usage: {
+              'anthropic/claude-sonnet-4': {
+                provider: 'anthropic',
+                model: 'claude-sonnet-4',
+                total_cost_usd: '0.020',
+                total_tokens_in: 2000,
+                total_tokens_out: 700,
+                call_count: 4,
+              },
+            },
+          },
+        },
+      },
+      'fallback-id'
+    );
+
+    const costSummary = normalized.receipt?.cost_summary;
+
+    expect(normalized.total_cost).toBe(0.045);
+    expect(costSummary?.total_calls).toBe(6);
+    expect(costSummary?.per_agent).toEqual([
+      expect.objectContaining({
+        agent: 'claude',
+        models_used: [{ model: 'claude-sonnet-4', call_count: 3 }],
+      }),
+    ]);
+    expect(costSummary?.model_usage).toEqual([
+      expect.objectContaining({
+        label: 'anthropic/claude-sonnet-4',
+        call_count: 4,
+      }),
+    ]);
   });
 });

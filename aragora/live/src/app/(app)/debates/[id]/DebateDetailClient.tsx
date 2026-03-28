@@ -20,6 +20,24 @@ import { normalizeDecisionPackage, type DecisionPackage } from './normalizeDecis
 
 type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
 
+function formatCurrency(value: number | null | undefined): string {
+  if (value === undefined || value === null || !Number.isFinite(value)) return '--';
+  return value >= 1 ? `$${value.toFixed(2)}` : `$${value.toFixed(4)}`;
+}
+
+function formatCount(value: number): string {
+  return Number.isFinite(value) ? value.toLocaleString() : '0';
+}
+
+function formatDuration(seconds: number): string {
+  if (!(seconds > 0)) return '--';
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 export default function DebateDetailClient() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
@@ -211,6 +229,10 @@ export default function DebateDetailClient() {
     { key: 'receipt', label: 'RECEIPT' },
     { key: 'export', label: 'EXPORT' },
   ];
+  const receiptCostSummary = pkg?.receipt?.cost_summary ?? null;
+  const totalReceiptTokens = receiptCostSummary
+    ? receiptCostSummary.total_tokens_in + receiptCostSummary.total_tokens_out
+    : 0;
 
   useEffect(() => {
     if (
@@ -545,6 +567,143 @@ export default function DebateDetailClient() {
                       </div>
                     )}
                   </div>
+                  {receiptCostSummary && (
+                    <div className="border-t border-[var(--border)] pt-4 space-y-4">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            DURATION
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatDuration(pkg.duration_seconds)}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            ROUNDS
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatCount(pkg.rounds)}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            API Calls
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatCount(receiptCostSummary.total_calls)}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            TOTAL COST
+                          </div>
+                          <div className="text-sm font-mono text-[var(--acid-green)]">
+                            {formatCurrency(receiptCostSummary.total_cost_usd)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            AGENTS
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatCount(pkg.agents.length)}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            TOKENS IN
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatCount(receiptCostSummary.total_tokens_in)}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                            TOTAL TOKENS
+                          </div>
+                          <div className="text-sm font-mono text-[var(--text)]">
+                            {formatCount(totalReceiptTokens)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {receiptCostSummary.model_usage.length > 0 && (
+                        <div>
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-2">
+                            MODEL USAGE
+                          </div>
+                          <div className="space-y-2">
+                            {receiptCostSummary.model_usage.map((usage) => (
+                              <div
+                                key={usage.key}
+                                className="flex flex-wrap items-center justify-between gap-3 bg-[var(--bg)] border border-[var(--border)] p-3"
+                              >
+                                <div className="text-sm font-mono text-[var(--text)]">
+                                  {usage.label}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+                                  <span>{formatCount(usage.call_count)} calls</span>
+                                  <span>
+                                    {formatCount(usage.total_tokens_in + usage.total_tokens_out)} tokens
+                                  </span>
+                                  <span className="text-[var(--acid-cyan)]">
+                                    {formatCurrency(usage.total_cost_usd)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {receiptCostSummary.per_agent.length > 0 && (
+                        <div>
+                          <div className="text-xs font-mono text-[var(--text-muted)] mb-2">
+                            PER-AGENT USAGE
+                          </div>
+                          <div className="space-y-2">
+                            {receiptCostSummary.per_agent.map((agent) => (
+                              <div
+                                key={agent.agent}
+                                className="bg-[var(--bg)] border border-[var(--border)] p-3"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="text-sm font-mono text-[var(--text)]">
+                                    {agent.agent}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+                                    <span>{formatCount(agent.call_count)} calls</span>
+                                    <span>
+                                      {formatCount(agent.total_tokens_in + agent.total_tokens_out)} tokens
+                                    </span>
+                                    <span className="text-[var(--acid-cyan)]">
+                                      {formatCurrency(agent.total_cost_usd)}
+                                    </span>
+                                  </div>
+                                </div>
+                                {agent.models_used.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {agent.models_used.map((modelUsage) => (
+                                      <span
+                                        key={`${agent.agent}-${modelUsage.model}`}
+                                        className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30"
+                                      >
+                                        {`${modelUsage.model} x${modelUsage.call_count}`}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12 text-[var(--text-muted)] font-mono text-sm">

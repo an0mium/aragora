@@ -948,6 +948,68 @@ class TestReceiptIntegration:
         assert body["receipt"]["risk_score"] == 0.1
         assert body["receipt"]["checksum"] == "sha256abc"
 
+    def test_receipt_cost_summary_backfills_package_cost_and_usage(self, http_handler):
+        """Receipt cost summary should survive package assembly for the live UI."""
+        debate = _completed_debate()
+        debate["result"]["total_cost_usd"] = 0.0
+        debate["result"]["per_agent_cost"] = {}
+        storage = _make_storage({"d1": debate})
+        h = DecisionPackageHandler(ctx={"storage": storage})
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "rcpt-001"
+        mock_receipt.verdict = "APPROVED"
+        mock_receipt.confidence = 0.92
+        mock_receipt.risk_level = "LOW"
+        mock_receipt.risk_score = 0.1
+        mock_receipt.checksum = "sha256abc"
+        mock_receipt.created_at = "2026-01-01T00:00:00Z"
+        mock_receipt.cost_summary = {
+            "total_cost_usd": "0.045",
+            "total_tokens_in": 3200,
+            "total_tokens_out": 900,
+            "total_calls": 6,
+            "per_agent": {
+                "claude": {
+                    "agent_name": "claude",
+                    "total_cost_usd": "0.020",
+                    "total_tokens": 2200,
+                    "total_tokens_in": 1800,
+                    "total_tokens_out": 400,
+                    "call_count": 3,
+                    "models_used": {"claude-sonnet-4": 3},
+                },
+            },
+            "model_usage": {
+                "anthropic/claude-sonnet-4": {
+                    "provider": "anthropic",
+                    "model": "claude-sonnet-4",
+                    "total_cost_usd": "0.020",
+                    "total_tokens_in": 2000,
+                    "total_tokens_out": 700,
+                    "call_count": 4,
+                },
+            },
+        }
+
+        mock_store = MagicMock()
+        mock_store.get_by_gauntlet.return_value = mock_receipt
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = h.handle("/api/v1/debates/d1/package", {}, http_handler)
+
+        body = _body(result)
+        assert body["receipt"]["cost_summary"]["total_calls"] == 6
+        assert body["receipt"]["cost_summary"]["per_agent"]["claude"]["models_used"] == {
+            "claude-sonnet-4": 3
+        }
+        assert body["total_cost"] == 0.045
+        assert body["cost"]["per_agent_cost"] == {"claude": 0.02}
+        assert body["cost_breakdown"] == [{"agent": "claude", "tokens": 2200, "cost": 0.02}]
+
     def test_receipt_verdict_overrides_computed(self, http_handler):
         """Receipt verdict should take priority over computed verdict."""
         debate = _completed_debate(confidence=0.3, consensus_reached=False)
