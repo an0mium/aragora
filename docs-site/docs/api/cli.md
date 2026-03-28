@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **85**
-- Total top-level invocations (including aliases): **86**
+- Canonical top-level commands: **87**
+- Total top-level invocations (including aliases): **88**
 
 ## Installation
 
@@ -53,6 +53,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `batch` | - | Process multiple debates from a file | - |
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
+| `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
@@ -75,6 +76,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
 | `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
 | `healthcare` | - | Healthcare vertical: adversarial clinical decision review | `review` |
+| `idea` | - | Clarify a vague idea into a structured initiative brief | `intake`, `review`, `triage` |
 | `ideacloud` | - | Manage the Idea Cloud knowledge graph | `cluster`, `export`, `link`, `list`, `load`, `promote`, `pulse`, `rss`, `search`, `show`, `stats`, `sync-km` |
 | `improve` | - | Self-improvement mode using AutonomousOrchestrator | - |
 | `inbox-wedge` | - | Receipt-gated inbox trust wedge commands | `create`, `execute`, `export`, `list`, `report`, `review`, `show` |
