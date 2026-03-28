@@ -1498,7 +1498,7 @@ class CritiqueStore(SQLiteStore):
                            failure_count, avg_severity, surprise_score, example_task,
                            created_at, updated_at
                     FROM patterns
-                    WHERE julianday('now') - julianday(updated_at) > ?
+                    WHERE julianday('now') - julianday(updated_at) >= ?
                       AND (
                         CAST(success_count AS REAL) /
                         NULLIF(success_count + failure_count, 0)
@@ -1511,7 +1511,7 @@ class CritiqueStore(SQLiteStore):
             cursor.execute(
                 """
                 DELETE FROM patterns
-                WHERE julianday('now') - julianday(updated_at) > ?
+                WHERE julianday('now') - julianday(updated_at) >= ?
                   AND (
                     CAST(success_count AS REAL) /
                     NULLIF(success_count + failure_count, 0)
