@@ -1273,7 +1273,7 @@ class BossLoop:
         parallel_limit = self._parallel_dispatch_limit(freshness)
         selected_issues = self._select_issues_for_iteration(
             candidate_issues,
-            limit=parallel_limit,
+            limit=None,
         )
 
         if not selected_issues:
@@ -1306,38 +1306,58 @@ class BossLoop:
                 )
             ]
 
-        issue_dicts: list[dict[str, Any]] = []
-        for issue in selected_issues:
+        pending_issues = list(selected_issues)
+        active_tasks: dict[
+            asyncio.Task[dict[str, Any]], tuple[GitHubIssue, dict[str, Any], float]
+        ] = {}
+        statuses: list[BossIterationStatus] = []
+        stop_launching = False
+
+        while pending_issues and len(active_tasks) < parallel_limit:
+            issue = pending_issues.pop(0)
             issue_dict = issue.to_dict()
-            issue_dicts.append(issue_dict)
             self._attempted_issues.append(issue_dict)
             self._issue_attempt_counts[issue.number] = (
                 self._issue_attempt_counts.get(issue.number, 0) + 1
             )
+            task = asyncio.create_task(self._dispatch_issue(issue, freshness))
+            active_tasks[task] = (issue, issue_dict, time.monotonic())
 
-        worker_results = await asyncio.gather(
-            *(self._dispatch_issue(issue, freshness) for issue in selected_issues)
-        )
-
-        elapsed = time.monotonic() - iter_start
-        statuses: list[BossIterationStatus] = []
-        for issue, issue_dict, worker_result in zip(
-            selected_issues,
-            issue_dicts,
-            worker_results,
-            strict=False,
-        ):
-            statuses.append(
-                self._finalize_worker_result(
+        while active_tasks:
+            done, _pending = await asyncio.wait(
+                active_tasks.keys(),
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in done:
+                issue, issue_dict, started_at = active_tasks.pop(task)
+                worker_result = task.result()
+                status = self._finalize_worker_result(
                     iteration=iteration,
                     timestamp=now,
                     runner_freshness=freshness_dict,
                     issue=issue,
                     issue_dict=issue_dict,
                     worker_result=worker_result,
-                    elapsed_seconds=elapsed,
+                    elapsed_seconds=time.monotonic() - started_at,
                 )
-            )
+                statuses.append(status)
+                if status.stop_reason and status.stop_reason != BossStopReason.STILL_RUNNING.value:
+                    stop_launching = True
+
+                while not stop_launching and pending_issues and len(active_tasks) < parallel_limit:
+                    next_issue = pending_issues.pop(0)
+                    next_issue_dict = next_issue.to_dict()
+                    self._attempted_issues.append(next_issue_dict)
+                    self._issue_attempt_counts[next_issue.number] = (
+                        self._issue_attempt_counts.get(next_issue.number, 0) + 1
+                    )
+                    next_task = asyncio.create_task(self._dispatch_issue(next_issue, freshness))
+                    active_tasks[next_task] = (
+                        next_issue,
+                        next_issue_dict,
+                        time.monotonic(),
+                    )
+
         return statuses
 
     def _parallel_dispatch_limit(self, freshness: RunnerFreshnessResult) -> int:
@@ -1360,9 +1380,9 @@ class BossLoop:
         self,
         issues: list[GitHubIssue],
         *,
-        limit: int,
+        limit: int | None,
     ) -> list[GitHubIssue]:
-        if limit <= 1:
+        if limit is not None and limit <= 1:
             if self.config.issue_number is not None:
                 target_issue = next(
                     (issue for issue in issues if issue.number == self.config.issue_number),
@@ -1411,7 +1431,7 @@ class BossLoop:
             if candidate is None:
                 continue
             selected_issues.append(candidate)
-            if len(selected_issues) >= limit:
+            if limit is not None and len(selected_issues) >= limit:
                 break
         return selected_issues
 

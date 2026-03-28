@@ -237,7 +237,69 @@ def test_boss_loop_can_dispatch_multiple_issues_in_one_iteration() -> None:
     assert len(result.issues_attempted) == 2
     assert len(result.issues_completed) == 2
     assert len(result.iteration_statuses) == 2
-    assert [status["selected_issue"]["number"] for status in result.iteration_statuses] == [
+    assert sorted(status["selected_issue"]["number"] for status in result.iteration_statuses) == [
         101,
         102,
     ]
+
+
+def test_boss_loop_refills_parallel_capacity_with_next_issue() -> None:
+    feed = MagicMock()
+    feed.fetch.return_value = [
+        _issue(101, "First issue"),
+        _issue(102, "Second issue"),
+        _issue(103, "Third issue"),
+    ]
+    freshness = RunnerFreshnessResult(
+        fresh=True,
+        runner_ids=["claude-runner-1", "claude-runner-2"],
+        checked_at=datetime.now(UTC).isoformat(),
+        details={
+            "routing": {
+                "selected_runner_ids": ["claude-runner-1", "claude-runner-2"],
+                "selected_runners": [
+                    {
+                        "runner_id": "claude-runner-1",
+                        "runner_type": "claude",
+                        "cost_class": "subscription",
+                        "available_capacity": 1,
+                    },
+                    {
+                        "runner_id": "claude-runner-2",
+                        "runner_type": "claude",
+                        "cost_class": "subscription",
+                        "available_capacity": 1,
+                    },
+                ],
+                "fallback_reason": None,
+            }
+        },
+    )
+    loop = BossLoop(
+        config=BossLoopConfig(
+            max_iterations=1,
+            iteration_interval_seconds=0.0,
+            default_target_agent="claude",
+            default_reviewer_agent="codex",
+            max_parallel_dispatches=2,
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **_kwargs: freshness,
+    )
+    started_numbers: list[int] = []
+
+    async def _dispatch(issue, _freshness):
+        started_numbers.append(issue.number)
+        if issue.number == 101:
+            await asyncio.sleep(0.02)
+        elif issue.number == 102:
+            await asyncio.sleep(0.01)
+        return {"status": "completed"}
+
+    with patch.object(loop, "_dispatch_issue", AsyncMock(side_effect=_dispatch)):
+        result = asyncio.run(loop.run())
+
+    assert started_numbers[:2] == [101, 102]
+    assert 103 in started_numbers
+    assert len(result.issues_attempted) == 3
+    assert len(result.issues_completed) == 3
