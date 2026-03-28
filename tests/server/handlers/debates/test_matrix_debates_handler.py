@@ -335,6 +335,103 @@ class TestHandlePost:
         assert "too long" in body.get("error", "")
 
     @pytest.mark.asyncio
+    async def test_post_accepts_scenario_specific_agents(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should allow per-scenario model combinations via scenario agents."""
+        payload = {
+            "task": "A valid test task for debate",
+            "scenarios": [
+                {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]},
+                {"name": "combo-b", "agents": ["gemini", "grok"]},
+            ],
+        }
+        expected_result = MagicMock(status_code=200, body=b'{"matrix_id":"matrix-123"}')
+
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                with patch.object(
+                    handler,
+                    "_run_matrix_debate",
+                    new_callable=AsyncMock,
+                    return_value=expected_result,
+                ) as mock_run:
+                    result = await handler.handle_post(
+                        mock_http_handler,
+                        "/api/v1/debates/matrix",
+                        payload,
+                    )
+
+        assert result is expected_result
+        mock_run.assert_awaited_once_with(mock_http_handler, payload)
+
+    @pytest.mark.asyncio
+    async def test_post_rejects_non_array_scenario_agents(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when scenario agents is not a list."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "task": "A valid test task for debate",
+                        "scenarios": [{"name": "combo-a", "agents": "anthropic-api"}],
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "scenarios[0].agents" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_post_rejects_too_many_scenario_agents(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when scenario agents exceeds the per-scenario limit."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "task": "A valid test task for debate",
+                        "scenarios": [
+                            {"name": "combo-a", "agents": [f"agent-{i}" for i in range(11)]}
+                        ],
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "scenarios[0].agents" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_post_rejects_non_string_scenario_agent(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when any scenario agent is not a string."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "task": "A valid test task for debate",
+                        "scenarios": [{"name": "combo-a", "agents": ["anthropic-api", 3]}],
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "scenarios[0].agents[1]" in body.get("error", "")
+
+    @pytest.mark.asyncio
     async def test_post_invalid_max_rounds(self, handler, mock_http_handler, mock_auth_context):
         """Should return 400 for invalid max_rounds."""
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:

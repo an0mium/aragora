@@ -693,6 +693,11 @@ class TestMatrixDebateModels:
         assert scenario.constraints == []
         assert scenario.is_baseline is False
 
+    def test_matrix_scenario_supports_scenario_specific_agents(self):
+        """Test MatrixScenario can carry a model combination override."""
+        scenario = MatrixScenario(name="Combo A", agents=["anthropic-api", "openai-api"])
+        assert scenario.agents == ["anthropic-api", "openai-api"]
+
     def test_matrix_scenario_result(self):
         """Test MatrixScenarioResult creation."""
         result = MatrixScenarioResult(scenario_name="Test")
@@ -712,6 +717,20 @@ class TestMatrixDebateModels:
         assert request.agents == ["anthropic-api", "openai-api"]
         assert request.scenarios == []
         assert request.max_rounds == 3
+
+    def test_matrix_debate_create_response_tracks_best_result(self):
+        """Test create response exposes the selected best result."""
+        response = MatrixDebateCreateResponse(
+            matrix_id="matrix-123",
+            task="Compare model combinations",
+            best_result={
+                "scenario_name": "Combo A",
+                "agents": ["anthropic-api", "openai-api"],
+                "confidence": 0.91,
+            },
+        )
+        assert response.best_result["scenario_name"] == "Combo A"
+        assert response.best_result["agents"] == ["anthropic-api", "openai-api"]
 
 
 class TestVerificationModels:
