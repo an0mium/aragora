@@ -46,7 +46,9 @@ class ExportFormat(str, Enum):
     """Supported export formats."""
 
     json = "json"
+    html = "html"
     markdown = "markdown"
+    md = "md"
     sarif = "sarif"
 
 
@@ -1054,7 +1056,7 @@ async def export_receipt(
     format: ExportFormat = Query(ExportFormat.json, description="Export format"),
     store=Depends(get_receipt_store),
 ) -> ExportResponse:
-    """Export receipt in the specified format (json, markdown, sarif)."""
+    """Export receipt in the specified format (json, html, markdown, sarif)."""
     try:
         receipt_data = None
 
@@ -1075,16 +1077,22 @@ async def export_receipt(
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
-            if format == ExportFormat.markdown:
+            if format in (ExportFormat.markdown, ExportFormat.md):
                 content = receipt.to_markdown()
+                response_format = "markdown"
+            elif format == ExportFormat.html:
+                content = receipt.to_html()
+                response_format = "html"
             elif format == ExportFormat.sarif:
                 content = receipt.to_sarif_json()
+                response_format = "sarif"
             else:
                 content = receipt.to_json()
+                response_format = "json"
 
             return ExportResponse(
                 receipt_id=receipt_id,
-                format=format.value,
+                format=response_format,
                 content=content,
             )
 

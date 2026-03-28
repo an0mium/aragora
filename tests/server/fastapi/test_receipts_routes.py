@@ -346,6 +346,27 @@ class TestExportReceipt:
         assert data["format"] == "markdown"
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_md_alias_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Export receipt accepts the legacy md alias used by the live UI."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=md")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["format"] == "markdown"
+        assert "Decision Receipt" in data["content"]
+
+    def test_export_receipt_html_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Export receipt supports HTML for onboarding and receipt download links."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=html")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["format"] == "html"
+        assert "<!DOCTYPE html>" in data["content"]
+        assert "Decision Receipt" in data["content"]
+
     def test_export_receipt_sarif_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt in SARIF format."""
         mock_receipt_store.get.return_value = sample_receipt_dict
