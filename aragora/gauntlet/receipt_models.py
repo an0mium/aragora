@@ -191,6 +191,10 @@ class DecisionReceipt:
     # Taint analysis (G2 — populated when tainted context influenced any proposal)
     taint_analysis: dict[str, Any] | None = None
 
+    # Provider routing decisions (populated when smart routing was used)
+    # Contains: routing_strategy, selected_providers, pareto_optimal flag, etc.
+    provider_routing: dict[str, Any] | None = None
+
     # Extended thinking traces from Anthropic agents (optional, for explainability)
     # Maps agent name -> thinking trace string produced during the debate
     thinking_traces: dict[str, str] | None = None
@@ -1074,6 +1078,32 @@ class DecisionReceipt:
         if isinstance(large_roster_runtime, dict):
             config_used["large_roster_runtime"] = large_roster_runtime
 
+        # Extract provider routing decisions from metadata
+        provider_routing_data: dict[str, Any] | None = None
+        raw_routing = metadata.get("provider_routing")
+        if isinstance(raw_routing, dict):
+            provider_routing_data = {
+                "routing_applied": bool(raw_routing.get("routing_applied", False)),
+                "routing_strategy": raw_routing.get("routing_strategy", "default"),
+                "routed_agent_names": list(raw_routing.get("routed_agent_names", [])),
+            }
+            if "provider_matches" in raw_routing:
+                provider_routing_data["provider_matches"] = dict(raw_routing["provider_matches"])
+            if "provider_hint_scores" in raw_routing:
+                provider_routing_data["provider_hint_scores"] = dict(
+                    raw_routing["provider_hint_scores"]
+                )
+        provider_hints = metadata.get("provider_hints")
+        if isinstance(provider_hints, list) and provider_hints:
+            if provider_routing_data is None:
+                provider_routing_data = {}
+            provider_routing_data.setdefault("provider_hints", list(provider_hints))
+        provider_names = metadata.get("provider_names")
+        if isinstance(provider_names, list) and provider_names:
+            if provider_routing_data is None:
+                provider_routing_data = {}
+            provider_routing_data.setdefault("provider_names", list(provider_names))
+
         # Determine verdict from consensus
         if result.consensus_reached and result.confidence >= 0.7:
             verdict = "PASS"
@@ -1128,6 +1158,7 @@ class DecisionReceipt:
             provenance_chain=provenance,
             agent_responses=agent_responses,
             cost_summary=cost_summary,
+            provider_routing=provider_routing_data,
             settlement_metadata=settlement_metadata,
             config_used=config_used,
         )
@@ -1652,6 +1683,7 @@ class DecisionReceipt:
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
             "agent_responses": [response.to_dict() for response in self.agent_responses],
             "cost_summary": self.cost_summary,
+            "provider_routing": self.provider_routing,
             "settlement_metadata": self.settlement_metadata,
             "settlement_status": self.settlement_status,
             "explainability": self.explainability,
@@ -1707,6 +1739,7 @@ class DecisionReceipt:
             schema_version=data.get("schema_version", "1.0"),
             artifact_hash=data.get("artifact_hash", ""),
             cost_summary=data.get("cost_summary"),
+            provider_routing=data.get("provider_routing"),
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
             config_used=data.get("config_used", {}) or {},

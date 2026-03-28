@@ -114,6 +114,10 @@ def receipt_to_markdown(
     if receipt.cost_summary:
         lines.extend(_render_cost_summary_markdown(receipt.cost_summary))
 
+    # Provider routing section (when available)
+    if receipt.provider_routing:
+        lines.extend(_render_provider_routing_markdown(receipt.provider_routing))
+
     if receipt.agent_responses:
         lines.extend(
             [
@@ -377,6 +381,8 @@ def receipt_to_html(
     </div>
 
     {_render_cost_summary_html(receipt.cost_summary)}
+
+    {_render_provider_routing_html(receipt.provider_routing)}
 
     {agent_responses_html}
 
@@ -845,6 +851,130 @@ def _render_cost_summary_markdown(cost_summary: dict[str, Any]) -> list[str]:
         lines.append("")
 
     return lines
+
+
+def _render_provider_routing_markdown(routing: dict[str, Any]) -> list[str]:
+    """Render provider_routing dict as Markdown lines.
+
+    Args:
+        routing: The provider routing decisions dict.
+
+    Returns:
+        List of Markdown lines to extend into the receipt.
+    """
+    lines: list[str] = [
+        "---",
+        "",
+        "## Provider Routing",
+        "",
+    ]
+
+    strategy = routing.get("routing_strategy", "default")
+    lines.append(f"- **Strategy:** {strategy}")
+
+    if routing.get("routing_applied"):
+        lines.append("- **Routing Applied:** Yes")
+    else:
+        lines.append("- **Routing Applied:** No")
+
+    routed_agents = routing.get("routed_agent_names", [])
+    if routed_agents:
+        lines.append(f"- **Routed Agents:** {', '.join(str(a) for a in routed_agents)}")
+
+    provider_names = routing.get("provider_names", [])
+    if provider_names:
+        lines.append(f"- **Selected Providers:** {', '.join(str(p) for p in provider_names)}")
+
+    lines.append("")
+
+    # Provider hint scores table
+    hint_scores = routing.get("provider_hint_scores", {})
+    if hint_scores:
+        lines.extend(
+            [
+                "### Provider Scores",
+                "",
+                "| Provider | Score |",
+                "|----------|-------|",
+            ]
+        )
+        for provider, score in hint_scores.items():
+            lines.append(f"| {provider} | {score} |")
+        lines.append("")
+
+    # Provider matches table
+    provider_matches = routing.get("provider_matches", {})
+    if provider_matches:
+        lines.extend(
+            [
+                "### Provider-Agent Matches",
+                "",
+                "| Agent | Provider |",
+                "|-------|----------|",
+            ]
+        )
+        for agent, provider in provider_matches.items():
+            lines.append(f"| {agent} | {provider} |")
+        lines.append("")
+
+    return lines
+
+
+def _render_provider_routing_html(routing: dict[str, Any] | None) -> str:
+    """Render provider_routing dict as an HTML section.
+
+    Args:
+        routing: The provider routing decisions dict or None.
+
+    Returns:
+        HTML string for the routing section (empty string if no data).
+    """
+    if not routing:
+        return ""
+
+    strategy = escape(str(routing.get("routing_strategy", "default")))
+    applied = "Yes" if routing.get("routing_applied") else "No"
+
+    parts: list[str] = [
+        '<div class="section">',
+        "    <h2>Provider Routing</h2>",
+        "    <table>",
+        "        <tr><th>Metric</th><th>Value</th></tr>",
+        f"        <tr><td>Strategy</td><td>{strategy}</td></tr>",
+        f"        <tr><td>Routing Applied</td><td>{applied}</td></tr>",
+    ]
+
+    routed_agents = routing.get("routed_agent_names", [])
+    if routed_agents:
+        agents_str = escape(", ".join(str(a) for a in routed_agents))
+        parts.append(f"        <tr><td>Routed Agents</td><td>{agents_str}</td></tr>")
+
+    provider_names = routing.get("provider_names", [])
+    if provider_names:
+        providers_str = escape(", ".join(str(p) for p in provider_names))
+        parts.append(f"        <tr><td>Selected Providers</td><td>{providers_str}</td></tr>")
+
+    parts.extend(["    </table>", ""])
+
+    # Provider matches
+    provider_matches = routing.get("provider_matches", {})
+    if provider_matches:
+        parts.extend(
+            [
+                "    <h3>Provider-Agent Matches</h3>",
+                "    <table>",
+                "        <tr><th>Agent</th><th>Provider</th></tr>",
+            ]
+        )
+        for agent, provider in provider_matches.items():
+            parts.append(
+                f"        <tr><td>{escape(str(agent))}</td><td>{escape(str(provider))}</td></tr>"
+            )
+        parts.append("    </table>")
+
+    parts.append("</div>")
+
+    return "\n".join(parts)
 
 
 def _render_cost_summary_html(cost_summary: dict[str, Any] | None) -> str:
