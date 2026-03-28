@@ -113,6 +113,7 @@ def _completed_debate(
     agents: list[str] | None = None,
     total_cost_usd: float = 0.0042,
     per_agent_cost: dict | None = None,
+    agent_models: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Build a completed debate dict for testing."""
     return {
@@ -133,6 +134,23 @@ def _completed_debate(
             "participants": participants or ["claude", "gpt-4", "gemini"],
             "total_cost_usd": total_cost_usd,
             "per_agent_cost": per_agent_cost or {"claude": 0.0020, "gpt-4": 0.0022},
+            "metadata": {
+                "agent_models": agent_models
+                or {
+                    "claude": {
+                        "provider": "anthropic-api",
+                        "provider_display": "Anthropic",
+                        "model": "claude-opus-4-6",
+                        "llm_label": "claude-opus-4-6 via Anthropic",
+                    },
+                    "gpt-4": {
+                        "provider": "openai-api",
+                        "provider_display": "OpenAI",
+                        "model": "gpt-4.1",
+                        "llm_label": "gpt-4.1 via OpenAI",
+                    },
+                }
+            },
         },
     }
 
@@ -786,6 +804,7 @@ class TestAssemblePackageCompleted:
             {"agent": "claude", "tokens": 0, "cost": 0.002},
             {"agent": "gpt-4", "tokens": 0, "cost": 0.0022},
         ]
+        assert body["agent_models"]["claude"]["llm_label"] == "claude-opus-4-6 via Anthropic"
 
     def test_export_formats_listed(self, handler_with_storage, http_handler):
         result = handler_with_storage.handle(
@@ -814,6 +833,28 @@ class TestAssemblePackageCompleted:
         )
         body = _body(result)
         assert len(body["next_steps"]) > 0
+
+    def test_agent_models_in_package(self, handler_with_storage, http_handler):
+        result = handler_with_storage.handle(
+            "/api/v1/debates/test-debate-001/package",
+            {},
+            http_handler,
+        )
+        body = _body(result)
+        assert body["agent_models"] == {
+            "claude": {
+                "provider": "anthropic-api",
+                "provider_display": "Anthropic",
+                "model": "claude-opus-4-6",
+                "llm_label": "claude-opus-4-6 via Anthropic",
+            },
+            "gpt-4": {
+                "provider": "openai-api",
+                "provider_display": "OpenAI",
+                "model": "gpt-4.1",
+                "llm_label": "gpt-4.1 via OpenAI",
+            },
+        }
 
 
 # ===========================================================================
@@ -1381,6 +1422,7 @@ class TestJSONStructure:
             "explanation",
             "participants",
             "agents",
+            "agent_models",
             "rounds",
             "arguments",
             "receipt",

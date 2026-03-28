@@ -1,4 +1,10 @@
 export interface DecisionPackage {
+  agent_models: Record<string, {
+    provider: string;
+    provider_display: string;
+    model: string;
+    llm_label: string;
+  }>;
   id: string;
   question: string;
   verdict: string;
@@ -116,6 +122,29 @@ function normalizeReceipt(value: unknown, fallbackTimestamp = ''): DecisionPacka
   };
 }
 
+function normalizeAgentModels(value: unknown): DecisionPackage['agent_models'] {
+  const obj = asObject(value);
+  if (!obj) return {};
+
+  return Object.fromEntries(
+    Object.entries(obj)
+      .map(([agent, rawMeta]) => {
+        const meta = asObject(rawMeta);
+        if (!meta) return null;
+        return [
+          agent,
+          {
+            provider: asString(meta.provider),
+            provider_display: asString(meta.provider_display),
+            model: asString(meta.model),
+            llm_label: asString(meta.llm_label),
+          },
+        ] as const;
+      })
+      .filter((entry): entry is [string, DecisionPackage['agent_models'][string]] => entry !== null)
+  );
+}
+
 function normalizeNextSteps(value: unknown): DecisionPackage['next_steps'] {
   if (!Array.isArray(value)) return [];
   return value
@@ -146,6 +175,7 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
   const createdAt = asString(obj.created_at, asString(obj.assembled_at, new Date().toISOString()));
 
   return {
+    agent_models: normalizeAgentModels(obj.agent_models ?? asObject(obj.metadata)?.agent_models),
     id: asString(obj.id, asString(obj.debate_id, fallbackId)),
     question: asString(obj.question, asString(obj.task)),
     verdict: asString(obj.verdict, asString(asObject(obj.receipt)?.verdict)),

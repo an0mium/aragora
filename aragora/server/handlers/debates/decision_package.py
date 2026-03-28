@@ -118,6 +118,27 @@ def _build_cost_breakdown(
     return breakdown
 
 
+def _normalize_agent_models(value: Any) -> dict[str, dict[str, str]]:
+    """Return only the agent-model metadata fields the live UI consumes."""
+
+    if not isinstance(value, dict):
+        return {}
+
+    normalized: dict[str, dict[str, str]] = {}
+    for agent_name, entry in value.items():
+        if not isinstance(entry, dict):
+            continue
+
+        normalized[str(agent_name)] = {
+            "provider": str(entry.get("provider", "") or ""),
+            "provider_display": str(entry.get("provider_display", "") or ""),
+            "model": str(entry.get("model", "") or ""),
+            "llm_label": str(entry.get("llm_label", "") or ""),
+        }
+
+    return normalized
+
+
 def _generate_next_steps(
     verdict: str,
     confidence: float,
@@ -435,6 +456,12 @@ class DecisionPackageHandler(BaseHandler):
         ) as exc:
             logger.debug("Argument map not available for %s: %s", debate_id, exc)
 
+        raw_agent_models = result_data.get("agent_models")
+        if not isinstance(raw_agent_models, dict):
+            metadata = result_data.get("metadata")
+            raw_agent_models = metadata.get("agent_models") if isinstance(metadata, dict) else {}
+        agent_models = _normalize_agent_models(raw_agent_models)
+
         # -- Cost --
         per_agent_cost = result_data.get("per_agent_cost", {})
         cost = {
@@ -468,6 +495,7 @@ class DecisionPackageHandler(BaseHandler):
             "explanation": result_data.get("explanation_summary", ""),
             "participants": participants,
             "agents": participants,
+            "agent_models": agent_models,
             "rounds": result_data.get("rounds", rounds),
             "arguments": arguments,
             "receipt": receipt_dict,

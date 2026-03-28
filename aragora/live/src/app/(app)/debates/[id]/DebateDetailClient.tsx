@@ -41,6 +41,7 @@ export default function DebateDetailClient() {
   const [debateStatus, setDebateStatus] = useState<'loading' | 'in_progress' | 'completed' | 'error'>('loading');
   const [showIntervention, setShowIntervention] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const compareHref = id ? `/compare?left=${encodeURIComponent(id)}` : '/compare';
 
   const { setContext, clearContext } = useRightSidebar();
   const requestedTab = searchParams.get('tab');
@@ -181,6 +182,12 @@ export default function DebateDetailClient() {
           >
             SHARE LINK
           </button>
+          <Link
+            href={compareHref}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+          >
+            COMPARE WITH ANOTHER
+          </Link>
           <Link
             href={`/self-improve?from=debate&id=${id}`}
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
@@ -421,12 +428,20 @@ export default function DebateDetailClient() {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={handleShare}
-                className="px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors flex-shrink-0"
-              >
-                {copied ? 'COPIED!' : 'SHARE'}
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link
+                  href={compareHref}
+                  className="px-3 py-2 text-xs font-mono bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                >
+                  COMPARE
+                </Link>
+                <button
+                  onClick={handleShare}
+                  className="px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+                >
+                  {copied ? 'COPIED!' : 'SHARE'}
+                </button>
+              </div>
             </div>
 
             {/* Final answer */}

@@ -12,6 +12,7 @@ describe('normalizeDecisionPackage', () => {
     );
 
     expect(normalized.id).toBe('debate-1');
+    expect(normalized.agent_models).toEqual({});
     expect(normalized.agents).toEqual([]);
     expect(normalized.arguments).toEqual([]);
     expect(normalized.cost_breakdown).toEqual([]);
@@ -104,5 +105,43 @@ describe('normalizeDecisionPackage', () => {
       signers: [],
     });
     expect(normalized.created_at).toBe('2026-03-25T12:34:56Z');
+  });
+
+  it('normalizes agent model metadata from decision packages', () => {
+    const normalized = normalizeDecisionPackage(
+      {
+        debate_id: 'debate-99',
+        metadata: {
+          agent_models: {
+            claude: {
+              provider: 'anthropic-api',
+              provider_display: 'Anthropic',
+              model: 'claude-opus-4-6',
+              llm_label: 'claude-opus-4-6 via Anthropic',
+            },
+            codex: {
+              provider: 'openai-api',
+              model: 'gpt-5-codex',
+            },
+          },
+        },
+      },
+      'fallback-id'
+    );
+
+    expect(normalized.agent_models).toEqual({
+      claude: {
+        provider: 'anthropic-api',
+        provider_display: 'Anthropic',
+        model: 'claude-opus-4-6',
+        llm_label: 'claude-opus-4-6 via Anthropic',
+      },
+      codex: {
+        provider: 'openai-api',
+        provider_display: '',
+        model: 'gpt-5-codex',
+        llm_label: '',
+      },
+    });
   });
 });

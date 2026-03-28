@@ -181,4 +181,11 @@ describe('DebateDetailClient bridge actions', () => {
     expect(await screen.findByText(/cryptographic receipt/i)).toBeInTheDocument();
     expect(screen.getByText('sha256:test-receipt')).toBeInTheDocument();
   });
+
+  it('offers a compare link prefilled with the current debate id', async () => {
+    render(<DebateDetailClient />);
+
+    const compareLink = await screen.findByRole('link', { name: 'COMPARE' });
+    expect(compareLink).toHaveAttribute('href', '/compare?left=debate-123');
+  });
 });
