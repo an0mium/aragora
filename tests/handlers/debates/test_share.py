@@ -26,6 +26,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.server.handlers.debates.public_viewer import (
+    PublicDebateViewerHandler,
+    _reset_public_viewer_rate_limits,
+)
 from aragora.server.handlers.debates.share import (
     DebateShareHandler,
     _MAX_PUBLIC_SPECTATORS,
@@ -93,6 +97,19 @@ def reset_state():
     _reset_share_state()
     yield
     _reset_share_state()
+
+
+@pytest.fixture()
+def shared_debate_store(tmp_path, monkeypatch):
+    """Provide a fresh debate result store for public share persistence tests."""
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+    import aragora.storage.debate_store as mod
+
+    monkeypatch.setattr(mod, "_store", None)
+    _reset_public_viewer_rate_limits()
+    yield
+    monkeypatch.setattr(mod, "_store", None)
+    _reset_public_viewer_rate_limits()
 
 
 # ===========================================================================
@@ -407,6 +424,56 @@ class TestSharePost:
         body = _body(result)
         assert body["full_url"].startswith("https://")
 
+    def test_persists_shared_debate_for_public_viewer(self, shared_debate_store):
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "private-debate",
+            "task": "Should we roll out the migration?",
+            "messages": [
+                {
+                    "agent": "analyst",
+                    "content": "Roll out in phases to reduce blast radius.",
+                    "role": "proposer",
+                    "round": 1,
+                },
+                {
+                    "agent": "critic",
+                    "content": "Require rollback criteria before phase one.",
+                    "role": "critic",
+                    "round": 1,
+                },
+            ],
+            "agents": ["analyst", "critic"],
+            "consensus_reached": True,
+            "confidence": 0.81,
+            "final_answer": "Ship the phased rollout with rollback checks.",
+            "winning_proposal": "Ship the phased rollout with rollback checks.",
+            "visibility": "private",
+        }
+        share_handler = DebateShareHandler(ctx={"storage": storage})
+        viewer_handler = PublicDebateViewerHandler()
+
+        share_result = share_handler.handle_post(
+            "/api/v1/debates/private-debate/share",
+            {},
+            _make_http_handler(),
+        )
+
+        assert _status(share_result) == 200
+
+        viewer_result = viewer_handler.handle(
+            "/api/v1/debates/public/private-debate",
+            {},
+            _make_http_handler(),
+        )
+
+        assert _status(viewer_result) == 200
+        viewer_body = _body(viewer_result)
+        assert viewer_body["id"] == "private-debate"
+        assert viewer_body["task"] == "Should we roll out the migration?"
+        assert viewer_body["shared_via_link"] is True
+        assert viewer_body["share_url"] == "/debate/private-debate"
+
 
 # ===========================================================================
 # DELETE /api/v1/debates/{id}/share
@@ -460,6 +527,47 @@ class TestShareDelete:
         assert is_publicly_shared("cycle") is False
         h.handle_post("/api/v1/debates/cycle/share", {}, handler)
         assert is_publicly_shared("cycle") is True
+
+    def test_revoke_blocks_public_viewer_for_explicitly_shared_private_debate(
+        self,
+        shared_debate_store,
+    ):
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "id": "private-debate",
+            "task": "Should we roll out the migration?",
+            "messages": [
+                {
+                    "agent": "analyst",
+                    "content": "Roll out in phases to reduce blast radius.",
+                }
+            ],
+            "agents": ["analyst"],
+            "consensus_reached": True,
+            "confidence": 0.72,
+            "final_answer": "Phase the rollout.",
+            "visibility": "private",
+        }
+        share_handler = DebateShareHandler(ctx={"storage": storage})
+        viewer_handler = PublicDebateViewerHandler()
+        handler = _make_http_handler()
+
+        share_handler.handle_post("/api/v1/debates/private-debate/share", {}, handler)
+        revoke_result = share_handler.handle_delete(
+            "/api/v1/debates/private-debate/share",
+            {},
+            handler,
+        )
+
+        assert _status(revoke_result) == 200
+
+        viewer_result = viewer_handler.handle(
+            "/api/v1/debates/public/private-debate",
+            {},
+            _make_http_handler(),
+        )
+
+        assert _status(viewer_result) == 404
 
 
 # ===========================================================================

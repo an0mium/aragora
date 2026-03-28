@@ -24,6 +24,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.handlers.debates.response_formatting import normalize_debate_response
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,9 @@ def _reset_public_viewer_rate_limits() -> None:
 # Debate retrieval helpers
 # ---------------------------------------------------------------------------
 
-# Debate ID: hex string, 16-32 chars (matches playground IDs)
-_DEBATE_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
+# Debate IDs may be UUIDs, slugs, or playground IDs. Keep the pattern strict
+# enough to reject traversal while allowing ordinary stored debate IDs.
+_DEBATE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{3,127}$")
 
 # Also support playground-prefixed IDs like playground_abcd1234
 _PLAYGROUND_ID_RE = re.compile(r"^playground_[a-f0-9]{8,16}$")
@@ -102,13 +104,16 @@ def _is_shareable(result: dict[str, Any]) -> bool:
     - It has a share_url field (set by _persist_and_respond in playground.py)
     - OR it has visibility == "public" (set by _persist_playground_debate)
     - OR its source is "playground", "landing", "oracle", or "demo"
+    - OR it has a persisted shared_via_link flag from the explicit share API
     """
+    if "shared_via_link" in result:
+        return bool(result.get("shared_via_link"))
     if result.get("share_url"):
         return True
     if result.get("visibility") == "public":
         return True
     source = result.get("source", "")
-    if source in ("playground", "landing", "oracle", "demo"):
+    if source in ("playground", "landing", "oracle", "demo", "try"):
         return True
     return False
 
@@ -238,6 +243,33 @@ class PublicDebateViewerHandler(BaseHandler):
             return parts[5]
         return None
 
+    def _load_debate_result(self, debate_id: str) -> dict[str, Any] | None:
+        """Load a public-viewable debate payload.
+
+        The public debate store is the primary source because explicit share
+        actions persist a copy there. When available, fall back to the main
+        debate storage to support already-public debates.
+        """
+        result = _get_debate_result(debate_id)
+        if isinstance(result, dict):
+            normalized = normalize_debate_response(dict(result))
+            if isinstance(normalized, dict):
+                return normalized
+
+        storage = self.get_storage()
+        if storage is not None:
+            try:
+                debate = storage.get_debate(debate_id)
+            except (AttributeError, RuntimeError, OSError, ValueError) as exc:
+                logger.debug("Primary debate storage unavailable for %s: %s", debate_id, exc)
+            else:
+                if isinstance(debate, dict):
+                    normalized = normalize_debate_response(dict(debate))
+                    if isinstance(normalized, dict):
+                        return normalized
+
+        return None
+
     # ------------------------------------------------------------------
     # GET /api/v1/debates/public/{id}
     # GET /api/v1/debates/public/{id}/og
@@ -280,7 +312,7 @@ class PublicDebateViewerHandler(BaseHandler):
 
     def _handle_public_debate(self, debate_id: str) -> HandlerResult:
         """Return the debate result JSON for a publicly shared debate."""
-        result = _get_debate_result(debate_id)
+        result = self._load_debate_result(debate_id)
         if result is None:
             return error_response("Debate not found", 404)
 
@@ -291,7 +323,7 @@ class PublicDebateViewerHandler(BaseHandler):
 
     def _handle_og(self, debate_id: str) -> HandlerResult:
         """Return HTML with Open Graph meta tags for social previews."""
-        result = _get_debate_result(debate_id)
+        result = self._load_debate_result(debate_id)
         if result is None:
             return error_response("Debate not found", 404)
 

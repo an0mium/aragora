@@ -79,4 +79,47 @@ describe('fetchDebateClient', () => {
     expect(result?.receipt_hash).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('normalizes storage-backed debate payloads for anonymous shared views', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'shared-storage-debate',
+        task: 'Should we roll out the migration?',
+        status: 'concluded',
+        consensus_reached: true,
+        confidence: 0.84,
+        agents: ['analyst', 'critic'],
+        messages: [
+          {
+            agent: 'analyst',
+            content: 'Roll out in phases to reduce blast radius.',
+            role: 'proposer',
+            round: 1,
+          },
+          {
+            agent: 'critic',
+            content: 'Require rollback criteria before phase one.',
+            role: 'critic',
+            round: 1,
+          },
+        ],
+        final_answer: 'Ship the phased rollout with rollback checks.',
+        winning_proposal: 'Ship the phased rollout with rollback checks.',
+        signature: 'sha256:shared',
+        shared_via_link: true,
+      }),
+    } as Response);
+
+    const result = await fetchDebateClient('shared-storage-debate');
+
+    expect(result).not.toBeNull();
+    expect(result?.topic).toBe('Should we roll out the migration?');
+    expect(result?.participants).toEqual(['analyst', 'critic']);
+    expect(result?.verdict).toBe('Ship the phased rollout with rollback checks.');
+    expect(result?.messages?.[0]?.content).toContain('blast radius');
+    expect(result?.receipt_hash).toBe('sha256:shared');
+  });
 });

@@ -194,6 +194,59 @@ describe('DebateViewerPage (via DebateViewerWrapper)', () => {
       });
     });
 
+    it('renders the full shared argument transcript for saved debates', async () => {
+      const mockDebate = {
+        id: 'shared123',
+        topic: 'Should we roll out the migration?',
+        task: 'Should we roll out the migration?',
+        status: 'completed',
+        consensus_reached: true,
+        confidence: 0.84,
+        verdict: 'Ship the phased rollout with rollback checks.',
+        duration_seconds: 12.5,
+        participants: ['analyst', 'critic'],
+        proposals: {
+          analyst: 'Roll out in phases to reduce blast radius.',
+          critic: 'Require rollback criteria before phase one.',
+        },
+        critiques: [
+          {
+            agent: 'critic',
+            target: 'analyst',
+            text: 'Require rollback criteria before phase one.',
+          },
+        ],
+        votes: [
+          { agent: 'analyst', choice: 'approve', confidence: 0.9 },
+          { agent: 'critic', choice: 'approve', confidence: 0.78 },
+        ],
+        final_answer: 'Ship the phased rollout with rollback checks.',
+        receipt_hash: 'sha256:shared',
+        messages: [
+          {
+            agent: 'analyst',
+            content: 'Roll out in phases to reduce blast radius.',
+            role: 'proposer',
+            round: 1,
+          },
+          {
+            agent: 'critic',
+            content: 'Require rollback criteria before phase one.',
+            role: 'critic',
+            round: 1,
+          },
+        ],
+      };
+
+      renderWithProviders(<DebateViewerWrapper savedDebate={mockDebate} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Full Argument')).toBeInTheDocument();
+        expect(screen.getByText('Roll out in phases to reduce blast radius.')).toBeInTheDocument();
+        expect(screen.getByText('Require rollback criteria before phase one.')).toBeInTheDocument();
+      });
+    });
+
     it('renders the DebateViewerWrapper component', () => {
       renderWithProviders(<DebateViewerWrapper />);
 

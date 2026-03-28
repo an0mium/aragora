@@ -20,6 +20,7 @@ import time
 from typing import Any
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.debates.response_formatting import normalize_debate_response
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -135,6 +136,107 @@ def _reset_share_state() -> None:
     _public_collectors.clear()
 
 
+def _share_url_for(debate_id: str) -> str:
+    """Return the canonical public debate URL path for a debate."""
+    return f"/debate/{debate_id}"
+
+
+def _load_debate_for_public_share(handler: BaseHandler, debate_id: str) -> dict[str, Any] | None:
+    """Load a debate payload suitable for public sharing.
+
+    Prefers durable debate storage and falls back to the lightweight debate
+    result store used by playground/public links.
+    """
+    storage = handler.get_storage()
+    if storage is not None:
+        try:
+            debate = storage.get_debate(debate_id)
+        except (AttributeError, RuntimeError, OSError, ValueError) as exc:
+            logger.debug("Failed to load debate %s from primary storage: %s", debate_id, exc)
+        else:
+            if isinstance(debate, dict):
+                normalized = normalize_debate_response(dict(debate))
+                if isinstance(normalized, dict):
+                    return normalized
+
+    try:
+        from aragora.storage.debate_store import get_debate_store
+
+        debate = get_debate_store().get(debate_id)
+    except (ImportError, RuntimeError, OSError, ValueError) as exc:
+        logger.debug("Failed to load debate %s from debate store: %s", debate_id, exc)
+        return None
+
+    if isinstance(debate, dict):
+        normalized = normalize_debate_response(dict(debate))
+        if isinstance(normalized, dict):
+            return normalized
+    return None
+
+
+def _persist_public_share_payload(handler: BaseHandler, debate_id: str) -> None:
+    """Persist a public-viewer payload for a shared debate.
+
+    This writes a share-aware copy into the debate result store so the
+    anonymous debate viewer can resolve ordinary stored debates, not just
+    playground/demo artifacts.
+    """
+    debate = _load_debate_for_public_share(handler, debate_id)
+    if debate is None:
+        logger.debug("Skipping public share persistence for %s: debate not found", debate_id)
+        return
+
+    try:
+        from aragora.storage.debate_store import get_debate_store
+
+        public_payload = dict(debate)
+        public_payload["id"] = debate_id
+        public_payload.setdefault("debate_id", debate_id)
+        public_payload["share_url"] = _share_url_for(debate_id)
+        public_payload["shared_via_link"] = True
+        public_payload["public_spectate"] = True
+        topic = (
+            public_payload.get("topic")
+            or public_payload.get("task")
+            or public_payload.get("title")
+            or debate_id
+        )
+        public_payload.setdefault("topic", str(topic))
+        if "participants" not in public_payload and isinstance(public_payload.get("agents"), list):
+            public_payload["participants"] = public_payload.get("agents")
+        source = str(public_payload.get("source") or "shared")
+        get_debate_store().save(debate_id, str(topic), public_payload, source=source)
+    except (ImportError, RuntimeError, OSError, ValueError, TypeError) as exc:
+        logger.warning("Failed to persist shared debate %s for public viewer: %s", debate_id, exc)
+
+
+def _persist_revoked_share_payload(handler: BaseHandler, debate_id: str) -> None:
+    """Persist the revoked share state so anonymous access stops working."""
+    try:
+        from aragora.storage.debate_store import get_debate_store
+
+        debate = get_debate_store().get(debate_id) or _load_debate_for_public_share(
+            handler, debate_id
+        )
+        if debate is None or not debate.get("shared_via_link"):
+            return
+
+        revoked_payload = dict(debate)
+        revoked_payload.pop("share_url", None)
+        revoked_payload["shared_via_link"] = False
+        revoked_payload["public_spectate"] = False
+        topic = (
+            revoked_payload.get("topic")
+            or revoked_payload.get("task")
+            or revoked_payload.get("title")
+            or debate_id
+        )
+        source = str(revoked_payload.get("source") or "shared")
+        get_debate_store().save(debate_id, str(topic), revoked_payload, source=source)
+    except (ImportError, RuntimeError, OSError, ValueError, TypeError) as exc:
+        logger.warning("Failed to persist share revocation for %s: %s", debate_id, exc)
+
+
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
@@ -246,6 +348,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, True)
+        _persist_public_share_payload(self, debate_id)
 
         host = _DEFAULT_HOST
         if handler and hasattr(handler, "headers"):
@@ -253,7 +356,7 @@ class DebateShareHandler(BaseHandler):
 
         # Share links should land on the public debate viewer page. The
         # spectate API endpoint remains available separately via `sse_url`.
-        share_url = f"/debate/{debate_id}"
+        share_url = _share_url_for(debate_id)
 
         return json_response(
             {
@@ -290,6 +393,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, False)
+        _persist_revoked_share_payload(self, debate_id)
 
         return json_response(
             {

@@ -26,7 +26,11 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
 import { useDebateWebSocketStore } from '@/hooks/useDebateWebSocketStore';
 import { DEFAULT_AGENTS } from '@/config';
-import { fetchDebateClient, type SavedDebate } from './fetchDebate';
+import {
+  fetchDebateClient,
+  type SavedDebate,
+  type SavedDebateMessage,
+} from './fetchDebate';
 
 // ---------------------------------------------------------------------------
 // Agent color palette — rotates through neon accents per agent
@@ -58,6 +62,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
     typeof window !== 'undefined'
       ? `${window.location.origin}/debate/${debate.id}`
       : `/debate/${debate.id}`;
+  const debateHeading = debate.task ?? debate.topic;
 
   const handleCopyLink = async () => {
     if (typeof navigator === 'undefined') return;
@@ -114,7 +119,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
 
           {/* Topic */}
           <h1 className="text-2xl md:text-3xl font-mono font-bold text-[var(--acid-green)] mb-2 leading-tight">
-            {debate.topic}
+            {debateHeading}
           </h1>
 
           {/* Meta row */}
@@ -166,12 +171,33 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                     Synthesis
                   </span>
                   <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {debate.final_answer.length > 800
-                      ? debate.final_answer.slice(0, 800) + '...'
-                      : debate.final_answer}
+                    {debate.final_answer}
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {debate.messages && debate.messages.length > 0 && (
+            <div className="mb-8 border border-[var(--acid-green)]/20 bg-[var(--surface)]">
+              <div className="p-4 border-b border-[var(--acid-green)]/20">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                  Full Argument
+                </h2>
+              </div>
+              <div className="p-4 space-y-3">
+                {debate.messages.map((message, index) => (
+                  <TranscriptEntry
+                    key={`${message.agent}-${index}`}
+                    message={message}
+                    colorIndex={
+                      debate.participants.indexOf(message.agent) >= 0
+                        ? debate.participants.indexOf(message.agent)
+                        : index
+                    }
+                  />
+                ))}
+              </div>
             </div>
           )}
 
@@ -185,8 +211,6 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                 {debate.participants.map((agent, i) => {
                   const color = agentColor(i);
                   const raw = debate.proposals[agent] ?? '';
-                  const excerpt =
-                    raw.length > 500 ? raw.slice(0, 500) + '...' : raw;
                   return (
                     <div
                       key={agent}
@@ -202,11 +226,47 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       >
                         {agent}
                       </span>
-                      {excerpt && (
+                      {raw && (
                         <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                          {excerpt}
+                          {raw}
                         </p>
                       )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {debate.critiques.length > 0 && (
+            <div className="mb-8 border border-[var(--acid-green)]/20 bg-[var(--surface)]">
+              <div className="p-4 border-b border-[var(--acid-green)]/20">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                  Critiques
+                </h2>
+              </div>
+              <div className="p-4 space-y-3">
+                {debate.critiques.map((critique, index) => {
+                  const color = agentColor(
+                    debate.participants.indexOf(critique.agent) >= 0
+                      ? debate.participants.indexOf(critique.agent)
+                      : index,
+                  );
+                  return (
+                    <div
+                      key={`${critique.agent}-${critique.target || index}`}
+                      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                      style={{ borderLeft: `3px solid ${color.border}` }}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-mono uppercase tracking-wider">
+                        <span style={{ color: color.text }}>{critique.agent}</span>
+                        {critique.target && (
+                          <span className="text-[var(--text-muted)]">→ {critique.target}</span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        {critique.text}
+                      </p>
                     </div>
                   );
                 })}
@@ -314,6 +374,36 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
         </div>
       </main>
     </>
+  );
+}
+
+function TranscriptEntry({
+  message,
+  colorIndex,
+}: {
+  message: SavedDebateMessage;
+  colorIndex: number;
+}) {
+  const color = agentColor(colorIndex);
+
+  return (
+    <div
+      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+      style={{ borderLeft: `3px solid ${color.border}` }}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-xs font-mono uppercase tracking-wider">
+        <span style={{ color: color.text }}>{message.agent}</span>
+        {message.role && (
+          <span className="text-[var(--text-muted)]">{message.role}</span>
+        )}
+        {typeof message.round === 'number' && (
+          <span className="text-[var(--text-muted)]">Round {message.round}</span>
+        )}
+      </div>
+      <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+        {message.content}
+      </p>
+    </div>
   );
 }
 
