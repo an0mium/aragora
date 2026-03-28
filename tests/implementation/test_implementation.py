@@ -866,7 +866,7 @@ class TestPlanExecution:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor for testing."""
-        return HybridExecutor(temp_repo, max_retries=1, sandbox_mode=False)
+        return HybridExecutor(temp_repo, max_retries=1, sandbox_mode=False, use_harness=False)
 
     @pytest.fixture
     def mock_context(self):
@@ -1080,7 +1080,7 @@ class TestRetryLogic:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor with retry enabled."""
-        return HybridExecutor(temp_repo, max_retries=3, sandbox_mode=False)
+        return HybridExecutor(temp_repo, max_retries=3, sandbox_mode=False, use_harness=False)
 
     @pytest.fixture
     def mock_context(self):
