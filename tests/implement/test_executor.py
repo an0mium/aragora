@@ -324,7 +324,7 @@ class TestExecuteTaskWithRetry:
 
         call_count = 0
 
-        async def mock_execute(task, attempt=1, use_fallback=False):
+        async def mock_execute(task, attempt=1, use_fallback=False, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count < 2:
@@ -424,7 +424,7 @@ class TestExecutePlan:
             return TaskResult(task_id=task.id, success=True)
 
         # Also mock execute_task to handle internal retry logic
-        async def mock_execute(task, attempt=1, use_fallback=False):
+        async def mock_execute(task, attempt=1, use_fallback=False, **kwargs):
             if task.id == "t1":
                 return TaskResult(task_id=task.id, success=False, error="Failed")
             return TaskResult(task_id=task.id, success=True)

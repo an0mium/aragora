@@ -843,7 +843,7 @@ class TestHybridExecutorIntegration:
                 return TaskResult(task_id=task.id, success=False, error="Timeout")
             return TaskResult(task_id=task.id, success=True, diff="")
 
-        async def mock_execute(task, attempt=1, use_fallback=False):
+        async def mock_execute(task, attempt=1, use_fallback=False, **kwargs):
             call_count[task.id] = call_count.get(task.id, 0) + 1
             # Always succeed on final retry
             return TaskResult(task_id=task.id, success=True, diff="")
