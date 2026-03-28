@@ -100,12 +100,13 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
   const filteredResults = useMemo(() => {
     if (!result) return [];
     return result.results.filter(r => {
+      const finalAnswer = (r.final_answer ?? '').toLowerCase();
       if (filters.consensusOnly && !r.consensus_reached) return false;
       if (r.confidence < filters.minConfidence) return false;
       if (filters.searchTerm) {
         const term = filters.searchTerm.toLowerCase();
         if (!r.scenario_name.toLowerCase().includes(term) &&
-            !r.final_answer.toLowerCase().includes(term)) {
+            !finalAnswer.includes(term)) {
           return false;
         }
       }

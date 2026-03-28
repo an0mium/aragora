@@ -8,7 +8,7 @@ export interface ScenarioResult {
   constraints: string[];
   is_baseline: boolean;
   winner: string | null;
-  final_answer: string;
+  final_answer: string | null;
   confidence: number;
   consensus_reached: boolean;
   rounds_used: number;
