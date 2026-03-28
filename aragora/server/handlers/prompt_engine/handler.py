@@ -267,7 +267,6 @@ class PromptEngineHandler(SecureHandler):
             "research": result.research.to_dict() if result.research else None,
             "auto_approved": result.auto_approved,
             "stages_completed": result.stages_completed,
-            "timing": result.timing.to_dict(),
             "validation": validation.to_dict(),
             "timing": timing_payload,
         }

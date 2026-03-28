@@ -55,7 +55,6 @@ async def _run_spec_pipeline(
 
     conductor = PromptConductor(config=config, agent=agent)
     result = await conductor.run(prompt)
-    timing = getattr(result, "timing", None)
 
     return {
         "specification": result.specification.to_dict()

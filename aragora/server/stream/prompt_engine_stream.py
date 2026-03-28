@@ -244,6 +244,15 @@ async def _run_pipeline(
         # Validation
         validator = SpecValidator()
         validation = validator.validate_heuristic(spec)
+        operation_timings = []
+        for stage in ("decompose", "interrogate", "research", "specify"):
+            operation_timings.extend(conductor.stage_operation_timings.get(stage, []))
+        validation_timing = PipelineTiming(
+            total_duration_ms=0.0,
+            stage_durations_ms={},
+            operation_timings=list(validator.last_operation_timings),
+            target_duration_ms=PROMPT_ENGINE_TARGET_DURATION_MS,
+        )
         latency_target_ms = getattr(config, "latency_target_ms", PROMPT_ENGINE_TARGET_DURATION_MS)
         if not isinstance(latency_target_ms, (int, float)):
             latency_target_ms = PROMPT_ENGINE_TARGET_DURATION_MS
