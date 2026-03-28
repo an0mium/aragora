@@ -379,6 +379,78 @@ Follow existing code style and tests.""",
         return self.claude, "claude"
 
     @staticmethod
+    def _normalize_model_label(model_label: str | None) -> str:
+        normalized = str(model_label or "").strip().lower()
+        for suffix in ("-quality-retry", "-fallback", "-reviser", "-retry"):
+            if normalized.endswith(suffix):
+                normalized = normalized[: -len(suffix)]
+                break
+        return normalized
+
+    def _candidate_implementer_types(self, task: ImplementTask) -> list[str]:
+        candidates: list[str] = []
+
+        task_type = str(getattr(task, "task_type", "") or "").lower()
+        if self._task_type_router and task_type in self._task_type_router:
+            candidates.append(self._task_type_router[task_type])
+
+        capabilities = getattr(task, "capabilities", None)
+        if capabilities and self._capability_router:
+            if isinstance(capabilities, str):
+                capabilities = [capabilities]
+            for capability in capabilities:
+                cap_key = str(capability).lower()
+                if cap_key in self._capability_router:
+                    candidates.append(self._capability_router[cap_key])
+
+        complexity_key = str(getattr(task, "complexity", "moderate")).lower()
+        if self._complexity_router and complexity_key in self._complexity_router:
+            candidates.append(self._complexity_router[complexity_key])
+
+        candidates.extend(self._implementer_pool)
+        candidates.extend(["claude", "codex"])
+
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for agent_type in candidates:
+            key = str(agent_type).strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            ordered.append(str(agent_type).strip())
+        return ordered
+
+    def _get_alternative_implementer(
+        self,
+        task: ImplementTask,
+        exclude_models: set[str] | None = None,
+    ) -> tuple[Any, str] | None:
+        excluded = {
+            self._normalize_model_label(model_label)
+            for model_label in (exclude_models or set())
+            if self._normalize_model_label(model_label)
+        }
+        implementer_prompt = """You are implementing code changes in a repository.
+Be precise, follow existing patterns, and make only necessary changes.
+Include proper type hints and docstrings."""
+
+        for agent_type in self._candidate_implementer_types(task):
+            normalized = self._normalize_model_label(agent_type)
+            if not normalized or normalized in excluded:
+                continue
+            timeout = self.codex_timeout if normalized == "codex" else self.claude_timeout
+            agent = self._get_dynamic_agent(
+                agent_type,
+                role="implementer",
+                timeout=timeout,
+                system_prompt=implementer_prompt,
+            )
+            if agent is not None:
+                return agent, normalized
+
+        return None
+
+    @staticmethod
     def _parse_review_response(response: str | None) -> tuple[bool | None, list[str], list[str]]:
         if not response:
             return None, [], []
@@ -813,9 +885,10 @@ Follow existing code style and tests.""",
         Execute a task with automatic retry and model fallback.
 
         Retry strategy:
-        1. First attempt with Claude (primary)
-        2. If retryable error, retry with error analysis hint
-        3. If timeout, try Codex as fallback with 2x timeout
+        1. First attempt with the routed primary implementer
+        2. If retryable and retry budget remains, retry same model with error context
+        3. If timeout persists and retry budget remains, switch to an alternate model
+        4. If review rejects a successful result, retry once with an alternate model
 
         Returns:
             Best TaskResult from attempts
@@ -840,7 +913,7 @@ Follow existing code style and tests.""",
         is_timeout = analysis.category == "timeout"
         retry_hint = analyzer.build_retry_hint(analysis, task.description)
 
-        if self.max_retries >= 2:
+        if self.max_retries >= 1:
             # Attempt 2: retry with error context injected as feedback
             logger.info(f"    Retrying {task.id} ({analysis.category} error)...")
             result = await self.execute_task(
@@ -854,17 +927,46 @@ Follow existing code style and tests.""",
                     return await self._review_and_revise(task, result)
                 return result
 
-        if is_timeout and self.max_retries >= 3:
-            # Attempt 3: Fallback to Codex on timeout
-            logger.info("    Falling back to Codex for %s...", task.id)
-            result = await self.execute_task(task, attempt=3, use_fallback=True)
+        if is_timeout and self.max_retries >= 2:
+            # Attempt 3: switch models on persistent timeout
+            excluded = {
+                result.model_used or "",
+            }
+            alternative = self._get_alternative_implementer(task, exclude_models=excluded)
+            if alternative and alternative[1] == "codex":
+                logger.info("    Falling back to Codex for %s...", task.id)
+                result = await self.execute_task(
+                    task,
+                    attempt=3,
+                    use_fallback=True,
+                    feedback=retry_hint,
+                )
+            elif alternative:
+                alternate_agent, alternate_label = alternative
+                logger.info("    Retrying %s with alternate model %s...", task.id, alternate_label)
+                result = await self.execute_task(
+                    task,
+                    attempt=3,
+                    use_fallback=False,
+                    feedback=retry_hint,
+                    agent_override=alternate_agent,
+                    model_label=f"{alternate_label}-fallback",
+                )
+            else:
+                logger.info("    No alternate model available for %s after timeout.", task.id)
 
         if result.success and self._should_review():
             return await self._review_and_revise(task, result)
 
         return result
 
-    async def _review_and_revise(self, task: ImplementTask, result: TaskResult) -> TaskResult:
+    async def _review_and_revise(
+        self,
+        task: ImplementTask,
+        result: TaskResult,
+        *,
+        allow_model_retry: bool = True,
+    ) -> TaskResult:
         """Run review loop and optional revisions based on configured strategy."""
         full_diff = self._get_git_diff(stat_only=False, max_chars=20000, files=task.files)
         review = await self._run_review(task, full_diff)
@@ -926,6 +1028,34 @@ Follow existing code style and tests.""",
                 suggestions,
                 review.get("review") or feedback,
             )
+
+        if approved is False and allow_model_retry:
+            alternative = self._get_alternative_implementer(
+                task,
+                exclude_models={result.model_used or "", self._reviser_type},
+            )
+            if alternative is not None:
+                alternate_agent, alternate_label = alternative
+                logger.info(
+                    "  Retrying %s with %s after review rejected the prior output...",
+                    task.id,
+                    alternate_label,
+                )
+                alternate_result = await self.execute_task(
+                    task,
+                    attempt=1,
+                    use_fallback=False,
+                    feedback=feedback,
+                    agent_override=alternate_agent,
+                    model_label=f"{alternate_label}-quality-retry",
+                )
+                if not alternate_result.success:
+                    return alternate_result
+                return await self._review_and_revise(
+                    task,
+                    alternate_result,
+                    allow_model_retry=False,
+                )
 
         if self._review_strict:
             return TaskResult(

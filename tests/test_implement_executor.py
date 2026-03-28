@@ -423,11 +423,16 @@ class TestHybridExecutorTaskRetry:
         """Retries with extended timeout on timeout failure."""
         call_count = 0
 
-        async def mock_execute(task, attempt=1, use_fallback=False):
+        async def mock_execute(task, attempt=1, use_fallback=False, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return TaskResult(task_id=task.id, success=False, error="Timeout")
+                return TaskResult(
+                    task_id=task.id,
+                    success=False,
+                    error="Timeout",
+                    model_used="claude",
+                )
             return TaskResult(task_id=task.id, success=True, diff="")
 
         with patch.object(executor, "execute_task", side_effect=mock_execute):
@@ -435,6 +440,51 @@ class TestHybridExecutorTaskRetry:
 
         assert result.success is True
         assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_execute_task_with_retry_falls_back_to_alternate_model_on_timeout(
+        self, executor, simple_task
+    ):
+        """Persistent timeouts should switch to a different model with default retry budget."""
+        alternate_agent = MagicMock()
+        mock_execute = AsyncMock(
+            side_effect=[
+                TaskResult(
+                    task_id=simple_task.id,
+                    success=False,
+                    error="Timeout",
+                    model_used="claude",
+                ),
+                TaskResult(
+                    task_id=simple_task.id,
+                    success=False,
+                    error="Timeout",
+                    model_used="claude",
+                ),
+                TaskResult(
+                    task_id=simple_task.id,
+                    success=True,
+                    diff="fallback diff",
+                    model_used="codex-fallback",
+                ),
+            ]
+        )
+
+        with (
+            patch.object(executor, "execute_task", mock_execute),
+            patch.object(
+                executor,
+                "_get_alternative_implementer",
+                return_value=(alternate_agent, "codex"),
+            ),
+        ):
+            result = await executor.execute_task_with_retry(simple_task)
+
+        assert result.success is True
+        assert mock_execute.await_count == 3
+        third_call = mock_execute.await_args_list[2]
+        assert third_call.kwargs["use_fallback"] is True
+        assert third_call.kwargs["attempt"] == 3
 
     @pytest.mark.asyncio
     async def test_execute_task_with_retry_no_retry_on_other_error(self, executor, simple_task):
@@ -450,6 +500,63 @@ class TestHybridExecutorTaskRetry:
         assert result.success is False
         # Should only be called once (no retry for non-timeout)
         mock_execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_review_rejection_retries_with_alternate_model(self, executor, simple_task):
+        """Review rejection should trigger one alternate-model implementation retry."""
+        executor._strategy = "review"
+        alternate_agent = MagicMock()
+        initial_result = TaskResult(
+            task_id=simple_task.id,
+            success=True,
+            diff="initial diff",
+            model_used="claude",
+            duration_seconds=1.0,
+        )
+        alternate_result = TaskResult(
+            task_id=simple_task.id,
+            success=True,
+            diff="improved diff",
+            model_used="codex-quality-retry",
+            duration_seconds=1.5,
+        )
+
+        with (
+            patch.object(executor, "_get_git_diff", return_value="diff"),
+            patch.object(
+                executor,
+                "_run_review",
+                side_effect=[
+                    {
+                        "approved": False,
+                        "issues": ["Missing tests"],
+                        "suggestions": ["Tighten error handling"],
+                        "review": "APPROVED: no",
+                    },
+                    {
+                        "approved": True,
+                        "issues": [],
+                        "suggestions": [],
+                        "review": "APPROVED: yes",
+                    },
+                ],
+            ),
+            patch.object(
+                executor,
+                "_get_alternative_implementer",
+                return_value=(alternate_agent, "codex"),
+            ),
+            patch.object(
+                executor, "execute_task", AsyncMock(return_value=alternate_result)
+            ) as mock_execute,
+        ):
+            result = await executor._review_and_revise(simple_task, initial_result)
+
+        assert result.model_used == "codex-quality-retry"
+        mock_execute.assert_awaited_once()
+        retry_call = mock_execute.await_args
+        assert retry_call.kwargs["agent_override"] is alternate_agent
+        assert retry_call.kwargs["model_label"] == "codex-quality-retry"
 
 
 # ==============================================================================
