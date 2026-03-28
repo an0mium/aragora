@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aragora</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div>
+          <p class="eyebrow">ARAGORA</p>
+          <h1>Selection Relay</h1>
+        </div>
+        <div id="status-pill" class="status-pill is-idle">Idle</div>
+      </header>
+
+      <section class="panel">
+        <h2>Selected text</h2>
+        <p class="panel-copy">Use the page context menu on highlighted text, then return here for the debate result.</p>
+        <pre id="selection-preview" class="selection-preview">No text has been sent yet.</pre>
+        <a id="source-link" class="source-link hidden" href="#" target="_blank" rel="noreferrer">Open source page</a>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Connection</h2>
+          <button id="refresh-result" class="secondary-button" type="button">Refresh</button>
+        </div>
+
+        <label class="field">
+          <span>API URL</span>
+          <input id="api-url" type="url" placeholder="https://api.aragora.ai">
+        </label>
+
+        <label class="field">
+          <span>API key</span>
+          <input id="api-key" type="password" placeholder="Bearer token">
+        </label>
+
+        <label class="field">
+          <span>Agents</span>
+          <input id="agents" type="text" placeholder="claude,openai">
+        </label>
+
+        <label class="field">
+          <span>Rounds</span>
+          <input id="rounds" type="number" min="1" max="20" step="1">
+        </label>
+
+        <div class="actions">
+          <button id="save-settings" class="primary-button" type="button">Save settings</button>
+          <span id="settings-status" class="settings-status"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Latest result</h2>
+        <dl class="meta-grid">
+          <div>
+            <dt>Debate</dt>
+            <dd id="debate-id">-</dd>
+          </div>
+          <div>
+            <dt>State</dt>
+            <dd id="result-status">Idle</dd>
+          </div>
+          <div>
+            <dt>Confidence</dt>
+            <dd id="result-confidence">-</dd>
+          </div>
+        </dl>
+
+        <div id="result-answer" class="result-answer">No result yet.</div>
+        <div id="result-error" class="result-error hidden"></div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
