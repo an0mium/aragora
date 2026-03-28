@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import { LandingLiveDebatePreview } from './LandingLiveDebatePreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
@@ -256,6 +257,8 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
           {result && <DebateResultPreview result={result} />}
         </div>
       </section>
+
+      <LandingLiveDebatePreview apiBase={resolvedApiBase} />
 
       {/* How it works */}
       <section id="how-it-works" className="py-20 px-4 border-t border-border">

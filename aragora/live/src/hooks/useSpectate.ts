@@ -49,6 +49,8 @@ interface UseSpectateOptions {
   maxEvents?: number;
   /** Whether polling is enabled (default: true) */
   enabled?: boolean;
+  /** Override API base URL instead of the shared runtime default */
+  baseUrl?: string;
 }
 
 interface UseSpectateReturn {
@@ -95,7 +97,9 @@ export function useSpectate(
     pollInterval = 2000,
     maxEvents = 50,
     enabled = true,
+    baseUrl,
   } = options;
+  const resolvedBaseUrl = baseUrl?.trim() || API_BASE_URL;
 
   const [events, setEvents] = useState<SpectateEvent[]>([]);
   const [connected, setConnected] = useState(false);
@@ -110,7 +114,7 @@ export function useSpectate(
       if (pipelineId) params.set('pipeline_id', pipelineId);
 
       const res = await fetch(
-        `${API_BASE_URL}/api/v1/spectate/recent?${params.toString()}`,
+        `${resolvedBaseUrl}/api/v1/spectate/recent?${params.toString()}`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -124,11 +128,11 @@ export function useSpectate(
       setEvents([]);
       return false;
     }
-  }, [debateId, pipelineId, maxEvents]);
+  }, [debateId, pipelineId, maxEvents, resolvedBaseUrl]);
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/spectate/status`);
+      const res = await fetch(`${resolvedBaseUrl}/api/v1/spectate/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -140,7 +144,7 @@ export function useSpectate(
 
     setStatus(null);
     return false;
-  }, []);
+  }, [resolvedBaseUrl]);
 
   const refresh = useCallback(async () => {
     const [recentOk] = await Promise.all([
