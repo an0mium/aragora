@@ -783,6 +783,18 @@ class TestHandlePost:
         result = handler.handle_post("/api/debates/batch/", {}, mock_http_handler)
         handler._submit_batch.assert_called_once()
 
+    def test_compare_post(self, mock_http_handler):
+        handler = _make_handler(json_body={"debate_ids": ["d1", "d2"]})
+        handler._compare_debates = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
+        result = handler.handle_post("/api/v1/debates/compare", {}, mock_http_handler)
+        handler._compare_debates.assert_called_once_with(mock_http_handler)
+
+    def test_compare_post_unversioned(self, mock_http_handler):
+        handler = _make_handler(json_body={"debate_ids": ["d1", "d2"]})
+        handler._compare_debates = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))
+        result = handler.handle_post("/api/debates/compare", {}, mock_http_handler)
+        handler._compare_debates.assert_called_once_with(mock_http_handler)
+
     def test_fork_post(self, mock_http_handler):
         handler = _make_handler()
         handler._fork_debate = MagicMock(return_value=MagicMock(status_code=200, body=b"{}"))

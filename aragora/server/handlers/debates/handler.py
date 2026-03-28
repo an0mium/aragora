@@ -349,6 +349,9 @@ class DebatesHandler(
         ):
             return self._submit_batch(handler)
 
+        if path in ("/api/v1/debates/compare", "/api/debates/compare"):
+            return self._compare_debates(handler)
+
         if path.endswith("/fork"):
             debate_id, err = self._extract_debate_id(path)
             if err:

@@ -191,6 +191,91 @@ class TestGetDebateBySlug:
             assert result.status_code == 404
 
 
+class TestCompareDebates:
+    """Integration tests for _compare_debates."""
+
+    @pytest.fixture
+    def handler_with_storage(self):
+        """Create handler with compare-ready storage."""
+        from aragora.server.handlers.debates.handler import DebatesHandler
+
+        mock_storage = MagicMock()
+        mock_storage.get_debate = MagicMock(
+            side_effect=lambda debate_id: {
+                "debate-left": {
+                    "id": "debate-left",
+                    "task": "Left task",
+                    "status": "concluded",
+                    "agents": ["claude", "codex"],
+                    "consensus_reached": True,
+                    "confidence": 0.92,
+                    "winning_proposal": "Ship the change",
+                    "rounds_used": 3,
+                    "duration_seconds": 42,
+                },
+                "debate-right": {
+                    "id": "debate-right",
+                    "task": "Right task",
+                    "status": "concluded",
+                    "agents": ["codex", "gemini"],
+                    "consensus_reached": False,
+                    "confidence": 0.61,
+                    "winning_proposal": "Do not ship yet",
+                    "rounds_used": 5,
+                    "duration_seconds": 60,
+                },
+            }.get(debate_id)
+        )
+        return DebatesHandler(server_context={"storage": mock_storage})
+
+    def test_compare_debates_returns_side_by_side_payload(self, handler_with_storage):
+        """Compare returns left/right debates and outcome deltas."""
+        handler_with_storage.read_json_body = MagicMock(
+            return_value={"debate_ids": ["debate-left", "debate-right"]}
+        )
+
+        result = handler_with_storage._compare_debates(MagicMock())
+
+        assert result.status_code == 200
+        body = json.loads(result.body) if isinstance(result.body, (str, bytes)) else result.body
+        assert body["left"]["id"] == "debate-left"
+        assert body["right"]["id"] == "debate-right"
+        assert body["comparison"]["agent_configuration_changed"] is True
+        assert body["comparison"]["shared_agents"] == ["codex"]
+        assert body["comparison"]["left_only_agents"] == ["claude"]
+        assert body["comparison"]["right_only_agents"] == ["gemini"]
+        assert body["comparison"]["consensus_changed"] is True
+        assert body["comparison"]["winning_proposal_changed"] is True
+        assert body["comparison"]["outcome_changed"] is True
+        assert body["comparison"]["confidence_gap"] == pytest.approx(0.31)
+        assert body["comparison"]["rounds_delta"] == 2
+        assert body["comparison"]["duration_delta_seconds"] == pytest.approx(18.0)
+
+    def test_compare_debates_requires_two_distinct_ids(self, handler_with_storage):
+        """Compare rejects duplicate debate IDs for side-by-side mode."""
+        handler_with_storage.read_json_body = MagicMock(
+            return_value={"debate_ids": ["debate-left", "debate-left"]}
+        )
+
+        result = handler_with_storage._compare_debates(MagicMock())
+
+        assert result.status_code == 400
+        body = json.loads(result.body) if isinstance(result.body, (str, bytes)) else result.body
+        assert "distinct" in body["error"].lower()
+
+    def test_compare_debates_returns_not_found_when_missing(self, handler_with_storage):
+        """Compare fails cleanly when one debate cannot be loaded."""
+        handler_with_storage.read_json_body = MagicMock(
+            return_value={"debate_ids": ["debate-left", "missing-debate"]}
+        )
+
+        result = handler_with_storage._compare_debates(MagicMock())
+
+        assert result.status_code == 404
+        body = json.loads(result.body) if isinstance(result.body, (str, bytes)) else result.body
+        assert body["error"] == "Debate not found: missing-debate"
+
+
 class TestGetDebateMessages:
     """Integration tests for _get_debate_messages method."""
 

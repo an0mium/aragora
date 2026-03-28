@@ -24,6 +24,7 @@ from aragora.exceptions import (
 from aragora.rbac.decorators import require_permission
 from aragora.server.debate_utils import _active_debates
 from aragora.server.middleware.abac import Action, ResourceType, check_resource_access
+from aragora.server.validation import validate_debate_id
 from aragora.server.validation.schema import (
     DEBATE_UPDATE_SCHEMA,
     validate_against_schema,
@@ -62,6 +63,31 @@ def _epoch_to_iso(epoch: float) -> str:
     return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
 
 
+def _coerce_debate_dict(debate: Any) -> dict[str, Any] | None:
+    """Convert storage debate objects into plain dicts for response normalization."""
+    if debate is None:
+        return None
+    if isinstance(debate, dict):
+        return dict(debate)
+    to_dict = getattr(debate, "to_dict", None)
+    if callable(to_dict):
+        data = to_dict()
+        if isinstance(data, dict):
+            return dict(data)
+    raw = getattr(debate, "__dict__", None)
+    if isinstance(raw, dict):
+        return dict(raw)
+    return None
+
+
+def _safe_float(value: Any) -> float:
+    """Best-effort numeric coercion for compare summaries."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by CrudOperationsMixin.
 
@@ -86,6 +112,118 @@ class _DebatesHandlerProtocol(Protocol):
 
 class CrudOperationsMixin:
     """Mixin providing CRUD operations for DebatesHandler."""
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/compare",
+        summary="Compare two debate results side by side",
+        description=(
+            "Load exactly two debates and return normalized left/right payloads plus "
+            "a summary of configuration and outcome differences."
+        ),
+        tags=["Debates"],
+        responses={
+            "200": {
+                "description": "Comparison payload returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "left": {"type": "object"},
+                                "right": {"type": "object"},
+                                "comparison": {"type": "object"},
+                            },
+                        },
+                    },
+                },
+            },
+            "400": {"description": "Invalid compare request"},
+            "404": {"description": "One or both debates not found"},
+        },
+    )
+    @require_storage
+    @handle_errors("compare debates")
+    def _compare_debates(self: _DebatesHandlerProtocol, handler: Any) -> HandlerResult:
+        """Return a side-by-side comparison payload for exactly two debates."""
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        raw_ids = body.get("debate_ids")
+        if not isinstance(raw_ids, list):
+            return error_response("debate_ids must be an array of exactly 2 debate IDs", 400)
+
+        debate_ids = [str(value).strip() for value in raw_ids if str(value).strip()]
+        if len(debate_ids) != 2:
+            return error_response("Provide exactly 2 debate_ids for side-by-side comparison", 400)
+        if len(set(debate_ids)) != 2:
+            return error_response("Provide 2 distinct debate_ids for comparison", 400)
+
+        for debate_id in debate_ids:
+            is_valid, err = validate_debate_id(debate_id)
+            if not is_valid:
+                return error_response(err or f"Invalid debate ID: {debate_id}", 400)
+
+        storage = self.get_storage()
+        raw_left = storage.get_debate(debate_ids[0])
+        raw_right = storage.get_debate(debate_ids[1])
+
+        missing = [
+            debate_id
+            for debate_id, raw_debate in ((debate_ids[0], raw_left), (debate_ids[1], raw_right))
+            if raw_debate is None
+        ]
+        if missing:
+            return error_response(f"Debate not found: {missing[0]}", 404)
+
+        left = normalize_debate_response(_coerce_debate_dict(raw_left))
+        right = normalize_debate_response(_coerce_debate_dict(raw_right))
+        if left is None or right is None:
+            return error_response("Unable to normalize debates for comparison", 500)
+
+        left_agents = list(left.get("agents") or [])
+        right_agents = list(right.get("agents") or [])
+        left_agent_set = set(left_agents)
+        right_agent_set = set(right_agents)
+        left_winner = str(
+            left.get("winning_proposal") or left.get("final_answer") or left.get("conclusion") or ""
+        ).strip()
+        right_winner = str(
+            right.get("winning_proposal")
+            or right.get("final_answer")
+            or right.get("conclusion")
+            or ""
+        ).strip()
+        left_confidence = _safe_float(left.get("confidence"))
+        right_confidence = _safe_float(right.get("confidence"))
+
+        comparison = {
+            "left_id": left.get("debate_id", left.get("id", debate_ids[0])),
+            "right_id": right.get("debate_id", right.get("id", debate_ids[1])),
+            "agent_configuration_changed": left_agent_set != right_agent_set,
+            "shared_agents": sorted(left_agent_set & right_agent_set),
+            "left_only_agents": sorted(left_agent_set - right_agent_set),
+            "right_only_agents": sorted(right_agent_set - left_agent_set),
+            "consensus_changed": bool(left.get("consensus_reached"))
+            != bool(right.get("consensus_reached")),
+            "confidence_delta": round(right_confidence - left_confidence, 4),
+            "confidence_gap": round(abs(right_confidence - left_confidence), 4),
+            "rounds_delta": int(
+                _safe_float(right.get("rounds_used")) - _safe_float(left.get("rounds_used"))
+            ),
+            "duration_delta_seconds": round(
+                _safe_float(right.get("duration_seconds"))
+                - _safe_float(left.get("duration_seconds")),
+                4,
+            ),
+            "winning_proposal_changed": left_winner != right_winner,
+        }
+        comparison["outcome_changed"] = (
+            comparison["consensus_changed"] or comparison["winning_proposal_changed"]
+        )
+
+        return json_response({"left": left, "right": right, "comparison": comparison})
 
     @api_endpoint(
         method="GET",
