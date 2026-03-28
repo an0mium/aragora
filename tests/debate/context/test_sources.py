@@ -670,6 +670,185 @@ class TestGatherKnowledgeMoundContext:
 
 
 # ===========================================================================
+# TestKMRetrieverIntegration
+# ===========================================================================
+
+
+class TestKMRetrieverIntegration:
+    """Tests for KnowledgeMoundRetriever integration in SourceFetcher."""
+
+    def _make_item(
+        self,
+        *,
+        item_id: str = "km-1",
+        content: str = "Rate limiting best practice",
+        source: str = "debate",
+        confidence: float = 0.9,
+    ) -> MagicMock:
+        item = MagicMock()
+        item.id = item_id
+        item.content = content
+        item.source = source
+        item.confidence = confidence
+        return item
+
+    def _make_query_result(self, items=None):
+        result = MagicMock()
+        result.items = items if items is not None else []
+        return result
+
+    def test_prefers_visibility_query_with_auth_context(self):
+        """Uses query_with_visibility when auth_context is provided."""
+        item = self._make_item()
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query_with_visibility = AsyncMock(
+            return_value=self._make_query_result(items=[item])
+        )
+        auth = MagicMock()
+        auth.user_id = "user-1"
+        auth.workspace_id = "ws-1"
+        auth.org_id = "org-1"
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound, auth_context=auth)
+        result = run(fetcher.gather_knowledge_mound_context("rate limiting"))
+
+        assert result is not None
+        assert "KNOWLEDGE MOUND CONTEXT" in result
+        mock_mound.query_with_visibility.assert_awaited_once()
+
+    def test_falls_back_to_semantic_query(self):
+        """Falls back to query_semantic when visibility query is not available."""
+        item = self._make_item(source="fact")
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query_semantic = AsyncMock(return_value=[item])
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound)
+        result = run(fetcher.gather_knowledge_mound_context("policy question"))
+
+        assert result is not None
+        assert "KNOWLEDGE MOUND CONTEXT" in result
+        mock_mound.query_semantic.assert_awaited_once()
+
+    def test_tracks_item_ids_for_feedback_loop(self):
+        """Tracks retrieved item IDs for outcome validation."""
+        items = [
+            self._make_item(item_id="km-1", source="fact"),
+            self._make_item(item_id="km-2", source="evidence"),
+        ]
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query = AsyncMock(return_value=self._make_query_result(items=items))
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound)
+        run(fetcher.gather_knowledge_mound_context("test"))
+
+        assert fetcher.last_km_item_ids == ["km-1", "km-2"]
+
+    def test_item_ids_cleared_on_empty_results(self):
+        """Item IDs are cleared when no results are returned."""
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query = AsyncMock(return_value=self._make_query_result(items=[]))
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound)
+        run(fetcher.gather_knowledge_mound_context("test"))
+
+        assert fetcher.last_km_item_ids == []
+
+    def test_auth_context_override_per_call(self):
+        """Per-call auth_context overrides instance-level auth_context."""
+        item = self._make_item()
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query_with_visibility = AsyncMock(
+            return_value=self._make_query_result(items=[item])
+        )
+
+        instance_auth = MagicMock()
+        instance_auth.user_id = "user-instance"
+        instance_auth.workspace_id = "ws-instance"
+        instance_auth.org_id = "org-instance"
+
+        call_auth = MagicMock()
+        call_auth.user_id = "user-call"
+        call_auth.workspace_id = "ws-call"
+        call_auth.org_id = "org-call"
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound, auth_context=instance_auth)
+        run(fetcher.gather_knowledge_mound_context("test", auth_context=call_auth))
+
+        # Verify the call-level auth was used
+        call_kwargs = mock_mound.query_with_visibility.call_args
+        assert call_kwargs[1]["actor_id"] == "user-call"
+
+    def test_last_km_item_ids_property_returns_copy(self):
+        """last_km_item_ids returns a copy, not the internal list."""
+        items = [self._make_item(item_id="km-1", source="fact")]
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query = AsyncMock(return_value=self._make_query_result(items=items))
+
+        fetcher = make_fetcher(knowledge_mound=mock_mound)
+        run(fetcher.gather_knowledge_mound_context("test"))
+
+        ids = fetcher.last_km_item_ids
+        ids.append("mutated")
+        assert "mutated" not in fetcher.last_km_item_ids
+
+    def test_late_binding_creates_retriever(self):
+        """Retriever is created on first call when mound is set after init."""
+        item = self._make_item(source="fact")
+        mock_mound = MagicMock(spec=[])
+        mock_mound.query = AsyncMock(return_value=self._make_query_result(items=[item]))
+
+        fetcher = make_fetcher(knowledge_mound=None)
+        # Simulate late binding of mound
+        fetcher._knowledge_mound = mock_mound
+        fetcher._km_retriever = None
+
+        result = run(fetcher.gather_knowledge_mound_context("test"))
+        assert result is not None
+        assert fetcher._km_retriever is not None
+
+
+# ===========================================================================
+# TestFormatGroupedKnowledge
+# ===========================================================================
+
+
+class TestFormatGroupedKnowledge:
+    """Tests for the static _format_grouped_knowledge method."""
+
+    def _make_item(self, content="text", source="fact", confidence=0.9):
+        item = MagicMock()
+        item.content = content
+        item.source = source
+        item.confidence = confidence
+        return item
+
+    def test_empty_items_returns_none(self):
+        assert SourceFetcher._format_grouped_knowledge([]) is None
+
+    def test_groups_facts_evidence_insights(self):
+        items = [
+            self._make_item(content="Fact A", source="fact", confidence=0.9),
+            self._make_item(content="Evidence B", source="evidence", confidence=0.8),
+            self._make_item(content="Insight C", source="consensus", confidence=0.7),
+        ]
+        result = SourceFetcher._format_grouped_knowledge(items)
+        assert "### Verified Facts" in result
+        assert "### Supporting Evidence" in result
+        assert "### Related Insights" in result
+
+    def test_confidence_labels(self):
+        items = [
+            self._make_item(content="High", source="fact", confidence=0.9),
+            self._make_item(content="Medium", source="fact", confidence=0.5),
+            self._make_item(content="Low", source="fact", confidence=0.2),
+        ]
+        result = SourceFetcher._format_grouped_knowledge(items)
+        assert "[HIGH]" in result
+        assert "[MEDIUM]" in result
+        assert "[LOW]" in result
+
+
+# ===========================================================================
 # TestGatherThreatIntelContext
 # ===========================================================================
 

@@ -5,7 +5,7 @@ Handles fetching context from various sources:
 - Claude web search (primary)
 - Evidence connectors (web, GitHub, local docs)
 - Pulse/trending topics
-- Knowledge Mound
+- Knowledge Mound (via KnowledgeMoundRetriever with auth-context and fallback chain)
 - Threat intelligence
 - Culture patterns
 - Belief crux analysis
@@ -17,6 +17,8 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+
+from aragora.knowledge.mound.retrieval import KnowledgeMoundRetriever
 
 if TYPE_CHECKING:
     pass
@@ -54,6 +56,7 @@ class SourceFetcher:
         threat_intel_enrichment: Any | None = None,
         belief_analyzer: Any | None = None,
         enable_trending_context: bool = True,
+        auth_context: Any | None = None,
     ):
         """
         Initialize the source fetcher.
@@ -65,6 +68,7 @@ class SourceFetcher:
             threat_intel_enrichment: ThreatIntelEnrichment instance.
             belief_analyzer: DebateBeliefAnalyzer instance.
             enable_trending_context: Whether to gather Pulse trending context.
+            auth_context: Optional auth context for visibility-aware KM queries.
         """
         self._project_root = project_root or Path(__file__).parent.parent.parent.parent
         self._knowledge_mound = knowledge_mound
@@ -72,6 +76,9 @@ class SourceFetcher:
         self._threat_intel_enrichment = threat_intel_enrichment
         self._belief_analyzer = belief_analyzer
         self._enable_trending_context = enable_trending_context
+        self._auth_context = auth_context
+        self._km_retriever = KnowledgeMoundRetriever(knowledge_mound) if knowledge_mound else None
+        self._last_km_item_ids: list[str] = []
 
     async def gather_claude_web_search(self, task: str) -> str | None:
         """
@@ -290,11 +297,32 @@ class SourceFetcher:
 
         return None, []
 
-    async def gather_knowledge_mound_context(self, task: str) -> str | None:
+    @property
+    def last_km_item_ids(self) -> list[str]:
+        """IDs of KM items retrieved in the last knowledge mound query.
+
+        Useful for outcome validation feedback loops where debate results
+        are used to reinforce or penalize the confidence of KM items that
+        contributed to the debate context.
+        """
+        return list(self._last_km_item_ids)
+
+    async def gather_knowledge_mound_context(
+        self,
+        task: str,
+        auth_context: Any | None = None,
+    ) -> str | None:
         """
         Query Knowledge Mound for relevant facts and evidence.
 
+        Uses :class:`KnowledgeMoundRetriever` for a robust query fallback chain:
+
+        1. Visibility-aware query (when auth context is available)
+        2. Semantic query fallback
+        3. Generic query fallback
+
         Auto-grounds debates with institutional knowledge from:
+
         - Previous debate outcomes and consensus
         - Extracted facts from documents
         - Evidence snippets with provenance
@@ -302,6 +330,8 @@ class SourceFetcher:
 
         Args:
             task: The debate topic/task description.
+            auth_context: Optional auth context override (falls back to
+                instance-level ``_auth_context`` if not provided).
 
         Returns:
             Formatted knowledge context, or None if unavailable.
@@ -309,103 +339,38 @@ class SourceFetcher:
         if not self._knowledge_mound:
             return None
 
+        effective_auth = auth_context or self._auth_context
+
+        # Ensure retriever is wired to current mound (handles late binding)
+        if self._km_retriever is None:
+            self._km_retriever = KnowledgeMoundRetriever(self._knowledge_mound)
+        else:
+            self._km_retriever.knowledge_mound = self._knowledge_mound
+
         try:
-            # Query knowledge mound for relevant items
-            result = await self._knowledge_mound.query(
-                query=task,
-                sources=("all",),  # Query all knowledge sources
+            retrieved = await self._km_retriever.retrieve(
+                task,
                 limit=10,
+                auth_context=effective_auth,
+                workspace_id=self._knowledge_workspace_id,
             )
 
-            if not result.items:
+            if not retrieved or not retrieved.items:
+                self._last_km_item_ids = []
                 logger.debug("[knowledge] No relevant knowledge found for task")
                 return None
 
-            # Format knowledge context
-            context_parts = [
-                "## KNOWLEDGE MOUND CONTEXT",
-                "Relevant institutional knowledge from previous debates and analyses:",
-                "",
-            ]
-            confidence_map = {
-                "verified": 0.95,
-                "high": 0.8,
-                "medium": 0.6,
-                "low": 0.3,
-                "unverified": 0.2,
-            }
+            # Track item IDs for outcome validation feedback loop
+            self._last_km_item_ids = list(retrieved.item_ids)
 
-            def _confidence_to_float(value: Any) -> float:
-                if isinstance(value, (int, float)):
-                    return float(value)
-                if hasattr(value, "value"):
-                    value = value.value
-                if isinstance(value, str):
-                    return confidence_map.get(value.lower(), 0.5)
-                return 0.5
-
-            # Group by source type for better organization
-            facts = []
-            evidence = []
-            insights = []
-
-            for item in result.items:
-                source = getattr(item, "source", None)
-                source_name = (
-                    source.value
-                    if hasattr(source, "value")
-                    else str(source)
-                    if source
-                    else "unknown"
+            # Format with grouped sections for better readability
+            context = self._format_grouped_knowledge(retrieved.items)
+            if context:
+                logger.info(
+                    "[knowledge] Injected %s knowledge items via retriever",
+                    len(retrieved.items),
                 )
-                content = item.content[:500] if item.content else ""
-                confidence = _confidence_to_float(getattr(item, "confidence", 0.5))
-
-                if source_name in ("fact", "fact_store"):
-                    facts.append((content, confidence))
-                elif source_name in ("evidence", "evidence_store"):
-                    evidence.append((content, confidence))
-                else:
-                    insights.append((content, confidence, source_name))
-
-            # Format facts
-            if facts:
-                context_parts.append("### Verified Facts")
-                for content, conf in facts[:3]:
-                    conf_label = "HIGH" if conf > 0.7 else "MEDIUM" if conf > 0.4 else "LOW"
-                    context_parts.append(f"- [{conf_label}] {content}")
-                context_parts.append("")
-
-            # Format evidence
-            if evidence:
-                context_parts.append("### Supporting Evidence")
-                for content, conf in evidence[:3]:
-                    context_parts.append(f"- {content}")
-                context_parts.append("")
-
-            # Format insights
-            if insights:
-                context_parts.append("### Related Insights")
-                for content, conf, source in insights[:4]:
-                    context_parts.append(f"- ({source}) {content}")
-                context_parts.append("")
-
-            if len(context_parts) <= 3:
-                # Only header, no actual content
-                return None
-
-            logger.info(
-                "[knowledge] Injected %s knowledge items "
-                "(%s facts, %s evidence, %s insights) "
-                "in %sms",
-                len(result.items),
-                len(facts),
-                len(evidence),
-                len(insights),
-                int(result.execution_time_ms),
-            )
-
-            return "\n".join(context_parts)
+            return context
 
         except (ConnectionError, OSError) as e:
             logger.warning("[knowledge] Knowledge Mound query failed (IO error): %s", e)
@@ -416,6 +381,78 @@ class SourceFetcher:
         except (RuntimeError, TypeError) as e:
             logger.warning("[knowledge] Unexpected error in Knowledge Mound query: %s", e)
             return None
+
+    @staticmethod
+    def _format_grouped_knowledge(items: list[Any]) -> str | None:
+        """Format retrieved knowledge items into grouped sections.
+
+        Groups items by source type (facts, evidence, insights) for
+        better readability in debate prompts.
+        """
+        context_parts = [
+            "## KNOWLEDGE MOUND CONTEXT",
+            "Relevant institutional knowledge from previous debates and analyses:",
+            "",
+        ]
+        confidence_map = {
+            "verified": 0.95,
+            "high": 0.8,
+            "medium": 0.6,
+            "low": 0.3,
+            "unverified": 0.2,
+        }
+
+        def _confidence_to_float(value: Any) -> float:
+            if isinstance(value, (int, float)):
+                return float(value)
+            if hasattr(value, "value"):
+                value = value.value
+            if isinstance(value, str):
+                return confidence_map.get(value.lower(), 0.5)
+            return 0.5
+
+        facts: list[tuple[str, float]] = []
+        evidence: list[tuple[str, float]] = []
+        insights: list[tuple[str, float, str]] = []
+
+        for item in items:
+            source = getattr(item, "source", None)
+            source_name = (
+                source.value if hasattr(source, "value") else str(source) if source else "unknown"
+            )
+            content = (getattr(item, "content", "") or "")[:500]
+            confidence = _confidence_to_float(getattr(item, "confidence", 0.5))
+
+            if source_name in ("fact", "fact_store"):
+                facts.append((content, confidence))
+            elif source_name in ("evidence", "evidence_store"):
+                evidence.append((content, confidence))
+            else:
+                insights.append((content, confidence, source_name))
+
+        if facts:
+            context_parts.append("### Verified Facts")
+            for content, conf in facts[:3]:
+                conf_label = "HIGH" if conf > 0.7 else "MEDIUM" if conf > 0.4 else "LOW"
+                context_parts.append(f"- [{conf_label}] {content}")
+            context_parts.append("")
+
+        if evidence:
+            context_parts.append("### Supporting Evidence")
+            for content, conf in evidence[:3]:
+                context_parts.append(f"- {content}")
+            context_parts.append("")
+
+        if insights:
+            context_parts.append("### Related Insights")
+            for content, conf, source in insights[:4]:
+                context_parts.append(f"- ({source}) {content}")
+            context_parts.append("")
+
+        if len(context_parts) <= 3:
+            return None
+
+        return "\n".join(context_parts)
 
     async def gather_threat_intel_context(self, task: str) -> str | None:
         """
