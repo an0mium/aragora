@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from aragora.debate.model_combinations import (
+    CombinationDebateResult,
+    ExecutionMode,
+    ModelCombination,
+    MultiModelDebateResult,
+    MultiModelDebateRunner,
+    parse_model_combinations,
+)
 from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import (
     ARAGORA_AI_LIGHT_PROTOCOL,
@@ -18,8 +26,14 @@ __all__ = [
     "ARAGORA_AI_PROTOCOL",
     "Arena",
     "CircuitBreaker",
+    "CombinationDebateResult",
     "DebateProtocol",
+    "ExecutionMode",
+    "ModelCombination",
+    "MultiModelDebateResult",
+    "MultiModelDebateRunner",
     "RoundPhase",
+    "parse_model_combinations",
     "resolve_default_protocol",
     "user_vote_multiplier",
 ]
