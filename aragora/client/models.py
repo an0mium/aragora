@@ -397,6 +397,7 @@ class MatrixScenario(BaseModel):
     name: str
     parameters: dict[str, Any] = Field(default_factory=dict)
     constraints: list[str] = Field(default_factory=list)
+    agents: list[str] = Field(default_factory=list)
     is_baseline: bool = False
 
 
@@ -417,12 +418,21 @@ class MatrixConclusion(BaseModel):
     contradictions: list[str] = Field(default_factory=list)  # Conflicting conclusions
 
 
+class MatrixModelCombination(BaseModel):
+    """A named agent combination for matrix debate sweeps."""
+
+    name: str | None = None
+    agents: list[str] = Field(default_factory=list)
+    is_baseline: bool = False
+
+
 class MatrixDebateCreateRequest(BaseModel):
     """Request to create a matrix debate."""
 
     task: str
     agents: list[str] = Field(default_factory=lambda: ["anthropic-api", "openai-api"])
     scenarios: list[MatrixScenario] = Field(default_factory=list)
+    model_combinations: list[MatrixModelCombination] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
 
 
@@ -439,6 +449,8 @@ class MatrixDebateCreateResponse(BaseModel):
         default_factory=dict
     )
     comparison_matrix: dict[str, Any] | None = None
+    best_result: dict[str, Any] | None = None
+    model_combination_count: int | None = None
 
 
 class MatrixDebate(BaseModel):
@@ -452,6 +464,8 @@ class MatrixDebate(BaseModel):
     conclusions: MatrixConclusion | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None
+    best_result: dict[str, Any] | None = None
+    model_combination_count: int | None = None
 
 
 # =============================================================================

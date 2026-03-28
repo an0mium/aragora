@@ -108,6 +108,7 @@ from .models import (
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
+    MatrixModelCombination,
     MatrixScenario,
     MatrixScenarioResult,
     MemoryAnalyticsResponse,
@@ -197,6 +198,7 @@ __all__ = [
     "MatrixConclusion",
     "MatrixDebateCreateRequest",
     "MatrixDebateCreateResponse",
+    "MatrixModelCombination",
     # Verification models
     "VerifyClaimRequest",
     "VerifyClaimResponse",

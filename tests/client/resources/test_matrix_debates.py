@@ -1,5 +1,7 @@
 """Tests for MatrixDebatesAPI resource."""
 
+from unittest.mock import patch
+
 import pytest
 
 from aragora.client import AragoraClient
@@ -26,6 +28,28 @@ class TestMatrixDebatesAPI:
         client = AragoraClient()
         assert hasattr(client.matrix_debates, "get")
         assert hasattr(client.matrix_debates, "get_async")
+
+    def test_create_supports_model_combinations(self):
+        """Matrix debate creation should forward model combinations."""
+        client = AragoraClient()
+        with patch.object(
+            client,
+            "_post",
+            return_value={"matrix_id": "matrix-123", "status": "completed"},
+        ) as mock_post:
+            client.matrix_debates.create(
+                task="Compare rollout options",
+                scenarios=[{"name": "baseline"}],
+                model_combinations=[
+                    {"name": "Core pair", "agents": ["claude", "openai"]},
+                    ["codex", "gemini"],
+                ],
+            )
+
+        _, payload = mock_post.call_args.args
+        assert payload["model_combinations"][0]["name"] == "Core pair"
+        assert payload["model_combinations"][0]["agents"] == ["claude", "openai"]
+        assert payload["model_combinations"][1]["agents"] == ["codex", "gemini"]
 
 
 class TestMatrixDebateModels:

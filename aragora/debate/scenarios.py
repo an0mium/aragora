@@ -15,6 +15,7 @@ Key concepts:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import itertools
 import logging
 import uuid
@@ -67,6 +68,7 @@ class Scenario:
     # Context modifications
     context_additions: str = ""  # Added to debate context
     context_replacements: dict[str, str] = field(default_factory=dict)
+    agents: list[str] = field(default_factory=list)
 
     # Metadata
     priority: int = 1  # Higher = run first
@@ -84,6 +86,7 @@ class Scenario:
             "assumptions": self.assumptions,
             "context_additions": self.context_additions,
             "context_replacements": self.context_replacements,
+            "agents": self.agents,
             "priority": self.priority,
             "is_baseline": self.is_baseline,
             "tags": self.tags,
@@ -101,6 +104,7 @@ class Scenario:
             assumptions=data.get("assumptions", []),
             context_additions=data.get("context_additions", ""),
             context_replacements=data.get("context_replacements", {}),
+            agents=data.get("agents", []),
             priority=data.get("priority", 1),
             is_baseline=data.get("is_baseline", False),
             tags=data.get("tags", []),
@@ -158,6 +162,77 @@ class ScenarioResult:
         }
 
 
+def _result_value(result: ScenarioResult | dict[str, Any], *keys: str, default: Any = None) -> Any:
+    """Read a value from either a ScenarioResult or a dict payload."""
+    if isinstance(result, dict):
+        for key in keys:
+            if key in result:
+                return result[key]
+        return default
+
+    for key in keys:
+        if hasattr(result, key):
+            return getattr(result, key)
+    return default
+
+
+def score_result_candidate(result: ScenarioResult | dict[str, Any]) -> float:
+    """Score a matrix result candidate for deterministic best-result selection."""
+    confidence = _result_value(result, "confidence", default=0.0)
+    try:
+        confidence = float(confidence)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+
+    consensus_reached = bool(_result_value(result, "consensus_reached", default=False))
+    answer = (
+        _result_value(result, "final_answer", default=None)
+        or _result_value(result, "conclusion", default=None)
+        or ""
+    )
+    answer_word_count = len(str(answer).split())
+    key_claims = _result_value(result, "key_claims", "key_findings", default=[]) or []
+    if not isinstance(key_claims, list):
+        key_claims = []
+
+    score = confidence * 0.65
+    score += 0.2 if consensus_reached else 0.0
+    score += 0.1 if answer_word_count > 0 else 0.0
+    score += min(0.05, answer_word_count / 2000)
+    score += min(0.05, len(key_claims) * 0.01)
+    return round(min(score, 1.0), 4)
+
+
+def select_best_result(
+    results: list[ScenarioResult] | list[dict[str, Any]],
+) -> ScenarioResult | dict[str, Any] | None:
+    """Select the strongest scenario result using a deterministic score."""
+    if not results:
+        return None
+
+    def _sort_key(result: ScenarioResult | dict[str, Any]) -> tuple[float, float, int, int, str]:
+        confidence = _result_value(result, "confidence", default=0.0)
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        answer = (
+            _result_value(result, "final_answer", default=None)
+            or _result_value(result, "conclusion", default=None)
+            or ""
+        )
+        return (
+            score_result_candidate(result),
+            confidence,
+            int(bool(_result_value(result, "consensus_reached", default=False))),
+            len(str(answer)),
+            str(_result_value(result, "scenario_name", default="")),
+        )
+
+    return max(results, key=_sort_key)
+
+
 @dataclass
 class ScenarioComparison:
     """Comparison between two scenario results."""
@@ -195,12 +270,20 @@ class MatrixResult:
     # Summary
     summary: str = ""
     recommendations: list[str] = field(default_factory=list)
+    best_result_scenario_id: str | None = None
+    best_result_score: float | None = None
 
     def get_result(self, scenario_id: str) -> ScenarioResult | None:
         """Get result for a specific scenario."""
         for r in self.results:
             if r.scenario_id == scenario_id:
                 return r
+        return None
+
+    def get_best_result(self) -> ScenarioResult | None:
+        """Get the selected best result, if one was identified."""
+        if self.best_result_scenario_id:
+            return self.get_result(self.best_result_scenario_id)
         return None
 
     def to_dict(self) -> dict:
@@ -217,6 +300,8 @@ class MatrixResult:
             "conditional_conclusions": self.conditional_conclusions,
             "summary": self.summary,
             "recommendations": self.recommendations,
+            "best_result_scenario_id": self.best_result_scenario_id,
+            "best_result_score": self.best_result_score,
         }
 
 
@@ -497,6 +582,16 @@ class ScenarioComparator:
             "",
         ]
 
+        best_result = matrix_result.get_best_result()
+        if best_result and matrix_result.best_result_score is not None:
+            lines.extend(
+                [
+                    f"**Best Result**: {best_result.scenario_name}",
+                    f"**Best Result Score**: {matrix_result.best_result_score:.0%}",
+                    "",
+                ]
+            )
+
         if analysis["universal_conclusions"]:
             lines.append("## Universal Conclusions (across all scenarios)")
             for c in analysis["universal_conclusions"][:5]:
@@ -539,6 +634,31 @@ class MatrixDebateRunner:
         self.debate_func = debate_func
         self.max_parallel = max_parallel
         self.comparator = ScenarioComparator()
+        self._debate_accepts_scenario = self._supports_scenario_arg(debate_func)
+
+    @staticmethod
+    def _supports_scenario_arg(debate_func: Callable) -> bool:
+        """Detect whether debate_func accepts a third scenario argument."""
+        try:
+            signature = inspect.signature(debate_func)
+        except (TypeError, ValueError):
+            return False
+
+        positional_params = [
+            param
+            for param in signature.parameters.values()
+            if param.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+        if any(
+            param.kind == inspect.Parameter.VAR_POSITIONAL
+            for param in signature.parameters.values()
+        ):
+            return True
+        return len(positional_params) >= 3
 
     async def run_matrix(
         self,
@@ -595,6 +715,10 @@ class MatrixDebateRunner:
         analysis = self.comparator.analyze_matrix(result)
         result.outcome_category = OutcomeCategory(analysis["outcome_category"])
         result.universal_conclusions = analysis["universal_conclusions"]
+        best_result = select_best_result(result.results)
+        if isinstance(best_result, ScenarioResult):
+            result.best_result_scenario_id = best_result.scenario_id
+            result.best_result_score = score_result_candidate(best_result)
         result.summary = self.comparator.generate_summary(result)
 
         return result
@@ -617,9 +741,13 @@ class MatrixDebateRunner:
 
         try:
             # Call the debate function
-            debate_result = await self.debate_func(scenario_task, context)
+            if self._debate_accepts_scenario:
+                debate_result = await self.debate_func(scenario_task, context, scenario)
+            else:
+                debate_result = await self.debate_func(scenario_task, context)
 
             duration = (datetime.now() - start_time).total_seconds()
+            metadata = {"agents": list(scenario.agents)} if scenario.agents else {}
 
             return ScenarioResult(
                 scenario_id=scenario.id,
@@ -631,6 +759,7 @@ class MatrixDebateRunner:
                 dissenting_views=getattr(debate_result, "dissenting_views", []),
                 duration_seconds=duration,
                 rounds=getattr(debate_result, "rounds", 0),
+                metadata=metadata,
             )
 
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:

@@ -158,6 +158,17 @@ class TestScenario:
         assert "production" in scenario.tags
         assert "enterprise" in scenario.tags
 
+    def test_scenario_with_agents(self):
+        """Test Scenario with explicit agents."""
+        scenario = Scenario(
+            id="scn_agents",
+            name="Model sweep",
+            scenario_type=ScenarioType.CUSTOM,
+            description="Same task, different models",
+            agents=["claude", "openai"],
+        )
+        assert scenario.agents == ["claude", "openai"]
+
     def test_scenario_to_dict(self):
         """Test Scenario serialization to dict."""
         scenario = Scenario(
@@ -186,6 +197,7 @@ class TestScenario:
         assert data["assumptions"] == ["Cloud deployment"]
         assert data["context_additions"] == "Additional context here"
         assert data["context_replacements"] == {"old_text": "new_text"}
+        assert data["agents"] == []
         assert data["priority"] == 5
         assert data["is_baseline"] is True
         assert data["tags"] == ["test"]
@@ -502,6 +514,8 @@ class TestMatrixResult:
         assert result.conditional_conclusions == {}
         assert result.summary == ""
         assert result.recommendations == []
+        assert result.best_result_scenario_id is None
+        assert result.best_result_score is None
 
     def test_matrix_result_with_scenarios(self):
         """Test MatrixResult with scenarios."""
@@ -586,6 +600,8 @@ class TestMatrixResult:
         assert data["baseline_scenario_id"] == "s1"
         assert data["universal_conclusions"] == ["All agree on X"]
         assert data["summary"] == "Test summary"
+        assert data["best_result_scenario_id"] is None
+        assert data["best_result_score"] is None
 
     def test_matrix_result_to_dict_no_completed_at(self):
         """Test MatrixResult serialization without completed_at."""
@@ -1295,6 +1311,64 @@ class TestMatrixDebateRunner:
         assert "Constraints:" in captured_contexts[0]
         assert "Budget: $10k" in captured_contexts[0]
         assert "Extra info here" in captured_contexts[0]
+
+    @pytest.mark.asyncio
+    async def test_run_matrix_passes_scenario_when_supported(self):
+        """Test that scenario metadata is passed to debate functions that accept it."""
+        captured_agents = []
+
+        async def capture_func(task, context, scenario):
+            captured_agents.append(scenario.agents)
+            mock_result = MagicMock()
+            mock_result.final_answer = "Answer"
+            mock_result.confidence = 0.8
+            mock_result.consensus_reached = True
+            mock_result.key_claims = []
+            mock_result.dissenting_views = []
+            mock_result.rounds = 1
+            return mock_result
+
+        runner = MatrixDebateRunner(capture_func, max_parallel=1)
+        matrix = ScenarioMatrix()
+        matrix.add_scenario(
+            Scenario(
+                "s1",
+                "Combo A",
+                ScenarioType.CUSTOM,
+                "Different lineup",
+                agents=["claude", "openai"],
+            )
+        )
+
+        await runner.run_matrix("Test task", matrix)
+
+        assert captured_agents == [["claude", "openai"]]
+
+    @pytest.mark.asyncio
+    async def test_run_matrix_tracks_best_result(self):
+        """Test that the runner records the best result selection."""
+
+        async def capture_func(task, context, scenario):
+            mock_result = MagicMock()
+            mock_result.final_answer = f"Answer for {scenario.name}"
+            mock_result.confidence = 0.95 if scenario.name == "Best" else 0.55
+            mock_result.consensus_reached = scenario.name == "Best"
+            mock_result.key_claims = ["Claim"]
+            mock_result.dissenting_views = []
+            mock_result.rounds = 1
+            return mock_result
+
+        runner = MatrixDebateRunner(capture_func, max_parallel=1)
+        matrix = ScenarioMatrix()
+        matrix.add_scenario(Scenario("s1", "Best", ScenarioType.CUSTOM, "Best path"))
+        matrix.add_scenario(Scenario("s2", "Fallback", ScenarioType.CUSTOM, "Fallback path"))
+
+        result = await runner.run_matrix("Selection test", matrix)
+
+        assert result.best_result_scenario_id == "s1"
+        assert result.best_result_score is not None
+        assert result.get_best_result() is not None
+        assert result.get_best_result().scenario_name == "Best"
 
     @pytest.mark.asyncio
     async def test_run_scenario_debate_timeout(self):

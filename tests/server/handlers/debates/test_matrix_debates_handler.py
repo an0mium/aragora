@@ -552,3 +552,58 @@ class TestHelperMethods:
         assert matrix["consensus_rate"] == 0.5
         assert matrix["avg_confidence"] == 0.65
         assert matrix["avg_rounds"] == 4.0
+
+    def test_build_scenario_variants_from_model_combinations(self, handler):
+        """Should expand base scenarios across model combinations."""
+        variants = handler._build_scenario_variants(
+            [{"name": "Baseline", "is_baseline": True}],
+            [
+                {"name": "Core pair", "agents": ["claude", "openai"], "is_baseline": True},
+                {"name": "Coder pair", "agents": ["codex", "gemini"]},
+            ],
+        )
+
+        assert len(variants) == 2
+        assert variants[0]["model_combination_name"] == "Core pair"
+        assert variants[0]["agents"] == ["claude", "openai"]
+        assert variants[0]["is_baseline"] is True
+        assert variants[1]["name"] == "Baseline [Coder pair]"
+
+    def test_build_best_result_payload_prefers_consensus(self, handler):
+        """Should pick the strongest result deterministically."""
+        best_result = handler._build_best_result_payload(
+            [
+                {
+                    "scenario_name": "High confidence consensus",
+                    "final_answer": "Ship it",
+                    "confidence": 0.92,
+                    "consensus_reached": True,
+                },
+                {
+                    "scenario_name": "Lower confidence no consensus",
+                    "final_answer": "Maybe",
+                    "confidence": 0.94,
+                    "consensus_reached": False,
+                },
+            ]
+        )
+
+        assert best_result is not None
+        assert best_result["scenario_name"] == "High confidence consensus"
+        assert best_result["selection_score"] > 0
+
+    def test_find_conditional_conclusions_include_model_combination(self, handler):
+        """Conditional labels should mention the model combination when present."""
+        conclusions = handler._find_conditional_conclusions(
+            [
+                {
+                    "scenario_name": "Baseline [Core pair]",
+                    "source_scenario_name": "Baseline",
+                    "model_combination_name": "Core pair",
+                    "final_answer": "Use option A",
+                    "confidence": 0.81,
+                }
+            ]
+        )
+
+        assert conclusions[0]["condition"] == "When Baseline using Core pair"
