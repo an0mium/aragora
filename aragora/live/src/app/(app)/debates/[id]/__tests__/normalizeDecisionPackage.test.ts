@@ -105,4 +105,31 @@ describe('normalizeDecisionPackage', () => {
     });
     expect(normalized.created_at).toBe('2026-03-25T12:34:56Z');
   });
+
+  it('falls back to receipt cost_summary when top-level cost fields are missing', () => {
+    const normalized = normalizeDecisionPackage(
+      {
+        debate_id: 'debate-43',
+        participants: ['claude', 'gpt-4'],
+        receipt: {
+          checksum: 'cost123',
+          created_at: '2026-03-25T12:34:56Z',
+          cost_summary: {
+            total_cost_usd: '0.045',
+            per_agent: {
+              claude: { total_cost_usd: '0.020', total_tokens: 120 },
+              'gpt-4': { total_cost_usd: '0.025', total_tokens: 180 },
+            },
+          },
+        },
+      },
+      'fallback-id'
+    );
+
+    expect(normalized.total_cost).toBe(0.045);
+    expect(normalized.cost_breakdown).toEqual([
+      { agent: 'claude', tokens: 120, cost: 0.02 },
+      { agent: 'gpt-4', tokens: 180, cost: 0.025 },
+    ]);
+  });
 });

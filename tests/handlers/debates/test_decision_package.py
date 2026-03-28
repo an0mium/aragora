@@ -976,6 +976,54 @@ class TestReceiptIntegration:
         assert body["verdict"] == "APPROVED"
         assert body["confidence"] == 0.95
 
+    def test_receipt_cost_summary_backfills_missing_result_cost(self, http_handler):
+        """Receipt cost_summary should feed the live package when result cost fields are absent."""
+        debate = _completed_debate()
+        debate["result"] = {
+            "confidence": 0.85,
+            "consensus_reached": True,
+            "participants": ["claude", "gpt-4"],
+        }
+        storage = _make_storage({"d1": debate})
+        h = DecisionPackageHandler(ctx={"storage": storage})
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "rcpt-003"
+        mock_receipt.verdict = "APPROVED"
+        mock_receipt.confidence = 0.93
+        mock_receipt.risk_level = "LOW"
+        mock_receipt.risk_score = 0.1
+        mock_receipt.checksum = "sha256cost"
+        mock_receipt.created_at = "2026-03-28T10:00:00Z"
+        mock_receipt.cost_summary = {
+            "total_cost_usd": "0.045",
+            "per_agent": {
+                "claude": {"total_cost_usd": "0.020", "total_tokens": 120},
+                "gpt-4": {"total_cost_usd": "0.025", "total_tokens": 180},
+            },
+        }
+
+        mock_store = MagicMock()
+        mock_store.get_by_gauntlet.return_value = mock_receipt
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = h.handle("/api/v1/debates/d1/package", {}, http_handler)
+
+        body = _body(result)
+        assert body["receipt"]["cost_summary"]["total_cost_usd"] == "0.045"
+        assert body["cost"] == {
+            "total_cost_usd": 0.045,
+            "per_agent_cost": {"claude": 0.02, "gpt-4": 0.025},
+        }
+        assert body["cost_breakdown"] == [
+            {"agent": "claude", "tokens": 120, "cost": 0.02},
+            {"agent": "gpt-4", "tokens": 180, "cost": 0.025},
+        ]
+        assert body["total_cost"] == 0.045
+
     def test_receipt_not_found(self, http_handler):
         """When receipt store returns None, receipt should be None."""
         debate = _completed_debate()
