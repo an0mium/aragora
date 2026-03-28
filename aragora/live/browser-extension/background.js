@@ -1,3 +1,5 @@
+importScripts("api-client.js");
+
 const MENU_ID = "aragora-send-selection";
 const STATE_KEY = "aragoraPopupState";
 const DEFAULT_SETTINGS = {
@@ -9,6 +11,12 @@ const DEFAULT_SETTINGS = {
 };
 const QUESTION_LIMIT = 5000;
 const SELECTION_LIMIT = 9000;
+const TERMINAL_STATUSES = new Set(["completed", "consensus_reached", "done"]);
+const ERROR_STATUSES = new Set(["failed", "error", "cancelled"]);
+const normalizeApiUrl = AragoraExtensionApi.normalizeApiUrl;
+const readErrorMessage = AragoraExtensionApi.readErrorMessage;
+const buildAdversarialReviewPayload = AragoraExtensionApi.buildAdversarialReviewPayload;
+const buildDebateSnapshot = AragoraExtensionApi.buildDebateSnapshot;
 
 function registerContextMenu() {
   chrome.contextMenus.removeAll(() => {
@@ -30,10 +38,6 @@ function registerContextMenu() {
 async function ensureDefaultSettings() {
   const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
   await chrome.storage.sync.set({ ...DEFAULT_SETTINGS, ...settings });
-}
-
-function normalizeApiUrl(apiUrl) {
-  return String(apiUrl || DEFAULT_SETTINGS.apiUrl).trim().replace(/\/+$/, "");
 }
 
 function sanitizeSelectionText(value) {
@@ -80,61 +84,6 @@ async function getSettings() {
   return chrome.storage.sync.get(DEFAULT_SETTINGS);
 }
 
-function buildRequestPayload(selectionText, source, settings) {
-  const titleLine = source.pageTitle ? `Source title: ${source.pageTitle}` : "";
-  const urlLine = source.pageUrl ? `Source URL: ${source.pageUrl}` : "";
-  const sourceContext = [titleLine, urlLine].filter(Boolean).join("\n");
-
-  let question = selectionText;
-  let context = sourceContext;
-
-  if (selectionText.length > QUESTION_LIMIT) {
-    question = source.pageTitle
-      ? `Analyze the selected text from "${source.pageTitle}".`
-      : "Analyze the selected text from the current page.";
-    context = [sourceContext, "Selected text:", selectionText].filter(Boolean).join("\n\n");
-  }
-
-  const payload = {
-    question,
-    rounds: Number(settings.rounds) || DEFAULT_SETTINGS.rounds,
-    consensus: settings.consensus || DEFAULT_SETTINGS.consensus,
-    auto_select: !String(settings.agents || "").trim(),
-    metadata: {
-      source: "browser_extension_context_menu",
-      source_title: source.pageTitle || "",
-      source_url: source.pageUrl || "",
-    },
-  };
-
-  if (context) {
-    payload.context = context.slice(0, 10000);
-  }
-
-  const agents = String(settings.agents || "").trim();
-  if (agents) {
-    payload.agents = agents;
-  }
-
-  return payload;
-}
-
-async function readErrorMessage(response) {
-  const fallback = `Request failed with status ${response.status}`;
-
-  try {
-    const body = await response.json();
-    return body.detail || body.error || body.message || fallback;
-  } catch (_error) {
-    try {
-      const text = await response.text();
-      return text || fallback;
-    } catch (_textError) {
-      return fallback;
-    }
-  }
-}
-
 async function createDebate(selectionText, source, settings) {
   const apiUrl = normalizeApiUrl(settings.apiUrl);
   const response = await fetch(`${apiUrl}/api/v2/debates`, {
@@ -143,7 +92,7 @@ async function createDebate(selectionText, source, settings) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
     },
-    body: JSON.stringify(buildRequestPayload(selectionText, source, settings)),
+    body: JSON.stringify(buildAdversarialReviewPayload(selectionText, source, settings)),
   });
 
   if (!response.ok) {
@@ -151,6 +100,31 @@ async function createDebate(selectionText, source, settings) {
   }
 
   return response.json();
+}
+
+function buildStoredResult(snapshot) {
+  return {
+    debateId: snapshot.debateId,
+    status: snapshot.status,
+    finalAnswer: snapshot.finalAnswer || "",
+    message: snapshot.message || null,
+    confidence: snapshot.confidence,
+    task: snapshot.task || "",
+  };
+}
+
+async function applyBadgeForSnapshot(snapshot) {
+  if (ERROR_STATUSES.has(snapshot.status)) {
+    await setBadge("ERR", "#b42318");
+    return;
+  }
+
+  if (TERMINAL_STATUSES.has(snapshot.status) || snapshot.finalAnswer) {
+    await setBadge("OK", "#0f766e");
+    return;
+  }
+
+  await setBadge("RUN", "#1d4ed8");
 }
 
 async function handleContextMenuClick(info, tab) {
@@ -213,25 +187,22 @@ async function handleContextMenuClick(info, tab) {
 
   try {
     const createdDebate = await createDebate(selectionText, source, settings);
-    const debateId = createdDebate.debate_id || createdDebate.id || null;
+    const snapshot = buildDebateSnapshot(createdDebate, "running");
+    const debateId = snapshot.debateId;
 
     if (!debateId) {
       throw new Error("Aragora did not return a debate ID.");
     }
 
     await writePopupState({
-      status: createdDebate.status || "running",
+      status: snapshot.status,
       debateId,
       error: null,
-      result: {
-        debateId,
-        status: createdDebate.status || "running",
-        message: createdDebate.message || null,
-      },
+      result: buildStoredResult(snapshot),
       selectionText,
       source,
     });
-    await setBadge("RUN", "#1d4ed8");
+    await applyBadgeForSnapshot(snapshot);
   } catch (error) {
     await writePopupState({
       status: "error",

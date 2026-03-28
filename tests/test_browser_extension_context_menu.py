@@ -14,6 +14,7 @@ def _read_file(name: str) -> str:
 
 def test_extension_bundle_files_exist() -> None:
     expected_files = {
+        "api-client.js",
         "manifest.json",
         "background.js",
         "content.js",
@@ -42,13 +43,19 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
 
 def test_background_script_handles_context_menu_selection_and_api_submission() -> None:
     background_script = _read_file("background.js")
+    api_client = _read_file("api-client.js")
 
+    assert 'importScripts("api-client.js")' in background_script
     assert "chrome.contextMenus.onClicked.addListener" in background_script
     assert "chrome.tabs.sendMessage" in background_script
     assert '"aragora:get-selection"' in background_script
     assert "chrome.storage.local.set" in background_script
     assert "/api/v2/debates" in background_script
     assert 'Authorization: `Bearer ${String(settings.apiKey || "").trim()}`' in background_script
+    assert "buildAdversarialReviewPayload" in background_script
+    assert "Perform an adversarial review of the highlighted text." in api_client
+    assert 'workflow: "adversarial_review"' in api_client
+    assert "buildDebateSnapshot" in api_client
 
 
 def test_popup_assets_render_saved_selection_and_latest_result() -> None:
@@ -60,10 +67,12 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     assert 'id="debate-id"' in popup_html
     assert 'id="result-answer"' in popup_html
     assert 'id="save-settings"' in popup_html
+    assert '<script src="api-client.js"></script>' in popup_html
 
     assert "chrome.storage.onChanged.addListener" in popup_js
     assert "window.setInterval" in popup_js
     assert "finalAnswer" in popup_js
+    assert "buildDebateSnapshot" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
 
     assert '"aragora:get-selection"' in content_script

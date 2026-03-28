@@ -7,13 +7,12 @@ const DEFAULT_SETTINGS = {
   consensus: "majority",
 };
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled", "error", "done", "consensus_reached"]);
+const normalizeApiUrl = AragoraExtensionApi.normalizeApiUrl;
+const readErrorMessage = AragoraExtensionApi.readErrorMessage;
+const buildDebateSnapshot = AragoraExtensionApi.buildDebateSnapshot;
 
 const elements = {};
 let pollTimer = null;
-
-function normalizeApiUrl(apiUrl) {
-  return String(apiUrl || DEFAULT_SETTINGS.apiUrl).trim().replace(/\/+$/, "");
-}
 
 function humanizeStatus(status) {
   const normalized = String(status || "idle").trim().toLowerCase();
@@ -148,22 +147,6 @@ async function saveSettings() {
   }, 1200);
 }
 
-async function readErrorMessage(response) {
-  const fallback = `Request failed with status ${response.status}`;
-
-  try {
-    const body = await response.json();
-    return body.detail || body.error || body.message || fallback;
-  } catch (_error) {
-    try {
-      const text = await response.text();
-      return text || fallback;
-    } catch (_textError) {
-      return fallback;
-    }
-  }
-}
-
 async function fetchDebate(apiUrl, apiKey, debateId) {
   const response = await fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`, {
     headers: {
@@ -180,23 +163,26 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 }
 
 function buildResultState(previousState, debate) {
-  const confidence = Number(debate?.consensus?.confidence);
-  const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
+  const snapshot = buildDebateSnapshot(debate, previousState.status || "running");
+  const debateId = snapshot.debateId || previousState.debateId || null;
+  const nextError =
+    (snapshot.status === "failed" || snapshot.status === "error" || snapshot.status === "cancelled") &&
+    snapshot.message
+      ? snapshot.message
+      : null;
 
   return {
     ...previousState,
-    status: nextStatus,
-    error: null,
+    status: snapshot.status,
+    debateId,
+    error: nextError,
     result: {
-      debateId: debate.id || previousState.debateId,
-      status: debate.status || previousState.status || "running",
-      finalAnswer:
-        debate.final_answer ||
-        debate.consensus?.final_answer ||
-        debate.consensus?.summary ||
-        "",
-      confidence: Number.isNaN(confidence) ? null : confidence,
-      task: debate.task || "",
+      debateId,
+      status: snapshot.status,
+      finalAnswer: snapshot.finalAnswer,
+      message: snapshot.message,
+      confidence: snapshot.confidence,
+      task: snapshot.task,
     },
     updatedAt: new Date().toISOString(),
   };
