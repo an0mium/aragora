@@ -1841,10 +1841,20 @@ class PostDebateCoordinator:
                         response_id=f"{debate_id}:{agent_name}",
                     )
                     overall = getattr(evaluation, "overall_score", 0.0)
-                    dimensions = getattr(evaluation, "dimension_scores", {})
+                    raw_dims = getattr(evaluation, "dimension_scores", {})
+                    serialized_dims = (
+                        {
+                            (d.value if hasattr(d, "value") else str(d)): (
+                                s.score if hasattr(s, "score") else float(s)
+                            )
+                            for d, s in raw_dims.items()
+                        }
+                        if raw_dims
+                        else {}
+                    )
                     scores[agent_name] = {
                         "overall": overall,
-                        "dimensions": dimensions,
+                        "dimensions": serialized_dims,
                     }
                 except (RuntimeError, ValueError, TypeError) as exc:
                     logger.debug("LLMJudge eval failed for %s: %s", agent_name, exc)

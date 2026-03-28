@@ -313,7 +313,10 @@ class EmailProvider(NotificationProvider):
         return NotificationChannel.EMAIL
 
     def is_configured(self) -> bool:
-        return bool(self.config.smtp_host)
+        host = self.config.smtp_host
+        if not host or host == "localhost":
+            return bool(self.config.smtp_user or self.config.smtp_password)
+        return True
 
     async def send(
         self,

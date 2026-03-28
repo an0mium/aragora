@@ -228,7 +228,7 @@ class CronParser:
                 and candidate.hour in parsed["hour"]
                 and candidate.day in parsed["day"]
                 and candidate.month in parsed["month"]
-                and candidate.weekday() in parsed["weekday"]
+                and (candidate.weekday() + 1) % 7 in parsed["weekday"]  # Python Mon=0; cron Sun=0
             ):
                 return candidate
             candidate += timedelta(minutes=1)

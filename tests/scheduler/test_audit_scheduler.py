@@ -341,17 +341,14 @@ class TestCronParser:
         assert next_run.minute == 0
 
     def test_next_run_specific_day(self):
-        """Calculates next run for specific weekday."""
-        # In cron: 0=Sunday, 1=Monday, etc.
-        # In Python weekday(): 0=Monday, 1=Tuesday, etc.
-        # The CronParser uses Python's weekday() internally
-        # So cron "* * * * 1" matches Python weekday() == 1 (Tuesday)
+        """Calculates next run for specific weekday using cron convention."""
+        # In cron: 0=Sunday, 1=Monday, 2=Tuesday, etc.
+        # CronParser now correctly converts from cron to Python weekday.
         after = datetime(2024, 1, 15, 0, 0, 0)  # This is a Monday
-        # Weekday 1 in the cron expression will match Python weekday 1 (Tuesday)
+        # Cron "0 9 * * 1" means Monday at 9:00
         next_run = CronParser.next_run("0 9 * * 1", after)
 
-        # Since the parser uses Python weekday, weekday 1 = Tuesday
-        assert next_run.weekday() == 1  # Tuesday in Python datetime
+        assert next_run.weekday() == 0  # Monday in Python datetime
         assert next_run.hour == 9
 
 

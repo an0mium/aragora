@@ -41,9 +41,14 @@ class MockRequestHandler:
     """Mock HTTP request handler for tests."""
 
     def __init__(self, body: dict | None = None, headers: dict | None = None):
+        import io
+
         self._body = body
         self.headers = headers or {}
         self.client_address = ("127.0.0.1", 12345)
+        raw = json.dumps(self._body).encode() if self._body else b"{}"
+        self.rfile = io.BytesIO(raw)
+        self.headers["Content-Length"] = str(len(raw))
 
     def read_body(self):
         return json.dumps(self._body).encode() if self._body else b"{}"

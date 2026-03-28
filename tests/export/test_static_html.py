@@ -677,7 +677,7 @@ class TestStaticHTMLExporterFooter:
         exporter = StaticHTMLExporter(basic_artifact)
         result = exporter.generate()
 
-        assert "github.com/an0mium/aragora" in result
+        assert "github.com/synaptent/aragora" in result
 
     def test_includes_artifact_hash(self, basic_artifact: DebateArtifact):
         """Should include artifact content hash."""

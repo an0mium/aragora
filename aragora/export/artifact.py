@@ -266,10 +266,16 @@ class ArtifactBuilder:
             agents.add(msg.agent)
         self._artifact.agents = list(agents)
 
-        # Build consensus proof
+        # Build consensus proof — compare against winner agent, not final answer text
+        winner = getattr(result, "winner", None)
+        if not winner and result.votes:
+            from collections import Counter
+
+            choices = [v.choice for v in result.votes if v.choice]
+            winner = Counter(choices).most_common(1)[0][0] if choices else None
         vote_breakdown = {}
         for vote in result.votes:
-            vote_breakdown[vote.agent] = vote.choice == result.final_answer[:20]
+            vote_breakdown[vote.agent] = vote.choice == winner if winner else False
 
         self._artifact.consensus_proof = ConsensusProof(
             reached=result.consensus_reached,
