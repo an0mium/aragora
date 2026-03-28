@@ -17,6 +17,7 @@ import os
 import queue
 import secrets
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -269,6 +270,202 @@ class WebSocketHandlerMixin:
                     loop_id=loop_id,
                 )
             )
+
+    @staticmethod
+    def _spectate_timestamp_to_epoch(timestamp: str | None) -> float:
+        """Convert an ISO-8601 timestamp into epoch seconds for live clients."""
+        if not timestamp:
+            return time.time()
+
+        try:
+            return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return time.time()
+
+    @staticmethod
+    def _spectate_scope_matches(event: Any, debate_id: str | None, pipeline_id: str | None) -> bool:
+        """Return whether a spectate event matches the requested scope."""
+        if debate_id:
+            return getattr(event, "debate_id", None) == debate_id
+        if pipeline_id:
+            return getattr(event, "pipeline_id", None) == pipeline_id
+        return False
+
+    @staticmethod
+    def _spectate_event_signature(event: Any) -> str:
+        """Build a stable signature for de-duplicating backlog and live delivery."""
+        data = getattr(event, "data", {}) or {}
+        details = data.get("details")
+        return "|".join(
+            [
+                str(getattr(event, "event_type", "")),
+                str(getattr(event, "timestamp", "")),
+                str(getattr(event, "debate_id", "")),
+                str(getattr(event, "pipeline_id", "")),
+                str(getattr(event, "agent_name", "")),
+                str(getattr(event, "round_number", "")),
+                str(details),
+            ]
+        )
+
+    def _build_spectate_metadata(
+        self,
+        *,
+        debate_id: str | None,
+        pipeline_id: str | None,
+    ) -> dict[str, Any]:
+        """Build the initial metadata payload for spectate WebSocket clients."""
+        payload: dict[str, Any] = {"type": "metadata"}
+        if debate_id:
+            payload["debate_id"] = debate_id
+        if pipeline_id:
+            payload["pipeline_id"] = pipeline_id
+
+        if debate_id:
+            state = self.get_debate_state(debate_id)
+            if state:
+                if state.get("task"):
+                    payload["task"] = state["task"]
+                if state.get("agents"):
+                    payload["agents"] = state["agents"]
+                if state.get("status"):
+                    payload["status"] = state["status"]
+                payload["current_round"] = state.get("current_round", 0)
+                payload["message_count"] = len(state.get("messages", []))
+
+        return payload
+
+    def _serialize_spectate_event(self, event: Any) -> dict[str, Any]:
+        """Translate buffered spectate bridge events into the live client protocol."""
+        data = getattr(event, "data", {}) or {}
+        payload: dict[str, Any] = {
+            "type": getattr(event, "event_type", "system"),
+            "timestamp": self._spectate_timestamp_to_epoch(getattr(event, "timestamp", None)),
+            "agent": getattr(event, "agent_name", None),
+            "details": data.get("details"),
+            "metric": data.get("metric"),
+            "round": getattr(event, "round_number", None),
+        }
+
+        debate_id = getattr(event, "debate_id", None)
+        if debate_id:
+            payload["debate_id"] = debate_id
+
+        pipeline_id = getattr(event, "pipeline_id", None)
+        if pipeline_id:
+            payload["pipeline_id"] = pipeline_id
+
+        for key in ("task", "agents", "status"):
+            if key in data:
+                payload[key] = data[key]
+
+        return payload
+
+    async def _handle_spectate_websocket(self, request) -> aiohttp.web.StreamResponse:
+        """Handle debate or pipeline spectate sockets used by the live UI."""
+        import aiohttp
+        import aiohttp.web as web
+
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        origin = request.headers.get("Origin", "")
+        if origin and origin not in WS_ALLOWED_ORIGINS:
+            return web.Response(status=403, text="Origin not allowed")
+
+        debate_id = request.match_info.get("debate_id") or request.query.get("debate_id")
+        pipeline_id = request.query.get("pipeline_id")
+
+        if debate_id and pipeline_id:
+            return web.Response(status=400, text="Provide either debate_id or pipeline_id")
+        if not debate_id and not pipeline_id:
+            return web.Response(status=400, text="Missing debate_id or pipeline_id")
+
+        bridge = get_spectate_bridge()
+        if not bridge.running:
+            bridge.start()
+
+        ws = web.WebSocketResponse(
+            max_msg_size=WS_MAX_MESSAGE_SIZE,
+            compress=True,
+        )
+        await ws.prepare(request)
+
+        loop = asyncio.get_running_loop()
+        event_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
+        seen_signatures: set[str] = set()
+
+        def enqueue(event: Any) -> None:
+            if not self._spectate_scope_matches(event, debate_id, pipeline_id):
+                return
+
+            def _push() -> None:
+                if event_queue.full():
+                    try:
+                        event_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                try:
+                    event_queue.put_nowait(event)
+                except asyncio.QueueFull:
+                    logger.debug("spectate_ws_queue_full", exc_info=True)
+
+            loop.call_soon_threadsafe(_push)
+
+        async def pump_events() -> None:
+            while True:
+                event = await event_queue.get()
+                signature = self._spectate_event_signature(event)
+                if signature in seen_signatures:
+                    continue
+                seen_signatures.add(signature)
+                await ws.send_json(self._serialize_spectate_event(event))
+
+        bridge.subscribe(enqueue)
+        sender_task = asyncio.create_task(pump_events())
+
+        try:
+            await ws.send_json(
+                self._build_spectate_metadata(
+                    debate_id=debate_id,
+                    pipeline_id=pipeline_id,
+                )
+            )
+
+            for event in bridge.get_recent_events(200):
+                if not self._spectate_scope_matches(event, debate_id, pipeline_id):
+                    continue
+                signature = self._spectate_event_signature(event)
+                if signature in seen_signatures:
+                    continue
+                seen_signatures.add(signature)
+                await ws.send_json(self._serialize_spectate_event(event))
+
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        payload = json.loads(msg.data)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if payload.get("type") == "ping":
+                        await ws.send_json({"type": "pong", "timestamp": time.time()})
+                elif msg.type in (
+                    aiohttp.WSMsgType.CLOSE,
+                    aiohttp.WSMsgType.CLOSING,
+                    aiohttp.WSMsgType.CLOSED,
+                    aiohttp.WSMsgType.ERROR,
+                ):
+                    break
+        except (ConnectionResetError, OSError) as exc:
+            logger.debug("spectate_websocket_closed: %s", exc)
+        finally:
+            bridge.unsubscribe(enqueue)
+            sender_task.cancel()
+            await asyncio.gather(sender_task, return_exceptions=True)
+            if not ws.closed:
+                await ws.close()
+
+        return ws
 
     async def _handle_voice_websocket(self, request) -> aiohttp.web.StreamResponse:
         """Handle voice streaming WebSocket connections.

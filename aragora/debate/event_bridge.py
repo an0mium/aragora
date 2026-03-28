@@ -87,7 +87,18 @@ class EventEmitterBridge:
             k: v for k, v in kwargs.items() if k in ("agent", "details", "metric", "round_number")
         }
         if self.spectator:
-            self.spectator.emit(event_type, **spectator_kwargs)
+            try:
+                from aragora.spectate.ws_bridge import bind_spectate_context
+
+                with bind_spectate_context(
+                    debate_id=kwargs.get("debate_id") or self.loop_id or None,
+                    pipeline_id=kwargs.get("pipeline_id"),
+                    task=kwargs.get("task"),
+                    agents=kwargs.get("agents"),
+                ):
+                    self.spectator.emit(event_type, **spectator_kwargs)
+            except ImportError:
+                self.spectator.emit(event_type, **spectator_kwargs)
 
         # Fan out to SSE spectator clients (if any are connected)
         if self.loop_id:

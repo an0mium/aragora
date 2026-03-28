@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import sys
 from types import ModuleType
 from unittest.mock import MagicMock, call, patch
@@ -208,6 +209,28 @@ class TestNotifySpectator:
             bridge.notify("vote", **{param: "test_value"})
             call_kwargs = spec.emit.call_args[1]
             assert param in call_kwargs
+
+    def test_spectator_events_are_tagged_with_loop_id_for_bridge_consumers(self):
+        from aragora.spectate.stream import SpectatorStream
+        from aragora.spectate.ws_bridge import get_spectate_bridge, reset_spectate_bridge
+
+        reset_spectate_bridge()
+        spectate_bridge = get_spectate_bridge()
+        spectate_bridge.start()
+
+        try:
+            spectator = SpectatorStream(enabled=True, format="plain", output=io.StringIO())
+            bridge = _make_bridge(spectator=spectator, loop_id="debate-bridge-1")
+
+            bridge.notify("proposal", agent="claude", details="Bounded live fix")
+
+            events = spectate_bridge.get_recent_events()
+            assert len(events) == 1
+            assert events[0].debate_id == "debate-bridge-1"
+            assert events[0].data["details"] == "Bounded live fix"
+        finally:
+            spectate_bridge.stop()
+            reset_spectate_bridge()
 
 
 # ===========================================================================

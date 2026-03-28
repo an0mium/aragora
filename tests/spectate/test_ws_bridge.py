@@ -7,6 +7,7 @@ thread safety, and singleton accessor.
 
 from __future__ import annotations
 
+import io
 import threading
 import time
 from unittest.mock import MagicMock, patch
@@ -16,6 +17,7 @@ import pytest
 from aragora.spectate.ws_bridge import (
     SpectateEvent,
     SpectateWebSocketBridge,
+    bind_spectate_context,
     get_spectate_bridge,
     reset_spectate_bridge,
 )
@@ -222,6 +224,45 @@ class TestEventForwarding:
             stream.emit("debate_start")
 
             assert bridge.buffer_size == 0
+        finally:
+            bridge.stop()
+
+    def test_emit_uses_bound_debate_context(self, bridge: SpectateWebSocketBridge):
+        bridge.start()
+        try:
+            from aragora.spectate.stream import SpectatorStream
+
+            stream = SpectatorStream(enabled=True, format="plain", output=io.StringIO())
+            with bind_spectate_context(
+                debate_id="debate-123",
+                task="Should we ship the streaming UI?",
+                agents=["claude", "gpt4"],
+            ):
+                stream.emit("debate_start")
+
+            events = bridge.get_recent_events()
+            assert len(events) == 1
+            assert events[0].debate_id == "debate-123"
+            assert events[0].data["task"] == "Should we ship the streaming UI?"
+            assert events[0].data["agents"] == ["claude", "gpt4"]
+        finally:
+            bridge.stop()
+
+    def test_emit_extracts_pipeline_id_from_json_details(self, bridge: SpectateWebSocketBridge):
+        bridge.start()
+        try:
+            from aragora.spectate.stream import SpectatorStream
+
+            stream = SpectatorStream(enabled=True, format="plain", output=io.StringIO())
+            stream.emit(
+                "pipeline.stage_started",
+                details='{"pipeline_id":"pipe-9","stage":"goals"}',
+            )
+
+            events = bridge.get_recent_events()
+            assert len(events) == 1
+            assert events[0].pipeline_id == "pipe-9"
+            assert events[0].data["stage"] == "goals"
         finally:
             bridge.stop()
 

@@ -14,13 +14,72 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
+import json
 import logging
+from contextlib import contextmanager
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
+
+_spectate_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
+    "spectate_context",
+    default={},
+)
+
+
+def get_spectate_context() -> dict[str, Any]:
+    """Return the current spectate context for this execution flow."""
+    return dict(_spectate_context.get() or {})
+
+
+@contextmanager
+def bind_spectate_context(
+    *,
+    debate_id: str | None = None,
+    pipeline_id: str | None = None,
+    task: str | None = None,
+    agents: list[str] | None = None,
+) -> Any:
+    """Temporarily bind debate or pipeline metadata to emitted spectate events."""
+    current = get_spectate_context()
+    if debate_id is not None:
+        current["debate_id"] = debate_id
+    if pipeline_id is not None:
+        current["pipeline_id"] = pipeline_id
+    if task is not None:
+        current["task"] = task
+    if agents is not None:
+        current["agents"] = list(agents)
+
+    token = _spectate_context.set(current)
+    try:
+        yield
+    finally:
+        _spectate_context.reset(token)
+
+
+def _extract_structured_details(details: str) -> dict[str, Any]:
+    """Best-effort JSON extraction for emit() calls that encode metadata."""
+    stripped = details.strip()
+    if not stripped or stripped[0] not in "{[":
+        return {}
+
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return {}
+
+    return payload if isinstance(payload, dict) else {}
+
+
+def _pop_optional_string(data: dict[str, Any], key: str) -> str | None:
+    """Extract an optional string field from event data."""
+    value = data.pop(key, None)
+    return value if isinstance(value, str) and value else None
 
 
 @dataclass
@@ -200,17 +259,35 @@ class SpectateWebSocketBridge:
         and dispatches to all subscribers. Subscriber errors are caught
         and logged to prevent spectating from breaking debates.
         """
-        # Build data dict from non-empty keyword args
-        data: dict[str, Any] = {}
-        if details:
+        data = _extract_structured_details(details)
+        if details and "details" not in data and not data:
             data["details"] = details
         if metric is not None:
             data["metric"] = metric
+
+        context = get_spectate_context()
+        debate_id = context.get("debate_id")
+        if not isinstance(debate_id, str) or not debate_id:
+            debate_id = _pop_optional_string(data, "debate_id")
+
+        pipeline_id = context.get("pipeline_id")
+        if not isinstance(pipeline_id, str) or not pipeline_id:
+            pipeline_id = _pop_optional_string(data, "pipeline_id")
+
+        task = context.get("task")
+        if isinstance(task, str) and task and "task" not in data:
+            data["task"] = task
+
+        agents = context.get("agents")
+        if isinstance(agents, list) and agents and "agents" not in data:
+            data["agents"] = list(agents)
 
         event = SpectateEvent(
             event_type=event_type,
             timestamp=datetime.now(timezone.utc).isoformat(),
             data=data,
+            debate_id=debate_id,
+            pipeline_id=pipeline_id,
             agent_name=agent or None,
             round_number=round_number,
         )

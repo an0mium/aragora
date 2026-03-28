@@ -216,6 +216,7 @@ class RouteRegistrationMixin:
     - _handle_start_debate: handler method
     - _handle_metrics: handler method
     - _websocket_handler: handler method
+    - _handle_spectate_websocket: handler method
     - _handle_voice_websocket: handler method
     - _drain_loop: coroutine
     """
@@ -245,6 +246,7 @@ class RouteRegistrationMixin:
         _handle_replay_html: Any
         _handle_start_debate: Any
         _websocket_handler: Any
+        _handle_spectate_websocket: Any
         _handle_voice_websocket: Any
         _handle_metrics: Any
         _drain_loop: Any
@@ -341,6 +343,9 @@ class RouteRegistrationMixin:
         app.router.add_get("/", self._websocket_handler)
         app.router.add_get("/ws", self._websocket_handler)
         app.router.add_get("/ws/voice/{debate_id}", self._handle_voice_websocket)
+        app.router.add_get("/ws/spectate", self._handle_spectate_websocket)
+        app.router.add_get("/ws/spectate/{debate_id}", self._handle_spectate_websocket)
+        app.router.add_get("/spectate/{debate_id}", self._handle_spectate_websocket)
         if PIPELINE_STREAM_AVAILABLE:
             register_pipeline_stream_routes(app)
             logger.info("Registered pipeline stream WebSocket route at /ws/pipeline")
@@ -373,6 +378,7 @@ class RouteRegistrationMixin:
         logger.info("Unified server (HTTP+WS) running on http://%s:%s", self.host, self.port)
         logger.info("  WebSocket: ws://%s:%s/", self.host, self.port)
         logger.info("  Voice WS:  ws://%s:%s/ws/voice/{debate_id}", self.host, self.port)
+        logger.info("  Spectate:  ws://%s:%s/spectate/{debate_id}", self.host, self.port)
         logger.info("  HTTP API:  http://%s:%s/api/v1/* (preferred)", self.host, self.port)
         logger.info("  Legacy:    http://%s:%s/api/* (deprecated)", self.host, self.port)
 
