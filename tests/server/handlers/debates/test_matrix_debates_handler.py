@@ -2,6 +2,7 @@
 
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -375,6 +376,149 @@ class TestHandlePost:
         assert status == 400
         assert "Maximum 10 agents" in body.get("error", "")
 
+    @pytest.mark.asyncio
+    async def test_post_rejects_non_array_model_combinations(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when model_combinations is not an array."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "question": "A valid test task for debate",
+                        "model_combinations": "claude,gpt-4",
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "model_combinations must be an array" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_post_rejects_non_array_scenario_agents(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when a scenario-specific agent set is not an array."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "task": "A valid test task for debate",
+                        "scenarios": [{"name": "test", "agents": "claude"}],
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "scenarios[0].agents must be an array" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_post_normalizes_model_combinations_into_fallback_request(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Model-combination requests should be normalized before fallback execution."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                with patch.object(
+                    handler,
+                    "_run_matrix_debate_fallback",
+                    new_callable=AsyncMock,
+                    return_value=HandlerResult(
+                        status_code=200,
+                        content_type="application/json",
+                        body=b"{}",
+                    ),
+                ) as mock_fallback:
+                    result = await handler.handle_post(
+                        mock_http_handler,
+                        "/api/v1/debates/matrix",
+                        {
+                            "question": "A valid test task for debate",
+                            "model_combinations": [
+                                {"name": "Pair A", "agents": ["claude", "gpt-4"]},
+                                {"name": "Pair B", "agents": ["gemini", "grok"]},
+                            ],
+                            "max_rounds": "3",
+                        },
+                    )
+
+        assert result.status_code == 200
+        mock_fallback.assert_awaited_once()
+        normalized = mock_fallback.await_args.args[1]
+        assert normalized["task"] == "A valid test task for debate"
+        assert normalized["auto_select_best"] is True
+        assert normalized["max_rounds"] == 3
+        assert normalized["scenarios"][0]["name"] == "Pair A"
+        assert normalized["scenarios"][0]["agents"] == ["claude", "gpt-4"]
+        assert normalized["scenarios"][0]["parameters"] == {"model_combination": "claude, gpt-4"}
+
+
+class TestFallbackModelCombinations:
+    """Tests for per-scenario agent execution in the fallback runner."""
+
+    @pytest.mark.asyncio
+    async def test_fallback_uses_scenario_agents_and_returns_best_result(
+        self, handler, mock_http_handler
+    ):
+        """Fallback should load per-scenario agents and expose the selected best result."""
+        load_calls: list[tuple[str, ...]] = []
+
+        async def mock_load_agents(agent_names):
+            names = tuple(agent_names)
+            load_calls.append(names)
+            return [SimpleNamespace(name=name) for name in names]
+
+        handler._load_agents = AsyncMock(side_effect=mock_load_agents)
+
+        def arena_factory(env, agents, protocol, **kwargs):
+            del env, protocol, kwargs
+            lead_agent = agents[0].name
+            confidence = 0.92 if lead_agent == "claude" else 0.73
+            rounds_used = 2 if lead_agent == "claude" else 4
+            arena = MagicMock()
+            arena.run = AsyncMock(
+                return_value=SimpleNamespace(
+                    winner=lead_agent,
+                    final_answer=f"Answer from {lead_agent}",
+                    confidence=confidence,
+                    consensus_reached=True,
+                    rounds_used=rounds_used,
+                )
+            )
+            return arena
+
+        with patch("aragora.debate.orchestrator.Arena", side_effect=arena_factory):
+            result = await handler._run_matrix_debate_fallback(
+                mock_http_handler,
+                {
+                    "task": "A valid test task for debate",
+                    "scenarios": [
+                        {"name": "Pair A", "agents": ["claude", "gpt-4"]},
+                        {"name": "Pair B", "agents": ["gemini", "grok"]},
+                    ],
+                    "max_rounds": 3,
+                    "auto_select_best": True,
+                },
+            )
+
+        body, status = parse_result(result)
+        assert status == 200
+        assert {tuple(call) for call in load_calls} == {
+            ("claude", "gpt-4"),
+            ("gemini", "grok"),
+        }
+        assert body["best_result"]["scenario_name"] == "Pair A"
+        assert body["dominant_scenario"] == "Pair A"
+        assert body["best_result"]["confidence"] == pytest.approx(0.92)
+        assert "best_result_reason" in body
+
 
 # =============================================================================
 # Test Rate Limiting
@@ -552,3 +696,42 @@ class TestHelperMethods:
         assert matrix["consensus_rate"] == 0.5
         assert matrix["avg_confidence"] == 0.65
         assert matrix["avg_rounds"] == 4.0
+
+    def test_select_best_result_prefers_consensus_then_confidence(self, handler):
+        """Best result selection should favor consensus and stronger confidence."""
+        results = [
+            {
+                "scenario_name": "High Confidence No Consensus",
+                "final_answer": "A",
+                "confidence": 0.99,
+                "consensus_reached": False,
+                "rounds_used": 1,
+            },
+            {
+                "scenario_name": "Consensus Winner",
+                "final_answer": "B",
+                "confidence": 0.81,
+                "consensus_reached": True,
+                "rounds_used": 3,
+            },
+        ]
+
+        best = handler._select_best_result(results)
+
+        assert best is not None
+        assert best["scenario_name"] == "Consensus Winner"
+
+    def test_serialize_result_entry_adds_aliases(self, handler):
+        """Serialized result entries should expose handler-compatible keys."""
+        result = handler._serialize_result_entry(
+            {
+                "scenario_name": "Scenario A",
+                "conclusion": "Use approach A",
+                "confidence": 0.8,
+                "consensus_reached": True,
+                "rounds": 2,
+            }
+        )
+
+        assert result["final_answer"] == "Use approach A"
+        assert result["rounds_used"] == 2
