@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "description": "Send selected text to Aragora from any page and review results in the popup.",
   "permissions": [
+    "activeTab",
     "contextMenus",
-    "storage",
-    "tabs"
+    "storage"
   ],
   "host_permissions": [
     "https://*/*",
