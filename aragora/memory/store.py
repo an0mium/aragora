@@ -1522,9 +1522,12 @@ class CritiqueStore(SQLiteStore):
 
             pruned = cursor.rowcount
             conn.commit()
-            return pruned
 
-    @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=True)
+        invalidate_cache("memory")
+        invalidate_cache("archive_stats")
+        return pruned
+
+    @ttl_cache(ttl_seconds=CACHE_TTL_ARCHIVE_STATS, key_prefix="archive_stats", skip_first=False)
     def get_archive_stats(self) -> dict:
         """Get statistics about archived patterns."""
         with self.connection() as conn:
