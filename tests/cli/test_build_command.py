@@ -207,6 +207,104 @@ def test_run_build_pipeline_blocks_before_dispatch_when_routing_is_blocked() -> 
     dispatch.assert_not_awaited()
 
 
+def test_run_build_pipeline_preserves_rich_issue_records_and_dispatches_numbers() -> None:
+    with (
+        patch(
+            "aragora.cli.commands.build._generate_spec",
+            AsyncMock(return_value={"title": "Spec", "sections": [], "raw": "spec"}),
+        ),
+        patch(
+            "aragora.cli.commands.build._plan_reviewed_tasks",
+            AsyncMock(
+                return_value={
+                    "brief": {
+                        "title": "Ship thing",
+                        "clarification_completeness_status": "decision_complete",
+                    },
+                    "handoffs": [],
+                    "review": {
+                        "status": "approved",
+                        "summary": "",
+                        "findings": [],
+                        "followups": [],
+                    },
+                    "tasks": [
+                        {
+                            "title": "Task A",
+                            "description": "Implement thing",
+                            "acceptance_criteria": ["It works"],
+                            "verification": "pytest tests/a.py -q",
+                        }
+                    ],
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._create_intake_issue",
+            AsyncMock(
+                return_value={
+                    "number": 500,
+                    "url": "https://github.com/synaptent/aragora/issues/500",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.build._create_issues",
+            AsyncMock(
+                return_value=[
+                    {
+                        "number": 11,
+                        "url": "https://github.com/synaptent/aragora/issues/11",
+                        "title": "Task A",
+                        "initiative_issue_number": 500,
+                    }
+                ]
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.build._preflight_boss_routing",
+            return_value={
+                "owner_binding": {"user_id": "armand", "workspace_id": "aragora"},
+                "blocked": False,
+                "routing": {"blocked_reason": None},
+            },
+        ),
+        patch(
+            "aragora.cli.commands.build._dispatch_to_boss_loop",
+            AsyncMock(return_value={"pid": 4242, "log": ".aragora/builds/run.log"}),
+        ) as dispatch,
+    ):
+        result = asyncio.run(
+            _run_build_pipeline(
+                idea="Ship thing",
+                dry_run=False,
+                skip_clarify=True,
+                repo="synaptent/aragora",
+                worker_model="claude",
+                review_model="codex",
+                emit_progress=False,
+            )
+        )
+
+    assert result["status"] == "dispatched"
+    assert result["stages"]["initiative_issue"]["number"] == 500
+    assert result["stages"]["issues"] == [
+        {
+            "number": 11,
+            "url": "https://github.com/synaptent/aragora/issues/11",
+            "title": "Task A",
+            "initiative_issue_number": 500,
+        }
+    ]
+    dispatch.assert_awaited_once_with(
+        [11],
+        repo="synaptent/aragora",
+        worker_model="claude",
+        review_model="codex",
+        autonomy_mode="full-auto",
+    )
+
+
 def test_generate_spec_reads_conductor_result() -> None:
     conductor_result = ConductorResult(
         specification=Specification(
@@ -408,12 +506,33 @@ def test_create_issues_includes_queue_metadata() -> None:
             }
         ),
     ) as create_issue:
-        issue_numbers = asyncio.run(_create_issues(tasks, repo="synaptent/aragora"))
+        issues = asyncio.run(
+            _create_issues(
+                tasks,
+                repo="synaptent/aragora",
+                initiative_issue={
+                    "number": 321,
+                    "url": "https://github.com/synaptent/aragora/issues/321",
+                },
+            )
+        )
 
-    assert issue_numbers == [999]
+    assert issues == [
+        {
+            "number": 999,
+            "url": "https://github.com/synaptent/aragora/issues/999",
+            "labels_requested": ["boss-ready", "review-followup", "risk:high"],
+            "labels_applied": ["boss-ready", "review-followup", "risk:high"],
+            "labels_ensured": [],
+            "fallback_reason": "",
+            "title": "Task A",
+            "initiative_issue_number": 321,
+        }
+    ]
     body = create_issue.await_args.kwargs["body"]
     assert "## Initiative Brief" in body
     assert "## Queue Metadata" in body
+    assert "Initiative issue: #321 https://github.com/synaptent/aragora/issues/321" in body
     assert "Preferred Worker Agent: claude" in body
     assert "Preferred Reviewer Agent: codex" in body
     assert "Open questions: Should this ship behind a flag?" in body

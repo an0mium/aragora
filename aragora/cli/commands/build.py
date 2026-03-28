@@ -194,11 +194,29 @@ async def _run_build_pipeline(
 
     # Stage 3: Create GitHub issues
     _progress(emit_progress, "\n[3/5] Creating GitHub issues...")
-    issues = await _create_issues(tasks, repo=repo_name)
-    result["stages"]["issues"] = issues
-    _progress(emit_progress, f"  ✓ {len(issues)} issues created")
+    initiative_issue: dict[str, Any] | None = None
+    try:
+        from aragora.cli.commands.idea import _create_intake_issue
 
-    if not issues:
+        initiative_issue = await _create_intake_issue(result["stages"]["brief"], repo=repo_name)
+    except Exception as exc:
+        logger.warning("Initiative issue creation failed: %s", exc)
+    if initiative_issue is not None:
+        result["stages"]["initiative_issue"] = initiative_issue
+
+    issues_raw = await _create_issues(tasks, repo=repo_name, initiative_issue=initiative_issue)
+    if issues_raw and isinstance(issues_raw[0], int):
+        issue_numbers = [int(item) for item in issues_raw]
+        issues = [{"number": int(item)} for item in issues_raw]
+    else:
+        issues = [dict(item) for item in issues_raw if isinstance(item, dict)]
+        issue_numbers = [
+            int(item["number"]) for item in issues if str(item.get("number", "")).strip()
+        ]
+    result["stages"]["issues"] = issues
+    _progress(emit_progress, f"  ✓ {len(issue_numbers)} issues created")
+
+    if not issue_numbers:
         result["status"] = "issue_creation_failed"
         result["elapsed_seconds"] = time.monotonic() - start
         return result
@@ -217,7 +235,7 @@ async def _run_build_pipeline(
     # Stage 4: Dispatch to boss loop
     _progress(emit_progress, f"\n[4/5] Dispatching to boss loop (--autonomy {autonomy_mode})...")
     dispatch_result = await _dispatch_to_boss_loop(
-        issues,
+        issue_numbers,
         repo=repo_name,
         worker_model=worker_model,
         review_model=review_model,
@@ -230,7 +248,7 @@ async def _run_build_pipeline(
     result["status"] = "dispatched"
     result["elapsed_seconds"] = time.monotonic() - start
     _progress(emit_progress, "\n[5/5] Pipeline complete!")
-    _progress(emit_progress, f"  Issues: {', '.join(f'#{i}' for i in issues)}")
+    _progress(emit_progress, f"  Issues: {', '.join(f'#{i}' for i in issue_numbers)}")
     _progress(
         emit_progress,
         f"  Monitor: tail -f {dispatch_result.get('log', '.aragora/overnight/code-improvements.log')}",
@@ -461,17 +479,28 @@ def _string_list(value: Any) -> list[str]:
     return []
 
 
-async def _create_issues(tasks: list[dict[str, Any]], *, repo: str) -> list[int]:
+async def _create_issues(
+    tasks: list[dict[str, Any]],
+    *,
+    repo: str,
+    initiative_issue: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """Create GitHub issues for each task."""
     from aragora.cli.commands.idea import _create_issue_with_optional_labels
 
-    issue_numbers = []
+    created_issues: list[dict[str, Any]] = []
     for task in tasks:
         labels = [
             "boss-ready",
             *[str(item).strip() for item in task.get("labels", []) if str(item).strip()],
         ]
         deduped_labels = list(dict.fromkeys(labels))
+        initiative_line = "- Initiative issue: none"
+        if isinstance(initiative_issue, dict) and initiative_issue.get("number"):
+            initiative_line = (
+                f"- Initiative issue: #{initiative_issue.get('number')} "
+                f"{initiative_issue.get('url', '')}".strip()
+            )
         body = f"""## Initiative Brief
 - User goal: {task.get("user_goal", "")[:200]}
 - Desired outcome: {task.get("desired_outcome", "")[:200]}
@@ -480,6 +509,7 @@ async def _create_issues(tasks: list[dict[str, Any]], *, repo: str) -> list[int]
 - Proof/evidence expected: {task.get("proof_expected", "")[:200]}
 - Clarification completeness: {task.get("clarification_status", "draft")}
 - Open questions: {", ".join(task.get("open_questions", [])) or "none"}
+{initiative_line}
 
 ## Queue Metadata
 - Risk: {task.get("risk", "medium")}
@@ -512,13 +542,20 @@ Implementation complete, tests pass, PR opened with evidence.
                 body=body,
                 requested_labels=deduped_labels,
             )
-            num = int(issue["number"])
-            issue_numbers.append(num)
+            issue_record = {
+                **issue,
+                "title": task["title"],
+                "initiative_issue_number": initiative_issue.get("number")
+                if isinstance(initiative_issue, dict)
+                else None,
+            }
+            num = int(issue_record["number"])
+            created_issues.append(issue_record)
             logger.info("Created issue #%d: %s", num, task["title"])
         except Exception as exc:
             logger.warning("Issue creation failed: %s", exc)
 
-    return issue_numbers
+    return created_issues
 
 
 async def _dispatch_to_boss_loop(
