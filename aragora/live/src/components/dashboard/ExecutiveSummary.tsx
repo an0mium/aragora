@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { KPICard, KPIGrid, KPIMiniCard } from './KPICards';
 import { useUsageDashboard, type TimeRange } from '@/hooks/useUsageDashboard';
+import { useOutcomeAgents } from '@/hooks/useOutcomeAnalytics';
 
 interface ExecutiveSummaryProps {
   refreshInterval?: number; // ms (now handled by hook)
@@ -13,11 +14,21 @@ export function ExecutiveSummary({
 }: ExecutiveSummaryProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const { dashboardData, isLoading, error } = useUsageDashboard(timeRange, { refreshInterval });
+  const { leaderboard } = useOutcomeAgents(
+    timeRange,
+    { refreshInterval: Math.max(refreshInterval, 120000) }
+  );
 
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toString();
+  };
+
+  const formatCurrency = (num: number): string => {
+    if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
+    return `$${num.toFixed(2)}`;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -52,6 +63,10 @@ export function ExecutiveSummary({
       </div>
     );
   }
+
+  const bestAgents = leaderboard?.agents?.length
+    ? leaderboard.agents.slice(0, 3).map((agent) => agent.agent_name).join(', ')
+    : dashboardData?.agents.topPerformer ?? '-';
 
   return (
     <div className="space-y-6">
@@ -88,18 +103,18 @@ export function ExecutiveSummary({
       {/* Primary KPIs */}
       <KPIGrid columns={4}>
         <KPICard
-          title="Debates Today"
-          value={dashboardData?.debates.today ?? '-'}
-          subtitle={`${dashboardData?.debates.week ?? 0} this week`}
+          title="Debates Run"
+          value={dashboardData?.debates.total ?? '-'}
+          subtitle={`${dashboardData?.debates.completed ?? 0} completed`}
           change={dashboardData ? { value: 12, direction: 'up', period: 'yesterday' } : undefined}
           color="green"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Consensus Rate"
-          value={dashboardData ? `${(dashboardData.consensus.rate * 100).toFixed(0)}%` : '-'}
-          subtitle={`${dashboardData ? (dashboardData.consensus.avgConfidence * 100).toFixed(0) : 0}% avg confidence`}
+          title="Avg Confidence"
+          value={dashboardData ? `${(dashboardData.consensus.avgConfidence * 100).toFixed(0)}%` : '-'}
+          subtitle={`${dashboardData ? (dashboardData.consensus.rate * 100).toFixed(0) : 0}% consensus rate`}
           change={dashboardData ? { value: 3, direction: 'up', period: 'last week' } : undefined}
           color="cyan"
           loading={isLoading}
@@ -115,9 +130,9 @@ export function ExecutiveSummary({
           icon=""
         />
         <KPICard
-          title="Est. Cost Today"
-          value={dashboardData ? `$${dashboardData.costs.estimatedCost.toFixed(2)}` : '-'}
-          subtitle={`${formatNumber(dashboardData?.costs.todayTokens ?? 0)} tokens`}
+          title="Total Spend"
+          value={dashboardData ? formatCurrency(dashboardData.costs.totalCost) : '-'}
+          subtitle={`${formatNumber(dashboardData?.costs.todayTokens ?? 0)} tokens today`}
           color="purple"
           loading={isLoading}
           icon=""
@@ -126,25 +141,25 @@ export function ExecutiveSummary({
 
       {/* Secondary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Agent Health */}
+        {/* Best Agents */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
           <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
-            <span></span> AGENT HEALTH
+            <span></span> BEST AGENTS
           </h3>
           <div className="space-y-1">
             <KPIMiniCard
+              label="Best Agents"
+              value={bestAgents}
+              color="green"
+            />
+            <KPIMiniCard
               label="Active Agents"
               value={`${dashboardData?.agents.active ?? 0}/${dashboardData?.agents.total ?? 0}`}
-              color="green"
+              color="cyan"
             />
             <KPIMiniCard
               label="Avg Uptime"
               value={`${dashboardData?.agents.avgUptime ?? 0}%`}
-              color="cyan"
-            />
-            <KPIMiniCard
-              label="Top Performer"
-              value={dashboardData?.agents.topPerformer ?? '-'}
               color="yellow"
             />
           </div>
