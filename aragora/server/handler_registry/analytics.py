@@ -59,6 +59,9 @@ PulseHandler = _safe_import("aragora.server.handlers", "PulseHandler")
 # =============================================================================
 
 CostHandler = _safe_import("aragora.server.handlers.costs", "CostHandler")
+SessionCostHandler = _safe_import(
+    "aragora.server.handlers.costs.session_costs", "SessionCostHandler"
+)
 
 # =============================================================================
 # Usage Metering
@@ -188,6 +191,7 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_cross_platform_analytics_handler", CrossPlatformAnalyticsHandler),
     ("_analytics_platforms_handler", AnalyticsPlatformsHandler),
     ("_cost_handler", CostHandler),
+    ("_session_cost_handler", SessionCostHandler),
     ("_usage_metering_handler", UsageMeteringHandler),
     # Canvas pipeline
     ("_canvas_pipeline_handler", CanvasPipelineHandler),
@@ -253,6 +257,7 @@ __all__ = [
     "PulseHandler",
     # Cost handlers
     "CostHandler",
+    "SessionCostHandler",
     "UsageMeteringHandler",
     # Canvas pipeline
     "CanvasPipelineHandler",
