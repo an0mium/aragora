@@ -234,10 +234,13 @@ async def _run_idea_triage(
         "handoffs": handoffs,
     }
     if create_issues:
+        initiative_issue = await _create_intake_issue(brief, repo=repo_name)
+        result["initiative_issue"] = initiative_issue
         result["issues"] = await _create_triage_issues(
             handoffs,
             brief=brief,
             repo=repo_name,
+            initiative_issue=initiative_issue,
         )
     return result
 
@@ -302,10 +305,13 @@ async def _run_idea_review(
     }
     followups = list(review.get("followups", []) or [])
     if create_issues and followups:
+        initiative_issue = await _create_intake_issue(brief, repo=repo_name)
+        result["initiative_issue"] = initiative_issue
         result["issues"] = await _create_triage_issues(
             followups,
             brief=brief,
             repo=repo_name,
+            initiative_issue=initiative_issue,
         )
     return result
 
@@ -1203,17 +1209,29 @@ async def _create_triage_issues(
     *,
     brief: dict[str, Any],
     repo: str,
+    initiative_issue: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Persist founder handoffs as boss-ready GitHub issues."""
     created: list[dict[str, Any]] = []
     for handoff in handoffs:
+        issue = await _create_issue_with_optional_labels(
+            repo=repo,
+            title=str(handoff.get("task_title", "Untitled handoff")).strip(),
+            body=_triage_issue_body_for_handoff(
+                handoff,
+                brief=brief,
+                initiative_issue=initiative_issue,
+            ),
+            requested_labels=list(handoff.get("labels", []) or []),
+        )
         created.append(
-            await _create_issue_with_optional_labels(
-                repo=repo,
-                title=str(handoff.get("task_title", "Untitled handoff")).strip(),
-                body=_triage_issue_body_for_handoff(handoff, brief=brief),
-                requested_labels=list(handoff.get("labels", []) or []),
-            )
+            {
+                **issue,
+                "title": str(handoff.get("task_title", "Untitled handoff")).strip(),
+                "initiative_issue_number": initiative_issue.get("number")
+                if isinstance(initiative_issue, dict)
+                else None,
+            }
         )
     return created
 
@@ -1380,12 +1398,23 @@ acceptance criteria, validation commands, file scope, and merge policy.
 """
 
 
-def _triage_issue_body_for_handoff(handoff: dict[str, Any], *, brief: dict[str, Any]) -> str:
+def _triage_issue_body_for_handoff(
+    handoff: dict[str, Any],
+    *,
+    brief: dict[str, Any],
+    initiative_issue: dict[str, Any] | None = None,
+) -> str:
     """Render a queue-ready issue body from a founder handoff."""
     repo_evidence = list(handoff.get("repo_evidence", []) or [])
     file_scope = list(handoff.get("file_scope", []) or [])
     acceptance = list(handoff.get("acceptance_criteria", []) or [])
     validation = list(handoff.get("validation", []) or [])
+    initiative_line = "- Initiative issue: none"
+    if isinstance(initiative_issue, dict) and initiative_issue.get("number"):
+        initiative_line = (
+            f"- Initiative issue: #{initiative_issue.get('number')} "
+            f"{initiative_issue.get('url', '')}".strip()
+        )
     return f"""## Why Now
 {handoff.get("why_now", "")}
 
@@ -1393,6 +1422,7 @@ def _triage_issue_body_for_handoff(handoff: dict[str, Any], *, brief: dict[str, 
 - Initiative: {brief.get("title", "")}
 - User goal: {brief.get("user_goal", "")[:300]}
 - Desired business outcome: {brief.get("desired_business_outcome", "")[:300]}
+{initiative_line}
 
 ## Repo Evidence
 {chr(10).join(f"- {item}" for item in repo_evidence) or "- none captured"}
@@ -1452,6 +1482,11 @@ def _print_triage_result(result: dict[str, Any]) -> None:
     print("============================================================")
     print(f"Initiative: {brief.get('title', '?')}")
     print(f"Status: {result.get('status', '?')}")
+    if isinstance(result.get("initiative_issue"), dict):
+        initiative_issue = result["initiative_issue"]
+        print(
+            f"Initiative issue: #{initiative_issue.get('number', '?')} {initiative_issue.get('url', '')}"
+        )
     handoffs = list(result.get("handoffs", []) or [])
     for index, handoff in enumerate(handoffs, start=1):
         print(f"{index}. {handoff.get('task_title', 'untitled')}")
@@ -1463,6 +1498,11 @@ def _print_triage_result(result: dict[str, Any]) -> None:
         )
         scope = ", ".join(handoff.get("file_scope", []) or []) or "none"
         print(f"   scope={scope}")
+    issues = [item for item in result.get("issues", []) if isinstance(item, dict)]
+    if issues:
+        print("Created issues:")
+        for issue in issues:
+            print(f"- #{issue.get('number', '?')} {issue.get('title', 'untitled')}")
 
 
 def _print_review_result(result: dict[str, Any]) -> None:
@@ -1477,6 +1517,11 @@ def _print_review_result(result: dict[str, Any]) -> None:
     print(f"Initiative: {brief.get('title', '?')}")
     print(f"Status: {result.get('status', '?')}")
     print(f"Summary: {review.get('summary', 'No summary available.')}")
+    if isinstance(result.get("initiative_issue"), dict):
+        initiative_issue = result["initiative_issue"]
+        print(
+            f"Initiative issue: #{initiative_issue.get('number', '?')} {initiative_issue.get('url', '')}"
+        )
     if findings:
         print("Findings:")
         for finding in findings:
@@ -1488,3 +1533,8 @@ def _print_review_result(result: dict[str, Any]) -> None:
         print("Follow-up tasks:")
         for followup in followups:
             print(f"- {followup.get('task_title', 'untitled')}")
+    issues = [item for item in result.get("issues", []) if isinstance(item, dict)]
+    if issues:
+        print("Created issues:")
+        for issue in issues:
+            print(f"- #{issue.get('number', '?')} {issue.get('title', 'untitled')}")

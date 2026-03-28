@@ -285,6 +285,93 @@ def test_run_idea_triage_returns_handoffs() -> None:
     assert result["handoffs"][0]["policy_reasons"] == ["sensitive_scope:auth_rbac"]
 
 
+def test_run_idea_triage_creates_initiative_and_linked_issues() -> None:
+    handoff = {
+        "task_title": "Implement intake endpoint",
+        "risk": "high",
+        "merge_class": "manual",
+        "autonomy_mode": "checkpoint",
+        "preferred_worker_agent": "claude",
+        "preferred_reviewer_agent": "codex",
+        "file_scope": ["server/auth/oidc.py"],
+        "acceptance_criteria": ["Done"],
+        "validation": ["pytest tests/a.py -q"],
+        "repo_evidence": ["server/auth/oidc.py"],
+        "policy_reasons": ["sensitive_scope:auth_rbac"],
+        "description": "Implement intake endpoint",
+    }
+    with (
+        patch(
+            "aragora.cli.commands.idea._generate_spec",
+            AsyncMock(
+                return_value={
+                    "title": "Founder intake",
+                    "user_goal": "Turn vague founder notes into executable work.",
+                    "desired_outcome": "A structured intake brief exists before coding starts.",
+                    "success_criteria": ["The system asks clarifying questions before execution."],
+                    "clarification_status": "decision_complete",
+                    "open_questions": [],
+                    "raw": "server/auth/oidc.py frontend",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._generate_founder_handoffs",
+            AsyncMock(return_value=[handoff]),
+        ),
+        patch(
+            "aragora.cli.commands.idea._create_intake_issue",
+            AsyncMock(
+                return_value={
+                    "number": 700,
+                    "url": "https://github.com/synaptent/aragora/issues/700",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._create_triage_issues",
+            AsyncMock(
+                return_value=[
+                    {
+                        "number": 701,
+                        "url": "https://github.com/synaptent/aragora/issues/701",
+                        "title": "Implement intake endpoint",
+                        "initiative_issue_number": 700,
+                    }
+                ]
+            ),
+        ) as create_triage_issues,
+    ):
+        result = asyncio.run(
+            _run_idea_triage(
+                idea="Turn founder notes into initiatives",
+                skip_clarify=True,
+                priority="high",
+                track="2",
+                repo="synaptent/aragora",
+                max_tasks=3,
+                risk="medium",
+                merge_class="manual",
+                autonomy_mode="checkpoint",
+                worker_model="claude",
+                review_model="codex",
+                create_issues=True,
+            )
+        )
+
+    assert result["initiative_issue"]["number"] == 700
+    assert result["issues"][0]["initiative_issue_number"] == 700
+    create_triage_issues.assert_awaited_once_with(
+        [handoff],
+        brief=result["brief"],
+        repo="synaptent/aragora",
+        initiative_issue={
+            "number": 700,
+            "url": "https://github.com/synaptent/aragora/issues/700",
+        },
+    )
+
+
 def test_run_idea_review_returns_structured_findings_and_followups() -> None:
     with (
         patch(
@@ -357,6 +444,123 @@ def test_run_idea_review_returns_structured_findings_and_followups() -> None:
     assert len(result["review"]["findings"]) >= 3
     assert result["review"]["followups"]
     assert result["review"]["followups"][0]["task_title"].startswith("Implement intake endpoint:")
+
+
+def test_run_idea_review_creates_initiative_and_linked_followup_issues() -> None:
+    followup = {
+        "handoff_id": "review_followup_intake-boundary",
+        "task_title": "Implement intake endpoint: Add non-goal boundary",
+        "description": "Bound backend scope",
+        "acceptance_criteria": ["Boundary is explicit"],
+        "validation": ["pytest tests/api/test_intake.py -q"],
+        "file_scope": ["server/intake.py"],
+        "risk": "medium",
+        "merge_class": "manual",
+        "autonomy_mode": "checkpoint",
+        "policy_reasons": ["founder_review_followup"],
+        "preferred_worker_agent": "claude",
+        "preferred_reviewer_agent": "codex",
+        "labels": ["boss-ready", "review-followup"],
+    }
+    with (
+        patch(
+            "aragora.cli.commands.idea._generate_spec",
+            AsyncMock(
+                return_value={
+                    "title": "Founder intake",
+                    "user_goal": "Turn vague founder notes into executable work.",
+                    "desired_outcome": "A structured intake brief exists before coding starts.",
+                    "success_criteria": ["The system asks clarifying questions before execution."],
+                    "clarification_status": "decision_complete",
+                    "open_questions": [],
+                    "raw": "server/intake.py frontend",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._generate_founder_handoffs",
+            AsyncMock(
+                return_value=[
+                    {
+                        "handoff_id": "handoff_1",
+                        "task_title": "Implement intake endpoint",
+                        "risk": "medium",
+                        "merge_class": "manual",
+                        "autonomy_mode": "checkpoint",
+                        "preferred_worker_agent": "claude",
+                        "preferred_reviewer_agent": "codex",
+                        "file_scope": ["server/intake.py"],
+                        "acceptance_criteria": ["Founder intake exists"],
+                        "validation": ["python3 -m pytest tests/api/test_intake.py -q"],
+                        "repo_evidence": ["server/intake.py"],
+                        "policy_reasons": [],
+                        "description": "Implement intake endpoint",
+                    }
+                ]
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._review_founder_handoffs",
+            AsyncMock(
+                return_value={
+                    "status": "approved_with_followups",
+                    "summary": "One follow-up remains.",
+                    "findings": [],
+                    "followups": [followup],
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._create_intake_issue",
+            AsyncMock(
+                return_value={
+                    "number": 800,
+                    "url": "https://github.com/synaptent/aragora/issues/800",
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.idea._create_triage_issues",
+            AsyncMock(
+                return_value=[
+                    {
+                        "number": 801,
+                        "url": "https://github.com/synaptent/aragora/issues/801",
+                        "title": "Implement intake endpoint: Add non-goal boundary",
+                        "initiative_issue_number": 800,
+                    }
+                ]
+            ),
+        ) as create_triage_issues,
+    ):
+        result = asyncio.run(
+            _run_idea_review(
+                idea="Turn founder notes into initiatives",
+                skip_clarify=True,
+                priority="high",
+                track="2",
+                repo="synaptent/aragora",
+                max_tasks=3,
+                risk="medium",
+                merge_class="manual",
+                autonomy_mode="checkpoint",
+                worker_model="claude",
+                review_model="codex",
+                create_issues=True,
+            )
+        )
+
+    assert result["initiative_issue"]["number"] == 800
+    assert result["issues"][0]["initiative_issue_number"] == 800
+    create_triage_issues.assert_awaited_once_with(
+        [followup],
+        brief=result["brief"],
+        repo="synaptent/aragora",
+        initiative_issue={
+            "number": 800,
+            "url": "https://github.com/synaptent/aragora/issues/800",
+        },
+    )
 
 
 def test_run_idea_review_merges_model_review_findings() -> None:
@@ -501,10 +705,15 @@ def test_triage_issue_body_mentions_scope_and_policy() -> None:
             "user_goal": "Turn vague founder notes into executable work.",
             "desired_business_outcome": "A structured intake brief exists before coding starts.",
         },
+        initiative_issue={
+            "number": 700,
+            "url": "https://github.com/synaptent/aragora/issues/700",
+        },
     )
 
     assert "## File Scope" in body
     assert "server/auth/oidc.py" in body
+    assert "Initiative issue: #700 https://github.com/synaptent/aragora/issues/700" in body
     assert "Policy Notes: sensitive_scope:auth_rbac" in body
 
 
