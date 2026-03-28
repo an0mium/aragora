@@ -16,6 +16,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -189,6 +190,112 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         return ROICalculator(benchmark=benchmark_enum)
 
+    def _get_average_confidence(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> float:
+        """Get average debate confidence for the requested period."""
+        storage = self.ctx.get("storage")
+        if storage and hasattr(storage, "connection"):
+            try:
+                with storage.connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT AVG(confidence)
+                        FROM debates
+                        WHERE created_at >= ?
+                            AND created_at <= ?
+                            AND confidence IS NOT NULL
+                        """,
+                        (start_date.isoformat(), end_date.isoformat()),
+                    )
+                    row = cursor.fetchone()
+                    avg_confidence = row[0] if row else None
+                    if avg_confidence is not None:
+                        return round(float(avg_confidence), 3)
+            except (
+                sqlite3.DatabaseError,
+                TypeError,
+                ValueError,
+                AttributeError,
+                OSError,
+            ) as e:
+                logger.warning("Failed to read confidence from storage: %s", e)
+
+        try:
+            from aragora.memory.consensus import ConsensusMemory
+
+            stats = ConsensusMemory().get_statistics()
+            avg_confidence = stats.get("avg_confidence")
+            if avg_confidence is not None:
+                return round(float(avg_confidence), 3)
+        except (ImportError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.warning("Failed to read consensus confidence: %s", e)
+
+        return 0.0
+
+    def _get_top_agents(
+        self,
+        org_id: str,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[dict[str, Any]]:
+        """Get the strongest-performing agents for the requested period."""
+        try:
+            from aragora.memory.debate_store import get_debate_store
+
+            stats = get_debate_store().get_consensus_stats(org_id, start_date, end_date)
+            by_agent = stats.get("by_agent", [])
+            ranked_agents = sorted(
+                by_agent,
+                key=lambda agent: (
+                    float(agent.get("avg_agreement_score", 0) or 0),
+                    int(agent.get("consensus_contributions", 0) or 0),
+                    int(agent.get("participations", 0) or 0),
+                ),
+                reverse=True,
+            )
+            if ranked_agents:
+                return [
+                    {
+                        "agent_id": agent.get("agent_id") or agent.get("agent_name", ""),
+                        "agent_name": agent.get("agent_name") or agent.get("agent_id", "Unknown"),
+                        "participations": int(agent.get("participations", 0) or 0),
+                        "consensus_contributions": int(
+                            agent.get("consensus_contributions", 0) or 0
+                        ),
+                        "consensus_rate": agent.get("consensus_rate", "0%"),
+                        "avg_agreement_score": round(
+                            float(agent.get("avg_agreement_score", 0) or 0), 2
+                        ),
+                    }
+                    for agent in ranked_agents[:3]
+                ]
+        except (ImportError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.warning("Failed to read top agents from debate store: %s", e)
+
+        elo_system = self.ctx.get("elo_system")
+        if elo_system and hasattr(elo_system, "get_all_ratings"):
+            try:
+                ratings = elo_system.get_all_ratings() or []
+                return [
+                    {
+                        "agent_id": getattr(rating, "agent_name", ""),
+                        "agent_name": getattr(rating, "agent_name", "Unknown"),
+                        "participations": int(getattr(rating, "debates_count", 0) or 0),
+                        "consensus_contributions": int(getattr(rating, "wins", 0) or 0),
+                        "consensus_rate": f"{round(float(getattr(rating, 'win_rate', 0) or 0) * 100):.0f}%",
+                        "avg_agreement_score": round(float(getattr(rating, "win_rate", 0) or 0), 2),
+                    }
+                    for rating in list(ratings)[:3]
+                ]
+            except (ValueError, TypeError, AttributeError) as e:
+                logger.warning("Failed to build top agents from ELO: %s", e)
+
+        return []
+
     def _parse_period(self, handler: Any) -> tuple[datetime, datetime, str]:
         """Parse period parameters from request."""
         period = get_string_param(handler, "period", "month")
@@ -310,6 +417,8 @@ class SMEUsageDashboardHandler(SecureHandler):
         days_in_period = max(1, (end_date - start_date).days)
         active_days = min(days_in_period, total_debates) if total_debates > 0 else 0
         debates_per_day = total_debates / days_in_period if days_in_period > 0 else 0
+        avg_confidence = self._get_average_confidence(start_date, end_date)
+        top_agents = self._get_top_agents(org.id, start_date, end_date)
 
         summary = {
             "period": {
@@ -331,6 +440,12 @@ class SMEUsageDashboardHandler(SecureHandler):
                     if usage_summary and hasattr(usage_summary, "cost_by_provider")
                     else {}
                 ),
+            },
+            "quality": {
+                "avg_confidence": avg_confidence,
+            },
+            "agents": {
+                "top_agents": top_agents,
             },
             "tokens": {
                 "total": workspace_stats.get("total_tokens_in", 0)

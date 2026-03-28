@@ -17,7 +17,9 @@ Covers all routes and behavior of the SMEUsageDashboardHandler class:
 from __future__ import annotations
 
 import json
+import sqlite3
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -708,6 +710,103 @@ class TestGetSummary:
         assert "active_days" in activity
         assert "debates_per_day" in activity
         assert activity["api_calls"] == 150
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_quality_uses_storage_confidence(
+        self, mock_ct, mock_ut, mock_consensus, handler
+    ):
+        class StorageWithConfidence:
+            @contextmanager
+            def connection(self):
+                conn = sqlite3.connect(":memory:")
+                conn.execute(
+                    """
+                    CREATE TABLE debates (
+                        confidence REAL,
+                        created_at TEXT
+                    )
+                    """
+                )
+                conn.executemany(
+                    "INSERT INTO debates (confidence, created_at) VALUES (?, ?)",
+                    [
+                        (0.8, "2026-03-10T00:00:00+00:00"),
+                        (0.9, "2026-03-11T00:00:00+00:00"),
+                    ],
+                )
+                try:
+                    yield conn
+                finally:
+                    conn.close()
+
+        handler.ctx["storage"] = StorageWithConfidence()
+        mock_ct.return_value = _make_mock_cost_tracker()
+        mock_ut.return_value = _make_mock_usage_tracker()
+        h = _make_handler(
+            query_params={"start": "2026-03-01T00:00:00Z", "end": "2026-03-31T00:00:00Z"}
+        )
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        assert body["quality"]["avg_confidence"] == 0.85
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch("aragora.memory.debate_store.get_debate_store")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_exposes_top_agents(
+        self, mock_ct, mock_ut, mock_store, mock_consensus, handler
+    ):
+        debate_store = MagicMock()
+        debate_store.get_consensus_stats.return_value = {
+            "by_agent": [
+                {
+                    "agent_id": "gemini",
+                    "agent_name": "Gemini",
+                    "participations": 6,
+                    "consensus_contributions": 4,
+                    "consensus_rate": "67%",
+                    "avg_agreement_score": 0.67,
+                },
+                {
+                    "agent_id": "claude",
+                    "agent_name": "Claude",
+                    "participations": 12,
+                    "consensus_contributions": 11,
+                    "consensus_rate": "92%",
+                    "avg_agreement_score": 0.92,
+                },
+                {
+                    "agent_id": "gpt-4",
+                    "agent_name": "GPT-4",
+                    "participations": 10,
+                    "consensus_contributions": 8,
+                    "consensus_rate": "80%",
+                    "avg_agreement_score": 0.8,
+                },
+            ]
+        }
+        mock_store.return_value = debate_store
+        mock_ct.return_value = _make_mock_cost_tracker()
+        mock_ut.return_value = _make_mock_usage_tracker()
+        h = _make_handler()
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        top_agents = body["agents"]["top_agents"]
+        assert [agent["agent_name"] for agent in top_agents] == ["Claude", "GPT-4", "Gemini"]
+        assert top_agents[0]["participations"] == 12
+        assert top_agents[0]["consensus_rate"] == "92%"
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
