@@ -32,7 +32,7 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
     assert manifest["manifest_version"] == 3
     assert manifest["background"]["service_worker"] == "background.js"
     assert manifest["action"]["default_popup"] == "popup.html"
-    assert {"contextMenus", "storage", "tabs"}.issubset(set(manifest["permissions"]))
+    assert {"activeTab", "contextMenus", "storage"}.issubset(set(manifest["permissions"]))
     assert "https://*/*" in manifest["host_permissions"]
 
     content_script = manifest["content_scripts"][0]
