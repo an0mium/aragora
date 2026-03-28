@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import time
 from typing import TYPE_CHECKING, Any
@@ -1319,17 +1320,26 @@ class ContextInitializer:
         and belief cruxes (which focus on key disagreement points). Cross-debate
         memory provides a broader view of what the system has learned.
         """
-        if not self.cross_debate_memory or not self.enable_cross_debate_memory:
+        if not self.enable_cross_debate_memory:
             return
 
         try:
             topic = ctx.env.task
+            context_source = self.cross_debate_memory
+            if context_source is None and hasattr(self.memory, "get_relevant_context"):
+                context_source = self.memory
+            if not context_source:
+                return
 
             # Query cross-debate memory for relevant context
-            relevant_context = await asyncio.wait_for(
-                self.cross_debate_memory.get_relevant_context(task=topic),
-                timeout=5.0,  # Quick timeout to avoid blocking
-            )
+            context_result = context_source.get_relevant_context(task=topic)
+            if inspect.isawaitable(context_result):
+                relevant_context = await asyncio.wait_for(
+                    context_result,
+                    timeout=5.0,  # Quick timeout to avoid blocking
+                )
+            else:
+                relevant_context = context_result
 
             if not relevant_context or len(relevant_context.strip()) < 50:
                 return
@@ -1353,7 +1363,7 @@ class ContextInitializer:
 
         except asyncio.TimeoutError:
             logger.debug("[cross_debate] Context fetch timed out")
-        except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
+        except (RuntimeError, AttributeError, ImportError, TypeError) as e:  # noqa: BLE001 - phase isolation
             logger.debug("[cross_debate] Context injection error: %s", e)
 
     async def _inject_outcome_context(self, ctx: DebateContext) -> None:

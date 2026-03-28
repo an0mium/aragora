@@ -519,6 +519,52 @@ class TestDebateStorageExtended:
         # Should still be 1 debate (replaced)
         assert stats["total_debates"] == 1
 
+    @pytest.mark.asyncio
+    async def test_get_relevant_context_returns_similar_conclusions(self, store):
+        """Returns conclusions from similar past debates for future prompts."""
+        store.store_debate(
+            DebateResult(
+                id="redis-rate-limit",
+                task="Should we adopt Redis-backed rate limiting for the API?",
+                final_answer="Adopt a Redis-backed token bucket so limits are shared across nodes.",
+                consensus_reached=True,
+                confidence=0.91,
+                rounds_used=3,
+                duration_seconds=45.0,
+                critiques=[],
+            )
+        )
+        store.store_debate(
+            DebateResult(
+                id="branding",
+                task="How should we choose a new brand color palette?",
+                final_answer="Use a warmer accent palette with higher contrast.",
+                consensus_reached=True,
+                confidence=0.78,
+                rounds_used=2,
+                duration_seconds=20.0,
+                critiques=[],
+            )
+        )
+        store.store_debate(
+            DebateResult(
+                id="redis-no-consensus",
+                task="Should we use Redis for API throttling?",
+                final_answer="Try a local in-memory counter.",
+                consensus_reached=False,
+                confidence=0.4,
+                rounds_used=4,
+                duration_seconds=35.0,
+                critiques=[],
+            )
+        )
+
+        context = await store.get_relevant_context("Should the API use Redis rate limiting?")
+
+        assert "Redis-backed token bucket" in context
+        assert "brand color palette" not in context
+        assert "local in-memory counter" not in context
+
 
 # =============================================================================
 # Pattern Pruning Extended Tests

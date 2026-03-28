@@ -650,6 +650,30 @@ class TestInjectCrossDebateContext:
         assert "Previous debates" in ctx.env.context
 
     @pytest.mark.asyncio
+    async def test_falls_back_to_memory_context(self):
+        """Uses CritiqueStore-style memory when no dedicated cross-debate backend exists."""
+        ctx = MockDebateContext()
+
+        memory = MagicMock()
+        memory.get_relevant_context = AsyncMock(
+            return_value=(
+                "- 2026-03-27: Similar debate concluded "
+                '"Use a Redis-backed token bucket for shared rate limits."'
+            )
+        )
+
+        init = ContextInitializer(
+            memory=memory,
+            enable_cross_debate_memory=True,
+        )
+
+        await init._inject_cross_debate_context(ctx)
+
+        memory.get_relevant_context.assert_awaited_once_with(task=ctx.env.task)
+        assert "INSTITUTIONAL KNOWLEDGE" in ctx.env.context
+        assert "Redis-backed token bucket" in ctx.env.context
+
+    @pytest.mark.asyncio
     async def test_handles_timeout(self):
         """Handles cross-debate fetch timeout."""
         ctx = MockDebateContext()

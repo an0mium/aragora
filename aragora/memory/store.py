@@ -16,6 +16,7 @@ __all__ = [
 import hashlib
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -135,6 +136,27 @@ CRITIQUE_INITIAL_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_reputation_score ON agent_reputation(proposals_accepted DESC);
     CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
 """
+
+_TASK_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "for",
+    "how",
+    "in",
+    "is",
+    "of",
+    "on",
+    "or",
+    "should",
+    "the",
+    "to",
+    "what",
+    "when",
+    "which",
+    "with",
+}
 
 
 @dataclass
@@ -268,6 +290,41 @@ class CritiqueStore(SQLiteStore):
 
             conn.commit()
 
+    @staticmethod
+    def _tokenize_task(text: str) -> set[str]:
+        """Tokenize task text for lightweight similarity matching."""
+        return {
+            token
+            for token in re.findall(r"[a-z0-9]+", text.lower())
+            if len(token) > 2 and token not in _TASK_STOPWORDS
+        }
+
+    @classmethod
+    def _score_task_similarity(cls, task: str, candidate_task: str) -> float:
+        """Score how similar two debate tasks are."""
+        normalized_task = task.strip().lower()
+        normalized_candidate = candidate_task.strip().lower()
+
+        if not normalized_task or not normalized_candidate:
+            return 0.0
+        if normalized_task == normalized_candidate:
+            return 1.0
+
+        task_words = cls._tokenize_task(task)
+        candidate_words = cls._tokenize_task(candidate_task)
+        if not task_words or not candidate_words:
+            return 0.0
+
+        overlap = len(task_words & candidate_words)
+        if overlap == 0:
+            return 0.0
+
+        similarity = overlap / len(task_words | candidate_words)
+        if normalized_task in normalized_candidate or normalized_candidate in normalized_task:
+            similarity = max(similarity, 0.75)
+
+        return similarity
+
     def store_debate(self, result: DebateResult) -> None:
         """Store a complete debate result."""
         with self.connection() as conn:
@@ -328,6 +385,80 @@ class CritiqueStore(SQLiteStore):
         # Invalidate related caches so API returns fresh data
         invalidate_cache("memory")
         invalidate_cache("debates")
+
+    async def get_relevant_context(
+        self,
+        task: str,
+        max_tokens: int = 2000,
+        limit: int = 3,
+    ) -> str:
+        """Return conclusions from similar past debates for prompt injection."""
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT task, final_answer, confidence, created_at
+                FROM debates
+                WHERE consensus_reached = 1
+                  AND final_answer IS NOT NULL
+                  AND TRIM(COALESCE(final_answer, '')) != ''
+                ORDER BY created_at DESC
+                LIMIT 50
+                """
+            )
+            rows = cursor.fetchall()
+
+        scored_matches: list[tuple[float, str, str, float | None, str]] = []
+        for row in rows:
+            candidate_task = row[0] or ""
+            similarity = self._score_task_similarity(task, candidate_task)
+            if similarity < 0.2:
+                continue
+
+            scored_matches.append(
+                (
+                    similarity,
+                    candidate_task,
+                    row[1] or "",
+                    row[2],
+                    row[3] or "",
+                )
+            )
+
+        if not scored_matches:
+            return ""
+
+        scored_matches.sort(key=lambda item: (item[0], item[4]), reverse=True)
+        char_budget = max(200, max_tokens * 4)
+        lines: list[str] = []
+        chars_used = 0
+
+        for similarity, candidate_task, final_answer, confidence, created_at in scored_matches[
+            :limit
+        ]:
+            compact_task = re.sub(r"\s+", " ", candidate_task).strip()
+            compact_answer = re.sub(r"\s+", " ", final_answer).strip()
+            compact_task = compact_task[:120] + "..." if len(compact_task) > 120 else compact_task
+            compact_answer = (
+                compact_answer[:280] + "..." if len(compact_answer) > 280 else compact_answer
+            )
+
+            confidence_text = (
+                f", confidence {confidence:.0%}" if isinstance(confidence, int | float) else ""
+            )
+            created_label = created_at[:10] if created_at else "unknown date"
+            line = (
+                f'- {created_label}: Similar debate on "{compact_task}" concluded '
+                f'"{compact_answer}" (similarity {similarity:.0%}{confidence_text}).'
+            )
+
+            if chars_used + len(line) > char_budget and lines:
+                break
+
+            lines.append(line)
+            chars_used += len(line)
+
+        return "\n".join(lines)
 
     def store(self, critique: Critique, debate_id: str | None = None) -> int:
         """Store a critique record and return the row id."""
