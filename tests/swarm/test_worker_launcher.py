@@ -361,6 +361,37 @@ class TestLaunch:
         assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.DEVNULL
 
     @pytest.mark.asyncio
+    async def test_launch_detached_closes_parent_log_handles(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(detach=True))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 101
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-detach-handles",
+            "target_agent": "codex",
+            "title": "Detached handle cleanup",
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        stdout_handle = mock_exec.call_args.kwargs.get("stdout")
+        stderr_handle = mock_exec.call_args.kwargs.get("stderr")
+        assert stdout_handle is not None
+        assert stderr_handle is not None
+        assert stdout_handle.closed is True
+        assert stderr_handle.closed is True
+
+    @pytest.mark.asyncio
     async def test_launch_raises_on_missing_cli(self):
         launcher = WorkerLauncher()
         wo = {"work_order_id": "wo-1", "target_agent": "claude"}

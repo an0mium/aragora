@@ -176,15 +176,21 @@ class WorkerLauncher:
             log_dir = Path(worktree_path)
             stdout_file = open(log_dir / ".swarm_worker_stdout.log", "w")  # noqa: SIM115
             stderr_file = open(log_dir / ".swarm_worker_stderr.log", "w")  # noqa: SIM115
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                cwd=worktree_path,
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                start_new_session=True,
-                env=worker_env,
-            )
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    cwd=worktree_path,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    start_new_session=True,
+                    env=worker_env,
+                )
+            finally:
+                # The subprocess inherits its own descriptors; close the
+                # parent-side handles immediately to avoid ResourceWarning.
+                stdout_file.close()
+                stderr_file.close()
         else:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
