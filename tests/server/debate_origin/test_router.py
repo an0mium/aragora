@@ -479,6 +479,96 @@ class TestRouteDebateResult:
 
         mock_receipt.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_uses_dock_routing_for_slack_and_posts_receipt(
+        self, slack_origin, sample_result, sample_receipt
+    ):
+        """route_debate_result uses dock routing for Slack and posts the receipt."""
+        mock_send_result = MagicMock(success=True, error=None)
+        mock_router = MagicMock()
+        mock_router.route_result = AsyncMock(return_value=mock_send_result)
+
+        with patch(
+            "aragora.server.debate_origin.registry.get_debate_origin",
+            return_value=slack_origin,
+        ):
+            with patch(
+                "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+                True,
+            ):
+                with patch(
+                    "aragora.channels.router.get_channel_router",
+                    return_value=mock_router,
+                ):
+                    with patch(
+                        "aragora.server.debate_origin.registry.mark_result_sent",
+                    ) as mock_mark:
+                        with patch(
+                            "aragora.server.debate_origin.router.post_receipt_to_channel",
+                            new_callable=AsyncMock,
+                        ) as mock_receipt:
+                            result = await route_debate_result(
+                                slack_origin.debate_id,
+                                sample_result,
+                                receipt=sample_receipt,
+                                receipt_url="https://example.com/receipt/123",
+                            )
+
+        assert result is True
+        mock_router.route_result.assert_awaited_once_with(
+            platform="slack",
+            channel_id=slack_origin.channel_id,
+            result=sample_result,
+            thread_id=slack_origin.thread_id,
+            message_id=slack_origin.message_id,
+            include_voice=False,
+            webhook_url=None,
+        )
+        mock_mark.assert_called_once_with(slack_origin.debate_id)
+        mock_receipt.assert_awaited_once_with(
+            slack_origin,
+            sample_receipt,
+            "https://example.com/receipt/123",
+        )
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_legacy_slack_sender_when_dock_routing_fails(
+        self, slack_origin, sample_result
+    ):
+        """route_debate_result falls back to the legacy Slack sender on dock failure."""
+        mock_send_result = MagicMock(success=False, error="dock unavailable")
+        mock_router = MagicMock()
+        mock_router.route_result = AsyncMock(return_value=mock_send_result)
+
+        with patch(
+            "aragora.server.debate_origin.registry.get_debate_origin",
+            return_value=slack_origin,
+        ):
+            with patch(
+                "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+                True,
+            ):
+                with patch(
+                    "aragora.channels.router.get_channel_router",
+                    return_value=mock_router,
+                ):
+                    with patch(
+                        "aragora.server.debate_origin.router._send_slack_result",
+                        new_callable=AsyncMock,
+                        return_value=True,
+                    ) as mock_send:
+                        with patch(
+                            "aragora.server.debate_origin.registry.mark_result_sent",
+                        ):
+                            result = await route_debate_result(
+                                slack_origin.debate_id,
+                                sample_result,
+                            )
+
+        assert result is True
+        mock_router.route_result.assert_awaited_once()
+        mock_send.assert_awaited_once_with(slack_origin, sample_result)
+
 
 # =============================================================================
 # Test: Post Receipt to Channel
@@ -487,6 +577,35 @@ class TestRouteDebateResult:
 
 class TestPostReceiptToChannel:
     """Tests for post_receipt_to_channel function."""
+
+    @pytest.mark.asyncio
+    async def test_uses_dock_routing_for_slack(self, slack_origin, sample_receipt):
+        """post_receipt_to_channel uses dock routing when enabled."""
+        mock_send_result = MagicMock(success=True, error=None)
+        mock_router = MagicMock()
+        mock_router.route_receipt = AsyncMock(return_value=mock_send_result)
+
+        with patch(
+            "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+            True,
+        ):
+            with patch(
+                "aragora.channels.router.get_channel_router",
+                return_value=mock_router,
+            ):
+                result = await post_receipt_to_channel(
+                    slack_origin, sample_receipt, "https://example.com/r"
+                )
+
+        assert result is True
+        mock_router.route_receipt.assert_awaited_once_with(
+            platform="slack",
+            channel_id=slack_origin.channel_id,
+            receipt=sample_receipt,
+            receipt_url="https://example.com/r",
+            thread_id=slack_origin.thread_id,
+            webhook_url=None,
+        )
 
     @pytest.mark.asyncio
     async def test_posts_to_slack(self, slack_origin, sample_receipt):
@@ -607,6 +726,36 @@ class TestPostReceiptToChannel:
             result = await post_receipt_to_channel(origin, sample_receipt, "https://example.com/r")
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_legacy_slack_sender_when_dock_receipt_routing_fails(
+        self, slack_origin, sample_receipt
+    ):
+        """post_receipt_to_channel falls back to the legacy Slack sender on dock failure."""
+        mock_send_result = MagicMock(success=False, error="dock unavailable")
+        mock_router = MagicMock()
+        mock_router.route_receipt = AsyncMock(return_value=mock_send_result)
+
+        with patch(
+            "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+            True,
+        ):
+            with patch(
+                "aragora.channels.router.get_channel_router",
+                return_value=mock_router,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.router._send_slack_receipt",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ) as mock_send:
+                    result = await post_receipt_to_channel(
+                        slack_origin, sample_receipt, "https://example.com/r"
+                    )
+
+        assert result is True
+        mock_router.route_receipt.assert_awaited_once()
+        mock_send.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_handles_sender_error(self, slack_origin, sample_receipt):
