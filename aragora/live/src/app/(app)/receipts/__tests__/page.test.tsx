@@ -113,7 +113,7 @@ function configureListMocks({
   });
 }
 
-function configureDetailFetch() {
+function configureDetailFetch(overrides: ReceiptRecord = {}) {
   mockFetch.mockImplementation(async (input: string | URL | Request) => {
     const url = String(input);
     if (url === 'http://localhost:8080/api/v2/receipts/receipt-123') {
@@ -138,6 +138,7 @@ function configureDetailFetch() {
           dissenting_views: [],
           provenance_chain: [],
           artifact_hash: 'artifact-hash-123',
+          ...overrides,
         }),
       } as Response;
     }
@@ -258,5 +259,49 @@ describe('ReceiptsPage', () => {
         'http://localhost:8080/api/v2/receipts/receipt-123'
       );
     });
+  });
+
+  it('renders execution metrics and cost summary from the canonical receipt payload', async () => {
+    configureDetailFetch({
+      duration_seconds: 45.2,
+      rounds_completed: 3,
+      agents_involved: ['claude', 'codex'],
+      cost_summary: {
+        total_cost_usd: '0.0321',
+        total_tokens_in: 1200,
+        total_tokens_out: 340,
+        total_calls: 4,
+        per_agent: {
+          claude: {
+            agent_name: 'claude',
+            total_cost_usd: '0.0200',
+            total_tokens_in: 800,
+            total_tokens_out: 200,
+            call_count: 2,
+          },
+          codex: {
+            agent_name: 'codex',
+            total_cost_usd: '0.0121',
+            total_tokens_in: 400,
+            total_tokens_out: 140,
+            call_count: 2,
+          },
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+
+    expect(await screen.findByText('Execution Summary')).toBeInTheDocument();
+    expect(screen.getByText('45.2s')).toBeInTheDocument();
+    expect(screen.getByText('$0.0321')).toBeInTheDocument();
+    expect(screen.getByText('1,540')).toBeInTheDocument();
+    expect(screen.getByText('Per-Agent Cost')).toBeInTheDocument();
+    expect(screen.getByText('claude')).toBeInTheDocument();
+    expect(screen.getByText('codex')).toBeInTheDocument();
   });
 });

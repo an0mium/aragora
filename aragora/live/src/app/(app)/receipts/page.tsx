@@ -79,6 +79,26 @@ interface DecisionReceipt {
   consensus_proof?: ConsensusProof;
   provenance_chain: ProvenanceRecord[];
   artifact_hash: string;
+  agents_involved: string[];
+  rounds_completed: number;
+  duration_seconds: number;
+  cost_summary?: ReceiptCostSummary;
+}
+
+interface ReceiptCostAgentSummary {
+  agent_name: string;
+  total_cost_usd: number;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  call_count: number;
+}
+
+interface ReceiptCostSummary {
+  total_cost_usd?: number;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  total_calls: number;
+  per_agent: ReceiptCostAgentSummary[];
 }
 
 interface ApiListResponse {
@@ -476,6 +496,76 @@ function normalizeDissentingViews(value: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+function normalizeCostSummary(value: unknown): ReceiptCostSummary | undefined {
+  const record = asRecord(value);
+  if (!record) return undefined;
+
+  const perAgentRecord = asRecord(record.per_agent);
+  const perAgent = perAgentRecord
+    ? Object.entries(perAgentRecord)
+        .map(([agentName, rawEntry]) => {
+          const entry = asRecord(rawEntry);
+          if (!entry) return null;
+
+          return {
+            agent_name: safeString(entry.agent_name) ?? agentName,
+            total_cost_usd: safeNumber(entry.total_cost_usd) ?? 0,
+            total_tokens_in: safeNumber(entry.total_tokens_in) ?? 0,
+            total_tokens_out: safeNumber(entry.total_tokens_out) ?? 0,
+            call_count: safeNumber(entry.call_count) ?? 0,
+          };
+        })
+        .filter((entry): entry is ReceiptCostAgentSummary => entry !== null)
+    : [];
+
+  const summary = {
+    total_cost_usd: safeNumber(record.total_cost_usd),
+    total_tokens_in: safeNumber(record.total_tokens_in) ?? 0,
+    total_tokens_out: safeNumber(record.total_tokens_out) ?? 0,
+    total_calls: safeNumber(record.total_calls) ?? 0,
+    per_agent: perAgent,
+  };
+
+  if (
+    summary.total_cost_usd === undefined &&
+    summary.total_tokens_in === 0 &&
+    summary.total_tokens_out === 0 &&
+    summary.total_calls === 0 &&
+    summary.per_agent.length === 0
+  ) {
+    return undefined;
+  }
+
+  return summary;
+}
+
+function hasExecutionSummary(receipt: DecisionReceipt): boolean {
+  return (
+    receipt.duration_seconds > 0 ||
+    receipt.rounds_completed > 0 ||
+    receipt.agents_involved.length > 0 ||
+    Boolean(receipt.cost_summary)
+  );
+}
+
+function formatDuration(seconds: number): string {
+  if (!(seconds > 0)) return 'Unavailable';
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+}
+
+function formatCurrency(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) return 'Unavailable';
+  return value >= 1 ? `$${value.toFixed(2)}` : `$${value.toFixed(4)}`;
+}
+
+function formatCount(value: number): string {
+  return Number.isFinite(value) ? value.toLocaleString() : '0';
+}
+
 function normalizeReceiptDetail(
   raw: Record<string, unknown>,
   sourceItem: ReceiptListItem
@@ -532,6 +622,14 @@ function normalizeReceiptDetail(
       safeString(raw.artifact_hash) ??
       safeString(raw.checksum) ??
       '',
+    agents_involved: Array.isArray(raw.agents_involved)
+      ? raw.agents_involved
+          .map((agent) => safeString(agent))
+          .filter((agent): agent is string => Boolean(agent))
+      : [],
+    rounds_completed: safeNumber(raw.rounds_completed) ?? 0,
+    duration_seconds: safeNumber(raw.duration_seconds) ?? 0,
+    cost_summary: normalizeCostSummary(raw.cost_summary),
   };
 }
 
@@ -1010,6 +1108,9 @@ export default function ReceiptsPage() {
 
     const receipt = selectedReceipt;
     const findingCount = totalFindings(receipt.risk_summary);
+    const totalTokens =
+      (receipt.cost_summary?.total_tokens_in ?? 0) +
+      (receipt.cost_summary?.total_tokens_out ?? 0);
 
     return (
       <div className="space-y-6">
@@ -1081,6 +1182,88 @@ export default function ReceiptsPage() {
             <p className="mt-3 text-sm opacity-90">{receipt.verdict_reasoning}</p>
           )}
         </div>
+
+        {hasExecutionSummary(receipt) && (
+          <div className="p-4 bg-surface border border-border rounded-lg">
+            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+              Execution Summary
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <div className="text-xs text-text-muted">Duration</div>
+                <div className="text-xl font-mono text-text">
+                  {formatDuration(receipt.duration_seconds)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-text-muted">Rounds</div>
+                <div className="text-xl font-mono text-text">
+                  {receipt.rounds_completed || 'Unavailable'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-text-muted">Agents</div>
+                <div className="text-xl font-mono text-text">
+                  {receipt.agents_involved.length || 'Unavailable'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-text-muted">Total Cost</div>
+                <div className="text-xl font-mono text-acid-green">
+                  {formatCurrency(receipt.cost_summary?.total_cost_usd)}
+                </div>
+              </div>
+            </div>
+
+            {receipt.cost_summary && (
+              <>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border pt-4">
+                  <div>
+                    <div className="text-xs text-text-muted">API Calls</div>
+                    <div className="text-lg font-mono text-text">
+                      {formatCount(receipt.cost_summary.total_calls)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-muted">Tokens In</div>
+                    <div className="text-lg font-mono text-text">
+                      {formatCount(receipt.cost_summary.total_tokens_in)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-muted">Total Tokens</div>
+                    <div className="text-lg font-mono text-text">{formatCount(totalTokens)}</div>
+                  </div>
+                </div>
+
+                {receipt.cost_summary.per_agent.length > 0 && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-3">
+                      Per-Agent Cost
+                    </h4>
+                    <div className="space-y-2">
+                      {receipt.cost_summary.per_agent.map((agent) => (
+                        <div
+                          key={agent.agent_name}
+                          className="flex items-center justify-between gap-3 rounded bg-bg px-3 py-2 text-sm"
+                        >
+                          <div className="font-mono text-text">{agent.agent_name}</div>
+                          <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
+                            <span>{formatCount(agent.total_tokens_in + agent.total_tokens_out)} tokens</span>
+                            <span>{formatCount(agent.call_count)} calls</span>
+                            <span className="text-acid-cyan">
+                              {formatCurrency(agent.total_cost_usd)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="p-4 bg-surface border border-border rounded-lg">
           <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
