@@ -43,6 +43,8 @@ export interface SpectateStatus {
 }
 
 interface UseSpectateOptions {
+  /** Optional API base URL override */
+  apiBase?: string;
   /** Poll interval in milliseconds (default: 2000) */
   pollInterval?: number;
   /** Maximum number of events to fetch per poll (default: 50) */
@@ -92,6 +94,7 @@ export function useSpectate(
   options: UseSpectateOptions = {},
 ): UseSpectateReturn {
   const {
+    apiBase = API_BASE_URL,
     pollInterval = 2000,
     maxEvents = 50,
     enabled = true,
@@ -110,7 +113,7 @@ export function useSpectate(
       if (pipelineId) params.set('pipeline_id', pipelineId);
 
       const res = await fetch(
-        `${API_BASE_URL}/api/v1/spectate/recent?${params.toString()}`,
+        `${apiBase}/api/v1/spectate/recent?${params.toString()}`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -124,11 +127,11 @@ export function useSpectate(
       setEvents([]);
       return false;
     }
-  }, [debateId, pipelineId, maxEvents]);
+  }, [apiBase, debateId, pipelineId, maxEvents]);
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/spectate/status`);
+      const res = await fetch(`${apiBase}/api/v1/spectate/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -140,7 +143,7 @@ export function useSpectate(
 
     setStatus(null);
     return false;
-  }, []);
+  }, [apiBase]);
 
   const refresh = useCallback(async () => {
     const [recentOk] = await Promise.all([

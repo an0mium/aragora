@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, FormEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import {
+  useSpectate,
+  type SpectateEvent,
+  type SpectateLiveDebateSummary,
+  type SpectateStatus,
+} from '@/hooks/useSpectate';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
@@ -34,6 +40,131 @@ function parseRetryAfterSeconds(retryAfter: string | null): number {
   return Math.max(1, Math.ceil((retryTime - Date.now()) / 1000));
 }
 
+function toEpochMs(timestamp: string | null | undefined): number | null {
+  if (!timestamp) return null;
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function isRecentEvent(event: SpectateEvent, windowSeconds: number): boolean {
+  const epochMs = toEpochMs(event.timestamp);
+  if (epochMs === null) return false;
+  return Date.now() - epochMs <= windowSeconds * 1000;
+}
+
+function formatRelativeAge(timestamp: string | null | undefined): string {
+  const epochMs = toEpochMs(timestamp);
+  if (epochMs === null) return 'just now';
+
+  const ageSeconds = Math.max(0, Math.round((Date.now() - epochMs) / 1000));
+  if (ageSeconds < 60) return `${ageSeconds}s ago`;
+
+  const ageMinutes = Math.round(ageSeconds / 60);
+  if (ageMinutes < 60) return `${ageMinutes}m ago`;
+
+  const ageHours = Math.round(ageMinutes / 60);
+  if (ageHours < 24) return `${ageHours}h ago`;
+
+  const ageDays = Math.round(ageHours / 24);
+  return `${ageDays}d ago`;
+}
+
+function formatEventType(eventType: string): string {
+  return eventType.replace(/_/g, ' ').toUpperCase();
+}
+
+function getEventSummary(event: SpectateEvent): string {
+  if (typeof event.data.details === 'string' && event.data.details.trim()) {
+    return event.data.details;
+  }
+  if (typeof event.data.summary === 'string' && event.data.summary.trim()) {
+    return event.data.summary;
+  }
+  if (typeof event.data.message === 'string' && event.data.message.trim()) {
+    return event.data.message;
+  }
+
+  switch (event.event_type) {
+    case 'proposal':
+      return 'An agent opened a new proposal.';
+    case 'critique':
+      return 'Another agent challenged the current line of reasoning.';
+    case 'vote':
+      return 'The panel is registering a vote.';
+    case 'consensus':
+      return 'The panel is converging on a verdict.';
+    default:
+      return 'The live bridge captured a new debate event.';
+  }
+}
+
+function getDebateHeadline(
+  debateId: string | null,
+  recentEvents: SpectateEvent[],
+): string | null {
+  if (!debateId) return null;
+
+  for (const event of recentEvents) {
+    if (event.debate_id !== debateId) continue;
+
+    const candidates = [
+      event.data.title,
+      event.data.topic,
+      event.data.question,
+      event.data.prompt,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function getLiveBridgeState(
+  loaded: boolean,
+  connected: boolean,
+  status: SpectateStatus | null,
+  hasLiveDebate: boolean,
+):
+  | SpectateStatus['bridge_state']
+  | 'checking'
+  | 'status_unavailable'
+  | 'unreachable' {
+  if (!loaded) return 'checking';
+  if (status) return status.bridge_state;
+  if (hasLiveDebate) return 'live_debates_available';
+  return connected ? 'status_unavailable' : 'unreachable';
+}
+
+function getLiveBridgeLabel(
+  state:
+    | SpectateStatus['bridge_state']
+    | 'checking'
+    | 'status_unavailable'
+    | 'unreachable',
+): string {
+  switch (state) {
+    case 'live_debates_available':
+      return 'LIVE';
+    case 'activity_unattributed':
+      return 'PARTIAL';
+    case 'idle':
+      return 'IDLE';
+    case 'inactive':
+      return 'OFF';
+    case 'status_unavailable':
+      return 'RECENT FEED';
+    case 'unreachable':
+      return 'API OFFLINE';
+    case 'checking':
+    default:
+      return 'CHECKING';
+  }
+}
+
 export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const [question, setQuestion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
@@ -45,6 +176,98 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
+  const {
+    events: spectateEvents,
+    connected: spectateConnected,
+    loaded: spectateLoaded,
+    status: spectateStatus,
+  } = useSpectate(undefined, undefined, {
+    apiBase: resolvedApiBase,
+    pollInterval: 3000,
+    maxEvents: 24,
+  });
+
+  const activityWindowSeconds =
+    spectateStatus?.recent_activity_window_seconds ?? 120;
+  const recentBridgeEvents = useMemo(
+    () => spectateEvents.filter((event) => isRecentEvent(event, activityWindowSeconds)),
+    [activityWindowSeconds, spectateEvents],
+  );
+
+  const fallbackDiscoverableDebates = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        debate_id: string;
+        recent_event_count: number;
+        last_event_at: string | null;
+        event_types: Set<string>;
+      }
+    >();
+
+    for (const event of recentBridgeEvents) {
+      if (!event.debate_id) continue;
+
+      const existing = grouped.get(event.debate_id);
+      if (!existing) {
+        grouped.set(event.debate_id, {
+          debate_id: event.debate_id,
+          recent_event_count: 1,
+          last_event_at: event.timestamp,
+          event_types: new Set([event.event_type]),
+        });
+        continue;
+      }
+
+      existing.recent_event_count += 1;
+      existing.event_types.add(event.event_type);
+
+      const existingTs = toEpochMs(existing.last_event_at);
+      const eventTs = toEpochMs(event.timestamp);
+      if (eventTs !== null && (existingTs === null || eventTs >= existingTs)) {
+        existing.last_event_at = event.timestamp;
+      }
+    }
+
+    return Array.from(grouped.values())
+      .map((debate) => ({
+        debate_id: debate.debate_id,
+        recent_event_count: debate.recent_event_count,
+        last_event_at: debate.last_event_at,
+        event_types: Array.from(debate.event_types).sort(),
+      }))
+      .sort(
+        (left, right) =>
+          (toEpochMs(right.last_event_at) ?? 0) - (toEpochMs(left.last_event_at) ?? 0),
+      );
+  }, [recentBridgeEvents]);
+
+  const discoverableDebates: SpectateLiveDebateSummary[] =
+    spectateStatus?.live_debates ?? fallbackDiscoverableDebates;
+  const liveDebate = discoverableDebates[0] ?? null;
+  const liveBridgeState = getLiveBridgeState(
+    spectateLoaded,
+    spectateConnected,
+    spectateStatus,
+    liveDebate !== null,
+  );
+  const liveBridgeLabel = getLiveBridgeLabel(liveBridgeState);
+  const unattributedRecentEvents =
+    spectateStatus?.unattributed_recent_event_count ??
+    recentBridgeEvents.filter((event) => !event.debate_id).length;
+
+  const liveDebateEvents = useMemo(() => {
+    if (!liveDebate) return [];
+    return recentBridgeEvents
+      .filter((event) => event.debate_id === liveDebate.debate_id)
+      .slice(-5)
+      .reverse();
+  }, [liveDebate, recentBridgeEvents]);
+
+  const liveDebateHeadline = useMemo(
+    () => getDebateHeadline(liveDebate?.debate_id ?? null, recentBridgeEvents),
+    [liveDebate?.debate_id, recentBridgeEvents],
+  );
 
   useEffect(() => {
     return () => {
@@ -254,6 +477,196 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
           )}
 
           {result && <DebateResultPreview result={result} />}
+        </div>
+      </section>
+
+      <section
+        className="py-16 px-4 border-t border-border bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.08),_transparent_55%)]"
+        data-testid="landing-live-debate"
+      >
+        <div className="max-w-5xl mx-auto grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="border border-acid-green/20 bg-surface/40 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${
+                  liveBridgeState === 'live_debates_available'
+                    ? 'bg-acid-green animate-pulse'
+                    : liveBridgeState === 'activity_unattributed' || liveBridgeState === 'status_unavailable'
+                      ? 'bg-acid-cyan animate-pulse'
+                      : liveBridgeState === 'checking' || liveBridgeState === 'idle'
+                        ? 'bg-acid-yellow animate-pulse'
+                        : 'bg-red-500'
+                }`}
+              />
+              <span className="font-mono text-xs text-acid-cyan uppercase tracking-[0.3em]">
+                Live Spectate
+              </span>
+              <span
+                className={`px-2 py-0.5 text-[10px] font-mono border ${
+                  liveBridgeState === 'live_debates_available'
+                    ? 'border-acid-green/30 text-acid-green bg-acid-green/10'
+                    : liveBridgeState === 'activity_unattributed' || liveBridgeState === 'status_unavailable'
+                      ? 'border-acid-cyan/30 text-acid-cyan bg-acid-cyan/10'
+                      : liveBridgeState === 'checking' || liveBridgeState === 'idle'
+                        ? 'border-acid-yellow/30 text-acid-yellow bg-acid-yellow/10'
+                        : 'border-red-500/30 text-red-400 bg-red-500/10'
+                }`}
+              >
+                {liveBridgeLabel}
+              </span>
+            </div>
+
+            <h2 className="font-mono text-2xl sm:text-3xl text-text mb-3">
+              Watch agents argue in real time.
+            </h2>
+            <p className="font-mono text-sm text-text-muted leading-relaxed max-w-2xl">
+              {liveDebate
+                ? 'A live debate is happening right now. Open the viewer to watch the panel challenge proposals, critique reasoning, and converge on a verdict.'
+                : liveBridgeState === 'activity_unattributed'
+                  ? 'The bridge is seeing fresh debate traffic, but the current events are not tagged with a debate ID yet, so this page waits before showing a watcher.'
+                  : liveBridgeState === 'status_unavailable'
+                    ? 'Recent bridge events are still arriving, but the readiness endpoint is unavailable. This surface only promotes a watcher when the event feed itself can prove a live debate.'
+                    : liveBridgeState === 'checking'
+                      ? 'Checking the live bridge for a debate visitors can watch right now.'
+                      : 'No live debate is discoverable at this moment. Spectate mode stays available so visitors can jump in as soon as the bridge sees one.'}
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-3 mt-6">
+              <div className="border border-border bg-bg/50 px-3 py-3">
+                <div className="text-[10px] font-mono text-text-muted uppercase mb-1">
+                  Live Debate IDs
+                </div>
+                <div className="font-mono text-sm text-acid-green">
+                  {discoverableDebates.length}
+                </div>
+              </div>
+              <div className="border border-border bg-bg/50 px-3 py-3">
+                <div className="text-[10px] font-mono text-text-muted uppercase mb-1">
+                  Recent Events
+                </div>
+                <div className="font-mono text-sm text-acid-cyan">
+                  {spectateStatus?.recent_event_count ?? recentBridgeEvents.length}
+                </div>
+              </div>
+              <div className="border border-border bg-bg/50 px-3 py-3">
+                <div className="text-[10px] font-mono text-text-muted uppercase mb-1">
+                  Unattributed
+                </div>
+                <div className="font-mono text-sm text-text">
+                  {unattributedRecentEvents}
+                </div>
+              </div>
+            </div>
+
+            {liveDebate ? (
+              <div className="mt-6 border border-acid-green/30 bg-acid-green/5 p-4" data-testid="landing-live-debate-card">
+                <div className="text-[10px] font-mono text-acid-cyan uppercase tracking-[0.25em] mb-2">
+                  Happening Now
+                </div>
+                <h3 className="font-mono text-lg text-text leading-snug">
+                  {liveDebateHeadline || `Live debate ${liveDebate.debate_id}`}
+                </h3>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {liveDebate.event_types.map((eventType) => (
+                    <span
+                      key={`${liveDebate.debate_id}-${eventType}`}
+                      className="px-2 py-1 text-[10px] font-mono border border-acid-cyan/30 bg-acid-cyan/10 text-acid-cyan"
+                    >
+                      {formatEventType(eventType)}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+                  <Link
+                    href={`/spectate/${liveDebate.debate_id}`}
+                    className="inline-flex items-center justify-center font-mono text-sm px-4 py-2 bg-acid-green text-bg font-bold hover:bg-acid-green/80 transition-colors"
+                  >
+                    Watch live debate
+                  </Link>
+                  <Link
+                    href="/spectate"
+                    className="inline-flex items-center justify-center font-mono text-sm px-4 py-2 border border-acid-green/30 text-acid-green hover:border-acid-green transition-colors"
+                  >
+                    Open spectate mode
+                  </Link>
+                  <span className="font-mono text-xs text-text-muted">
+                    Last seen {formatRelativeAge(liveDebate.last_event_at)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 border border-border bg-bg/40 p-4">
+                <p className="font-mono text-xs text-text-muted leading-relaxed">
+                  {liveBridgeState === 'activity_unattributed'
+                    ? 'Waiting for the bridge to tag the current debate before we show a live watcher.'
+                    : 'Open spectate mode to monitor the bridge and jump into the next live debate as soon as it becomes discoverable.'}
+                </p>
+                <Link
+                  href="/spectate"
+                  className="inline-flex items-center justify-center font-mono text-sm px-4 py-2 border border-acid-green/30 text-acid-green hover:border-acid-green transition-colors mt-4"
+                >
+                  Go to spectate mode
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-acid-cyan/20 bg-surface/30 p-6">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h3 className="font-mono text-sm text-acid-cyan uppercase tracking-[0.25em]">
+                Recent Exchange
+              </h3>
+              <span className="font-mono text-[10px] text-text-muted">
+                Refreshes every few seconds
+              </span>
+            </div>
+
+            {liveDebateEvents.length > 0 ? (
+              <div className="space-y-3" data-testid="landing-live-debate-feed">
+                {liveDebateEvents.map((event, index) => (
+                  <div
+                    key={`${event.timestamp}-${index}`}
+                    className="border border-border bg-bg/40 px-3 py-3"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="font-mono text-[10px] text-acid-green">
+                        {formatEventType(event.event_type)}
+                      </span>
+                      {event.agent_name && (
+                        <span className="font-mono text-[10px] text-acid-cyan">
+                          {event.agent_name}
+                        </span>
+                      )}
+                      {event.round_number != null && (
+                        <span className="font-mono text-[10px] text-text-muted">
+                          Round {event.round_number}
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-mono text-sm text-text leading-relaxed">
+                      {getEventSummary(event)}
+                    </p>
+                    <div className="font-mono text-[10px] text-text-muted mt-2">
+                      {formatRelativeAge(event.timestamp)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-dashed border-border bg-bg/30 px-4 py-6">
+                <p className="font-mono text-sm text-text">
+                  {liveDebate
+                    ? 'Live debate detected. Waiting for the first spectator messages to land.'
+                    : 'No argument feed is available yet.'}
+                </p>
+                <p className="font-mono text-xs text-text-muted mt-2 leading-relaxed">
+                  {spectateLoaded
+                    ? 'As soon as the bridge emits attributed debate events, this panel will show the latest back-and-forth.'
+                    : 'The bridge is still warming up. This panel fills in once the first poll completes.'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
