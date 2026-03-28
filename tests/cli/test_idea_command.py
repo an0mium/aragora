@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from aragora.cli.commands.idea import (
     _compose_initiative_brief,
+    _create_issue_with_optional_labels,
     _issue_body_for_brief,
     _run_idea_intake,
     _run_idea_review,
@@ -504,3 +506,40 @@ def test_triage_issue_body_mentions_scope_and_policy() -> None:
     assert "## File Scope" in body
     assert "server/auth/oidc.py" in body
     assert "Policy Notes: sensitive_scope:auth_rbac" in body
+
+
+def test_create_issue_with_optional_labels_ensures_missing_labels() -> None:
+    missing_label = SimpleNamespace(
+        returncode=1,
+        stdout="",
+        stderr="could not add label: 'boss-ready' not found",
+    )
+    label_created = SimpleNamespace(returncode=0, stdout="", stderr="")
+    issue_created = SimpleNamespace(
+        returncode=0,
+        stdout="https://github.com/synaptent/aragora/issues/123\n",
+        stderr="",
+    )
+
+    with patch(
+        "subprocess.run",
+        side_effect=[missing_label, label_created, label_created, issue_created],
+    ) as run:
+        result = asyncio.run(
+            _create_issue_with_optional_labels(
+                repo="synaptent/aragora",
+                title="Founder intake",
+                body="body",
+                requested_labels=["boss-ready", "risk:medium"],
+            )
+        )
+
+    assert result["number"] == 123
+    assert result["labels_applied"] == ["boss-ready", "risk:medium"]
+    assert result["labels_ensured"] == ["boss-ready", "risk:medium"]
+    label_create_calls = [
+        call.args[0]
+        for call in run.call_args_list
+        if call.args and call.args[0][:3] == ["gh", "label", "create"]
+    ]
+    assert len(label_create_calls) == 2

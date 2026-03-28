@@ -395,16 +395,23 @@ def test_create_issues_includes_queue_metadata() -> None:
             "preferred_reviewer_agent": "codex",
         }
     ]
-    proc = SimpleNamespace(
-        returncode=0, stdout="https://github.com/synaptent/aragora/issues/999\n", stderr=""
-    )
-
-    with patch("subprocess.run", return_value=proc) as run:
+    with patch(
+        "aragora.cli.commands.idea._create_issue_with_optional_labels",
+        AsyncMock(
+            return_value={
+                "number": 999,
+                "url": "https://github.com/synaptent/aragora/issues/999",
+                "labels_requested": ["boss-ready", "review-followup", "risk:high"],
+                "labels_applied": ["boss-ready", "review-followup", "risk:high"],
+                "labels_ensured": [],
+                "fallback_reason": "",
+            }
+        ),
+    ) as create_issue:
         issue_numbers = asyncio.run(_create_issues(tasks, repo="synaptent/aragora"))
 
     assert issue_numbers == [999]
-    cmd = run.call_args.args[0]
-    body = cmd[-1]
+    body = create_issue.await_args.kwargs["body"]
     assert "## Initiative Brief" in body
     assert "## Queue Metadata" in body
     assert "Preferred Worker Agent: claude" in body
@@ -412,8 +419,7 @@ def test_create_issues_includes_queue_metadata() -> None:
     assert "Open questions: Should this ship behind a flag?" in body
     assert "File scope hints: server/auth/oidc.py" in body
     assert "Policy Notes: sensitive_scope:auth_rbac" in body
-    assert "--label" in cmd
-    assert "review-followup" in cmd
+    assert "review-followup" in create_issue.await_args.kwargs["requested_labels"]
 
 
 def test_queueable_tasks_from_review_prefers_followups_and_unblocked_handoffs() -> None:
