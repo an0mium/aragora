@@ -540,7 +540,7 @@ def cmd_receipt_inspect(args: argparse.Namespace) -> None:
     # Cost summary
     cost = data.get("cost_summary")
     if cost and isinstance(cost, dict):
-        total = cost.get("total_cost", cost.get("total", 0))
+        total = cost.get("total_cost_usd", cost.get("total_cost", cost.get("total", 0)))
         if total:
             print("\n--- Cost ---")
             print(f"  Total: ${float(total):.4f}")

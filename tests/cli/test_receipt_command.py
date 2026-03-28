@@ -6,12 +6,13 @@ import argparse
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.cli.commands.receipt import cmd_receipt_list, cmd_receipt_show
+from aragora.cli.commands.receipt import cmd_receipt_inspect, cmd_receipt_list, cmd_receipt_show
 
 
 @dataclass
@@ -125,3 +126,31 @@ def test_receipt_show_falls_back_to_legacy_when_durable_missing(
     payload = json.loads(output)
     assert payload["receipt_id"] == "legacy-rcpt-456"
     assert payload["gauntlet_id"] == "gauntlet-live-456"
+
+
+def test_receipt_inspect_shows_total_cost_usd(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "receipt_id": "receipt-123",
+                "gauntlet_id": "gauntlet-123",
+                "timestamp": "2026-03-28T07:00:00Z",
+                "verdict": "PASS",
+                "confidence": 0.95,
+                "robustness_score": 1.0,
+                "risk_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+                "cost_summary": {"total_cost_usd": "1.23"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cmd_receipt_inspect(argparse.Namespace(receipt=str(receipt_path)))
+
+    output = capsys.readouterr().out
+    assert "--- Cost ---" in output
+    assert "Total: $1.2300" in output
