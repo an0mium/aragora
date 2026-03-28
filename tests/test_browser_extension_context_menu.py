@@ -34,6 +34,7 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
     assert manifest["action"]["default_popup"] == "popup.html"
     assert {"contextMenus", "storage", "tabs"}.issubset(set(manifest["permissions"]))
     assert "https://*/*" in manifest["host_permissions"]
+    assert "http://*/*" in manifest["host_permissions"]
 
     content_script = manifest["content_scripts"][0]
     assert content_script["matches"] == ["<all_urls>"]
@@ -48,6 +49,8 @@ def test_background_script_handles_context_menu_selection_and_api_submission() -
     assert '"aragora:get-selection"' in background_script
     assert "chrome.storage.local.set" in background_script
     assert "/api/v2/debates" in background_script
+    assert "function parseAgents(value)" in background_script
+    assert "auto_select: agents.length === 0" in background_script
     assert 'Authorization: `Bearer ${String(settings.apiKey || "").trim()}`' in background_script
 
 

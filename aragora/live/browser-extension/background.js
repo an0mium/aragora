@@ -36,6 +36,19 @@ function normalizeApiUrl(apiUrl) {
   return String(apiUrl || DEFAULT_SETTINGS.apiUrl).trim().replace(/\/+$/, "");
 }
 
+function parseAgents(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((agent) => String(agent || "").trim())
+      .filter(Boolean);
+  }
+
+  return String(value || "")
+    .split(",")
+    .map((agent) => agent.trim())
+    .filter(Boolean);
+}
+
 function sanitizeSelectionText(value) {
   return String(value || "")
     .replace(/\u0000/g, "")
@@ -84,6 +97,7 @@ function buildRequestPayload(selectionText, source, settings) {
   const titleLine = source.pageTitle ? `Source title: ${source.pageTitle}` : "";
   const urlLine = source.pageUrl ? `Source URL: ${source.pageUrl}` : "";
   const sourceContext = [titleLine, urlLine].filter(Boolean).join("\n");
+  const agents = parseAgents(settings.agents);
 
   let question = selectionText;
   let context = sourceContext;
@@ -99,7 +113,7 @@ function buildRequestPayload(selectionText, source, settings) {
     question,
     rounds: Number(settings.rounds) || DEFAULT_SETTINGS.rounds,
     consensus: settings.consensus || DEFAULT_SETTINGS.consensus,
-    auto_select: !String(settings.agents || "").trim(),
+    auto_select: agents.length === 0,
     metadata: {
       source: "browser_extension_context_menu",
       source_title: source.pageTitle || "",
@@ -111,8 +125,7 @@ function buildRequestPayload(selectionText, source, settings) {
     payload.context = context.slice(0, 10000);
   }
 
-  const agents = String(settings.agents || "").trim();
-  if (agents) {
+  if (agents.length > 0) {
     payload.agents = agents;
   }
 
@@ -159,18 +172,19 @@ async function handleContextMenuClick(info, tab) {
     pageTitle: tab?.title || "",
     pageUrl: info.pageUrl || tab?.url || "",
   };
+  const contentSelection = await getSelectionFromContentScript(tab?.id);
+  const selectedTextFromPage = sanitizeSelectionText(contentSelection?.selectedText);
 
-  if (!selectionText) {
-    const contentSelection = await getSelectionFromContentScript(tab?.id);
-    selectionText = sanitizeSelectionText(contentSelection?.selectedText);
+  if (selectedTextFromPage.length > selectionText.length) {
+    selectionText = selectedTextFromPage;
+  }
 
-    if (contentSelection?.pageTitle && !source.pageTitle) {
-      source.pageTitle = contentSelection.pageTitle;
-    }
+  if (contentSelection?.pageTitle && !source.pageTitle) {
+    source.pageTitle = contentSelection.pageTitle;
+  }
 
-    if (contentSelection?.pageUrl && !source.pageUrl) {
-      source.pageUrl = contentSelection.pageUrl;
-    }
+  if (contentSelection?.pageUrl && !source.pageUrl) {
+    source.pageUrl = contentSelection.pageUrl;
   }
 
   if (!selectionText) {
