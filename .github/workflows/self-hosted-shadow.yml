@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  mac-version-alignment-shadow:
-    name: Mac Version Alignment Shadow
+  mac-sdk-typecheck-shadow:
+    name: Mac TypeScript SDK Shadow
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on:
       - self-hosted
@@ -33,10 +33,12 @@ jobs:
         with:
           path: repo
 
-      - name: Set up Python
-        uses: ./repo/.github/actions/setup-python-safe
+      - name: Set up Node.js
+        uses: ./repo/.github/actions/setup-node-safe
         with:
-          python-version: "3.11"
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: repo/sdk/typescript/package-lock.json
 
       - name: Runner fingerprint
         shell: bash
@@ -46,13 +48,20 @@ jobs:
           echo "runner_arch=${RUNNER_ARCH}"
           uname -a
           sw_vers
-          python --version
+          node --version
+          npm --version
 
-      - name: Run version alignment check
+      - name: Install TypeScript SDK dependencies
         shell: bash
-        working-directory: repo
+        working-directory: repo/sdk/typescript
         run: |
-          python scripts/check_version_alignment.py
+          npm ci
+
+      - name: Run TypeScript SDK typecheck
+        shell: bash
+        working-directory: repo/sdk/typescript
+        run: |
+          npm run typecheck
 
   hetzner-offline-golden-path-shadow:
     name: Hetzner Offline Golden Path Shadow

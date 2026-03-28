@@ -1,0 +1,87 @@
+name: "Setup Node (Runner-Safe)"
+description: >
+  Wraps actions/setup-node with automatic fallback to a discovered Node binary
+  for self-hosted runners that lack a writable tool cache.
+
+inputs:
+  node-version:
+    description: "Node.js version to install"
+    required: false
+    default: "22"
+  cache:
+    description: "Package manager to cache (npm, yarn, pnpm)"
+    required: false
+    default: ""
+  cache-dependency-path:
+    description: "Path to dependency file(s) for caching"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare writable tool cache
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOOL_CACHE="${RUNNER_TEMP:-/tmp}/hostedtoolcache"
+        mkdir -p "${TOOL_CACHE}"
+        echo "AGENT_TOOLSDIRECTORY=${TOOL_CACHE}" >> "${GITHUB_ENV}"
+        echo "RUNNER_TOOL_CACHE=${TOOL_CACHE}" >> "${GITHUB_ENV}"
+
+    - name: Set up Node.js ${{ inputs.node-version }}
+      id: setup-node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: ${{ inputs.cache || '' }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path || '' }}
+      continue-on-error: true
+
+    - name: Fallback to discovered Node
+      if: steps.setup-node.outcome == 'failure'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::warning::actions/setup-node failed — falling back to discovered Node"
+        NODE_BIN=""
+        if command -v node &>/dev/null; then
+          NODE_BIN="$(command -v node)"
+          echo "Found system node: ${NODE_BIN}"
+          node --version
+        fi
+
+        if [[ -z "${NODE_BIN}" && -n "${RUNNER_TEMP:-}" ]]; then
+          DISCOVERED_NODE="$(find "${RUNNER_TEMP}" -type f -name node -perm -u+x 2>/dev/null | grep '/bin/node$' | head -n 1 || true)"
+          if [[ -n "${DISCOVERED_NODE}" ]]; then
+            NODE_BIN="${DISCOVERED_NODE}"
+            echo "Found unpacked Node in RUNNER_TEMP: ${NODE_BIN}"
+            "${NODE_BIN}" --version || true
+          fi
+        fi
+
+        if [[ -z "${NODE_BIN}" ]]; then
+          echo "::error::No Node.js binary found"
+          exit 1
+        fi
+
+        NODE_DIR="$(cd "$(dirname "${NODE_BIN}")" && pwd -P)"
+        LOCAL_BIN="${RUNNER_TEMP:-$HOME}/setup-node-safe-bin"
+        mkdir -p "${LOCAL_BIN}"
+
+        for tool in node npm npx; do
+          if [[ -x "${NODE_DIR}/${tool}" ]]; then
+            cat > "${LOCAL_BIN}/${tool}" <<EOF
+        #!/usr/bin/env bash
+        exec "${NODE_DIR}/${tool}" "\$@"
+        EOF
+            chmod +x "${LOCAL_BIN}/${tool}"
+          fi
+        done
+
+        echo "${LOCAL_BIN}" >> "${GITHUB_PATH}"
+        export PATH="${LOCAL_BIN}:${PATH}"
+
+        node --version
+        npm --version || true
+        npx --version || true
