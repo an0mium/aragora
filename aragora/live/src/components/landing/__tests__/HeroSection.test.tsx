@@ -29,6 +29,12 @@ jest.mock('../../DebateInput', () => ({
   DebateInput: () => <div data-testid="debate-input">MockDebateInput</div>,
 }));
 
+jest.mock('@/components/debate/PublicDebateStream', () => ({
+  PublicDebateStream: ({ debateId }: { debateId: string }) => (
+    <div data-testid="public-debate-stream">{debateId}</div>
+  ),
+}));
+
 describe('HeroSection', () => {
   const defaultProps = {
     error: null,
@@ -217,6 +223,39 @@ describe('HeroSection', () => {
           method: 'POST',
         }),
       );
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({
+        live_stream: true,
+        source: 'demo',
+      });
+    });
+
+    it('renders the live debate stream when the playground returns a streaming session', async () => {
+      const user = userEvent.setup();
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          id: 'adhoc_deadbeef',
+          debate_id: 'adhoc_deadbeef',
+          topic: 'Should we ship the streaming debate viewer?',
+          live_stream: true,
+          participants: ['anthropic-api', 'openai-api'],
+        }),
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      render(<HeroSection />);
+
+      await user.type(
+        screen.getByRole('textbox'),
+        'Should we ship the streaming debate viewer?'
+      );
+      await user.click(screen.getByRole('button', { name: /start debate/i }));
+
+      expect(screen.getByTestId('public-debate-stream')).toHaveTextContent('adhoc_deadbeef');
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({
+        live_stream: true,
+        source: 'landing',
+      });
     });
   });
 });

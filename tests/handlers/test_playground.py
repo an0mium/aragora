@@ -132,6 +132,9 @@ class TestCanHandle:
     def test_tts_path(self, handler):
         assert handler.can_handle("/api/v1/playground/tts")
 
+    def test_streaming_debate_id_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/debate/adhoc_deadbeef")
+
     def test_rejects_unrelated_path(self, handler):
         assert not handler.can_handle("/api/v1/debates")
 
@@ -371,6 +374,40 @@ class TestMockDebate:
     def test_null_handler_uses_empty_body(self, mock_oracle, handler):
         result = handler.handle_post("/api/v1/playground/debate", {}, None)
         assert _status(result) == 200
+
+    def test_live_stream_request_starts_background_session(self, handler):
+        from aragora.server.handlers.utils.responses import HandlerResult
+
+        with patch.object(handler, "_start_live_streaming_debate") as mock_start:
+            mock_start.return_value = HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "id": "adhoc_deadbeef",
+                        "debate_id": "adhoc_deadbeef",
+                        "status": "created",
+                        "live_stream": True,
+                    }
+                ).encode(),
+            )
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={
+                    "topic": "Should we ship live debate streaming?",
+                    "question": "Should we ship live debate streaming?",
+                    "source": "landing",
+                    "live_stream": True,
+                },
+            )
+
+            result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["live_stream"] is True
+        assert body["status"] == "created"
+        mock_start.assert_called_once()
 
 
 # ============================================================================

@@ -37,6 +37,9 @@ class TestCanHandle:
     def test_debate_id_32_chars(self, handler):
         assert handler.can_handle("/api/v1/playground/debate/abcdef1234567890abcdef1234567890")
 
+    def test_streaming_debate_id_route(self, handler):
+        assert handler.can_handle("/api/v1/playground/debate/adhoc_deadbeef")
+
     def test_rejects_short_debate_id(self, handler):
         assert not handler.can_handle("/api/v1/playground/debate/abc123")
 

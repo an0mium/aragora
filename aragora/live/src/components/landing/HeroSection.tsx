@@ -7,6 +7,7 @@ import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateRes
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
+import { PublicDebateStream } from '@/components/debate/PublicDebateStream';
 import type { HeroSectionProps } from './types';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
@@ -41,6 +42,41 @@ const AGENT_DOT_COLORS: Record<string, string> = {
  */
 const DEMO_TOPIC = 'Should we migrate our monolithic app to microservices?';
 
+interface LiveDebateSession {
+  debateId: string;
+  task: string;
+  agents: string[];
+}
+
+function extractLiveDebateSession(
+  data: Partial<DebateResponse> & {
+    debate_id?: string;
+    task?: string;
+    agents?: string[];
+    live_stream?: boolean;
+  },
+  fallbackTask: string,
+): LiveDebateSession | null {
+  if (!data.live_stream) {
+    return null;
+  }
+
+  const debateId = data.debate_id || data.id;
+  if (!debateId) {
+    return null;
+  }
+
+  return {
+    debateId,
+    task: data.topic || data.task || fallbackTask,
+    agents: Array.isArray(data.participants)
+      ? data.participants
+      : Array.isArray(data.agents)
+        ? data.agents
+        : [],
+  };
+}
+
 export function HeroSection(props: Partial<HeroSectionProps> & Record<string, unknown> = {}) {
   const isDashboardMode = 'apiBase' in props && props.apiBase;
   const { theme } = useTheme();
@@ -53,6 +89,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liveDebate, setLiveDebate] = useState<LiveDebateSession | null>(null);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
@@ -198,6 +235,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setLiveDebate(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -206,7 +244,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        body: JSON.stringify({
+          topic,
+          question: topic,
+          rounds: 2,
+          agents: 3,
+          source: 'landing',
+          live_stream: true,
+        }),
         signal: controller.signal,
       });
 
@@ -223,7 +268,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         return;
       }
 
-      setResult(await res.json());
+      const data = await res.json();
+      const session = extractLiveDebateSession(data, topic);
+      if (session) {
+        setLiveDebate(session);
+        return;
+      }
+
+      setResult(data as DebateResponse);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       setError('Could not connect to the server. Check your connection and try again.');
@@ -237,6 +289,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setLiveDebate(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -245,7 +298,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: DEMO_TOPIC, question: DEMO_TOPIC, rounds: 2, agents: 3, source: 'demo' }),
+        body: JSON.stringify({
+          topic: DEMO_TOPIC,
+          question: DEMO_TOPIC,
+          rounds: 2,
+          agents: 3,
+          source: 'demo',
+          live_stream: true,
+        }),
         signal: controller.signal,
       });
 
@@ -262,12 +322,12 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         return;
       }
 
-      const data: DebateResponse = await res.json();
-      if (data.id) {
-        router.push(`/debate/${data.id}`);
+      const data = await res.json();
+      const session = extractLiveDebateSession(data, DEMO_TOPIC);
+      if (session) {
+        setLiveDebate(session);
       } else {
-        // Fallback: show inline if no ID returned
-        setResult(data);
+        setResult(data as DebateResponse);
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -375,7 +435,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={PLACEHOLDER_EXAMPLES[placeholderIdx]}
-              disabled={isRunning}
+              disabled={isRunning || Boolean(liveDebate)}
               rows={3}
               className="w-full placeholder:opacity-40 focus:outline-none transition-all resize-none disabled:opacity-50"
               style={{
@@ -403,7 +463,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           </div>
           <button
             type="submit"
-            disabled={isRunning || !question.trim()}
+            disabled={isRunning || Boolean(liveDebate) || !question.trim()}
             className="w-full text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             style={{
               backgroundColor: 'var(--accent)',
@@ -421,7 +481,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         </form>
 
         {/* Demo CTA — runs a preset topic against the real backend, no typing needed */}
-        {!isRunning && !result && (
+        {!isRunning && !result && !liveDebate && (
           <button
             onClick={runDemoDebate}
             className="w-full text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -439,7 +499,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {isDark ? '> Try a Demo Debate' : 'Try a Demo Debate'}
           </button>
         )}
-        {!isRunning && !result && (
+        {!isRunning && !result && !liveDebate && (
           <p
             className="text-center"
             style={{
@@ -563,6 +623,36 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                 <span>{elapsed}s elapsed</span>
                 <span>~15s remaining</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {liveDebate && (
+          <div className="mt-8 max-w-3xl mx-auto text-left">
+            <div
+              className="overflow-hidden"
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-card, 8px)',
+                backgroundColor: 'var(--surface)',
+              }}
+            >
+              <PublicDebateStream
+                debateId={liveDebate.debateId}
+                apiBase={apiBase}
+                wsUrl={(backendConfig as { ws?: string }).ws}
+                task={liveDebate.task}
+                agents={liveDebate.agents}
+                onResolved={(resolved) => {
+                  setLiveDebate(null);
+                  setIsDemoRunning(false);
+                  if (resolved) {
+                    setResult(resolved);
+                  } else {
+                    setError('The live debate finished, but the final artifact could not be loaded.');
+                  }
+                }}
+              />
             </div>
           </div>
         )}

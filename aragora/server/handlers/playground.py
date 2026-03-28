@@ -129,6 +129,17 @@ def _reset_oracle_sessions() -> None:
     _oracle_session_timestamps.clear()
 
 
+def _is_truthy_flag(value: Any) -> bool:
+    """Normalize loosely-typed boolean request flags."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Constraints
 # ---------------------------------------------------------------------------
@@ -1545,7 +1556,9 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/tts",
     ]
 
-    _DEBATE_ID_PATTERN = re.compile(r"^/api/v1/playground/debate/([a-f0-9]{16,32})$")
+    _DEBATE_ID_PATTERN = re.compile(
+        r"^/api/v1/playground/debate/((?:adhoc|playground)_[a-f0-9]{8,16}|[a-f0-9]{16,32})$"
+    )
     _CREATE_PATHS = {
         "/api/v1/playground/debate",
         "/api/v1/playground/debate/",
@@ -1553,6 +1566,135 @@ class PlaygroundHandler(BaseHandler):
 
     def __init__(self, ctx: dict | None = None):
         self.ctx = ctx or {}
+
+    def _build_streaming_debate_controller(self) -> Any | None:
+        """Create a debate controller bound to the shared server resources."""
+        storage = self.ctx.get("storage")
+        stream_emitter = self.ctx.get("stream_emitter")
+        if storage is None or stream_emitter is None:
+            return None
+
+        try:
+            from aragora.server.debate_controller import DebateController
+            from aragora.server.debate_factory import DebateFactory
+
+            factory = DebateFactory(
+                elo_system=self.ctx.get("elo_system"),
+                persona_manager=self.ctx.get("persona_manager"),
+                debate_embeddings=self.ctx.get("debate_embeddings"),
+                position_tracker=self.ctx.get("position_tracker"),
+                position_ledger=self.ctx.get("position_ledger"),
+                flip_detector=self.ctx.get("flip_detector"),
+                dissent_retriever=self.ctx.get("dissent_retriever"),
+                moment_detector=self.ctx.get("moment_detector"),
+                stream_emitter=stream_emitter,
+                document_store=self.ctx.get("document_store"),
+                evidence_store=self.ctx.get("evidence_store"),
+                knowledge_mound=self.ctx.get("knowledge_mound"),
+            )
+            return DebateController(
+                factory=factory,
+                emitter=stream_emitter,
+                elo_system=self.ctx.get("elo_system"),
+                storage=storage,
+            )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to initialize streaming playground controller", exc_info=True)
+            return None
+
+    def _start_live_streaming_debate(
+        self,
+        topic: str,
+        rounds: int,
+        agent_count: int,
+        *,
+        question: str | None = None,
+        source: str = "landing",
+        mode: str = "consult",
+    ) -> HandlerResult | None:
+        """Create a background debate session and return spectator metadata."""
+        controller = self._build_streaming_debate_controller()
+        if controller is None:
+            return None
+
+        try:
+            from aragora.server.debate_controller import DebateRequest
+            from aragora.server.handlers.debates.share import set_public_spectate
+
+            agent_tags = _get_available_live_agents(agent_count)
+            agents_str = _resolve_playground_agents(agent_tags)
+            question_text = question or topic
+            metadata = {
+                "public_spectate": True,
+                "is_playground": True,
+                "source": source,
+                "visibility": "public",
+            }
+            if mode:
+                metadata["mode"] = mode
+
+            response = controller.start_debate(
+                DebateRequest(
+                    question=question_text,
+                    agents_str=agents_str,
+                    rounds=rounds,
+                    debate_format="light",
+                    metadata=metadata,
+                    mode=mode,
+                )
+            )
+            if not response.success or not response.debate_id:
+                logger.info(
+                    "Streaming playground start failed: %s",
+                    response.error or "unknown error",
+                )
+                return None
+
+            set_public_spectate(response.debate_id, True)
+
+            participants = [agent.strip() for agent in agents_str.split(",") if agent.strip()]
+            debate_id = response.debate_id
+            return json_response(
+                {
+                    "id": debate_id,
+                    "debate_id": debate_id,
+                    "topic": question_text,
+                    "task": question_text,
+                    "status": response.status or "created",
+                    "rounds": rounds,
+                    "rounds_used": 0,
+                    "participants": participants,
+                    "agents": participants,
+                    "proposals": {},
+                    "critiques": [],
+                    "votes": [],
+                    "dissenting_views": [],
+                    "final_answer": "",
+                    "consensus_reached": False,
+                    "confidence": 0.0,
+                    "verdict": None,
+                    "duration_seconds": 0.0,
+                    "receipt": None,
+                    "receipt_hash": None,
+                    "is_live": True,
+                    "live_stream": True,
+                    "stream_transport": "websocket",
+                    "stream_url": "/ws",
+                    "spectate_url": f"/api/v1/debates/{debate_id}",
+                    "events_url": f"/api/v1/debates/{debate_id}/events",
+                    "share_url": f"/debate/{debate_id}",
+                    "share_token": debate_id,
+                    "source": source,
+                    "visibility": "public",
+                },
+                status=response.status_code or 200,
+            )
+        except (ImportError, ValueError, RuntimeError, OSError):
+            logger.info("Streaming playground unavailable, falling back", exc_info=True)
+            return None
+        except Exception:  # noqa: BLE001
+            logger.warning("Unexpected streaming playground failure", exc_info=True)
+            return None
 
     def can_handle(self, path: str) -> bool:
         if path in (
@@ -1746,6 +1888,9 @@ class PlaygroundHandler(BaseHandler):
         # Source: "oracle" for Oracle page, "landing" for main site, etc.
         # Controls prompt flavour — Oracle uses tentacle language, landing uses neutral.
         source = str(body.get("source", "") or "").strip() or "oracle"
+        live_stream_requested = any(
+            _is_truthy_flag(body.get(flag)) for flag in ("live_stream", "stream", "watch_live")
+        )
 
         # Session ID for follow-up conversation memory
         session_id = str(body.get("session_id", "") or "").strip() or None
@@ -1765,43 +1910,45 @@ class PlaygroundHandler(BaseHandler):
         # --- Content-addressed cache lookup (before rate limiting) ---
         cache_key: str | None = None
         model_ids: list[str] = []
-        try:
-            from aragora.storage.debate_store import get_debate_store, normalize_cache_key
+        if not live_stream_requested:
+            try:
+                from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
-            agent_tags = _get_available_live_agents(agent_count)
-            model_ids = [
-                tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag for tag in agent_tags
-            ]
-            effective_topic = question or topic
-            cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
+                agent_tags = _get_available_live_agents(agent_count)
+                model_ids = [
+                    tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag
+                    for tag in agent_tags
+                ]
+                effective_topic = question or topic
+                cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
 
-            store = get_debate_store()
-            cached = store.get_by_cache_key(cache_key)
-            if cached is not None:
-                cached = _normalize_public_debate_payload(cached)
-                cached.setdefault("source", source)
+                store = get_debate_store()
+                cached = store.get_by_cache_key(cache_key)
+                if cached is not None:
+                    cached = _normalize_public_debate_payload(cached)
+                    cached.setdefault("source", source)
 
-                # /demo is a truthful proof surface: it may replay persisted live runs,
-                # but it must not surface unlabeled fallback debates as if they were live.
-                if source == "demo" and not _is_live_public_result(cached):
-                    logger.info(
-                        "Skipping cached debate %.12s… for demo: no live provenance",
-                        cache_key,
-                    )
-                else:
-                    if not _is_live_public_result(cached) and not cached.get("mock_fallback"):
-                        cached = _annotate_mock_fallback(
-                            cached,
-                            reason="Served from a persisted fallback result.",
+                    # /demo is a truthful proof surface: it may replay persisted live runs,
+                    # but it must not surface unlabeled fallback debates as if they were live.
+                    if source == "demo" and not _is_live_public_result(cached):
+                        logger.info(
+                            "Skipping cached debate %.12s… for demo: no live provenance",
+                            cache_key,
                         )
-                    cached["cached"] = True
-                    cached["cached_at"] = time.time()
-                    logger.info("Cache hit for debate key %.12s…", cache_key)
-                    return json_response(cached)
-        except (ImportError, RuntimeError, OSError, ValueError):
-            logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
-        except Exception:  # noqa: BLE001
-            logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
+                    else:
+                        if not _is_live_public_result(cached) and not cached.get("mock_fallback"):
+                            cached = _annotate_mock_fallback(
+                                cached,
+                                reason="Served from a persisted fallback result.",
+                            )
+                        cached["cached"] = True
+                        cached["cached_at"] = time.time()
+                        logger.info("Cache hit for debate key %.12s…", cache_key)
+                        return json_response(cached)
+            except (ImportError, RuntimeError, OSError, ValueError):
+                logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
+            except Exception:  # noqa: BLE001
+                logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
 
         # Rate limiting (skipped on cache hit above)
         client_ip = "unknown"
@@ -1820,6 +1967,18 @@ class PlaygroundHandler(BaseHandler):
                 },
                 status=429,
             )
+
+        if live_stream_requested:
+            streaming_result = self._start_live_streaming_debate(
+                topic,
+                rounds,
+                agent_count,
+                question=question,
+                source=source,
+                mode=mode,
+            )
+            if streaming_result is not None:
+                return streaming_result
 
         return self._run_debate(
             topic,

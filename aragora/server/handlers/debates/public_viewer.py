@@ -71,8 +71,8 @@ def _reset_public_viewer_rate_limits() -> None:
 # Debate ID: hex string, 16-32 chars (matches playground IDs)
 _DEBATE_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
 
-# Also support playground-prefixed IDs like playground_abcd1234
-_PLAYGROUND_ID_RE = re.compile(r"^playground_[a-f0-9]{8,16}$")
+# Also support managed live-session IDs like playground_abcd1234 and adhoc_abcd1234
+_PLAYGROUND_ID_RE = re.compile(r"^(?:playground|adhoc)_[a-f0-9]{8,16}$")
 
 
 def _is_valid_debate_id(debate_id: str) -> bool:

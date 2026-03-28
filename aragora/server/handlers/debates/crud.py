@@ -296,7 +296,13 @@ class CrudOperationsMixin:
             # Public playground debates are accessible without authentication
             visibility = debate.get("visibility", "private")
             source = debate.get("source", "")
-            if visibility == "public" or source in ("landing", "playground", "try"):
+            if visibility == "public" or source in (
+                "landing",
+                "playground",
+                "try",
+                "demo",
+                "oracle",
+            ):
                 return json_response(normalize_debate_response(debate))
 
             # SECURITY: Verify tenant isolation - requesting user must belong

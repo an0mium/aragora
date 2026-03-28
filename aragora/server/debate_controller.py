@@ -1054,6 +1054,15 @@ class DebateController:
                         if isinstance(config.agents_str, str)
                         else config.agents_str
                     )
+                    metadata = dict(config.metadata or {})
+                    source = str(metadata.get("source") or "").strip()
+                    is_public = bool(metadata.get("public_spectate")) or source in (
+                        "landing",
+                        "playground",
+                        "demo",
+                        "oracle",
+                        "try",
+                    )
                     # Serialize messages from result
                     messages_data = []
                     if hasattr(result, "messages") and result.messages:
@@ -1072,21 +1081,78 @@ class DebateController:
                                 }
                             )
 
+                    critiques_data = []
+                    if getattr(result, "critiques", None):
+                        for critique in result.critiques:
+                            critiques_data.append(
+                                {
+                                    "agent": getattr(critique, "agent", ""),
+                                    "target_agent": getattr(critique, "target_agent", ""),
+                                    "issues": list(getattr(critique, "issues", []) or []),
+                                    "suggestions": list(getattr(critique, "suggestions", []) or []),
+                                    "severity": getattr(critique, "severity", 0.0),
+                                }
+                            )
+
+                    votes_data = []
+                    if getattr(result, "votes", None):
+                        for vote in result.votes:
+                            votes_data.append(
+                                {
+                                    "agent": getattr(vote, "agent", ""),
+                                    "choice": getattr(vote, "choice", ""),
+                                    "confidence": getattr(vote, "confidence", 0.0),
+                                    "reasoning": getattr(vote, "reasoning", ""),
+                                }
+                            )
+
                     debate_data = {
                         "id": debate_id,
+                        "debate_id": debate_id,
+                        "topic": config.question,
                         "task": config.question,
+                        "status": result.status or "completed",
                         "agents": agents_list,
                         "rounds": config.rounds,
+                        "rounds_used": getattr(result, "rounds_used", config.rounds),
                         "final_answer": result.final_answer,
                         "consensus_reached": result.consensus_reached,
                         "confidence": result.confidence,
+                        "duration_seconds": round(time.time() - start_time, 3),
+                        "participants": list(getattr(result, "participants", []) or []),
+                        "proposals": dict(getattr(result, "proposals", {}) or {}),
+                        "critiques": critiques_data,
+                        "votes": votes_data,
+                        "dissenting_views": list(getattr(result, "dissenting_views", []) or []),
+                        "receipt": None,
+                        "receipt_hash": None,
                         "grounded_verdict": (
                             result.grounded_verdict.to_dict() if result.grounded_verdict else None
                         ),
                         "messages": messages_data,
+                        "source": source or None,
                     }
+                    if is_public:
+                        debate_data["visibility"] = "public"
+                        debate_data["share_url"] = f"/debate/{debate_id}"
+                        debate_data["share_token"] = debate_id
                     self.storage.save_dict(debate_data)
                     logger.info("[debate] Persisted debate %s to storage", debate_id)
+                    try:
+                        from aragora.storage.debate_store import get_debate_store
+
+                        get_debate_store().save(
+                            debate_id=debate_id,
+                            topic=config.question,
+                            result=debate_data,
+                            source=source or "playground",
+                        )
+                    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+                        logger.debug(
+                            "[debate] Failed to mirror debate %s to public store: %s",
+                            debate_id,
+                            exc,
+                        )
             except (OSError, ValueError, TypeError, AttributeError) as e:
                 # OSError: database/file access errors
                 # ValueError: serialization errors

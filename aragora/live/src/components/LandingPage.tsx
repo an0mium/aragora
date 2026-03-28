@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import { PublicDebateStream } from '@/components/debate/PublicDebateStream';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
@@ -20,6 +21,37 @@ const PROGRESS_MESSAGES = [
   'Generating verdict...',
 ];
 
+interface LiveDebateSession {
+  debateId: string;
+  task: string;
+  agents: string[];
+}
+
+function extractLiveDebateSession(
+  data: Partial<DebateResponse> & {
+    debate_id?: string;
+    task?: string;
+    agents?: string[];
+    live_stream?: boolean;
+  },
+  fallbackTask: string,
+): LiveDebateSession | null {
+  if (!data.live_stream) return null;
+
+  const debateId = data.debate_id || data.id;
+  if (!debateId) return null;
+
+  return {
+    debateId,
+    task: data.topic || data.task || fallbackTask,
+    agents: Array.isArray(data.participants)
+      ? data.participants
+      : Array.isArray(data.agents)
+        ? data.agents
+        : [],
+  };
+}
+
 function parseRetryAfterSeconds(retryAfter: string | null): number {
   if (!retryAfter) return 60;
 
@@ -34,11 +66,12 @@ function parseRetryAfterSeconds(retryAfter: string | null): number {
   return Math.max(1, Math.ceil((retryTime - Date.now()) / 1000));
 }
 
-export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
+export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPageProps) {
   const [question, setQuestion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liveDebate, setLiveDebate] = useState<LiveDebateSession | null>(null);
   const [lastTopic, setLastTopic] = useState('');
   const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
   const abortRef = useRef<AbortController | null>(null);
@@ -72,6 +105,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setLiveDebate(null);
     setLastTopic(topic);
     setProgressMsg(PROGRESS_MESSAGES[0]);
 
@@ -89,7 +123,14 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
       const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        body: JSON.stringify({
+          topic,
+          question: topic,
+          rounds: 2,
+          agents: 3,
+          source: 'landing',
+          live_stream: true,
+        }),
         signal: controller.signal,
       });
 
@@ -106,7 +147,14 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
         return;
       }
 
-      setResult(await res.json());
+      const data = await res.json();
+      const session = extractLiveDebateSession(data, topic);
+      if (session) {
+        setLiveDebate(session);
+        return;
+      }
+
+      setResult(data as DebateResponse);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       if (err instanceof Error && err.message.includes('Failed to fetch')) {
@@ -191,13 +239,13 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="What decision are you facing?"
-              disabled={isRunning}
+              disabled={isRunning || Boolean(liveDebate)}
               rows={2}
               className="w-full bg-surface border border-border text-text px-4 py-3 font-mono text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green transition-colors resize-none disabled:opacity-50"
             />
             <button
               type="submit"
-              disabled={isRunning || !question.trim()}
+              disabled={isRunning || Boolean(liveDebate) || !question.trim()}
               className="w-full mt-3 font-mono text-sm px-8 py-3 bg-acid-green text-bg font-bold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isRunning ? 'Agents debating...' : 'Run a free debate'}
@@ -205,7 +253,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
           </form>
 
           {/* Example topics — reduce blank-page friction */}
-          {!result && !isRunning && (
+          {!result && !isRunning && !liveDebate && (
             <div className="max-w-xl mx-auto mt-4">
               <p className="text-xs font-mono text-text-muted/60 mb-2 text-center">Or try an example:</p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -236,6 +284,26 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
                 <span className="text-sm font-mono">{progressMsg}</span>
               </div>
               <span className="text-xs font-mono text-text-muted/60">Usually takes 10-20 seconds</span>
+            </div>
+          )}
+
+          {liveDebate && (
+            <div className="max-w-3xl mx-auto mt-8 text-left border border-border bg-surface">
+              <PublicDebateStream
+                debateId={liveDebate.debateId}
+                apiBase={resolvedApiBase}
+                wsUrl={wsUrl}
+                task={liveDebate.task}
+                agents={liveDebate.agents}
+                onResolved={(resolved) => {
+                  setLiveDebate(null);
+                  if (resolved) {
+                    setResult(resolved);
+                  } else {
+                    setError('The live debate finished, but the final artifact could not be loaded.');
+                  }
+                }}
+              />
             </div>
           )}
 
