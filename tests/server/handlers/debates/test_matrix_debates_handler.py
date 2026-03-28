@@ -13,6 +13,7 @@ from aragora.server.handlers.debates.matrix_debates import (
     MatrixDebatesHandler,
     _matrix_limiter,
 )
+from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, UnauthorizedError
 
 
