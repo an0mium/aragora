@@ -62,6 +62,17 @@ from aragora.observability import (
     track_websocket_connection,
 )
 
+# Model request telemetry pipeline
+from aragora.telemetry.model_request_pipeline import (
+    ModelRequestMetric,
+    SessionMetricsStore,
+    async_model_request_span,
+    capture_model_request,
+    get_session_metrics_store,
+    model_request_span,
+    reset_session_metrics_store,
+)
+
 __all__ = [
     # Logging
     "configure_logging",
@@ -107,4 +118,12 @@ __all__ = [
     "get_metrics_config",
     "is_tracing_enabled",
     "is_metrics_enabled",
+    # Model request pipeline
+    "ModelRequestMetric",
+    "SessionMetricsStore",
+    "capture_model_request",
+    "get_session_metrics_store",
+    "model_request_span",
+    "async_model_request_span",
+    "reset_session_metrics_store",
 ]
