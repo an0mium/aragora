@@ -154,11 +154,11 @@ async function readErrorMessage(response) {
   try {
     const body = await response.json();
     return body.detail || body.error || body.message || fallback;
-  } catch (_error) {
+  } catch {
     try {
       const text = await response.text();
       return text || fallback;
-    } catch (_textError) {
+    } catch {
       return fallback;
     }
   }

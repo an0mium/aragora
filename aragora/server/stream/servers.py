@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import aiohttp.web
+    import aiohttp.web  # type: ignore[import-not-found]
 
 # Configure module logger
 logger = logging.getLogger(__name__)

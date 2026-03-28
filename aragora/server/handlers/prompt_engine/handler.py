@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.pipeline.backbone_contracts import SpecBundle
+from aragora.pipeline.decision_plan.factory import normalize_execution_mode
+from aragora.pipeline.executor import ExecutionMode
 
 from ..base import (
     HandlerResult,
@@ -42,8 +44,11 @@ class PromptEngineHandler(SecureHandler):
         ("POST", "/api/prompt-engine/validate"),
     ]
 
-    def can_handle(self, method: str, path: str) -> bool:
-        return method == "POST" and path.startswith("/api/prompt-engine/")
+    def can_handle(self, path: str, method: str | None = None) -> bool:
+        # Backward-compatible signature: can_handle(method, path)
+        if method is not None and not path.startswith("/") and method.startswith("/"):
+            path, method = method, path
+        return (method or "POST") == "POST" and path.startswith("/api/prompt-engine/")
 
     @handle_errors("prompt engine")
     def handle_POST(self, handler: Any) -> HandlerResult:
@@ -315,12 +320,15 @@ class PromptEngineHandler(SecureHandler):
                 }
             else:
                 bridge = get_execution_bridge()
-                execution_mode = (
+                execution_mode = normalize_execution_mode(
                     plan.implementation_profile.execution_mode
                     if plan.implementation_profile
                     else None
                 )
-                bridge.schedule_execution(plan.id, execution_mode=execution_mode)
+                bridge.schedule_execution(
+                    plan.id,
+                    execution_mode=cast(ExecutionMode | None, execution_mode),
+                )
                 record = next(iter(bridge.list_execution_records(plan_id=plan.id, limit=1)), None)
                 execution_payload: dict[str, Any] = {
                     "status": "scheduled",

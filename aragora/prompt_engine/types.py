@@ -392,6 +392,7 @@ class Specification:
     estimated_effort: str = ""
     status: SpecificationStatus = SpecificationStatus.DRAFT
     alternatives_considered: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
     file_changes: list[SpecFile] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
     risks: list[RiskItem] = field(default_factory=list)
@@ -437,6 +438,7 @@ class Specification:
             if isinstance(self.status, SpecificationStatus)
             else self.status,
             "alternatives_considered": list(self.alternatives_considered),
+            "constraints": list(self.constraints),
             "confidence": self.confidence,
             "provenance_chain": list(self.provenance_chain),
             "provenance": self.provenance.to_dict() if self.provenance else None,

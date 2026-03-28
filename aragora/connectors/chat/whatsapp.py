@@ -26,7 +26,7 @@ from aragora.connectors.chat.models import MessageButton
 logger = logging.getLogger(__name__)
 
 try:
-    import httpx
+    import httpx  # type: ignore[import-not-found]
 
     HTTPX_AVAILABLE = True
 except ImportError:

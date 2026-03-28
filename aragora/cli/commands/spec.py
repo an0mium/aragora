@@ -68,7 +68,7 @@ async def _run_spec_pipeline(
         "questions": [q.to_dict() if hasattr(q, "to_dict") else q for q in result.questions],
         "stages_completed": result.stages_completed,
         "auto_approved": result.auto_approved,
-        "timing": timing.to_dict() if hasattr(timing, "to_dict") else timing,
+        "timing": timing.to_dict() if timing is not None and hasattr(timing, "to_dict") else timing,
     }
 
 

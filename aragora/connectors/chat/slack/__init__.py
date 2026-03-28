@@ -315,7 +315,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         Returns:
             Tuple of (success, response_data, error_message)
         """
-        import httpx as _httpx
+        import httpx as _httpx  # type: ignore[import-not-found]
 
         if not HTTPX_AVAILABLE:
             return False, None, "httpx not available"
