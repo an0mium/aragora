@@ -168,6 +168,57 @@ class DebateShareHandler(BaseHandler):
             return parts[4]
         return None
 
+    def _sync_storage_public_flag(
+        self,
+        debate_id: str,
+        *,
+        is_public: bool,
+        org_id: str | None = None,
+    ) -> None:
+        """Mirror public share state into persistent debate storage when available."""
+        storage = self.get_storage()
+        if storage is None:
+            return
+
+        set_public = getattr(storage, "set_public", None)
+        if not callable(set_public):
+            return
+
+        try:
+            updated = (
+                set_public(debate_id, is_public, org_id=org_id)
+                if org_id is not None
+                else set_public(debate_id, is_public)
+            )
+            if not updated:
+                logger.debug(
+                    "Share visibility sync skipped for %s (public=%s)",
+                    debate_id,
+                    is_public,
+                )
+        except TypeError:
+            # Some storage implementations may not accept org_id.
+            try:
+                updated = set_public(debate_id, is_public)
+                if not updated:
+                    logger.debug(
+                        "Share visibility sync skipped for %s (public=%s)",
+                        debate_id,
+                        is_public,
+                    )
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.warning(
+                    "Failed to sync share visibility for %s: %s",
+                    debate_id,
+                    exc,
+                )
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning(
+                "Failed to sync share visibility for %s: %s",
+                debate_id,
+                exc,
+            )
+
     # ------------------------------------------------------------------
     # GET /api/v1/debates/{id}/spectate/public
     # ------------------------------------------------------------------
@@ -246,6 +297,11 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, True)
+        self._sync_storage_public_flag(
+            debate_id,
+            is_public=True,
+            org_id=getattr(user, "org_id", None),
+        )
 
         host = _DEFAULT_HOST
         if handler and hasattr(handler, "headers"):
@@ -290,6 +346,11 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, False)
+        self._sync_storage_public_flag(
+            debate_id,
+            is_public=False,
+            org_id=getattr(user, "org_id", None),
+        )
 
         return json_response(
             {

@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -349,6 +350,18 @@ class TestSharePost:
         h.handle_post("/api/v1/debates/my-debate/share", {}, _make_http_handler())
         assert is_publicly_shared("my-debate") is True
 
+    def test_share_marks_storage_public(self):
+        storage = MagicMock()
+        h = DebateShareHandler(ctx={"storage": storage})
+        with patch.object(
+            DebateShareHandler,
+            "require_auth_or_error",
+            return_value=(SimpleNamespace(org_id="org-123"), None),
+        ):
+            h.handle_post("/api/v1/debates/my-debate/share", {}, _make_http_handler())
+
+        storage.set_public.assert_called_once_with("my-debate", True, org_id="org-123")
+
     def test_full_url_uses_host_header(self):
         h = DebateShareHandler()
         handler = _make_http_handler(host="debates.example.org")
@@ -433,6 +446,18 @@ class TestShareDelete:
         assert _status(result) == 200
         body = _body(result)
         assert body["public_spectate"] is False
+
+    def test_revoke_marks_storage_private(self):
+        storage = MagicMock()
+        h = DebateShareHandler(ctx={"storage": storage})
+        with patch.object(
+            DebateShareHandler,
+            "require_auth_or_error",
+            return_value=(SimpleNamespace(org_id="org-456"), None),
+        ):
+            h.handle_delete("/api/v1/debates/my-debate/share", {}, _make_http_handler())
+
+        storage.set_public.assert_called_once_with("my-debate", False, org_id="org-456")
 
     def test_revoke_then_spectate_returns_403(self):
         set_public_spectate("revoke-test", True)

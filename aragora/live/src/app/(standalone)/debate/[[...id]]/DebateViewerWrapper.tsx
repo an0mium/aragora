@@ -132,12 +132,12 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           </div>
 
           {/* ---- Verdict Card ---- */}
-          {debate.verdict && (
+          {(debate.verdict || debate.final_answer) && (
             <div className="mb-8 border border-[var(--acid-green)]/30 bg-[var(--surface)]">
               <div className="p-4 border-b border-[var(--acid-green)]/20">
                 <div className="flex items-center justify-between mb-3">
                   <span className="px-3 py-1 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 uppercase">
-                    VERDICT
+                    {debate.verdict ? 'VERDICT' : 'OUTCOME'}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-[var(--text-muted)]">
@@ -154,9 +154,11 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                     </span>
                   </div>
                 </div>
-                <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
-                  {debate.verdict}
-                </p>
+                {(debate.verdict || debate.final_answer) && (
+                  <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                    {debate.verdict || debate.final_answer}
+                  </p>
+                )}
               </div>
 
               {/* Final answer / synthesis */}
@@ -166,9 +168,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                     Synthesis
                   </span>
                   <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {debate.final_answer.length > 800
-                      ? debate.final_answer.slice(0, 800) + '...'
-                      : debate.final_answer}
+                    {debate.final_answer}
                   </p>
                 </div>
               )}
@@ -184,9 +184,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
               <div className="space-y-3">
                 {debate.participants.map((agent, i) => {
                   const color = agentColor(i);
-                  const raw = debate.proposals[agent] ?? '';
-                  const excerpt =
-                    raw.length > 500 ? raw.slice(0, 500) + '...' : raw;
+                  const proposal = debate.proposals[agent] ?? '';
                   return (
                     <div
                       key={agent}
@@ -202,10 +200,74 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       >
                         {agent}
                       </span>
-                      {excerpt && (
+                      {proposal && (
                         <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                          {excerpt}
+                          {proposal}
                         </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ---- Critiques ---- */}
+          {debate.critiques.length > 0 && (
+            <div className="mb-8 border border-[var(--gold)]/30 bg-[var(--surface)]">
+              <div className="p-4 border-b border-[var(--gold)]/20">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                  Critiques
+                </h2>
+              </div>
+              <div className="p-4 space-y-4">
+                {debate.critiques.map((critique, i) => {
+                  const color = agentColor(
+                    debate.participants.indexOf(critique.agent) >= 0
+                      ? debate.participants.indexOf(critique.agent)
+                      : i,
+                  );
+                  return (
+                    <div
+                      key={`${critique.agent}-${critique.target_agent}-${i}`}
+                      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                      style={{ borderLeft: `3px solid ${color.border}` }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="text-xs font-mono uppercase tracking-wider">
+                          <span style={{ color: color.text }}>{critique.agent}</span>
+                          <span className="text-[var(--text-muted)]"> {'->'} </span>
+                          <span className="text-[var(--text)]">
+                            {critique.target_agent || 'debate'}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono text-[var(--gold)]">
+                          Severity {Math.round(critique.severity * 10) / 10}
+                        </span>
+                      </div>
+                      {critique.issues.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {critique.issues.map((issue, issueIndex) => (
+                            <p
+                              key={`${critique.agent}-issue-${issueIndex}`}
+                              className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap"
+                            >
+                              {issue}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {critique.suggestions.length > 0 && (
+                        <div className="space-y-2 pt-3 border-t border-[var(--border)]">
+                          {critique.suggestions.map((suggestion, suggestionIndex) => (
+                            <p
+                              key={`${critique.agent}-suggestion-${suggestionIndex}`}
+                              className="text-sm font-mono text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap"
+                            >
+                              Suggestion: {suggestion}
+                            </p>
+                          ))}
+                        </div>
                       )}
                     </div>
                   );
@@ -248,10 +310,55 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                         <p className="text-xs font-mono text-[var(--text)]">
                           {vote.choice}
                         </p>
+                        {vote.reasoning && (
+                          <p className="mt-2 text-xs font-mono text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap">
+                            {vote.reasoning}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Transcript ---- */}
+          {debate.messages && debate.messages.length > 0 && (
+            <div className="mb-8 border border-[var(--acid-cyan)]/20 bg-[var(--surface)]">
+              <div className="p-4 border-b border-[var(--acid-cyan)]/20">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                  Full Transcript
+                </h2>
+              </div>
+              <div className="p-4 space-y-4">
+                {debate.messages.map((message, index) => {
+                  const color = agentColor(
+                    debate.participants.indexOf(message.agent) >= 0
+                      ? debate.participants.indexOf(message.agent)
+                      : index,
+                  );
+                  return (
+                    <div
+                      key={`${message.agent}-${message.round}-${index}`}
+                      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                      style={{ borderLeft: `3px solid ${color.border}` }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="text-xs font-mono uppercase tracking-wider">
+                          <span style={{ color: color.text }}>{message.agent}</span>
+                          <span className="text-[var(--text-muted)]"> // {message.role}</span>
+                        </div>
+                        <span className="text-xs font-mono text-[var(--text-muted)]">
+                          Round {message.round}
+                        </span>
+                      </div>
+                      <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        {message.content}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

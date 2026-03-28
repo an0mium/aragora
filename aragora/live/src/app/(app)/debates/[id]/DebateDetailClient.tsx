@@ -122,15 +122,30 @@ export default function DebateDetailClient() {
 
   const handleShare = useCallback(async () => {
     if (!id) return;
-    const url = `${window.location.origin}/debates/${id}`;
     try {
+      const response = await fetch(`${backendConfig.api}/api/v1/debates/${id}/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+
+      let url = `${window.location.origin}/debate/${id}`;
+      if (response.ok) {
+        const data = await response.json();
+        if (typeof data?.share_url === 'string' && data.share_url.length > 0) {
+          url = new URL(data.share_url, window.location.origin).toString();
+        }
+      }
+
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       logger.error('Failed to copy link:', err);
     }
-  }, [id]);
+  }, [backendConfig.api, getAuthHeaders, id]);
 
   // Right sidebar context — only update when pkg changes.
   // setContext/clearContext are stable useCallback refs so we exclude them
