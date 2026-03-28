@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aragora Review</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Aragora Chrome Extension</p>
+        <div class="hero-row">
+          <div>
+            <h1>Adversarial Review</h1>
+            <p class="hero-copy">
+              Highlight any passage, right-click, and send it to Aragora gauntlet.
+            </p>
+          </div>
+          <span class="status-pill" id="status-pill">Idle</span>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-header">
+          <h2>Connection</h2>
+          <p>Stored in Chrome sync storage for right-click runs.</p>
+        </div>
+        <form id="settings-form" class="settings-form">
+          <label class="field">
+            <span>API URL</span>
+            <input id="api-url" name="api-url" type="url" placeholder="https://api.aragora.ai" required>
+          </label>
+
+          <label class="field">
+            <span>Bearer Token</span>
+            <input id="api-token" name="api-token" type="password" placeholder="Paste an Aragora API token" autocomplete="off">
+          </label>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Persona</span>
+              <select id="persona" name="persona">
+                <option value="security">Security</option>
+                <option value="gdpr_auditor">GDPR Auditor</option>
+                <option value="hipaa_auditor">HIPAA Auditor</option>
+                <option value="soc2_auditor">SOC 2 Auditor</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Profile</span>
+              <select id="profile" name="profile">
+                <option value="quick">Quick</option>
+                <option value="default">Default</option>
+                <option value="thorough">Thorough</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="save-settings" type="submit" class="primary-button">Save Settings</button>
+            <button id="clear-results" type="button" class="ghost-button">Clear Result</button>
+          </div>
+          <p id="settings-status" class="inline-status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="panel-header">
+          <h2>Latest Result</h2>
+          <p id="result-updated-at">Waiting for a review run.</p>
+        </div>
+
+        <div class="summary-grid">
+          <article class="summary-card">
+            <span class="summary-label">Verdict</span>
+            <strong id="verdict-value">Not run</strong>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Findings</span>
+            <strong id="findings-count">0</strong>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Risk Mix</span>
+            <strong id="risk-breakdown">0 critical / 0 high</strong>
+          </article>
+        </div>
+
+        <div class="result-meta">
+          <p id="result-message" class="result-message">
+            Right-click selected text on any page and choose <strong>Send Selection to Aragora Review</strong>.
+          </p>
+          <dl class="meta-grid">
+            <div>
+              <dt>Run ID</dt>
+              <dd id="gauntlet-id">Not started</dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd id="source-url">No page captured</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="reasoning-card">
+          <span class="summary-label">Reasoning</span>
+          <p id="verdict-reasoning">Results from the most recent gauntlet receipt will appear here.</p>
+        </div>
+
+        <div class="findings-block">
+          <div class="findings-header">
+            <h3>Findings</h3>
+            <span id="findings-caption">No findings yet</span>
+          </div>
+          <ul id="findings-list" class="findings-list"></ul>
+        </div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
