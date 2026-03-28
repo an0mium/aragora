@@ -977,7 +977,40 @@ Include proper type hints and docstrings."""
         if approved is True:
             return result
 
+        feedback = self._format_review_feedback(
+            issues,
+            suggestions,
+            review.get("review") or "Review requested changes.",
+        )
+
         if not self._reviser_type or self._max_revisions <= 0:
+            if approved is False and allow_model_retry:
+                alternative = self._get_alternative_implementer(
+                    task,
+                    exclude_models={result.model_used or "", self._reviser_type},
+                )
+                if alternative is not None:
+                    alternate_agent, alternate_label = alternative
+                    logger.info(
+                        "  Retrying %s with %s after review rejected the prior output...",
+                        task.id,
+                        alternate_label,
+                    )
+                    alternate_result = await self.execute_task(
+                        task,
+                        attempt=1,
+                        use_fallback=False,
+                        feedback=feedback,
+                        agent_override=alternate_agent,
+                        model_label=f"{alternate_label}-quality-retry",
+                    )
+                    if not alternate_result.success:
+                        return alternate_result
+                    return await self._review_and_revise(
+                        task,
+                        alternate_result,
+                        allow_model_retry=False,
+                    )
             if self._review_strict:
                 return TaskResult(
                     task_id=result.task_id,
@@ -988,12 +1021,6 @@ Include proper type hints and docstrings."""
                     duration_seconds=result.duration_seconds,
                 )
             return result
-
-        feedback = self._format_review_feedback(
-            issues,
-            suggestions,
-            review.get("review") or "Review requested changes.",
-        )
 
         for revision_idx in range(self._max_revisions):
             reviser = self._get_reviser(timeout=self.claude_timeout)
