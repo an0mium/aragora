@@ -761,7 +761,7 @@ class TestInjectReceiptConclusions:
             await init._inject_receipt_conclusions(ctx)
 
             knowledge_text = builder.get_knowledge_mound_context()
-            prompt = builder.build_proposal_prompt(MockAgent())
+            prompt = builder.build_proposal_prompt(MockAgent("claude"))
 
             assert "Existing organizational knowledge." in knowledge_text
             assert "PAST DECISION CONCLUSIONS" in knowledge_text
