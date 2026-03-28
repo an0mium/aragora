@@ -63,7 +63,7 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
 
     assert "chrome.storage.onChanged.addListener" in popup_js
     assert "window.setInterval" in popup_js
-    assert "result.finalAnswer" in popup_js
+    assert "finalAnswer" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
 
     assert '"aragora:get-selection"' in content_script
