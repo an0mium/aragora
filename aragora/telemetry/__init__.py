@@ -62,6 +62,18 @@ from aragora.observability import (
     track_websocket_connection,
 )
 
+# Model usage telemetry pipeline
+from aragora.telemetry.model_usage import (
+    DebateUsageSummary,
+    ModelCallRecord,
+    ModelUsagePipeline,
+    ModelUsageEventType,
+    debate_cost_summary_event,
+    get_model_usage_pipeline,
+    model_call_event,
+    set_model_usage_pipeline,
+)
+
 __all__ = [
     # Logging
     "configure_logging",
@@ -107,4 +119,13 @@ __all__ = [
     "get_metrics_config",
     "is_tracing_enabled",
     "is_metrics_enabled",
+    # Model usage telemetry
+    "ModelCallRecord",
+    "ModelUsagePipeline",
+    "ModelUsageEventType",
+    "DebateUsageSummary",
+    "model_call_event",
+    "debate_cost_summary_event",
+    "get_model_usage_pipeline",
+    "set_model_usage_pipeline",
 ]
