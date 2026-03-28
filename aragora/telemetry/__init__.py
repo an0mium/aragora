@@ -1,8 +1,8 @@
 """
 Telemetry module for Aragora.
 
-This is a convenience re-export of aragora.observability for simpler imports.
-All functionality is delegated to the observability package.
+This is a convenience re-export of aragora.observability for simpler imports,
+plus the model usage telemetry pipeline for per-request AI cost/token tracking.
 
 Usage:
     from aragora.telemetry import trace_handler, record_request, get_logger
@@ -10,6 +10,9 @@ Usage:
     @trace_handler("debates.create")
     def handle_create_debate(self, handler):
         ...
+
+    # Model usage tracking
+    from aragora.telemetry.model_usage import ModelUsageCollector, ModelUsageStore
 
 See aragora.observability for full documentation.
 """
