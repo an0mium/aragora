@@ -798,3 +798,150 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     assert "## Suggested Subtasks" in out
     assert "[quality] verdict=good" in out
     assert "practicality=" in out
+
+
+def test_cmd_ask_quality_retry_switches_models_after_timeout_and_low_quality(monkeypatch, capsys):
+    """Repair retries should promote a different model after timeout and low-quality outputs."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    weak_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Gate Criteria
+- Should be reliable.
+"""
+    upgraded_answer = """
+## Ranked High-Level Tasks
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents participating in multi-round consensus
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+
+## Suggested Subtasks
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test that runs a minimal debate and verifies receipt hash chain integrity
+
+## Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
+
+## Test Plan
+- Run full settlement hook unit tests with both successful and failed settle paths for comprehensive coverage
+- Execute integration smoke test covering debate creation through receipt persistence to validate end-to-end flow
+- Verify ERC-8004 reputation updates are idempotent and handle concurrent writes correctly under load
+
+## Rollback Plan
+If settlement hook error rate exceeds 2% over a sustained 10 minute window, rollback by disabling the settlement feature flag in the control plane and redeploying the previous stable build from the artifact registry.
+
+## Gate Criteria
+- Settlement hook p95 latency <= 200ms measured over a 15 minute steady-state window
+- Overall debate error rate < 0.5% over 15 minutes of production traffic with settlement enabled
+
+## JSON Payload
+```json
+{
+  "ranked_high_level_tasks": ["Settlement tracker ERC-8004 integration", "Data-feed verification"],
+  "suggested_subtasks": ["Settlement hook tests", "Brier score validation", "Receipt hash smoke test"],
+  "owner_module_file_paths": ["aragora/debate/settlement_hooks.py"],
+  "test_plan": ["Settlement unit tests", "Integration smoke", "ERC-8004 idempotency"],
+  "rollback_plan": {"trigger": "settlement hook error > 2%", "action": "disable settlement flag"},
+  "gate_criteria": [
+    {"metric": "settlement_p95_latency", "op": "<=", "threshold": 200, "unit": "ms"},
+    {"metric": "debate_error_rate", "op": "<", "threshold": 0.5, "unit": "%"}
+  ]
+}
+```
+"""
+
+    args = argparse.Namespace(
+        task=(
+            "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+            "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+        ),
+        agents="anthropic-api|claude-opus-4-6,openai-api|gpt-5.4,gemini|gemini-3.1-pro-preview",
+        rounds=1,
+        consensus="hybrid",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=300,
+        post_consensus_quality=True,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_practical_min_score=5.0,
+        quality_fail_closed=True,
+        quality_concretize_max_rounds=0,
+        quality_extra_assessment_rounds=0,
+        required_sections=None,
+        output_contract_file=None,
+    )
+
+    result = DebateResult(task=args.task, final_answer=weak_answer, metadata={})
+    timed_out_agent = MagicMock()
+    timed_out_agent.generate = AsyncMock(side_effect=TimeoutError("request timed out"))
+    low_quality_agent = MagicMock()
+    low_quality_agent.generate = AsyncMock(return_value=weak_answer)
+    upgraded_agent = MagicMock()
+    upgraded_agent.generate = AsyncMock(return_value=upgraded_answer)
+    created_specs: list[tuple[str, str | None]] = []
+
+    def _fake_create_agent(*, model_type, name, role, model=None, **_kwargs):
+        created_specs.append((model_type, model))
+        key = (model_type, model)
+        if key == ("gemini", "gemini-3.1-pro-preview"):
+            return timed_out_agent
+        if key == ("anthropic-api", "claude-opus-4-6"):
+            return low_quality_agent
+        if key == ("openai-api", "gpt-5.4"):
+            return upgraded_agent
+        raise AssertionError(f"Unexpected repair agent: {key}")
+
+    @contextmanager
+    def _no_timeout(_seconds: float):
+        yield
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(debate_cmd, "create_agent", side_effect=_fake_create_agent),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    out = capsys.readouterr().out
+    assert created_specs[:3] == [
+        ("gemini", "gemini-3.1-pro-preview"),
+        ("anthropic-api", "claude-opus-4-6"),
+        ("openai-api", "gpt-5.4"),
+    ]
+    assert "## Suggested Subtasks" in out
+    assert "[quality] verdict=good" in out

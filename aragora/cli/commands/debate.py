@@ -1756,6 +1756,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
     def _is_better_report(candidate: Any, incumbent: Any) -> bool:
         return _report_rank(candidate) > _report_rank(incumbent)
 
+    revision_penalties: dict[tuple[str, str | None], int] = {}
+
+    def _revision_spec_key(spec: AgentSpec) -> tuple[str, str | None]:
+        return (spec.provider, spec.model or None)
+
+    def _mark_revision_penalty(spec: AgentSpec | None) -> None:
+        if spec is None:
+            return
+        key = _revision_spec_key(spec)
+        revision_penalties[key] = revision_penalties.get(key, 0) + 1
+
     def _build_revision_specs(
         *,
         preferred_providers: list[str] | None = None,
@@ -1799,7 +1810,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 ordered_specs.append(AgentSpec(provider="openrouter", role="synthesizer"))
             except ValueError:
                 pass
-        return ordered_specs
+
+        ranked_specs = list(enumerate(ordered_specs))
+        ranked_specs.sort(
+            key=lambda item: (
+                revision_penalties.get(_revision_spec_key(item[1]), 0),
+                item[0],
+            )
+        )
+        return [spec for _, spec in ranked_specs]
 
     async def _attempt_targeted_revision(
         *,
@@ -1808,7 +1827,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         stage: str,
         role_hint: str,
         preferred_providers: list[str] | None = None,
-    ) -> tuple[str | None, str | None]:
+    ) -> tuple[str | None, AgentSpec | None]:
         ordered_specs = _build_revision_specs(preferred_providers=preferred_providers)
         if not ordered_specs:
             return (None, None)
@@ -1841,8 +1860,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     timeout=per_attempt_timeout,
                 )
                 if repaired and repaired.strip():
-                    return (repaired.strip(), provider)
+                    return (repaired.strip(), spec)
+                _mark_revision_penalty(spec)
             except Exception as e:  # noqa: BLE001 - best-effort repair fallback
+                _mark_revision_penalty(spec)
                 logger.warning("%s_attempt_failed provider=%s error=%s", stage, provider, e)
                 continue
         return (None, None)
@@ -1852,7 +1873,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         current_answer: str,
         defects: list[str],
         attempt_num: int,
-    ) -> tuple[str | None, str | None]:
+    ) -> tuple[str | None, AgentSpec | None]:
         if quality_contract is None:
             return (None, None)
 
@@ -1910,17 +1931,20 @@ def cmd_ask(args: argparse.Namespace) -> None:
             for loop_idx in range(1, quality_upgrade_max_loops + 1):
                 loops_by_stage["quality_upgrade"] += 1
                 loops_used = loop_idx
-                repaired, provider = await _attempt_quality_upgrade(
+                repaired, repair_spec = await _attempt_quality_upgrade(
                     current_answer=current_answer,
                     defects=current_report.defects,
                     attempt_num=loop_idx,
                 )
+                provider = repair_spec.provider if repair_spec else None
+                model = repair_spec.model if repair_spec else None
                 if not repaired:
                     attempts.append(
                         {
                             "stage": "quality_upgrade",
                             "loop": loop_idx,
                             "provider": provider or "none",
+                            "model": model,
                             "status": "no_revision",
                         }
                     )
@@ -1938,6 +1962,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "stage": "quality_upgrade",
                         "loop": loop_idx,
                         "provider": provider or "unknown",
+                        "model": model,
                         "status": "accepted" if accepted else "rejected",
                         "quality_score_10": revised_report.quality_score_10,
                         "practicality_score_10": revised_report.practicality_score_10,
@@ -1945,6 +1970,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "defect_count": len(revised_report.defects),
                     }
                 )
+
+                if repair_spec is not None and (
+                    not accepted or not _quality_gate_passes(revised_report)
+                ):
+                    _mark_revision_penalty(repair_spec)
 
                 if accepted:
                     best_answer = repaired
@@ -2022,7 +2052,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     target_practicality_10=quality_practical_min_score,
                     defects=best_report.defects,
                 )
-                revised, provider = await _attempt_targeted_revision(
+                revised, revision_spec = await _attempt_targeted_revision(
                     prompt=concretize_prompt,
                     attempt_num=round_idx,
                     stage="concretization",
@@ -2031,12 +2061,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "turning first-batch tasks into path-grounded, testable actions."
                     ),
                 )
+                provider = revision_spec.provider if revision_spec else None
+                model = revision_spec.model if revision_spec else None
                 if not revised:
                     attempts.append(
                         {
                             "stage": "concretization",
                             "loop": round_idx,
                             "provider": provider or "none",
+                            "model": model,
                             "status": "no_revision",
                         }
                     )
@@ -2052,6 +2085,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "stage": "concretization",
                         "loop": round_idx,
                         "provider": provider or "unknown",
+                        "model": model,
                         "status": "accepted" if accepted else "rejected",
                         "quality_score_10": revised_report.quality_score_10,
                         "practicality_score_10": revised_report.practicality_score_10,
@@ -2059,6 +2093,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "defect_count": len(revised_report.defects),
                     }
                 )
+                if revision_spec is not None and (
+                    not accepted or not _quality_gate_passes(revised_report)
+                ):
+                    _mark_revision_penalty(revision_spec)
                 if accepted:
                     best_answer = revised
                     best_report = revised_report
@@ -2088,7 +2126,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "Ground owner paths to existing repository files.",
                     ],
                 )
-                revised, provider = await _attempt_targeted_revision(
+                revised, revision_spec = await _attempt_targeted_revision(
                     prompt=assessment_prompt,
                     attempt_num=round_idx,
                     stage="assessment_upgrade",
@@ -2098,12 +2136,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     ),
                     preferred_providers=preferred_providers,
                 )
+                provider = revision_spec.provider if revision_spec else None
+                model = revision_spec.model if revision_spec else None
                 if not revised:
                     attempts.append(
                         {
                             "stage": "assessment_upgrade",
                             "loop": round_idx,
                             "provider": provider or "none",
+                            "model": model,
                             "status": "no_revision",
                         }
                     )
@@ -2120,6 +2161,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "stage": "assessment_upgrade",
                         "loop": round_idx,
                         "provider": provider or "unknown",
+                        "model": model,
                         "status": "accepted" if accepted else "rejected",
                         "quality_score_10": revised_report.quality_score_10,
                         "practicality_score_10": revised_report.practicality_score_10,
@@ -2127,6 +2169,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "defect_count": len(revised_report.defects),
                     }
                 )
+                if revision_spec is not None and (
+                    not accepted or not _quality_gate_passes(revised_report)
+                ):
+                    _mark_revision_penalty(revision_spec)
                 if accepted:
                     best_answer = revised
                     best_report = revised_report
