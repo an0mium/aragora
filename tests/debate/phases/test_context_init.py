@@ -12,6 +12,8 @@ Tests cover:
 """
 
 import asyncio
+import os
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.debate.phases.context_init import ContextInitializer
+from aragora.memory.consensus import ConsensusMemory, ConsensusStrength, DissentRetriever
 
 
 @dataclass
@@ -809,6 +812,39 @@ class TestInjectHistoricalDissents:
         init._inject_historical_dissents(ctx)
 
         assert "HISTORICAL DISSENTS" in ctx.env.context
+
+    def test_injects_prior_conclusion_from_similar_debate(self):
+        """Includes the prior conclusion when debating a similar question."""
+        ctx = MockDebateContext()
+        ctx.env.task = "How should we rate limit API traffic?"
+
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            memory = ConsensusMemory(db_path=db_path)
+            memory.store_consensus(
+                topic="Best API rate limiting strategy",
+                conclusion="The previous debate concluded that token bucket with Redis works best.",
+                strength=ConsensusStrength.STRONG,
+                confidence=0.91,
+                participating_agents=["agent-a", "agent-b"],
+                agreeing_agents=["agent-a", "agent-b"],
+            )
+
+            init = ContextInitializer(dissent_retriever=DissentRetriever(memory=memory))
+
+            with patch(
+                "aragora.debate.phases.context_init.ContextInitializer._inject_epistemic_priors"
+            ):
+                init._inject_historical_dissents(ctx)
+
+            assert "Similar Past Debates" in ctx.env.context
+            assert (
+                "The previous debate concluded that token bucket with Redis works best."
+                in ctx.env.context
+            )
+        finally:
+            os.unlink(db_path)
 
     def test_skips_short_dissent_context(self):
         """Skips dissent context that is too short."""

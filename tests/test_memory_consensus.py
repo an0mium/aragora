@@ -1019,6 +1019,28 @@ class TestDissentRetriever:
         assert "# Historical Context for:" in context
         assert isinstance(context, str)
 
+    def test_get_debate_preparation_context_includes_prior_conclusion(
+        self, consensus_memory, dissent_retriever
+    ):
+        """Should surface the previous conclusion for a similar debate."""
+        consensus_memory.store_consensus(
+            topic="Best API rate limiting strategy",
+            conclusion="The previous debate concluded that token bucket with Redis works best.",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.91,
+            participating_agents=["agent-a", "agent-b"],
+            agreeing_agents=["agent-a", "agent-b"],
+            domain="backend",
+        )
+
+        context = dissent_retriever.get_debate_preparation_context(
+            "How should we rate limit API traffic?"
+        )
+
+        assert "## Similar Past Debates" in context
+        assert "Conclusion:" in context
+        assert "token bucket with Redis works best" in context
+
     def test_empty_results_handled(self, dissent_retriever):
         """Should handle empty results gracefully."""
         result = dissent_retriever.retrieve_for_new_debate("Nonexistent topic")
