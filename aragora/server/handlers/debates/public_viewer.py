@@ -68,8 +68,10 @@ def _reset_public_viewer_rate_limits() -> None:
 # Debate retrieval helpers
 # ---------------------------------------------------------------------------
 
-# Debate ID: hex string, 16-32 chars (matches playground IDs)
-_DEBATE_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
+# Debate IDs can be:
+# - Playground IDs: hex strings or playground_<hex>
+# - Stored debate IDs: slug/UUID-like safe identifiers
+_DEBATE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 # Also support playground-prefixed IDs like playground_abcd1234
 _PLAYGROUND_ID_RE = re.compile(r"^playground_[a-f0-9]{8,16}$")
