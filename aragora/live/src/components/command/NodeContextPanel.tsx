@@ -33,6 +33,16 @@ const STAGE_CONFIG: Record<DAGStage, { color: string; bg: string; border: string
       { label: 'Find Precedents', action: 'precedents', icon: '\uD83D\uDD0D' },
     ],
   },
+  principles: {
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/30',
+    actions: [
+      { label: 'Debate This', action: 'debate', icon: '\u2694' },
+      { label: 'Validate', action: 'validate', icon: '\uD83D\uDEE1' },
+      { label: 'Find Precedents', action: 'precedents', icon: '\uD83D\uDD0D' },
+    ],
+  },
   goals: {
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',

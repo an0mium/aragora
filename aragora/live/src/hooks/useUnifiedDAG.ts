@@ -436,7 +436,10 @@ function serverEdgeToReactFlow(
     target,
     type: crossStage ? 'crossStage' : String(edge.type ?? 'default'),
     label: edge.label ? String(edge.label) : edgeType || undefined,
-    animated: Boolean(edge.animated ?? crossStage || edgeType.toLowerCase() === 'similarity'),
+    animated: Boolean(
+      edge.animated
+      ?? (crossStage || edgeType.toLowerCase() === 'similarity'),
+    ),
     data: {
       edgeType,
       crossStage,
