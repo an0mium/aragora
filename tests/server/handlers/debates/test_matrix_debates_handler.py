@@ -375,6 +375,27 @@ class TestHandlePost:
         assert status == 400
         assert "Maximum 10 agents" in body.get("error", "")
 
+    @pytest.mark.asyncio
+    async def test_post_scenario_agents_must_be_array(
+        self, handler, mock_http_handler, mock_auth_context
+    ):
+        """Should return 400 when scenario agent override is not an array."""
+        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
+            mock_auth.return_value = mock_auth_context
+            with patch.object(handler, "check_permission"):
+                result = await handler.handle_post(
+                    mock_http_handler,
+                    "/api/v1/debates/matrix",
+                    {
+                        "task": "A valid test task for debate",
+                        "scenarios": [{"name": "pair-a", "agents": "claude"}],
+                    },
+                )
+                body, status = parse_result(result)
+
+        assert status == 400
+        assert "scenarios[0].agents must be an array" in body.get("error", "")
+
 
 # =============================================================================
 # Test Rate Limiting
@@ -552,3 +573,27 @@ class TestHelperMethods:
         assert matrix["consensus_rate"] == 0.5
         assert matrix["avg_confidence"] == 0.65
         assert matrix["avg_rounds"] == 4.0
+        assert matrix["best_scenario"] == "Scenario A"
+        assert matrix["best_result"]["scenario_name"] == "Scenario A"
+
+    def test_select_best_result_prefers_consensus_before_confidence(self, handler):
+        """Should prefer a consensus result over a higher-confidence non-consensus one."""
+        results = [
+            {
+                "scenario_name": "Fast Draft",
+                "consensus_reached": False,
+                "confidence": 0.95,
+                "rounds_used": 2,
+            },
+            {
+                "scenario_name": "Consensus Winner",
+                "consensus_reached": True,
+                "confidence": 0.81,
+                "rounds_used": 4,
+            },
+        ]
+
+        best_result = handler._select_best_result(results)
+
+        assert best_result is not None
+        assert best_result["scenario_name"] == "Consensus Winner"

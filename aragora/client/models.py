@@ -397,6 +397,7 @@ class MatrixScenario(BaseModel):
     name: str
     parameters: dict[str, Any] = Field(default_factory=dict)
     constraints: list[str] = Field(default_factory=list)
+    agents: list[str] = Field(default_factory=list)
     is_baseline: bool = False
 
 
@@ -439,6 +440,7 @@ class MatrixDebateCreateResponse(BaseModel):
         default_factory=dict
     )
     comparison_matrix: dict[str, Any] | None = None
+    best_result: dict[str, Any] | None = None
 
 
 class MatrixDebate(BaseModel):

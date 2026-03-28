@@ -294,6 +294,19 @@ class MatrixDebatesHandler(SecureHandler):
                     return error_response(f"scenarios[{i}].constraints must be an array", 400)
                 if len(scenario["constraints"]) > 10:
                     return error_response(f"scenarios[{i}].constraints too many (max 10)", 400)
+            if "agents" in scenario:
+                scenario_agents = scenario["agents"]
+                if not isinstance(scenario_agents, list):
+                    return error_response(f"scenarios[{i}].agents must be an array", 400)
+                if len(scenario_agents) > 10:
+                    return error_response(f"scenarios[{i}].agents too many (max 10)", 400)
+                for j, name in enumerate(scenario_agents):
+                    if not isinstance(name, str):
+                        return error_response(f"scenarios[{i}].agents[{j}] must be a string", 400)
+                    if len(name) > 50:
+                        return error_response(
+                            f"scenarios[{i}].agents[{j}] name too long (max 50 chars)", 400
+                        )
 
         # Validate agents
         agent_names = data.get("agents", [])
@@ -367,6 +380,8 @@ class MatrixDebatesHandler(SecureHandler):
 
             # Run all scenarios in parallel
             results = await runner.run_all(max_rounds=max_rounds)
+            serialized_results = [r.to_dict() for r in results.scenario_results]
+            best_result = self._select_best_result(serialized_results)
 
             # Build response
             return json_response(
@@ -374,10 +389,11 @@ class MatrixDebatesHandler(SecureHandler):
                     "matrix_id": matrix_id,
                     "task": task,
                     "scenario_count": len(results.scenario_results),
-                    "results": [r.to_dict() for r in results.scenario_results],
+                    "results": serialized_results,
                     "universal_conclusions": results.universal_conclusions,
                     "conditional_conclusions": results.conditional_conclusions,
                     "comparison_matrix": results.comparison_matrix,
+                    "best_result": best_result,
                 }
             )
 
@@ -401,21 +417,49 @@ class MatrixDebatesHandler(SecureHandler):
         max_rounds = data.get("max_rounds", DEFAULT_ROUNDS)
 
         try:
-            agents = await self._load_agents(agent_names)
-            if not agents:
-                return error_response("No valid agents found", 400)
-
             matrix_id = str(uuid.uuid4())
             all_conclusions: list[dict[str, Any]] = []
             ctx = getattr(self, "ctx", {}) or {}
             document_store = ctx.get("document_store")
             evidence_store = ctx.get("evidence_store")
+            agent_cache: dict[tuple[str, ...], list[Any]] = {}
+
+            async def load_cached_agents(names: list[str]) -> list[Any]:
+                key = tuple(names)
+                if key not in agent_cache:
+                    agent_cache[key] = await self._load_agents(names)
+                return agent_cache[key]
+
+            scenario_agent_overrides = [
+                s.get("agents", []) for s in scenarios if isinstance(s, dict) and s.get("agents")
+            ]
+
+            if agent_names:
+                default_agents = await load_cached_agents(agent_names)
+                if not default_agents and not scenario_agent_overrides:
+                    return error_response("No valid agents found", 400)
+            elif not scenario_agent_overrides:
+                default_agents = await load_cached_agents(agent_names)
+                if not default_agents:
+                    return error_response("No valid agents found", 400)
+            else:
+                has_valid_override = False
+                for scenario_agent_names in scenario_agent_overrides:
+                    if await load_cached_agents(scenario_agent_names):
+                        has_valid_override = True
+                        break
+                if not has_valid_override:
+                    return error_response("No valid agents found", 400)
 
             # Run scenarios in parallel
             async def run_scenario(scenario_data: dict) -> dict:
                 name = scenario_data.get("name", "Unnamed")
                 parameters = scenario_data.get("parameters", {})
                 constraints = scenario_data.get("constraints", [])
+                scenario_agent_names = scenario_data.get("agents") or agent_names
+                agents = await load_cached_agents(scenario_agent_names)
+                if not agents:
+                    raise ValueError(f"No valid agents found for scenario '{name}'")
 
                 # Build scenario task with parameters and constraints
                 scenario_task = f"{task}"
@@ -447,6 +491,7 @@ class MatrixDebatesHandler(SecureHandler):
                     "parameters": parameters,
                     "constraints": constraints,
                     "is_baseline": scenario_data.get("is_baseline", False),
+                    "agents": [getattr(agent, "name", str(agent)) for agent in agents],
                     "winner": result.winner,
                     "final_answer": result.final_answer,
                     "confidence": result.confidence,
@@ -479,6 +524,7 @@ class MatrixDebatesHandler(SecureHandler):
 
             # Find conditional conclusions (conclusions specific to scenarios)
             conditional_conclusions = self._find_conditional_conclusions(valid_results)
+            best_result = self._select_best_result(valid_results)
 
             return json_response(
                 {
@@ -489,12 +535,34 @@ class MatrixDebatesHandler(SecureHandler):
                     "universal_conclusions": universal_conclusions,
                     "conditional_conclusions": conditional_conclusions,
                     "comparison_matrix": self._build_comparison_matrix(valid_results),
+                    "best_result": best_result,
                 }
             )
 
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Matrix debate fallback failed: %s", e)
             return error_response(safe_error_message(e, "matrix debate"), 500)
+
+    def _select_best_result(self, results: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Choose the strongest scenario result from the matrix.
+
+        Prefer consensus, then confidence, then faster convergence.
+        """
+        if not results:
+            return None
+
+        def sort_key(result: dict[str, Any]) -> tuple[int, float, int, int]:
+            has_answer = 1 if result.get("final_answer") else 0
+            consensus = 1 if result.get("consensus_reached") else 0
+            confidence = float(result.get("confidence", 0) or 0)
+            rounds_used = result.get("rounds_used", 0)
+            try:
+                rounds = int(rounds_used)
+            except (TypeError, ValueError):
+                rounds = 0
+            return (consensus, confidence, has_answer, -rounds)
+
+        return max(results, key=sort_key)
 
     def _find_universal_conclusions(self, results: list[dict]) -> list[str]:
         """Find conclusions that are consistent across all scenarios."""
@@ -525,12 +593,15 @@ class MatrixDebatesHandler(SecureHandler):
 
     def _build_comparison_matrix(self, results: list[dict]) -> dict:
         """Build a comparison matrix of scenarios."""
+        best_result = self._select_best_result(results)
         return {
             "scenarios": [r["scenario_name"] for r in results],
             "consensus_rate": sum(1 for r in results if r.get("consensus_reached"))
             / max(len(results), 1),
             "avg_confidence": sum(r.get("confidence", 0) for r in results) / max(len(results), 1),
             "avg_rounds": sum(r.get("rounds_used", 0) for r in results) / max(len(results), 1),
+            "best_scenario": best_result.get("scenario_name") if best_result else None,
+            "best_result": best_result,
         }
 
     async def _load_agents(self, agent_names: list[str]) -> list[Any]:

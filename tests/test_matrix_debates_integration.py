@@ -532,6 +532,92 @@ class TestMatrixDebateFallback:
                 assert data["scenario_count"] == 3
 
     @pytest.mark.asyncio
+    async def test_fallback_uses_scenario_agent_overrides_and_returns_best_result(
+        self, mock_handler
+    ):
+        """Test scenario-level agent combinations and automatic best-result selection."""
+        handler = MatrixDebatesHandler({})
+
+        claude_agent = Mock()
+        claude_agent.name = "claude"
+        gpt4_agent = Mock()
+        gpt4_agent.name = "gpt4"
+        gemini_agent = Mock()
+        gemini_agent.name = "gemini"
+
+        async def load_agents(agent_names):
+            mapping = {
+                "claude": claude_agent,
+                "gpt4": gpt4_agent,
+                "gemini": gemini_agent,
+            }
+            return [mapping[name] for name in agent_names]
+
+        def build_result(winner, final_answer, confidence, consensus_reached, rounds_used):
+            return Mock(
+                winner=winner,
+                final_answer=final_answer,
+                confidence=confidence,
+                consensus_reached=consensus_reached,
+                rounds_used=rounds_used,
+            )
+
+        def arena_side_effect(env, agents, protocol, document_store=None, evidence_store=None):
+            arena = Mock()
+            agent_names = [agent.name for agent in agents]
+            if agent_names == ["claude", "gpt4"]:
+                arena.run = AsyncMock(
+                    return_value=build_result(
+                        "claude",
+                        "Balanced pair",
+                        0.72,
+                        True,
+                        4,
+                    )
+                )
+            else:
+                arena.run = AsyncMock(
+                    return_value=build_result(
+                        "gemini",
+                        "Best pair",
+                        0.89,
+                        True,
+                        3,
+                    )
+                )
+            return arena
+
+        scenarios = [
+            {"name": "Pair A", "agents": ["claude", "gpt4"]},
+            {"name": "Pair B", "agents": ["gemini"]},
+        ]
+
+        with patch.object(
+            handler, "_load_agents", new=AsyncMock(side_effect=load_agents)
+        ) as mock_load:
+            with patch("aragora.debate.orchestrator.Arena", side_effect=arena_side_effect):
+                result = await handler._run_matrix_debate_fallback(
+                    mock_handler,
+                    {
+                        "task": "Compare model combinations for the same debate question",
+                        "scenarios": scenarios,
+                        "max_rounds": 3,
+                    },
+                )
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert [call.args[0] for call in mock_load.await_args_list] == [
+            ["claude", "gpt4"],
+            ["gemini"],
+        ]
+        assert data["results"][0]["agents"] == ["claude", "gpt4"]
+        assert data["results"][1]["agents"] == ["gemini"]
+        assert data["best_result"]["scenario_name"] == "Pair B"
+        assert data["best_result"]["agents"] == ["gemini"]
+        assert data["comparison_matrix"]["best_scenario"] == "Pair B"
+
+    @pytest.mark.asyncio
     async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
         """Test fallback returns error when no agents loaded."""
         handler = MatrixDebatesHandler({})
