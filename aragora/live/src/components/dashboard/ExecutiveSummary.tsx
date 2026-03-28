@@ -20,12 +20,6 @@ export function ExecutiveSummary({
     return num.toString();
   };
 
-  const formatDuration = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-  };
-
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -88,36 +82,33 @@ export function ExecutiveSummary({
       {/* Primary KPIs */}
       <KPIGrid columns={4}>
         <KPICard
-          title="Debates Today"
-          value={dashboardData?.debates.today ?? '-'}
-          subtitle={`${dashboardData?.debates.week ?? 0} this week`}
-          change={dashboardData ? { value: 12, direction: 'up', period: 'yesterday' } : undefined}
+          title="Debates Run"
+          value={dashboardData?.debates.total ?? '-'}
+          subtitle={`${dashboardData?.debates.completed ?? 0} completed`}
           color="green"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Consensus Rate"
-          value={dashboardData ? `${(dashboardData.consensus.rate * 100).toFixed(0)}%` : '-'}
-          subtitle={`${dashboardData ? (dashboardData.consensus.avgConfidence * 100).toFixed(0) : 0}% avg confidence`}
-          change={dashboardData ? { value: 3, direction: 'up', period: 'last week' } : undefined}
+          title="Avg Confidence"
+          value={dashboardData ? `${(dashboardData.consensus.avgConfidence * 100).toFixed(0)}%` : '-'}
+          subtitle={`${dashboardData ? (dashboardData.consensus.rate * 100).toFixed(0) : 0}% consensus rate`}
           color="cyan"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Avg Decision Time"
-          value={dashboardData ? formatDuration(dashboardData.consensus.avgTimeToDecision) : '-'}
-          subtitle="time to consensus"
-          change={dashboardData ? { value: 8, direction: 'down', period: 'last week' } : undefined}
+          title="Best Agent"
+          value={dashboardData?.agents.topPerformer ?? '-'}
+          subtitle={`${dashboardData?.agents.total ?? 0} ranked agents`}
           color="yellow"
           loading={isLoading}
           icon=""
         />
         <KPICard
-          title="Est. Cost Today"
-          value={dashboardData ? `$${dashboardData.costs.estimatedCost.toFixed(2)}` : '-'}
-          subtitle={`${formatNumber(dashboardData?.costs.todayTokens ?? 0)} tokens`}
+          title="Total Spend"
+          value={dashboardData ? `$${dashboardData.costs.totalCost.toFixed(2)}` : '-'}
+          subtitle={`${formatNumber(dashboardData?.costs.totalApiCalls ?? 0)} API calls`}
           color="purple"
           loading={isLoading}
           icon=""
@@ -138,8 +129,8 @@ export function ExecutiveSummary({
               color="green"
             />
             <KPIMiniCard
-              label="Avg Uptime"
-              value={`${dashboardData?.agents.avgUptime ?? 0}%`}
+              label="Ranked Agents"
+              value={dashboardData?.agents.total ?? 0}
               color="cyan"
             />
             <KPIMiniCard
