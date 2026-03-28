@@ -23,6 +23,8 @@ Usage:
     GET    /api/v1/support/metrics                - Support metrics overview
     POST   /api/v1/support/triage                 - AI-powered ticket triage
     POST   /api/v1/support/auto-respond           - Generate response suggestions
+    GET    /api/v1/support/search                 - Search tickets
+    POST   /api/v1/support/search                 - Search tickets (legacy body form)
 """
 
 from __future__ import annotations
@@ -271,7 +273,7 @@ class SupportHandler(SecureHandler):
             return await self._generate_response(request)
 
         # Search
-        elif path.endswith("/search") and method == "POST":
+        elif path.endswith("/search") and method in {"GET", "POST"}:
             if err := await self._check_permission(request, "support:read"):
                 return err
             return await self._search_tickets(request)
@@ -935,14 +937,10 @@ class SupportHandler(SecureHandler):
     async def _search_tickets(self, request: Any) -> dict[str, Any]:
         """Search tickets across platforms."""
         try:
-            body = await self._get_json_body(request)
+            query, platforms, limit = await self._parse_search_request(request)
         except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support search_tickets: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
-
-        query = body.get("query", "")
-        platforms = body.get("platforms", list(_platform_credentials.keys()))
-        limit = body.get("limit", 50)
 
         results: list[dict[str, Any]] = []
 
@@ -974,6 +972,55 @@ class SupportHandler(SecureHandler):
                 "total": len(results),
             },
         )
+
+    async def _parse_search_request(self, request: Any) -> tuple[str, list[str], int]:
+        """Normalize search inputs across GET query params and legacy POST bodies."""
+        if request.method == "GET":
+            query = request.query.get("query", "")
+            platforms = self._normalize_search_platforms(
+                self._get_query_values(request, "platforms")
+            )
+            limit = safe_query_int(request.query, "limit", default=50, min_val=1, max_val=1000)
+            return query, platforms, limit
+
+        body = await self._get_json_body(request)
+        query = body.get("query", "")
+        platforms = self._normalize_search_platforms(body.get("platforms"))
+        limit = body.get("limit", 50)
+        return query, platforms, limit
+
+    def _get_query_values(self, request: Any, key: str) -> Any:
+        """Return repeated query values when available, otherwise the single value."""
+        query = getattr(request, "query", None)
+        if query is None:
+            return None
+        if hasattr(query, "getall"):
+            values = query.getall(key)
+            if values:
+                return values
+        return query.get(key)
+
+    def _normalize_search_platforms(self, raw_platforms: Any) -> list[str]:
+        """Coerce search platform inputs to a normalized list of platform ids."""
+        if raw_platforms in (None, "", [], ()):
+            return list(_platform_credentials.keys())
+
+        if isinstance(raw_platforms, str):
+            return [p.strip() for p in raw_platforms.split(",") if p.strip()]
+
+        if isinstance(raw_platforms, (list, tuple, set)):
+            normalized: list[str] = []
+            for value in raw_platforms:
+                if isinstance(value, str):
+                    normalized.extend(p.strip() for p in value.split(",") if p.strip())
+                else:
+                    text = str(value).strip()
+                    if text:
+                        normalized.append(text)
+            return normalized or list(_platform_credentials.keys())
+
+        text = str(raw_platforms).strip()
+        return [text] if text else list(_platform_credentials.keys())
 
     # Helper methods
 

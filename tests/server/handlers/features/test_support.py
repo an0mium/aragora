@@ -641,16 +641,26 @@ class TestAutoRespond:
 
 class TestSearch:
     @pytest.mark.asyncio
-    async def test_search_tickets(self, handler):
+    @pytest.mark.parametrize(
+        ("method", "body_data", "query_params"),
+        [
+            ("POST", {"query": "billing issue", "platforms": ["zendesk"]}, None),
+            ("GET", None, {"query": "billing issue", "platforms": "zendesk", "limit": "10"}),
+        ],
+    )
+    async def test_search_tickets(self, handler, method, body_data, query_params):
         req = FakeRequest(
-            method="POST",
+            method=method,
             path="/api/v1/support/search",
-            body_data={"query": "billing issue", "platforms": ["zendesk"]},
+            body_data=body_data,
+            query_params=query_params,
         )
         result = await handler.handle_request(req)
         body = _parse_body(result)
 
-        assert "results" in body or result.get("status_code") == 200
+        assert result.get("status_code") == 200
+        assert body["query"] == "billing issue"
+        assert "results" in body
 
     @pytest.mark.asyncio
     async def test_search_empty_query(self, handler):
