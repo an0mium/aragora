@@ -550,3 +550,56 @@ class TestMatrixDebateFallback:
             assert result.status_code == 400
             data = json.loads(result.body)
             assert "agent" in data.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_fallback_selects_best_model_combination(self, mock_handler):
+        """Model-combination runs should include the strongest result when requested."""
+        handler = MatrixDebatesHandler({})
+
+        combo_a_agent = Mock()
+        combo_a_agent.name = "anthropic-api"
+        combo_b_agent = Mock()
+        combo_b_agent.name = "gemini"
+
+        with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
+            mock_load.side_effect = [[combo_a_agent], [combo_b_agent]]
+
+            weak_arena = Mock()
+            weak_arena.run = AsyncMock(
+                return_value=Mock(
+                    winner="anthropic-api",
+                    final_answer="Lower confidence answer",
+                    confidence=0.61,
+                    consensus_reached=True,
+                    rounds_used=3,
+                )
+            )
+            strong_arena = Mock()
+            strong_arena.run = AsyncMock(
+                return_value=Mock(
+                    winner="gemini",
+                    final_answer="Higher confidence answer",
+                    confidence=0.93,
+                    consensus_reached=True,
+                    rounds_used=2,
+                )
+            )
+
+            with patch("aragora.debate.orchestrator.Arena", side_effect=[weak_arena, strong_arena]):
+                result = await handler._run_matrix_debate_fallback(
+                    mock_handler,
+                    {
+                        "task": "Compare the same debate across multiple model combinations",
+                        "model_combinations": [
+                            {"name": "combo-a", "agents": ["anthropic-api"]},
+                            {"name": "combo-b", "agents": ["gemini"]},
+                        ],
+                        "select_best_result": True,
+                    },
+                )
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["scenario_count"] == 2
+        assert data["best_result"]["combination_name"] == "combo-b"
+        assert data["best_result"]["confidence"] == pytest.approx(0.93)

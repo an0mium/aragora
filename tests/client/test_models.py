@@ -83,6 +83,7 @@ from aragora.client.models import (
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
+    MatrixModelCombination,
     MatrixScenario,
     MatrixScenarioResult,
     MemoryAnalyticsResponse,
@@ -686,6 +687,14 @@ class TestGraphDebateModels:
 class TestMatrixDebateModels:
     """Tests for matrix debate models."""
 
+    def test_matrix_model_combination(self):
+        """Test MatrixModelCombination creation."""
+        combination = MatrixModelCombination(
+            name="Baseline", agents=["anthropic-api", "openai-api"]
+        )
+        assert combination.name == "Baseline"
+        assert combination.agents == ["anthropic-api", "openai-api"]
+
     def test_matrix_scenario(self):
         """Test MatrixScenario creation."""
         scenario = MatrixScenario(name="Baseline")
@@ -711,7 +720,9 @@ class TestMatrixDebateModels:
         request = MatrixDebateCreateRequest(task="Test")
         assert request.agents == ["anthropic-api", "openai-api"]
         assert request.scenarios == []
+        assert request.model_combinations == []
         assert request.max_rounds == 3
+        assert request.select_best_result is False
 
 
 class TestVerificationModels:

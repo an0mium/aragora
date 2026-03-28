@@ -400,6 +400,13 @@ class MatrixScenario(BaseModel):
     is_baseline: bool = False
 
 
+class MatrixModelCombination(BaseModel):
+    """A model combination to evaluate against the same debate question."""
+
+    agents: list[str] = Field(default_factory=list)
+    name: str | None = None
+
+
 class MatrixScenarioResult(BaseModel):
     """Result from a single scenario in matrix debate."""
 
@@ -423,7 +430,9 @@ class MatrixDebateCreateRequest(BaseModel):
     task: str
     agents: list[str] = Field(default_factory=lambda: ["anthropic-api", "openai-api"])
     scenarios: list[MatrixScenario] = Field(default_factory=list)
+    model_combinations: list[MatrixModelCombination] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
+    select_best_result: bool = False
 
 
 class MatrixDebateCreateResponse(BaseModel):
@@ -439,6 +448,7 @@ class MatrixDebateCreateResponse(BaseModel):
         default_factory=dict
     )
     comparison_matrix: dict[str, Any] | None = None
+    best_result: dict[str, Any] | None = None
 
 
 class MatrixDebate(BaseModel):
