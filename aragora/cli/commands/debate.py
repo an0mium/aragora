@@ -18,7 +18,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Callable, Literal, cast
 
 from aragora.agents.base import AgentType, create_agent
 from aragora.agents.spec import AgentSpec
@@ -1808,10 +1808,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
         stage: str,
         role_hint: str,
         preferred_providers: list[str] | None = None,
+        evaluate_candidate: (
+            Callable[[str], tuple[bool, tuple[float, float, float]]] | None
+        ) = None,
     ) -> tuple[str | None, str | None]:
         ordered_specs = _build_revision_specs(preferred_providers=preferred_providers)
         if not ordered_specs:
             return (None, None)
+
+        best_candidate: str | None = None
+        best_provider: str | None = None
+        best_rank: tuple[float, float, float] | None = None
 
         for idx, spec in enumerate(ordered_specs):
             provider = spec.provider
@@ -1841,11 +1848,21 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     timeout=per_attempt_timeout,
                 )
                 if repaired and repaired.strip():
-                    return (repaired.strip(), provider)
+                    candidate = repaired.strip()
+                    if evaluate_candidate is None:
+                        return (candidate, provider)
+
+                    candidate_ok, candidate_rank = evaluate_candidate(candidate)
+                    if best_rank is None or candidate_rank > best_rank:
+                        best_candidate = candidate
+                        best_provider = provider
+                        best_rank = candidate_rank
+                    if candidate_ok:
+                        return (candidate, provider)
             except Exception as e:  # noqa: BLE001 - best-effort repair fallback
                 logger.warning("%s_attempt_failed provider=%s error=%s", stage, provider, e)
                 continue
-        return (None, None)
+        return (best_candidate, best_provider)
 
     async def _attempt_quality_upgrade(
         *,
@@ -1856,7 +1873,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
         if quality_contract is None:
             return (None, None)
 
-        from aragora.debate.output_quality import build_upgrade_prompt
+        from aragora.debate.output_quality import (
+            build_upgrade_prompt,
+            validate_output_against_contract,
+        )
 
         prompt = build_upgrade_prompt(
             task=task,
@@ -1868,11 +1888,24 @@ def cmd_ask(args: argparse.Namespace) -> None:
             "You are a post-consensus quality upgrader. Keep core ideas, "
             "fix defects, and preserve required section order."
         )
+        repo_root = os.getcwd()
+
+        def _evaluate_quality_candidate(
+            candidate: str,
+        ) -> tuple[bool, tuple[float, float, float]]:
+            candidate_report = validate_output_against_contract(
+                candidate,
+                quality_contract,
+                repo_root=repo_root,
+            )
+            return (_quality_gate_passes(candidate_report), _report_rank(candidate_report))
+
         return await _attempt_targeted_revision(
             prompt=prompt,
             attempt_num=attempt_num,
             stage="quality_upgrade",
             role_hint=role_hint,
+            evaluate_candidate=_evaluate_quality_candidate,
         )
 
     async def _post_consensus_quality_pipeline(result: Any) -> Any:
@@ -1903,6 +1936,16 @@ def cmd_ask(args: argparse.Namespace) -> None:
         loops_used = 0
         loops_by_stage = {"quality_upgrade": 0, "concretization": 0, "assessment_upgrade": 0}
         upgraded = False
+
+        def _evaluate_revision_candidate(
+            candidate: str,
+        ) -> tuple[bool, tuple[float, float, float]]:
+            candidate_report = validate_output_against_contract(
+                candidate,
+                quality_contract,
+                repo_root=repo_root,
+            )
+            return (_quality_gate_passes(candidate_report), _report_rank(candidate_report))
 
         if upgrade_to_good and not _quality_gate_passes(initial_report):
             current_answer = result.final_answer
@@ -2030,6 +2073,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "You are a concretization specialist. Raise execution practicality by "
                         "turning first-batch tasks into path-grounded, testable actions."
                     ),
+                    evaluate_candidate=_evaluate_revision_candidate,
                 )
                 if not revised:
                     attempts.append(
@@ -2097,6 +2141,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         "without discarding valid consensus details."
                     ),
                     preferred_providers=preferred_providers,
+                    evaluate_candidate=_evaluate_revision_candidate,
                 )
                 if not revised:
                     attempts.append(

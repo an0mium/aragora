@@ -11,6 +11,106 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+_QUALITY_TASK = (
+    "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+    "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+)
+
+
+@contextmanager
+def _no_timeout(_seconds: float):
+    yield
+
+
+class _MockQualityContract:
+    required_sections = [
+        "Ranked High-Level Tasks",
+        "Suggested Subtasks",
+        "Owner module / file paths",
+        "Test Plan",
+        "Rollback Plan",
+        "Gate Criteria",
+        "JSON Payload",
+    ]
+    require_json_payload = False
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "required_sections": list(self.required_sections),
+            "require_json_payload": self.require_json_payload,
+        }
+
+
+class _MockQualityReport:
+    def __init__(
+        self,
+        verdict: str,
+        quality_score_10: float,
+        practicality_score_10: float,
+        defects: list[str],
+    ) -> None:
+        self.verdict = verdict
+        self.quality_score_10 = quality_score_10
+        self.practicality_score_10 = practicality_score_10
+        self.defects = defects
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "verdict": self.verdict,
+            "quality_score_10": self.quality_score_10,
+            "practicality_score_10": self.practicality_score_10,
+            "defects": list(self.defects),
+        }
+
+
+def _make_quality_args(**overrides):
+    args = {
+        "task": _QUALITY_TASK,
+        "agents": "openai-api,gemini",
+        "rounds": 1,
+        "consensus": "hybrid",
+        "context": "",
+        "learn": True,
+        "db": ":memory:",
+        "demo": False,
+        "api": False,
+        "local": True,
+        "graph": False,
+        "matrix": False,
+        "decision_integrity": False,
+        "auto_select": False,
+        "auto_select_config": None,
+        "enable_verticals": False,
+        "vertical": None,
+        "calibration": True,
+        "evidence_weighting": True,
+        "trending": True,
+        "mode": None,
+        "api_url": "http://localhost:8080",
+        "api_key": None,
+        "verbose": False,
+        "graph_rounds": 3,
+        "branch_threshold": 0.7,
+        "max_branches": 3,
+        "scenario": None,
+        "matrix_rounds": 3,
+        "di_include_context": False,
+        "di_plan_strategy": "single_task",
+        "di_execution_mode": None,
+        "timeout": 300,
+        "post_consensus_quality": True,
+        "upgrade_to_good": True,
+        "quality_upgrade_max_loops": 1,
+        "quality_concretize_max_rounds": 0,
+        "quality_extra_assessment_rounds": 0,
+        "quality_min_score": 9.0,
+        "quality_practical_min_score": 5.0,
+        "quality_fail_closed": True,
+    }
+    args.update(overrides)
+    return argparse.Namespace(**args)
+
+
 @pytest.mark.asyncio
 async def test_run_debate_offline_is_network_free(monkeypatch):
     """Offline mode should not attempt audience networking and should disable network-backed subsystems."""
@@ -798,3 +898,124 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     assert "## Suggested Subtasks" in out
     assert "[quality] verdict=good" in out
     assert "practicality=" in out
+
+
+def test_cmd_ask_retries_with_next_model_after_low_quality_revision(monkeypatch, capsys):
+    """Quality repair should try another model when the first revision stays below gate."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    initial_answer = "initial weak answer"
+    low_quality_answer = "first revision still weak"
+    upgraded_answer = "second revision passes gate"
+    result = DebateResult(task=_QUALITY_TASK, final_answer=initial_answer, metadata={})
+
+    def _report_for(answer: str) -> _MockQualityReport:
+        if answer == initial_answer:
+            return _MockQualityReport("needs_work", 2.0, 1.0, ["initial defects"])
+        if answer == low_quality_answer:
+            return _MockQualityReport("needs_work", 4.0, 2.0, ["still low quality"])
+        if answer == upgraded_answer:
+            return _MockQualityReport("good", 9.5, 7.5, [])
+        raise AssertionError(f"Unexpected answer validated: {answer!r}")
+
+    first_agent = MagicMock()
+    first_agent.generate = AsyncMock(return_value=low_quality_answer)
+    second_agent = MagicMock()
+    second_agent.generate = AsyncMock(return_value=upgraded_answer)
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(
+            debate_cmd,
+            "create_agent",
+            side_effect=[first_agent, second_agent],
+        ) as mock_create_agent,
+        patch(
+            "aragora.debate.output_quality.derive_output_contract_from_task",
+            return_value=_MockQualityContract(),
+        ),
+        patch(
+            "aragora.debate.output_quality.build_contract_context_block",
+            return_value="quality-contract",
+        ),
+        patch(
+            "aragora.debate.output_quality.build_upgrade_prompt",
+            return_value="upgrade prompt",
+        ),
+        patch(
+            "aragora.debate.output_quality.validate_output_against_contract",
+            side_effect=lambda answer, contract, repo_root=None: _report_for(answer),
+        ),
+        patch(
+            "aragora.debate.output_quality.apply_deterministic_quality_repairs",
+            side_effect=AssertionError("deterministic repair should not run"),
+        ),
+    ):
+        debate_cmd.cmd_ask(_make_quality_args())
+
+    out = capsys.readouterr().out
+    assert result.final_answer == upgraded_answer
+    assert mock_create_agent.call_count == 2
+    assert result.metadata["post_consensus_quality"]["final_report"]["verdict"] == "good"
+    assert "[quality] verdict=good" in out
+
+
+def test_cmd_ask_retries_with_next_model_after_revision_timeout(monkeypatch, capsys):
+    """Quality repair should keep moving through providers after a timed-out revision."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    initial_answer = "initial weak answer"
+    upgraded_answer = "timeout fallback passes gate"
+    result = DebateResult(task=_QUALITY_TASK, final_answer=initial_answer, metadata={})
+
+    def _report_for(answer: str) -> _MockQualityReport:
+        if answer == initial_answer:
+            return _MockQualityReport("needs_work", 2.0, 1.0, ["initial defects"])
+        if answer == upgraded_answer:
+            return _MockQualityReport("good", 9.2, 6.8, [])
+        raise AssertionError(f"Unexpected answer validated: {answer!r}")
+
+    timeout_agent = MagicMock()
+    timeout_agent.generate = AsyncMock(side_effect=asyncio.TimeoutError())
+    second_agent = MagicMock()
+    second_agent.generate = AsyncMock(return_value=upgraded_answer)
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(
+            debate_cmd,
+            "create_agent",
+            side_effect=[timeout_agent, second_agent],
+        ) as mock_create_agent,
+        patch(
+            "aragora.debate.output_quality.derive_output_contract_from_task",
+            return_value=_MockQualityContract(),
+        ),
+        patch(
+            "aragora.debate.output_quality.build_contract_context_block",
+            return_value="quality-contract",
+        ),
+        patch(
+            "aragora.debate.output_quality.build_upgrade_prompt",
+            return_value="upgrade prompt",
+        ),
+        patch(
+            "aragora.debate.output_quality.validate_output_against_contract",
+            side_effect=lambda answer, contract, repo_root=None: _report_for(answer),
+        ),
+    ):
+        debate_cmd.cmd_ask(_make_quality_args())
+
+    out = capsys.readouterr().out
+    assert result.final_answer == upgraded_answer
+    assert mock_create_agent.call_count == 2
+    assert result.metadata["post_consensus_quality"]["final_report"]["verdict"] == "good"
+    assert "[quality] verdict=good" in out
