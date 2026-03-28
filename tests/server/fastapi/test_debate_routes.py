@@ -124,6 +124,18 @@ def sample_debates_list():
     ]
 
 
+def _make_auth_context(*permissions: str):
+    from aragora.rbac.models import AuthorizationContext
+
+    return AuthorizationContext(
+        user_id="user-1",
+        org_id="org-1",
+        workspace_id="ws-1",
+        roles={"admin"},
+        permissions=set(permissions),
+    )
+
+
 # =============================================================================
 # GET /api/v2/debates
 # =============================================================================
@@ -410,6 +422,126 @@ class TestGetDebateConvergence:
         assert response.status_code == 200
         data = response.json()
         assert data["similarity_scores"] == [0.5, 0.7, 0.85, 0.92]
+
+
+# =============================================================================
+# POST /api/v2/debates
+# =============================================================================
+
+
+class TestCreateDebate:
+    """Tests for POST /api/v2/debates."""
+
+    def test_requires_auth(self, client):
+        """Create debate requires authentication."""
+        response = client.post("/api/v2/debates", json={"question": "Review this selection"})
+        assert response.status_code == 401
+
+    def test_creates_debate_for_browser_extension_contract(self, client):
+        """Create debate passes extension payload through to the controller."""
+        from aragora.server.debate_controller import DebateResponse
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+
+        client.app.dependency_overrides[require_authenticated] = lambda: _make_auth_context(
+            "debates:create"
+        )
+
+        mock_controller = MagicMock()
+        mock_controller.start_debate.return_value = DebateResponse(
+            success=True,
+            debate_id="adhoc_ext1234",
+            status="created",
+        )
+
+        with patch(
+            "aragora.server.fastapi.routes.debates._get_debate_controller",
+            return_value=mock_controller,
+        ):
+            response = client.post(
+                "/api/v2/debates",
+                json={
+                    "question": 'Analyze the selected text from "Example Docs".',
+                    "rounds": 3,
+                    "consensus": "majority",
+                    "auto_select": True,
+                    "context": "Source title: Example Docs\nSource URL: https://example.com",
+                    "metadata": {
+                        "source": "browser_extension_context_menu",
+                        "source_title": "Example Docs",
+                        "source_url": "https://example.com",
+                    },
+                },
+            )
+
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "adhoc_ext1234"
+        assert data["status"] == "created"
+
+        debate_request = mock_controller.start_debate.call_args.args[0]
+        assert debate_request.question == 'Analyze the selected text from "Example Docs".'
+        assert debate_request.rounds == 3
+        assert debate_request.consensus == "majority"
+        assert debate_request.auto_select is True
+        assert (
+            debate_request.context == "Source title: Example Docs\nSource URL: https://example.com"
+        )
+        assert debate_request.metadata["source"] == "browser_extension_context_menu"
+        assert debate_request.metadata["source_url"] == "https://example.com"
+
+    def test_maps_controller_failures_to_http_errors(self, client):
+        """Create debate returns controller error details/status for popup display."""
+        from aragora.server.debate_controller import DebateResponse
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+
+        client.app.dependency_overrides[require_authenticated] = lambda: _make_auth_context(
+            "debates:create"
+        )
+
+        mock_controller = MagicMock()
+        mock_controller.start_debate.return_value = DebateResponse(
+            success=False,
+            error="No AI model API keys are configured on this server.",
+            status_code=400,
+            use_playground=True,
+        )
+
+        with patch(
+            "aragora.server.fastapi.routes.debates._get_debate_controller",
+            return_value=mock_controller,
+        ):
+            response = client.post("/api/v2/debates", json={"question": "Review this selection"})
+
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "No AI model API keys are configured on this server."
+
+    def test_falls_back_to_fastapi_controller_builder_when_legacy_getter_missing(self, client):
+        """FastAPI route can resolve a controller even without a legacy getter."""
+        from aragora.server.fastapi.routes import debates as debates_routes
+
+        request = MagicMock()
+        request.app = client.app
+        mock_controller = MagicMock()
+
+        with patch(
+            "aragora.server.fastapi.routes.debates._build_fastapi_debate_controller",
+            return_value=mock_controller,
+        ) as builder:
+            with patch(
+                "aragora.server.debate_controller.get_debate_controller",
+                new=None,
+                create=True,
+            ):
+                controller = debates_routes._get_debate_controller(
+                    request, client.app.state.context["storage"]
+                )
+
+        assert controller is mock_controller
+        builder.assert_called_once_with(request, client.app.state.context["storage"])
 
 
 # =============================================================================

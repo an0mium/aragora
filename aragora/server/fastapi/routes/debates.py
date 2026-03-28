@@ -245,6 +245,79 @@ def get_nomic_dir() -> Path | None:
     return None
 
 
+def _auto_select_agents_for_fastapi(
+    question: str,
+    config: dict[str, Any],
+    ctx: dict[str, Any],
+) -> str:
+    """Provide agent auto-selection for standalone FastAPI debate creation."""
+    from aragora.server.agent_selection import auto_select_agents
+
+    return auto_select_agents(
+        question=question,
+        config=config,
+        elo_system=ctx.get("elo_system"),
+        persona_manager=ctx.get("persona_manager"),
+    )
+
+
+def _build_fastapi_debate_controller(request: Request, storage: Any) -> Any:
+    """Construct a debate controller directly from FastAPI app context."""
+    from aragora.server.debate_controller import DebateController
+    from aragora.server.debate_factory import DebateFactory
+    from aragora.server.stream.emitter import SyncEventEmitter, get_global_emitter
+
+    ctx = getattr(request.app.state, "context", {}) or {}
+    emitter = ctx.get("stream_emitter") or get_global_emitter() or SyncEventEmitter()
+    factory = DebateFactory(
+        elo_system=ctx.get("elo_system"),
+        persona_manager=ctx.get("persona_manager"),
+        debate_embeddings=ctx.get("debate_embeddings"),
+        position_tracker=ctx.get("position_tracker"),
+        position_ledger=ctx.get("position_ledger"),
+        flip_detector=ctx.get("flip_detector"),
+        dissent_retriever=ctx.get("dissent_retriever"),
+        moment_detector=ctx.get("moment_detector"),
+        stream_emitter=emitter,
+        document_store=ctx.get("document_store"),
+        evidence_store=ctx.get("evidence_store"),
+        knowledge_mound=ctx.get("knowledge_mound"),
+    )
+
+    return DebateController(
+        factory=factory,
+        emitter=emitter,
+        elo_system=ctx.get("elo_system"),
+        auto_select_fn=lambda question, config: _auto_select_agents_for_fastapi(
+            question, config, ctx
+        ),
+        storage=storage,
+    )
+
+
+def _get_debate_controller(request: Request, storage: Any) -> Any:
+    """Resolve a debate controller for FastAPI routes."""
+    try:
+        import aragora.server.debate_controller as debate_controller_mod  # type: ignore[import-not-found]
+    except ImportError as e:
+        logger.warning("Debate controller module not available: %s", e)
+        raise HTTPException(status_code=503, detail="Debate orchestrator not available") from e
+
+    try:
+        controller_getter = getattr(debate_controller_mod, "get_debate_controller", None)
+        if callable(controller_getter):
+            controller = controller_getter()
+            if controller is not None:
+                return controller
+
+        return _build_fastapi_debate_controller(request, storage)
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+        logger.exception("Failed to resolve debate controller: %s", e)
+        raise HTTPException(status_code=503, detail="Debate orchestrator not available") from e
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -725,19 +798,20 @@ async def create_debate(
             raise HTTPException(status_code=400, detail="Invalid debate request")
 
         try:
-            import aragora.server.debate_controller as debate_controller_mod  # type: ignore[import-not-found]
-
-            controller_getter = getattr(debate_controller_mod, "get_debate_controller", None)
-            if not callable(controller_getter):
-                raise HTTPException(status_code=503, detail="Debate orchestrator not available")
-            controller = controller_getter()
+            controller = _get_debate_controller(request, storage)
             response = await _call_sync_aware(controller.start_debate, debate_request)
-        except ImportError:
-            logger.warning("Debate controller not available")
-            raise HTTPException(status_code=503, detail="Debate orchestrator not available")
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.exception("Failed to start debate: %s", e)
             raise HTTPException(status_code=500, detail="Failed to start debate")
+
+        if not getattr(response, "success", False):
+            status_code = getattr(response, "status_code", 500)
+            if not isinstance(status_code, int) or status_code < 400 or status_code > 599:
+                status_code = 500
+
+            detail = getattr(response, "error", None) or "Failed to start debate"
+            logger.warning("Debate create rejected: %s", detail)
+            raise HTTPException(status_code=status_code, detail=detail)
 
         logger.info("Debate created: %s", response.debate_id)
 
