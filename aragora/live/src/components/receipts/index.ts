@@ -22,3 +22,10 @@ export {
   type DeliveryHistoryProps,
   type DeliveryRecord,
 } from './DeliveryHistory';
+
+export {
+  ReceiptCostBreakdown,
+  type ReceiptCostBreakdownProps,
+  type AgentLineItem,
+  type ModelUsageSummary,
+} from './ReceiptCostBreakdown';
