@@ -780,7 +780,7 @@ class TestTaskExecution:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor for testing."""
-        return HybridExecutor(temp_repo, sandbox_mode=False)
+        return HybridExecutor(temp_repo, sandbox_mode=False, use_harness=False)
 
     @pytest.mark.asyncio
     async def test_execute_task_success(self, executor: HybridExecutor, sample_task: ImplementTask):
