@@ -420,13 +420,12 @@ class TestHybridExecutorTaskRetry:
 
     @pytest.mark.asyncio
     async def test_execute_task_with_retry_retries_on_timeout(self, executor, simple_task):
-        """Retries with extended timeout on timeout failure."""
-        call_count = 0
+        """Timeouts retry with the fallback model."""
+        calls = []
 
-        async def mock_execute(task, attempt=1, use_fallback=False):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
+        async def mock_execute(task, attempt=1, use_fallback=False, feedback=None):
+            calls.append((attempt, use_fallback, feedback))
+            if len(calls) == 1:
                 return TaskResult(task_id=task.id, success=False, error="Timeout")
             return TaskResult(task_id=task.id, success=True, diff="")
 
@@ -434,7 +433,53 @@ class TestHybridExecutorTaskRetry:
             result = await executor.execute_task_with_retry(simple_task)
 
         assert result.success is True
-        assert call_count == 2
+        assert len(calls) == 2
+        assert calls[0][:2] == (1, False)
+        assert calls[1][0] == 2
+        assert calls[1][1] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_task_with_retry_falls_back_on_low_quality(self, executor, simple_task):
+        """Low-quality review failures retry with a different model."""
+        calls = []
+
+        async def mock_execute(task, attempt=1, use_fallback=False, feedback=None):
+            calls.append((attempt, use_fallback, feedback))
+            model = "codex-fallback" if use_fallback else "claude"
+            return TaskResult(task_id=task.id, success=True, diff="diff", model_used=model)
+
+        review_results = [
+            TaskResult(
+                task_id=simple_task.id,
+                success=False,
+                diff="diff",
+                error="Low quality response\nIssues to address:\n- Missing tests",
+                model_used="claude",
+            ),
+            TaskResult(
+                task_id=simple_task.id,
+                success=True,
+                diff="diff",
+                model_used="codex-fallback",
+            ),
+        ]
+
+        with (
+            patch.object(executor, "execute_task", side_effect=mock_execute),
+            patch.object(executor, "_should_review", return_value=True),
+            patch.object(
+                executor,
+                "_review_and_revise",
+                new=AsyncMock(side_effect=review_results),
+            ),
+        ):
+            result = await executor.execute_task_with_retry(simple_task)
+
+        assert result.success is True
+        assert calls[0][:2] == (1, False)
+        assert calls[1][0] == 2
+        assert calls[1][1] is True
+        assert "Missing tests" in (calls[1][2] or "")
 
     @pytest.mark.asyncio
     async def test_execute_task_with_retry_no_retry_on_other_error(self, executor, simple_task):
@@ -674,6 +719,36 @@ class TestHybridExecutorCodexReview:
 
         assert result["approved"] is None
         assert "error" in result
+
+
+class TestHybridExecutorReviewLoop:
+    """Tests for review-driven retry signals."""
+
+    @pytest.mark.asyncio
+    async def test_review_and_revise_marks_low_quality_without_reviser(self, executor, simple_task):
+        """Rejected reviews become retryable low-quality failures."""
+        initial = TaskResult(task_id=simple_task.id, success=True, diff="diff", model_used="claude")
+
+        with (
+            patch.object(executor, "_get_git_diff", return_value="diff"),
+            patch.object(
+                executor,
+                "_run_review",
+                new=AsyncMock(
+                    return_value={
+                        "approved": False,
+                        "issues": ["Missing tests"],
+                        "suggestions": ["Cover edge cases"],
+                        "review": "APPROVED: no\nISSUES: Missing tests",
+                    }
+                ),
+            ),
+        ):
+            reviewed = await executor._review_and_revise(simple_task, initial)
+
+        assert reviewed.success is False
+        assert "low quality" in (reviewed.error or "").lower()
+        assert "Missing tests" in (reviewed.error or "")
 
 
 # ==============================================================================

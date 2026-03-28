@@ -100,7 +100,7 @@ class HybridExecutor:
 
     Resilience features (Jan 2026):
     - Retry failed tasks with 2x timeout
-    - Model fallback on timeout (Claude → Codex)
+    - Model fallback on timeout or low-quality output (Claude → Codex)
     - Continue execution after failures (collect, retry at end)
     """
 
@@ -440,6 +440,48 @@ Follow existing code style and tests.""",
 
     def _should_review(self) -> bool:
         return "review" in self._strategy or "critic" in self._strategy
+
+    @staticmethod
+    def _is_low_quality_error(error: str | None) -> bool:
+        """Detect review-driven quality failures that should switch models."""
+        return bool(error and error.lower().startswith("low quality response"))
+
+    @staticmethod
+    def _extract_low_quality_feedback(error: str | None) -> str:
+        """Extract reviewer feedback for a follow-up attempt."""
+        if not error:
+            return "Previous implementation did not meet the review quality bar."
+
+        _, _, feedback = error.partition("\n")
+        return feedback.strip() or error.strip()
+
+    @staticmethod
+    def _make_low_quality_result(
+        result: TaskResult,
+        feedback: str,
+        *,
+        after_revisions: bool = False,
+    ) -> TaskResult:
+        """Convert a review rejection into a retryable low-quality result."""
+        prefix = (
+            "Low quality response after revisions" if after_revisions else "Low quality response"
+        )
+        detail = feedback.strip() or "Review requested changes."
+        return TaskResult(
+            task_id=result.task_id,
+            success=False,
+            diff=result.diff,
+            error=f"{prefix}\n{detail}",
+            model_used=result.model_used,
+            duration_seconds=result.duration_seconds,
+            cost_usd=result.cost_usd,
+        )
+
+    async def _finalize_task_result(self, task: ImplementTask, result: TaskResult) -> TaskResult:
+        """Run post-success review flow when configured."""
+        if result.success and self._should_review():
+            return await self._review_and_revise(task, result)
+        return result
 
     def _get_task_timeout(self, task: ImplementTask) -> int:
         """Calculate timeout based on task complexity and file count.
@@ -814,53 +856,79 @@ Follow existing code style and tests.""",
 
         Retry strategy:
         1. First attempt with Claude (primary)
-        2. If retryable error, retry with error analysis hint
-        3. If timeout, try Codex as fallback with 2x timeout
+        2. If timeout or low quality, retry with Codex as fallback
+        3. If another retryable error occurs first, retry Claude with error analysis hint
 
         Returns:
             Best TaskResult from attempts
         """
         # Attempt 1: primary agent with normal timeout
         result = await self.execute_task(task, attempt=1, use_fallback=False)
+        result = await self._finalize_task_result(task, result)
         if result.success:
-            if self._should_review():
-                return await self._review_and_revise(task, result)
             return result
 
         # Analyze the failure for structured retry enrichment
         from aragora.implement.error_analyzer import ErrorAnalyzer
 
         analyzer = ErrorAnalyzer()
-        analysis = analyzer.analyze(result.error or "", getattr(result, "stderr", ""))
+        if self._is_low_quality_error(result.error):
+            analysis_category = "low_quality"
+            retry_hint = self._extract_low_quality_feedback(result.error)
+            use_fallback = True
+        else:
+            analysis = analyzer.analyze(result.error or "", getattr(result, "stderr", ""))
 
-        # Non-retryable errors: return immediately
-        if not analysis.retryable:
-            return result
+            # Non-retryable errors: return immediately
+            if not analysis.retryable:
+                return result
 
-        is_timeout = analysis.category == "timeout"
-        retry_hint = analyzer.build_retry_hint(analysis, task.description)
+            analysis_category = analysis.category
+            retry_hint = analyzer.build_retry_hint(analysis, task.description)
+            use_fallback = analysis.category == "timeout"
 
         if self.max_retries >= 2:
             # Attempt 2: retry with error context injected as feedback
-            logger.info(f"    Retrying {task.id} ({analysis.category} error)...")
+            model_name = "Codex fallback" if use_fallback else "primary model"
+            logger.info(
+                "    Retrying %s (%s) with %s...",
+                task.id,
+                analysis_category,
+                model_name,
+            )
             result = await self.execute_task(
                 task,
                 attempt=2,
-                use_fallback=False,
+                use_fallback=use_fallback,
                 feedback=retry_hint,
             )
+            result = await self._finalize_task_result(task, result)
             if result.success:
-                if self._should_review():
-                    return await self._review_and_revise(task, result)
                 return result
 
-        if is_timeout and self.max_retries >= 3:
-            # Attempt 3: Fallback to Codex on timeout
-            logger.info("    Falling back to Codex for %s...", task.id)
-            result = await self.execute_task(task, attempt=3, use_fallback=True)
+        if not use_fallback and self.max_retries >= 3:
+            if self._is_low_quality_error(result.error):
+                analysis_category = "low_quality"
+                retry_hint = self._extract_low_quality_feedback(result.error)
+                use_fallback = True
+            else:
+                analysis = analyzer.analyze(result.error or "", getattr(result, "stderr", ""))
+                use_fallback = analysis.retryable and analysis.category == "timeout"
+                if use_fallback:
+                    analysis_category = analysis.category
+                    retry_hint = analyzer.build_retry_hint(analysis, task.description)
 
-        if result.success and self._should_review():
-            return await self._review_and_revise(task, result)
+            if use_fallback:
+                logger.info(
+                    "    Falling back to Codex for %s after %s...", task.id, analysis_category
+                )
+                result = await self.execute_task(
+                    task,
+                    attempt=3,
+                    use_fallback=True,
+                    feedback=retry_hint,
+                )
+                result = await self._finalize_task_result(task, result)
 
         return result
 
@@ -875,7 +943,7 @@ Follow existing code style and tests.""",
         if approved is True:
             return result
 
-        if not self._reviser_type or self._max_revisions <= 0:
+        if approved is None and not issues and not suggestions:
             if self._review_strict:
                 return TaskResult(
                     task_id=result.task_id,
@@ -892,6 +960,9 @@ Follow existing code style and tests.""",
             suggestions,
             review.get("review") or "Review requested changes.",
         )
+
+        if not self._reviser_type or self._max_revisions <= 0:
+            return self._make_low_quality_result(result, feedback)
 
         for revision_idx in range(self._max_revisions):
             reviser = self._get_reviser(timeout=self.claude_timeout)
@@ -921,23 +992,24 @@ Follow existing code style and tests.""",
             suggestions = review.get("suggestions") or []
             if approved is True:
                 return result
+            if approved is None and not issues and not suggestions:
+                if self._review_strict:
+                    return TaskResult(
+                        task_id=result.task_id,
+                        success=False,
+                        diff=result.diff,
+                        error="Review failed after revisions",
+                        model_used=result.model_used,
+                        duration_seconds=result.duration_seconds,
+                    )
+                return result
             feedback = self._format_review_feedback(
                 issues,
                 suggestions,
                 review.get("review") or feedback,
             )
 
-        if self._review_strict:
-            return TaskResult(
-                task_id=result.task_id,
-                success=False,
-                diff=result.diff,
-                error="Review failed after revisions",
-                model_used=result.model_used,
-                duration_seconds=result.duration_seconds,
-            )
-
-        return result
+        return self._make_low_quality_result(result, feedback, after_revisions=True)
 
     async def execute_plan(
         self,

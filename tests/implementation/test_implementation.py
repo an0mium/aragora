@@ -1094,12 +1094,15 @@ class TestRetryLogic:
     async def test_retry_on_timeout(
         self, executor: HybridExecutor, sample_task: ImplementTask, mock_context
     ):
-        """Test retry on timeout error."""
-        # First call times out, second succeeds
+        """Test timeout fallback to a different model."""
         mock_claude = AsyncMock()
-        mock_claude.generate = AsyncMock(side_effect=[TimeoutError("Timeout"), "Success"])
+        mock_claude.generate = AsyncMock(side_effect=TimeoutError("Timeout"))
         mock_claude.name = "claude-test"
+        mock_codex = AsyncMock()
+        mock_codex.generate = AsyncMock(return_value="Success")
+        mock_codex.name = "codex-test"
         executor._claude = mock_claude
+        executor._codex = mock_codex
 
         with patch.object(executor, "_get_git_diff", return_value="changes"):
             with patch(
@@ -1109,7 +1112,8 @@ class TestRetryLogic:
                 result = await executor.execute_task_with_retry(sample_task)
 
         assert result.success is True
-        assert mock_claude.generate.call_count == 2
+        assert mock_claude.generate.call_count == 1
+        assert mock_codex.generate.call_count == 1
 
     @pytest.mark.asyncio
     async def test_no_retry_on_non_timeout(

@@ -583,23 +583,16 @@ class TestExecuteTaskWithRetry:
 
     @pytest.mark.asyncio
     async def test_timeout_triggers_retry(self, executor, sample_task):
-        """Timeout should trigger retry."""
-        call_count = 0
-
-        async def mock_generate(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise TimeoutError("First timeout")
-            return "Done"
-
-        executor.claude.generate = mock_generate
+        """Timeout should trigger fallback to a different model."""
+        executor.claude.generate = AsyncMock(side_effect=TimeoutError("First timeout"))
+        executor.codex.generate = AsyncMock(return_value="Done")
 
         with patch.object(executor, "_get_git_diff", return_value=""):
             result = await executor.execute_task_with_retry(sample_task)
 
-            # Should have retried
-            assert call_count >= 2
+            assert result.success is True
+            assert executor.claude.generate.call_count == 1
+            assert executor.codex.generate.call_count == 1
 
     @pytest.mark.asyncio
     async def test_non_timeout_no_retry(self, executor, sample_task):
