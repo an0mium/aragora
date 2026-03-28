@@ -734,7 +734,9 @@ class TestMatrixDebateModels:
         assert request.agents == ["anthropic-api", "openai-api"]
         assert request.scenarios == []
         assert request.agent_combinations == []
+        assert request.model_combinations == []
         assert request.max_rounds == 3
+        assert request.select_best_result is True
 
     def test_matrix_debate_create_response_with_best_result(self):
         """Test MatrixDebateCreateResponse accepts best-result metadata."""

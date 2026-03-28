@@ -12,6 +12,7 @@ from aragora.client.models import (
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
+    MatrixModelCombination,
     MatrixScenario,
 )
 
@@ -30,6 +31,7 @@ class MatrixDebatesAPI:
         agent_combinations: list[dict[str, Any]] | None = None,
         model_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
+        select_best_result: bool = True,
     ) -> MatrixDebateCreateResponse:
         """
         Create and start a matrix debate with parallel scenarios.
@@ -45,6 +47,7 @@ class MatrixDebatesAPI:
             agent_combinations: Explicit model/team combinations to compare.
             model_combinations: Alias for agent_combinations that matches the public API wording.
             max_rounds: Maximum rounds per scenario (1-10).
+            select_best_result: When true, ask the server to return the best run.
 
         Returns:
             MatrixDebateCreateResponse with matrix_id.
@@ -57,13 +60,21 @@ class MatrixDebatesAPI:
             for s in scenarios:
                 scenario_models.append(MatrixScenario(**s))
 
+        typed_model_combinations = []
+        if model_combinations:
+            typed_model_combinations = [
+                MatrixModelCombination(**combo).model_dump() for combo in model_combinations
+            ]
+        has_combinations = bool(agent_combinations or typed_model_combinations)
+
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or ([] if has_combinations else ["anthropic-api", "openai-api"]),
             scenarios=scenario_models,
             agent_combinations=agent_combinations or [],
-            model_combinations=model_combinations or [],
+            model_combinations=typed_model_combinations,
             max_rounds=max_rounds,
+            select_best_result=select_best_result,
         )
 
         response = self._client._post("/api/v1/debates/matrix", request.model_dump())
@@ -77,6 +88,7 @@ class MatrixDebatesAPI:
         agent_combinations: list[dict[str, Any]] | None = None,
         model_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
+        select_best_result: bool = True,
     ) -> MatrixDebateCreateResponse:
         """Async version of create()."""
         if agent_combinations and model_combinations:
@@ -87,13 +99,21 @@ class MatrixDebatesAPI:
             for s in scenarios:
                 scenario_models.append(MatrixScenario(**s))
 
+        typed_model_combinations = []
+        if model_combinations:
+            typed_model_combinations = [
+                MatrixModelCombination(**combo).model_dump() for combo in model_combinations
+            ]
+        has_combinations = bool(agent_combinations or typed_model_combinations)
+
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or ([] if has_combinations else ["anthropic-api", "openai-api"]),
             scenarios=scenario_models,
             agent_combinations=agent_combinations or [],
-            model_combinations=model_combinations or [],
+            model_combinations=typed_model_combinations,
             max_rounds=max_rounds,
+            select_best_result=select_best_result,
         )
 
         response = await self._client._post_async("/api/v1/debates/matrix", request.model_dump())

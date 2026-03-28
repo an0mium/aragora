@@ -329,6 +329,115 @@ class TestMatrixDebateScenarioValidation:
         assert "constraints" in data.get("error", "")
 
 
+class TestMatrixDebateModelCombinationValidation:
+    """Tests for model combination validation."""
+
+    @pytest.mark.asyncio
+    async def test_returns_400_for_non_array_model_combinations(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when model_combinations is not an array."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": "invalid",
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "model_combinations" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_returns_400_when_agents_and_model_combinations_are_combined(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 for ambiguous legacy/new execution settings."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "agents": ["anthropic-api", "openai-api"],
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "cannot be used together" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_returns_400_when_scenarios_and_model_combinations_are_combined(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 because cross-product execution is not supported here."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "scenarios": [{"name": "baseline"}],
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "cannot be combined" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_accepts_model_combinations_without_scenarios(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Model combinations should be a valid alternative to scenarios."""
+        matrix_handler._run_matrix_debate_fallback = AsyncMock(
+            return_value=HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=b"{}",
+            )
+        )
+
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]},
+                    {"name": "combo-b", "agents": ["gemini", "grok"]},
+                ],
+                "select_best_result": True,
+            },
+        )
+
+        assert result.status_code == 200
+        matrix_handler._run_matrix_debate_fallback.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_400_for_non_boolean_select_best_result(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when select_best_result is not a boolean."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+                "select_best_result": "yes",
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "select_best_result" in data.get("error", "")
+
+
 # =============================================================================
 # Agent Validation Tests
 # =============================================================================
@@ -703,7 +812,7 @@ class TestMatrixAgentCombinationMode:
     async def test_agent_combinations_pick_best_result(self, matrix_handler, mock_http_handler):
         """Returns the highest-scoring combination and annotates the winner."""
 
-        async def fake_load_agents(agent_specs):
+        async def fake_load_agents(agent_specs, min_agents=2):
             specs = agent_specs if isinstance(agent_specs, list) else []
             first_spec = specs[0] if specs else {}
             model = (
@@ -786,7 +895,7 @@ class TestMatrixAgentCombinationMode:
     ):
         """Accepts model_combinations as an alias for agent_combinations."""
 
-        async def fake_load_agents(agent_specs):
+        async def fake_load_agents(agent_specs, min_agents=2):
             specs = agent_specs if isinstance(agent_specs, list) else []
             first_spec = specs[0] if specs else {}
             model = (
