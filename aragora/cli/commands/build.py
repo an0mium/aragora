@@ -463,7 +463,7 @@ def _string_list(value: Any) -> list[str]:
 
 async def _create_issues(tasks: list[dict[str, Any]], *, repo: str) -> list[int]:
     """Create GitHub issues for each task."""
-    import subprocess
+    from aragora.cli.commands.idea import _create_issue_with_optional_labels
 
     issue_numbers = []
     for task in tasks:
@@ -506,32 +506,15 @@ async def _create_issues(tasks: list[dict[str, Any]], *, repo: str) -> list[int]
 Implementation complete, tests pass, PR opened with evidence.
 """
         try:
-            cmd = [
-                "gh",
-                "issue",
-                "create",
-                "--repo",
-                repo,
-                "--title",
-                task["title"],
-            ]
-            for label in deduped_labels:
-                cmd.extend(["--label", label])
-            cmd.extend(["--body", body])
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
+            issue = await _create_issue_with_optional_labels(
+                repo=repo,
+                title=task["title"],
+                body=body,
+                requested_labels=deduped_labels,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                # Extract issue number from URL
-                url = result.stdout.strip()
-                num = int(url.rstrip("/").split("/")[-1])
-                issue_numbers.append(num)
-                logger.info("Created issue #%d: %s", num, task["title"])
-            else:
-                logger.warning("Failed to create issue: %s", result.stderr)
+            num = int(issue["number"])
+            issue_numbers.append(num)
+            logger.info("Created issue #%d: %s", num, task["title"])
         except Exception as exc:
             logger.warning("Issue creation failed: %s", exc)
 
