@@ -19,20 +19,36 @@ WORKFLOW_PATH = Path(".github/workflows/required-check-priority.yml")
 
 REQUIRED_KEEP_WORKFLOW_PATHS = {
     ".github/workflows/aragora-review-gate.yml",
+    ".github/workflows/autopilot-worktree-e2e.yml",
+    ".github/workflows/core-suites.yml",
     ".github/workflows/lint.yml",
+    ".github/workflows/live-deploy-mode-gate.yml",
     ".github/workflows/sdk-parity.yml",
     ".github/workflows/sdk-test.yml",
     ".github/workflows/test.yml",
     ".github/workflows/openapi.yml",
+    ".github/workflows/pr-admission-controller.yml",
+    ".github/workflows/quality-smoke.yml",
     ".github/workflows/required-check-priority.yml",
+    ".github/workflows/release-readiness.yml",
+    ".github/workflows/security-gate.yml",
+    ".github/workflows/smoke.yml",
 }
 
 REQUIRED_KEEP_WORKFLOW_NAMES = {
     "Aragora Code Review",
+    "Autopilot Worktree E2E",
+    "Core Suites (Decision Integrity)",
     "Required Check Priority",
     "Lint",
+    "Live Deploy Mode Gate",
+    "PR Admission Controller",
+    "Quality Pipeline Smoke",
+    "Release Readiness Gate",
+    "Security Gate",
     "SDK Parity Check",
     "SDK Tests",
+    "Smoke Tests",
     "Tests",
     "OpenAPI Spec",
 }
