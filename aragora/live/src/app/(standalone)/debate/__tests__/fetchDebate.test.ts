@@ -79,4 +79,57 @@ describe('fetchDebateClient', () => {
     expect(result?.receipt_hash).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('normalizes archived public debate payloads from the primary debates API', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'debate-123',
+        task: 'Should we expose archived debates publicly?',
+        status: 'completed',
+        consensus_reached: true,
+        confidence: 0.73,
+        winning_proposal: 'Yes, publish the archived debate link.',
+        agents: ['analyst', 'critic'],
+        critiques: [
+          {
+            agent: 'critic',
+            target_agent: 'analyst',
+            text: 'Verify the anonymous access path before shipping.',
+          },
+        ],
+        messages: [
+          {
+            agent: 'analyst',
+            role: 'proposer',
+            round: 1,
+            content: 'Public links increase the utility of archived debates.',
+          },
+          {
+            agent: 'critic',
+            role: 'critic',
+            round: 1,
+            content: 'Public links must not depend on an authenticated session.',
+          },
+        ],
+        receipt_hash: null,
+      }),
+    } as Response);
+
+    const result = await fetchDebateClient('debate-123');
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe('debate-123');
+    expect(result?.topic).toBe('Should we expose archived debates publicly?');
+    expect(result?.final_answer).toBe('Yes, publish the archived debate link.');
+    expect(result?.proposals.analyst).toContain('Public links increase the utility');
+    expect(result?.critiques[0]).toEqual({
+      agent: 'critic',
+      target: 'analyst',
+      text: 'Verify the anonymous access path before shipping.',
+    });
+    expect(result?.messages).toHaveLength(2);
+  });
 });

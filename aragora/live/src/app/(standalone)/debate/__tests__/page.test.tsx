@@ -170,6 +170,7 @@ describe('DebateViewerPage (via DebateViewerWrapper)', () => {
         id: 'abc123',
         topic: 'Should we use microservices?',
         status: 'completed',
+        rounds_used: 3,
         consensus_reached: true,
         confidence: 0.85,
         verdict: 'Yes, with caveats',
@@ -191,6 +192,46 @@ describe('DebateViewerPage (via DebateViewerWrapper)', () => {
         expect(screen.getByText('Should we use microservices?')).toBeInTheDocument();
         expect(screen.getByText('Yes, with caveats')).toBeInTheDocument();
         expect(screen.getByText('85%')).toBeInTheDocument();
+      });
+    });
+
+    it('renders the full shared argument, critiques, and transcript without truncation', async () => {
+      const fullFinalAnswer = 'Final synthesis '.repeat(80).trim();
+      const fullProposal = 'Public argument '.repeat(60).trim();
+      const critiqueText = 'Verify the anonymous share path before rollout.';
+      const transcriptLine = 'Anonymous viewers should see the entire debate transcript.';
+      const mockDebate = {
+        id: 'shared-debate',
+        topic: 'Should archived debates be shareable without login?',
+        status: 'completed',
+        rounds_used: 4,
+        consensus_reached: true,
+        confidence: 0.92,
+        verdict: 'Yes, with explicit public access.',
+        duration_seconds: 14.2,
+        participants: ['analyst'],
+        proposals: { analyst: fullProposal },
+        critiques: [{ agent: 'critic', target: 'analyst', text: critiqueText }],
+        votes: [],
+        final_answer: fullFinalAnswer,
+        receipt_hash: 'sha256:shared',
+        messages: [
+          {
+            agent: 'critic',
+            role: 'critic',
+            round: 2,
+            content: transcriptLine,
+          },
+        ],
+      };
+
+      renderWithProviders(<DebateViewerWrapper savedDebate={mockDebate} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(fullFinalAnswer)).toBeInTheDocument();
+        expect(screen.getByText(fullProposal)).toBeInTheDocument();
+        expect(screen.getByText(critiqueText)).toBeInTheDocument();
+        expect(screen.getByText(transcriptLine)).toBeInTheDocument();
       });
     });
 

@@ -120,6 +120,9 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-4 mb-8 text-xs font-mono text-[var(--text-muted)]">
             <span>{debate.participants.length} AGENTS</span>
+            {typeof debate.rounds_used === 'number' && debate.rounds_used > 0 && (
+              <span>{debate.rounds_used} ROUNDS</span>
+            )}
             {debate.duration_seconds > 0 && (
               <span>{debate.duration_seconds.toFixed(1)}s</span>
             )}
@@ -166,9 +169,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                     Synthesis
                   </span>
                   <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                    {debate.final_answer.length > 800
-                      ? debate.final_answer.slice(0, 800) + '...'
-                      : debate.final_answer}
+                    {debate.final_answer}
                   </p>
                 </div>
               )}
@@ -184,9 +185,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
               <div className="space-y-3">
                 {debate.participants.map((agent, i) => {
                   const color = agentColor(i);
-                  const raw = debate.proposals[agent] ?? '';
-                  const excerpt =
-                    raw.length > 500 ? raw.slice(0, 500) + '...' : raw;
+                  const proposal = debate.proposals[agent] ?? '';
                   return (
                     <div
                       key={agent}
@@ -202,14 +201,45 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       >
                         {agent}
                       </span>
-                      {excerpt && (
+                      {proposal && (
                         <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                          {excerpt}
+                          {proposal}
                         </p>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* ---- Critiques ---- */}
+          {debate.critiques.length > 0 && (
+            <div className="mb-8 border border-[var(--crimson)]/20 bg-[var(--surface)]">
+              <div className="p-4">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                  Critiques
+                </h2>
+                <div className="space-y-3">
+                  {debate.critiques.map((critique, index) => (
+                    <div
+                      key={`${critique.agent}-${critique.target}-${index}`}
+                      className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-mono uppercase">
+                        <span className="text-[var(--crimson)]">{critique.agent}</span>
+                        {critique.target && (
+                          <span className="text-[var(--text-muted)]">
+                            critiques {critique.target}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        {critique.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -247,6 +277,38 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                         </div>
                         <p className="text-xs font-mono text-[var(--text)]">
                           {vote.choice}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- Transcript ---- */}
+          {debate.messages && debate.messages.length > 0 && (
+            <div className="mb-8 border border-[var(--acid-cyan)]/20 bg-[var(--surface)]">
+              <div className="p-4">
+                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                  Full Transcript
+                </h2>
+                <div className="space-y-3">
+                  {debate.messages.map((message, index) => {
+                    const speaker = message.agent || message.role || `message-${index + 1}`;
+                    return (
+                      <div
+                        key={`${speaker}-${index}`}
+                        className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-mono uppercase">
+                          <span className="text-[var(--acid-cyan)]">{speaker}</span>
+                          {typeof message.round === 'number' && (
+                            <span className="text-[var(--text-muted)]">round {message.round}</span>
+                          )}
+                        </div>
+                        <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                          {message.content}
                         </p>
                       </div>
                     );

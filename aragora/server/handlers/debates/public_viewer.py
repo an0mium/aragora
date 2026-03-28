@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
-import re
 import time
 from typing import Any
 
@@ -68,16 +67,70 @@ def _reset_public_viewer_rate_limits() -> None:
 # Debate retrieval helpers
 # ---------------------------------------------------------------------------
 
-# Debate ID: hex string, 16-32 chars (matches playground IDs)
-_DEBATE_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
-
-# Also support playground-prefixed IDs like playground_abcd1234
-_PLAYGROUND_ID_RE = re.compile(r"^playground_[a-f0-9]{8,16}$")
-
 
 def _is_valid_debate_id(debate_id: str) -> bool:
     """Validate debate ID format to prevent path traversal."""
-    return bool(_DEBATE_ID_RE.match(debate_id) or _PLAYGROUND_ID_RE.match(debate_id))
+    try:
+        from aragora.server.validation import validate_debate_id
+
+        is_valid, _ = validate_debate_id(debate_id)
+        return is_valid
+    except (ImportError, RuntimeError, ValueError):
+        return False
+
+
+def _get_playground_debate_result(debate_id: str) -> dict[str, Any] | None:
+    """Retrieve a debate from the playground debate result store."""
+    try:
+        from aragora.storage.debate_store import get_debate_store
+
+        store = get_debate_store()
+        return store.get(debate_id)
+    except (ImportError, RuntimeError, OSError) as exc:
+        logger.debug("Debate result store unavailable: %s", exc)
+        return None
+
+
+def _get_primary_storage_debate_result(debate_id: str) -> dict[str, Any] | None:
+    """Retrieve a debate from the primary debates storage when it is publicly shareable."""
+    try:
+        from aragora.server.handlers.debates.share import is_publicly_shared
+        from aragora.server.storage import get_debates_db
+    except (ImportError, RuntimeError, OSError) as exc:
+        logger.debug("Primary debate storage unavailable: %s", exc)
+        return None
+
+    storage = get_debates_db()
+    if storage is None:
+        return None
+
+    try:
+        result = storage.get(debate_id)
+    except (AttributeError, RuntimeError, OSError, ValueError) as exc:
+        logger.debug("Failed reading debate %s from primary storage: %s", debate_id, exc)
+        return None
+
+    if result is None:
+        return None
+
+    try:
+        is_public = bool(storage.is_public(debate_id))
+    except (AttributeError, RuntimeError, OSError, ValueError) as exc:
+        logger.debug("Failed checking public state for %s: %s", debate_id, exc)
+        is_public = False
+
+    is_shared = is_publicly_shared(debate_id)
+    if not is_public and not is_shared:
+        return None
+
+    normalized = dict(result)
+    normalized.setdefault("id", debate_id)
+    normalized.setdefault("debate_id", debate_id)
+    if is_public or is_shared:
+        normalized["visibility"] = "public"
+        normalized.setdefault("share_url", f"/debate/{debate_id}")
+        normalized["is_public"] = True
+    return normalized
 
 
 def _get_debate_result(debate_id: str) -> dict[str, Any] | None:
@@ -85,14 +138,10 @@ def _get_debate_result(debate_id: str) -> dict[str, Any] | None:
 
     Returns the full result dict, or None if not found/expired.
     """
-    try:
-        from aragora.storage.debate_store import get_debate_store
-
-        store = get_debate_store()
-        return store.get(debate_id)
-    except (ImportError, RuntimeError, OSError) as exc:
-        logger.debug("Debate store unavailable: %s", exc)
-        return None
+    result = _get_playground_debate_result(debate_id)
+    if result is not None:
+        return result
+    return _get_primary_storage_debate_result(debate_id)
 
 
 def _is_shareable(result: dict[str, Any]) -> bool:
@@ -107,8 +156,10 @@ def _is_shareable(result: dict[str, Any]) -> bool:
         return True
     if result.get("visibility") == "public":
         return True
+    if result.get("is_public") is True:
+        return True
     source = result.get("source", "")
-    if source in ("playground", "landing", "oracle", "demo"):
+    if source in ("playground", "landing", "oracle", "demo", "try"):
         return True
     return False
 

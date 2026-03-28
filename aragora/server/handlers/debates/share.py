@@ -168,6 +168,30 @@ class DebateShareHandler(BaseHandler):
             return parts[4]
         return None
 
+    def _set_public_storage_flag(self, debate_id: str, enabled: bool) -> None:
+        """Best-effort persistence for public share state."""
+        storage = self.ctx.get("storage")
+        if storage is None:
+            try:
+                from aragora.server.storage import get_debates_db
+
+                storage = get_debates_db()
+            except (ImportError, OSError, RuntimeError, ValueError) as exc:
+                logger.debug("Debate storage unavailable while updating share state: %s", exc)
+                return
+
+        if storage is None:
+            return
+
+        setter = getattr(storage, "set_public", None)
+        if not callable(setter):
+            return
+
+        try:
+            setter(debate_id, enabled)
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Failed to persist public state for debate %s: %s", debate_id, exc)
+
     # ------------------------------------------------------------------
     # GET /api/v1/debates/{id}/spectate/public
     # ------------------------------------------------------------------
@@ -246,6 +270,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, True)
+        self._set_public_storage_flag(debate_id, True)
 
         host = _DEFAULT_HOST
         if handler and hasattr(handler, "headers"):
@@ -290,6 +315,7 @@ class DebateShareHandler(BaseHandler):
             return err
 
         set_public_spectate(debate_id, False)
+        self._set_public_storage_flag(debate_id, False)
 
         return json_response(
             {

@@ -349,6 +349,15 @@ class TestSharePost:
         h.handle_post("/api/v1/debates/my-debate/share", {}, _make_http_handler())
         assert is_publicly_shared("my-debate") is True
 
+    def test_share_persists_public_state_to_storage(self):
+        storage = MagicMock()
+        h = DebateShareHandler(ctx={"storage": storage})
+
+        result = h.handle_post("/api/v1/debates/stored/share", {}, _make_http_handler())
+
+        assert _status(result) == 200
+        storage.set_public.assert_called_once_with("stored", True)
+
     def test_full_url_uses_host_header(self):
         h = DebateShareHandler()
         handler = _make_http_handler(host="debates.example.org")
@@ -425,6 +434,15 @@ class TestShareDelete:
         assert body["public_spectate"] is False
         assert body["debate_id"] == "my-debate"
         assert is_publicly_shared("my-debate") is False
+
+    def test_revoke_persists_private_state_to_storage(self):
+        storage = MagicMock()
+        h = DebateShareHandler(ctx={"storage": storage})
+
+        result = h.handle_delete("/api/v1/debates/stored/share", {}, _make_http_handler())
+
+        assert _status(result) == 200
+        storage.set_public.assert_called_once_with("stored", False)
 
     def test_revoke_nonexistent_share_succeeds(self):
         """Revoking a debate that was never shared should still succeed."""
