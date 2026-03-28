@@ -66,6 +66,10 @@ class CostHandler:
         "/api/v1/costs/recommendations/*/dismiss",
         "/api/v1/costs/timeline",
         "/api/v1/costs/usage",
+        # Debate session cost endpoints (v1 canonical)
+        "/api/v1/costs/debates/*",
+        "/api/v1/costs/debates/*/line-items",
+        "/api/v1/costs/debates/*/performance",
         # Legacy paths (unversioned)
         "/api/costs",
         "/api/costs/alerts",
@@ -92,6 +96,10 @@ class CostHandler:
         "/api/costs/recommendations/*/dismiss",
         "/api/costs/timeline",
         "/api/costs/usage",
+        # Debate session cost endpoints (legacy)
+        "/api/costs/debates/*",
+        "/api/costs/debates/*/line-items",
+        "/api/costs/debates/*/performance",
     ]
 
     def __init__(self, ctx: dict | None = None):
@@ -214,6 +222,42 @@ class CostHandler:
         }
         dynamic_routes = {
             "GET": [
+                (
+                    "/api/v1/costs/debates/",
+                    "/line-items",
+                    "debate_id",
+                    "handle_get_debate_line_items",
+                ),
+                (
+                    "/api/costs/debates/",
+                    "/line-items",
+                    "debate_id",
+                    "handle_get_debate_line_items",
+                ),
+                (
+                    "/api/v1/costs/debates/",
+                    "/performance",
+                    "debate_id",
+                    "handle_get_debate_performance",
+                ),
+                (
+                    "/api/costs/debates/",
+                    "/performance",
+                    "debate_id",
+                    "handle_get_debate_performance",
+                ),
+                (
+                    "/api/v1/costs/debates/",
+                    "",
+                    "debate_id",
+                    "handle_get_debate_costs",
+                ),
+                (
+                    "/api/costs/debates/",
+                    "",
+                    "debate_id",
+                    "handle_get_debate_costs",
+                ),
                 (
                     "/api/v1/costs/recommendations/",
                     "",
@@ -2005,6 +2049,397 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception("Failed to get debate breakdown: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    # =========================================================================
+    # Debate Session Cost Calculation Endpoints
+    # =========================================================================
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/debates/{debate_id}",
+        summary="Get debate session costs",
+        description="Get cost summary for a specific debate session.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_debate_costs(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/debates/{debate_id}
+
+        Get cost summary for a specific debate session including total cost,
+        token usage, and budget status.
+
+        Path params:
+            - debate_id: Debate session ID
+        """
+        try:
+            debate_id = request.match_info.get("debate_id", "")
+            if not debate_id:
+                return web_error_response("debate_id is required", 400)
+
+            tracker = _models._get_cost_tracker()
+            if not tracker:
+                return web_error_response("Cost tracker not available", 503)
+
+            # Get debate cost from tracker
+            cost_data = await tracker.get_debate_cost(debate_id)
+
+            # Get budget status
+            budget_status = tracker.check_debate_budget(debate_id)
+
+            # Collect per-agent and per-model breakdowns from usage buffer
+            by_agent: dict[str, dict[str, Any]] = {}
+            by_model: dict[str, dict[str, Any]] = {}
+            call_count = 0
+            total_latency = 0.0
+
+            async with tracker._buffer_lock:
+                for usage in tracker._usage_buffer:
+                    if usage.debate_id != debate_id:
+                        continue
+                    call_count += 1
+                    total_latency += usage.latency_ms
+
+                    # Per-agent aggregation
+                    agent_key = usage.agent_name or usage.agent_id or "unknown"
+                    if agent_key not in by_agent:
+                        by_agent[agent_key] = {
+                            "agent": agent_key,
+                            "cost_usd": 0.0,
+                            "tokens_in": 0,
+                            "tokens_out": 0,
+                            "calls": 0,
+                        }
+                    by_agent[agent_key]["cost_usd"] += float(usage.cost_usd)
+                    by_agent[agent_key]["tokens_in"] += usage.tokens_in
+                    by_agent[agent_key]["tokens_out"] += usage.tokens_out
+                    by_agent[agent_key]["calls"] += 1
+
+                    # Per-model aggregation
+                    model_key = usage.model or "unknown"
+                    if model_key not in by_model:
+                        by_model[model_key] = {
+                            "model": model_key,
+                            "provider": usage.provider,
+                            "cost_usd": 0.0,
+                            "tokens_in": 0,
+                            "tokens_out": 0,
+                            "calls": 0,
+                        }
+                    by_model[model_key]["cost_usd"] += float(usage.cost_usd)
+                    by_model[model_key]["tokens_in"] += usage.tokens_in
+                    by_model[model_key]["tokens_out"] += usage.tokens_out
+                    by_model[model_key]["calls"] += 1
+
+            total_cost = float(cost_data.get("total_cost_usd", "0"))
+            agents_list = sorted(by_agent.values(), key=lambda x: x["cost_usd"], reverse=True)
+            models_list = sorted(by_model.values(), key=lambda x: x["cost_usd"], reverse=True)
+
+            # Round costs
+            for item in agents_list:
+                item["cost_usd"] = round(item["cost_usd"], 6)
+            for item in models_list:
+                item["cost_usd"] = round(item["cost_usd"], 6)
+
+            return web.json_response(
+                {
+                    "data": {
+                        "debate_id": debate_id,
+                        "total_cost_usd": round(total_cost, 6),
+                        "total_tokens_in": cost_data.get("total_tokens_in", 0),
+                        "total_tokens_out": cost_data.get("total_tokens_out", 0),
+                        "api_calls": cost_data.get("api_calls", call_count),
+                        "avg_latency_ms": round(total_latency / call_count, 2)
+                        if call_count > 0
+                        else 0,
+                        "by_agent": agents_list,
+                        "by_model": models_list,
+                        "budget": budget_status,
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get debate costs: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/debates/{debate_id}/line-items",
+        summary="Get debate cost line items",
+        description="Get individual API call cost line items for a debate session.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_debate_line_items(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/debates/{debate_id}/line-items
+
+        Get line-item breakdown of individual API calls for a debate session.
+
+        Path params:
+            - debate_id: Debate session ID
+        Query params:
+            - sort_by: Sort field (cost, timestamp, tokens). Default: timestamp
+            - order: Sort order (asc, desc). Default: desc
+            - limit: Max items to return (default: 100, max: 500)
+            - offset: Pagination offset (default: 0)
+        """
+        try:
+            debate_id = request.match_info.get("debate_id", "")
+            if not debate_id:
+                return web_error_response("debate_id is required", 400)
+
+            sort_by = request.query.get("sort_by", "timestamp")
+            order = request.query.get("order", "desc")
+            limit = safe_query_int(request.query, "limit", default=100, min_val=1, max_val=500)
+            offset = safe_query_int(request.query, "offset", default=0, min_val=0, max_val=100000)
+
+            if sort_by not in ("cost", "timestamp", "tokens"):
+                return web_error_response("sort_by must be one of: cost, timestamp, tokens", 400)
+            if order not in ("asc", "desc"):
+                return web_error_response("order must be 'asc' or 'desc'", 400)
+
+            tracker = _models._get_cost_tracker()
+            if not tracker:
+                return web_error_response("Cost tracker not available", 503)
+
+            # Collect line items from usage buffer
+            line_items: list[dict[str, Any]] = []
+
+            async with tracker._buffer_lock:
+                for usage in tracker._usage_buffer:
+                    if usage.debate_id != debate_id:
+                        continue
+                    line_items.append(
+                        {
+                            "id": usage.id,
+                            "timestamp": usage.timestamp.isoformat(),
+                            "agent": usage.agent_name or usage.agent_id or "unknown",
+                            "agent_id": usage.agent_id,
+                            "provider": usage.provider,
+                            "model": usage.model,
+                            "operation": usage.operation,
+                            "tokens_in": usage.tokens_in,
+                            "tokens_out": usage.tokens_out,
+                            "tokens_cached": usage.tokens_cached,
+                            "cost_usd": round(float(usage.cost_usd), 6),
+                            "latency_ms": round(usage.latency_ms, 2),
+                        }
+                    )
+
+            # Sort
+            sort_keys = {
+                "cost": lambda x: x["cost_usd"],
+                "timestamp": lambda x: x["timestamp"],
+                "tokens": lambda x: x["tokens_in"] + x["tokens_out"],
+            }
+            line_items.sort(
+                key=sort_keys[sort_by],
+                reverse=(order == "desc"),
+            )
+
+            total_count = len(line_items)
+            # Apply pagination
+            line_items = line_items[offset : offset + limit]
+
+            # Compute totals
+            total_cost = sum(item["cost_usd"] for item in line_items)
+            total_tokens = sum(item["tokens_in"] + item["tokens_out"] for item in line_items)
+
+            return web.json_response(
+                {
+                    "data": {
+                        "debate_id": debate_id,
+                        "line_items": line_items,
+                        "total_count": total_count,
+                        "returned_count": len(line_items),
+                        "offset": offset,
+                        "limit": limit,
+                        "page_total_cost_usd": round(total_cost, 6),
+                        "page_total_tokens": total_tokens,
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get debate line items: %s", e)
+            return web_error_response("Internal server error", 500)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/costs/debates/{debate_id}/performance",
+        summary="Get debate cost performance",
+        description="Get performance metrics for a debate session's API usage.",
+    )
+    @rate_limit(requests_per_minute=60)
+    @require_permission("costs:read")
+    async def handle_get_debate_performance(self, request: web.Request) -> web.Response:
+        """
+        GET /api/v1/costs/debates/{debate_id}/performance
+
+        Get performance and efficiency metrics for a debate session's API usage.
+
+        Path params:
+            - debate_id: Debate session ID
+        """
+        try:
+            debate_id = request.match_info.get("debate_id", "")
+            if not debate_id:
+                return web_error_response("debate_id is required", 400)
+
+            tracker = _models._get_cost_tracker()
+            if not tracker:
+                return web_error_response("Cost tracker not available", 503)
+
+            # Collect per-call metrics from usage buffer
+            latencies: list[float] = []
+            costs: list[float] = []
+            tokens_per_call: list[int] = []
+            by_operation: dict[str, dict[str, Any]] = {}
+            first_ts: datetime | None = None
+            last_ts: datetime | None = None
+
+            async with tracker._buffer_lock:
+                for usage in tracker._usage_buffer:
+                    if usage.debate_id != debate_id:
+                        continue
+                    latencies.append(usage.latency_ms)
+                    costs.append(float(usage.cost_usd))
+                    tokens_per_call.append(usage.tokens_in + usage.tokens_out)
+
+                    # Track timestamps
+                    if first_ts is None or usage.timestamp < first_ts:
+                        first_ts = usage.timestamp
+                    if last_ts is None or usage.timestamp > last_ts:
+                        last_ts = usage.timestamp
+
+                    # Per-operation breakdown
+                    op = usage.operation or "unknown"
+                    if op not in by_operation:
+                        by_operation[op] = {
+                            "operation": op,
+                            "calls": 0,
+                            "total_cost_usd": 0.0,
+                            "total_latency_ms": 0.0,
+                            "total_tokens": 0,
+                        }
+                    by_operation[op]["calls"] += 1
+                    by_operation[op]["total_cost_usd"] += float(usage.cost_usd)
+                    by_operation[op]["total_latency_ms"] += usage.latency_ms
+                    by_operation[op]["total_tokens"] += usage.tokens_in + usage.tokens_out
+
+            call_count = len(latencies)
+            if call_count == 0:
+                return web.json_response(
+                    {
+                        "data": {
+                            "debate_id": debate_id,
+                            "api_calls": 0,
+                            "message": "No usage data found for this debate",
+                        }
+                    }
+                )
+
+            total_cost = sum(costs)
+            total_tokens = sum(tokens_per_call)
+
+            # Compute per-operation averages
+            operations_list = []
+            for op_data in by_operation.values():
+                op_calls = op_data["calls"]
+                operations_list.append(
+                    {
+                        "operation": op_data["operation"],
+                        "calls": op_calls,
+                        "total_cost_usd": round(op_data["total_cost_usd"], 6),
+                        "avg_cost_usd": round(op_data["total_cost_usd"] / op_calls, 6),
+                        "avg_latency_ms": round(op_data["total_latency_ms"] / op_calls, 2),
+                        "avg_tokens": round(op_data["total_tokens"] / op_calls),
+                    }
+                )
+            operations_list.sort(key=lambda x: x["total_cost_usd"], reverse=True)
+
+            # Duration
+            duration_seconds = (last_ts - first_ts).total_seconds() if first_ts and last_ts else 0
+
+            # Sorted latencies for percentiles
+            sorted_latencies = sorted(latencies)
+
+            def _percentile(data: list[float], pct: float) -> float:
+                if not data:
+                    return 0.0
+                idx = int(len(data) * pct / 100)
+                idx = min(idx, len(data) - 1)
+                return round(data[idx], 2)
+
+            return web.json_response(
+                {
+                    "data": {
+                        "debate_id": debate_id,
+                        "api_calls": call_count,
+                        "total_cost_usd": round(total_cost, 6),
+                        "total_tokens": total_tokens,
+                        "duration_seconds": round(duration_seconds, 2),
+                        "throughput": {
+                            "calls_per_minute": round(call_count / (duration_seconds / 60), 2)
+                            if duration_seconds > 0
+                            else 0,
+                            "tokens_per_minute": round(total_tokens / (duration_seconds / 60), 0)
+                            if duration_seconds > 0
+                            else 0,
+                        },
+                        "latency": {
+                            "avg_ms": round(sum(latencies) / call_count, 2),
+                            "min_ms": round(min(latencies), 2),
+                            "max_ms": round(max(latencies), 2),
+                            "p50_ms": _percentile(sorted_latencies, 50),
+                            "p90_ms": _percentile(sorted_latencies, 90),
+                            "p99_ms": _percentile(sorted_latencies, 99),
+                        },
+                        "cost_efficiency": {
+                            "cost_per_call_usd": round(total_cost / call_count, 6),
+                            "cost_per_1k_tokens": round(total_cost / total_tokens * 1000, 6)
+                            if total_tokens > 0
+                            else 0,
+                            "avg_tokens_per_call": round(total_tokens / call_count),
+                        },
+                        "by_operation": operations_list,
+                        "time_range": {
+                            "start": first_ts.isoformat() if first_ts else None,
+                            "end": last_ts.isoformat() if last_ts else None,
+                        },
+                    }
+                }
+            )
+
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            ImportError,
+        ) as e:
+            logger.exception("Failed to get debate performance: %s", e)
             return web_error_response("Internal server error", 500)
 
     @api_endpoint(

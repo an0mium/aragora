@@ -111,6 +111,34 @@ def register_routes(app: web.Application) -> None:
     app.router.add_post("/api/v1/costs/alerts", handler.handle_create_alert)
     app.router.add_post("/api/costs/alerts", handler.handle_create_alert)
 
+    # Debate session cost endpoints (v1 canonical)
+    app.router.add_get(
+        "/api/v1/costs/debates/{debate_id}",
+        handler.handle_get_debate_costs,
+    )
+    app.router.add_get(
+        "/api/v1/costs/debates/{debate_id}/line-items",
+        handler.handle_get_debate_line_items,
+    )
+    app.router.add_get(
+        "/api/v1/costs/debates/{debate_id}/performance",
+        handler.handle_get_debate_performance,
+    )
+
+    # Debate session cost endpoints (legacy)
+    app.router.add_get(
+        "/api/costs/debates/{debate_id}",
+        handler.handle_get_debate_costs,
+    )
+    app.router.add_get(
+        "/api/costs/debates/{debate_id}/line-items",
+        handler.handle_get_debate_line_items,
+    )
+    app.router.add_get(
+        "/api/costs/debates/{debate_id}/performance",
+        handler.handle_get_debate_performance,
+    )
+
     # Spend analytics dashboard (v1 canonical + legacy)
     app.router.add_get("/api/v1/costs/analytics/trend", handler.handle_get_spend_trend)
     app.router.add_get("/api/v1/costs/analytics/by-agent", handler.handle_get_spend_by_agent)
