@@ -267,9 +267,9 @@ export function LandingLiveDebatePreview({
 
   const bridgeState = getBridgeState(loaded, connected, status);
   const debates = useMemo(() => {
-    if (status?.live_debates?.length) return status.live_debates;
+    if (status) return status.live_debates;
     return buildFallbackDebates(events);
-  }, [events, status?.live_debates]);
+  }, [events, status]);
 
   const featuredDebate = debates[0] ?? null;
   const featuredEvents = useMemo(() => {
