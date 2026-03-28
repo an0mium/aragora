@@ -69,6 +69,7 @@ from aragora.observability.metrics.agents import (
     record_provider_token_usage,
     record_rate_limit_detected,
 )
+from aragora.telemetry.capture import capture_model_request
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Get error message prefix for this agent type."""
         return self.agent_type.title() if hasattr(self, "agent_type") else "API"
 
+    @capture_model_request(operation="generate")
     @handle_agent_errors(
         max_retries=3,
         retry_delay=1.0,
@@ -534,6 +536,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
 
+    @capture_model_request(operation="critique")
     async def critique(
         self,
         proposal: str,

@@ -36,6 +36,7 @@ from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
+from aragora.telemetry.capture import capture_model_request
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import OpenRouterAgent
@@ -642,6 +643,7 @@ Provide structured feedback:
 - SEVERITY: 0-10 rating (0=trivial, 10=critical)
 - REASONING: Brief explanation"""
 
+    @capture_model_request(operation="critique")
     async def critique(
         self,
         proposal: str,
@@ -724,6 +726,7 @@ class CodexAgent(CLIAgent):
             raise RuntimeError("cli error: unable to parse response (codex warning-only output)")
         return cleaned if cleaned else result
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using codex exec.
 
@@ -777,6 +780,7 @@ class ClaudeAgent(CLIAgent):
     Falls back to OpenRouter (Anthropic Claude) on CLI failures if enabled.
     """
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using claude CLI via stdin."""
         full_prompt = self._build_full_prompt(prompt, context)
@@ -807,6 +811,7 @@ class GeminiCLIAgent(CLIAgent):
         filtered = [line for line in lines if not line.startswith("YOLO mode is enabled")]
         return "\n".join(filtered).strip()
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using gemini CLI.
 
@@ -915,6 +920,7 @@ class KiloCodeAgent(CLIAgent):
                 continue
         return "\n\n".join(responses) if responses else output
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using kilocode CLI with codebase access.
 
@@ -997,6 +1003,7 @@ class GrokCLIAgent(CLIAgent):
                 continue
         return final_content if final_content else output
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using grok CLI.
 
@@ -1035,6 +1042,7 @@ class QwenCLIAgent(CLIAgent):
     Falls back to OpenRouter (Qwen) on CLI failures if enabled.
     """
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using qwen CLI.
 
@@ -1072,6 +1080,7 @@ class DeepseekCLIAgent(CLIAgent):
     Falls back to OpenRouter (Deepseek) on CLI failures if enabled.
     """
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using deepseek CLI.
 
@@ -1125,6 +1134,7 @@ class OpenAIAgent(CLIAgent):
         except json.JSONDecodeError:
             return result
 
+    @capture_model_request(operation="generate")
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using openai CLI.
 

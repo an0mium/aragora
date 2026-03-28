@@ -14,6 +14,18 @@ Usage:
 See aragora.observability for full documentation.
 """
 
+# Capture pipeline for per-request AI model telemetry
+from aragora.telemetry.capture import (
+    DebateSessionMetrics,
+    RequestMetrics,
+    capture_model_request,
+    end_session,
+    get_session_metrics,
+    register_metrics_sink,
+    start_session,
+    unregister_metrics_sink,
+)
+
 # Re-export everything from observability
 from aragora.observability import (
     LogConfig,
@@ -107,4 +119,13 @@ __all__ = [
     "get_metrics_config",
     "is_tracing_enabled",
     "is_metrics_enabled",
+    # Capture pipeline
+    "RequestMetrics",
+    "DebateSessionMetrics",
+    "capture_model_request",
+    "get_session_metrics",
+    "start_session",
+    "end_session",
+    "register_metrics_sink",
+    "unregister_metrics_sink",
 ]

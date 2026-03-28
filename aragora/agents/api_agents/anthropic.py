@@ -39,6 +39,7 @@ from aragora.observability.metrics.agents import (
     record_provider_token_usage,
     record_rate_limit_detected,
 )
+from aragora.telemetry.capture import capture_model_request
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                 return True
         return False
 
+    @capture_model_request(provider="anthropic", operation="generate")
     @handle_agent_errors(
         max_retries=3,
         retry_delay=1.0,
@@ -568,6 +570,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
 
+    @capture_model_request(provider="anthropic", operation="critique")
     async def critique(
         self,
         proposal: str,
