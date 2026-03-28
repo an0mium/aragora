@@ -18,7 +18,10 @@ env:
 jobs:
   production-health:
     name: Production Health Check
-    runs-on: aragora
+    # Pin production browser checks to the Ubuntu Hetzner pool. The generic
+    # `aragora` fleet also includes Amazon Linux hosts without apt-get, which
+    # breaks the current Playwright `--with-deps` bootstrap path.
+    runs-on: [self-hosted, Linux, X64, aragora, hetzner]
     timeout-minutes: 15
 
     steps:
@@ -97,7 +100,7 @@ jobs:
 
   production-auth:
     name: Production Auth Flow
-    runs-on: aragora
+    runs-on: [self-hosted, Linux, X64, aragora, hetzner]
     timeout-minutes: 15
     needs: production-health
 
@@ -183,7 +186,7 @@ jobs:
 
   production-full:
     name: Full Production Suite
-    runs-on: aragora
+    runs-on: [self-hosted, Linux, X64, aragora, hetzner]
     timeout-minutes: 30
     needs: production-auth
     if: github.event_name == 'workflow_dispatch'
