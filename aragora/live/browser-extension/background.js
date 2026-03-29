@@ -45,6 +45,49 @@ function sanitizeSelectionText(value) {
     .slice(0, SELECTION_LIMIT);
 }
 
+function resolveDebateAnswer(result) {
+  return (
+    result?.conclusion ||
+    result?.final_answer ||
+    result?.finalAnswer ||
+    result?.answer ||
+    result?.summary ||
+    result?.consensus?.conclusion ||
+    result?.consensus?.final_answer ||
+    result?.consensus?.finalAnswer ||
+    result?.consensus?.summary ||
+    result?.consensus?.answer ||
+    ""
+  );
+}
+
+function resolveDebateConfidence(result) {
+  const rawConfidence =
+    result?.confidence ??
+    result?.consensus?.confidence ??
+    result?.consensus?.agreement;
+  const confidence =
+    typeof rawConfidence === "string" ? Number(rawConfidence) : rawConfidence;
+
+  return typeof confidence === "number" && !Number.isNaN(confidence)
+    ? confidence
+    : null;
+}
+
+function buildStoredResult(result) {
+  const finalAnswer = resolveDebateAnswer(result);
+
+  return {
+    debateId: result?.debate_id || result?.id || null,
+    status: result?.status || "running",
+    message: result?.message || finalAnswer || null,
+    finalAnswer: finalAnswer || null,
+    confidence: resolveDebateConfidence(result),
+    consensus: result?.consensus || null,
+    task: result?.task || result?.environment?.task || "",
+  };
+}
+
 async function setBadge(text, color) {
   await chrome.action.setBadgeText({ text });
 
@@ -220,11 +263,7 @@ async function handleContextMenuClick(info, tab) {
       status: createdDebate.status || "running",
       debateId,
       error: null,
-      result: {
-        debateId,
-        status: createdDebate.status || "running",
-        message: createdDebate.message || null,
-      },
+      result: buildStoredResult(createdDebate),
       selectionText,
       source,
     });
