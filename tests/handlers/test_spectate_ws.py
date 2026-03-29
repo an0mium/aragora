@@ -278,6 +278,31 @@ class TestRecentEvents:
         assert body["count"] == 1
         assert body["events"][0]["pipeline_id"] == "p-abc"
 
+    def test_recent_keeps_debate_ids_visible_for_public_spectate_surfaces(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        """Public landing/spectate surfaces rely on recent events to discover live debates."""
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:00+00:00",
+                debate_id="d-landing",
+                agent_name="claude",
+                data={"details": "Opening argument"},
+            )
+        )
+
+        with patch.object(handler, "get_current_user", return_value=None):
+            result = handler.handle("/api/v1/spectate/recent", {}, mock_handler)
+
+        body = result[0]
+        assert body["count"] == 1
+        assert body["events"][0]["debate_id"] == "d-landing"
+        assert body["events"][0]["agent_name"] == "claude"
+
 
 # ---------------------------------------------------------------------------
 # Status endpoint tests
