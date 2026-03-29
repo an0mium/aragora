@@ -258,10 +258,12 @@ class TestSharedInboxHandlerCanHandle:
         assert not handler.can_handle("/api/v1/inbox/other")
         assert not handler.can_handle("/unknown")
 
-    def test_handle_returns_none(self, handler):
-        """The base handle() stub returns None (not yet dispatched)."""
+    def test_handle_requires_workspace_id(self, handler):
+        """Listing shared inboxes fails closed when workspace_id is missing."""
         result = handler.handle("/api/v1/inbox/shared", {}, MagicMock())
-        assert result is None
+        assert result is not None
+        assert result.status_code == 400
+        assert result.body == b'{"error": "workspace_id required"}'
 
 
 class TestSharedInboxHandlerInit:
