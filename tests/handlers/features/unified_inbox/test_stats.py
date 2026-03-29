@@ -11,7 +11,7 @@ Test areas:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -130,9 +130,38 @@ class TestComputeStatsBasic:
         assert stats.avg_response_time_hours == 4.5
 
     def test_hourly_volume_is_empty_list(self):
-        """Hourly volume is currently an empty list placeholder."""
+        """Hourly volume is empty when no messages are present."""
         stats = compute_stats([], [])
         assert stats.hourly_volume == []
+
+    def test_hourly_volume_groups_messages_by_hour(self):
+        """Hourly volume counts messages per UTC hour bucket."""
+        messages = [
+            _make_message(id="m1", received_at=datetime(2026, 2, 23, 9, 15, tzinfo=timezone.utc)),
+            _make_message(id="m2", received_at=datetime(2026, 2, 23, 9, 45, tzinfo=timezone.utc)),
+            _make_message(id="m3", received_at=datetime(2026, 2, 23, 11, 0, tzinfo=timezone.utc)),
+        ]
+
+        stats = compute_stats([], messages)
+
+        assert stats.hourly_volume == [{"hour": 9, "count": 2}, {"hour": 11, "count": 1}]
+
+    def test_hourly_volume_normalizes_timezone_offsets_to_utc(self):
+        """Timezone-aware timestamps are normalized so equivalent UTC hours merge."""
+        messages = [
+            _make_message(
+                id="m1",
+                received_at=datetime(2026, 2, 23, 4, 30, tzinfo=timezone(timedelta(hours=-5))),
+            ),
+            _make_message(
+                id="m2",
+                received_at=datetime(2026, 2, 23, 9, 5, tzinfo=timezone.utc),
+            ),
+        ]
+
+        stats = compute_stats([], messages)
+
+        assert stats.hourly_volume == [{"hour": 9, "count": 2}]
 
     def test_stats_is_inbox_stats_instance(self):
         """Return type is an InboxStats dataclass."""

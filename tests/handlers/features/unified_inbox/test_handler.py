@@ -1358,6 +1358,7 @@ class TestStats:
             assert stats["total_accounts"] == 2
             assert stats["total_messages"] == 2
             assert stats["unread_count"] == 1
+            assert stats["hourly_volume"] == [{"hour": 12, "count": 2}]
             assert stats["messages_by_priority"]["high"] == 1
             assert stats["messages_by_priority"]["low"] == 1
             assert stats["messages_by_provider"]["gmail"] == 1

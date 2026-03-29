@@ -6,6 +6,8 @@ and priority/volume trends over time.
 
 from __future__ import annotations
 
+from collections import Counter
+from datetime import timezone
 from typing import Any
 
 from .models import (
@@ -15,6 +17,19 @@ from .models import (
     UnifiedMessage,
     record_to_account,
 )
+
+
+def _compute_hourly_volume(messages: list[UnifiedMessage]) -> list[dict[str, int]]:
+    """Aggregate message volume by UTC hour for chart-friendly stats."""
+    hourly_counts: Counter[int] = Counter()
+
+    for message in messages:
+        received_at = message.received_at
+        if received_at.tzinfo is not None:
+            received_at = received_at.astimezone(timezone.utc)
+        hourly_counts[received_at.hour] += 1
+
+    return [{"hour": hour, "count": hourly_counts[hour]} for hour in sorted(hourly_counts)]
 
 
 def compute_stats(
@@ -65,7 +80,7 @@ def compute_stats(
         pending_triage=sum(1 for m in messages if m.triage_action is None and not m.is_read),
         sync_health=sync_health,
         top_senders=top_senders,
-        hourly_volume=[],  # Would be calculated from actual timestamps
+        hourly_volume=_compute_hourly_volume(messages),
     )
 
 
