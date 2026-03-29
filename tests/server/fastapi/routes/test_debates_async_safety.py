@@ -24,6 +24,7 @@ class _SlowSyncStorage:
 
 class _SlowStartResponse:
     debate_id = "debate-123"
+    success = True
 
     def to_dict(self) -> dict[str, str]:
         return {"debate_id": self.debate_id, "status": "started"}
