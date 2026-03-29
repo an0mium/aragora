@@ -1126,8 +1126,8 @@ class MemoryManager:
 
             # Also emit to WebSocket stream for live dashboard
             if self.event_emitter:
-                self.event_emitter.emit_sync(
-                    event_type="memory_recall",
+                self._emit_event(
+                    "memory_recall",
                     debate_id="",
                     query=task,
                     hits=[
