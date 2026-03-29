@@ -1689,3 +1689,123 @@ class TestDiscoverFocusedTests:
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
         assert len(paths) == 2
+
+
+# ---------------------------------------------------------------------------
+# JSONL Boss Metrics Tests
+# ---------------------------------------------------------------------------
+
+
+class TestBossMetrics:
+    """Verify JSONL metrics emission per boss loop iteration."""
+
+    @pytest.mark.asyncio
+    async def test_metrics_jsonl_emitted_on_completed(self, tmp_path, monkeypatch):
+        """A completed worker iteration writes a JSONL line with expected fields."""
+        monkeypatch.chdir(tmp_path)
+
+        config = _boss_config(max_iterations=1)
+        loop = BossLoop(config=config)
+
+        issue = _make_issue(number=42)
+        worker_result = {
+            "status": "completed",
+            "changed_files": ["aragora/foo.py", "aragora/bar.py"],
+            "validations_run": ["tests/test_foo.py"],
+            "tests_passed": 1,
+        }
+
+        loop._finalize_worker_result(
+            iteration=1,
+            timestamp="2026-03-29T00:00:00+00:00",
+            runner_freshness={"fresh": True},
+            issue=issue,
+            issue_dict=issue.to_dict(),
+            worker_result=worker_result,
+            elapsed_seconds=12.5,
+        )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists(), "boss_metrics.jsonl should be created"
+
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 1
+
+        record = json.loads(lines[0])
+        assert record["iteration"] == 1
+        assert record["issue_number"] == 42
+        assert record["worker_status"] == "completed"
+        assert record["elapsed_seconds"] == 12.5
+        assert record["files_changed"] == 2
+        assert record["tests_run"] == 1
+        assert record["tests_passed"] == 1
+        assert "timestamp" in record
+        assert "run_id" in record
+
+    @pytest.mark.asyncio
+    async def test_metrics_jsonl_emitted_on_failed(self, tmp_path, monkeypatch):
+        """A failed worker also emits metrics."""
+        monkeypatch.chdir(tmp_path)
+
+        config = _boss_config(max_iterations=1)
+        loop = BossLoop(config=config)
+
+        issue = _make_issue(number=7)
+        loop._issue_attempt_counts[7] = 1
+        worker_result = {
+            "status": "failed",
+            "error": "timeout",
+            "changed_files": [],
+            "validations_run": [],
+            "tests_passed": 0,
+        }
+
+        loop._finalize_worker_result(
+            iteration=3,
+            timestamp="2026-03-29T01:00:00+00:00",
+            runner_freshness={"fresh": True},
+            issue=issue,
+            issue_dict=issue.to_dict(),
+            worker_result=worker_result,
+            elapsed_seconds=60.0,
+        )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists()
+
+        record = json.loads(metrics_path.read_text().strip())
+        assert record["iteration"] == 3
+        assert record["issue_number"] == 7
+        assert record["worker_status"] == "failed"
+        assert record["files_changed"] == 0
+        assert record["tests_run"] == 0
+        assert record["tests_passed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_metrics_appends_across_iterations(self, tmp_path, monkeypatch):
+        """Multiple iterations append separate JSONL lines."""
+        monkeypatch.chdir(tmp_path)
+
+        config = _boss_config(max_iterations=3)
+        loop = BossLoop(config=config)
+
+        for i in range(1, 4):
+            issue = _make_issue(number=i)
+            loop._finalize_worker_result(
+                iteration=i,
+                timestamp=f"2026-03-29T0{i}:00:00+00:00",
+                runner_freshness={"fresh": True},
+                issue=issue,
+                issue_dict=issue.to_dict(),
+                worker_result={"status": "completed", "changed_files": ["a.py"]},
+                elapsed_seconds=float(i * 10),
+            )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 3
+
+        for idx, line in enumerate(lines, start=1):
+            record = json.loads(line)
+            assert record["iteration"] == idx
+            assert record["issue_number"] == idx

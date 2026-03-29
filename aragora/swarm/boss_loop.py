@@ -1030,6 +1030,42 @@ class BossLoop:
         self._issue_attempt_counts: dict[int, int] = {}
         self._stop_reason: str | None = None
 
+    def _emit_boss_metrics(
+        self,
+        *,
+        iteration: int,
+        issue_number: int,
+        worker_status: str,
+        elapsed_seconds: float,
+        worker_result: dict[str, Any],
+    ) -> None:
+        """Append a JSONL metrics line for this iteration."""
+        try:
+            metrics_dir = Path(".aragora") / "overnight"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            metrics_path = metrics_dir / "boss_metrics.jsonl"
+
+            changed_files = list(worker_result.get("changed_files", []))
+            validations = list(worker_result.get("validations_run", []))
+            tests_passed = worker_result.get("tests_passed", 0)
+
+            record = {
+                "iteration": iteration,
+                "issue_number": issue_number,
+                "worker_status": worker_status,
+                "elapsed_seconds": elapsed_seconds,
+                "files_changed": len(changed_files),
+                "tests_run": len(validations),
+                "tests_passed": tests_passed,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "run_id": self.run_id,
+            }
+
+            with open(metrics_path, "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except Exception as exc:
+            logger.debug("Boss metrics logging failed: %s", exc)
+
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
         try:
             from aragora.receipts.provenance import emit_operational_receipt
@@ -1702,6 +1738,15 @@ class BossLoop:
         worker_result: dict[str, Any],
         elapsed_seconds: float,
     ) -> BossIterationStatus:
+        # Emit JSONL metrics for every iteration regardless of outcome
+        self._emit_boss_metrics(
+            iteration=iteration,
+            issue_number=issue.number,
+            worker_status=worker_result.get("status", "unknown"),
+            elapsed_seconds=elapsed_seconds,
+            worker_result=worker_result,
+        )
+
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0
             worker_run_id = str(worker_result.get("run_id", "")).strip()
