@@ -53,6 +53,7 @@ class DebateState:
 
         mode = self.metadata.get("mode")
         settlement = self.metadata.get("settlement")
+        comparison_config = self.metadata.get("comparison_config")
         result = self.metadata.get("result")
 
         if isinstance(result, dict):
@@ -65,6 +66,8 @@ class DebateState:
             payload["mode"] = mode
         if isinstance(settlement, dict):
             payload["settlement"] = settlement
+        if isinstance(comparison_config, dict):
+            payload["comparison_config"] = comparison_config
 
         return payload
 
