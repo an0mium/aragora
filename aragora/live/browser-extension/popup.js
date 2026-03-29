@@ -40,14 +40,16 @@ function isTerminalState(state) {
 }
 
 function resolveFinalAnswer(debate = {}) {
+  const result = debate;
   return (
     debate.final_answer ||
     debate.finalAnswer ||
-    debate.answer ||
-    debate.summary ||
+    result?.answer ||
+    result?.summary ||
     debate.consensus?.final_answer ||
     debate.consensus?.finalAnswer ||
     debate.consensus?.summary ||
+    result?.consensus?.summary ||
     debate.consensus?.answer ||
     ""
   );
