@@ -781,6 +781,28 @@ class TestRequestParameters:
 
             mock_post.assert_called_once()
 
+    def test_matrix_debate_model_combinations(self, mock_client, mock_responses):
+        """Matrix debate requests include explicit model combinations when provided."""
+        with patch.object(
+            mock_client, "_post", return_value=mock_responses["matrix_debate_create"]
+        ) as mock_post:
+            mock_client.matrix_debates.create(
+                task="Analyze options",
+                model_combinations=[
+                    {
+                        "name": "combo-a",
+                        "agents": [
+                            {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                            {"provider": "openai-api", "model": "gpt-4.1"},
+                        ],
+                    }
+                ],
+            )
+
+            _, payload = mock_post.call_args.args
+            assert payload["model_combinations"][0]["name"] == "combo-a"
+            assert payload["model_combinations"][0]["agents"][0]["model"] == "claude-opus-4-6"
+
 
 # =============================================================================
 # Response Validation Tests

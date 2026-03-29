@@ -410,6 +410,12 @@ def _add_ask_parser(subparsers) -> None:
         help="Matrix scenario JSON or name (repeatable)",
     )
     ask_parser.add_argument(
+        "--combination",
+        "--model-combination",
+        action="append",
+        help="Matrix model combination JSON or name (repeatable)",
+    )
+    ask_parser.add_argument(
         "--decision-integrity",
         action="store_true",
         help="Build decision integrity package (receipt + plan) after debate completes",

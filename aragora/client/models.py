@@ -400,6 +400,25 @@ class MatrixScenario(BaseModel):
     is_baseline: bool = False
 
 
+class MatrixAgentSpec(BaseModel):
+    """Agent spec for matrix debate combinations."""
+
+    provider: str
+    model: str | None = None
+    persona: str | None = None
+    role: str | None = None
+    name: str | None = None
+    hierarchy_role: str | None = None
+
+
+class MatrixModelCombination(BaseModel):
+    """Named model/team combination for matrix debates."""
+
+    name: str
+    agents: list[str | MatrixAgentSpec] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class MatrixScenarioResult(BaseModel):
     """Result from a single scenario in matrix debate."""
 
@@ -421,8 +440,11 @@ class MatrixDebateCreateRequest(BaseModel):
     """Request to create a matrix debate."""
 
     task: str
-    agents: list[str] = Field(default_factory=lambda: ["anthropic-api", "openai-api"])
+    agents: list[str | MatrixAgentSpec] = Field(
+        default_factory=lambda: ["anthropic-api", "openai-api"]
+    )
     scenarios: list[MatrixScenario] = Field(default_factory=list)
+    model_combinations: list[MatrixModelCombination] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
 
 
@@ -439,6 +461,8 @@ class MatrixDebateCreateResponse(BaseModel):
         default_factory=dict
     )
     comparison_matrix: dict[str, Any] | None = None
+    best_result: dict[str, Any] | None = None
+    best_combination: dict[str, Any] | None = None
 
 
 class MatrixDebate(BaseModel):
@@ -452,6 +476,8 @@ class MatrixDebate(BaseModel):
     conclusions: MatrixConclusion | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None
+    best_result: dict[str, Any] | None = None
+    best_combination: dict[str, Any] | None = None
 
 
 # =============================================================================

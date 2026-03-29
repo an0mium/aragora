@@ -246,6 +246,29 @@ def _parse_matrix_scenarios(raw: list[str] | None) -> list[dict[str, Any]]:
     return scenarios
 
 
+def _parse_matrix_model_combinations(raw: list[str] | None) -> list[dict[str, Any]]:
+    """Parse matrix model-combination CLI inputs into structured dicts."""
+    combinations: list[dict[str, Any]] = []
+    for item in raw or []:
+        value = str(item).strip()
+        if not value:
+            continue
+        if value.startswith("{") or value.startswith("["):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid model combination JSON: {e}") from e
+            if isinstance(parsed, list):
+                combinations.extend([c for c in parsed if isinstance(c, dict)])
+            elif isinstance(parsed, dict):
+                combinations.append(parsed)
+            else:
+                raise ValueError("Model combination JSON must be an object or list of objects")
+        else:
+            combinations.append({"name": value})
+    return combinations
+
+
 def _parse_auto_select_config(raw: str | None) -> dict[str, Any] | None:
     """Parse auto-select config JSON string into a dict."""
     if not raw:
@@ -662,6 +685,7 @@ def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
     """Print a matrix debate result summary."""
     scenarios = getattr(debate, "scenarios", None) or getattr(debate, "results", None) or []
     conclusions = getattr(debate, "conclusions", None)
+    best_result = getattr(debate, "best_result", None)
     status = getattr(debate, "status", "unknown")
     if hasattr(status, "value"):
         status = status.value
@@ -721,6 +745,22 @@ def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
                             print(f"- {conclusion}{suffix}")
                     else:
                         print(f"- {item}")
+
+    if best_result:
+        print("\n" + "-" * 60)
+        print("BEST RESULT:")
+        variant = best_result.get("variant_name") or best_result.get("scenario_name")
+        if variant:
+            print(f"Variant: {variant}")
+        combination = best_result.get("combination_name")
+        if combination:
+            print(f"Combination: {combination}")
+        confidence = best_result.get("confidence")
+        if confidence is not None:
+            print(f"Confidence: {confidence:.2f}")
+        answer = best_result.get("final_answer")
+        if answer:
+            print(f"Answer: {answer}")
 
     if verbose and scenarios:
         print("\n" + "-" * 60)
@@ -849,8 +889,9 @@ def _run_matrix_debate_api(
     server_url: str,
     api_key: str | None,
     task: str,
-    agents: list[str],
+    agents: list[Any],
     scenarios: list[dict[str, Any]],
+    model_combinations: list[dict[str, Any]],
     max_rounds: int,
     timeout_seconds: int,
     verbose: bool = False,
@@ -863,6 +904,7 @@ def _run_matrix_debate_api(
         task=task,
         agents=agents,
         scenarios=scenarios,
+        model_combinations=model_combinations,
         max_rounds=max_rounds,
     )
     if getattr(response, "results", None) or getattr(response, "universal_conclusions", None):
@@ -1609,14 +1651,18 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 return
 
             if matrix_mode:
-                matrix_agents = _agent_names_for_graph_matrix(agents)
+                matrix_agents = _agents_payload_for_api(agents)
                 scenarios = _parse_matrix_scenarios(args.scenario)
+                model_combinations = _parse_matrix_model_combinations(
+                    getattr(args, "combination", None)
+                )
                 result = _run_matrix_debate_api(
                     server_url=server_url,
                     api_key=api_key,
                     task=args.task,
                     agents=matrix_agents,
                     scenarios=scenarios,
+                    model_combinations=model_combinations,
                     max_rounds=args.matrix_rounds,
                     timeout_seconds=debate_timeout,
                     verbose=args.verbose,

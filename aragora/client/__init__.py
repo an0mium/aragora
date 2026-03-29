@@ -103,11 +103,13 @@ from .models import (
     # System models
     HealthCheck,
     LeaderboardEntry,
+    MatrixAgentSpec,
     MatrixConclusion,
     # Matrix debate models
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
+    MatrixModelCombination,
     MatrixScenario,
     MatrixScenarioResult,
     MemoryAnalyticsResponse,
@@ -192,11 +194,13 @@ __all__ = [
     "GraphDebateCreateResponse",
     # Matrix debate models
     "MatrixDebate",
+    "MatrixAgentSpec",
     "MatrixScenario",
     "MatrixScenarioResult",
     "MatrixConclusion",
     "MatrixDebateCreateRequest",
     "MatrixDebateCreateResponse",
+    "MatrixModelCombination",
     # Verification models
     "VerifyClaimRequest",
     "VerifyClaimResponse",

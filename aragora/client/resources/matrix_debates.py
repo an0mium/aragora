@@ -8,10 +8,12 @@ if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
 from aragora.client.models import (
+    MatrixAgentSpec,
     MatrixConclusion,
     MatrixDebate,
     MatrixDebateCreateRequest,
     MatrixDebateCreateResponse,
+    MatrixModelCombination,
     MatrixScenario,
 )
 
@@ -25,21 +27,24 @@ class MatrixDebatesAPI:
     def create(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: list[str | dict[str, Any]] | None = None,
         scenarios: list[dict[str, Any]] | None = None,
+        model_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """
         Create and start a matrix debate with parallel scenarios.
 
         Matrix debates run the same debate across different scenarios
-        to identify universal vs conditional conclusions.
+        or model combinations to identify universal vs conditional conclusions.
 
         Args:
             task: The base question or topic to debate.
-            agents: List of agent IDs to participate.
+            agents: Default agents to participate.
             scenarios: List of scenario configurations.
                 Each scenario can have: name, parameters, constraints, is_baseline.
+            model_combinations: Optional named model/team combinations.
+                Each combination can have: name, agents, metadata.
             max_rounds: Maximum rounds per scenario (1-10).
 
         Returns:
@@ -50,10 +55,32 @@ class MatrixDebatesAPI:
             for s in scenarios:
                 scenario_models.append(MatrixScenario(**s))
 
+        agent_models = []
+        for agent in agents or ["anthropic-api", "openai-api"]:
+            if isinstance(agent, dict):
+                agent_models.append(MatrixAgentSpec(**agent))
+            else:
+                agent_models.append(agent)
+
+        combination_models = []
+        if model_combinations:
+            for combination in model_combinations:
+                normalized_agents = []
+                for agent in combination.get("agents", []):
+                    if isinstance(agent, dict):
+                        normalized_agents.append(MatrixAgentSpec(**agent))
+                    else:
+                        normalized_agents.append(agent)
+
+                payload = dict(combination)
+                payload["agents"] = normalized_agents
+                combination_models.append(MatrixModelCombination(**payload))
+
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agent_models,
             scenarios=scenario_models,
+            model_combinations=combination_models,
             max_rounds=max_rounds,
         )
 
@@ -63,8 +90,9 @@ class MatrixDebatesAPI:
     async def create_async(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: list[str | dict[str, Any]] | None = None,
         scenarios: list[dict[str, Any]] | None = None,
+        model_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """Async version of create()."""
@@ -73,10 +101,32 @@ class MatrixDebatesAPI:
             for s in scenarios:
                 scenario_models.append(MatrixScenario(**s))
 
+        agent_models = []
+        for agent in agents or ["anthropic-api", "openai-api"]:
+            if isinstance(agent, dict):
+                agent_models.append(MatrixAgentSpec(**agent))
+            else:
+                agent_models.append(agent)
+
+        combination_models = []
+        if model_combinations:
+            for combination in model_combinations:
+                normalized_agents = []
+                for agent in combination.get("agents", []):
+                    if isinstance(agent, dict):
+                        normalized_agents.append(MatrixAgentSpec(**agent))
+                    else:
+                        normalized_agents.append(agent)
+
+                payload = dict(combination)
+                payload["agents"] = normalized_agents
+                combination_models.append(MatrixModelCombination(**payload))
+
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agent_models,
             scenarios=scenario_models,
+            model_combinations=combination_models,
             max_rounds=max_rounds,
         )
 

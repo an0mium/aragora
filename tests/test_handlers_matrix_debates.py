@@ -13,6 +13,7 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
 from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.base import json_response
 from aragora.server.handlers.debates import MatrixDebatesHandler
 
 
@@ -258,6 +259,63 @@ class TestRunMatrixDebate:
 
         assert result.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_run_debate_rejects_empty_combination_agents(self, handler, mock_handler_obj):
+        """Model combinations must define agents when no default team is provided."""
+        result = await handler.handle_post(
+            mock_handler_obj,
+            "/api/debates/matrix",
+            {
+                "task": "Test task that is long enough to pass validation",
+                "model_combinations": [{"name": "combo-a"}],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "model_combinations[0].agents" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_run_debate_with_model_combinations_uses_fallback(
+        self,
+        handler,
+        mock_handler_obj,
+    ):
+        """Combination runs are delegated to the fallback executor."""
+        expected = json_response(
+            {
+                "matrix_id": "matrix-abc",
+                "scenario_count": 2,
+                "results": [],
+                "best_result": {"scenario_name": "combo-a"},
+            }
+        )
+
+        with patch.object(
+            handler,
+            "_run_matrix_debate_fallback",
+            new=AsyncMock(return_value=expected),
+        ) as mock_fallback:
+            result = await handler.handle_post(
+                mock_handler_obj,
+                "/api/debates/matrix",
+                {
+                    "task": "Test task that is long enough to pass validation",
+                    "model_combinations": [
+                        {
+                            "name": "combo-a",
+                            "agents": [
+                                {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                                {"provider": "openai-api", "model": "gpt-4.1"},
+                            ],
+                        }
+                    ],
+                },
+            )
+
+        assert result.status_code == 200
+        mock_fallback.assert_awaited_once()
+
 
 # ============================================================================
 # Helper Method Tests
@@ -305,6 +363,59 @@ class TestMatrixDebateHelpers:
         assert matrix["consensus_rate"] == 0.5
         assert matrix["avg_confidence"] == 0.7
         assert matrix["avg_rounds"] == 4.0
+
+    def test_select_best_result_prefers_consensus_then_confidence(self, handler):
+        """Best-result selection favors consensus before raw confidence."""
+        results = [
+            {
+                "scenario_name": "High confidence only",
+                "final_answer": "A",
+                "consensus_reached": False,
+                "confidence": 0.95,
+                "rounds_used": 2,
+            },
+            {
+                "scenario_name": "Consensus winner",
+                "final_answer": "B",
+                "consensus_reached": True,
+                "confidence": 0.72,
+                "rounds_used": 4,
+            },
+        ]
+
+        best = handler._select_best_result(results)
+
+        assert best is not None
+        assert best["scenario_name"] == "Consensus winner"
+        assert best["selection_score"] > 1.0
+
+    def test_build_comparison_matrix_tracks_best_combination(self, handler):
+        """Comparison matrix keeps combination names and best-result metadata."""
+        results = [
+            {
+                "scenario_name": "Base question",
+                "combination_name": "combo-a",
+                "variant_name": "combo-a",
+                "final_answer": "Answer A",
+                "consensus_reached": True,
+                "confidence": 0.81,
+                "rounds_used": 3,
+            },
+            {
+                "scenario_name": "Base question",
+                "combination_name": "combo-b",
+                "variant_name": "combo-b",
+                "final_answer": "Answer B",
+                "consensus_reached": False,
+                "confidence": 0.84,
+                "rounds_used": 5,
+            },
+        ]
+
+        matrix = handler._build_comparison_matrix(results)
+
+        assert matrix["combinations"] == ["combo-a", "combo-b"]
+        assert matrix["best_result"]["combination_name"] == "combo-a"
 
 
 # ============================================================================
