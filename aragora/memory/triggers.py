@@ -78,7 +78,7 @@ class MemoryTriggerEngine:
                 try:
                     if not trigger.condition(context):
                         continue
-                except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as exc:
+                except Exception as exc:
                     logger.warning("Trigger %s condition failed: %s", trigger.name, exc)
                     self._fire_log.append(
                         TriggerResult(
@@ -96,14 +96,7 @@ class MemoryTriggerEngine:
                     self._fire_log.append(TriggerResult(trigger_name=trigger.name, success=True))
                     triggered.append(trigger.name)
                     _record_trigger_metric(trigger.name, True)
-                except (
-                    RuntimeError,
-                    ValueError,
-                    TypeError,
-                    KeyError,
-                    AttributeError,
-                    OSError,
-                ) as exc:
+                except Exception as exc:
                     logger.warning("Trigger %s action failed: %s", trigger.name, exc)
                     self._fire_log.append(
                         TriggerResult(

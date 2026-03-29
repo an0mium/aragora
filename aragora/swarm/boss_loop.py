@@ -220,18 +220,24 @@ def select_eligible_issue(
     *,
     skip_labels: set[str] | None = None,
     require_labels: set[str] | None = None,
+    use_value_ranking: bool = False,
 ) -> GitHubIssue | None:
-    """Select the first open issue that passes eligibility filters.
+    """Select the best open issue that passes eligibility filters.
 
-    Selection is intentionally simple and truthful:
+    Selection rules:
     - Must be in ``open`` state
     - Must have a non-empty title
     - Must not carry any label in ``skip_labels``
     - If ``require_labels`` is set, must carry ALL of them
 
+    When ``use_value_ranking`` is True, eligible issues are scored by
+    expected value-per-cost and the highest-scored issue is returned.
+    Otherwise returns the first eligible issue (GitHub order).
+
     Returns ``None`` with no improvisation if nothing qualifies.
     """
     _skip = skip_labels or set()
+    eligible: list[GitHubIssue] = []
     for issue in issues:
         if issue.state.upper() != "OPEN":
             continue
@@ -241,8 +247,45 @@ def select_eligible_issue(
             continue
         if require_labels and not require_labels.issubset(set(issue.labels)):
             continue
-        return issue
-    return None
+        eligible.append(issue)
+
+    if not eligible:
+        return None
+
+    if not use_value_ranking:
+        return eligible[0]
+
+    try:
+        from aragora.swarm.value_estimator import (
+            load_outcomes,
+            log_prediction,
+            rank_issues,
+        )
+
+        history = load_outcomes()
+        issue_dicts = [i.to_dict() for i in eligible]
+        ranked = rank_issues(issue_dicts, historical_outcomes=history)
+        if ranked:
+            best_estimate, best_dict = ranked[0]
+            log_prediction(best_estimate)
+            best_number = best_dict.get("number")
+            logger.info(
+                "value_ranking: #%s score=%.3f (value=%.2f p_success=%.2f proof=%.2f) — %s",
+                best_number,
+                best_estimate.priority_score,
+                best_estimate.expected_value,
+                best_estimate.p_success,
+                best_estimate.proof_weight,
+                best_estimate.reasoning[:80],
+            )
+            # Return the original GitHubIssue object
+            for issue in eligible:
+                if issue.number == best_number:
+                    return issue
+    except Exception as exc:
+        logger.debug("Value ranking failed, falling back to first eligible: %s", exc)
+
+    return eligible[0]
 
 
 _VALIDATION_SECTION_PREFIXES = (
@@ -705,6 +748,11 @@ class BossLoopConfig:
     # pre-existing failures in unrelated modules.
     use_focused_verification: bool = True
 
+    # Value-per-cost ranking: when True, rank eligible issues by estimated
+    # value/cost before selecting.  This pushes the loop toward high-leverage
+    # work instead of processing issues in arbitrary GitHub order.
+    use_value_ranking: bool = True
+
     # Reporting
     status_report_interval: int = 5  # every N iterations
 
@@ -1045,6 +1093,30 @@ class BossLoop:
         except Exception as exc:
             logger.debug("Boss loop operational receipt skipped: %s", exc)
 
+    def _log_value_outcome(
+        self,
+        issue_dict: dict[str, Any],
+        worker_status: str,
+        elapsed_seconds: float,
+    ) -> None:
+        """Log outcome for value-per-cost calibration."""
+        try:
+            from aragora.swarm.value_estimator import OutcomeRecord, log_outcome
+
+            log_outcome(
+                OutcomeRecord(
+                    issue_number=issue_dict.get("number", 0),
+                    predicted_score=0.0,  # TODO: pass from ranking step
+                    predicted_p_success=0.0,
+                    did_merge=worker_status == "completed",
+                    needed_human_rescue=worker_status == "needs_human",
+                    actual_minutes=elapsed_seconds / 60.0,
+                    worker_status=worker_status,
+                )
+            )
+        except Exception as exc:
+            logger.debug("Value outcome logging skipped: %s", exc)
+
     def _emit_lane_receipt(
         self,
         worker_result: dict[str, Any],
@@ -1242,6 +1314,7 @@ class BossLoop:
                 candidate_issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                use_value_ranking=self.config.use_value_ranking,
             )
 
         if selected is None:
@@ -1565,6 +1638,7 @@ class BossLoop:
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
+            self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1601,6 +1675,7 @@ class BossLoop:
                     elapsed_seconds=elapsed_seconds,
                 )
             self._failed_issues.append(issue_dict)
+            self._log_value_outcome(issue_dict, "needs_human", elapsed_seconds)
 
             # Fix-forward: if verification failed and we haven't exhausted
             # repair attempts, re-dispatch with a targeted repair prompt
@@ -1735,9 +1810,16 @@ class BossLoop:
 
         # Refine the prompt with codebase context before dispatch
         goal = f"[Issue #{issue.number}] {issue.title}"
-        body_context = issue.body[:500] if issue.body else ""
+        body_context = issue.body[:2000] if issue.body else ""
         if body_context:
             goal = f"{goal}\n\n{body_context}"
+        # Ensure workers always commit — this is the #1 reason for needs_human failures
+        goal += (
+            "\n\n## CRITICAL: You MUST commit your changes\n"
+            "After making changes, run:\n"
+            "```\ngit add -A && git commit -m 'fix: description of changes'\n```\n"
+            "If you do not commit, your work will be lost."
+        )
 
         try:
             from aragora.swarm.prompt_refiner import refine_worker_prompt

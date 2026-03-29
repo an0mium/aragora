@@ -581,6 +581,7 @@ async def handle_apply_snooze(
             OSError,
             AttributeError,
             ValueError,
+            KeyError,  # Malformed OAuth response
         ) as gmail_error:
             logger.warning("Could not apply Gmail snooze: %s", gmail_error)
 

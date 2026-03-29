@@ -49,6 +49,7 @@ class _FakeState:
     ctx: _FakeCtx = field(default_factory=_FakeCtx)
     debate_id: str = "debate-001"
     debate_status: str = "completed"
+    debate_start_time: float = 0.0
     gupp_bead_id: str | None = None
     gupp_hook_entries: list = field(default_factory=list)
 

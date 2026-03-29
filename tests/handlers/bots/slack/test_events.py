@@ -545,6 +545,45 @@ class TestAppMentionRouting:
     """Tests for DecisionRouter routing in app_mention events."""
 
     @pytest.mark.asyncio
+    async def test_ask_command_routes_with_receipt_config(self, events_module, monkeypatch):
+        """Ask mentions opt into receipt generation when routed through DecisionRouter."""
+        mock_core = MagicMock()
+        mock_core.DecisionType.DEBATE = "debate"
+        mock_core.InputSource.SLACK = "slack"
+        mock_core.ResponseChannel = MagicMock()
+        mock_core.RequestContext = MagicMock()
+        mock_core.DecisionConfig = MagicMock()
+        mock_core.DecisionRequest = MagicMock()
+        mock_router = MagicMock()
+        mock_router.route = AsyncMock()
+        mock_core.get_decision_router = MagicMock(return_value=mock_router)
+
+        def _fake_create_task(coro):
+            coro.close()
+            task = MagicMock()
+            task.add_done_callback = MagicMock()
+            return task
+
+        monkeypatch.setattr(events_module.asyncio, "create_task", _fake_create_task)
+        monkeypatch.setattr(events_module, "_hydrate_slack_attachments", AsyncMock(return_value=[]))
+
+        data = _make_event_data(text="<@U00BOT> ask What is our incident response policy?")
+        req = MockSlackEventRequest(data)
+
+        with patch.dict("sys.modules", {"aragora.core": mock_core}):
+            result = await events_module.handle_slack_events(req)
+
+        assert _status(result) == 200
+        mock_core.DecisionConfig.assert_called_once_with(
+            decision_integrity={
+                "include_receipt": True,
+                "include_plan": False,
+                "notify_origin": True,
+            }
+        )
+        assert mock_core.DecisionRequest.call_args.kwargs["config"] is mock_core.DecisionConfig()
+
+    @pytest.mark.asyncio
     async def test_decision_router_import_error(self, events_module):
         """If aragora.core can't be imported, silently continue."""
         data = _make_event_data(text="<@U00BOT> ask something meaningful")

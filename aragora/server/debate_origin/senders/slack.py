@@ -14,6 +14,37 @@ from ..formatting import _format_result_message
 logger = logging.getLogger(__name__)
 
 
+def _truncate_fallback_text(text: str, limit: int = 3000) -> str:
+    """Return a Slack-safe fallback text string."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def _build_slack_payload(
+    origin: DebateOrigin,
+    message: str | dict[str, Any],
+    *,
+    fallback_text: str,
+) -> dict[str, Any]:
+    """Build a Slack chat.postMessage payload from string or Block Kit content."""
+    payload: dict[str, Any] = {"channel": origin.channel_id}
+
+    if isinstance(message, dict):
+        payload.update(message)
+        text = payload.get("text")
+        if not isinstance(text, str) or not text:
+            payload["text"] = _truncate_fallback_text(fallback_text)
+    else:
+        payload["text"] = message
+        payload["mrkdwn"] = True
+
+    if origin.thread_id:
+        payload["thread_ts"] = origin.thread_id
+
+    return payload
+
+
 async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bool:
     """Send result to Slack."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
@@ -23,6 +54,7 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
 
     channel = origin.channel_id
     message = _format_result_message(result, origin, markdown=True)
+    fallback_text = str(result.get("final_answer") or result.get("task") or "Debate Complete")
 
     try:
         url = "https://slack.com/api/chat.postMessage"
@@ -30,15 +62,7 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        data = {
-            "channel": channel,
-            "text": message,
-            "mrkdwn": True,
-        }
-
-        # Reply in thread if we have thread_ts
-        if origin.thread_id:
-            data["thread_ts"] = origin.thread_id
+        data = _build_slack_payload(origin, message, fallback_text=fallback_text)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)
