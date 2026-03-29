@@ -1689,3 +1689,110 @@ class TestDiscoverFocusedTests:
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
         assert len(paths) == 2
+
+
+# ---------------------------------------------------------------------------
+# Boss metrics JSONL emission
+# ---------------------------------------------------------------------------
+
+
+class TestBossMetricsEmission:
+    """Verify that each iteration appends a JSONL metrics line."""
+
+    def test_metrics_jsonl_written_on_completed_iteration(self, tmp_path, monkeypatch):
+        """Run one iteration with a mock worker and verify the JSONL file has expected fields."""
+        # Ensure metrics are written inside tmp_path
+        monkeypatch.chdir(tmp_path)
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Metrics test issue")]
+
+        config = _boss_config(max_iterations=1, issue_number=42)
+
+        async def _completing_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "changed_files": ["aragora/foo.py", "aragora/bar.py"],
+                "tests_run": 5,
+                "tests_passed": 4,
+            }
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _completing_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.iterations_completed == 1
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists(), "JSONL metrics file was not created"
+
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 1
+
+        record = json.loads(lines[0])
+        expected_keys = {
+            "iteration",
+            "issue_number",
+            "worker_status",
+            "elapsed_seconds",
+            "files_changed",
+            "tests_run",
+            "tests_passed",
+        }
+        assert expected_keys.issubset(record.keys()), (
+            f"Missing keys: {expected_keys - record.keys()}"
+        )
+        assert record["iteration"] == 1
+        assert record["issue_number"] == 42
+        assert record["worker_status"] == "completed"
+        assert record["files_changed"] == 2
+        assert record["tests_run"] == 5
+        assert record["tests_passed"] == 4
+        assert isinstance(record["elapsed_seconds"], (int, float))
+        assert record["elapsed_seconds"] >= 0
+
+    def test_metrics_accumulates_across_iterations(self, tmp_path, monkeypatch):
+        """Multiple iterations append separate lines."""
+        monkeypatch.chdir(tmp_path)
+
+        call_count = 0
+
+        def _fetch():
+            nonlocal call_count
+            call_count += 1
+            return [_make_issue(call_count, f"Issue {call_count}")]
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.side_effect = _fetch
+
+        config = _boss_config(max_iterations=3)
+
+        async def _completing_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "changed_files": ["a.py"],
+                "tests_run": 1,
+                "tests_passed": 1,
+            }
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _completing_dispatch
+
+        asyncio.run(loop.run())
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 3
+
+        for i, line in enumerate(lines, 1):
+            record = json.loads(line)
+            assert record["iteration"] == i

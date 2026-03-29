@@ -1450,7 +1450,7 @@ class BossLoop:
         )
 
         worker_result = await self._dispatch_issue(selected, freshness)
-        return self._finalize_worker_result(
+        status = self._finalize_worker_result(
             iteration=iteration,
             timestamp=now,
             runner_freshness=freshness_dict,
@@ -1459,6 +1459,8 @@ class BossLoop:
             worker_result=worker_result,
             elapsed_seconds=time.monotonic() - iter_start,
         )
+        self._emit_metrics_line(status, worker_result)
+        return status
 
     async def _run_iteration_batch(self, iteration: int) -> list[BossIterationStatus]:
         import asyncio
@@ -1596,6 +1598,7 @@ class BossLoop:
                     worker_result=worker_result,
                     elapsed_seconds=time.monotonic() - started_at,
                 )
+                self._emit_metrics_line(status, worker_result)
                 statuses.append(status)
                 if status.stop_reason and status.stop_reason != BossStopReason.STILL_RUNNING.value:
                     stop_launching = True
@@ -1690,6 +1693,31 @@ class BossLoop:
             if limit is not None and len(selected_issues) >= limit:
                 break
         return selected_issues
+
+    def _emit_metrics_line(
+        self,
+        status: BossIterationStatus,
+        worker_result: dict[str, Any],
+    ) -> None:
+        """Append a JSONL metrics line for this iteration to the boss metrics log."""
+        try:
+            metrics_dir = Path(".aragora") / "overnight"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            metrics_path = metrics_dir / "boss_metrics.jsonl"
+            issue_number = status.selected_issue.get("number") if status.selected_issue else None
+            record = {
+                "iteration": status.iteration,
+                "issue_number": issue_number,
+                "worker_status": status.worker_status,
+                "elapsed_seconds": status.elapsed_seconds,
+                "files_changed": len(worker_result.get("changed_files", [])),
+                "tests_run": worker_result.get("tests_run", 0),
+                "tests_passed": worker_result.get("tests_passed", 0),
+            }
+            with open(metrics_path, "a") as f:
+                f.write(json.dumps(record) + "\n")
+        except Exception as exc:
+            logger.debug("Boss metrics emission skipped: %s", exc)
 
     def _finalize_worker_result(
         self,
