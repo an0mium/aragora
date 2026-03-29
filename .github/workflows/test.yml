@@ -1499,7 +1499,18 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -1527,6 +1538,18 @@ jobs:
             exit 1
           fi
 
+      - name: Set up Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/ci_install_project.sh --extras dev,test
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -1550,17 +1573,50 @@ jobs:
         working-directory: aragora/live
         run: npx playwright install --with-deps
 
+      - name: Start Aragora backend
+        run: |
+          mkdir -p .nomic
+
+          python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+              echo "Backend server is healthy"
+              break
+            fi
+            echo "Waiting for backend... ($i/60)"
+            if [ $i -eq 30 ] || [ $i -eq 45 ]; then
+              echo "=== Recent server logs ==="
+              tail -20 /tmp/aragora-server.log 2>/dev/null || true
+              echo "=========================="
+            fi
+            sleep 2
+          done
+
+          if ! curl -fsS http://127.0.0.1:8080/healthz; then
+            echo "Server failed to become healthy. Full logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
+        env:
+          ARAGORA_REDIS_URL: redis://localhost:6379/0
+          ARAGORA_DATA_DIR: .nomic
+
       - name: Build frontend
         working-directory: aragora/live
-        run: npm run build
+        run: npm run build:local
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: ws://localhost:8765
 
       - name: Run E2E tests
         working-directory: aragora/live
         run: npx playwright test
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: ws://localhost:8765
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -1577,6 +1633,19 @@ jobs:
           name: playwright-results
           path: aragora/live/test-results/
           retention-days: 7
+
+      - name: Upload server logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: frontend-e2e-server-logs
+          path: /tmp/aragora-server.log
+          retention-days: 7
+
+      - name: Stop backend
+        if: always()
+        run: |
+          [ -n "$SERVER_PID" ] && kill "$SERVER_PID" || true
 
   # Lightweight frontend type checking (PR-only, path-filtered)
   frontend-typecheck:
