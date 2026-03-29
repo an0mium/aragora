@@ -757,6 +757,75 @@ class TestDebateControllerRunDebate:
         assert settlement["claim"] == "Should we ship this release?"
         assert settlement["resolver_type"] == "human"
 
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_comparison_mode_selects_best_result(self, mock_update):
+        """Comparison mode should execute each lineup and persist the strongest result."""
+        from types import SimpleNamespace
+
+        from aragora.server.debate_factory import DebateConfig
+
+        def create_arena(config, **kwargs):
+            arena = Mock()
+
+            async def run():
+                agents = config.agents_str
+                if agents == ["openai-api", "gemini"]:
+                    return SimpleNamespace(
+                        final_answer="Best answer",
+                        consensus_reached=True,
+                        confidence=0.93,
+                        grounded_verdict=None,
+                        status="consensus_reached",
+                        agent_failures={},
+                        participants=["openai-api", "gemini"],
+                        rounds_used=2,
+                        winner="gemini",
+                        metadata={},
+                    )
+                return SimpleNamespace(
+                    final_answer="Baseline answer",
+                    consensus_reached=False,
+                    confidence=0.41,
+                    grounded_verdict=None,
+                    status="completed",
+                    agent_failures={},
+                    participants=["anthropic-api", "openai-api"],
+                    rounds_used=4,
+                    winner="anthropic-api",
+                    metadata={},
+                )
+
+            arena.run = run
+            arena.protocol = SimpleNamespace(timeout_seconds=0)
+            return arena
+
+        self.factory.create_arena.side_effect = create_arena
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        config = DebateConfig(
+            question="Which model combination produces the best result?",
+            agents_str=["anthropic-api", "openai-api"],
+            rounds=5,
+            debate_id="test_123",
+            comparison_config={
+                "agent_combinations": [
+                    ["anthropic-api", "openai-api"],
+                    ["openai-api", "gemini"],
+                ],
+                "pick_best_result": True,
+            },
+        )
+
+        controller._run_debate(config, "test_123")
+
+        assert self.factory.create_arena.call_count == 2
+        completed_calls = [c for c in mock_update.call_args_list if c[0][1] == "completed"]
+        assert len(completed_calls) >= 1
+        result_payload = completed_calls[0][1]["result"]
+        assert result_payload["final_answer"] == "Best answer"
+        assert result_payload["model_comparison"]["selected_agents"] == ["openai-api", "gemini"]
+        assert len(result_payload["model_comparison"]["candidates"]) == 2
+
     @patch("aragora.storage.receipt_store.get_receipt_store")
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_persists_settlement_snapshot_in_receipt(

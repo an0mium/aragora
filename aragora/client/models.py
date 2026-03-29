@@ -477,6 +477,26 @@ class MatrixDebateCreateRequest(BaseModel):
     model_combinations: list[dict[str, Any]] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
 
+    @model_validator(mode="after")
+    def _normalize_compare_mode(self) -> MatrixDebateCreateRequest:
+        has_agent_combinations = bool(self.agent_combinations)
+        has_model_combinations = bool(self.model_combinations)
+
+        if has_agent_combinations and has_model_combinations:
+            raise ValueError("Use either agent_combinations or model_combinations, not both")
+
+        if not (has_agent_combinations or has_model_combinations):
+            return self
+
+        if "agents" not in self.model_fields_set:
+            self.agents = []
+            return self
+
+        if self.agents:
+            raise ValueError("Use either agents or agent/model combinations, not both")
+
+        return self
+
 
 class MatrixDebateCreateResponse(BaseModel):
     """Response from creating a matrix debate."""

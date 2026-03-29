@@ -59,7 +59,7 @@ class MatrixDebatesAPI:
 
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or [],
             scenarios=scenario_models,
             agent_combinations=agent_combinations or [],
             model_combinations=model_combinations or [],
@@ -89,7 +89,7 @@ class MatrixDebatesAPI:
 
         request = MatrixDebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or [],
             scenarios=scenario_models,
             agent_combinations=agent_combinations or [],
             model_combinations=model_combinations or [],

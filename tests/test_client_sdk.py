@@ -910,7 +910,6 @@ class TestMatrixDebateModels:
 
         request = MatrixDebateCreateRequest(
             task="Test policy",
-            agents=["a1"],
             agent_combinations=[
                 {
                     "name": "combo",
@@ -920,6 +919,7 @@ class TestMatrixDebateModels:
             max_rounds=5,
         )
         assert request.task == "Test policy"
+        assert request.agents == []
         assert request.agent_combinations[0]["name"] == "combo"
         assert request.max_rounds == 5
 

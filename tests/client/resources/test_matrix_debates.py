@@ -75,6 +75,7 @@ class TestMatrixDebateModels:
                 }
             ],
         )
+        assert request.agents == []
         assert request.model_combinations[0]["name"] == "Frontier"
 
     def test_matrix_debates_api_create_accepts_model_combinations(self):
@@ -102,4 +103,5 @@ class TestMatrixDebateModels:
             )
 
         assert result.matrix_id == "matrix-123"
+        assert mock_post.call_args.args[1]["agents"] == []
         assert mock_post.call_args.args[1]["model_combinations"][0]["name"] == "Frontier"
