@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 
 from aragora.swarm.runner_registry import (
@@ -183,6 +184,53 @@ class TestClaudeRunnerInspector:
         assert inspection.auth_mode == "subscription"
         assert inspection.command_path == str(script.resolve())
         assert inspection.status_summary == "loggedIn=True subscriptionType=max"
+
+    def test_profile_runner_uses_canonical_repo_root_script_from_worktree(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        repo_root = tmp_path / "aragora"
+        worktree_root = repo_root / ".worktrees" / "codex-auto" / "session-123"
+        canonical_script = repo_root / "scripts" / "claude_profile.sh"
+        worktree_script = worktree_root / "scripts" / "claude_profile.sh"
+        canonical_script.parent.mkdir(parents=True)
+        worktree_script.parent.mkdir(parents=True)
+        canonical_script.write_text("#!/bin/bash\n", encoding="utf-8")
+        worktree_script.write_text("#!/bin/bash\n", encoding="utf-8")
+        gitdir = repo_root / ".git" / "worktrees" / "session-123"
+        gitdir.mkdir(parents=True)
+        (gitdir / "commondir").write_text("../..\n", encoding="utf-8")
+        (worktree_root / ".git").write_text(
+            f"gitdir: {os.path.relpath(gitdir, worktree_root)}\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.shutil.which",
+            lambda _name: "/usr/local/bin/claude",
+        )
+
+        def _run(command: list[str]) -> dict[str, object]:
+            joined = " ".join(command)
+            if joined.endswith("--version"):
+                return {"returncode": 0, "stdout": "claude 2.1.85\n", "stderr": ""}
+            if joined.endswith("--help"):
+                return {"returncode": 0, "stdout": "Commands:\n  review\n  login\n", "stderr": ""}
+            if command[:3] == [str(canonical_script.resolve()), "status", "max-01"]:
+                return {
+                    "returncode": 0,
+                    "stdout": '{"loggedIn":true,"subscriptionType":"max"}\n',
+                    "stderr": "",
+                }
+            raise AssertionError(f"unexpected command: {command}")
+
+        monkeypatch.setattr(ClaudeRunnerInspector, "_run_command", staticmethod(_run))
+        inspection = ClaudeRunnerInspector(
+            env={},
+            profile="max-01",
+            repo_root=worktree_root,
+        ).inspect()
+
+        assert inspection.available is True
+        assert inspection.command_path == str(canonical_script.resolve())
 
     def test_profile_list_prefers_runner_profiles_env(self) -> None:
         profiles = configured_claude_runner_profiles(
@@ -476,6 +524,140 @@ class TestLocalRunnerRegistry:
 
         assert decision.is_blocked is True
         assert decision.blocked_reason == "no_eligible_registered_runners"
+
+    def test_resolve_boss_routing_prunes_missing_command_path_registrations(
+        self, tmp_path: Path
+    ) -> None:
+        now = datetime.now(UTC).isoformat()
+        valid_script = tmp_path / "scripts" / "claude_profile.sh"
+        valid_script.parent.mkdir(parents=True)
+        valid_script.write_text("#!/bin/sh\n", encoding="utf-8")
+        stale_script = tmp_path / "deleted-worktree" / "scripts" / "claude_profile.sh"
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-stale",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "command_path": str(stale_script),
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                        {
+                            "runner_id": "claude-runner-live",
+                            "runner_type": "claude",
+                            "profile": "max-04",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "command_path": str(valid_script),
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        decision = LocalRunnerRegistry(path=registry_path).resolve_boss_routing(
+            owner_context=authorization_context_from_env(
+                {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+            ),
+            requested_runner_type="claude",
+        )
+
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids == ["claude-runner-live"]
+
+        stored = json.loads(registry_path.read_text(encoding="utf-8"))
+        assert [item["runner_id"] for item in stored["registrations"]] == ["claude-runner-live"]
+
+    def test_resolve_boss_routing_dedupes_claude_profile_registrations(
+        self, tmp_path: Path
+    ) -> None:
+        now = datetime.now(UTC).isoformat()
+        repo_script = tmp_path / "scripts" / "claude_profile.sh"
+        worktree_script = (
+            tmp_path / ".worktrees" / "codex-auto" / "lane-1" / "scripts" / "claude_profile.sh"
+        )
+        repo_script.parent.mkdir(parents=True)
+        worktree_script.parent.mkdir(parents=True)
+        repo_script.write_text("#!/bin/sh\n", encoding="utf-8")
+        worktree_script.write_text("#!/bin/sh\n", encoding="utf-8")
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-root",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "command_path": str(repo_script),
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                            "probe_status": "passed",
+                            "probe_checked_at": now,
+                        },
+                        {
+                            "runner_id": "claude-runner-worktree",
+                            "runner_type": "claude",
+                            "profile": "max-02",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "command_path": str(worktree_script),
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        decision = LocalRunnerRegistry(path=registry_path).resolve_boss_routing(
+            owner_context=authorization_context_from_env(
+                {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+            ),
+            requested_runner_type="claude",
+        )
+
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids == ["claude-runner-root"]
+
+        stored = json.loads(registry_path.read_text(encoding="utf-8"))
+        assert [item["runner_id"] for item in stored["registrations"]] == ["claude-runner-root"]
 
     def test_resolve_boss_routing_blocks_without_owner_context(self, tmp_path: Path) -> None:
         decision = LocalRunnerRegistry(path=tmp_path / "swarm-runners.json").resolve_boss_routing(

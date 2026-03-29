@@ -521,10 +521,45 @@ class CLIRunnerInspector:
         return self._run_command([base_command_path, "--help"])
 
     def _claude_profile_script(self) -> str | None:
-        script = (self.repo_root / "scripts" / "claude_profile.sh").resolve()
+        script = (self._canonical_repo_root() / "scripts" / "claude_profile.sh").resolve()
         if not script.exists():
             return None
         return str(script)
+
+    def _canonical_repo_root(self) -> Path:
+        common_git_dir = self._git_common_dir(self.repo_root)
+        if common_git_dir is not None and common_git_dir.name == ".git":
+            return common_git_dir.parent.resolve()
+        return self.repo_root
+
+    @staticmethod
+    def _git_common_dir(repo_root: Path) -> Path | None:
+        dot_git = repo_root / ".git"
+        if dot_git.is_dir():
+            return dot_git.resolve()
+        if not dot_git.is_file():
+            return None
+        try:
+            text = dot_git.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        if not text.startswith("gitdir:"):
+            return None
+        gitdir = text.split(":", 1)[1].strip()
+        resolved = (dot_git.parent / gitdir).resolve()
+        if not resolved.is_dir():
+            return None
+        commondir_file = resolved / "commondir"
+        if commondir_file.is_file():
+            try:
+                commondir = commondir_file.read_text(encoding="utf-8").strip()
+            except OSError:
+                commondir = ""
+            if commondir:
+                common = (resolved / commondir).resolve()
+                if common.is_dir():
+                    return common
+        return resolved
 
     @staticmethod
     def _run_command(command: list[str]) -> dict[str, Any]:
@@ -1156,9 +1191,32 @@ class LocalRunnerRegistry:
         return runner_payload
 
     def list_registrations(self) -> list[dict[str, Any]]:
-        return [
-            dict(item) for item in self._load().get("registrations", []) if isinstance(item, dict)
+        records = self._load()
+        registrations = [
+            dict(item) for item in records.get("registrations", []) if isinstance(item, dict)
         ]
+        valid_registrations: list[dict[str, Any]] = []
+        dedupe_indexes: dict[tuple[str, ...], int] = {}
+        pruned = False
+        for item in registrations:
+            if self._invalid_registration_reason(item) is not None:
+                pruned = True
+                continue
+            dedupe_key = self._registration_dedupe_key(item)
+            if dedupe_key is not None:
+                existing_index = dedupe_indexes.get(dedupe_key)
+                if existing_index is not None:
+                    pruned = True
+                    current = valid_registrations[existing_index]
+                    if self._prefer_registration(item, over=current):
+                        valid_registrations[existing_index] = item
+                    continue
+                dedupe_indexes[dedupe_key] = len(valid_registrations)
+            valid_registrations.append(item)
+        if pruned:
+            records["registrations"] = valid_registrations
+            self._save(records)
+        return valid_registrations
 
     def resolve_boss_routing(
         self,
@@ -1420,6 +1478,89 @@ class LocalRunnerRegistry:
         if active_lanes >= max_parallel:
             return False
         return True
+
+    def _invalid_registration_reason(self, runner: dict[str, Any]) -> str | None:
+        command_path = _text(runner.get("command_path") or runner.get("codex_path"))
+        if not command_path:
+            return None
+        if not self._command_path_exists(command_path):
+            return "missing_command_executable"
+        return None
+
+    @staticmethod
+    def _registration_dedupe_key(runner: dict[str, Any]) -> tuple[str, ...] | None:
+        runner_type = _text(runner.get("runner_type"))
+        profile = _text(runner.get("profile"))
+        if runner_type == "claude" and profile:
+            owner_binding = dict(runner.get("owner_binding") or {})
+            return (
+                "claude_profile",
+                profile,
+                _text(owner_binding.get("user_id")),
+                _text(owner_binding.get("workspace_id")),
+                _text(owner_binding.get("org_id")),
+            )
+        return None
+
+    def _prefer_registration(
+        self,
+        candidate: dict[str, Any],
+        *,
+        over: dict[str, Any],
+    ) -> bool:
+        return self._registration_rank(candidate) < self._registration_rank(over)
+
+    def _registration_rank(self, runner: dict[str, Any]) -> tuple[int, int, float, float, str]:
+        command_path = _text(runner.get("command_path") or runner.get("codex_path"))
+        return (
+            self._command_path_stability_rank(command_path),
+            self._dedupe_probe_rank(self._probe_status(runner)),
+            -self._timestamp_rank(_text(runner.get("probe_checked_at"))),
+            -self._timestamp_rank(_text(runner.get("heartbeat_at"))),
+            _text(runner.get("runner_id")),
+        )
+
+    @staticmethod
+    def _command_path_stability_rank(command_path: str) -> int:
+        normalized = _text(command_path)
+        if not normalized:
+            return 1
+        marker = f"{os.sep}.worktrees{os.sep}"
+        if marker in normalized or (
+            os.altsep and f"{os.altsep}.worktrees{os.altsep}" in normalized
+        ):
+            return 1
+        return 0
+
+    @staticmethod
+    def _dedupe_probe_rank(status: Any) -> int:
+        normalized = _text(status).lower()
+        if normalized == "passed":
+            return 0
+        if normalized == "failed":
+            return 1
+        return 2
+
+    def _timestamp_rank(self, value: str) -> float:
+        parsed = self._parse_timestamp(value)
+        if parsed is None:
+            return 0.0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.timestamp()
+
+    @staticmethod
+    def _command_path_exists(command_path: str) -> bool:
+        normalized = _text(command_path)
+        if not normalized:
+            return False
+        if (
+            Path(normalized).is_absolute()
+            or os.sep in normalized
+            or (os.altsep and os.altsep in normalized)
+        ):
+            return Path(normalized).exists()
+        return shutil.which(normalized) is not None
 
     @staticmethod
     def _effective_active_lanes(runner: dict[str, Any]) -> int:
