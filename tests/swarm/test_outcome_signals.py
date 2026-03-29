@@ -52,6 +52,12 @@ class TestOutcomeSignal:
         # Should be JSON-serializable
         json.dumps(d)
 
+    def test_to_dict_includes_elapsed_seconds(self):
+        s = _make_signal(elapsed_seconds=12.5)
+        d = s.to_dict()
+        assert "elapsed_seconds" in d
+        assert d["elapsed_seconds"] == 12.5
+
 
 class TestOutcomeSignalBus:
     def test_emit_persists_to_jsonl(self):

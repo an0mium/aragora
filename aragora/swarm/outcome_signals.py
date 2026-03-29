@@ -74,7 +74,9 @@ class OutcomeSignal:
             self.timestamp = datetime.now(UTC).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["elapsed_seconds"] = self.elapsed_seconds
+        return data
 
     @property
     def is_success(self) -> bool:
