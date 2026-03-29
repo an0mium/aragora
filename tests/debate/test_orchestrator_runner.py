@@ -866,6 +866,7 @@ class TestHandleDebateCompletion:
         )
 
         mock_arena.agents[1].metrics = None
+        mock_arena.agents[1].provider = None
         mock_arena.agents[1].agent_type = "openai"
         mock_arena.agents[1].model = "gpt-4o-mini"
         mock_arena.agents[1].total_tokens_in = 90
