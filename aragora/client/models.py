@@ -424,6 +424,7 @@ class MatrixDebateCreateRequest(BaseModel):
     agents: list[str] = Field(default_factory=lambda: ["anthropic-api", "openai-api"])
     scenarios: list[MatrixScenario] = Field(default_factory=list)
     agent_combinations: list[dict[str, Any]] = Field(default_factory=list)
+    model_combinations: list[dict[str, Any]] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
 
 

@@ -3,7 +3,7 @@ Matrix debates endpoint handlers.
 
 Endpoints:
 - POST /api/debates/matrix - Run parallel scenario debates
-- POST /api/debates/matrix with agent_combinations - Compare model/team combinations
+- POST /api/debates/matrix with agent_combinations/model_combinations - Compare model/team combinations
 - GET /api/debates/matrix/{id} - Get matrix debate results
 - GET /api/debates/matrix/{id}/scenarios - Get all scenario results
 - GET /api/debates/matrix/{id}/conclusions - Get universal/conditional conclusions
@@ -255,7 +255,8 @@ class MatrixDebatesHandler(SecureHandler):
         Request body:
             task: str - Base debate topic/question (10-5000 chars)
             agents: list[str] - Agent names to participate (2-10 agents)
-            agent_combinations: list[dict] - Explicit agent/model combinations to compare
+            agent_combinations/model_combinations: list[dict] - Explicit agent/model combinations
+                to compare
             scenarios: list[dict] - List of scenario configurations (1-10 scenarios)
                 - name: str - Scenario name (max 100 chars)
                 - parameters: dict - Scenario-specific parameters
@@ -283,7 +284,9 @@ class MatrixDebatesHandler(SecureHandler):
             return error_response("Maximum 10 scenarios allowed", 400)
 
         # Validate explicit agent/model combinations
-        agent_combinations = data.get("agent_combinations", [])
+        agent_combinations, combo_error = self._get_agent_combinations_payload(data)
+        if combo_error is not None:
+            return combo_error
         if not isinstance(agent_combinations, list):
             return error_response("agent_combinations must be an array", 400)
         if len(agent_combinations) > MAX_AGENT_COMBINATIONS:
@@ -491,6 +494,26 @@ class MatrixDebatesHandler(SecureHandler):
             normalized.append({"name": combo_name, "agents": specs})
 
         return normalized, None
+
+    def _get_agent_combinations_payload(
+        self,
+        data: dict[str, Any],
+    ) -> tuple[list[Any] | Any, HandlerResult | None]:
+        """Return the active combination payload, supporting a model_combinations alias."""
+        has_agent = bool(data.get("agent_combinations"))
+        has_model = bool(data.get("model_combinations"))
+
+        if has_agent and has_model:
+            return [], error_response(
+                "Use either agent_combinations or model_combinations, not both",
+                400,
+            )
+
+        if "agent_combinations" in data:
+            return data.get("agent_combinations", []), None
+        if "model_combinations" in data:
+            return data.get("model_combinations", []), None
+        return [], None
 
     def _serialize_agent_specs(self, agent_specs: Any) -> list[dict[str, Any]]:
         """Render agent specs into a JSON-safe response shape."""

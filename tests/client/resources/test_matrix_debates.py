@@ -1,5 +1,7 @@
 """Tests for MatrixDebatesAPI resource."""
 
+from unittest.mock import patch
+
 import pytest
 
 from aragora.client import AragoraClient
@@ -56,3 +58,48 @@ class TestMatrixDebateModels:
             description="Open source database",
         )
         assert scenario.name == "PostgreSQL"
+
+    def test_matrix_debate_create_request_accepts_model_combinations(self):
+        """Test MatrixDebateCreateRequest accepts the model_combinations alias."""
+        from aragora.client.models import MatrixDebateCreateRequest
+
+        request = MatrixDebateCreateRequest(
+            task="Compare coding model combinations",
+            model_combinations=[
+                {
+                    "name": "Frontier",
+                    "agents": [
+                        {"provider": "openai-api", "model": "gpt-5.4"},
+                        {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                    ],
+                }
+            ],
+        )
+        assert request.model_combinations[0]["name"] == "Frontier"
+
+    def test_matrix_debates_api_create_accepts_model_combinations(self):
+        """Test MatrixDebatesAPI forwards model_combinations in the request body."""
+        client = AragoraClient()
+        response_payload = {
+            "matrix_id": "matrix-123",
+            "status": "completed",
+            "scenario_count": 2,
+            "combination_count": 2,
+        }
+
+        with patch.object(client, "_post", return_value=response_payload) as mock_post:
+            result = client.matrix_debates.create(
+                task="Compare coding model combinations",
+                model_combinations=[
+                    {
+                        "name": "Frontier",
+                        "agents": [
+                            {"provider": "openai-api", "model": "gpt-5.4"},
+                            {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                        ],
+                    }
+                ],
+            )
+
+        assert result.matrix_id == "matrix-123"
+        assert mock_post.call_args.args[1]["model_combinations"][0]["name"] == "Frontier"
