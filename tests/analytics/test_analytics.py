@@ -457,6 +457,40 @@ class TestDebateAnalyticsInit:
         assert "agent_records" in tables
         assert "elo_records" in tables
 
+    @pytest.mark.asyncio
+    async def test_sqlite_connections_are_closed(self, tmp_db_path, monkeypatch):
+        import sqlite3
+
+        connect_calls: list[sqlite3.Connection] = []
+        close_calls: list[sqlite3.Connection] = []
+        original_connect = sqlite3.connect
+
+        class TrackingConnection(sqlite3.Connection):
+            def close(self) -> None:
+                close_calls.append(self)
+                super().close()
+
+        def tracking_connect(*args, **kwargs):
+            kwargs.setdefault("factory", TrackingConnection)
+            conn = original_connect(*args, **kwargs)
+            connect_calls.append(conn)
+            return conn
+
+        monkeypatch.setattr("aragora.analytics.debate_analytics.sqlite3.connect", tracking_connect)
+
+        analytics = DebateAnalytics(db_path=tmp_db_path)
+        await analytics.record_debate(
+            debate_id="d1",
+            rounds=1,
+            consensus_reached=True,
+            duration_seconds=1.0,
+            agents=["claude"],
+        )
+        await analytics.get_debate_stats()
+
+        assert connect_calls
+        assert len(close_calls) == len(connect_calls)
+
 
 class TestDebateAnalyticsRecordDebate:
     @pytest.fixture
