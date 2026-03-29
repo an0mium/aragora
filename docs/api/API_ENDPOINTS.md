@@ -2495,7 +2495,7 @@ Verify integrity checksum
 
 Verify cryptographic signature
 
-### `POST` `/api/v2/receipts/verify-batch`
+### `POST` `/api/v2/receipts/batch-verify`
 
 Batch signature verification
 

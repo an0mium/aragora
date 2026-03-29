@@ -701,6 +701,11 @@ async def get_shared_receipt(
 
 
 @router.post("/receipts/batch-verify", response_model=BatchVerifyResponse)
+@router.post(
+    "/receipts/verify-batch",
+    response_model=BatchVerifyResponse,
+    include_in_schema=False,
+)
 async def batch_verify_receipts(
     body: BatchVerifyRequest,
     store=Depends(get_receipt_store),

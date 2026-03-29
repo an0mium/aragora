@@ -683,6 +683,24 @@ class TestBatchVerify:
         data = response.json()
         assert data["total"] == 2
 
+    def test_verify_batch_legacy_alias_returns_200(
+        self,
+        client,
+        mock_receipt_store,
+        sample_receipt_dict,
+    ):
+        """Legacy verify-batch path stays compatible with the canonical route."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/verify-batch",
+            json={"receipt_ids": ["rcpt_test123"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["results"][0]["receipt_id"] == "rcpt_test123"
+
 
 # =============================================================================
 # POST /api/v2/receipts/batch-export

@@ -141,13 +141,15 @@ Response:
 ### Batch Verification
 
 ```bash
-POST /api/v2/receipts/verify-batch
+POST /api/v2/receipts/batch-verify
 Content-Type: application/json
 
 {
   "receipt_ids": ["receipt-abc", "receipt-xyz"]
 }
 ```
+
+`POST /api/v2/receipts/verify-batch` remains accepted as a legacy compatibility alias.
 
 ### Statistics
 
