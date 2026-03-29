@@ -322,14 +322,16 @@ class TestValidateWebhookUrl:
 
     def test_valid_https_url(self):
         """Accepts valid HTTPS URLs."""
-        is_valid, error = validate_webhook_url("https://example.com/webhook")
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]):
+            is_valid, error = validate_webhook_url("https://example.com/webhook")
 
         assert is_valid is True
         assert error == ""
 
     def test_valid_http_url(self):
         """Accepts valid HTTP URLs."""
-        is_valid, error = validate_webhook_url("http://example.com/webhook")
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 80))]):
+            is_valid, error = validate_webhook_url("http://example.com/webhook")
 
         assert is_valid is True
         assert error == ""

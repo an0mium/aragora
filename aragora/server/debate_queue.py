@@ -58,6 +58,11 @@ BLOCKED_METADATA_HOSTNAMES = frozenset(
 )
 
 
+def _serialize_agent_spec(spec: AgentSpec) -> str:
+    """Serialize AgentSpec using empty fields for unspecified values."""
+    return f"{spec.provider}|{spec.model or ''}|{spec.persona or ''}|{spec.role or ''}"
+
+
 def validate_webhook_url(url: str) -> tuple[bool, str]:
     """Validate webhook URL to prevent SSRF and malformed requests."""
     if not url or not isinstance(url, str):
@@ -231,7 +236,7 @@ class BatchItem:
         elif isinstance(raw_agents, str):
             agents = raw_agents.strip()
         elif isinstance(raw_agents, dict):
-            agents = AgentSpec.coerce_list(raw_agents, warn=False)[0].to_string()
+            agents = _serialize_agent_spec(AgentSpec.coerce_list(raw_agents, warn=False)[0])
         elif isinstance(raw_agents, list):
             normalized_agents: list[str] = []
             for item in raw_agents:
@@ -241,7 +246,9 @@ class BatchItem:
                         normalized_agents.append(agent_name)
                     continue
                 if isinstance(item, dict):
-                    normalized_agents.append(AgentSpec.coerce_list(item, warn=False)[0].to_string())
+                    normalized_agents.append(
+                        _serialize_agent_spec(AgentSpec.coerce_list(item, warn=False)[0])
+                    )
                     continue
                 raise ValueError("agents must be a string, object, or list of strings/objects")
             agents = ",".join(normalized_agents)
