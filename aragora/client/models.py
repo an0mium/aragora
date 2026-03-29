@@ -171,12 +171,62 @@ class DebateCreateRequest(BaseModel):
     debate_format: str | None = None
     auto_select: bool | None = None
     auto_select_config: dict[str, Any] | None = None
+    comparison_config: dict[str, Any] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("comparison_config", "model_comparison"),
+    )
     use_trending: bool | None = None
     trending_category: str | None = None
     documents: list[str] | None = None
     enable_verticals: bool | None = None
     vertical_id: str | None = None
     metadata: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_comparison_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        data = dict(value)
+        comparison_config = data.get("comparison_config")
+        if comparison_config is None:
+            comparison_config = data.get("model_comparison")
+
+        top_level_combinations = data.get("agent_combinations")
+        if top_level_combinations is None:
+            top_level_combinations = data.get("model_combinations")
+
+        if comparison_config is None and top_level_combinations is not None:
+            comparison_config = {
+                "agent_combinations": top_level_combinations,
+                "pick_best_result": True,
+            }
+
+        if isinstance(comparison_config, dict):
+            normalized = dict(comparison_config)
+            if "agent_combinations" not in normalized and "model_combinations" in normalized:
+                normalized["agent_combinations"] = normalized["model_combinations"]
+            data["comparison_config"] = normalized
+
+        return data
+
+    @property
+    def model_comparison(self) -> dict[str, Any] | None:
+        """Backward-compatible alias for comparison config."""
+        return self.comparison_config
+
+    @property
+    def agent_combinations(self) -> list[Any] | None:
+        """Expose normalized comparison combinations."""
+        if not isinstance(self.comparison_config, dict):
+            return None
+        return self.comparison_config.get("agent_combinations")
+
+    @property
+    def model_combinations(self) -> list[Any] | None:
+        """Human-facing alias for comparison combinations."""
+        return self.agent_combinations
 
 
 class DebateCreateResponse(BaseModel):

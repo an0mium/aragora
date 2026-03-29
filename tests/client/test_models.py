@@ -485,6 +485,28 @@ class TestDebateCreateRequest:
         with pytest.raises(ValueError):
             DebateCreateRequest(task="Test", rounds=MAX_ROUNDS + 1)
 
+    def test_comparison_config_aliases(self):
+        """Comparison mode aliases should normalize onto comparison_config."""
+        request = DebateCreateRequest(
+            task="Compare candidate lineups",
+            model_comparison={
+                "model_combinations": [["claude", "gemini"]],
+            },
+        )
+        assert request.comparison_config is not None
+        assert request.agent_combinations == [["claude", "gemini"]]
+        assert request.model_comparison == request.comparison_config
+
+    def test_top_level_agent_combinations_promote_to_comparison_config(self):
+        """Top-level combination aliases should hydrate comparison_config automatically."""
+        request = DebateCreateRequest(
+            task="Compare candidate lineups",
+            agent_combinations=[["claude", "gemini"], ["openai-api", "grok"]],
+        )
+        assert request.comparison_config is not None
+        assert request.comparison_config["pick_best_result"] is True
+        assert request.agent_combinations == [["claude", "gemini"], ["openai-api", "grok"]]
+
 
 class TestAgentProfile:
     """Tests for AgentProfile model."""

@@ -62,6 +62,43 @@ class TestDebateRequest:
         assert request.use_trending is True
         assert request.trending_category == "tech"
 
+    def test_from_dict_normalizes_comparison_aliases(self):
+        """Comparison config should normalize top-level and nested aliases."""
+        data = {
+            "question": "Which agent lineup produces the best implementation plan?",
+            "model_comparison": {
+                "model_combinations": [
+                    ["claude", "gemini"],
+                    "openai-api,grok",
+                ],
+                "selection_strategy": "llm_judge",
+            },
+        }
+
+        request = DebateRequest.from_dict(data)
+
+        assert request.comparison_config is not None
+        assert request.comparison_config["agent_combinations"] == [
+            ["claude", "gemini"],
+            ["openai-api", "grok"],
+        ]
+        assert request.comparison_config["pick_best_result"] is True
+        assert request.model_comparison == request.comparison_config
+        assert request.model_combinations == request.comparison_config["agent_combinations"]
+        assert request.metadata["comparison_config"] == request.comparison_config
+
+    def test_from_dict_invalid_comparison_combination_raises(self):
+        """Comparison mode requires at least two agents per candidate lineup."""
+        data = {
+            "question": "Which lineup is strongest?",
+            "comparison_config": {
+                "agent_combinations": [["claude"]],
+            },
+        }
+
+        with pytest.raises(ValueError, match="must include at least 2 agents"):
+            DebateRequest.from_dict(data)
+
     def test_from_dict_epistemic_hygiene_mode_enriches_context_and_metadata(self):
         """Epistemic hygiene mode should append protocol guidance and settlement scaffolding."""
         data = {
@@ -476,6 +513,41 @@ class TestDebateControllerStartDebate:
             controller.start_debate(request)
 
         auto_select.assert_called_once_with("Auto select test?", {"strategy": "best"})
+
+    def test_start_debate_passes_comparison_config_to_factory(self):
+        """Comparison config should be preserved on the debate config sent to the worker."""
+        from aragora.server.debate_factory import DebateConfig
+
+        controller = DebateController(
+            factory=self.factory,
+            emitter=self.emitter,
+            storage=self.storage,
+        )
+        mock_executor = Mock()
+        request = DebateRequest(
+            question="Which lineup gives the best result?",
+            comparison_config={
+                "agent_combinations": [
+                    ["claude", "gemini"],
+                    ["openai-api", "grok"],
+                ],
+                "pick_best_result": True,
+            },
+        )
+
+        with patch.object(controller, "_get_executor", return_value=mock_executor):
+            response = controller.start_debate(request)
+
+        submit_args = mock_executor.submit.call_args.args
+        config = submit_args[1]
+        assert response.success is True
+        assert isinstance(config, DebateConfig)
+        assert config.comparison_config == request.comparison_config
+        with _active_debates_lock:
+            assert (
+                _active_debates[response.debate_id]["comparison_config"]
+                == request.comparison_config
+            )
 
     def test_start_debate_auto_select_failure_uses_default(self):
         """Should use default agents if auto_select fails."""

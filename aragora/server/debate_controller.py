@@ -75,6 +75,8 @@ _DEFAULT_SETTLEMENT_METRIC = "Define a measurable metric for decision settlement
 _DEFAULT_SETTLEMENT_CLAIM = "Define the primary claim under debate."
 _DEFAULT_SETTLEMENT_RESOLVER_TYPE = "human"
 _ALLOWED_SETTLEMENT_RESOLVER_TYPES = {"human", "deterministic", "oracle"}
+_MAX_COMPARISON_COMBINATIONS = 10
+_MAX_COMBINATION_AGENTS = 10
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
@@ -161,6 +163,90 @@ def _normalize_agent_names(agents_value: Any) -> list[str]:
         return names
 
     return []
+
+
+def _normalize_agent_combination(combination: Any, *, index: int) -> list[Any]:
+    """Normalize one candidate agent lineup for comparison mode."""
+    if isinstance(combination, str):
+        normalized: list[Any] = [agent.strip() for agent in combination.split(",") if agent.strip()]
+    elif isinstance(combination, list):
+        normalized = []
+        for item in combination:
+            if isinstance(item, str):
+                agent_name = item.strip()
+                if agent_name:
+                    normalized.append(agent_name)
+            elif isinstance(item, dict):
+                normalized.append(dict(item))
+            else:
+                raise ValueError(
+                    f"comparison_config.agent_combinations[{index}] items must be strings or objects"
+                )
+    else:
+        raise ValueError(
+            f"comparison_config.agent_combinations[{index}] must be a list or comma-separated string"
+        )
+
+    if len(normalized) < 2:
+        raise ValueError(
+            f"comparison_config.agent_combinations[{index}] must include at least 2 agents"
+        )
+    if len(normalized) > _MAX_COMBINATION_AGENTS:
+        raise ValueError(
+            "comparison_config.agent_combinations"
+            f"[{index}] must include at most {_MAX_COMBINATION_AGENTS} agents"
+        )
+
+    return normalized
+
+
+def _normalize_comparison_config(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize best-result comparison config and accepted aliases."""
+    raw_config = data.get("comparison_config")
+    if raw_config is None:
+        raw_config = data.get("model_comparison")
+
+    if raw_config is not None and not isinstance(raw_config, dict):
+        raise ValueError("comparison_config must be an object")
+
+    normalized = dict(raw_config) if isinstance(raw_config, dict) else {}
+    raw_combinations = normalized.get("agent_combinations")
+    if raw_combinations is None:
+        raw_combinations = normalized.get("model_combinations")
+    if raw_combinations is None:
+        raw_combinations = data.get("agent_combinations")
+    if raw_combinations is None:
+        raw_combinations = data.get("model_combinations")
+
+    if raw_combinations is not None:
+        if not isinstance(raw_combinations, list):
+            raise ValueError("comparison_config.agent_combinations must be a list")
+        if not raw_combinations:
+            raise ValueError("comparison_config.agent_combinations cannot be empty")
+        if len(raw_combinations) > _MAX_COMPARISON_COMBINATIONS:
+            raise ValueError(
+                f"comparison_config.agent_combinations must contain at most {_MAX_COMPARISON_COMBINATIONS} combinations"
+            )
+        normalized["agent_combinations"] = [
+            _normalize_agent_combination(combination, index=index)
+            for index, combination in enumerate(raw_combinations)
+        ]
+        normalized.pop("model_combinations", None)
+
+    if not normalized:
+        return None
+
+    if "enabled" in normalized:
+        normalized["enabled"] = _is_truthy_flag(normalized["enabled"])
+    else:
+        normalized["enabled"] = True
+
+    if "pick_best_result" in normalized:
+        normalized["pick_best_result"] = _is_truthy_flag(normalized["pick_best_result"])
+    else:
+        normalized["pick_best_result"] = True
+
+    return normalized
 
 
 def _is_truthy_flag(value: Any) -> bool:
@@ -332,6 +418,7 @@ class DebateRequest:
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
     enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
     enable_interventions: bool | None = None  # Enable intervention queue
+    comparison_config: dict | None = None  # Candidate lineups for best-result selection
     quality_pipeline: dict | None = None  # Post-consensus quality pipeline config
 
     def __post_init__(self):
@@ -344,6 +431,23 @@ class DebateRequest:
         # Normalize debate_format
         if self.debate_format not in ("light", "full"):
             self.debate_format = "full"
+
+    @property
+    def model_comparison(self) -> dict | None:
+        """Backward-compatible alias for comparison config."""
+        return self.comparison_config
+
+    @property
+    def agent_combinations(self) -> list[Any] | None:
+        """Expose normalized agent combinations when comparison mode is configured."""
+        if not isinstance(self.comparison_config, dict):
+            return None
+        return self.comparison_config.get("agent_combinations")
+
+    @property
+    def model_combinations(self) -> list[Any] | None:
+        """Human-facing alias for agent combinations."""
+        return self.agent_combinations
 
     @classmethod
     def from_dict(cls, data: dict) -> DebateRequest:
@@ -376,6 +480,9 @@ class DebateRequest:
         auto_select_config = data.get("auto_select_config") or {}
         if not isinstance(auto_select_config, dict):
             auto_select_config = {}
+        comparison_config = _normalize_comparison_config(data)
+        if comparison_config is not None:
+            metadata.setdefault("comparison_config", comparison_config)
 
         mode_raw = data.get("mode", metadata.get("mode"))
         if _is_truthy_flag(data.get("epistemic_hygiene")) or _is_truthy_flag(
@@ -449,6 +556,7 @@ class DebateRequest:
             enable_auto_execution=data.get("enable_auto_execution"),
             enable_settlement_tracking=data.get("enable_settlement_tracking"),
             enable_interventions=data.get("enable_interventions"),
+            comparison_config=comparison_config,
             quality_pipeline=data.get("quality_pipeline"),
         )
 
@@ -805,6 +913,9 @@ class DebateController:
             if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict))
             else None
         )
+        comparison_config = (
+            dict(request.comparison_config) if isinstance(request.comparison_config, dict) else None
+        )
 
         # Track debate state (use "task" not "question" for StateManager compatibility)
         with _active_debates_lock:
@@ -818,6 +929,7 @@ class DebateController:
                 "documents": list(request.documents or []),
                 "mode": mode_meta,
                 "settlement": settlement_snapshot,
+                "comparison_config": comparison_config,
             }
 
         # Periodic cleanup
@@ -839,6 +951,7 @@ class DebateController:
                     "agents": agent_names,
                     "mode": mode_meta,
                     "settlement": settlement_snapshot,
+                    "comparison_config": comparison_config,
                 },
                 loop_id=debate_id,
             )
@@ -888,6 +1001,7 @@ class DebateController:
             enable_auto_execution=request.enable_auto_execution,
             enable_settlement_tracking=request.enable_settlement_tracking,
             enable_interventions=request.enable_interventions,
+            comparison_config=request.comparison_config,
             quality_pipeline=request.quality_pipeline,
         )
 
