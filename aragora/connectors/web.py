@@ -18,10 +18,11 @@ __all__ = [
 
 import asyncio
 import hashlib
+import importlib.util
 import json
 import logging
 import re
-import warnings
+import sys
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -48,12 +49,7 @@ try:
 except ImportError:
     BS4_AVAILABLE = False
 
-try:
-    from duckduckgo_search import DDGS
-
-    DDGS_AVAILABLE = True
-except ImportError:
-    DDGS_AVAILABLE = False
+DDGS_AVAILABLE = importlib.util.find_spec("duckduckgo_search") is not None
 
 # Domain authority scores (0-1) for common sources
 DOMAIN_AUTHORITY = {
@@ -84,6 +80,58 @@ DOMAIN_AUTHORITY = {
     "bbc.com": 0.8,
     "reuters.com": 0.85,
 }
+
+
+_DDGS_SUBPROCESS_CODE = """
+import json
+import sys
+import warnings
+
+from duckduckgo_search import DDGS
+
+rename_warning_pattern = r"This package .* has been renamed to `ddgs`!.*"
+original_simplefilter = warnings.simplefilter
+
+
+def _safe_simplefilter(
+    action: str,
+    category: type[Warning] = Warning,
+    lineno: int = 0,
+    append: bool = False,
+) -> None:
+    if action == "always":
+        original_simplefilter(
+            action,
+            category=category,
+            lineno=lineno,
+            append=True,
+        )
+        return
+    original_simplefilter(
+        action,
+        category=category,
+        lineno=lineno,
+        append=append,
+    )
+
+
+warnings.simplefilter = _safe_simplefilter
+try:
+    query = sys.argv[1]
+    region = sys.argv[2]
+    max_results = int(sys.argv[3])
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=rename_warning_pattern,
+            category=RuntimeWarning,
+        )
+        ddgs_client = DDGS()
+    results = list(ddgs_client.text(query, region=region, max_results=max_results))
+    sys.stdout.write(json.dumps(results))
+finally:
+    warnings.simplefilter = original_simplefilter
+"""
 
 
 class WebConnector(BaseConnector):
@@ -250,63 +298,11 @@ class WebConnector(BaseConnector):
         await self._rate_limit()
 
         try:
-            # Run DuckDuckGo search in thread pool (it's synchronous)
-            # Add timeout to prevent indefinite blocking
-            # Note: On timeout, the thread pool task continues running but we don't wait.
-            # This is a Python limitation - thread pool tasks can't be interrupted.
-            loop = asyncio.get_running_loop()
-            try:
-
-                def _run_ddgs_search() -> list[dict]:
-                    # duckduckgo_search.DDGS.__init__ force-enables "always" warnings.
-                    # Keep that from overriding our targeted ignore for its own rename warning.
-                    rename_warning_pattern = r"This package .* has been renamed to `ddgs`!.*"
-                    original_simplefilter = warnings.simplefilter
-
-                    def _safe_simplefilter(
-                        action: str,
-                        category: type[Warning] = Warning,
-                        lineno: int = 0,
-                        append: bool = False,
-                    ) -> None:
-                        if action == "always":
-                            original_simplefilter(
-                                action,  # type: ignore[arg-type]
-                                category=category,
-                                lineno=lineno,
-                                append=True,
-                            )
-                            return
-                        original_simplefilter(
-                            action,  # type: ignore[arg-type]
-                            category=category,
-                            lineno=lineno,
-                            append=append,
-                        )
-
-                    warnings.simplefilter = _safe_simplefilter  # type: ignore[assignment]
-                    try:
-                        with warnings.catch_warnings():
-                            warnings.filterwarnings(
-                                "ignore",
-                                message=rename_warning_pattern,
-                                category=RuntimeWarning,
-                            )
-                            ddgs_client = DDGS()
-                        try:
-                            return list(ddgs_client.text(query, region=region, max_results=limit))
-                        except Exception as e:  # noqa: BLE001 - third-party client can raise varied errors
-                            raise RuntimeError(f"DDGS search failed: {e}") from e
-                    finally:
-                        warnings.simplefilter = original_simplefilter
-
-                results = await asyncio.wait_for(
-                    loop.run_in_executor(None, _run_ddgs_search),
-                    timeout=DB_TIMEOUT_SECONDS,  # 30 second timeout for DDGS
-                )
-            except asyncio.TimeoutError:
-                logger.warning("DDGS search timed out for query: %s...", query[:50])
-                return [self._create_error_evidence(f"Search timed out for: {query[:50]}")]
+            results = await self._run_ddgs_search_subprocess(
+                query=query,
+                region=region,
+                limit=limit,
+            )
 
             evidence_list = []
             for result in results:
@@ -328,6 +324,49 @@ class WebConnector(BaseConnector):
             # Handle other common errors from search library
             logger.warning("Search error: %s: %s", type(e).__name__, e)
             return [self._create_error_evidence(f"Search failed: {e}")]
+
+    async def _run_ddgs_search_subprocess(
+        self,
+        *,
+        query: str,
+        region: str,
+        limit: int,
+    ) -> list[dict]:
+        """Run DDGS in a subprocess so native panics can't abort the parent process."""
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            _DDGS_SUBPROCESS_CODE,
+            query,
+            region,
+            str(limit),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=DB_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            process.kill()
+            await process.communicate()
+            logger.warning("DDGS search timed out for query: %s...", query[:50])
+            raise RuntimeError(f"Search timed out for: {query[:50]}") from exc
+
+        if process.returncode != 0:
+            stderr_text = stderr.decode("utf-8", errors="replace").strip()
+            if stderr_text:
+                stderr_text = stderr_text.splitlines()[-1]
+            else:
+                stderr_text = f"exit code {process.returncode}"
+            raise RuntimeError(f"DDGS subprocess failed: {stderr_text}")
+
+        try:
+            return json.loads(stdout.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("DDGS subprocess returned invalid JSON") from exc
 
     def _is_local_ip(self, url: str) -> bool:
         """Check if URL points to local/private IP ranges for security."""
