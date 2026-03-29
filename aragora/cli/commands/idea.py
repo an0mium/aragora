@@ -25,6 +25,15 @@ from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
 
+_PLACEHOLDER_TITLES = {
+    "untitled initiative",
+    "untitled handoff",
+    "untitled task",
+    "initiative",
+    "handoff",
+    "task",
+}
+
 
 def cmd_idea(args: argparse.Namespace) -> None:
     """Dispatch idea subcommands."""
@@ -110,6 +119,147 @@ def _read_idea_text(args: argparse.Namespace) -> str:
 def _text(value: Any) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def _collapse_whitespace(value: Any) -> str:
+    return " ".join(str(value or "").split()).strip()
+
+
+def _is_placeholder_title(value: Any) -> bool:
+    title = _collapse_whitespace(value).strip(" -:_")
+    if not title:
+        return True
+    normalized = title.lower()
+    if normalized in _PLACEHOLDER_TITLES:
+        return True
+    return normalized.startswith("untitled ")
+
+
+def _derive_initiative_title(*, idea: str, spec: dict[str, Any]) -> str:
+    for candidate in (
+        spec.get("title"),
+        spec.get("user_goal"),
+        spec.get("desired_outcome"),
+        spec.get("raw"),
+        idea,
+    ):
+        title = _collapse_whitespace(candidate).strip(" -:_")
+        if title and not _is_placeholder_title(title):
+            return title[:120]
+    return ""
+
+
+def _derive_initiative_summary(*, idea: str, spec: dict[str, Any], title: str) -> str:
+    candidates = [
+        spec.get("desired_outcome"),
+        spec.get("proposed_solution"),
+        spec.get("user_goal"),
+        spec.get("raw"),
+        idea,
+    ]
+    for candidate in candidates:
+        summary = _collapse_whitespace(candidate)
+        if summary:
+            if summary == title:
+                continue
+            return summary[:300]
+    return title[:300]
+
+
+def _initiative_acceptance_criteria(
+    *,
+    success_criteria: list[str],
+    clarification_status: str,
+    open_questions: list[str],
+) -> list[str]:
+    criteria = [item for item in success_criteria if item]
+    if criteria:
+        return criteria
+    fallback = ["A usable initiative brief exists with explicit summary and queue metadata."]
+    if clarification_status == "decision_complete":
+        fallback.append(
+            "Founder triage can decompose the initiative into bounded work with file scope and validation."
+        )
+    else:
+        fallback.append("Open questions remain captured before any boss-ready work is created.")
+    if open_questions:
+        fallback.append(
+            f"{len(open_questions)} open question(s) are explicitly preserved in the intake artifact."
+        )
+    return fallback
+
+
+def _initiative_validation_steps(
+    *,
+    clarification_status: str,
+    open_questions: list[str],
+) -> list[str]:
+    validation = [
+        "Brief includes title, summary, merge class, autonomy mode, and preferred worker/reviewer defaults."
+    ]
+    if clarification_status == "decision_complete":
+        validation.append(
+            "Founder triage yields bounded handoffs with acceptance criteria, validation, and file scope."
+        )
+    else:
+        validation.append(
+            "Artifact remains `idea-intake` only until clarification reaches decision_complete."
+        )
+    if open_questions:
+        validation.append(
+            "Open questions are visible on the issue and block queue-ready execution."
+        )
+    return validation
+
+
+def _brief_issue_prefix(brief: dict[str, Any]) -> str:
+    completeness = str(brief.get("clarification_completeness_status", "")).strip().lower()
+    return "Initiative" if completeness == "decision_complete" else "Idea Intake"
+
+
+def _brief_issue_labels(brief: dict[str, Any]) -> list[str]:
+    completeness = str(brief.get("clarification_completeness_status", "")).strip().lower()
+    if completeness != "decision_complete":
+        return ["idea-intake"]
+    return [
+        "initiative",
+        f"risk:{brief.get('risk', 'medium')}",
+        f"merge:{brief.get('merge_class', 'manual')}",
+        f"track:{brief.get('track', '1')}",
+        f"autonomy:{brief.get('autonomy_mode', 'checkpoint')}",
+    ]
+
+
+def _brief_persistence_errors(brief: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if _is_placeholder_title(brief.get("title")):
+        errors.append("title must be non-empty and not a placeholder")
+    if not _text(brief.get("summary")):
+        errors.append("summary is required")
+    if not [item for item in brief.get("acceptance_criteria", []) if _text(item)]:
+        errors.append("acceptance criteria are required")
+    if not [item for item in brief.get("validation", []) if _text(item)]:
+        errors.append("validation steps are required")
+    if not _text(brief.get("merge_class")):
+        errors.append("merge class is required")
+    if not _text(brief.get("autonomy_mode")):
+        errors.append("autonomy mode is required")
+    return errors
+
+
+def _handoff_persistence_errors(handoff: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if _is_placeholder_title(handoff.get("task_title")):
+        errors.append("task title must be non-empty and not a placeholder")
+    if not [item for item in handoff.get("acceptance_criteria", []) if _text(item)]:
+        errors.append("acceptance criteria are required")
+    if not [item for item in handoff.get("validation", []) if _text(item)]:
+        errors.append("validation steps are required")
+    if not _text(handoff.get("merge_class")):
+        errors.append("merge class is required")
+    if not _text(handoff.get("autonomy_mode")):
+        errors.append("autonomy mode is required")
+    return errors
 
 
 async def _run_idea_intake_with_cleanup(**kwargs: Any) -> dict[str, Any]:
@@ -337,23 +487,40 @@ def _compose_initiative_brief(
                 part.strip() for part in criteria_section.split(";") if part.strip()
             ]
 
-    title = _text(spec.get("title")) or idea[:80]
+    open_questions = [
+        str(item).strip() for item in spec.get("open_questions", []) if str(item).strip()
+    ]
+    clarification_status = _text(spec.get("clarification_status")) or "draft"
+    title = _derive_initiative_title(idea=idea, spec=spec)
     desired_outcome = _text(spec.get("desired_outcome")) or title
+    summary = _derive_initiative_summary(idea=idea, spec=spec, title=title)
     proof_expected = "Acceptance criteria satisfied, targeted validation attached, and adversarial review notes recorded."
+    acceptance_criteria = _initiative_acceptance_criteria(
+        success_criteria=success_criteria,
+        clarification_status=clarification_status,
+        open_questions=open_questions,
+    )
+    validation = _initiative_validation_steps(
+        clarification_status=clarification_status,
+        open_questions=open_questions,
+    )
 
     return {
         "title": title,
+        "summary": summary,
         "user_goal": _text(spec.get("user_goal")) or idea,
         "desired_business_outcome": desired_outcome,
         "success_criteria": success_criteria,
+        "acceptance_criteria": acceptance_criteria,
+        "validation": validation,
         "constraints": [],
         "explicit_non_goals": [],
         "affected_product_surfaces": surfaces,
         "affected_surfaces": surfaces,
         "proof_evidence_expected": proof_expected,
         "sequencing_priority": priority,
-        "clarification_completeness_status": _text(spec.get("clarification_status")) or "draft",
-        "open_questions": list(spec.get("open_questions", []) or []),
+        "clarification_completeness_status": clarification_status,
+        "open_questions": open_questions,
         "risk": risk,
         "merge_class": merge_class,
         "autonomy_mode": autonomy_mode,
@@ -1175,18 +1342,15 @@ def _slug(value: str) -> str:
 
 async def _create_intake_issue(brief: dict[str, Any], *, repo: str) -> dict[str, Any]:
     """Persist an initiative brief as a GitHub issue."""
+    errors = _brief_persistence_errors(brief)
+    if errors:
+        raise ValueError(f"Cannot persist intake brief: {'; '.join(errors)}")
+    prefix = _brief_issue_prefix(brief)
     return await _create_issue_with_optional_labels(
         repo=repo,
-        title=f"[Initiative] {brief.get('title', 'Untitled initiative')}",
+        title=f"[{prefix}] {brief.get('title', '').strip()}",
         body=_issue_body_for_brief(brief),
-        requested_labels=[
-            "idea-intake",
-            "initiative",
-            f"risk:{brief.get('risk', 'medium')}",
-            f"merge:{brief.get('merge_class', 'manual')}",
-            f"track:{brief.get('track', '1')}",
-            f"autonomy:{brief.get('autonomy_mode', 'checkpoint')}",
-        ],
+        requested_labels=_brief_issue_labels(brief),
     )
 
 
@@ -1199,10 +1363,16 @@ async def _create_triage_issues(
     """Persist founder handoffs as boss-ready GitHub issues."""
     created: list[dict[str, Any]] = []
     for handoff in handoffs:
+        errors = _handoff_persistence_errors(handoff)
+        if errors:
+            raise ValueError(
+                f"Cannot persist boss-ready issue for {handoff.get('task_title', 'unknown task')!r}: "
+                + "; ".join(errors)
+            )
         created.append(
             await _create_issue_with_optional_labels(
                 repo=repo,
-                title=str(handoff.get("task_title", "Untitled handoff")).strip(),
+                title=str(handoff.get("task_title", "")).strip(),
                 body=_triage_issue_body_for_handoff(handoff, brief=brief),
                 requested_labels=list(handoff.get("labels", []) or []),
             )
@@ -1255,9 +1425,20 @@ async def _create_issue_with_optional_labels(
 def _issue_body_for_brief(brief: dict[str, Any]) -> str:
     """Render the intake issue body."""
     success_criteria = list(brief.get("success_criteria", []) or [])
+    acceptance_criteria = [
+        str(item).strip() for item in brief.get("acceptance_criteria", []) if str(item).strip()
+    ]
+    validation = [str(item).strip() for item in brief.get("validation", []) if str(item).strip()]
     open_questions = list(brief.get("open_questions", []) or [])
     surfaces = list(brief.get("affected_product_surfaces", []) or [])
+    next_step = (
+        "Run founder triage to decompose this initiative into bounded `boss-ready` issues with "
+        "explicit acceptance criteria, validation commands, file scope, and merge policy."
+        if str(brief.get("clarification_completeness_status", "")).strip() == "decision_complete"
+        else "Keep this as `idea-intake` only. Resolve the open questions before any `boss-ready` issue is created."
+    )
     return f"""## Initiative Brief
+- Summary: {brief.get("summary", "")[:300]}
 - User goal: {brief.get("user_goal", "")[:300]}
 - Desired business outcome: {brief.get("desired_business_outcome", "")[:300]}
 - Success criteria: {", ".join(success_criteria) or "to be refined"}
@@ -1277,9 +1458,14 @@ def _issue_body_for_brief(brief: dict[str, Any]) -> str:
 - Preferred Worker Agent: {brief.get("preferred_worker_agent", "claude")}
 - Preferred Reviewer Agent: {brief.get("preferred_reviewer_agent", "codex")}
 
+## Acceptance Criteria
+{chr(10).join(f"- [ ] {item}" for item in acceptance_criteria) or "- [ ] Clarification requirements captured"}
+
+## Validation
+{chr(10).join(f"- {item}" for item in validation) or "- Validation still needs to be defined"}
+
 ## Next Step
-Run founder triage to decompose this initiative into bounded `boss-ready` issues with explicit
-acceptance criteria, validation commands, file scope, and merge policy.
+{next_step}
 """
 
 

@@ -174,6 +174,8 @@ def test_run_build_pipeline_blocks_before_dispatch_when_routing_is_blocked() -> 
                             "description": "Implement thing",
                             "acceptance_criteria": ["It works"],
                             "verification": "pytest tests/a.py -q",
+                            "merge_class": "manual",
+                            "autonomy_mode": "checkpoint",
                         }
                     ],
                 }
@@ -205,6 +207,110 @@ def test_run_build_pipeline_blocks_before_dispatch_when_routing_is_blocked() -> 
     assert result["status"] == "blocked_no_runner"
     assert result["stages"]["routing"]["blocked"] is True
     dispatch.assert_not_awaited()
+
+
+def test_run_build_pipeline_stops_when_founder_review_has_no_queueable_tasks() -> None:
+    with (
+        patch(
+            "aragora.cli.commands.build._generate_spec",
+            AsyncMock(return_value={"title": "Spec", "sections": [], "raw": "spec"}),
+        ),
+        patch(
+            "aragora.cli.commands.build._plan_reviewed_tasks",
+            AsyncMock(
+                return_value={
+                    "brief": {"clarification_completeness_status": "decision_complete"},
+                    "handoffs": [],
+                    "review": {
+                        "status": "approved",
+                        "summary": "No queueable handoffs.",
+                        "findings": [],
+                        "followups": [],
+                    },
+                    "tasks": [],
+                }
+            ),
+        ),
+        patch(
+            "aragora.cli.commands.build._decompose_tasks",
+            AsyncMock(
+                return_value=[
+                    {
+                        "title": "Preview task",
+                        "description": "Preview only",
+                        "acceptance_criteria": ["Preview exists"],
+                        "verification": "pytest tests/a.py -q",
+                    }
+                ]
+            ),
+        ),
+        patch("aragora.cli.commands.build._create_issues", AsyncMock()) as create_issues,
+    ):
+        result = asyncio.run(
+            _run_build_pipeline(
+                idea="Ship thing",
+                dry_run=False,
+                skip_clarify=True,
+                repo="synaptent/aragora",
+                worker_model="claude",
+                review_model="codex",
+                emit_progress=False,
+            )
+        )
+
+    assert result["status"] == "triage_required"
+    assert result["stages"]["fallback_tasks"][0]["title"] == "Preview task"
+    create_issues.assert_not_awaited()
+
+
+def test_run_build_pipeline_rejects_placeholder_queue_tasks() -> None:
+    with (
+        patch(
+            "aragora.cli.commands.build._generate_spec",
+            AsyncMock(return_value={"title": "Spec", "sections": [], "raw": "spec"}),
+        ),
+        patch(
+            "aragora.cli.commands.build._plan_reviewed_tasks",
+            AsyncMock(
+                return_value={
+                    "brief": {"clarification_completeness_status": "decision_complete"},
+                    "handoffs": [],
+                    "review": {
+                        "status": "approved",
+                        "summary": "No findings.",
+                        "findings": [],
+                        "followups": [],
+                    },
+                    "tasks": [
+                        {
+                            "title": "Untitled task",
+                            "description": "Implement thing",
+                            "acceptance_criteria": ["It works"],
+                            "verification": "pytest tests/a.py -q",
+                            "merge_class": "manual",
+                            "autonomy_mode": "checkpoint",
+                        }
+                    ],
+                }
+            ),
+        ),
+        patch("aragora.cli.commands.build._create_issues", AsyncMock()) as create_issues,
+    ):
+        result = asyncio.run(
+            _run_build_pipeline(
+                idea="Ship thing",
+                dry_run=False,
+                skip_clarify=True,
+                repo="synaptent/aragora",
+                worker_model="claude",
+                review_model="codex",
+                emit_progress=False,
+            )
+        )
+
+    assert result["status"] == "invalid_tasks"
+    assert result["stages"]["task_validation"]["invalid_count"] == 1
+    create_issues.assert_not_awaited()
 
 
 def test_generate_spec_reads_conductor_result() -> None:
