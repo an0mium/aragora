@@ -71,8 +71,8 @@ class EloFeedback:
         event_emitter = self.event_emitter
         elo_system = self.elo_system
         result = ctx.result
-        loop_id = self.loop_id
-        if event_emitter is None or elo_system is None or result is None or loop_id is None:
+        loop_id = self.loop_id or getattr(ctx, "loop_id", "")
+        if event_emitter is None or elo_system is None or result is None:
             return
 
         try:
