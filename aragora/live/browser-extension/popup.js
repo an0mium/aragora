@@ -53,6 +53,11 @@ function resolveFinalAnswer(result) {
   );
 }
 
+function resolveConfidence(result) {
+  const confidence = result?.confidence ?? result?.consensus?.confidence ?? result?.consensus?.agreement;
+  return typeof confidence === "number" && !Number.isNaN(confidence) ? confidence : null;
+}
+
 async function getStoredState() {
   const stored = await chrome.storage.local.get(STATE_KEY);
   return stored[STATE_KEY] || null;
@@ -107,6 +112,7 @@ function renderError(errorMessage) {
 
 function renderState(state) {
   const activeState = state || {};
+  const result = activeState.result || {};
   setStatusPill(activeState.status || "idle");
 
   elements.selectionPreview.textContent =
@@ -114,17 +120,17 @@ function renderState(state) {
   renderSource(activeState.source);
 
   elements.debateId.textContent = activeState.debateId || "-";
-  elements.resultStatus.textContent = humanizeStatus(activeState.result?.status || activeState.status || "idle");
+  elements.resultStatus.textContent = humanizeStatus(result.status || activeState.status || "idle");
 
-  const confidence = activeState.result?.confidence;
+  const confidence = resolveConfidence(result);
   elements.resultConfidence.textContent =
     typeof confidence === "number" && !Number.isNaN(confidence)
       ? `${Math.round(confidence * 100)}%`
       : "-";
 
   const answer =
-    activeState.result?.finalAnswer ||
-    activeState.result?.message ||
+    resolveFinalAnswer(result) ||
+    result.message ||
     (activeState.status === "submitting"
       ? "Submitting selection to Aragora."
       : activeState.status === "running"

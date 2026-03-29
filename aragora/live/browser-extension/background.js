@@ -45,6 +45,38 @@ function sanitizeSelectionText(value) {
     .slice(0, SELECTION_LIMIT);
 }
 
+function resolveDebateAnswer(result) {
+  return (
+    result?.final_answer ||
+    result?.finalAnswer ||
+    result?.answer ||
+    result?.summary ||
+    result?.consensus?.final_answer ||
+    result?.consensus?.finalAnswer ||
+    result?.consensus?.summary ||
+    result?.consensus?.answer ||
+    ""
+  );
+}
+
+function resolveDebateConfidence(result) {
+  const confidence = result?.confidence ?? result?.consensus?.confidence ?? result?.consensus?.agreement;
+  return typeof confidence === "number" && !Number.isNaN(confidence) ? confidence : null;
+}
+
+function buildStoredResult(result) {
+  const finalAnswer = resolveDebateAnswer(result);
+
+  return {
+    debateId: result?.debate_id || result?.id || null,
+    status: result?.status || "running",
+    message: result?.message || finalAnswer || null,
+    finalAnswer: finalAnswer || null,
+    confidence: resolveDebateConfidence(result),
+    consensus: result?.consensus || null,
+  };
+}
+
 async function setBadge(text, color) {
   await chrome.action.setBadgeText({ text });
 
@@ -220,11 +252,7 @@ async function handleContextMenuClick(info, tab) {
       status: createdDebate.status || "running",
       debateId,
       error: null,
-      result: {
-        debateId,
-        status: createdDebate.status || "running",
-        message: createdDebate.message || null,
-      },
+      result: buildStoredResult(createdDebate),
       selectionText,
       source,
     });
