@@ -238,13 +238,12 @@ class MemoryHandler(
         return None
 
     @handle_errors("memory creation")
-    @require_permission("memory:manage")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route POST memory requests to admin-level state-mutating methods with auth."""
+        """Route POST memory requests to the appropriate RBAC-scoped handlers."""
+        self._auth_context = getattr(handler, "_auth_context", None)
         path = self._normalize_path(path)
-        from aragora.billing.jwt_auth import extract_user_from_request
 
         client_ip = get_client_ip(handler)
 
@@ -252,28 +251,18 @@ class MemoryHandler(
             # Rate limit: 10/min for mutation operations
             if not _mutation_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
-            # Require authentication for state mutation
-            user_store = self._get_user_store()
-            auth_ctx = extract_user_from_request(handler, user_store)
-            if not auth_ctx.is_authenticated:
-                return error_response("Authentication required", 401)
-            return self._trigger_consolidation()
+            return self._handle_continuum_consolidate_post(handler)
 
         if path == "/api/v1/memory/continuum/cleanup":
             # Rate limit: 10/min for mutation operations
             if not _mutation_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
-            # Require authentication for state mutation
-            user_store = self._get_user_store()
-            auth_ctx = extract_user_from_request(handler, user_store)
-            if not auth_ctx.is_authenticated:
-                return error_response("Authentication required", 401)
-            return self._trigger_cleanup(query_params)
+            return self._handle_continuum_cleanup_post(query_params, handler)
 
         if path == "/api/v1/memory/unified/search":
             if not _retrieve_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
-            return self._unified_search(query_params, handler)
+            return self._handle_unified_search_post(query_params, handler)
 
         return None
 
@@ -314,6 +303,38 @@ class MemoryHandler(
     # =========================================================================
     # Utility Methods (shared by mixins)
     # =========================================================================
+
+    def _require_authenticated_mutation(self, handler: Any) -> HandlerResult | None:
+        """Require an authenticated caller for state-changing memory endpoints."""
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Authentication required", 401)
+        return None
+
+    @require_permission("memory:manage")
+    def _handle_continuum_consolidate_post(self, handler: Any) -> HandlerResult:
+        auth_error = self._require_authenticated_mutation(handler)
+        if auth_error is not None:
+            return auth_error
+        return self._trigger_consolidation()
+
+    @require_permission("memory:manage")
+    def _handle_continuum_cleanup_post(
+        self, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        auth_error = self._require_authenticated_mutation(handler)
+        if auth_error is not None:
+            return auth_error
+        return self._trigger_cleanup(query_params)
+
+    @require_permission("memory:read")
+    def _handle_unified_search_post(
+        self, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        return self._unified_search(query_params, handler)
 
     @staticmethod
     def _parse_bool_param(params: dict, name: str, default: bool = False) -> bool:

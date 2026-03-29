@@ -1224,6 +1224,32 @@ class TestUnifiedMemory:
                 )
                 assert _status(result) == 501
 
+    def test_unified_search_requires_read_not_manage_permission(self, handler, mock_http):
+        from aragora.rbac.models import AuthorizationContext
+
+        mock_http._auth_context = AuthorizationContext(
+            user_id="reader-1",
+            roles={"member"},
+            permissions={"memory:read"},
+        )
+
+        def mock_handle_search(_body):
+            return {"results": [], "count": 0}
+
+        mock_unified = MagicMock()
+        mock_unified.handle_search = mock_handle_search
+
+        with (
+            patch("aragora.server.auth.auth_config.enabled", True),
+            patch.object(handler, "_get_unified_handler", return_value=mock_unified),
+            patch("aragora.utils.async_utils.run_async", return_value={"results": [], "count": 0}),
+        ):
+            result = handler.handle_post(
+                "/api/v1/memory/unified/search", {"query": "test"}, mock_http
+            )
+
+        assert _status(result) == 200
+
     def test_handle_post_unknown_path_returns_none(self, handler, mock_http):
         with patch(_EXTRACT_USER_PATCH) as mock_extract:
             mock_extract.return_value = _make_auth_mock(authenticated=True)
