@@ -44,15 +44,19 @@ function resolveFinalAnswer(debate) {
     return "";
   }
 
+  const result = debate;
+
   return (
     debate.final_answer ||
     debate.finalAnswer ||
+    result?.answer ||
     debate.answer ||
-    debate.summary ||
     debate.consensus?.final_answer ||
     debate.consensus?.finalAnswer ||
+    result?.consensus?.summary ||
     debate.consensus?.summary ||
     debate.consensus?.answer ||
+    debate.summary ||
     ""
   );
 }
