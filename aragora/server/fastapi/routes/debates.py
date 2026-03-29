@@ -163,6 +163,22 @@ class CreateDebateRequest(BaseModel):
     auto_select: bool = Field(False, description="Auto-select agents")
     context: str | None = Field(None, max_length=10000, description="Additional context")
     metadata: dict[str, Any] | None = Field(None, description="Custom metadata")
+    comparison_config: dict[str, Any] | None = Field(
+        None,
+        description="Run the same debate across candidate lineups and keep the best result",
+    )
+    model_comparison: dict[str, Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config",
+    )
+    agent_combinations: list[Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config.agent_combinations",
+    )
+    model_combinations: list[Any] | None = Field(
+        None,
+        description="Human-facing alias for comparison_config.agent_combinations",
+    )
 
     @field_validator("agents")
     @classmethod
@@ -929,6 +945,14 @@ async def create_debate(
             debate_body["context"] = body.context
         if body.metadata:
             debate_body["metadata"] = body.metadata
+        if body.comparison_config is not None:
+            debate_body["comparison_config"] = body.comparison_config
+        if body.model_comparison is not None:
+            debate_body["model_comparison"] = body.model_comparison
+        if body.agent_combinations is not None:
+            debate_body["agent_combinations"] = body.agent_combinations
+        if body.model_combinations is not None:
+            debate_body["model_combinations"] = body.model_combinations
 
         # Delegate to the debate controller
         try:

@@ -13,7 +13,7 @@ import logging
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -77,6 +77,11 @@ _DEFAULT_SETTLEMENT_RESOLVER_TYPE = "human"
 _ALLOWED_SETTLEMENT_RESOLVER_TYPES = {"human", "deterministic", "oracle"}
 _MAX_COMPARISON_COMBINATIONS = 10
 _MAX_COMBINATION_AGENTS = 10
+_DEFAULT_COMPARISON_SELECTION_STRATEGY = "consensus_confidence_completion"
+_FIRST_SUCCESSFUL_SELECTION_STRATEGY = "first_successful"
+_SUPPORTED_COMPARISON_SELECTION_STRATEGIES = {
+    _DEFAULT_COMPARISON_SELECTION_STRATEGY,
+}
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
@@ -270,6 +275,73 @@ def _normalize_mode(raw_mode: Any) -> str | None:
     if mode in {"epistemic", "hygiene", "epistemic_hygiene"}:
         return _EPISTEMIC_HYGIENE_MODE
     return mode
+
+
+def _serialize_comparison_agents(agents_value: Any) -> list[str | dict[str, Any]]:
+    """Normalize comparison candidate specs into a JSON-safe shape."""
+    if isinstance(agents_value, str):
+        return [agent.strip() for agent in agents_value.split(",") if agent.strip()]
+    if not isinstance(agents_value, list):
+        return []
+
+    serialized: list[str | dict[str, Any]] = []
+    for item in agents_value:
+        if isinstance(item, str):
+            agent_name = item.strip()
+            if agent_name:
+                serialized.append(agent_name)
+            continue
+        if isinstance(item, dict):
+            normalized = {
+                key: value
+                for key, value in item.items()
+                if key in {"provider", "model", "persona", "role", "name", "hierarchy_role"}
+                and value is not None
+            }
+            if normalized:
+                serialized.append(normalized)
+    return serialized
+
+
+def _format_comparison_agents(agents_value: Any) -> str:
+    """Render comparison candidate specs into a stable display string."""
+    rendered: list[str] = []
+    for item in _serialize_comparison_agents(agents_value):
+        if isinstance(item, str):
+            rendered.append(item)
+            continue
+
+        provider = str(item.get("provider") or "").strip()
+        model = str(item.get("model") or "").strip()
+        name = str(item.get("name") or "").strip()
+
+        provider_model = provider
+        if model:
+            provider_model = f"{provider}:{model}" if provider else model
+        if name and provider_model and name != provider_model:
+            rendered.append(f"{name}({provider_model})")
+        elif name:
+            rendered.append(name)
+        elif provider_model:
+            rendered.append(provider_model)
+
+    return ",".join(rendered)
+
+
+def _comparison_rank(
+    summary: dict[str, Any],
+) -> tuple[int, float, float, int, float, int, float, int]:
+    """Rank comparison candidates from strongest to weakest."""
+    return (
+        1 if summary.get("passes_quality_gate") else 0,
+        float(summary.get("quality_score_10", 0.0) or 0.0),
+        float(summary.get("practicality_score_10", 0.0) or 0.0),
+        1 if summary.get("consensus_reached") else 0,
+        float(summary.get("confidence", 0.0) or 0.0),
+        -int(summary.get("rounds_used", 0) or 0),
+        -float(summary.get("duration_seconds", 0.0) or 0.0),
+        -int(summary.get("defect_count", 0) or 0),
+    )
 
 
 def _append_epistemic_hygiene_prompt(context: Any) -> str:
@@ -1049,6 +1121,222 @@ class DebateController:
         """Get the shared thread pool executor from StateManager."""
         return get_state_manager().get_executor(max_workers=MAX_CONCURRENT_DEBATES)
 
+    def _execute_debate_candidate(
+        self,
+        config: DebateConfig,
+        debate_id: str,
+        hooks: dict[str, Any],
+    ) -> tuple[Any, dict[str, Any] | None, float]:
+        """Run one debate candidate and apply deterministic post-processing."""
+        import time
+
+        candidate_started = time.monotonic()
+        arena = self.factory.create_arena(
+            config,
+            event_hooks=hooks,
+            stream_wrapper=wrap_agent_for_streaming,
+        )
+
+        self.factory.reset_circuit_breakers(arena)
+
+        protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
+        timeout = (
+            protocol_timeout
+            if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
+            else DEBATE_TIMEOUT_SECONDS
+        )
+        update_debate_status(debate_id, "running")
+
+        async def run_with_timeout():
+            return await asyncio.wait_for(arena.run(), timeout=timeout)
+
+        result = run_async(run_with_timeout())
+        duration_seconds = time.monotonic() - candidate_started
+
+        quality_meta: dict[str, Any] | None = None
+        if isinstance(config.quality_pipeline, dict) and config.quality_pipeline.get(
+            "enabled", True
+        ):
+            try:
+                from aragora.debate.quality_pipeline import (
+                    QualityPipelineConfig,
+                    apply_post_consensus_quality,
+                )
+
+                qp_config = QualityPipelineConfig.from_dict(config.quality_pipeline)
+                qp_result = apply_post_consensus_quality(
+                    answer=result.final_answer or "",
+                    task=config.question,
+                    config=qp_config,
+                )
+                result.final_answer = qp_result.answer
+                quality_meta = qp_result.to_dict()
+                logger.info(
+                    "[debate] Quality pipeline for %s: passes_gate=%s repaired=%s",
+                    debate_id,
+                    qp_result.passes_gate,
+                    qp_result.repaired,
+                )
+            except (ImportError, ValueError, TypeError, OSError) as qp_err:
+                logger.warning(
+                    "[debate] Quality pipeline failed for %s (non-fatal): %s",
+                    debate_id,
+                    qp_err,
+                )
+
+        return result, quality_meta, duration_seconds
+
+    def _build_model_comparison_summary(
+        self,
+        *,
+        result: Any,
+        agents_value: Any,
+        quality_meta: dict[str, Any] | None,
+        duration_seconds: float,
+        selection_strategy: str,
+    ) -> dict[str, Any]:
+        """Build a compact comparison summary for one candidate lineup."""
+        final_report = {}
+        if isinstance(quality_meta, dict):
+            final_report = quality_meta.get("final_report", {}) or {}
+
+        quality_score = float(final_report.get("quality_score_10", 0.0) or 0.0)
+        practicality_score = float(final_report.get("practicality_score_10", 0.0) or 0.0)
+        defects = list(final_report.get("defects") or [])
+        consensus_reached = bool(getattr(result, "consensus_reached", False))
+        confidence = float(getattr(result, "confidence", 0.0) or 0.0)
+        rounds_used = int(getattr(result, "rounds_used", 0) or 0)
+        final_answer_preview = str(getattr(result, "final_answer", "") or "")[:240]
+        serialized_agents = _serialize_comparison_agents(agents_value)
+
+        passes_quality_gate = bool(
+            final_report.get("verdict") == "good"
+            and quality_score >= 9.0
+            and practicality_score >= 5.0
+        )
+        selection_score = round(
+            (50.0 if passes_quality_gate else 0.0)
+            + (quality_score * 5.0)
+            + (practicality_score * 3.0)
+            + (20.0 if consensus_reached else 0.0)
+            + (confidence * 10.0)
+            + (2.0 if final_answer_preview else 0.0)
+            - (len(defects) * 2.0)
+            - (rounds_used * 0.1)
+            - (duration_seconds * 0.01),
+            4,
+        )
+
+        return {
+            "agents": serialized_agents,
+            "agents_display": _format_comparison_agents(serialized_agents),
+            "status": str(getattr(result, "status", "") or ""),
+            "consensus_reached": consensus_reached,
+            "confidence": confidence,
+            "rounds_used": rounds_used,
+            "duration_seconds": round(duration_seconds, 4),
+            "quality_score_10": quality_score,
+            "practicality_score_10": practicality_score,
+            "passes_quality_gate": passes_quality_gate,
+            "verdict": str(final_report.get("verdict", "unknown") or "unknown"),
+            "defect_count": len(defects),
+            "selection_score": selection_score,
+            "selection_strategy": selection_strategy,
+            "final_answer_preview": final_answer_preview,
+        }
+
+    def _run_model_comparison(
+        self,
+        config: DebateConfig,
+        debate_id: str,
+        hooks: dict[str, Any],
+    ) -> tuple[Any, DebateConfig, dict[str, Any] | None, dict[str, Any]]:
+        """Run each candidate lineup and return the selected winner."""
+        comparison_config = dict(config.comparison_config or {})
+        candidates = comparison_config.get("agent_combinations") or []
+        pick_best_result = bool(comparison_config.get("pick_best_result", True))
+        requested_strategy = str(comparison_config.get("selection_strategy") or "").strip() or None
+        if not pick_best_result:
+            selection_strategy = _FIRST_SUCCESSFUL_SELECTION_STRATEGY
+        elif requested_strategy in _SUPPORTED_COMPARISON_SELECTION_STRATEGIES:
+            selection_strategy = requested_strategy
+        else:
+            selection_strategy = _DEFAULT_COMPARISON_SELECTION_STRATEGY
+            if requested_strategy:
+                logger.info(
+                    "[debate] Unsupported comparison selection strategy %s; using %s",
+                    requested_strategy,
+                    selection_strategy,
+                )
+
+        successful_runs: list[tuple[dict[str, Any], Any, DebateConfig, dict[str, Any] | None]] = []
+        failures: list[dict[str, Any]] = []
+
+        for candidate_index, candidate_agents in enumerate(candidates, start=1):
+            candidate_config = replace(config, agents_str=candidate_agents)
+            try:
+                candidate_result, quality_meta, duration_seconds = self._execute_debate_candidate(
+                    candidate_config,
+                    debate_id,
+                    hooks,
+                )
+            except Exception as exc:  # noqa: BLE001 - comparison mode should continue on per-candidate failures
+                logger.warning(
+                    "[debate] Comparison candidate %s failed for %s: %s",
+                    candidate_index,
+                    debate_id,
+                    exc,
+                )
+                failures.append(
+                    {
+                        "candidate_index": candidate_index,
+                        "agents": _serialize_comparison_agents(candidate_agents),
+                        "agents_display": _format_comparison_agents(candidate_agents),
+                        "error": safe_error_message(exc, "comparison candidate"),
+                    }
+                )
+                continue
+
+            summary = self._build_model_comparison_summary(
+                result=candidate_result,
+                agents_value=candidate_agents,
+                quality_meta=quality_meta,
+                duration_seconds=duration_seconds,
+                selection_strategy=selection_strategy,
+            )
+            summary["candidate_index"] = candidate_index
+            summary["selected"] = False
+            successful_runs.append((summary, candidate_result, candidate_config, quality_meta))
+
+        if not successful_runs:
+            raise ValueError("All comparison candidates failed")
+
+        if pick_best_result:
+            selected_summary, selected_result, selected_config, selected_quality_meta = max(
+                successful_runs,
+                key=lambda item: (_comparison_rank(item[0]), float(item[0]["selection_score"])),
+            )
+        else:
+            selected_summary, selected_result, selected_config, selected_quality_meta = (
+                successful_runs[0]
+            )
+
+        selected_summary["selected"] = True
+
+        comparison_meta = {
+            "enabled": True,
+            "pick_best_result": pick_best_result,
+            "requested_selection_strategy": requested_strategy,
+            "selection_strategy": selection_strategy,
+            "selected_candidate_index": selected_summary["candidate_index"],
+            "selected_agents": selected_summary["agents"],
+            "selected_agents_display": selected_summary["agents_display"],
+            "candidates": [summary for summary, *_ in successful_runs],
+            "failures": failures,
+        }
+
+        return selected_result, selected_config, selected_quality_meta, comparison_meta
+
     def _run_debate(self, config: DebateConfig, debate_id: str) -> None:
         """Execute debate in background thread.
 
@@ -1066,63 +1354,25 @@ class DebateController:
             # Create event hooks for streaming with explicit loop_id
             # (prevents race condition when multiple debates run concurrently)
             hooks = create_arena_hooks(self.emitter, loop_id=debate_id)
-
-            # Create arena using factory with streaming wrapper
-            arena = self.factory.create_arena(
-                config,
-                event_hooks=hooks,
-                stream_wrapper=wrap_agent_for_streaming,
+            selected_config = config
+            comparison_meta: dict[str, Any] | None = None
+            comparison_enabled = bool(
+                isinstance(config.comparison_config, dict)
+                and config.comparison_config.get("enabled", True)
+                and config.comparison_config.get("agent_combinations")
             )
-
-            # Reset circuit breakers for fresh start
-            self.factory.reset_circuit_breakers(arena)
-
-            # Run debate with timeout
-            # Use protocol timeout if configured, otherwise use global default
-            protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
-            timeout = (
-                protocol_timeout
-                if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
-                else DEBATE_TIMEOUT_SECONDS
-            )
-            update_debate_status(debate_id, "running")
-
-            async def run_with_timeout():
-                return await asyncio.wait_for(arena.run(), timeout=timeout)
-
-            result = run_async(run_with_timeout())
-
-            # Post-consensus quality pipeline (deterministic, opt-in)
-            quality_meta: dict[str, Any] | None = None
-            if isinstance(config.quality_pipeline, dict) and config.quality_pipeline.get(
-                "enabled", True
-            ):
-                try:
-                    from aragora.debate.quality_pipeline import (
-                        QualityPipelineConfig,
-                        apply_post_consensus_quality,
-                    )
-
-                    qp_config = QualityPipelineConfig.from_dict(config.quality_pipeline)
-                    qp_result = apply_post_consensus_quality(
-                        answer=result.final_answer or "",
-                        task=config.question,
-                        config=qp_config,
-                    )
-                    result.final_answer = qp_result.answer
-                    quality_meta = qp_result.to_dict()
-                    logger.info(
-                        "[debate] Quality pipeline for %s: passes_gate=%s repaired=%s",
-                        debate_id,
-                        qp_result.passes_gate,
-                        qp_result.repaired,
-                    )
-                except (ImportError, ValueError, TypeError, OSError) as qp_err:
-                    logger.warning(
-                        "[debate] Quality pipeline failed for %s (non-fatal): %s",
-                        debate_id,
-                        qp_err,
-                    )
+            if comparison_enabled:
+                result, selected_config, quality_meta, comparison_meta = self._run_model_comparison(
+                    config,
+                    debate_id,
+                    hooks,
+                )
+            else:
+                result, quality_meta, _duration_seconds = self._execute_debate_candidate(
+                    config,
+                    debate_id,
+                    hooks,
+                )
 
             # Extract explanation summary if available
             explanation_text = ""
@@ -1176,6 +1426,7 @@ class DebateController:
                     "mode": mode_meta,
                     "settlement": settlement_snapshot,
                     "quality_pipeline": quality_meta,
+                    "model_comparison": comparison_meta,
                 },
             )
 
@@ -1184,9 +1435,9 @@ class DebateController:
                 if self.storage:
                     # Parse agents string to list
                     agents_list = (
-                        config.agents_str.split(",")
-                        if isinstance(config.agents_str, str)
-                        else config.agents_str
+                        selected_config.agents_str.split(",")
+                        if isinstance(selected_config.agents_str, str)
+                        else selected_config.agents_str
                     )
                     # Serialize messages from result
                     messages_data = []
@@ -1208,9 +1459,9 @@ class DebateController:
 
                     debate_data = {
                         "id": debate_id,
-                        "task": config.question,
+                        "task": selected_config.question,
                         "agents": agents_list,
-                        "rounds": config.rounds,
+                        "rounds": selected_config.rounds,
                         "final_answer": result.final_answer,
                         "consensus_reached": result.consensus_reached,
                         "confidence": result.confidence,
@@ -1218,6 +1469,7 @@ class DebateController:
                             result.grounded_verdict.to_dict() if result.grounded_verdict else None
                         ),
                         "messages": messages_data,
+                        "model_comparison": comparison_meta,
                     }
                     self.storage.save_dict(debate_data)
                     logger.info("[debate] Persisted debate %s to storage", debate_id)
@@ -1234,7 +1486,7 @@ class DebateController:
             # Auto-generate receipt for ALL completed debates
             self._generate_debate_receipt(
                 debate_id=debate_id,
-                config=config,
+                config=selected_config,
                 result=result,
                 duration_seconds=time.time() - start_time,
             )
