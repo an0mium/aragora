@@ -12,6 +12,7 @@ Key components:
 
 import logging
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -123,6 +124,10 @@ class FlipDetector:
     semantic analysis to classify flip types.
     """
 
+    _database_cache: dict[str, InsightsDatabase] = {}
+    _initialized_paths: set[str] = set()
+    _init_lock = threading.Lock()
+
     def __init__(
         self,
         db_path: str | Path | None = None,
@@ -131,12 +136,12 @@ class FlipDetector:
     ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.PERSONAS)
-        self.db_path = Path(db_path)
-        self.db = InsightsDatabase(str(db_path))
+        self.db_path = Path(db_path).resolve()
+        self.db = self._get_database(self.db_path)
         self.similarity_threshold = similarity_threshold
         self._km_adapter = km_adapter
         self._similarity_backend = None
-        self._init_tables()
+        self._ensure_tables_initialized()
 
     def set_km_adapter(self, adapter: "InsightsAdapter") -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
@@ -145,6 +150,36 @@ class FlipDetector:
             adapter: InsightsAdapter instance for KM integration
         """
         self._km_adapter = adapter
+
+    @classmethod
+    def _get_database(cls, db_path: Path) -> InsightsDatabase:
+        """Reuse the database wrapper for repeated access to the same DB file."""
+        path_key = str(db_path)
+        cached = cls._database_cache.get(path_key)
+        if cached is not None:
+            return cached
+        with cls._init_lock:
+            cached = cls._database_cache.get(path_key)
+            if cached is None:
+                cached = InsightsDatabase(str(db_path))
+                cls._database_cache[path_key] = cached
+            return cached
+
+    def _ensure_tables_initialized(self) -> None:
+        """Bootstrap tables once per resolved DB path.
+
+        Leaderboard reads may construct detectors on demand. Re-running DDL on
+        every request turns a read path into a write-heavy SQLite workload and
+        increases lock contention under concurrent traffic.
+        """
+        path_key = str(self.db_path)
+        if path_key in self._initialized_paths:
+            return
+        with self._init_lock:
+            if path_key in self._initialized_paths:
+                return
+            self._init_tables()
+            self._initialized_paths.add(path_key)
 
     def _init_tables(self) -> None:
         """Create flips and positions tables if not exist."""
