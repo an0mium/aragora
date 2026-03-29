@@ -24,7 +24,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 230+ features | 3,800+ Python modules | 210,000+ tests | 3,100+ API operations across 2,600+ paths
+**Total**: 230+ features | 3,000+ Python modules | 212,000+ tests | 3,000+ API operations across 2,600+ paths
 
 ---
 
@@ -495,7 +495,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 60+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
 ### Prompt Engine & Interrogation
