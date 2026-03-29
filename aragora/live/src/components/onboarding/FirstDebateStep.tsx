@@ -222,7 +222,7 @@ export function FirstDebateStep() {
 
     try {
       // Create the debate via API with receipt generation enabled
-      const response = await fetch(`${apiBase}/api/debate`, {
+      const response = await fetch(`${apiBase}/api/debates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
