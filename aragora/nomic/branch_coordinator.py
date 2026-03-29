@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -336,10 +337,7 @@ class BranchCoordinator:
         """
         base = base_branch or self.config.base_branch
 
-        # Generate branch name from goal
-        goal_slug = self._slugify(goal)[:30]
-        timestamp = datetime.now(timezone.utc).strftime("%m%d")
-        branch_name = f"{self.config.branch_prefix}/{track.value}-{goal_slug}-{timestamp}"
+        branch_name = self._generate_branch_name(track, goal)
 
         if self.config.use_worktrees:
             return await self._create_worktree_branch(branch_name, base)
@@ -870,6 +868,13 @@ class BranchCoordinator:
         slug = re.sub(r"[^a-z0-9]+", "-", slug)
         slug = slug.strip("-")
         return slug
+
+    def _generate_branch_name(self, track: Track, goal: str) -> str:
+        """Generate a collision-resistant branch name for a track/goal pair."""
+        goal_slug = self._slugify(goal)[:30] or "task"
+        timestamp = datetime.now(timezone.utc).strftime("%m%d-%H%M%S")
+        unique_suffix = uuid.uuid4().hex[:6]
+        return f"{self.config.branch_prefix}/{track.value}-{goal_slug}-{timestamp}-{unique_suffix}"
 
     def cleanup_worktrees(self) -> int:
         """Remove all active worktrees and prune stale entries.
