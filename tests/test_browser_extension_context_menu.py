@@ -30,13 +30,15 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
     manifest = json.loads(_read_file("manifest.json"))
 
     assert manifest["manifest_version"] == 3
-    assert manifest["name"] == "Aragora Context Send"
-    assert "review results in the popup" in manifest["description"]
+    assert manifest["name"] == "Aragora Adversarial Review"
+    assert "adversarial review" in manifest["description"]
+    assert "popup" in manifest["description"]
     assert manifest["background"]["service_worker"] == "background.js"
     assert manifest["action"]["default_title"] == "Aragora"
     assert manifest["action"]["default_popup"] == "popup.html"
     assert {"activeTab", "contextMenus", "storage"}.issubset(set(manifest["permissions"]))
     assert "https://*/*" in manifest["host_permissions"]
+    assert "http://localhost/*" in manifest["host_permissions"]
     assert "http://127.0.0.1/*" in manifest["host_permissions"]
 
     content_script = manifest["content_scripts"][0]
@@ -71,26 +73,34 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     content_script = _read_file("content.js")
 
     assert "Adversarial Review" in popup_html
+    assert 'id="status-pill"' in popup_html
     assert 'id="selection-preview"' in popup_html
     assert 'id="source-link"' in popup_html
     assert 'id="refresh-result"' in popup_html
+    assert 'id="api-url"' in popup_html
+    assert 'id="api-key"' in popup_html
+    assert 'id="agents"' in popup_html
+    assert 'id="rounds"' in popup_html
     assert 'id="debate-id"' in popup_html
     assert 'id="result-status"' in popup_html
     assert 'id="result-confidence"' in popup_html
     assert 'id="result-answer"' in popup_html
-    assert "Latest result" in popup_html
+    assert 'id="result-error"' in popup_html
+    assert "Latest review" in popup_html
     assert 'id="save-settings"' in popup_html
 
     assert "chrome.storage.onChanged.addListener" in popup_js
     assert "window.setInterval" in popup_js
     assert "resolveFinalAnswer" in popup_js
+    assert "humanizeStatus" in popup_js
+    assert "buildResultState" in popup_js
     assert "result?.answer" in popup_js
     assert "result?.consensus?.summary" in popup_js
+    assert "result?.consensus?.final_answer" in popup_js
     assert "finalAnswer" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
-    assert "debate.final_answer ||" in popup_js
-    assert "debate.consensus?.final_answer ||" in popup_js
-    assert "debate.consensus?.summary ||" in popup_js
+    assert "result?.final_answer" in popup_js
+    assert "result?.finalAnswer" in popup_js
     assert "elements.resultConfidence.textContent =" in popup_js
     assert "elements.resultAnswer.textContent = answer" in popup_js
     assert "elements.selectionPreview.textContent =" in popup_js
@@ -98,4 +108,5 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     assert '"aragora:get-selection"' in content_script
     assert '"selectionchange"' in content_script
     assert '"contextmenu"' in content_script
+    assert "MAX_SELECTION_LENGTH = 9000" in content_script
     assert "window.__aragoraSelection = buildSelectionPayload()" in content_script

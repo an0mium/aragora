@@ -14,6 +14,7 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -290,6 +291,52 @@ class TestGetDebate:
         client.get("/api/v2/debates/debate-abc123")
         mock_storage.get_debate.assert_called_with("debate-abc123")
 
+    def test_serializes_object_backed_consensus_for_popup_polling(self, client, mock_storage):
+        """Object-backed debates expose final answers and confidence for popup polling."""
+        mock_storage.get_debate.return_value = SimpleNamespace(
+            debate_id="debate-popup-123",
+            task="Review highlighted webpage text",
+            status="completed",
+            protocol=SimpleNamespace(rounds=3, consensus="majority"),
+            agents=["claude", "codex"],
+            rounds=[
+                SimpleNamespace(
+                    round_num=1,
+                    messages=[
+                        SimpleNamespace(
+                            role="proposal",
+                            content="This claim depends on an unverified premise.",
+                            agent="claude",
+                        )
+                    ],
+                )
+            ],
+            final_answer="The selected text overstates certainty and omits evidence.",
+            consensus=SimpleNamespace(
+                confidence=0.91,
+                final_answer="The selected text overstates certainty and omits evidence.",
+                reached=True,
+            ),
+            metadata={"source": "browser_extension_context_menu"},
+        )
+
+        response = client.get("/api/v2/debates/debate-popup-123")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["id"] == "debate-popup-123"
+        assert data["protocol"]["consensus"] == "majority"
+        assert data["rounds"][0]["messages"][0]["content"] == (
+            "This claim depends on an unverified premise."
+        )
+        assert data["final_answer"] == (
+            "The selected text overstates certainty and omits evidence."
+        )
+        assert data["consensus"]["confidence"] == 0.91
+        assert data["consensus"]["final_answer"] == (
+            "The selected text overstates certainty and omits evidence."
+        )
+
 
 # =============================================================================
 # GET /api/v2/debates/{debate_id}/messages
@@ -422,6 +469,30 @@ class TestGetDebateConvergence:
         assert response.status_code == 200
         data = response.json()
         assert data["similarity_scores"] == [0.5, 0.7, 0.85, 0.92]
+
+    def test_object_backed_debate_uses_consensus_fallbacks(self, client, mock_storage):
+        """Convergence endpoint uses object-backed confidence fields when consensus is not a dict."""
+        mock_storage.get_debate.return_value = SimpleNamespace(
+            debate_id="debate-popup-123",
+            task="Review highlighted webpage text",
+            rounds=[
+                SimpleNamespace(
+                    round_num=1,
+                    messages=[SimpleNamespace(role="proposal", content="Objection", agent="codex")],
+                )
+            ],
+            confidence=0.73,
+            consensus_reached=True,
+            final_answer="Key assumptions remain unsupported.",
+        )
+
+        response = client.get("/api/v2/debates/debate-popup-123/convergence")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["converged"] is True
+        assert data["confidence"] == 0.73
+        assert data["rounds_to_convergence"] == 1
 
 
 # =============================================================================
