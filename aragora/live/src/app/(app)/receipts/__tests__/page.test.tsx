@@ -304,4 +304,21 @@ describe('ReceiptsPage', () => {
     expect(screen.getByText('claude')).toBeInTheDocument();
     expect(screen.getByText('codex')).toBeInTheDocument();
   });
+
+  it('renders a result handoff when the receipt includes a debate id', async () => {
+    configureDetailFetch({
+      debate_id: 'debate-123',
+    });
+
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+
+    expect(await screen.findByRole('link', { name: 'View result' })).toHaveAttribute(
+      'href',
+      '/debates/debate-123'
+    );
+  });
 });

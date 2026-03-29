@@ -27,6 +27,7 @@ interface ReceiptListItem {
   status: 'pending' | 'running' | 'completed' | 'failed';
   receiptId?: string;
   gauntletId?: string;
+  debate_id?: string;
   verdict?: ReceiptVerdict;
   confidence?: number;
   created_at: string;
@@ -56,6 +57,7 @@ interface ConsensusProof {
 interface DecisionReceipt {
   receipt_id: string;
   gauntlet_id: string;
+  debate_id?: string;
   timestamp: string;
   input_summary: string;
   input_hash: string;
@@ -263,6 +265,7 @@ function normalizeListItem(
     status: normalizeStatus(raw.status),
     receiptId,
     gauntletId,
+    debate_id: safeString(raw.debate_id) ?? safeString(metadata?.debate_id),
     verdict: normalizeVerdict(raw.verdict),
     confidence: safeNumber(raw.confidence),
     created_at: normalizeTimestamp(raw.created_at ?? raw.timestamp ?? raw.completed_at),
@@ -304,6 +307,7 @@ function sameReceiptItem(a: ReceiptListItem, b: ReceiptListItem): boolean {
     a.status === b.status &&
     a.receiptId === b.receiptId &&
     a.gauntletId === b.gauntletId &&
+    a.debate_id === b.debate_id &&
     a.verdict === b.verdict &&
     a.confidence === b.confidence &&
     a.created_at === b.created_at &&
@@ -340,6 +344,7 @@ function mergeReceiptItems(
     ...preferred,
     receiptId: preferred.receiptId ?? fallback.receiptId,
     gauntletId: preferred.gauntletId ?? fallback.gauntletId,
+    debate_id: preferred.debate_id ?? fallback.debate_id,
     verdict: preferred.verdict ?? fallback.verdict,
     confidence: preferred.confidence ?? fallback.confidence,
     created_at: preferred.created_at || fallback.created_at,
@@ -582,6 +587,10 @@ function normalizeReceiptDetail(
       safeString(raw.gauntlet_id) ??
       sourceItem.gauntletId ??
       sourceItem.id,
+    debate_id:
+      safeString(raw.debate_id) ??
+      safeString(asRecord(raw.metadata)?.debate_id) ??
+      sourceItem.debate_id,
     timestamp: normalizeTimestamp(raw.timestamp ?? raw.created_at ?? sourceItem.created_at),
     input_summary:
       safeString(raw.input_summary) ??
@@ -1129,6 +1138,14 @@ export default function ReceiptsPage() {
             >
               Back
             </button>
+            {receipt.debate_id ? (
+              <Link
+                href={`/debates/${receipt.debate_id}`}
+                className="px-3 py-1 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green rounded hover:bg-acid-green/20"
+              >
+                View result
+              </Link>
+            ) : null}
             <button
               onClick={() => setDeliveryModalOpen(true)}
               className="px-3 py-1 text-sm font-mono bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
