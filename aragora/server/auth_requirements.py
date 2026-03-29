@@ -134,6 +134,12 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="Spectate bridge status (redacted for unauthenticated)",
     ),
+    EndpointAuth(
+        "/api/v1/spectate/stream",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Spectate SSE snapshot / JSON preview",
+    ),
     # Onboarding - public for first-time users
     EndpointAuth(
         "/api/v1/onboarding/templates",

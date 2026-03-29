@@ -110,6 +110,7 @@ class TestQueryParamValidation:
         expected_params = {
             "limit",
             "offset",
+            "count",
             "domain",
             "loop_id",
             "topic",
@@ -118,6 +119,8 @@ class TestQueryParamValidation:
             "agent",
             "agent_a",
             "agent_b",
+            "debate_id",
+            "pipeline_id",
             "sections",
             "buckets",
             "tiers",
@@ -357,7 +360,13 @@ class TestQueryParamWhitelistCompleteness:
         """Pagination params should be allowed."""
         assert "limit" in ALLOWED_QUERY_PARAMS
         assert "offset" in ALLOWED_QUERY_PARAMS
+        assert "count" in ALLOWED_QUERY_PARAMS
         assert "since" in ALLOWED_QUERY_PARAMS
+
+    def test_spectate_params_allowed(self):
+        """Public spectate polling params should be allowed."""
+        assert "debate_id" in ALLOWED_QUERY_PARAMS
+        assert "pipeline_id" in ALLOWED_QUERY_PARAMS
 
     def test_search_params_allowed(self):
         """Search params should be allowed."""

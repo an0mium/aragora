@@ -70,6 +70,9 @@ class TestAuthExemptPaths:
             "/api/leaderboard",
             "/api/leaderboard-view",
             "/api/agents",
+            "/api/v1/spectate/recent",
+            "/api/v1/spectate/status",
+            "/api/v1/spectate/stream",
         ]
         for endpoint in public_endpoints:
             assert endpoint in exempt_paths, f"Public endpoint {endpoint} should be exempt"

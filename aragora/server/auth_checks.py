@@ -312,6 +312,10 @@ class AuthChecksMixin:
             "/api/v1/playground/status",
             # Public demo — no auth, no API credits (offline fixture mode)
             "/api/v1/demo/adversarial",
+            # Public spectate bridge surfaces for landing/watch mode
+            "/api/v1/spectate/recent",
+            "/api/v1/spectate/status",
+            "/api/v1/spectate/stream",
             # OAuth callbacks from external providers (redirects carry no auth headers)
             "/api/integrations/slack/callback",
             "/api/integrations/teams/callback",
