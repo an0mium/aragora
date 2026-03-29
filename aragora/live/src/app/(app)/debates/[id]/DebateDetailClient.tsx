@@ -56,6 +56,7 @@ export default function DebateDetailClient() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
+  const [shareEnabled, setShareEnabled] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [bridging, setBridging] = useState<string | null>(null);
@@ -67,6 +68,10 @@ export default function DebateDetailClient() {
 
   const { setContext, clearContext } = useRightSidebar();
   const requestedTab = searchParams.get('tab');
+  const shareButtonLabel = copied ? 'COPIED!' : shareEnabled ? 'COPY PUBLIC LINK' : 'MAKE PUBLIC LINK';
+  const shareHelperText = shareEnabled
+    ? 'Public link is live. Anyone with the URL can view this debate.'
+    : 'Creates a public read-only link for anyone with the URL.';
 
   // WebSocket hook — only connect when debate is in_progress
   const ws = useDebateWebSocket({
@@ -143,9 +148,34 @@ export default function DebateDetailClient() {
     checkAndLoad();
   }, [backendConfig.api, id, fetchDebatePackage]);
 
+  const copyShareUrl = useCallback(async (data?: DebateShareResponse) => {
+    const sharePath =
+      typeof data?.share_url === 'string' && data.share_url.length > 0 ? data.share_url : null;
+    const url = sharePath
+      ? new URL(sharePath, window.location.origin).toString()
+      : typeof data?.full_url === 'string' && data.full_url.length > 0
+        ? data.full_url
+        : new URL(`/debate/${id}`, window.location.origin).toString();
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [id]);
+
   const handleShare = useCallback(async () => {
     if (!id) return;
     try {
+      if (shareEnabled) {
+        await copyShareUrl();
+        return;
+      }
+
+      const confirmed = window.confirm(
+        'Make this debate publicly viewable to anyone with the link? You can revoke it later from the API if needed.',
+      );
+      if (!confirmed) {
+        return;
+      }
+
       const res = await fetch(`${backendConfig.api}/api/v1/debates/${id}/share`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -154,20 +184,12 @@ export default function DebateDetailClient() {
         throw new Error(`Failed to create share link (HTTP ${res.status})`);
       }
       const data = (await res.json()) as DebateShareResponse;
-      const sharePath =
-        typeof data.share_url === 'string' && data.share_url.length > 0 ? data.share_url : null;
-      const url = sharePath
-        ? new URL(sharePath, window.location.origin).toString()
-        : typeof data.full_url === 'string' && data.full_url.length > 0
-          ? data.full_url
-          : new URL(`/debate/${id}`, window.location.origin).toString();
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setShareEnabled(true);
+      await copyShareUrl(data);
     } catch (err) {
       logger.error('Failed to copy link:', err);
     }
-  }, [backendConfig.api, getAuthHeaders, id]);
+  }, [backendConfig.api, copyShareUrl, getAuthHeaders, id, shareEnabled]);
 
   // Right sidebar context — only update when pkg changes.
   // setContext/clearContext are stable useCallback refs so we exclude them
@@ -216,8 +238,11 @@ export default function DebateDetailClient() {
                 onClick={handleShare}
                 className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
               >
-                SHARE LINK
+                {shareButtonLabel}
               </button>
+              <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                {shareHelperText}
+              </p>
               <Link
                 href={`/debates/compare?left=${id}`}
                 className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
@@ -245,7 +270,7 @@ export default function DebateDetailClient() {
 
     return () => clearContext();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pkg, handleShare]);
+  }, [pkg, handleShare, shareButtonLabel, shareHelperText]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'OVERVIEW' },
@@ -479,10 +504,14 @@ export default function DebateDetailClient() {
                   onClick={handleShare}
                   className="px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
                 >
-                  {copied ? 'COPIED!' : 'SHARE'}
+                  {shareButtonLabel}
                 </button>
               </div>
             </div>
+
+            <p className="mt-3 text-[10px] font-mono text-[var(--text-muted)]">
+              {shareHelperText}
+            </p>
 
             {/* Final answer */}
             {pkg.final_answer && (
@@ -832,7 +861,7 @@ export default function DebateDetailClient() {
                   >
                     <div className="text-[var(--acid-cyan)]">PERMALINK</div>
                     <div className="text-[var(--text-muted)] mt-1">
-                      {copied ? 'Copied!' : 'Copy link'}
+                      {copied ? 'Copied!' : shareEnabled ? 'Copy public link' : 'Make public link'}
                     </div>
                   </button>
                   <button
