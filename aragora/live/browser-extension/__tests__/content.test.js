@@ -1,7 +1,7 @@
 const {
   createChromeMock,
   loadExtensionScript,
-} = require("./extension-test-utils");
+} = require("../test-utils");
 
 describe("browser-extension/content.js", () => {
   test("returns the current selection and page metadata to the background script", () => {

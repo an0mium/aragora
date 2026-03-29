@@ -2,7 +2,7 @@ const {
   createChromeMock,
   flushMicrotasks,
   loadExtensionScript,
-} = require("./extension-test-utils");
+} = require("../test-utils");
 
 describe("browser-extension/background.js", () => {
   test("submits selected text with normalized auth and stores running debate state", async () => {

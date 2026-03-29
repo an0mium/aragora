@@ -3,7 +3,7 @@ const {
   flushMicrotasks,
   loadExtensionScript,
   loadPopupDocument,
-} = require("./extension-test-utils");
+} = require("../test-utils");
 
 describe("browser-extension/popup.js", () => {
   beforeEach(() => {

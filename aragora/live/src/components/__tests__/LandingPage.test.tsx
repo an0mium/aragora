@@ -68,6 +68,9 @@ describe('LandingPage live debate preview', () => {
   });
 
   it('shows a live public debate from recent spectate activity', async () => {
+    const latestTimestamp = new Date().toISOString();
+    const earlierTimestamp = new Date(Date.now() - 1000).toISOString();
+
     mockFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/api/v1/spectate/recent?count=40')) {
@@ -75,7 +78,7 @@ describe('LandingPage live debate preview', () => {
           events: [
             {
               event_type: 'proposal',
-              timestamp: '2026-03-29T18:00:01Z',
+              timestamp: latestTimestamp,
               data: {
                 task: 'Should Aragora open the live debate feed on the homepage?',
                 details: 'Expose the strongest public debate so visitors can evaluate agent disagreement before signing up.',
@@ -88,7 +91,7 @@ describe('LandingPage live debate preview', () => {
             },
             {
               event_type: 'round_start',
-              timestamp: '2026-03-29T18:00:00Z',
+              timestamp: earlierTimestamp,
               data: {},
               debate_id: 'debate-live-1',
               pipeline_id: null,
@@ -104,7 +107,7 @@ describe('LandingPage live debate preview', () => {
           active: true,
           recent_activity_window_seconds: 120,
           recent_event_count: 2,
-          last_event_at: '2026-03-29T18:00:01Z',
+          last_event_at: latestTimestamp,
         });
       }
 
@@ -120,7 +123,9 @@ describe('LandingPage live debate preview', () => {
 
     expect(await screen.findByText('LIVE DEBATE')).toBeInTheDocument();
     expect(screen.getByText('Watch agents argue in real time.')).toBeInTheDocument();
-    expect(screen.getByText('2 recent events discovered for this debate.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('2 recent events discovered for this debate.'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Should Aragora open the live debate feed on the homepage?'),
     ).toBeInTheDocument();
@@ -145,6 +150,8 @@ describe('LandingPage live debate preview', () => {
   });
 
   it('streams new critique events into the public transcript in real time', async () => {
+    const latestTimestamp = new Date().toISOString();
+
     mockFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/api/v1/spectate/recent?count=40')) {
@@ -152,7 +159,7 @@ describe('LandingPage live debate preview', () => {
           events: [
             {
               event_type: 'proposal',
-              timestamp: '2026-03-29T18:10:00Z',
+              timestamp: latestTimestamp,
               data: {
                 task: 'Should we expose live debates to new visitors?',
                 details: 'Yes. A public feed proves the product is more than a static marketing promise.',
@@ -172,7 +179,7 @@ describe('LandingPage live debate preview', () => {
           active: true,
           recent_activity_window_seconds: 120,
           recent_event_count: 1,
-          last_event_at: '2026-03-29T18:10:00Z',
+          last_event_at: latestTimestamp,
         });
       }
 
@@ -210,7 +217,7 @@ describe('LandingPage live debate preview', () => {
 
     expect(await screen.findByText('STREAMING NOW')).toBeInTheDocument();
     expect(screen.getByText('3 agents visible')).toBeInTheDocument();
-    expect(screen.getByText('Skeptic')).toBeInTheDocument();
+    expect(screen.getAllByText('Skeptic')).toHaveLength(2);
     expect(
       screen.getByText(
         'Counterpoint: do not fake liveness. Only stream it when the bridge has a real debate attached.',

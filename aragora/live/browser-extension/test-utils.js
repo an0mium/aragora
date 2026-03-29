@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const EXTENSION_DIR = path.resolve(__dirname, "..");
+const EXTENSION_DIR = __dirname;
 
 function readExtensionFile(name) {
   return fs.readFileSync(path.join(EXTENSION_DIR, name), "utf8");
