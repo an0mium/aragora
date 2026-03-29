@@ -204,6 +204,73 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         debate_cmd.cmd_ask(args)
 
 
+def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
+    """CLI ask cleanup should run on the same loop that executed the debate."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    loop_ids: dict[str, int] = {}
+    result = DebateResult(task="smoke demo", final_answer="loop-safe answer", metadata={})
+
+    args = argparse.Namespace(
+        task="smoke demo with cleanup",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        compare_against=None,
+        timeout=30,
+        post_consensus_quality=False,
+    )
+
+    async def fake_run_debate(*_args, **_kwargs):
+        loop_ids["run"] = id(asyncio.get_running_loop())
+        return result
+
+    async def fake_shutdown() -> None:
+        loop_ids["shutdown"] = id(asyncio.get_running_loop())
+
+    with (
+        patch.object(debate_cmd, "run_debate", new=AsyncMock(side_effect=fake_run_debate)),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    assert loop_ids["run"] == loop_ids["shutdown"]
+
+
 def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
     """Compare mode should run each combination and keep the highest-scoring result."""
     from aragora.cli.commands import debate as debate_cmd
@@ -450,7 +517,11 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
         timeout=1,
     )
 
-    with patch.object(debate_cmd.asyncio, "run", side_effect=asyncio.TimeoutError()):
+    with patch.object(
+        debate_cmd,
+        "run_debate",
+        new=AsyncMock(side_effect=asyncio.TimeoutError()),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
 
