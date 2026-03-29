@@ -26,13 +26,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.event_bus import EventBus
 from aragora.nomic.global_work_queue import GlobalWorkQueue, WorkItem, WorkStatus, WorkType
 from aragora.worktree.fleet import FleetCoordinationStore
 
 UTC = timezone.utc
+if TYPE_CHECKING:
+    from aragora.swarm.lane_telemetry import LaneTelemetryCollector
+
+_LANE_TELEMETRY: LaneTelemetryCollector | None = None
 _ACTIVE_LEASE_STATUSES = {"active"}
 _PENDING_INTEGRATION_DECISIONS = {"pending_review"}
 _OPEN_SALVAGE_STATUSES = {"detected", "claimed"}
@@ -63,6 +67,15 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
     "timed_out",
     "failed",
 }
+
+
+def _get_lane_telemetry() -> LaneTelemetryCollector:
+    global _LANE_TELEMETRY
+    if _LANE_TELEMETRY is None:
+        from aragora.swarm.lane_telemetry import LaneTelemetryCollector
+
+        _LANE_TELEMETRY = LaneTelemetryCollector()
+    return _LANE_TELEMETRY
 
 
 class LeaseConflictError(ValueError):
@@ -2326,26 +2339,122 @@ class DevCoordinationStore:
         *,
         receipt_id: str,
         merge_commit_sha: str | None = None,
+        merged_at: str | None = None,
     ) -> None:
+        receipt = self.get_completion_receipt(receipt_id)
+        if receipt is None:
+            return
         conn = self._connect()
         try:
-            receipt_row = conn.execute(
-                "SELECT lease_id FROM completion_receipts WHERE receipt_id = ?",
-                (receipt_id,),
-            ).fetchone()
-            if receipt_row is None:
-                return
             lease_row = conn.execute(
                 "SELECT metadata_json FROM leases WHERE lease_id = ?",
-                (receipt_row["lease_id"],),
+                (receipt.lease_id,),
             ).fetchone()
         finally:
             conn.close()
         lease_metadata = _json_loads(lease_row["metadata_json"], {}) if lease_row else {}
-        update = {"status": "merged"}
+        merged_at_text = str(merged_at or _utcnow().isoformat()).strip() or _utcnow().isoformat()
+        update = {"status": "merged", "merged_at": merged_at_text}
         if merge_commit_sha:
             update["merge_commit_sha"] = merge_commit_sha
         self._sync_supervisor_run_from_lease(lease_metadata, update=update)
+        self._record_supervisor_merge_telemetry(
+            lease_metadata,
+            receipt=receipt,
+            merge_commit_sha=merge_commit_sha,
+            merged_at=merged_at_text,
+        )
+
+    def _record_supervisor_merge_telemetry(
+        self,
+        lease_metadata: dict[str, Any] | None,
+        *,
+        receipt: CompletionReceipt,
+        merge_commit_sha: str | None,
+        merged_at: str,
+    ) -> None:
+        from aragora.swarm.lane_telemetry import LaneTelemetryRecord
+
+        if not isinstance(lease_metadata, dict):
+            lease_metadata = {}
+        run_id = str(lease_metadata.get("supervisor_run_id", "")).strip()
+        work_order_id = str(lease_metadata.get("work_order_id", "")).strip()
+        task_key = str(lease_metadata.get("task_key", "")).strip()
+        lane_id = task_key or (
+            f"{run_id}:{work_order_id}" if run_id and work_order_id else work_order_id or run_id
+        )
+        if not lane_id:
+            return
+
+        collector = _get_lane_telemetry()
+        existing = collector.get_lane("supervisor_work_order", lane_id)
+        deliverable_type = str(existing.deliverable_type if existing else "").strip()
+        if not deliverable_type:
+            if receipt.pr_url or receipt.pr_number is not None:
+                deliverable_type = "pr"
+            elif receipt.branch and receipt.commit_shas:
+                deliverable_type = "branch"
+        terminal_outcome = str(existing.terminal_outcome if existing else "").strip()
+        if not terminal_outcome:
+            terminal_outcome = str(receipt.outcome or "").strip()
+        if terminal_outcome == "completed":
+            terminal_outcome = (
+                "deliverable_created" if deliverable_type else "clean_exit_no_deliverable"
+            )
+        if not terminal_outcome:
+            if deliverable_type == "adopted_pr":
+                terminal_outcome = "pr_adopted"
+            elif deliverable_type:
+                terminal_outcome = "deliverable_created"
+            else:
+                terminal_outcome = "unknown"
+
+        time_to_merge_seconds = existing.time_to_merge_seconds if existing else None
+        try:
+            time_to_merge_seconds = max(
+                0.0,
+                (_parse_dt(merged_at) - _parse_dt(receipt.created_at)).total_seconds(),
+            )
+        except (TypeError, ValueError):
+            pass
+
+        metadata = dict(existing.metadata if existing else {})
+        metadata.update(
+            {
+                "status": "merged",
+                "merge_commit_sha": merge_commit_sha or metadata.get("merge_commit_sha"),
+                "merged_at": merged_at,
+                "receipt_outcome": receipt.outcome or None,
+            }
+        )
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="supervisor_work_order",
+                lane_id=lane_id,
+                run_id=run_id or (existing.run_id if existing else ""),
+                task_id=(existing.task_id if existing else "") or task_key or work_order_id,
+                work_order_id=work_order_id or (existing.work_order_id if existing else ""),
+                terminal_outcome=terminal_outcome,
+                worker_outcome=(existing.worker_outcome if existing else "") or "",
+                deliverable_type=deliverable_type,
+                receipt_id=receipt.receipt_id or (existing.receipt_id if existing else ""),
+                human_intervention_required=False,
+                duration_seconds=existing.duration_seconds if existing else 0.0,
+                pr_url=receipt.pr_url or (existing.pr_url if existing else ""),
+                pr_number=receipt.pr_number
+                if receipt.pr_number is not None
+                else (existing.pr_number if existing else None),
+                merge_ref=merge_commit_sha or (existing.merge_ref if existing else ""),
+                merged_at=merged_at,
+                time_to_pr_seconds=existing.time_to_pr_seconds if existing else None,
+                time_to_merge_seconds=time_to_merge_seconds,
+                false_success_candidate=False
+                if deliverable_type
+                else bool(existing.false_success_candidate if existing else False),
+                timestamp=existing.timestamp if existing else _utcnow().timestamp(),
+                metadata=metadata,
+            )
+        )
 
     @staticmethod
     def _supervisor_run_from_row(row: sqlite3.Row) -> dict[str, Any]:

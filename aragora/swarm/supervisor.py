@@ -24,7 +24,13 @@ from aragora.nomic.dev_coordination import (
 )
 from aragora.nomic.pipeline_bridge import BoundedWorkOrder, NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.terminal_truth import (
+    extract_work_order_deliverable,
+    qualify_run_terminal_state,
+    qualify_work_order_terminal_state,
+)
 from aragora.swarm.worker_launcher import SESSION_ARTIFACTS, WorkerLauncher, WorkerProcess
 from aragora.worktree.lifecycle import WorktreeLifecycleService
 
@@ -33,6 +39,7 @@ if TYPE_CHECKING:
 
 UTC = timezone.utc
 logger = logging.getLogger(__name__)
+_LANE_TELEMETRY = LaneTelemetryCollector()
 
 WORKER_TYPE_CIRCUIT_BREAKERS_KEY = "worker_type_circuit_breakers"
 WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = "worker_type_circuit_breaker_policy"
@@ -884,6 +891,7 @@ class SwarmSupervisor:
                 worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
             )
 
+        self._record_terminal_work_order_telemetry(run_id, work_orders)
         self.store.update_supervisor_run(
             run_id,
             status=self._derive_status(work_orders),
@@ -1133,6 +1141,7 @@ class SwarmSupervisor:
     ) -> dict[str, Any]:
         payload = dict(metadata)
         outcome, blockers = self._campaign_outcome_for_work_orders(work_orders)
+        has_deliverable = any(self._work_order_deliverable_type(item) for item in work_orders)
         if not outcome:
             payload.pop(CAMPAIGN_OUTCOME_METADATA_KEY, None)
             payload.pop(CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY, None)
@@ -1140,7 +1149,9 @@ class SwarmSupervisor:
             return payload
 
         payload[CAMPAIGN_OUTCOME_METADATA_KEY] = outcome
-        payload[CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY] = self._campaign_requeue_eligible(outcome)
+        payload[CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY] = (
+            self._campaign_requeue_eligible(outcome) and not has_deliverable
+        )
         if blockers:
             payload[CAMPAIGN_BLOCKERS_METADATA_KEY] = blockers[:10]
         else:
@@ -1152,65 +1163,34 @@ class SwarmSupervisor:
         cls,
         work_orders: list[dict[str, Any]],
     ) -> tuple[str | None, list[str]]:
-        statuses: set[str] = set()
-        worker_outcomes: set[str] = set()
-        blockers: list[str] = []
-        has_deliverable = False
-
-        for item in work_orders:
-            if not isinstance(item, dict):
-                continue
-            status = str(item.get("status", "")).strip().lower()
-            if status:
-                statuses.add(status)
-
-            worker_outcome = str(item.get("worker_outcome", "")).strip().lower()
-            if worker_outcome:
-                worker_outcomes.add(worker_outcome)
-
-            deliverable_type = cls._work_order_deliverable_type(item)
-            if deliverable_type == "pr_adopted":
-                return deliverable_type, cls._campaign_blockers_from_work_orders(work_orders)
-            if deliverable_type == "deliverable_created":
-                has_deliverable = True
-
-            for value in item.get("blockers", []):
-                text = str(value).strip()
-                if text and text not in blockers:
-                    blockers.append(text)
-            dispatch_error = str(item.get("dispatch_error", "")).strip()
-            if dispatch_error and dispatch_error not in blockers:
-                blockers.append(dispatch_error)
-
+        statuses = {
+            str(item.get("status", "")).strip().lower()
+            for item in work_orders
+            if isinstance(item, dict) and str(item.get("status", "")).strip()
+        }
+        worker_outcomes = {
+            str(item.get("worker_outcome", "")).strip().lower()
+            for item in work_orders
+            if isinstance(item, dict) and str(item.get("worker_outcome", "")).strip()
+        }
         forward_progress_statuses = {"queued", "leased", "dispatched"}
         stalled_wait_statuses = {"waiting_conflict", "waiting_resource"}
         stalled_dead_end = bool(statuses & stalled_wait_statuses) and not (
             statuses & forward_progress_statuses
         )
-        stalled_no_progress = WorkerOutcome.TIMEOUT_NO_PROGRESS.value in worker_outcomes
-
-        if has_deliverable:
-            return "deliverable_created", blockers
-        if "scope_violation" in worker_outcomes or "scope_violation" in statuses:
-            return "blocked", blockers
-        if any(outcome.startswith("crash") for outcome in worker_outcomes):
-            return "crash", blockers
-        if stalled_no_progress or stalled_dead_end:
+        if stalled_dead_end or WorkerOutcome.TIMEOUT_NO_PROGRESS.value in worker_outcomes:
+            blockers = cls._campaign_blockers_from_work_orders(work_orders)
             return "stalled", blockers
-        if (
-            any(outcome.startswith("timeout") for outcome in worker_outcomes)
-            or "timed_out" in statuses
-        ):
-            return "timeout", blockers
-        if "failed" in statuses:
-            return "crash", blockers
-        if "clean_exit_no_effect" in worker_outcomes:
-            return "clean_exit_no_deliverable", blockers
-        if "needs_human" in statuses:
-            return "needs_human", blockers
-        if statuses and statuses <= {"completed"}:
-            return "clean_exit_no_deliverable", blockers
-        return None, blockers
+
+        qualification = qualify_run_terminal_state(
+            {
+                "status": cls._derive_status(work_orders),
+                "work_orders": [dict(item) for item in work_orders if isinstance(item, dict)],
+            }
+        )
+        if qualification.terminal_outcome == "unknown":
+            return None, qualification.reasons
+        return qualification.terminal_outcome, qualification.reasons
 
     @staticmethod
     def _campaign_blockers_from_work_orders(work_orders: list[dict[str, Any]]) -> list[str]:
@@ -1237,15 +1217,13 @@ class SwarmSupervisor:
 
     @staticmethod
     def _work_order_deliverable_type(item: dict[str, Any]) -> str | None:
-        if str(item.get("adopted_pr", "")).strip():
+        deliverable = extract_work_order_deliverable(item, require_terminal_status=False)
+        if not deliverable:
+            return None
+        deliverable_type = str(deliverable.get("type", "")).strip()
+        if deliverable_type == "adopted_pr":
             return "pr_adopted"
-        if str(item.get("pr_url", "")).strip():
-            return "deliverable_created"
-        branch = str(item.get("branch", "")).strip()
-        commit_shas = [str(sha).strip() for sha in item.get("commit_shas", []) if str(sha).strip()]
-        if branch and commit_shas:
-            return "deliverable_created"
-        return None
+        return "deliverable_created"
 
     def _apply_worker_result(
         self,
@@ -1464,12 +1442,54 @@ class SwarmSupervisor:
         ):
             return
 
+        deliverable_present = bool(self._work_order_deliverable_type(item))
+        if deliverable_present:
+            failure_reason = (
+                "worker_timeout_with_salvage"
+                if result.exit_code == -1
+                or str(item.get("worker_outcome", "")).strip()
+                == WorkerOutcome.TIMEOUT_WITH_SALVAGE.value
+                else "worker_crash_with_salvage"
+            )
+            self._mark_needs_human(
+                item,
+                "worker exited non-zero after producing a recoverable deliverable",
+                failure_reason=failure_reason,
+                blocking_question=(
+                    "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                ),
+            )
+            item["review_status"] = "changes_requested"
+            item["receipt_id"] = None
+            self._release_terminal_lease(item)
+            item["exit_code"] = result.exit_code
+            return
+
         if lease_id:
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
+        failure_reason = (
+            "worker_timeout_no_deliverable" if result.exit_code == -1 else "worker_crash"
+        )
+        blocking_question = self._default_blocking_question(failure_reason)
+        stderr_text = result.stderr.strip()
         item["status"] = "timed_out" if result.exit_code == -1 else "failed"
+        item["dispatch_error"] = stderr_text or (
+            "worker timed out before producing a deliverable"
+            if result.exit_code == -1
+            else "worker crashed before producing a deliverable"
+        )
+        item["failure_reason"] = failure_reason
+        item["blocking_question"] = blocking_question
+        item["blocker"] = {
+            "reason": failure_reason,
+            "question": blocking_question,
+        }
+        blockers = [str(value).strip() for value in item.get("blockers", []) if str(value).strip()]
+        if item["dispatch_error"] not in blockers:
+            blockers.append(item["dispatch_error"])
+        item["blockers"] = blockers
+        item["review_status"] = "changes_requested"
         item["exit_code"] = result.exit_code
-        if result.stderr.strip():
-            item["blockers"] = [result.stderr.strip()]
 
     def _release_terminal_lease(self, item: dict[str, Any]) -> None:
         lease_id = str(item.get("lease_id", "")).strip()
@@ -1479,6 +1499,67 @@ class SwarmSupervisor:
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
         except KeyError:
             return
+
+    def _record_terminal_work_order_telemetry(
+        self,
+        run_id: str,
+        work_orders: list[dict[str, Any]],
+    ) -> None:
+        for item in work_orders:
+            if not isinstance(item, dict):
+                continue
+            qualification = qualify_work_order_terminal_state(item)
+            if qualification.terminal_outcome == "unknown":
+                continue
+            started_at = self._parse_timestamp(item.get("started_at")) or self._parse_timestamp(
+                item.get("dispatched_at")
+            )
+            completed_at = self._parse_timestamp(item.get("completed_at"))
+            duration_seconds = 0.0
+            if started_at is not None and completed_at is not None:
+                duration_seconds = max(0.0, (completed_at - started_at).total_seconds())
+            receipt_id = str(item.get("receipt_id", "")).strip()
+            pr_reference = str(item.get("pr_url", "") or item.get("adopted_pr", "") or "").strip()
+            false_success_candidate = (
+                qualification.terminal_outcome
+                in {
+                    "deliverable_created",
+                    "pr_adopted",
+                }
+                and qualification.deliverable is None
+            )
+            try:
+                _LANE_TELEMETRY.record_lane(
+                    LaneTelemetryRecord(
+                        lane_kind="supervisor_work_order",
+                        lane_id=str(
+                            item.get("task_key")
+                            or item.get("work_order_id")
+                            or item.get("lease_id")
+                            or ""
+                        ).strip(),
+                        run_id=run_id,
+                        task_id=str(item.get("task_key", "")).strip(),
+                        work_order_id=str(item.get("work_order_id", "")).strip(),
+                        terminal_outcome=qualification.terminal_outcome,
+                        worker_outcome=str(item.get("worker_outcome", "")).strip(),
+                        deliverable_type=str(qualification.deliverable_type or ""),
+                        receipt_id=receipt_id,
+                        human_intervention_required=qualification.human_intervention_required,
+                        duration_seconds=duration_seconds,
+                        pr_url=pr_reference,
+                        pr_number=self._extract_pr_number(pr_reference),
+                        false_success_candidate=false_success_candidate,
+                        metadata={
+                            "status": str(item.get("status", "")).strip() or None,
+                            "failure_reason": str(item.get("failure_reason", "")).strip() or None,
+                            "blocking_question": str(item.get("blocking_question", "")).strip()
+                            or None,
+                        },
+                    )
+                )
+            except Exception:
+                logger.debug("Supervisor lane telemetry emission skipped", exc_info=True)
 
     def _register_pr_if_present(self, item: dict[str, Any], result: WorkerProcess) -> None:
         """Register the work order's PR in the canonical PR registry if present."""
@@ -2303,6 +2384,18 @@ class SwarmSupervisor:
             "worker_no_progress_timeout": (
                 "Should this stalled lane be rerun, split, or investigated in its current worktree?"
             ),
+            "worker_timeout_with_salvage": (
+                "Should the recovered timed-out deliverable be adopted, amended, or rerun before integration?"
+            ),
+            "worker_timeout_no_deliverable": (
+                "Should this timed-out lane be rerun, split, or investigated before retrying?"
+            ),
+            "worker_crash_with_salvage": (
+                "Should the recovered crashed deliverable be adopted, amended, or rerun before integration?"
+            ),
+            "worker_crash": (
+                "Should this crashed lane be rerun, reassigned, or investigated before retrying?"
+            ),
             "worker_type_blocked": (
                 "Which worker type or capacity issue must be resolved before rerunning this lane?"
             ),
@@ -2329,6 +2422,14 @@ class SwarmSupervisor:
             return "worker_exited_without_receipt"
         if "no-progress timeout" in lowered:
             return "worker_no_progress_timeout"
+        if "recoverable deliverable" in lowered and "timed out" in lowered:
+            return "worker_timeout_with_salvage"
+        if "recoverable deliverable" in lowered and "non-zero" in lowered:
+            return "worker_crash_with_salvage"
+        if "timed out before producing a deliverable" in lowered:
+            return "worker_timeout_no_deliverable"
+        if "crashed before producing a deliverable" in lowered:
+            return "worker_crash"
         if "no commits and no changed paths" in lowered or "no real deliverables" in lowered:
             return "clean_exit_no_deliverable"
         if "merge gate" in lowered:

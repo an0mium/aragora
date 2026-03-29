@@ -222,6 +222,39 @@ class TestListReceipts:
         assert "r1" in ids
         assert "r2" in ids
 
+    def test_list_includes_receipts_from_singleton_adapter(self):
+        class FakeReceiptAdapter:
+            def list_receipts(self, limit: int = 50) -> list[dict[str, Any]]:
+                return [
+                    {
+                        "receipt_id": "km-rcpt-1",
+                        "pipeline_id": "pipe-km",
+                        "generated_at": "2026-03-29T20:00:00Z",
+                        "execution": {"status": "completed"},
+                        "content_hash": "hash-km-1",
+                    }
+                ]
+
+        h = _make_handler()
+        http = _make_http_handler()
+        with patch(
+            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter",
+            return_value=FakeReceiptAdapter(),
+        ):
+            result = h.handle_get("/api/v1/receipts", {}, http)
+
+        body = _body(result)
+        assert body["count"] == 1
+        assert body["receipts"] == [
+            {
+                "receipt_id": "km-rcpt-1",
+                "pipeline_id": "pipe-km",
+                "generated_at": "2026-03-29T20:00:00Z",
+                "status": "completed",
+                "content_hash": "hash-km-1",
+            }
+        ]
+
     def test_list_filter_by_pipeline_id(self):
         register_receipt(_make_receipt("r1", pipeline_id="pipe-A"))
         register_receipt(_make_receipt("r2", pipeline_id="pipe-B"))
@@ -233,6 +266,42 @@ class TestListReceipts:
         assert body["count"] == 2
         for r in body["receipts"]:
             assert r["pipeline_id"] == "pipe-A"
+
+    def test_list_filters_singleton_adapter_receipts(self):
+        class FakeReceiptAdapter:
+            def list_receipts(self, limit: int = 50) -> list[dict[str, Any]]:
+                return [
+                    {
+                        "receipt_id": "km-rcpt-1",
+                        "pipeline_id": "pipe-A",
+                        "generated_at": "2026-03-29T20:00:00Z",
+                        "execution": {"status": "completed"},
+                        "content_hash": "hash-km-1",
+                    },
+                    {
+                        "receipt_id": "km-rcpt-2",
+                        "pipeline_id": "pipe-B",
+                        "generated_at": "2026-03-29T20:01:00Z",
+                        "execution": {"status": "failed"},
+                        "content_hash": "hash-km-2",
+                    },
+                ]
+
+        h = _make_handler()
+        http = _make_http_handler()
+        with patch(
+            "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter",
+            return_value=FakeReceiptAdapter(),
+        ):
+            result = h.handle_get(
+                "/api/v1/receipts",
+                {"pipeline_id": "pipe-A", "status": "completed"},
+                http,
+            )
+
+        body = _body(result)
+        assert body["count"] == 1
+        assert body["receipts"][0]["receipt_id"] == "km-rcpt-1"
 
     def test_list_filter_by_status(self):
         register_receipt(_make_receipt("r1", status="completed"))

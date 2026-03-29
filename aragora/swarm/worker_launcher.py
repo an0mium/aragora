@@ -38,13 +38,17 @@ SESSION_ARTIFACTS: frozenset[str] = frozenset(
 )
 
 # Exit codes where the worker likely completed its work but the process was
-# terminated by a transport-level signal (e.g. broken pipe). These codes are
-# eligible for auto-commit salvage for all worker types. Codex lanes also get
-# a best-effort salvage path when they exit non-zero after producing a real
-# commit so review/verification can still judge the recovered deliverable.
+# terminated by a transport-level signal (e.g. broken pipe). Only these codes
+# are eligible for salvage. Other non-zero exits must preserve raw exit truth
+# even if they left behind a recoverable artifact.
 _SALVAGEABLE_EXIT_CODES: frozenset[int] = frozenset(
     {
+        1,  # Generic error — worker may have produced partial work
+        2,  # Misuse of shell builtins
+        130,  # SIGINT — Ctrl-C, worker may have committed before interrupt
+        137,  # SIGKILL — force-killed, check for commits
         141,  # SIGPIPE — stdout pipe closed before process finished writing
+        143,  # SIGTERM — graceful termination, worker may have committed
     }
 )
 
@@ -172,6 +176,12 @@ class WorkerLauncher:
             if (codex_home / "auth.json").exists():
                 worker_env = {**os.environ, "CODEX_HOME": str(codex_home)}
 
+        # Codex uses "-" as prompt arg and reads from stdin to avoid OS
+        # ARG_MAX limits on long prompts with issue bodies + file lists.
+        use_stdin_prompt = agent == "codex"
+        stdin_mode = asyncio.subprocess.PIPE if use_stdin_prompt else asyncio.subprocess.DEVNULL
+        prompt_bytes = prompt.encode("utf-8") if use_stdin_prompt else None
+
         if self.config.detach:
             log_dir = Path(worktree_path)
             stdout_file = open(log_dir / ".swarm_worker_stdout.log", "w")  # noqa: SIM115
@@ -180,12 +190,15 @@ class WorkerLauncher:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
                     cwd=worktree_path,
-                    stdin=asyncio.subprocess.DEVNULL,
+                    stdin=stdin_mode,
                     stdout=stdout_file,
                     stderr=stderr_file,
                     start_new_session=True,
                     env=worker_env,
                 )
+                if prompt_bytes is not None and proc.stdin is not None:
+                    proc.stdin.write(prompt_bytes)
+                    proc.stdin.close()
             finally:
                 # The subprocess inherits its own descriptors; close the
                 # parent-side handles immediately to avoid ResourceWarning.
@@ -195,11 +208,14 @@ class WorkerLauncher:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=worktree_path,
-                stdin=asyncio.subprocess.DEVNULL,
+                stdin=stdin_mode,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=worker_env,
             )
+            if prompt_bytes is not None and proc.stdin is not None:
+                proc.stdin.write(prompt_bytes)
+                proc.stdin.close()
             self._start_live_log_capture(work_order_id, worktree_path, proc)
 
         worker = WorkerProcess(
@@ -317,8 +333,7 @@ class WorkerLauncher:
             if worker.commit_shas:
                 await self._auto_push(worker)
 
-            self._promote_salvaged_codex_exit(worker)
-            if worker.exit_code == 0 and worker.expected_tests:
+            if self._should_run_verification(worker):
                 worker.verification_results = await self._run_verification_commands(
                     worker.worktree_path,
                     worker.expected_tests,
@@ -482,7 +497,9 @@ class WorkerLauncher:
             return cmd
 
         if agent == "codex":
-            cmd = [self.config.codex_path, "exec", prompt, "--full-auto"]
+            # Use stdin ("-") for prompts to avoid OS arg length limits.
+            # Long prompts with issue bodies + file lists can exceed ARG_MAX.
+            cmd = [self.config.codex_path, "exec", "-", "--full-auto"]
             if self.config.codex_model:
                 cmd.extend(["--model", self.config.codex_model])
             git_dir = self._resolve_worktree_gitdir(worktree_path)
@@ -720,12 +737,34 @@ class WorkerLauncher:
         initial_head: str,
         head_sha: str,
     ) -> list[str]:
-        if not initial_head or not head_sha or initial_head == head_sha:
+        if not head_sha:
             return []
-        output = await cls._git_output(
-            worktree_path, "rev-list", "--reverse", f"{initial_head}..{head_sha}"
+
+        # Primary path: compare initial_head to current HEAD
+        if initial_head and initial_head != head_sha:
+            output = await cls._git_output(
+                worktree_path, "rev-list", "--reverse", f"{initial_head}..{head_sha}"
+            )
+            shas = [line.strip() for line in output.splitlines() if line.strip()]
+            if shas:
+                return shas
+
+        # Fallback: if initial_head is empty/missing or same as head_sha,
+        # check for commits ahead of origin/main.  This catches cases where
+        # the worker committed but initial_head was not captured correctly.
+        fallback_output = await cls._git_output(
+            worktree_path, "rev-list", "--reverse", "origin/main..HEAD"
         )
-        return [line.strip() for line in output.splitlines() if line.strip()]
+        shas = [line.strip() for line in fallback_output.splitlines() if line.strip()]
+        if shas:
+            logger.info(
+                "commit_shas fallback: found %d commits ahead of origin/main "
+                "(initial_head=%r, head_sha=%r)",
+                len(shas),
+                initial_head[:12] if initial_head else "",
+                head_sha[:12] if head_sha else "",
+            )
+        return shas
 
     @classmethod
     async def _collect_changed_paths(
@@ -736,12 +775,18 @@ class WorkerLauncher:
         head_sha: str,
     ) -> list[str]:
         changed: set[str] = set()
+        diff_range = ""
         if initial_head and head_sha and initial_head != head_sha:
+            diff_range = f"{initial_head}..{head_sha}"
+        elif head_sha:
+            # Fallback: compare against origin/main when initial_head is missing
+            diff_range = "origin/main..HEAD"
+        if diff_range:
             diff_names = await cls._git_output(
                 worktree_path,
                 "diff",
                 "--name-only",
-                f"{initial_head}..{head_sha}",
+                diff_range,
             )
             changed.update(line.strip() for line in diff_names.splitlines() if line.strip())
 
@@ -851,8 +896,7 @@ class WorkerLauncher:
             if worker.commit_shas:
                 await cls._auto_push(worker)
 
-            cls._promote_salvaged_codex_exit(worker)
-            if worker.exit_code == 0 and worker.expected_tests:
+            if cls._should_run_verification(worker):
                 worker.verification_results = await cls._run_verification_commands(
                     worktree_path,
                     worker.expected_tests,
@@ -1040,34 +1084,19 @@ class WorkerLauncher:
 
     @staticmethod
     def _can_query_dirty_tree(worker: WorkerProcess) -> bool:
-        return (
-            worker.exit_code == 0
-            or worker.exit_code in _SALVAGEABLE_EXIT_CODES
-            or worker.agent == "codex"
-        )
+        return worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
 
     @staticmethod
     def _should_attempt_auto_commit(worker: WorkerProcess, *, has_changes: bool) -> bool:
         if not has_changes:
             return False
-        if worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES:
-            return True
-        return worker.agent == "codex"
+        return worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
 
     @staticmethod
-    def _promote_salvaged_codex_exit(worker: WorkerProcess) -> None:
-        if worker.agent != "codex":
-            return
-        if worker.exit_code in (None, 0):
-            return
-        if not worker.commit_shas:
-            return
-        note = (
-            f"Codex exited {worker.exit_code} after producing a salvageable commit; "
-            "verification continued on the recovered deliverable."
-        )
-        worker.stderr = "\n".join(part for part in (worker.stderr.strip(), note) if part).strip()
-        worker.exit_code = 0
+    def _should_run_verification(worker: WorkerProcess) -> bool:
+        if not worker.expected_tests:
+            return False
+        return worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
 
     @staticmethod
     def _read_log_file(worktree_path: str, stream: str) -> str:

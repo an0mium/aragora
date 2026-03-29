@@ -181,9 +181,16 @@ def _build_refined_prompt(
     sections.append("## Implementation Rules")
     sections.append("- Read the existing code in the relevant files BEFORE making changes")
     sections.append("- Follow the existing patterns in the test files")
-    sections.append("- Run `python -m pytest <test_file> -x -q` after each change")
+    if test_files:
+        for tf in test_files[:3]:
+            sections.append(f"- Run `python -m pytest {tf} -x -q` after each change")
+    else:
+        sections.append("- Run `python -m pytest -x -q` on relevant tests after each change")
     sections.append("- Keep changes minimal and focused")
     sections.append("- Do not modify files outside the relevant scope")
-    sections.append("- Commit with a clear message describing what changed")
+    sections.append(
+        "- **IMPORTANT: Commit your changes with `git add -A && git commit -m 'description'`**"
+    )
+    sections.append("- Each commit message should clearly describe what changed")
 
     return "\n".join(sections)

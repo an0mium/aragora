@@ -204,6 +204,73 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         debate_cmd.cmd_ask(args)
 
 
+def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
+    """CLI ask cleanup should run on the same loop that executed the debate."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    loop_ids: dict[str, int] = {}
+    result = DebateResult(task="smoke demo", final_answer="loop-safe answer", metadata={})
+
+    args = argparse.Namespace(
+        task="smoke demo with cleanup",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        compare_against=None,
+        timeout=30,
+        post_consensus_quality=False,
+    )
+
+    async def fake_run_debate(*_args, **_kwargs):
+        loop_ids["run"] = id(asyncio.get_running_loop())
+        return result
+
+    async def fake_shutdown() -> None:
+        loop_ids["shutdown"] = id(asyncio.get_running_loop())
+
+    with (
+        patch.object(debate_cmd, "run_debate", new=AsyncMock(side_effect=fake_run_debate)),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    assert loop_ids["run"] == loop_ids["shutdown"]
+
+
 def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
     """Compare mode should run each combination and keep the highest-scoring result."""
     from aragora.cli.commands import debate as debate_cmd
@@ -450,7 +517,11 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
         timeout=1,
     )
 
-    with patch.object(debate_cmd.asyncio, "run", side_effect=asyncio.TimeoutError()):
+    with patch.object(
+        debate_cmd,
+        "run_debate",
+        new=AsyncMock(side_effect=asyncio.TimeoutError()),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
 
@@ -1066,12 +1137,22 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     )
 
     result = DebateResult(task=args.task, final_answer=weak_answer, metadata={})
-    timed_out_agent = MagicMock()
-    timed_out_agent.generate = AsyncMock(side_effect=TimeoutError("request timed out"))
-    low_quality_agent = MagicMock()
-    low_quality_agent.generate = AsyncMock(return_value=weak_answer)
-    upgraded_agent = MagicMock()
-    upgraded_agent.generate = AsyncMock(return_value=upgraded_answer)
+
+    class _FakeRepairAgent:
+        def __init__(self, behavior: str):
+            self.behavior = behavior
+            self.system_prompt = ""
+
+        async def generate(self, _prompt: str) -> str:
+            if self.behavior == "timeout":
+                raise TimeoutError("request timed out")
+            if self.behavior == "weak":
+                return weak_answer
+            return upgraded_answer
+
+    timed_out_agent = _FakeRepairAgent("timeout")
+    low_quality_agent = _FakeRepairAgent("weak")
+    upgraded_agent = _FakeRepairAgent("good")
     created_specs: list[tuple[str, str | None]] = []
 
     def _fake_create_agent(*, model_type, name, role, model=None, **_kwargs):
@@ -1089,9 +1170,12 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     def _no_timeout(_seconds: float):
         yield
 
+    async def _fake_run_debate(**_kwargs):
+        return result
+
     with (
         patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
-        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(debate_cmd, "run_debate", new=_fake_run_debate),
         patch.object(debate_cmd, "create_agent", side_effect=_fake_create_agent),
     ):
         debate_cmd.cmd_ask(args)

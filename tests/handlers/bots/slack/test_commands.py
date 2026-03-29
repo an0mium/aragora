@@ -391,7 +391,10 @@ class TestAskSubcommand:
         mock_start_debate.assert_awaited_once()
         call_kwargs = mock_start_debate.call_args
         assert call_kwargs.kwargs["topic"] == "What is the best database?"
-        assert call_kwargs.kwargs["decision_integrity"] is None
+        di = call_kwargs.kwargs["decision_integrity"]
+        assert di["include_receipt"] is True
+        assert di["include_plan"] is False
+        assert di["notify_origin"] is True
 
     @pytest.mark.asyncio
     async def test_ask_without_args_returns_help(self, commands_module, mock_rbac_off, mock_audit):
@@ -461,6 +464,21 @@ class TestAskSubcommand:
         result = await commands_module.handle_slack_commands.__wrapped__(req)
         body = _body(result)
         assert "Starting debate" in body["text"]
+
+    @pytest.mark.asyncio
+    async def test_ask_requests_receipt_delivery(
+        self, commands_module, mock_rbac_off, mock_audit, mock_start_debate
+    ):
+        """Ask subcommand opts into receipt generation and Slack routing."""
+        req = _make_request(text="ask Should we adopt event sourcing?")
+        await commands_module.handle_slack_commands.__wrapped__(req)
+
+        di = mock_start_debate.call_args.kwargs["decision_integrity"]
+        assert di == {
+            "include_receipt": True,
+            "include_plan": False,
+            "notify_origin": True,
+        }
 
 
 class TestPlanSubcommand:

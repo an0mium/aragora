@@ -5,10 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
 from aragora.swarm.reporter import SwarmReport, SwarmReporter, build_integrator_view
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.swarm.spec import SwarmSpec
 
 UTC = timezone.utc
@@ -646,3 +648,183 @@ class TestIntegratorView:
         lane = payload["lanes"][0]
         assert lane["pr"] == {"url": None, "number": 1057, "reference": "#1057"}
         assert lane["missing_receipt"] is True
+
+    def test_build_integrator_view_includes_lane_telemetry_summary(self):
+        collector = LaneTelemetryCollector(db_path=":memory:")
+        now = datetime.now(UTC).timestamp()
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="boss_dispatch",
+                lane_id="boss-1",
+                terminal_outcome="deliverable_created",
+                deliverable_type="branch",
+                receipt_id="rcpt-1",
+                timestamp=now,
+                false_success_candidate=False,
+            )
+        )
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="supervisor_work_order",
+                lane_id="run-1:wo-1",
+                terminal_outcome="clean_exit_no_deliverable",
+                human_intervention_required=True,
+                false_success_candidate=True,
+                timestamp=now,
+            )
+        )
+
+        with patch("aragora.swarm.reporter._LANE_TELEMETRY", collector):
+            payload = build_integrator_view()
+
+        assert payload["telemetry"] == {
+            "throughput_7d": 2,
+            "success_rate_7d": 0.5,
+            "false_success_candidates_7d": 1,
+            "human_intervention_rate_7d": 0.5,
+            "merge_yield_7d": 0.0,
+            "avg_time_to_pr_seconds_7d": 0.0,
+            "avg_time_to_merge_seconds_7d": 0.0,
+        }
+
+    def test_build_integrator_view_syncs_merged_lane_back_into_telemetry(self):
+        collector = LaneTelemetryCollector(db_path=":memory:")
+        now = datetime(2026, 3, 29, 12, 0, tzinfo=UTC)
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="supervisor_work_order",
+                lane_id="run-1:wo-1",
+                run_id="run-1",
+                task_id="wo-1",
+                work_order_id="wo-1",
+                terminal_outcome="deliverable_created",
+                worker_outcome="completed",
+                deliverable_type="branch",
+                receipt_id="rcpt-1",
+                duration_seconds=60.0,
+                timestamp=now.timestamp(),
+            )
+        )
+
+        with patch("aragora.swarm.reporter._LANE_TELEMETRY", collector):
+            build_integrator_view(
+                coordination={
+                    "integrator": {
+                        "developer_tasks": [
+                            {
+                                "task_key": "run-1:wo-1",
+                                "task_id": "wo-1",
+                                "run_id": "run-1",
+                                "status": "completed",
+                                "title": "Merge the lane",
+                                "owner_agent": "codex",
+                                "owner_session_id": "sess-1",
+                                "branch": "codex/merged-lane",
+                                "worktree_path": "/tmp/repo/.worktrees/merged",
+                                "lease_id": "lease-1",
+                                "receipt_id": "rcpt-1",
+                                "updated_at": now.isoformat(),
+                            }
+                        ],
+                        "leases": [
+                            {
+                                "lease_id": "lease-1",
+                                "task_id": "wo-1",
+                                "owner_agent": "codex",
+                                "owner_session_id": "sess-1",
+                                "branch": "codex/merged-lane",
+                                "worktree_path": "/tmp/repo/.worktrees/merged",
+                                "status": "completed",
+                                "updated_at": now.isoformat(),
+                                "expires_at": (now + timedelta(hours=1)).isoformat(),
+                            }
+                        ],
+                        "completion_receipts": [
+                            {
+                                "receipt_id": "rcpt-1",
+                                "lease_id": "lease-1",
+                                "task_id": "wo-1",
+                                "owner_agent": "codex",
+                                "owner_session_id": "sess-1",
+                                "branch": "codex/merged-lane",
+                                "worktree_path": "/tmp/repo/.worktrees/merged",
+                                "base_sha": "abc123base",
+                                "head_sha": "def456head",
+                                "commit_shas": ["def456head"],
+                                "created_at": (now - timedelta(minutes=5)).isoformat(),
+                            }
+                        ],
+                        "integration_decisions": [
+                            {
+                                "decision_id": "dec-1",
+                                "lease_id": "lease-1",
+                                "receipt_id": "rcpt-1",
+                                "decision": "merge",
+                                "target_branch": "main",
+                                "chosen_commits": ["mergeabc123"],
+                                "created_at": now.isoformat(),
+                            }
+                        ],
+                        "salvage_candidates": [],
+                    }
+                },
+                merge_queue=[
+                    {
+                        "id": "mq-merged",
+                        "branch": "codex/merged-lane",
+                        "session_id": "sess-1",
+                        "status": "merged",
+                        "updated_at": now.isoformat(),
+                        "metadata": {
+                            "receipt_id": "rcpt-1",
+                            "task_id": "wo-1",
+                            "pr_url": "https://github.com/synaptent/aragora/pull/1200",
+                            "pr_number": 1200,
+                            "merge_sha": "mergeabc123",
+                        },
+                    }
+                ],
+                now=now,
+            )
+
+        record = collector.get_lane("supervisor_work_order", "run-1:wo-1")
+        assert record is not None
+        assert record.merged_at == now.isoformat()
+        assert record.merge_ref == "mergeabc123"
+        assert record.pr_number == 1200
+        assert record.time_to_merge_seconds == 300.0
+
+    def test_build_integrator_view_never_marks_ready_without_deliverable_and_receipt(self):
+        now = datetime(2026, 3, 29, 12, 0, tzinfo=UTC)
+
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-empty",
+                            "task_id": "wo-empty",
+                            "run_id": "run-1",
+                            "status": "completed",
+                            "title": "Completed with no deliverable",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-empty",
+                            "branch": "codex/empty-lane",
+                            "worktree_path": "/tmp/repo/.worktrees/empty",
+                            "updated_at": now.isoformat(),
+                        }
+                    ],
+                    "leases": [],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["terminal_outcome"] == "clean_exit_no_deliverable"
+        assert lane["deliverable_type"] is None
+        assert lane["missing_receipt"] is True
+        assert lane["merge_readiness"] == "blocked"

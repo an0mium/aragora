@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
@@ -135,6 +136,78 @@ class SlackDock(ChannelDock):
                 channel_id=channel_id,
             )
 
+    async def send_result(
+        self,
+        channel_id: str,
+        result: dict[str, Any],
+        thread_id: str | None = None,
+        **kwargs: Any,
+    ) -> SendResult:
+        """Send a debate result to Slack with debate-specific formatting."""
+        from aragora.channels.dock import MessageType
+        from aragora.channels.normalized import MessageFormat, NormalizedMessage
+
+        consensus = result.get("consensus_reached", False)
+        confidence_raw = result.get("confidence", 0)
+        confidence = float(confidence_raw) if isinstance(confidence_raw, (int, float)) else 0.0
+        answer = str(result.get("final_answer", "No conclusion reached."))
+
+        status = "Consensus Reached" if consensus else "No Consensus"
+        confidence_bar = "█" * int(confidence * 10) + "░" * (10 - int(confidence * 10))
+
+        content = (
+            f"**Status:** {status}\n"
+            f"**Confidence:** {confidence_bar} {confidence:.0%}\n\n"
+            f"**Conclusion:**\n{answer[:2000]}"
+        )
+
+        message = NormalizedMessage(
+            content=content,
+            message_type=MessageType.RESULT,
+            format=MessageFormat.MARKDOWN,
+            title="Aragora Debate Complete",
+            thread_id=thread_id,
+        )
+
+        receipt_url = result.get("receipt_url") or kwargs.get("receipt_url")
+        if isinstance(receipt_url, str) and receipt_url.startswith("http"):
+            message.with_button("View Full Receipt", receipt_url, style="primary")
+
+        return await self.send_message(channel_id, message, **kwargs)
+
+    async def send_receipt(
+        self,
+        channel_id: str,
+        summary: str,
+        receipt_url: str | None = None,
+        thread_id: str | None = None,
+        **kwargs: Any,
+    ) -> SendResult:
+        """Send a decision receipt to Slack with a receipt button."""
+        from aragora.channels.dock import MessageType
+        from aragora.channels.normalized import MessageFormat, NormalizedMessage
+
+        content = summary
+        if receipt_url:
+            content = re.sub(
+                r"\n?• \[View Full Receipt\]\([^)]+\)",
+                "",
+                content,
+            ).strip()
+
+        message = NormalizedMessage(
+            content=content,
+            message_type=MessageType.RECEIPT,
+            format=MessageFormat.MARKDOWN,
+            title="Decision Receipt",
+            thread_id=thread_id,
+        )
+
+        if isinstance(receipt_url, str) and receipt_url.startswith("http"):
+            message.with_button("View Full Receipt", receipt_url, style="primary")
+
+        return await self.send_message(channel_id, message, **kwargs)
+
     def _build_payload(
         self,
         channel_id: str,
@@ -176,6 +249,7 @@ class SlackDock(ChannelDock):
                 # Slack mrkdwn is slightly different from standard markdown
                 # Bold: **text** -> *text*
                 text = text.replace("**", "*")
+                text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
 
             blocks.append(
                 {

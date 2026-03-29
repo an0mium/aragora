@@ -307,6 +307,57 @@ def _cleanup_cli_subprocesses_for_timeout() -> dict[str, int]:
         return {"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0}
 
 
+async def _shutdown_cmd_ask_resources() -> None:
+    """Best-effort cleanup for CLI ask shared resources on the active loop."""
+    try:
+        from aragora.server.startup.database import close_postgres_pool
+
+        await close_postgres_pool()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask postgres shutdown skipped: %s", exc)
+
+    try:
+        from aragora.server.http_client_pool import close_http_pool
+
+        await close_http_pool()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask HTTP client pool shutdown skipped: %s", exc)
+
+    try:
+        from aragora.agents.api_agents.common import close_shared_connector
+
+        await close_shared_connector()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask API connector shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.connection_factory import close_all_pools
+
+        await close_all_pools()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask connection-factory shutdown skipped: %s", exc)
+
+    try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    # Give async transport/connector close callbacks one loop turn before
+    # asyncio.run() tears the loop down. This avoids intermittent unclosed
+    # socket warnings in CLI proof-path tests.
+    await asyncio.sleep(0)
+
+
+async def _run_coro_with_cmd_ask_cleanup(coro: Any) -> Any:
+    """Await a CLI ask coroutine and close shared resources on the same loop."""
+    try:
+        return await coro
+    finally:
+        await _shutdown_cmd_ask_resources()
+
+
 def _emit_timeout_failure_payload(
     *,
     error_type: str,
@@ -2391,7 +2442,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
     result = None
     comparison_summaries: list[dict[str, Any]] = []
     comparison_failures: list[dict[str, str]] = []
-    run_coro = None
     try:
         with _strict_wall_clock_timeout(overall_timeout_seconds):
             if comparison_mode:
@@ -2404,7 +2454,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         enforce_quality_fail_closed=False,
                     )
                     try:
-                        combo_result = asyncio.run(combo_coro)
+                        combo_result = asyncio.run(_run_coro_with_cmd_ask_cleanup(combo_coro))
                     except asyncio.TimeoutError:
                         comparison_failures.append(
                             {
@@ -2424,8 +2474,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
                             file=sys.stderr,
                         )
                         continue
-                    finally:
-                        combo_coro.close()
 
                     summary = _build_comparison_summary(combo_result, combo_agents)
                     ranked_candidates.append((summary, combo_result))
@@ -2464,8 +2512,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         f"practicality={comparison_summaries[0]['practicality_score_10']}"
                     )
             else:
-                run_coro = _run_with_timeout()
-                result = asyncio.run(run_coro)
+                result = asyncio.run(_run_coro_with_cmd_ask_cleanup(_run_with_timeout()))
     except _StrictWallClockTimeout:
         elapsed = time.monotonic() - start_time
         cleanup = _cleanup_cli_subprocesses_for_timeout()
@@ -2505,9 +2552,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
     except RuntimeError as e:
         print(f"Debate failed quality gate: {e}", file=sys.stderr)
         raise SystemExit(1)
-    finally:
-        if run_coro is not None:
-            run_coro.close()
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")

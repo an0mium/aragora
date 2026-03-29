@@ -2051,8 +2051,9 @@ class TestNeedsHumanWithDeliverable:
             target_branch="main",
         )
 
-        # Simulate a dispatch result where outcome is deliverable_created
-        # and the deliverable includes branch + commit_shas (the fixed path)
+        # Simulate a dispatch result where a deliverable exists but the run
+        # still ended needs_human. The artifact should remain reviewable, not
+        # be silently promoted to unconditional success.
         result = {
             "status": "completed",
             "outcome": "deliverable_created",
@@ -2083,7 +2084,7 @@ class TestNeedsHumanWithDeliverable:
 
         assert project.branch == "codex/swarm-abc-subtask_1"
         assert project.commit_shas == ["abc123"]
-        assert project.status == CampaignProjectStatus.DELIVERED.value
+        assert project.status == CampaignProjectStatus.BLOCKED.value
 
     def test_review_pass_with_branch_transitions_to_waiting_for_pr(self, tmp_path: Path) -> None:
         """When a project has a branch and review passes, status should be

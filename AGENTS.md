@@ -20,6 +20,25 @@ When many agents are committing concurrently, use disposable worktrees with freq
   `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`
 - Optional macOS daemon: `make worktree-maintainer-install` for periodic background reconcile-only upkeep.
 
+## Automation Operating Rules
+
+For Codex-driven automations in this repo, default to maximum safe autonomy. Finish the bounded task when the next action is clear, and only stop when the remaining step is irreversible, human-gated, or materially unsafe.
+
+- Prefer execution over advice:
+  verify the issue, make the smallest credible fix, validate it, commit it, push it, open the PR, and leave the inbox or memory handoff in the same run when the task is otherwise ready.
+- Do not stop at the first blocked path:
+  inspect `--help`, adapt to the actual helper interface, and try the next practical route before declaring a blocker.
+- Use layered fallbacks:
+  move between shell git/gh, MCP connectors, local repo inspection, and browser flows when one surface is degraded.
+- Recover cleanly from partial failure:
+  if publish or inbox delivery fails, still leave a clean committed branch or an exact handoff with the compare URL, blocker, and next action.
+- Treat founder guidance as strong but verify it:
+  if founder memory is fresh but imperfectly structured, verify the recommendation directly on `origin/main` instead of discarding it mechanically.
+- Keep everything reversible:
+  use disposable worktrees, branch-scoped commits, additive edits, and non-destructive cleanup. Never delete worktrees or branches with uncommitted changes, unique commits, or open PRs.
+- Keep scope bounded:
+  prefer measurable improvements on live paths over speculative breadth, and use Aragora itself when it improves decisions without dominating a small direct fix.
+
 ## Agent Types
 
 Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.

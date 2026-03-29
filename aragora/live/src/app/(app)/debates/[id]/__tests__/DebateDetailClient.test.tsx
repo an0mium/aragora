@@ -8,6 +8,7 @@ const mockSetContext = jest.fn();
 const mockClearContext = jest.fn();
 const mockSearchParamsGet = jest.fn();
 const mockClipboardWriteText = jest.fn();
+const mockConfirm = jest.fn();
 const mockGetAuthHeaders = jest.fn(() => ({
   'Content-Type': 'application/json',
   Authorization: 'Bearer test-token',
@@ -115,6 +116,12 @@ describe('DebateDetailClient bridge actions', () => {
       writable: true,
       configurable: true,
     });
+    Object.defineProperty(window, 'confirm', {
+      value: mockConfirm,
+      writable: true,
+      configurable: true,
+    });
+    mockConfirm.mockReturnValue(true);
 
     mockFetch.mockImplementation((input: string | URL | Request) => {
       const url = String(input);
@@ -217,7 +224,12 @@ describe('DebateDetailClient bridge actions', () => {
 
     render(<DebateDetailClient />);
 
-    await user.click(await screen.findByRole('button', { name: 'SHARE' }));
+    const [shareButton] = await screen.findAllByRole('button', { name: 'MAKE PUBLIC LINK' });
+    await user.click(shareButton);
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('Make this debate publicly viewable to anyone with the link?'),
+    );
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -237,5 +249,27 @@ describe('DebateDetailClient bridge actions', () => {
     });
 
     expect(screen.getAllByText(/copied!/i)).not.toHaveLength(0);
+  });
+
+  it('does not make the debate public when the share confirmation is declined', async () => {
+    const user = userEvent.setup();
+    mockConfirm.mockReturnValue(false);
+
+    render(<DebateDetailClient />);
+
+    const [shareButton] = await screen.findAllByRole('button', { name: 'MAKE PUBLIC LINK' });
+    await user.click(shareButton);
+
+    await waitFor(() => {
+      expect(mockConfirm).toHaveBeenCalledWith(
+        expect.stringContaining('Make this debate publicly viewable to anyone with the link?'),
+      );
+    });
+
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      'http://backend.test/api/v1/debates/debate-123/share',
+      expect.anything(),
+    );
+    expect(mockClipboardWriteText).not.toHaveBeenCalled();
   });
 });

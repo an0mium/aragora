@@ -6,6 +6,7 @@ import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +19,7 @@ from aragora.nomic.dev_coordination import (
     SalvageStatus,
 )
 from aragora.nomic.global_work_queue import GlobalWorkQueue, WorkStatus
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector
 
 
 @pytest.fixture()
@@ -387,6 +389,81 @@ def test_supervisor_run_tracks_lease_completion_and_decision(store: DevCoordinat
     assert refreshed is not None
     assert refreshed["work_orders"][0]["status"] == "changes_requested"
     assert refreshed["status"] == "needs_human"
+
+
+def test_mark_supervisor_run_merged_records_canonical_lane_telemetry(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Ship merged swarm lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={"raw_goal": "Ship merged swarm lane", "refined_goal": "Ship merged swarm lane"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge",
+                "title": "Integrate lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    lease = store.claim_lease(
+        task_id="wo-merge",
+        title="Integrate lane",
+        owner_agent="codex",
+        owner_session_id="sess-merge",
+        branch="codex/merge-lane",
+        worktree_path="/tmp/wt-merge",
+        claimed_paths=["aragora/swarm/reporter.py"],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-merge",
+            "task_key": f"{run['run_id']}:wo-merge",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-merge",
+        branch="codex/merge-lane",
+        worktree_path="/tmp/wt-merge",
+        commit_shas=["deadbeef"],
+        changed_paths=["aragora/swarm/reporter.py"],
+        tests_run=["python -m pytest tests/swarm/test_reporter.py -q"],
+        confidence=0.93,
+    )
+    merged_at = (datetime.fromisoformat(receipt.created_at) + timedelta(minutes=5)).isoformat()
+    collector = LaneTelemetryCollector(db_path=":memory:")
+
+    with patch("aragora.nomic.dev_coordination._LANE_TELEMETRY", collector):
+        store.mark_supervisor_run_merged(
+            receipt_id=receipt.receipt_id,
+            merge_commit_sha="mergeabc123",
+            merged_at=merged_at,
+        )
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "merged"
+    assert refreshed["work_orders"][0]["merge_commit_sha"] == "mergeabc123"
+    assert refreshed["work_orders"][0]["merged_at"] == merged_at
+    record = collector.get_lane("supervisor_work_order", f"{run['run_id']}:wo-merge")
+    assert record is not None
+    assert record.terminal_outcome == "deliverable_created"
+    assert record.deliverable_type == "branch"
+    assert record.receipt_id == receipt.receipt_id
+    assert record.merge_ref == "mergeabc123"
+    assert record.merged_at == merged_at
+    assert record.time_to_merge_seconds == 300.0
+    assert record.human_intervention_required is False
 
 
 def test_list_developer_tasks_flattens_supervisor_runs(store: DevCoordinationStore) -> None:

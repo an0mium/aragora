@@ -20,6 +20,7 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
@@ -39,6 +40,7 @@ jobs:
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
               'Offline Golden Path',
               'Live Deploy Mode Gate',
@@ -122,6 +124,10 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: Autopilot Worktree E2E\njobs:\n  scope:\n    name: Autopilot Scope\n",
         encoding="utf-8",
     )
+    (wf_dir / "contract-drift-governance.yml").write_text(
+        "name: Contract Drift Governance\njobs:\n  governance:\n    name: governance\n",
+        encoding="utf-8",
+    )
     (wf_dir / "core-suites.yml").write_text(
         "name: Core Suites (Decision Integrity)\njobs:\n  core:\n    runs-on: ubuntu-latest\n",
         encoding="utf-8",
@@ -189,6 +195,7 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
@@ -208,6 +215,7 @@ jobs:
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
               'Offline Golden Path',
               'Live Deploy Mode Gate',

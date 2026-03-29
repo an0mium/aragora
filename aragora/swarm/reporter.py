@@ -12,11 +12,17 @@ import re
 from pathlib import Path
 
 from aragora.harnesses.base import AnalysisType
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.terminal_truth import (
+    qualify_work_order_terminal_state,
+    receipt_expected_for_lane,
+)
 
 logger = logging.getLogger(__name__)
 
 _STALE_LANE_AFTER_SECONDS = 15 * 60
+_LANE_TELEMETRY = LaneTelemetryCollector()
 
 
 def _parse_iso_timestamp(value: Any) -> datetime | None:
@@ -37,6 +43,14 @@ def _age_seconds(value: Any, *, now: datetime) -> float | None:
     if parsed is None:
         return None
     return max(0.0, (now - parsed).total_seconds())
+
+
+def _seconds_between(start: Any, end: Any) -> float | None:
+    start_dt = _parse_iso_timestamp(start)
+    end_dt = _parse_iso_timestamp(end)
+    if start_dt is None or end_dt is None:
+        return None
+    return max(0.0, (end_dt - start_dt).total_seconds())
 
 
 def _text(value: Any) -> str:
@@ -293,6 +307,90 @@ def _item_timestamp(item: dict[str, Any] | None, *keys: str) -> datetime:
 
 def _sort_newest(items: list[dict[str, Any]], *keys: str) -> list[dict[str, Any]]:
     return sorted(items, key=lambda item: _item_timestamp(item, *keys), reverse=True)
+
+
+def _telemetry_summary() -> dict[str, Any]:
+    """Return a compact operator-facing snapshot of autonomy lane telemetry."""
+    try:
+        return {
+            "throughput_7d": _LANE_TELEMETRY.get_throughput(window_days=7),
+            "success_rate_7d": _LANE_TELEMETRY.get_success_rate(window_days=7),
+            "false_success_candidates_7d": _LANE_TELEMETRY.get_false_success_candidate_count(
+                window_days=7
+            ),
+            "human_intervention_rate_7d": _LANE_TELEMETRY.get_human_intervention_rate(
+                window_days=7
+            ),
+            "merge_yield_7d": _LANE_TELEMETRY.get_merge_yield(window_days=7),
+            "avg_time_to_pr_seconds_7d": _LANE_TELEMETRY.get_avg_time_to_pr(window_days=7),
+            "avg_time_to_merge_seconds_7d": _LANE_TELEMETRY.get_avg_time_to_merge(window_days=7),
+        }
+    except Exception:
+        logger.exception("Failed to summarize lane telemetry")
+        return {}
+
+
+def _sync_lane_telemetry_from_lanes(lanes: list[dict[str, Any]]) -> None:
+    """Backfill merge outcomes into existing supervisor telemetry rows."""
+    for lane in lanes:
+        if not isinstance(lane, dict):
+            continue
+        lane_id = _text(lane.get("lane_id"))
+        if not lane_id:
+            continue
+        existing = _LANE_TELEMETRY.get_lane("supervisor_work_order", lane_id)
+        if existing is None:
+            continue
+
+        deliverable_type = _text(lane.get("deliverable_type")) or existing.deliverable_type
+        missing_receipt = bool(lane.get("missing_receipt"))
+        readiness = _text(lane.get("merge_readiness")).lower()
+        false_success_candidate = bool(existing.false_success_candidate) or bool(
+            readiness == "ready" and (missing_receipt or not deliverable_type)
+        )
+        metadata = dict(existing.metadata)
+        metadata.update(
+            {
+                "merge_readiness": readiness or metadata.get("merge_readiness", ""),
+                "lane_health": _text(lane.get("lane_health")) or metadata.get("lane_health", ""),
+                "missing_receipt": missing_receipt,
+                "decision_needed": bool(lane.get("decision_needed")),
+            }
+        )
+
+        _LANE_TELEMETRY.record_lane(
+            LaneTelemetryRecord(
+                lane_kind=existing.lane_kind,
+                lane_id=existing.lane_id,
+                run_id=existing.run_id,
+                task_id=existing.task_id,
+                work_order_id=existing.work_order_id,
+                project_id=existing.project_id,
+                terminal_outcome=existing.terminal_outcome,
+                worker_outcome=existing.worker_outcome,
+                deliverable_type=deliverable_type,
+                receipt_id=_text(lane.get("receipt_id")) or existing.receipt_id,
+                human_intervention_required=existing.human_intervention_required,
+                duration_seconds=existing.duration_seconds,
+                pr_url=_text((lane.get("pr") or {}).get("url")) or existing.pr_url,
+                pr_number=(lane.get("pr") or {}).get("number") or existing.pr_number,
+                merge_ref=_text(lane.get("merge_ref")) or existing.merge_ref,
+                merged_at=_text(lane.get("merged_at")) or existing.merged_at,
+                time_to_pr_seconds=(
+                    lane.get("time_to_pr_seconds")
+                    if lane.get("time_to_pr_seconds") is not None
+                    else existing.time_to_pr_seconds
+                ),
+                time_to_merge_seconds=(
+                    lane.get("time_to_merge_seconds")
+                    if lane.get("time_to_merge_seconds") is not None
+                    else existing.time_to_merge_seconds
+                ),
+                false_success_candidate=false_success_candidate,
+                timestamp=existing.timestamp,
+                metadata=metadata,
+            )
+        )
 
 
 def _lane_health(
@@ -776,19 +874,6 @@ def build_integrator_view(
         )
 
         superseded = _is_superseded(task, work_order, queue_item) or status == "discarded"
-        receipt_expected = (
-            _receipt_expected(status, queue_status)
-            or bool(decision_type)
-            or status in {"completed", "changes_requested", "integrating", "merged", "salvage"}
-        )
-        missing_receipt = _explicit_missing_receipt(work_order, queue_item) or (
-            receipt_expected and not receipt_id
-        )
-        if status in {"queued", "leased", "dispatched"} and queue_status in {"", "queued"}:
-            missing_receipt = (
-                False if not _explicit_missing_receipt(work_order, queue_item) else True
-            )
-
         base_sha = _first_text(
             receipt.get("base_sha"),
             queue_meta.get("base_sha"),
@@ -831,6 +916,81 @@ def build_integrator_view(
             work_order_meta.get("changed_files"),
             salvage.get("changed_paths"),
         )
+        worker_outcome = _first_text(
+            work_order.get("worker_outcome"),
+            task.get("worker_outcome"),
+            task_meta.get("worker_outcome"),
+            receipt_meta.get("worker_outcome"),
+        )
+        blocker_dict = next(
+            (
+                candidate
+                for candidate in (
+                    work_order.get("blocker"),
+                    task.get("blocker"),
+                    task_meta.get("blocker"),
+                    queue_meta.get("blocker"),
+                )
+                if isinstance(candidate, dict)
+            ),
+            None,
+        )
+        synthetic_work_order = {
+            "status": status,
+            "worker_outcome": worker_outcome,
+            "branch": branch,
+            "commit_shas": commit_shas,
+            "pr_url": _first_text(
+                work_order.get("pr_url"),
+                task.get("pr_url"),
+                receipt.get("pr_url"),
+                queue_item.get("pr_url"),
+                queue_meta.get("pr_url"),
+            ),
+            "adopted_pr": _first_text(
+                work_order.get("adopted_pr"),
+                task.get("adopted_pr"),
+                receipt.get("adopted_pr"),
+                queue_item.get("adopted_pr"),
+                queue_meta.get("adopted_pr"),
+            ),
+            "blockers": [
+                *_text_list(work_order.get("blockers")),
+                *_text_list(task.get("blocked_by")),
+                *_text_list(task.get("blockers")),
+                *_text_list(queue_meta.get("blockers")),
+                *_text_list(receipt.get("blockers")),
+            ],
+            "dispatch_error": _first_text(
+                work_order.get("dispatch_error"),
+                task.get("dispatch_error"),
+                queue_item.get("error"),
+                queue_meta.get("error"),
+            ),
+            "failure_reason": _first_text(
+                work_order.get("failure_reason"),
+                task.get("failure_reason"),
+                queue_meta.get("failure_reason"),
+            ),
+            "blocking_question": _first_text(
+                work_order.get("blocking_question"),
+                task.get("blocking_question"),
+                queue_meta.get("blocking_question"),
+            ),
+            "blocker": blocker_dict,
+        }
+        qualification = qualify_work_order_terminal_state(synthetic_work_order)
+        terminal_outcome = qualification.terminal_outcome
+        receipt_expected = receipt_expected_for_lane(
+            status=status,
+            queue_status=queue_status,
+            lane_in_flight=lane_in_flight,
+            decision_type=decision_type,
+            terminal_outcome=terminal_outcome if terminal_outcome != "unknown" else None,
+        )
+        missing_receipt = _explicit_missing_receipt(work_order, queue_item) or (
+            receipt_expected and not receipt_id
+        )
         tests_run = _first_list(
             receipt.get("tests_run"),
             queue_meta.get("tests_run"),
@@ -861,6 +1021,31 @@ def build_integrator_view(
             receipt.get("outcome"),
             queue_meta.get("outcome"),
         )
+        pr_created_at = _first_text(
+            queue_item.get("pr_created_at"),
+            queue_meta.get("pr_created_at"),
+            queue_item.get("pull_request_created_at"),
+            queue_meta.get("pull_request_created_at"),
+        )
+        merged_at = _first_text(
+            queue_item.get("merged_at"),
+            queue_meta.get("merged_at"),
+        )
+        if not merged_at and queue_status == "merged":
+            merged_at = _first_text(queue_item.get("updated_at"), decision.get("created_at"))
+        merge_ref = _first_text(
+            queue_item.get("merge_sha"),
+            queue_meta.get("merge_sha"),
+            queue_item.get("merge_ref"),
+            queue_meta.get("merge_ref"),
+            next(
+                (_text(item) for item in decision.get("chosen_commits", []) if _text(item)),
+                "",
+            ),
+            decision.get("target_branch"),
+        )
+        time_to_pr_seconds = _seconds_between(receipt_created_at, pr_created_at)
+        time_to_merge_seconds = _seconds_between(receipt_created_at, merged_at)
         confidence_value: float | None = None
         for candidate in (receipt.get("confidence"), queue_meta.get("confidence")):
             if isinstance(candidate, (int, float)):
@@ -908,22 +1093,38 @@ def build_integrator_view(
                 scope_violation_record = fallback_violation
         scope_violation = isinstance(scope_violation_record, dict)
 
+        terminal_blocked = terminal_outcome in {
+            "blocked",
+            "needs_human",
+            "clean_exit_no_deliverable",
+            "crash",
+            "timeout",
+        }
+
         if superseded or decision_type == "discard":
             readiness = "superseded"
         elif queue_status == "merged" or status == "merged":
             readiness = "merged"
         elif decision_type in {"merge", "cherry_pick"}:
             readiness = "merged" if queue_status == "merged" else "integrating"
+        elif terminal_blocked:
+            readiness = "blocked"
         elif decision_type == "pending_review":
             readiness = "review"
         elif decision_type in {"request_changes", "salvage"}:
             readiness = "blocked"
-        elif receipt_id and status in {
-            "completed",
-            "needs_human",
-            "changes_requested",
-            "integrating",
-        }:
+        elif (
+            receipt_id
+            and qualification.deliverable is not None
+            and terminal_outcome in {"deliverable_created", "pr_adopted"}
+            and status
+            in {
+                "completed",
+                "needs_human",
+                "changes_requested",
+                "integrating",
+            }
+        ):
             readiness = "blocked" if missing_receipt else "review"
         else:
             readiness = _merge_readiness(
@@ -1007,6 +1208,8 @@ def build_integrator_view(
                 *collision_reasons,
             }
         )
+        if qualification.blocked_reason:
+            blockers.append(qualification.blocked_reason)
         if stale_heartbeat:
             blockers.append("stale_heartbeat")
         if missing_receipt:
@@ -1048,6 +1251,9 @@ def build_integrator_view(
             "task_id": task_id or None,
             "title": title,
             "status": status,
+            "terminal_outcome": terminal_outcome,
+            "deliverable_type": qualification.deliverable_type,
+            "worker_outcome": worker_outcome or None,
             "canonical_lane": canonical_lane,
             "owner_agent": owner_agent or None,
             "reviewer_agent": reviewer_agent or None,
@@ -1081,10 +1287,15 @@ def build_integrator_view(
             if decision_type
             else None,
             "missing_receipt": missing_receipt,
+            "receipt_expected": receipt_expected,
             "scope_violation": scope_violation_record,
             "superseded": superseded,
             "collisions": collision_reasons,
             "pr": pr,
+            "merge_ref": merge_ref or None,
+            "merged_at": merged_at or None,
+            "time_to_pr_seconds": time_to_pr_seconds,
+            "time_to_merge_seconds": time_to_merge_seconds,
             "merge_readiness": readiness,
             "decision_needed": decision_needed,
             "available_actions": available_actions,
@@ -1375,6 +1586,7 @@ def build_integrator_view(
         )
 
     lanes.sort(key=lane_sort_key)
+    _sync_lane_telemetry_from_lanes(lanes)
 
     alerts = {
         "collisions": [],
@@ -1447,8 +1659,10 @@ def build_integrator_view(
         "merge_ready_lanes": len(alerts["merge_ready"]),
         "coordination_counts": coordination.get("counts", {}),
     }
+    telemetry = _telemetry_summary()
     return {
         "summary": summary,
+        "telemetry": telemetry,
         "next_actions": next_actions,
         "alerts": alerts,
         "lanes": lanes,
@@ -1584,6 +1798,7 @@ def build_boss_payload(
         "needs_human": needs_human,
         "coordination_counts": coordination.get("counts", {}),
         "integrator_summary": integrator_view.get("summary", {}),
+        "integrator_telemetry": integrator_view.get("telemetry", {}),
         "routing": routing,
     }
 
