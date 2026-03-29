@@ -559,7 +559,14 @@ def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
         raise debate_cmd._StrictWallClockTimeout("forced strict timeout")
         yield
 
-    with patch.object(debate_cmd, "_strict_wall_clock_timeout", _always_timeout):
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _always_timeout),
+        patch.object(
+            debate_cmd,
+            "_cleanup_cli_subprocesses_for_timeout",
+            return_value={"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
 
@@ -578,6 +585,8 @@ def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     """Async wait_for timeout should emit machine-readable timeout JSON."""
     from aragora.cli.commands import debate as debate_cmd
@@ -620,10 +629,21 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
         timeout=1,
     )
 
-    with patch.object(
-        debate_cmd,
-        "run_debate",
-        new=AsyncMock(side_effect=asyncio.TimeoutError()),
+    async def _raise_async_timeout(coro):
+        coro.close()
+        raise asyncio.TimeoutError()
+
+    with (
+        patch.object(
+            debate_cmd,
+            "_run_coro_with_cmd_ask_cleanup",
+            side_effect=_raise_async_timeout,
+        ),
+        patch.object(
+            debate_cmd,
+            "_cleanup_cli_subprocesses_for_timeout",
+            return_value={"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0},
+        ),
     ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
@@ -643,6 +663,8 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     """Explicit CLI flag should disable context-init RLM limiter in local debates."""
     from aragora.cli.commands import debate as debate_cmd
@@ -664,8 +686,12 @@ def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     args.learn = False
     args.db = ":memory:"
     args.demo = False
+    args.post_consensus_quality = False
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
         mock_result = MagicMock()
         mock_result.final_answer = "ok"
         mock_result.dissenting_views = []
