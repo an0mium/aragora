@@ -70,4 +70,69 @@ describe('LiveDemoSection', () => {
     expect(screen.getByText('9 recent events in the last 2 minutes.')).toBeInTheDocument();
     expect(screen.getByText('Last activity 34s ago')).toBeInTheDocument();
   });
+
+  it('renders a live debate feed when recent events resolve to a public debate', () => {
+    mockUseSpectate.mockReturnValue({
+      status: {
+        active: true,
+        subscribers: 4,
+        buffer_size: 24,
+        bridge_state: 'activity_unattributed',
+        last_event_at: '2026-03-28T20:00:00Z',
+        activity_age_seconds: 9,
+        recent_activity_window_seconds: 120,
+        recent_event_count: 12,
+        live_debate_count: 0,
+        live_debate_ids: [],
+        live_debates: [],
+        unattributed_recent_event_count: 12,
+      },
+      loaded: true,
+      connected: true,
+      events: [
+        {
+          event_type: 'proposal',
+          timestamp: '2026-03-28T20:00:00Z',
+          data: {
+            details: 'We should keep the monolith until team boundaries are stable.',
+            task: 'Should we split the platform into microservices this quarter?',
+          },
+          debate_id: 'debate-live-1',
+          pipeline_id: null,
+          agent_name: 'Strategic Analyst',
+          round_number: 1,
+        },
+        {
+          event_type: 'critique',
+          timestamp: '2026-03-28T20:00:04Z',
+          data: {
+            details: 'Counterpoint: the billing domain is already isolated enough to extract safely.',
+          },
+          debate_id: 'debate-live-1',
+          pipeline_id: null,
+          agent_name: "Devil's Advocate",
+          round_number: 1,
+        },
+      ],
+      refresh: jest.fn(),
+    });
+
+    render(<LiveDemoSection />);
+
+    expect(screen.getAllByText('Live public debate')).toHaveLength(2);
+    expect(screen.getByTestId('live-debate-feed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Should we split the platform into microservices this quarter?'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('We should keep the monolith until team boundaries are stable.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Counterpoint: the billing domain is already isolated enough to extract safely.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Open live feed')).toBeInTheDocument();
+    expect(screen.queryByText('Sample decision trace')).not.toBeInTheDocument();
+  });
 });
