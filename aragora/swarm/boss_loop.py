@@ -1121,6 +1121,34 @@ class BossLoop:
         except Exception as exc:
             logger.debug("Outcome signal emission skipped: %s", exc)
 
+    def _emit_boss_metrics(
+        self,
+        *,
+        iteration: int,
+        issue_number: int,
+        worker_status: str,
+        elapsed_seconds: float,
+        worker_result: dict[str, Any],
+    ) -> None:
+        """Append a JSONL metrics line for this iteration."""
+        metrics_dir = Path(".aragora/overnight")
+        metrics_path = metrics_dir / "boss_metrics.jsonl"
+        try:
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            record = {
+                "iteration": iteration,
+                "issue_number": issue_number,
+                "worker_status": worker_status,
+                "elapsed_seconds": elapsed_seconds,
+                "files_changed": worker_result.get("files_changed", 0),
+                "tests_run": worker_result.get("tests_run", 0),
+                "tests_passed": worker_result.get("tests_passed", 0),
+            }
+            with open(metrics_path, "a") as fh:
+                fh.write(json.dumps(record) + "\n")
+        except Exception as exc:
+            logger.debug("Boss metrics logging skipped: %s", exc)
+
     def _emit_lane_receipt(
         self,
         worker_result: dict[str, Any],
@@ -1702,6 +1730,13 @@ class BossLoop:
         worker_result: dict[str, Any],
         elapsed_seconds: float,
     ) -> BossIterationStatus:
+        self._emit_boss_metrics(
+            iteration=iteration,
+            issue_number=issue.number,
+            worker_status=worker_result.get("status", "unknown"),
+            elapsed_seconds=elapsed_seconds,
+            worker_result=worker_result,
+        )
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0
             worker_run_id = str(worker_result.get("run_id", "")).strip()

@@ -1689,3 +1689,104 @@ class TestDiscoverFocusedTests:
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
         assert len(paths) == 2
+
+
+# ---------------------------------------------------------------------------
+# Boss metrics JSONL tests
+# ---------------------------------------------------------------------------
+
+
+class TestBossMetrics:
+    """Verify JSONL metrics are emitted per iteration."""
+
+    def test_metrics_jsonl_emitted_on_completed(self, tmp_path, monkeypatch):
+        """A completed worker iteration writes a JSONL line with expected fields."""
+        monkeypatch.chdir(tmp_path)
+
+        loop = BossLoop(config=_boss_config(max_iterations=1))
+        issue = _make_issue(number=7)
+        issue_dict = issue.to_dict()
+        worker_result = {
+            "status": "completed",
+            "files_changed": 3,
+            "tests_run": 12,
+            "tests_passed": 11,
+        }
+
+        status = loop._finalize_worker_result(
+            iteration=1,
+            timestamp=datetime.now(UTC).isoformat(),
+            runner_freshness={"fresh": True},
+            issue=issue,
+            issue_dict=issue_dict,
+            worker_result=worker_result,
+            elapsed_seconds=42.5,
+        )
+
+        assert status.worker_status == "completed"
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists(), "boss_metrics.jsonl was not created"
+
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 1
+
+        record = json.loads(lines[0])
+        assert record["iteration"] == 1
+        assert record["issue_number"] == 7
+        assert record["worker_status"] == "completed"
+        assert record["elapsed_seconds"] == 42.5
+        assert record["files_changed"] == 3
+        assert record["tests_run"] == 12
+        assert record["tests_passed"] == 11
+
+    def test_metrics_jsonl_defaults_missing_fields(self, tmp_path, monkeypatch):
+        """When worker_result lacks files_changed/tests_run/tests_passed, they default to 0."""
+        monkeypatch.chdir(tmp_path)
+
+        loop = BossLoop(config=_boss_config(max_iterations=1))
+        issue = _make_issue(number=99)
+        loop._issue_attempt_counts[99] = 1
+        worker_result = {"status": "failed", "error": "timeout"}
+
+        loop._finalize_worker_result(
+            iteration=2,
+            timestamp=datetime.now(UTC).isoformat(),
+            runner_freshness={"fresh": True},
+            issue=issue,
+            issue_dict=issue.to_dict(),
+            worker_result=worker_result,
+            elapsed_seconds=10.0,
+        )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        record = json.loads(metrics_path.read_text().strip())
+        assert record["files_changed"] == 0
+        assert record["tests_run"] == 0
+        assert record["tests_passed"] == 0
+
+    def test_metrics_jsonl_appends_multiple_iterations(self, tmp_path, monkeypatch):
+        """Multiple iterations append separate lines."""
+        monkeypatch.chdir(tmp_path)
+
+        loop = BossLoop(config=_boss_config(max_iterations=3))
+
+        for i in range(3):
+            issue = _make_issue(number=i + 1)
+            loop._finalize_worker_result(
+                iteration=i + 1,
+                timestamp=datetime.now(UTC).isoformat(),
+                runner_freshness={"fresh": True},
+                issue=issue,
+                issue_dict=issue.to_dict(),
+                worker_result={"status": "completed"},
+                elapsed_seconds=float(i),
+            )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 3
+        for idx, line in enumerate(lines):
+            record = json.loads(line)
+            assert record["iteration"] == idx + 1
+            assert record["issue_number"] == idx + 1
