@@ -154,10 +154,13 @@ export default function DebateDetailClient() {
         throw new Error(`Failed to create share link (HTTP ${res.status})`);
       }
       const data = (await res.json()) as DebateShareResponse;
-      const url =
-        typeof data.full_url === 'string' && data.full_url.length > 0
+      const sharePath =
+        typeof data.share_url === 'string' && data.share_url.length > 0 ? data.share_url : null;
+      const url = sharePath
+        ? new URL(sharePath, window.location.origin).toString()
+        : typeof data.full_url === 'string' && data.full_url.length > 0
           ? data.full_url
-          : new URL(data.share_url || `/debate/${id}`, window.location.origin).toString();
+          : new URL(`/debate/${id}`, window.location.origin).toString();
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

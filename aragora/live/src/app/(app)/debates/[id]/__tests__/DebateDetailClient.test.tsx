@@ -156,6 +156,7 @@ describe('DebateDetailClient bridge actions', () => {
             debate_id: 'debate-123',
             public_spectate: true,
             share_url: '/debate/debate-123',
+            full_url: 'https://backend.test/debate/debate-123',
           }),
         );
       }
