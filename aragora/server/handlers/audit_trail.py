@@ -27,6 +27,8 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -40,6 +42,85 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+def _get_receipt_store(server_context: dict[str, Any] | None = None) -> Any | None:
+    """Return the canonical receipt store when available.
+
+    Tests intentionally avoid the shared singleton unless they inject a store
+    explicitly via context or patch this helper.
+    """
+    if server_context:
+        store = server_context.get("receipt_store")
+        if store is not None:
+            return store
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return None
+
+    try:
+        from aragora.storage.receipt_store import get_receipt_store as _get_store
+
+        store = _get_store()
+        if server_context is not None and store is not None:
+            server_context["receipt_store"] = store
+        return store
+    except (ImportError, RuntimeError, OSError, ValueError, AttributeError) as exc:
+        logger.debug("Receipt store not available for audit trail fallback: %s", exc)
+        return None
+
+
+def _normalize_receipt_payload(receipt: Any) -> dict[str, Any] | None:
+    """Convert receipt store records into a JSON-serializable receipt payload."""
+    if receipt is None:
+        return None
+
+    payload: dict[str, Any] | None
+    if isinstance(receipt, dict):
+        payload = dict(receipt)
+    else:
+        payload = None
+        to_full_dict = getattr(receipt, "to_full_dict", None)
+        if callable(to_full_dict):
+            candidate = to_full_dict()
+            if isinstance(candidate, dict):
+                payload = dict(candidate)
+        if payload is None:
+            to_dict = getattr(receipt, "to_dict", None)
+            if callable(to_dict):
+                candidate = to_dict()
+                if isinstance(candidate, dict):
+                    payload = dict(candidate)
+
+    if payload is None:
+        return None
+
+    if "timestamp" not in payload:
+        created_at = payload.get("created_at")
+        if isinstance(created_at, (int, float)):
+            payload["timestamp"] = datetime.fromtimestamp(created_at, timezone.utc).isoformat()
+
+    return payload
+
+
+def _receipt_summary(receipt: Any) -> dict[str, Any] | None:
+    """Build the v1 summary shape from legacy or canonical receipt records."""
+    payload = _normalize_receipt_payload(receipt)
+    if payload is None:
+        return None
+
+    findings = payload.get("findings") or []
+    findings_count = len(findings) if hasattr(findings, "__len__") else 0
+    return {
+        "receipt_id": payload.get("receipt_id"),
+        "gauntlet_id": payload.get("gauntlet_id"),
+        "timestamp": payload.get("timestamp"),
+        "verdict": payload.get("verdict"),
+        "confidence": payload.get("confidence"),
+        "risk_level": payload.get("risk_level"),
+        "findings_count": findings_count,
+        "checksum": payload.get("checksum"),
+    }
 
 
 class AuditTrailHandler(BaseHandler):
@@ -76,9 +157,16 @@ class AuditTrailHandler(BaseHandler):
             return method in ("GET", "POST")
         return False
 
-    async def _call_store_nonblocking(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
+    async def _call_store_nonblocking(
+        self,
+        method_name: str,
+        *args: Any,
+        store: Any | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """Run sync-backed store methods without blocking the event loop."""
-        method = getattr(self._store, method_name)
+        target = self._store if store is None else store
+        method = getattr(target, method_name)
         if inspect.iscoroutinefunction(method):
             return await method(*args, **kwargs)
 
@@ -86,6 +174,35 @@ class AuditTrailHandler(BaseHandler):
         if inspect.isawaitable(result):
             return await result
         return result
+
+    async def _load_receipt_record(self, receipt_id: str) -> dict[str, Any] | None:
+        """Load a receipt from the legacy audit store or canonical receipt store."""
+        receipt = await self._call_store_nonblocking("get_receipt", receipt_id)
+        receipt = _normalize_receipt_payload(receipt)
+        if receipt:
+            return receipt
+
+        receipt_store = _get_receipt_store(self.ctx)
+        if receipt_store is not None:
+            try:
+                receipt = await self._call_store_nonblocking("get", receipt_id, store=receipt_store)
+                if not receipt:
+                    receipt = await self._call_store_nonblocking(
+                        "get_by_gauntlet",
+                        receipt_id,
+                        store=receipt_store,
+                    )
+                receipt = _normalize_receipt_payload(receipt)
+                if receipt:
+                    return receipt
+            except (AttributeError, RuntimeError, OSError, ValueError, TypeError) as exc:
+                logger.warning("Canonical receipt store lookup failed for %s: %s", receipt_id, exc)
+
+        receipt = self._receipts.get(receipt_id)
+        if receipt:
+            return receipt
+
+        return await self._load_receipt_from_gauntlet(receipt_id)
 
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
@@ -344,6 +461,33 @@ class AuditTrailHandler(BaseHandler):
             "count_receipts", verdict=verdict, risk_level=risk_level
         )
 
+        if not summaries:
+            receipt_store = _get_receipt_store(self.ctx)
+            if receipt_store is not None:
+                try:
+                    receipt_rows = await self._call_store_nonblocking(
+                        "list",
+                        limit=limit,
+                        offset=offset,
+                        verdict=verdict,
+                        risk_level=risk_level,
+                        store=receipt_store,
+                    )
+                    total = await self._call_store_nonblocking(
+                        "count",
+                        verdict=verdict,
+                        risk_level=risk_level,
+                        store=receipt_store,
+                    )
+                    canonical_summaries: list[dict[str, Any]] = []
+                    for receipt in receipt_rows:
+                        summary = _receipt_summary(receipt)
+                        if summary is not None:
+                            canonical_summaries.append(summary)
+                    summaries = canonical_summaries
+                except (AttributeError, RuntimeError, OSError, ValueError, TypeError) as exc:
+                    logger.warning("Canonical receipt store listing failed: %s", exc)
+
         # Fall back to in-memory for backward compatibility
         if not summaries and self._receipts:
             receipts = list(self._receipts.values())
@@ -376,15 +520,7 @@ class AuditTrailHandler(BaseHandler):
     @require_permission("audit:receipts.read")
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific decision receipt by ID."""
-        # Try database-backed store first
-        receipt = await self._call_store_nonblocking("get_receipt", receipt_id)
-
-        # Fall back to in-memory cache
-        if not receipt:
-            receipt = self._receipts.get(receipt_id)
-
-        if not receipt:
-            receipt = await self._load_receipt_from_gauntlet(receipt_id)
+        receipt = await self._load_receipt_record(receipt_id)
 
         if not receipt:
             return error_response(f"Receipt not found: {receipt_id}", 404)
@@ -394,12 +530,7 @@ class AuditTrailHandler(BaseHandler):
     @require_permission("audit:receipts.verify")
     async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
         """Verify decision receipt integrity."""
-        # Try database-backed store first
-        receipt = await self._call_store_nonblocking("get_receipt", receipt_id)
-        if not receipt:
-            receipt = self._receipts.get(receipt_id)
-        if not receipt:
-            receipt = await self._load_receipt_from_gauntlet(receipt_id)
+        receipt = await self._load_receipt_record(receipt_id)
 
         if not receipt:
             return error_response(f"Receipt not found: {receipt_id}", 404)

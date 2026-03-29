@@ -137,6 +137,78 @@ class MockAuditTrailStore:
         self.receipts[receipt_id] = receipt_dict
 
 
+class MockStoredReceipt:
+    """Minimal StoredReceipt-like wrapper for receipt_store fallback tests."""
+
+    def __init__(self, payload: dict[str, Any]):
+        self._payload = dict(payload)
+
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self._payload)
+
+    def to_full_dict(self) -> dict[str, Any]:
+        return dict(self._payload)
+
+
+class MockReceiptStore:
+    """Mock canonical receipt store used by AuditTrailHandler fallbacks."""
+
+    def __init__(self, receipts: list[dict[str, Any]]):
+        self._receipts = [MockStoredReceipt(receipt) for receipt in receipts]
+
+    def list(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+    ) -> list[MockStoredReceipt]:
+        receipts = self._filter(verdict=verdict, risk_level=risk_level)
+        return receipts[offset : offset + limit]
+
+    def count(
+        self,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+    ) -> int:
+        return len(self._filter(verdict=verdict, risk_level=risk_level))
+
+    def get(self, receipt_id: str) -> MockStoredReceipt | None:
+        for receipt in self._receipts:
+            if receipt.to_full_dict().get("receipt_id") == receipt_id:
+                return receipt
+        return None
+
+    def get_by_gauntlet(self, gauntlet_id: str) -> MockStoredReceipt | None:
+        for receipt in self._receipts:
+            if receipt.to_full_dict().get("gauntlet_id") == gauntlet_id:
+                return receipt
+        return None
+
+    def _filter(
+        self,
+        *,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+    ) -> list[MockStoredReceipt]:
+        receipts = self._receipts
+        if verdict:
+            receipts = [
+                receipt for receipt in receipts if receipt.to_full_dict().get("verdict") == verdict
+            ]
+        if risk_level:
+            receipts = [
+                receipt
+                for receipt in receipts
+                if receipt.to_full_dict().get("risk_level") == risk_level
+            ]
+        return sorted(
+            receipts,
+            key=lambda receipt: receipt.to_full_dict().get("timestamp", ""),
+            reverse=True,
+        )
+
+
 def make_mock_handler(
     body: dict | None = None,
     method: str = "GET",
@@ -669,6 +741,23 @@ class TestReceiptList:
         data = json.loads(result.body)
         assert data["total"] >= 1
 
+    @pytest.mark.asyncio
+    async def test_list_receipts_falls_back_to_receipt_store(self, audit_trail_handler, mock_store):
+        """Canonical receipt_store data should surface on the v1 list route."""
+        receipt = make_sample_receipt("receipt-canonical", "gauntlet-canonical")
+
+        with patch(
+            "aragora.server.handlers.audit_trail._get_receipt_store",
+            return_value=MockReceiptStore([receipt]),
+        ):
+            result = await audit_trail_handler._list_receipts({})
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["total"] == 1
+        assert data["receipts"][0]["receipt_id"] == "receipt-canonical"
+
 
 # ===========================================================================
 # Test Get Receipt
@@ -709,6 +798,22 @@ class TestReceiptGet:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["receipt_id"] == "receipt-memory"
+
+    @pytest.mark.asyncio
+    async def test_get_receipt_falls_back_to_receipt_store(self, audit_trail_handler, mock_store):
+        """Canonical receipt_store data should satisfy v1 receipt detail reads."""
+        receipt = make_sample_receipt("receipt-canonical", "gauntlet-canonical")
+
+        with patch(
+            "aragora.server.handlers.audit_trail._get_receipt_store",
+            return_value=MockReceiptStore([receipt]),
+        ):
+            result = await audit_trail_handler._get_receipt("receipt-canonical")
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["receipt_id"] == "receipt-canonical"
 
 
 # ===========================================================================
@@ -771,6 +876,25 @@ class TestReceiptVerify:
         data = json.loads(result.body)
         assert data["valid"] is False
         assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_falls_back_to_receipt_store(
+        self, audit_trail_handler, mock_store
+    ):
+        """Canonical receipt_store data should satisfy v1 receipt verification."""
+        receipt = make_sample_receipt("receipt-canonical", "gauntlet-canonical")
+
+        with patch(
+            "aragora.server.handlers.audit_trail._get_receipt_store",
+            return_value=MockReceiptStore([receipt]),
+        ):
+            result = await audit_trail_handler._verify_receipt("receipt-canonical")
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["receipt_id"] == "receipt-canonical"
+        assert data["match"] is True
 
 
 # ===========================================================================
