@@ -241,6 +241,11 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                 command = parts[0].lower()
                 remainder = parts[1] if len(parts) > 1 else ""
                 if command in ("ask", "debate", "aragora"):
+                    decision_integrity = {
+                        "include_receipt": True,
+                        "include_plan": False,
+                        "notify_origin": True,
+                    }
                     clean_text = remainder
                 elif command in ("plan", "implement"):
                     decision_integrity = {
