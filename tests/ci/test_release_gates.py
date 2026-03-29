@@ -227,6 +227,26 @@ class TestReleaseReadinessBootstrapWorkflow:
         assert "scripts/ci_install_project.sh --extras dev,test" in command
 
 
+class TestAutopilotWorktreeE2EWorkflow:
+    """Validate autopilot-worktree-e2e workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "autopilot-worktree-e2e.yml"
+
+    def test_workflow_file_exists(self):
+        assert self.path.exists(), "autopilot-worktree-e2e.yml does not exist"
+
+    def test_autopilot_api_e2e_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["autopilot-api-e2e"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
 class TestReleaseWorkflow:
     """Validate release.yml integrates all gates."""
 
