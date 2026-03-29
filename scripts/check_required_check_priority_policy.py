@@ -32,13 +32,16 @@ REQUIRED_KEEP_WORKFLOW_PATHS = {
     ".github/workflows/required-check-priority.yml",
     ".github/workflows/release-readiness.yml",
     ".github/workflows/security-gate.yml",
+    ".github/workflows/self-hosted-shadow.yml",
     ".github/workflows/smoke.yml",
+    ".github/workflows/smoke-offline.yml",
 }
 
 REQUIRED_KEEP_WORKFLOW_NAMES = {
     "Aragora Code Review",
     "Autopilot Worktree E2E",
     "Core Suites (Decision Integrity)",
+    "Offline Golden Path",
     "Required Check Priority",
     "Lint",
     "Live Deploy Mode Gate",
@@ -46,6 +49,7 @@ REQUIRED_KEEP_WORKFLOW_NAMES = {
     "Quality Pipeline Smoke",
     "Release Readiness Gate",
     "Security Gate",
+    "Self-Hosted Shadow CI",
     "SDK Parity Check",
     "SDK Tests",
     "Smoke Tests",

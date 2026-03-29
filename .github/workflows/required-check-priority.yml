@@ -37,8 +37,8 @@ jobs:
             const sweepDelayMs = 10000;
 
             // Required checks are produced by these workflows, and we also keep
-            // Tests so PR CI reflects real test outcomes instead of looking
-            // cancelled after prioritization sweeps.
+            // Tests plus offline/shadow smoke workflows so PR CI reflects real
+            // outcomes instead of looking cancelled after prioritization sweeps.
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
@@ -53,7 +53,9 @@ jobs:
               '.github/workflows/quality-smoke.yml',
               '.github/workflows/release-readiness.yml',
               '.github/workflows/security-gate.yml',
+              '.github/workflows/self-hosted-shadow.yml',
               '.github/workflows/smoke.yml',
+              '.github/workflows/smoke-offline.yml',
               '.github/workflows/self-host-readiness.yml',
               '.github/workflows/required-check-priority.yml',
             ]);
@@ -61,6 +63,7 @@ jobs:
               'Aragora Code Review',
               'Autopilot Worktree E2E',
               'Core Suites (Decision Integrity)',
+              'Offline Golden Path',
               'Required Check Priority',
               'Lint',
               'Live Deploy Mode Gate',
@@ -68,6 +71,7 @@ jobs:
               'Quality Pipeline Smoke',
               'Release Readiness Gate',
               'Security Gate',
+              'Self-Hosted Shadow CI',
               'SDK Parity Check',
               'SDK Tests',
               'Smoke Tests',
