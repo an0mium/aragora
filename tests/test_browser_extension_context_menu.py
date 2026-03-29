@@ -93,9 +93,9 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     assert "result?.consensus?.summary" in popup_js
     assert "finalAnswer" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
-    assert "debate.final_answer ||" in popup_js
-    assert "debate.consensus?.final_answer ||" in popup_js
-    assert "debate.consensus?.summary ||" in popup_js
+    assert "result?.final_answer ||" in popup_js
+    assert "result?.consensus?.final_answer ||" in popup_js
+    assert "result?.consensus?.summary ||" in popup_js
     assert "resolveFinalAnswer(result) ||" in popup_js
     assert "const result = activeState.result || {}" in popup_js
     assert "elements.resultConfidence.textContent =" in popup_js
