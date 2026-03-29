@@ -84,7 +84,7 @@ jobs:
           python scripts/check_contract_drift_ratchet.py --strict --json > /tmp/contract-drift-ratchet.json
 
       - name: Write ratchet summary
-        if: always()
+        if: ${{ always() && !cancelled() }}
         run: |
           python - <<'PY'
           import json
@@ -116,12 +116,12 @@ jobs:
           print(summary.read_text())
           PY
 
-          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -f ratchet-summary.md ]; then
             cat ratchet-summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload governance artifacts
-        if: always()
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: contract-drift-governance
