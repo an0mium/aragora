@@ -223,6 +223,16 @@ def _add_ask_parser(subparsers) -> None:
         ),
     )
     ask_parser.add_argument(
+        "--compare-against",
+        action="append",
+        default=[],
+        help=(
+            "Additional comma-separated agent/model combinations to run against the same task. "
+            "The baseline combo is --agents, and Aragora will score each run and pick the best "
+            "result automatically. Repeatable. Local standard debates only."
+        ),
+    )
+    ask_parser.add_argument(
         "--auto-select",
         action="store_true",
         help="Auto-select an optimal agent team for the task",

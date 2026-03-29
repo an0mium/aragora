@@ -161,6 +161,27 @@ def _split_agents_list(agents_str: str) -> list[str]:
     return [agent.strip() for agent in agents_str.split(",") if agent.strip()]
 
 
+def _normalize_agents_combo(agents_str: str) -> str:
+    """Normalize an agent combination string for display and deduplication."""
+    return ",".join(_split_agents_list(agents_str))
+
+
+def _collect_comparison_agent_sets(
+    baseline_agents: str,
+    additional_agents: list[str] | None,
+) -> list[str]:
+    """Build a deduplicated list of agent combinations for compare mode."""
+    combinations: list[str] = []
+    seen: set[str] = set()
+    for raw in [baseline_agents, *(additional_agents or [])]:
+        normalized = _normalize_agents_combo(raw)
+        if not normalized or normalized in seen:
+            continue
+        combinations.append(normalized)
+        seen.add(normalized)
+    return combinations
+
+
 def _agent_names_for_graph_matrix(agents_str: str) -> list[str]:
     """Resolve agent names for graph/matrix debates (provider-only)."""
     try:
@@ -293,6 +314,7 @@ def _emit_timeout_failure_payload(
     elapsed_seconds: float,
     task: str,
     agents_str: str,
+    comparison_agents: list[str] | None,
     mode: str | None,
     cleanup: dict[str, int],
 ) -> None:
@@ -310,6 +332,8 @@ def _emit_timeout_failure_payload(
         "cleanup": cleanup,
         "final_answer": "",
     }
+    if comparison_agents:
+        payload["comparison_agents"] = list(comparison_agents)
     encoded = json.dumps(payload, sort_keys=True)
     print(f"ARAGORA_TIMEOUT_JSON={encoded}")
 
@@ -574,6 +598,9 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
             ],
         }
+        model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
+        if isinstance(model_comparison, dict):
+            receipt["model_comparison"] = model_comparison
 
         content_hash = hashlib.sha256(
             json.dumps(receipt, sort_keys=True, default=str).encode()
@@ -769,6 +796,25 @@ def _print_decision_integrity_summary(package: dict[str, Any]) -> None:
         status = execution.get("status")
         if status:
             print(f"Execution: {status}")
+
+
+def _print_model_comparison_summary(summaries: list[dict[str, Any]]) -> None:
+    """Print a compact ranking for model-comparison runs."""
+    if not summaries:
+        return
+
+    print("\n" + "=" * 60)
+    print("MODEL COMPARISON")
+    print("=" * 60)
+    for idx, summary in enumerate(summaries, start=1):
+        print(
+            f"{idx}. agents={summary['agents']} "
+            f"quality={summary['quality_score_10']:.2f} "
+            f"practicality={summary['practicality_score_10']:.2f} "
+            f"consensus={'yes' if summary['consensus_reached'] else 'no'} "
+            f"confidence={summary['confidence']:.2f} "
+            f"gate={'pass' if summary['passes_quality_gate'] else 'warn'}"
+        )
 
 
 def _run_debate_api(
@@ -1419,6 +1465,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
     vertical_id = getattr(args, "vertical", None)
     default_timeout = int(os.environ.get("ARAGORA_ASK_TIMEOUT_SECONDS", "3600"))
     debate_timeout = int(getattr(args, "timeout", default_timeout) or default_timeout)
+    comparison_agent_sets = _collect_comparison_agent_sets(
+        agents,
+        getattr(args, "compare_against", None),
+    )
+    comparison_mode = len(comparison_agent_sets) > 1
     protocol_overrides.setdefault("timeout_seconds", debate_timeout)
     protocol_overrides.setdefault(
         "debate_rounds_timeout_seconds",
@@ -1448,6 +1499,26 @@ def cmd_ask(args: argparse.Namespace) -> None:
     if decision_integrity and (graph_mode or matrix_mode):
         print("Decision integrity is only supported for standard debates.", file=sys.stderr)
         raise SystemExit(2)
+    if comparison_mode and (graph_mode or matrix_mode):
+        print(
+            "Model comparison mode only supports standard debates. Remove --graph/--matrix.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if comparison_mode and auto_select:
+        print(
+            "Model comparison mode requires explicit agent combinations. Remove --auto-select.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if comparison_mode and requested_api:
+        print(
+            "Model comparison mode currently supports local standard debates only. Remove --api.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if comparison_mode:
+        requested_local = True
 
     di_include_context = bool(getattr(args, "di_include_context", False))
     di_plan_strategy = getattr(args, "di_plan_strategy", "single_task")
@@ -1509,11 +1580,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
             )
             raise SystemExit(1)
 
-    quality_contract = None
-    quality_contract_source = "none"
-    if post_consensus_quality:
+    def _resolve_output_contract() -> tuple[Any | None, str]:
         from aragora.debate.output_quality import (
-            build_contract_context_block,
             derive_output_contract_from_task,
             load_output_contract_from_file,
         )
@@ -1526,6 +1594,42 @@ def cmd_ask(args: argparse.Namespace) -> None:
             or "required sections" in task_lower
             or "section headings" in task_lower
         )
+
+        if isinstance(output_contract_file, str) and output_contract_file.strip():
+            return load_output_contract_from_file(output_contract_file.strip()), "file"
+
+        if isinstance(required_sections, str) and required_sections.strip():
+            normalized = ", ".join(
+                p.strip() for p in required_sections.strip().split(",") if p.strip()
+            )
+            return (
+                derive_output_contract_from_task(f"output sections {normalized}"),
+                "required_sections",
+            )
+
+        contract = derive_output_contract_from_task(
+            args.task,
+            has_context=bool(getattr(args, "context", None)),
+        )
+        if contract is None:
+            return None, "none"
+        if contract.required_sections or has_explicit_task_contract:
+            return contract, "task"
+        return contract, "fallback"
+
+    quality_contract = None
+    quality_contract_source = "none"
+    output_contract_file = getattr(args, "output_contract_file", None)
+    required_sections = getattr(args, "required_sections", None)
+    task_lower = str(args.task or "").lower()
+    has_explicit_task_contract = (
+        "output sections" in task_lower
+        or "required sections" in task_lower
+        or "section headings" in task_lower
+    )
+    if post_consensus_quality or comparison_mode:
+        from aragora.debate.output_quality import build_contract_context_block
+
         if (
             quality_fail_closed
             and not (isinstance(output_contract_file, str) and output_contract_file.strip())
@@ -1540,30 +1644,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
             )
             raise SystemExit(2)
 
-        if isinstance(output_contract_file, str) and output_contract_file.strip():
-            try:
-                quality_contract = load_output_contract_from_file(output_contract_file.strip())
-                quality_contract_source = "file"
-            except ValueError as e:
-                print(f"Debate configuration invalid: {e}", file=sys.stderr)
-                raise SystemExit(2)
-        elif isinstance(required_sections, str) and required_sections.strip():
-            normalized = ", ".join(
-                p.strip() for p in required_sections.strip().split(",") if p.strip()
-            )
-            quality_contract = derive_output_contract_from_task(f"output sections {normalized}")
-            quality_contract_source = "required_sections"
-        else:
-            quality_contract = derive_output_contract_from_task(
-                args.task,
-                has_context=bool(getattr(args, "context", None)),
-            )
-            if quality_contract is None:
-                quality_contract_source = "none"
-            elif quality_contract.required_sections:
-                quality_contract_source = "task"
-            else:
-                quality_contract_source = "fallback"
+        try:
+            quality_contract, quality_contract_source = _resolve_output_contract()
+        except ValueError as e:
+            print(f"Debate configuration invalid: {e}", file=sys.stderr)
+            raise SystemExit(2)
 
         if quality_fail_closed and quality_contract_source in {"none", "fallback"}:
             print(
@@ -1574,13 +1659,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
             )
             raise SystemExit(2)
 
-        if quality_contract is not None:
+        if post_consensus_quality and quality_contract is not None:
             contract_block = build_contract_context_block(quality_contract)
             if context:
                 context = f"{context}\n\n--- Deterministic Output Contract ---\n{contract_block}\n"
             else:
                 context = contract_block
-        elif args.verbose:
+        elif post_consensus_quality and args.verbose:
             print(
                 "[quality] contract=none (no explicit output sections detected in task)",
                 file=sys.stderr,
@@ -1715,10 +1800,14 @@ def cmd_ask(args: argparse.Namespace) -> None:
     if getattr(args, "auto_execute", False):
         cli_config_kwargs["enable_auto_execution"] = True
 
+    overall_timeout_seconds = (
+        debate_timeout * max(1, len(comparison_agent_sets)) if comparison_mode else debate_timeout
+    )
     start_time = time.monotonic()
+    current_agents_for_revision = agents
 
     def _remaining_global_seconds() -> float:
-        return max(0.0, float(debate_timeout) - (time.monotonic() - start_time))
+        return max(0.0, float(overall_timeout_seconds) - (time.monotonic() - start_time))
 
     def _quality_upgrade_attempt_timeout(
         *,
@@ -1772,7 +1861,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         preferred_providers: list[str] | None = None,
     ) -> list[AgentSpec]:
         ordered_specs: list[AgentSpec] = []
-        specs = parse_agents(agents)
+        specs = parse_agents(current_agents_for_revision)
         if specs:
             if preferred_providers:
                 chosen: set[int] = set()
@@ -1896,7 +1985,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
             role_hint=role_hint,
         )
 
-    async def _post_consensus_quality_pipeline(result: Any) -> Any:
+    async def _post_consensus_quality_pipeline(
+        result: Any,
+        *,
+        enforce_fail_closed: bool = True,
+    ) -> Any:
         if not post_consensus_quality or quality_contract is None:
             return result
 
@@ -2194,7 +2287,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
             "attempts": attempts,
         }
 
-        if quality_fail_closed and not _quality_gate_passes(best_report):
+        if enforce_fail_closed and quality_fail_closed and not _quality_gate_passes(best_report):
             raise RuntimeError(
                 "Post-consensus quality gate failed after upgrade loops: "
                 + "; ".join(best_report.defects[:3])
@@ -2204,11 +2297,69 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
         return result
 
-    async def _run_with_timeout():
+    def _build_comparison_summary(result: Any, agents_value: str) -> dict[str, Any]:
+        final_report: dict[str, Any] = {}
+        quality_meta = None
+        metadata = getattr(result, "metadata", None)
+        if isinstance(metadata, dict):
+            quality_meta = metadata.get("post_consensus_quality")
+        if isinstance(quality_meta, dict):
+            final_report = quality_meta.get("final_report", {}) or {}
+        elif quality_contract is not None:
+            from aragora.debate.output_quality import validate_output_against_contract
+
+            fallback_report = validate_output_against_contract(
+                str(getattr(result, "final_answer", "") or ""),
+                quality_contract,
+                repo_root=os.getcwd(),
+            )
+            final_report = fallback_report.to_dict()
+
+        summary = {
+            "agents": _normalize_agents_combo(agents_value),
+            "quality_score_10": float(final_report.get("quality_score_10", 0.0) or 0.0),
+            "practicality_score_10": float(final_report.get("practicality_score_10", 0.0) or 0.0),
+            "consensus_reached": bool(getattr(result, "consensus_reached", False)),
+            "confidence": float(getattr(result, "confidence", 0.0) or 0.0),
+            "passes_quality_gate": bool(
+                final_report.get("verdict") == "good"
+                and float(final_report.get("quality_score_10", 0.0) or 0.0) >= quality_min_score
+                and float(final_report.get("practicality_score_10", 0.0) or 0.0)
+                >= quality_practical_min_score
+            ),
+            "verdict": str(final_report.get("verdict", "unknown") or "unknown"),
+            "defect_count": len(final_report.get("defects") or []),
+            "rounds_used": int(getattr(result, "rounds_used", 0) or 0),
+            "duration_seconds": float(getattr(result, "duration_seconds", 0.0) or 0.0),
+            "debate_id": str(getattr(result, "debate_id", "") or ""),
+        }
+        return summary
+
+    def _comparison_rank(
+        summary: dict[str, Any],
+    ) -> tuple[int, float, float, int, float, float, int]:
+        return (
+            1 if summary["passes_quality_gate"] else 0,
+            float(summary["quality_score_10"]),
+            float(summary["practicality_score_10"]),
+            1 if summary["consensus_reached"] else 0,
+            float(summary["confidence"]),
+            -float(summary["duration_seconds"]),
+            -int(summary["defect_count"]),
+        )
+
+    async def _run_with_timeout(
+        *,
+        agents_override: str | None = None,
+        enforce_quality_fail_closed: bool = True,
+    ) -> Any:
+        nonlocal current_agents_for_revision
+        agents_value = agents_override or agents
+        current_agents_for_revision = agents_value
         debate_result = await asyncio.wait_for(
             run_debate(
                 task=task,
-                agents_str=agents,
+                agents_str=agents_value,
                 rounds=rounds,
                 consensus=args.consensus,
                 context=context,
@@ -2232,26 +2383,104 @@ def cmd_ask(args: argparse.Namespace) -> None:
             ),
             timeout=debate_timeout,
         )
-        return await _post_consensus_quality_pipeline(debate_result)
+        return await _post_consensus_quality_pipeline(
+            debate_result,
+            enforce_fail_closed=enforce_quality_fail_closed,
+        )
 
-    run_coro = _run_with_timeout()
+    result = None
+    comparison_summaries: list[dict[str, Any]] = []
+    comparison_failures: list[dict[str, str]] = []
+    run_coro = None
     try:
-        with _strict_wall_clock_timeout(debate_timeout):
-            result = asyncio.run(run_coro)
+        with _strict_wall_clock_timeout(overall_timeout_seconds):
+            if comparison_mode:
+                ranked_candidates: list[tuple[dict[str, Any], Any]] = []
+                total_candidates = len(comparison_agent_sets)
+                for idx, combo_agents in enumerate(comparison_agent_sets, start=1):
+                    print(f"[compare] running {idx}/{total_candidates} agents={combo_agents}")
+                    combo_coro = _run_with_timeout(
+                        agents_override=combo_agents,
+                        enforce_quality_fail_closed=False,
+                    )
+                    try:
+                        combo_result = asyncio.run(combo_coro)
+                    except asyncio.TimeoutError:
+                        comparison_failures.append(
+                            {
+                                "agents": combo_agents,
+                                "error": f"timed out after {debate_timeout}s",
+                            }
+                        )
+                        print(
+                            f"[compare] failed agents={combo_agents} error=timed out after {debate_timeout}s",
+                            file=sys.stderr,
+                        )
+                        continue
+                    except Exception as e:  # noqa: BLE001 - comparison should continue when a combo fails
+                        comparison_failures.append({"agents": combo_agents, "error": str(e)})
+                        print(
+                            f"[compare] failed agents={combo_agents} error={e}",
+                            file=sys.stderr,
+                        )
+                        continue
+                    finally:
+                        combo_coro.close()
+
+                    summary = _build_comparison_summary(combo_result, combo_agents)
+                    ranked_candidates.append((summary, combo_result))
+
+                if not ranked_candidates:
+                    raise RuntimeError("All compared agent combinations failed.")
+
+                ranked_candidates.sort(key=lambda item: _comparison_rank(item[0]), reverse=True)
+                comparison_summaries = [summary for summary, _ in ranked_candidates]
+                result = ranked_candidates[0][1]
+                metadata = getattr(result, "metadata", None)
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                    setattr(result, "metadata", metadata)
+                metadata["model_comparison"] = {
+                    "selected_agents": comparison_summaries[0]["agents"],
+                    "selection_metric": [
+                        "passes_quality_gate",
+                        "quality_score_10",
+                        "practicality_score_10",
+                        "consensus_reached",
+                        "confidence",
+                        "duration_seconds",
+                        "defect_count",
+                    ],
+                    "candidates": comparison_summaries,
+                    "failures": comparison_failures,
+                }
+                _print_model_comparison_summary(comparison_summaries)
+                print(f"[compare] selected agents={comparison_summaries[0]['agents']}")
+
+                if quality_fail_closed and not comparison_summaries[0]["passes_quality_gate"]:
+                    raise RuntimeError(
+                        "Best model comparison result still failed the quality gate: "
+                        f"quality={comparison_summaries[0]['quality_score_10']}, "
+                        f"practicality={comparison_summaries[0]['practicality_score_10']}"
+                    )
+            else:
+                run_coro = _run_with_timeout()
+                result = asyncio.run(run_coro)
     except _StrictWallClockTimeout:
         elapsed = time.monotonic() - start_time
         cleanup = _cleanup_cli_subprocesses_for_timeout()
         _emit_timeout_failure_payload(
             error_type="strict_wall_clock_timeout",
-            timeout_seconds=debate_timeout,
+            timeout_seconds=overall_timeout_seconds,
             elapsed_seconds=elapsed,
             task=raw_task,
             agents_str=agents,
+            comparison_agents=comparison_agent_sets if comparison_mode else None,
             mode=getattr(args, "mode", None),
             cleanup=cleanup,
         )
         print(
-            f"Debate timed out after {debate_timeout}s (strict wall-clock; elapsed={elapsed:.2f}s)",
+            f"Debate timed out after {overall_timeout_seconds}s (strict wall-clock; elapsed={elapsed:.2f}s)",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -2260,15 +2489,16 @@ def cmd_ask(args: argparse.Namespace) -> None:
         cleanup = _cleanup_cli_subprocesses_for_timeout()
         _emit_timeout_failure_payload(
             error_type="async_wait_for_timeout",
-            timeout_seconds=debate_timeout,
+            timeout_seconds=overall_timeout_seconds,
             elapsed_seconds=elapsed,
             task=raw_task,
             agents_str=agents,
+            comparison_agents=comparison_agent_sets if comparison_mode else None,
             mode=getattr(args, "mode", None),
             cleanup=cleanup,
         )
         print(
-            f"Debate timed out after {debate_timeout}s (async wait_for; elapsed={elapsed:.2f}s)",
+            f"Debate timed out after {overall_timeout_seconds}s (async wait_for; elapsed={elapsed:.2f}s)",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -2276,7 +2506,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
         print(f"Debate failed quality gate: {e}", file=sys.stderr)
         raise SystemExit(1)
     finally:
-        run_coro.close()
+        if run_coro is not None:
+            run_coro.close()
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")

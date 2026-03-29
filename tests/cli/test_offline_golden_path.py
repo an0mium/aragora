@@ -53,6 +53,27 @@ async def test_run_debate_offline_is_network_free(monkeypatch):
         assert kwargs["disable_post_debate_pipeline"] is True
 
 
+def test_build_parser_parses_compare_against() -> None:
+    """Ask parser should accept repeated comparison agent combinations."""
+    from aragora.cli.parser import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            "compare teams",
+            "--agents",
+            "anthropic-api,openai-api",
+            "--compare-against",
+            "openai-api,gemini",
+            "--compare-against",
+            "anthropic-api,gemini",
+        ]
+    )
+
+    assert args.compare_against == ["openai-api,gemini", "anthropic-api,gemini"]
+
+
 def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     """Demo mode should always execute locally with offline-safe settings."""
     from aragora.cli.commands import debate as debate_cmd
@@ -181,6 +202,140 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         ),
     ):
         debate_cmd.cmd_ask(args)
+
+
+def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
+    """Compare mode should run each combination and keep the highest-scoring result."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.cli.parser import build_parser
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            (
+                "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+                "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+            ),
+            "--local",
+            "--rounds",
+            "1",
+            "--consensus",
+            "judge",
+            "--agents",
+            "anthropic-api,openai-api",
+            "--compare-against",
+            "openai-api,gemini",
+            "--compare-against",
+            "anthropic-api,gemini",
+            "--no-upgrade-to-good",
+        ]
+    )
+    args.db = ":memory:"
+
+    weak_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Gate Criteria
+- Should be reliable.
+"""
+    strong_answer = """
+## Ranked High-Level Tasks
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents participating in multi-round consensus
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+
+## Suggested Subtasks
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test that runs a minimal debate and verifies receipt hash chain integrity
+
+## Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
+
+## Test Plan
+- Run full settlement hook unit tests with both successful and failed settle paths for comprehensive coverage
+- Execute integration smoke test covering debate creation through receipt persistence to validate end-to-end flow
+- Verify ERC-8004 reputation updates are idempotent and handle concurrent writes correctly under load
+
+## Rollback Plan
+If settlement hook error rate exceeds 2% over a sustained 10 minute window, rollback by disabling the settlement feature flag in the control plane and redeploying the previous stable build from the artifact registry.
+
+## Gate Criteria
+- Settlement hook p95 latency <= 200ms measured over a 15 minute steady-state window
+- Overall debate error rate < 0.5% over 15 minutes of production traffic with settlement enabled
+
+## JSON Payload
+```json
+{
+  "ranked_high_level_tasks": ["Settlement tracker ERC-8004 integration", "Data-feed verification"],
+  "suggested_subtasks": ["Settlement hook tests", "Brier score validation", "Receipt hash smoke test"],
+  "owner_module_file_paths": ["aragora/debate/settlement_hooks.py"],
+  "test_plan": ["Settlement unit tests", "Integration smoke", "ERC-8004 idempotency"],
+  "rollback_plan": {"trigger": "settlement hook error > 2%", "action": "disable settlement flag"},
+  "gate_criteria": [
+    {"metric": "settlement_p95_latency", "op": "<=", "threshold": 200, "unit": "ms"},
+    {"metric": "debate_error_rate", "op": "<", "threshold": 0.5, "unit": "%"}
+  ]
+}
+```
+"""
+
+    def _result_for_agents(agents_str: str) -> DebateResult:
+        if agents_str == "openai-api,gemini":
+            return DebateResult(
+                task=args.task,
+                debate_id="debate-best",
+                final_answer=strong_answer,
+                metadata={},
+                confidence=0.84,
+                consensus_reached=True,
+                rounds_used=1,
+            )
+        return DebateResult(
+            task=args.task,
+            debate_id=f"debate-{agents_str.replace(',', '-')}",
+            final_answer=weak_answer,
+            metadata={},
+            confidence=0.51,
+            consensus_reached=False,
+            rounds_used=1,
+        )
+
+    @contextmanager
+    def _no_timeout(_seconds: float):
+        yield
+
+    async def _fake_run_debate(**kwargs):
+        return _result_for_agents(kwargs["agents_str"])
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(
+            debate_cmd, "run_debate", new_callable=AsyncMock, side_effect=_fake_run_debate
+        ) as mock_run,
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None) as mock_receipt,
+    ):
+        debate_cmd.cmd_ask(args)
+
+    out = capsys.readouterr().out
+    assert [call.kwargs["agents_str"] for call in mock_run.await_args_list] == [
+        "anthropic-api,openai-api",
+        "openai-api,gemini",
+        "anthropic-api,gemini",
+    ]
+    assert "MODEL COMPARISON" in out
+    assert "[compare] selected agents=openai-api,gemini" in out
+    assert "Settlement tracker ERC-8004 integration" in out
+
+    selected_result = mock_receipt.call_args.args[0]
+    assert selected_result.metadata["model_comparison"]["selected_agents"] == "openai-api,gemini"
+    assert len(selected_result.metadata["model_comparison"]["candidates"]) == 3
 
 
 def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
