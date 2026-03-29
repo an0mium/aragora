@@ -232,6 +232,10 @@ def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
             "--compare-against",
             "anthropic-api,gemini",
             "--no-upgrade-to-good",
+            "--quality-concretize-max-rounds",
+            "0",
+            "--quality-extra-assessment-rounds",
+            "0",
         ]
     )
     args.db = ":memory:"
