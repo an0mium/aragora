@@ -152,6 +152,11 @@ class MockUsageSummary:
     """Mock usage summary returned by UsageTracker.get_summary()."""
 
     total_debates: int = 45
+    total_api_calls: int = 150
+    total_agent_calls: int = 0
+    total_tokens_in: int = 500000
+    total_tokens_out: int = 250000
+    total_cost_usd: Decimal = Decimal("12.50")
     cost_by_provider: dict | None = None
 
     def __post_init__(self):
@@ -672,6 +677,41 @@ class TestGetSummary:
         assert costs["total_usd"] == "12.50"
         assert "avg_per_debate_usd" in costs
         assert "by_provider" in costs
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_uses_period_scoped_usage_totals(
+        self, mock_ct, mock_ut, mock_consensus, handler
+    ):
+        stats = _make_workspace_stats(
+            total_cost="999.99",
+            tokens_in=999999,
+            tokens_out=111111,
+            api_calls=999,
+        )
+        mock_ct.return_value = _make_mock_cost_tracker(workspace_stats=stats)
+        mock_ut.return_value = _make_mock_usage_tracker(
+            summary=MockUsageSummary(
+                total_debates=5,
+                total_api_calls=7,
+                total_tokens_in=1200,
+                total_tokens_out=800,
+                total_cost_usd=Decimal("5.00"),
+            )
+        )
+        h = _make_handler(query_params={"period": "week"})
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        assert body["costs"]["total_usd"] == "5.00"
+        assert body["costs"]["avg_per_debate_usd"] == "1.00"
+        assert body["tokens"] == {"total": 2000, "input": 1200, "output": 800}
+        assert body["activity"]["api_calls"] == 7
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
