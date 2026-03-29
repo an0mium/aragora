@@ -526,6 +526,26 @@ class TestKnowledgeMoundCoreClose:
         mock_meta.close.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_close_sync_meta_store(self):
+        """Should support synchronous meta store close methods."""
+        core = KnowledgeMoundCore()
+
+        class SyncMetaStore:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        meta_store = SyncMetaStore()
+        core._meta_store = meta_store
+        core._initialized = True
+
+        await core.close()
+
+        assert meta_store.closed is True
+
+    @pytest.mark.asyncio
     async def test_close_resets_initialized(self):
         """Should reset _initialized flag."""
         core = KnowledgeMoundCore()

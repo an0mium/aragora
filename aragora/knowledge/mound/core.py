@@ -14,6 +14,7 @@ Provides the foundation for KnowledgeMound:
 from __future__ import annotations
 
 import json
+import inspect
 import logging
 import sqlite3
 import uuid
@@ -371,7 +372,9 @@ class KnowledgeMoundCore:
             except (RuntimeError, ConnectionError, OSError) as e:
                 logger.debug("Error closing vector store: %s", e)
         if hasattr(self._meta_store, "close"):
-            await self._meta_store.close()
+            close_result = self._meta_store.close()
+            if inspect.isawaitable(close_result):
+                await close_result
 
         self._initialized = False
         logger.info("Knowledge Mound closed")
