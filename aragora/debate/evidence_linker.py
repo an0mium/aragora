@@ -18,6 +18,7 @@ to heuristic matching when unavailable.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -26,6 +27,7 @@ from aragora.debate.evidence_quality import (
     EvidenceQualityAnalyzer,
     EvidenceType,
 )
+from aragora.utils.env import is_offline_mode, is_truthy_env
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,16 @@ def __getattr__(name: str):
         _ensure_embeddings_checked()
         return _EMBEDDINGS_AVAILABLE
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _prefer_local_embedding_files() -> bool:
+    """Avoid network-backed model downloads in offline and pytest runs."""
+    return (
+        is_offline_mode()
+        or is_truthy_env("HF_HUB_OFFLINE", default=False)
+        or is_truthy_env("TRANSFORMERS_OFFLINE", default=False)
+        or "PYTEST_CURRENT_TEST" in os.environ
+    )
 
 
 # Claim detection patterns
@@ -191,9 +203,12 @@ class EvidenceClaimLinker:
             and _SentenceTransformer is not None
         ):
             try:
-                self._embedder = _SentenceTransformer(embedding_model)
+                init_kwargs: dict[str, object] = {}
+                if _prefer_local_embedding_files():
+                    init_kwargs["local_files_only"] = True
+                self._embedder = _SentenceTransformer(embedding_model, **init_kwargs)
                 logger.debug("Loaded embedding model: %s", embedding_model)
-            except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
+            except Exception as e:  # noqa: BLE001 - embedder init must degrade gracefully
                 logger.warning("Failed to load embedding model: %s", e)
 
     @property
