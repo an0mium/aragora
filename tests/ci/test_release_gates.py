@@ -247,6 +247,40 @@ class TestAutopilotWorktreeE2EWorkflow:
         assert "scripts/ci_install_project.sh --extras dev,test" in command
 
 
+class TestFrontendE2EWorkflow:
+    """Validate frontend E2E workflow backend bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "test.yml"
+
+    def test_frontend_e2e_job_uses_shared_python_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["frontend"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install Python dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+    def test_frontend_e2e_job_bootstraps_backend_and_redis(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["frontend"]
+        redis = workflow["services"]["redis"]
+        assert redis["image"] == "redis:7-alpine"
+
+        backend_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Start Aragora backend"
+        )
+        backend_command = backend_step["run"]
+        assert "python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1" in (
+            backend_command
+        )
+        env = backend_step["env"]
+        assert env["ARAGORA_REDIS_URL"] == "redis://localhost:6379/0"
+        assert env["ARAGORA_DATA_DIR"] == ".nomic"
+
+
 class TestReleaseWorkflow:
     """Validate release.yml integrates all gates."""
 
