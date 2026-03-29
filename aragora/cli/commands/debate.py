@@ -2439,51 +2439,58 @@ def cmd_ask(args: argparse.Namespace) -> None:
             enforce_fail_closed=enforce_quality_fail_closed,
         )
 
+    async def _run_model_comparison() -> tuple[Any, list[dict[str, Any]], list[dict[str, str]]]:
+        ranked_candidates: list[tuple[dict[str, Any], Any]] = []
+        comparison_failures_local: list[dict[str, str]] = []
+        total_candidates = len(comparison_agent_sets)
+
+        for idx, combo_agents in enumerate(comparison_agent_sets, start=1):
+            print(f"[compare] running {idx}/{total_candidates} agents={combo_agents}")
+            try:
+                combo_result = await _run_with_timeout(
+                    agents_override=combo_agents,
+                    enforce_quality_fail_closed=False,
+                )
+            except asyncio.TimeoutError:
+                comparison_failures_local.append(
+                    {
+                        "agents": combo_agents,
+                        "error": f"timed out after {debate_timeout}s",
+                    }
+                )
+                print(
+                    f"[compare] failed agents={combo_agents} error=timed out after {debate_timeout}s",
+                    file=sys.stderr,
+                )
+                continue
+            except Exception as e:  # noqa: BLE001 - comparison should continue when a combo fails
+                comparison_failures_local.append({"agents": combo_agents, "error": str(e)})
+                print(
+                    f"[compare] failed agents={combo_agents} error={e}",
+                    file=sys.stderr,
+                )
+                continue
+
+            summary = _build_comparison_summary(combo_result, combo_agents)
+            ranked_candidates.append((summary, combo_result))
+
+        if not ranked_candidates:
+            raise RuntimeError("All compared agent combinations failed.")
+
+        ranked_candidates.sort(key=lambda item: _comparison_rank(item[0]), reverse=True)
+        comparison_summaries_local = [summary for summary, _ in ranked_candidates]
+        selected_result = ranked_candidates[0][1]
+        return selected_result, comparison_summaries_local, comparison_failures_local
+
     result = None
     comparison_summaries: list[dict[str, Any]] = []
     comparison_failures: list[dict[str, str]] = []
     try:
         with _strict_wall_clock_timeout(overall_timeout_seconds):
             if comparison_mode:
-                ranked_candidates: list[tuple[dict[str, Any], Any]] = []
-                total_candidates = len(comparison_agent_sets)
-                for idx, combo_agents in enumerate(comparison_agent_sets, start=1):
-                    print(f"[compare] running {idx}/{total_candidates} agents={combo_agents}")
-                    combo_coro = _run_with_timeout(
-                        agents_override=combo_agents,
-                        enforce_quality_fail_closed=False,
-                    )
-                    try:
-                        combo_result = asyncio.run(_run_coro_with_cmd_ask_cleanup(combo_coro))
-                    except asyncio.TimeoutError:
-                        comparison_failures.append(
-                            {
-                                "agents": combo_agents,
-                                "error": f"timed out after {debate_timeout}s",
-                            }
-                        )
-                        print(
-                            f"[compare] failed agents={combo_agents} error=timed out after {debate_timeout}s",
-                            file=sys.stderr,
-                        )
-                        continue
-                    except Exception as e:  # noqa: BLE001 - comparison should continue when a combo fails
-                        comparison_failures.append({"agents": combo_agents, "error": str(e)})
-                        print(
-                            f"[compare] failed agents={combo_agents} error={e}",
-                            file=sys.stderr,
-                        )
-                        continue
-
-                    summary = _build_comparison_summary(combo_result, combo_agents)
-                    ranked_candidates.append((summary, combo_result))
-
-                if not ranked_candidates:
-                    raise RuntimeError("All compared agent combinations failed.")
-
-                ranked_candidates.sort(key=lambda item: _comparison_rank(item[0]), reverse=True)
-                comparison_summaries = [summary for summary, _ in ranked_candidates]
-                result = ranked_candidates[0][1]
+                result, comparison_summaries, comparison_failures = asyncio.run(
+                    _run_coro_with_cmd_ask_cleanup(_run_model_comparison())
+                )
                 metadata = getattr(result, "metadata", None)
                 if not isinstance(metadata, dict):
                     metadata = {}
