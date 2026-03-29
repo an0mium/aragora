@@ -82,6 +82,9 @@ class ConcreteSearchHandler(SearchOperationsMixin):
     def _get_query_engine(self):
         return self._query_engine
 
+    def _get_knowledge_mound(self):
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
