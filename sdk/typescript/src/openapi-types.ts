@@ -58022,6 +58022,62 @@ export interface components {
                 /** @default 0.5 */
                 diversity_preference: number;
             };
+            /** @description Run the same debate across multiple candidate agent/model combinations and keep the best result. */
+            comparison_config?: {
+                /**
+                 * @description Enable comparison mode (default true when this object is present)
+                 * @default true
+                 */
+                enabled: boolean;
+                /**
+                 * @description Automatically select the strongest result after all combinations finish
+                 * @default true
+                 */
+                pick_best_result: boolean;
+                /**
+                 * @description Optional strategy name for choosing the winning result
+                 * @example llm_judge
+                 */
+                selection_strategy?: string;
+                /**
+                 * @description Candidate lineups to run against the same debate question
+                 * @example [
+                 *       [
+                 *         "claude",
+                 *         "openai-api",
+                 *         "gemini"
+                 *       ],
+                 *       [
+                 *         "claude",
+                 *         "grok",
+                 *         "qwen"
+                 *       ]
+                 *     ]
+                 */
+                agent_combinations?: (string | {
+                    provider: string;
+                    model?: string;
+                    persona?: string;
+                    role?: string;
+                    name?: string;
+                    hierarchy_role?: string;
+                })[][];
+            };
+            /**
+             * @deprecated
+             * @description Deprecated alias for comparison_config.
+             */
+            model_comparison?: Record<string, never>;
+            /**
+             * @deprecated
+             * @description Deprecated alias for comparison_config.agent_combinations.
+             */
+            agent_combinations?: string[][];
+            /**
+             * @deprecated
+             * @description Deprecated human-facing alias for comparison_config.agent_combinations.
+             */
+            model_combinations?: string[][];
             /**
              * @description Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS)
              * @default true

@@ -256,6 +256,48 @@ class AutoSelectConfig(BaseModel):
     diversity_preference: float | None = 0.5
 
 
+class AgentCombination1(BaseModel):
+    provider: str
+    model: str | None = None
+    persona: str | None = None
+    role: str | None = None
+    name: str | None = None
+    hierarchy_role: str | None = None
+
+
+class AgentCombination(BaseModel):
+    __root__: Annotated[list[str | AgentCombination1], Field(max_items=10, min_items=2)]
+
+
+class ComparisonConfig(BaseModel):
+    enabled: Annotated[
+        bool | None,
+        Field(description="Enable comparison mode (default true when this object is present)"),
+    ] = True
+    pick_best_result: Annotated[
+        bool | None,
+        Field(
+            description="Automatically select the strongest result after all combinations finish"
+        ),
+    ] = True
+    selection_strategy: Annotated[
+        str | None,
+        Field(
+            description="Optional strategy name for choosing the winning result",
+            example="llm_judge",
+        ),
+    ] = None
+    agent_combinations: Annotated[
+        list[AgentCombination] | None,
+        Field(
+            description="Candidate lineups to run against the same debate question",
+            example=[["claude", "openai-api", "gemini"], ["claude", "grok", "qwen"]],
+            max_items=10,
+            min_items=1,
+        ),
+    ] = None
+
+
 class TrendingCategory(StrEnum):
     tech = "tech"
     science = "science"
@@ -361,6 +403,30 @@ class DebateCreateRequest(BaseModel):
     auto_select_config: Annotated[
         AutoSelectConfig | None,
         Field(description="Configuration for auto-selection algorithm"),
+    ] = None
+    comparison_config: Annotated[
+        ComparisonConfig | None,
+        Field(
+            description="Run the same debate across multiple candidate agent/model combinations and keep the best result."
+        ),
+    ] = None
+    model_comparison: Annotated[
+        dict[str, Any] | None,
+        Field(deprecated=True, description="Deprecated alias for comparison_config."),
+    ] = None
+    agent_combinations: Annotated[
+        list[list[str]] | None,
+        Field(
+            deprecated=True,
+            description="Deprecated alias for comparison_config.agent_combinations.",
+        ),
+    ] = None
+    model_combinations: Annotated[
+        list[list[str]] | None,
+        Field(
+            deprecated=True,
+            description="Deprecated human-facing alias for comparison_config.agent_combinations.",
+        ),
     ] = None
     enable_verticals: Annotated[
         bool | None,
