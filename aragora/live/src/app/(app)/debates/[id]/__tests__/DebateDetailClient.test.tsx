@@ -7,6 +7,7 @@ const mockFetch = jest.fn();
 const mockSetContext = jest.fn();
 const mockClearContext = jest.fn();
 const mockSearchParamsGet = jest.fn();
+const mockClipboardWriteText = jest.fn();
 const mockGetAuthHeaders = jest.fn(() => ({
   'Content-Type': 'application/json',
   Authorization: 'Bearer test-token',
@@ -106,6 +107,14 @@ function jsonResponse(data: unknown, ok = true, status = 200): Response {
 describe('DebateDetailClient bridge actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockClipboardWriteText.mockResolvedValue(undefined);
+    const clipboard = navigator.clipboard ?? { writeText: async (_text: string) => undefined };
+    clipboard.writeText = mockClipboardWriteText;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: clipboard,
+      writable: true,
+      configurable: true,
+    });
 
     mockFetch.mockImplementation((input: string | URL | Request) => {
       const url = String(input);
@@ -139,6 +148,16 @@ describe('DebateDetailClient bridge actions', () => {
 
       if (url === 'http://backend.test/api/v1/debates/debate-123/bridge') {
         return Promise.resolve(jsonResponse({ success: true }));
+      }
+
+      if (url === 'http://backend.test/api/v1/debates/debate-123/share') {
+        return Promise.resolve(
+          jsonResponse({
+            debate_id: 'debate-123',
+            public_spectate: true,
+            share_url: '/debate/debate-123',
+          }),
+        );
       }
 
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -190,5 +209,32 @@ describe('DebateDetailClient bridge actions', () => {
       'href',
       '/debates/compare?left=debate-123',
     );
+  });
+
+  it('creates a public share link and copies the standalone debate URL', async () => {
+    const user = userEvent.setup();
+
+    render(<DebateDetailClient />);
+
+    await user.click(await screen.findByRole('button', { name: 'SHARE' }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://backend.test/api/v1/debates/debate-123/share',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-token',
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockClipboardWriteText).toHaveBeenCalledWith('http://localhost/debate/debate-123');
+    });
+
+    expect(screen.getAllByText(/copied!/i)).not.toHaveLength(0);
   });
 });

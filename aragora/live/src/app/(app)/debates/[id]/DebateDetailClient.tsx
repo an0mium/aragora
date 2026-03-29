@@ -38,6 +38,11 @@ function formatDuration(seconds: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
+interface DebateShareResponse {
+  share_url?: string;
+  full_url?: string;
+}
+
 export default function DebateDetailClient() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
@@ -140,15 +145,26 @@ export default function DebateDetailClient() {
 
   const handleShare = useCallback(async () => {
     if (!id) return;
-    const url = `${window.location.origin}/debates/${id}`;
     try {
+      const res = await fetch(`${backendConfig.api}/api/v1/debates/${id}/share`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to create share link (HTTP ${res.status})`);
+      }
+      const data = (await res.json()) as DebateShareResponse;
+      const url =
+        typeof data.full_url === 'string' && data.full_url.length > 0
+          ? data.full_url
+          : new URL(data.share_url || `/debate/${id}`, window.location.origin).toString();
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       logger.error('Failed to copy link:', err);
     }
-  }, [id]);
+  }, [backendConfig.api, getAuthHeaders, id]);
 
   // Right sidebar context — only update when pkg changes.
   // setContext/clearContext are stable useCallback refs so we exclude them
