@@ -1542,3 +1542,191 @@ class TestClassifyTerminalRunOutcome:
         assert deliverable["type"] == "branch"
         assert deliverable["branch"] == "codex/swarm-abc-subtask_1"
         assert deliverable["commit_shas"] == ["abc123"]
+
+
+# ---------------------------------------------------------------------------
+# Focused test discovery
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoverFocusedTests:
+    """Tests for _discover_focused_tests() git-diff-based test discovery."""
+
+    def test_maps_source_to_test_mirror(self, tmp_path):
+        """aragora/swarm/foo.py → tests/swarm/test_foo.py"""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        # Create the expected test file on disk
+        test_dir = tmp_path / "tests" / "swarm"
+        test_dir.mkdir(parents=True)
+        (test_dir / "test_foo.py").write_text("# test")
+
+        diff_output = "aragora/swarm/foo.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert result == ["tests/swarm/test_foo.py"]
+
+    def test_includes_changed_test_files_directly(self, tmp_path):
+        """Test files in the diff are included as-is."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        test_dir = tmp_path / "tests" / "swarm"
+        test_dir.mkdir(parents=True)
+        (test_dir / "test_boss_loop.py").write_text("# test")
+
+        diff_output = "tests/swarm/test_boss_loop.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert result == ["tests/swarm/test_boss_loop.py"]
+
+    def test_deduplicates_results(self, tmp_path):
+        """Same test file referenced by source and test change appears once."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        test_dir = tmp_path / "tests" / "swarm"
+        test_dir.mkdir(parents=True)
+        (test_dir / "test_foo.py").write_text("# test")
+
+        diff_output = "aragora/swarm/foo.py\ntests/swarm/test_foo.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert result == ["tests/swarm/test_foo.py"]
+
+    def test_skips_nonexistent_test_files(self, tmp_path):
+        """If the mirror test file doesn't exist, it's excluded."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        # Don't create any test files
+        diff_output = "aragora/swarm/nonexistent.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert result == []
+
+    def test_returns_empty_on_git_failure(self):
+        """Gracefully returns [] when git diff fails."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=128, stdout="", stderr="fatal: bad revision"
+            )
+            result = _discover_focused_tests(base_ref="origin/main")
+
+        assert result == []
+
+    def test_multiple_changed_files(self, tmp_path):
+        """Multiple source files map to their respective test mirrors."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        for subdir, name in [
+            ("swarm", "test_foo.py"),
+            ("debate", "test_orchestrator.py"),
+        ]:
+            d = tmp_path / "tests" / subdir
+            d.mkdir(parents=True, exist_ok=True)
+            (d / name).write_text("# test")
+
+        diff_output = "aragora/swarm/foo.py\naragora/debate/orchestrator.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert "tests/swarm/test_foo.py" in result
+        assert "tests/debate/test_orchestrator.py" in result
+        assert len(result) == 2
+
+    def test_ignores_non_aragora_source_files(self, tmp_path):
+        """Files outside aragora/ and tests/ are ignored."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        diff_output = "scripts/nomic_loop.py\nsetup.py\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert result == []
+
+    def test_capped_at_20(self, tmp_path):
+        """Results are capped at 20 test files."""
+        from aragora.swarm.boss_loop import _discover_focused_tests
+
+        test_dir = tmp_path / "tests" / "swarm"
+        test_dir.mkdir(parents=True)
+
+        lines = []
+        for i in range(25):
+            name = f"mod_{i}.py"
+            (test_dir / f"test_{name}").write_text("# test")
+            lines.append(f"aragora/swarm/{name}")
+
+        diff_output = "\n".join(lines) + "\n"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=diff_output, stderr="")
+            result = _discover_focused_tests(base_ref="origin/main", worktree=str(tmp_path))
+
+        assert len(result) == 20
+
+
+class TestApplyFocusedVerification:
+    """Tests for _apply_focused_verification()."""
+
+    def test_replaces_broad_pytest_with_focused(self, tmp_path):
+        from aragora.swarm.boss_loop import _apply_focused_verification
+
+        test_dir = tmp_path / "tests" / "swarm"
+        test_dir.mkdir(parents=True)
+        (test_dir / "test_foo.py").write_text("# test")
+
+        criteria = ["python -m pytest tests/ -x -q"]
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="aragora/swarm/foo.py\n",
+                stderr="",
+            )
+            result = _apply_focused_verification(criteria, worktree=str(tmp_path))
+
+        assert len(result) == 1
+        assert "tests/swarm/test_foo.py" in result[0]
+        assert "--timeout=30" in result[0]
+
+    def test_preserves_k_filtered_criteria(self):
+        from aragora.swarm.boss_loop import _apply_focused_verification
+
+        criteria = ["python -m pytest tests/ -x -q -k focused"]
+        result = _apply_focused_verification(criteria)
+        assert result == criteria
+
+    def test_preserves_non_pytest_criteria(self):
+        from aragora.swarm.boss_loop import _apply_focused_verification
+
+        criteria = ["python -c 'import aragora; print(aragora.__version__)'"]
+        result = _apply_focused_verification(criteria)
+        assert result == criteria
+
+    def test_falls_back_when_no_tests_found(self):
+        from aragora.swarm.boss_loop import _apply_focused_verification
+
+        criteria = ["python -m pytest tests/ -x -q"]
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = _apply_focused_verification(criteria)
+
+        assert result == criteria

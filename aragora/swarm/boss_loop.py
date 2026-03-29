@@ -403,6 +403,99 @@ class RunnerFreshnessResult:
         }
 
 
+def _discover_focused_tests(
+    *,
+    base_ref: str = "origin/main",
+    worktree: str | None = None,
+) -> list[str]:
+    """Map git-diff changed files to their mirror test paths.
+
+    Runs ``git diff --name-only <base_ref>..HEAD`` to find changed ``.py``
+    files, then maps each source file under ``aragora/`` to its test mirror
+    under ``tests/`` (e.g. ``aragora/swarm/foo.py`` → ``tests/swarm/test_foo.py``).
+    Changed test files (already under ``tests/``) are included directly.
+
+    Returns a de-duplicated list of test paths that exist on disk, capped at 20.
+    If no matching tests are found the list is empty — callers should fall back
+    to the full suite.
+    """
+    cwd = worktree or None
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", f"{base_ref}..HEAD", "--", "*.py"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=cwd,
+        )
+        if result.returncode != 0:
+            logger.debug("git diff failed: %s", result.stderr.strip())
+            return []
+    except Exception as exc:
+        logger.debug("git diff error: %s", exc)
+        return []
+
+    changed = [f.strip() for f in result.stdout.splitlines() if f.strip()]
+    if not changed:
+        return []
+
+    test_paths: list[str] = []
+    seen: set[str] = set()
+    root = Path(cwd) if cwd else Path.cwd()
+
+    for filepath in changed:
+        # If it's already a test file, include directly
+        if filepath.startswith("tests/"):
+            if filepath not in seen:
+                full = root / filepath
+                if full.is_file():
+                    seen.add(filepath)
+                    test_paths.append(filepath)
+            continue
+
+        # Map aragora/X/Y/foo.py → tests/X/Y/test_foo.py
+        if filepath.startswith("aragora/") and filepath.endswith(".py"):
+            parts = Path(filepath)
+            # Strip the leading 'aragora/' prefix
+            relative = parts.relative_to("aragora")
+            test_name = f"test_{relative.name}"
+            test_file = str(Path("tests") / relative.parent / test_name)
+            if test_file not in seen:
+                full = root / test_file
+                if full.is_file():
+                    seen.add(test_file)
+                    test_paths.append(test_file)
+
+    return test_paths[:20]
+
+
+def _apply_focused_verification(
+    criteria: list[str],
+    *,
+    base_ref: str = "origin/main",
+    worktree: str | None = None,
+) -> list[str]:
+    """Replace broad ``pytest tests/`` commands with focused test paths.
+
+    For each criterion that contains a broad ``pytest tests/`` invocation
+    (without a ``-k`` filter), discover the test files related to the
+    git diff and substitute them in.  Non-pytest criteria pass through
+    unchanged.
+    """
+    focused: list[str] = []
+    for criterion in criteria:
+        if "pytest tests/" in criterion and "-k" not in criterion.lower():
+            tests = _discover_focused_tests(base_ref=base_ref, worktree=worktree)
+            if tests:
+                focused.append("python -m pytest --timeout=30 -x -q " + " ".join(tests))
+            else:
+                # No focused tests found — keep original as fallback
+                focused.append(criterion)
+        else:
+            focused.append(criterion)
+    return focused
+
+
 def check_runner_freshness(
     *,
     freshness_ttl_seconds: float = 300.0,
@@ -1850,18 +1943,7 @@ class BossLoop:
         if validation_contract and self.config.use_focused_verification:
             # Replace broad test suite commands with focused verification
             # that only tests files related to the worker's changes
-            focused = []
-            for criterion in validation_contract:
-                if "pytest tests/" in criterion and "-k" not in criterion.lower():
-                    # Replace broad suite with a marker that the supervisor
-                    # will resolve to the actual changed-file test paths
-                    focused.append(
-                        "python -m pytest --timeout=30 -x -q "
-                        "$(git diff --name-only origin/main -- '*.py' "
-                        "| grep '^tests/' | head -20 | tr '\\n' ' ')"
-                    )
-                else:
-                    focused.append(criterion)
+            focused = _apply_focused_verification(validation_contract)
             spec.acceptance_criteria = focused
         elif validation_contract:
             spec.acceptance_criteria = list(validation_contract)
