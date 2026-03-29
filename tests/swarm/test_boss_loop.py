@@ -1689,3 +1689,117 @@ class TestDiscoverFocusedTests:
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
         assert len(paths) == 2
+
+
+# ---------------------------------------------------------------------------
+# Boss metrics JSONL tests
+# ---------------------------------------------------------------------------
+
+
+class TestBossMetricsJSONL:
+    """Verify JSONL metrics are emitted per boss loop iteration."""
+
+    def test_metrics_jsonl_emitted_on_completed_worker(self, tmp_path, monkeypatch):
+        """A completed worker iteration writes a JSONL line with expected fields."""
+        monkeypatch.chdir(tmp_path)
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Add logging")]
+
+        async def _complete(issue, freshness):
+            return {
+                "status": "completed",
+                "changed_files": ["a.py", "b.py"],
+                "validations_run": ["pytest tests/a.py"],
+                "tests_passed": 1,
+            }
+
+        config = _boss_config(max_iterations=1)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _complete
+
+        asyncio.run(loop.run())
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists(), "boss_metrics.jsonl should be created"
+
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) >= 1
+
+        record = json.loads(lines[0])
+        assert record["iteration"] == 1
+        assert record["issue_number"] == 42
+        assert record["worker_status"] == "completed"
+        assert isinstance(record["elapsed_seconds"], (int, float))
+        assert record["files_changed"] == 2
+        assert record["tests_run"] == 1
+        assert record["tests_passed"] == 1
+
+    def test_metrics_jsonl_emitted_on_failed_worker(self, tmp_path, monkeypatch):
+        """A failed worker iteration also writes a JSONL metrics line."""
+        monkeypatch.chdir(tmp_path)
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(99, "Fix bug")]
+
+        async def _fail(issue, freshness):
+            return {"status": "failed", "error": "boom"}
+
+        config = _boss_config(max_iterations=1)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _fail
+
+        asyncio.run(loop.run())
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        assert metrics_path.exists()
+
+        record = json.loads(metrics_path.read_text().strip().splitlines()[0])
+        assert record["worker_status"] == "failed"
+        assert record["issue_number"] == 99
+        assert record["files_changed"] == 0
+        assert record["tests_run"] == 0
+        assert record["tests_passed"] == 0
+
+    def test_metrics_jsonl_appends_multiple_iterations(self, tmp_path, monkeypatch):
+        """Multiple iterations append separate lines to the same JSONL file."""
+        monkeypatch.chdir(tmp_path)
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [
+            _make_issue(1, "First"),
+            _make_issue(2, "Second"),
+        ]
+
+        call_count = 0
+
+        async def _alternate(issue, freshness):
+            nonlocal call_count
+            call_count += 1
+            return {"status": "completed"}
+
+        config = _boss_config(max_iterations=2)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _alternate
+
+        asyncio.run(loop.run())
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        lines = metrics_path.read_text().strip().splitlines()
+        assert len(lines) == 2
+
+        for i, line in enumerate(lines):
+            record = json.loads(line)
+            assert record["iteration"] == i + 1

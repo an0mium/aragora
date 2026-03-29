@@ -1173,6 +1173,40 @@ class BossLoop:
             self._record_lane_telemetry(worker_result, issue_dict, elapsed, None)
             return None
 
+    def _emit_boss_metrics(
+        self,
+        status: BossIterationStatus,
+        worker_result: dict[str, Any],
+    ) -> None:
+        """Append a JSONL metrics line for this iteration to the boss metrics log."""
+        try:
+            metrics_dir = Path(".aragora") / "overnight"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            metrics_path = metrics_dir / "boss_metrics.jsonl"
+
+            issue_number: int | None = None
+            if status.selected_issue is not None:
+                issue_number = status.selected_issue.get("number")
+
+            changed_files = worker_result.get("changed_files", [])
+            validations = worker_result.get("validations_run", [])
+            tests_passed = worker_result.get("tests_passed", 0)
+
+            record = {
+                "iteration": status.iteration,
+                "issue_number": issue_number,
+                "worker_status": status.worker_status,
+                "elapsed_seconds": status.elapsed_seconds,
+                "files_changed": len(changed_files) if isinstance(changed_files, list) else 0,
+                "tests_run": len(validations) if isinstance(validations, list) else 0,
+                "tests_passed": int(tests_passed) if tests_passed else 0,
+            }
+
+            with metrics_path.open("a") as f:
+                f.write(json.dumps(record) + "\n")
+        except Exception as exc:
+            logger.debug("Boss metrics emission skipped: %s", exc)
+
     def _record_lane_telemetry(
         self,
         worker_result: dict[str, Any],
@@ -1450,7 +1484,7 @@ class BossLoop:
         )
 
         worker_result = await self._dispatch_issue(selected, freshness)
-        return self._finalize_worker_result(
+        status = self._finalize_worker_result(
             iteration=iteration,
             timestamp=now,
             runner_freshness=freshness_dict,
@@ -1459,6 +1493,8 @@ class BossLoop:
             worker_result=worker_result,
             elapsed_seconds=time.monotonic() - iter_start,
         )
+        self._emit_boss_metrics(status, worker_result)
+        return status
 
     async def _run_iteration_batch(self, iteration: int) -> list[BossIterationStatus]:
         import asyncio
@@ -1596,6 +1632,7 @@ class BossLoop:
                     worker_result=worker_result,
                     elapsed_seconds=time.monotonic() - started_at,
                 )
+                self._emit_boss_metrics(status, worker_result)
                 statuses.append(status)
                 if status.stop_reason and status.stop_reason != BossStopReason.STILL_RUNNING.value:
                     stop_launching = True
