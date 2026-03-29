@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 
 import DebateComparePage from '../page';
 
@@ -131,8 +131,16 @@ describe('DebateComparePage', () => {
 
     expect(await screen.findByText(/outcome shift detected/i)).toBeInTheDocument();
     expect(screen.getByText(/configuration delta/i)).toBeInTheDocument();
-    expect(screen.getByText('claude')).toBeInTheDocument();
-    expect(screen.getByText('gemini')).toBeInTheDocument();
+    const sharedAgents = screen.getByText(/shared agents/i).parentElement;
+    const leftOnlyAgents = screen.getByText(/left only/i).parentElement;
+    const rightOnlyAgents = screen.getByText(/right only/i).parentElement;
+
+    expect(sharedAgents).not.toBeNull();
+    expect(leftOnlyAgents).not.toBeNull();
+    expect(rightOnlyAgents).not.toBeNull();
+    expect(within(sharedAgents as HTMLElement).getByText('codex')).toBeInTheDocument();
+    expect(within(leftOnlyAgents as HTMLElement).getByText('claude')).toBeInTheDocument();
+    expect(within(rightOnlyAgents as HTMLElement).getByText('gemini')).toBeInTheDocument();
     expect(screen.getByText('Ship the staged rollout.')).toBeInTheDocument();
     expect(
       screen.getByText('Hold the rollout until the metrics gap is explained.'),
