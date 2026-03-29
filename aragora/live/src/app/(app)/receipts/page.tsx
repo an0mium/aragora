@@ -27,6 +27,7 @@ interface ReceiptListItem {
   status: 'pending' | 'running' | 'completed' | 'failed';
   receiptId?: string;
   gauntletId?: string;
+  debateId?: string;
   verdict?: ReceiptVerdict;
   confidence?: number;
   created_at: string;
@@ -56,6 +57,7 @@ interface ConsensusProof {
 interface DecisionReceipt {
   receipt_id: string;
   gauntlet_id: string;
+  debate_id?: string;
   timestamp: string;
   input_summary: string;
   input_hash: string;
@@ -263,6 +265,7 @@ function normalizeListItem(
     status: normalizeStatus(raw.status),
     receiptId,
     gauntletId,
+    debateId: safeString(raw.debate_id) ?? safeString(metadata?.debate_id),
     verdict: normalizeVerdict(raw.verdict),
     confidence: safeNumber(raw.confidence),
     created_at: normalizeTimestamp(raw.created_at ?? raw.timestamp ?? raw.completed_at),
@@ -304,6 +307,7 @@ function sameReceiptItem(a: ReceiptListItem, b: ReceiptListItem): boolean {
     a.status === b.status &&
     a.receiptId === b.receiptId &&
     a.gauntletId === b.gauntletId &&
+    a.debateId === b.debateId &&
     a.verdict === b.verdict &&
     a.confidence === b.confidence &&
     a.created_at === b.created_at &&
@@ -340,6 +344,7 @@ function mergeReceiptItems(
     ...preferred,
     receiptId: preferred.receiptId ?? fallback.receiptId,
     gauntletId: preferred.gauntletId ?? fallback.gauntletId,
+    debateId: preferred.debateId ?? fallback.debateId,
     verdict: preferred.verdict ?? fallback.verdict,
     confidence: preferred.confidence ?? fallback.confidence,
     created_at: preferred.created_at || fallback.created_at,
@@ -582,6 +587,7 @@ function normalizeReceiptDetail(
       safeString(raw.gauntlet_id) ??
       sourceItem.gauntletId ??
       sourceItem.id,
+    debate_id: safeString(raw.debate_id) ?? sourceItem.debateId,
     timestamp: normalizeTimestamp(raw.timestamp ?? raw.created_at ?? sourceItem.created_at),
     input_summary:
       safeString(raw.input_summary) ??
@@ -1129,6 +1135,14 @@ export default function ReceiptsPage() {
             >
               Back
             </button>
+            {receipt.debate_id && (
+              <Link
+                href={`/debates/${receipt.debate_id}`}
+                className="px-3 py-1 text-sm font-mono bg-acid-cyan/20 border border-acid-cyan text-acid-cyan rounded hover:bg-acid-cyan/30"
+              >
+                View result
+              </Link>
+            )}
             <button
               onClick={() => setDeliveryModalOpen(true)}
               className="px-3 py-1 text-sm font-mono bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
