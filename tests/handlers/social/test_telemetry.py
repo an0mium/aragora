@@ -70,6 +70,24 @@ def force_prometheus(monkeypatch):
     import aragora.server.handlers.social.telemetry as telemetry_mod
 
     monkeypatch.setattr(telemetry_mod, "PROMETHEUS_AVAILABLE", True)
+    for name in (
+        "SOCIAL_WEBHOOK_REQUESTS_TOTAL",
+        "SOCIAL_WEBHOOK_LATENCY",
+        "SOCIAL_MESSAGES_TOTAL",
+        "SOCIAL_COMMANDS_TOTAL",
+        "SOCIAL_DEBATES_STARTED",
+        "SOCIAL_DEBATES_COMPLETED",
+        "SOCIAL_DEBATES_FAILED",
+        "SOCIAL_DEBATES_IN_PROGRESS",
+        "SOCIAL_GAUNTLETS_STARTED",
+        "SOCIAL_GAUNTLETS_COMPLETED",
+        "SOCIAL_GAUNTLETS_FAILED",
+        "SOCIAL_VOTES_TOTAL",
+        "SOCIAL_ERRORS_TOTAL",
+        "SOCIAL_API_CALLS_TOTAL",
+        "SOCIAL_API_LATENCY",
+    ):
+        monkeypatch.setattr(telemetry_mod, name, MagicMock(), raising=False)
 
 
 # ============================================================================
