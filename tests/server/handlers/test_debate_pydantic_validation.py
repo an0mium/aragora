@@ -112,6 +112,30 @@ class TestDebateRequestModel:
         )
         assert req.agents == ["claude", "gpt", "gemini"]
 
+    def test_agents_accept_structured_specs(self):
+        """Structured agent specs are accepted for model-specific debates."""
+        from aragora.server.validation.pydantic_models import DebateRequest
+
+        req = DebateRequest(
+            question="Should we use microservices instead of monoliths?",
+            agents=[
+                {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                {"agent_type": "openai-api", "model": "gpt-4.1"},
+            ],
+        )
+        assert req.agents[0]["provider"] == "anthropic-api"
+        assert req.agents[1]["agent_type"] == "openai-api"
+
+    def test_agents_reject_structured_specs_without_provider(self):
+        """Structured agent specs must include a provider-like field."""
+        from aragora.server.validation.pydantic_models import DebateRequest
+
+        with pytest.raises(ValidationError):
+            DebateRequest(
+                question="Should we use microservices instead of monoliths?",
+                agents=[{"model": "claude-opus-4-6"}],
+            )
+
     def test_to_handler_dict_contains_question(self):
         """to_handler_dict() returns a dict containing the question."""
         from aragora.server.validation.pydantic_models import DebateRequest
@@ -173,6 +197,33 @@ class TestValidateDebateRequest:
         assert req is None
         assert err is not None
 
+    def test_structured_agents_return_model(self):
+        """Structured agent specs pass helper validation."""
+        from aragora.server.validation.pydantic_models import validate_debate_request
+
+        req, err = validate_debate_request(
+            {
+                "question": "Should we adopt microservices architecture?",
+                "agents": [{"provider": "anthropic-api", "model": "claude-opus-4-6"}],
+            }
+        )
+        assert req is not None
+        assert err is None
+
+    def test_structured_agents_missing_provider_returns_error(self):
+        """Structured agent specs without provider-like fields return an error."""
+        from aragora.server.validation.pydantic_models import validate_debate_request
+
+        req, err = validate_debate_request(
+            {
+                "question": "Should we adopt microservices architecture?",
+                "agents": [{"model": "claude-opus-4-6"}],
+            }
+        )
+        assert req is None
+        assert err is not None
+        assert "provider" in err
+
     def test_error_is_human_readable(self):
         """Error message for invalid payload is human-readable text."""
         from aragora.server.validation.pydantic_models import validate_debate_request
@@ -217,6 +268,23 @@ class TestDebateCreateEndpointPydanticIntegration:
             "question": "Should small teams adopt trunk-based development?",
             "rounds": 3,
             "agents": ["claude", "gpt"],
+            "auto_select": False,
+        }
+        req, err = validate_debate_request(payload)
+        assert req is not None
+        assert err is None
+
+    def test_pydantic_accepts_mixed_agent_string_and_object_payload(self):
+        """Mixed legacy and structured agent specs remain valid."""
+        from aragora.server.validation.pydantic_models import validate_debate_request
+
+        payload = {
+            "question": "Should small teams adopt trunk-based development?",
+            "rounds": 3,
+            "agents": [
+                "claude",
+                {"provider": "openai-api", "model": "gpt-4.1"},
+            ],
             "auto_select": False,
         }
         req, err = validate_debate_request(payload)

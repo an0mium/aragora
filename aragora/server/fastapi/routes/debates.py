@@ -37,8 +37,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from aragora.agents.spec import AgentSpec
 from aragora.rbac.models import AuthorizationContext
 
 from ..dependencies.auth import require_permission
@@ -153,12 +154,31 @@ class CreateDebateRequest(BaseModel):
     question: str = Field(
         ..., min_length=1, max_length=5000, description="Topic/question to debate"
     )
-    agents: str | None = Field(None, description="Comma-separated agent list")
+    agents: str | dict[str, Any] | list[str | dict[str, Any]] | None = Field(
+        None,
+        description="Agent specs as a comma-separated string, object, or list",
+    )
     rounds: int = Field(3, ge=1, le=20, description="Number of debate rounds")
     consensus: str = Field("majority", description="Consensus method")
     auto_select: bool = Field(False, description="Auto-select agents")
     context: str | None = Field(None, max_length=10000, description="Additional context")
     metadata: dict[str, Any] | None = Field(None, description="Custom metadata")
+
+    @field_validator("agents")
+    @classmethod
+    def validate_agents(
+        cls, value: str | dict[str, Any] | list[str | dict[str, Any]] | None
+    ) -> str | dict[str, Any] | list[str | dict[str, Any]] | None:
+        """Reject malformed structured agent specs early."""
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            return value
+        try:
+            AgentSpec.coerce_list(value, warn=False)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
 
 class CreateDebateResponse(BaseModel):

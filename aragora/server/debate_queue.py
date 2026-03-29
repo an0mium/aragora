@@ -38,6 +38,7 @@ from enum import Enum
 from typing import Any
 from collections.abc import Callable
 
+from aragora.agents.spec import AgentSpec
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 from urllib.parse import urlparse
 
@@ -224,11 +225,28 @@ class BatchItem:
         if len(question) > 10000:
             raise ValueError("question exceeds 10,000 characters")
 
-        agents = data.get("agents", DEFAULT_AGENTS)
-        if isinstance(agents, list):
-            agents = ",".join(str(a).strip() for a in agents if str(a).strip())
-        elif not isinstance(agents, str):
-            raise ValueError("agents must be a string or list of strings")
+        raw_agents = data.get("agents", DEFAULT_AGENTS)
+        if raw_agents is None:
+            agents = DEFAULT_AGENTS
+        elif isinstance(raw_agents, str):
+            agents = raw_agents.strip()
+        elif isinstance(raw_agents, dict):
+            agents = AgentSpec.coerce_list(raw_agents, warn=False)[0].to_string()
+        elif isinstance(raw_agents, list):
+            normalized_agents: list[str] = []
+            for item in raw_agents:
+                if isinstance(item, str):
+                    agent_name = item.strip()
+                    if agent_name:
+                        normalized_agents.append(agent_name)
+                    continue
+                if isinstance(item, dict):
+                    normalized_agents.append(AgentSpec.coerce_list(item, warn=False)[0].to_string())
+                    continue
+                raise ValueError("agents must be a string, object, or list of strings/objects")
+            agents = ",".join(normalized_agents)
+        else:
+            raise ValueError("agents must be a string, object, or list of strings/objects")
 
         try:
             rounds = min(max(int(data.get("rounds", DEFAULT_ROUNDS)), 1), MAX_ROUNDS)
