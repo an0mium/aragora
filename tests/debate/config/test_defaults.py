@@ -269,13 +269,13 @@ class TestDefaultsConsistency:
         )
 
     def test_fabric_config_uses_centralized_defaults(self):
-        """FabricDebateConfig should match DEBATE_DEFAULTS for agent limits."""
+        """FabricDebateConfig should use centralized minimums and fabric-specific caps."""
         from aragora.debate.config.defaults import DEBATE_DEFAULTS
-        from aragora.debate.fabric_integration import FabricDebateConfig
+        from aragora.debate.fabric_integration import FABRIC_DEFAULT_MAX_AGENTS, FabricDebateConfig
 
         config = FabricDebateConfig(pool_id="test-pool")
         assert config.min_agents == DEBATE_DEFAULTS.min_agents_per_debate
-        assert config.max_agents == DEBATE_DEFAULTS.max_agents_per_debate
+        assert config.max_agents == FABRIC_DEFAULT_MAX_AGENTS
 
     def test_byzantine_config_uses_centralized_defaults(self):
         """ByzantineConsensusConfig should match DEBATE_DEFAULTS."""

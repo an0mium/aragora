@@ -1001,11 +1001,11 @@ class TestProtocolConvenienceMethods:
         assert protocol.plan_approval_mode == "always"
 
     def test_default_protocol_flywheel_flags_disabled(self):
-        """Default protocol has flywheel flags disabled (opt-in)."""
+        """Default protocol keeps adaptive consensus and synthesis opt-in."""
         protocol = DebateProtocol()
         assert protocol.enable_adaptive_consensus is False
         assert protocol.enable_synthesis is False
-        assert protocol.enable_knowledge_injection is False
+        assert protocol.enable_knowledge_injection is True
 
 
 # ===========================================================================
