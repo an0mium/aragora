@@ -39,16 +39,20 @@ function isTerminalState(state) {
   return TERMINAL_STATUSES.has(normalized) || Boolean(state?.result?.finalAnswer);
 }
 
-function resolveFinalAnswer(result) {
+function resolveFinalAnswer(debate) {
+  if (!debate) {
+    return "";
+  }
+
   return (
-    result?.final_answer ||
-    result?.finalAnswer ||
-    result?.answer ||
-    result?.summary ||
-    result?.consensus?.final_answer ||
-    result?.consensus?.finalAnswer ||
-    result?.consensus?.summary ||
-    result?.consensus?.answer ||
+    debate.final_answer ||
+    debate.finalAnswer ||
+    debate.answer ||
+    debate.summary ||
+    debate.consensus?.final_answer ||
+    debate.consensus?.finalAnswer ||
+    debate.consensus?.summary ||
+    debate.consensus?.answer ||
     ""
   );
 }
