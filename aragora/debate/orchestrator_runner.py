@@ -11,6 +11,7 @@ import asyncio
 import os
 import time
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from aragora.core import DebateResult
@@ -171,6 +172,189 @@ class _DebateExecutionState:
     gupp_hook_entries: dict[str, str] = field(default_factory=dict)
     debate_status: str = "completed"
     debate_start_time: float = 0.0
+
+
+def _extract_agent_token_usage(agent: Any) -> tuple[int, int]:
+    """Best-effort token extraction across agent implementations."""
+
+    def _coerce_non_negative_int(value: Any) -> int:
+        if isinstance(value, bool):
+            return 0
+        if isinstance(value, int):
+            return max(value, 0)
+        if isinstance(value, float):
+            return max(int(value), 0)
+        if isinstance(value, Decimal):
+            return max(int(value), 0)
+        if isinstance(value, str):
+            try:
+                return max(int(value), 0)
+            except ValueError:
+                return 0
+        return 0
+
+    metrics = getattr(agent, "metrics", None)
+    agent_tokens_in = _coerce_non_negative_int(getattr(agent, "total_tokens_in", 0))
+    agent_tokens_out = _coerce_non_negative_int(getattr(agent, "total_tokens_out", 0))
+    if metrics is not None:
+        tokens_in = _coerce_non_negative_int(getattr(metrics, "total_input_tokens", 0))
+        tokens_out = _coerce_non_negative_int(getattr(metrics, "total_output_tokens", 0))
+        if tokens_in == 0 and tokens_out == 0 and (agent_tokens_in > 0 or agent_tokens_out > 0):
+            return agent_tokens_in, agent_tokens_out
+    else:
+        tokens_in = agent_tokens_in
+        tokens_out = agent_tokens_out
+
+    return tokens_in, tokens_out
+
+
+async def _record_debate_telemetry(
+    arena: Arena,
+    state: _DebateExecutionState,
+) -> None:
+    """Persist debate completion into the billing and analytics stores."""
+
+    def _coerce_optional_str(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        if isinstance(value, int | float):
+            return str(value)
+        return None
+
+    def _coerce_non_negative_float(value: Any) -> float:
+        if isinstance(value, bool):
+            return 0.0
+        if isinstance(value, int | float):
+            return max(float(value), 0.0)
+        if isinstance(value, Decimal):
+            return max(float(value), 0.0)
+        if isinstance(value, str):
+            try:
+                return max(float(value), 0.0)
+            except ValueError:
+                return 0.0
+        return 0.0
+
+    ctx = state.ctx
+    result = ctx.result
+    if result is None:
+        return
+
+    duration_seconds = _coerce_non_negative_float(getattr(result, "duration_seconds", 0.0))
+    if duration_seconds <= 0 and state.debate_start_time > 0:
+        duration_seconds = max(time.perf_counter() - state.debate_start_time, 0.0)
+
+    rounds_used = max(int(getattr(result, "rounds_used", 0) or 0), 0)
+    total_messages = len(getattr(result, "messages", []) or [])
+    total_votes = len(getattr(result, "votes", []) or [])
+    org_id = _coerce_optional_str(getattr(arena, "org_id", "") or getattr(ctx, "org_id", "")) or ""
+    user_id = _coerce_optional_str(getattr(arena, "user_id", ""))
+    provider_routing = None
+    if isinstance(getattr(result, "metadata", None), dict):
+        provider_routing = result.metadata.get("provider_routing")
+
+    telemetry_metadata = {
+        "status": state.debate_status,
+        "confidence": float(getattr(result, "confidence", 0.0) or 0.0),
+        "consensus_reached": bool(getattr(result, "consensus_reached", False)),
+        "message_count": total_messages,
+        "vote_count": total_votes,
+    }
+    if provider_routing:
+        telemetry_metadata["provider_routing"] = provider_routing
+
+    if org_id:
+        try:
+            from aragora.billing.usage_metering_integration import record_debate_tokens
+            from aragora.services.usage_metering import get_usage_meter
+
+            usage_summary = await record_debate_tokens(
+                org_id=org_id,
+                debate_id=state.debate_id,
+                agents=arena.agents,
+                user_id=user_id,
+                rounds=rounds_used,
+                duration_seconds=max(int(round(duration_seconds)), 0),
+                metadata=telemetry_metadata,
+            )
+            await get_usage_meter().flush_all()
+            if not isinstance(result.metadata, dict):
+                result.metadata = {}
+            result.metadata["usage_metering"] = usage_summary
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.debug("usage_metering_record_failed (non-critical): %s", e)
+
+    try:
+        from aragora.analytics.debate_analytics import get_debate_analytics
+        from aragora.billing.usage import calculate_token_cost
+
+        analytics = get_debate_analytics()
+        total_cost = Decimal(
+            str(_coerce_non_negative_float(getattr(result, "total_cost_usd", 0.0)))
+        )
+        await analytics.record_debate(
+            debate_id=state.debate_id,
+            rounds=rounds_used,
+            consensus_reached=bool(getattr(result, "consensus_reached", False)),
+            duration_seconds=duration_seconds,
+            agents=[getattr(agent, "name", str(agent)) for agent in arena.agents],
+            status=state.debate_status,
+            org_id=org_id or None,
+            user_id=user_id,
+            protocol=_coerce_optional_str(
+                getattr(getattr(arena, "protocol", None), "consensus", None)
+            ),
+            total_messages=total_messages,
+            total_votes=total_votes,
+            total_cost=total_cost,
+        )
+
+        governor = get_complexity_governor()
+        per_agent_cost = (
+            getattr(result, "per_agent_cost", {}) if isinstance(result.per_agent_cost, dict) else {}
+        )
+        for agent in arena.agents:
+            agent_name = getattr(agent, "name", str(agent))
+            tokens_in, tokens_out = _extract_agent_token_usage(agent)
+            governor_metrics = getattr(governor, "agent_metrics", {}).get(agent_name)
+            response_time_ms = (
+                _coerce_non_negative_float(getattr(governor_metrics, "avg_latency_ms", 0.0))
+                if governor_metrics is not None
+                else 0.0
+            )
+            provider = (
+                _coerce_optional_str(
+                    getattr(agent, "provider", None) or getattr(agent, "agent_type", "unknown")
+                )
+                or "unknown"
+            )
+            model = _coerce_optional_str(getattr(agent, "model", "unknown")) or "unknown"
+
+            if agent_name in per_agent_cost:
+                cost = Decimal(str(_coerce_non_negative_float(per_agent_cost[agent_name])))
+            else:
+                cost = calculate_token_cost(provider, model, tokens_in, tokens_out)
+
+            if tokens_in <= 0 and tokens_out <= 0 and response_time_ms <= 0 and cost <= 0:
+                continue
+
+            await analytics.record_agent_activity(
+                agent_id=agent_name,
+                debate_id=state.debate_id,
+                response_time_ms=response_time_ms,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                cost=cost,
+                error=False,
+                agent_name=agent_name,
+                provider=str(provider),
+                model=str(model),
+            )
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+        logger.debug("debate_analytics_record_failed (non-critical): %s", e)
 
 
 async def _populate_result_cost(
@@ -927,6 +1111,7 @@ async def handle_debate_completion(
     if ctx.result:
         await _populate_result_cost(ctx.result, state.debate_id, arena.extensions)
         await _populate_result_tokens_from_agents(ctx.result, arena.agents)
+        await _record_debate_telemetry(arena, state)
 
     # Persist debate cost summary to Knowledge Mound via CostAdapter
     if ctx.result:
