@@ -30,10 +30,10 @@ DEBATE_START_SCHEMA = {
     "task": {
         "type": "string",
         "min_length": 1,
-        "max_length": 100_000,
+        "max_length": 2_000,
         "required": False,
     },  # Can use 'question' too
-    "question": {"type": "string", "min_length": 1, "max_length": 100_000, "required": False},
+    "question": {"type": "string", "min_length": 1, "max_length": 2_000, "required": False},
     "agents": {
         "type": "list",
         "min_length": 0,

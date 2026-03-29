@@ -22,6 +22,8 @@ from aragora.server.debate_controller import (
     DebateResponse,
     DebateController,
     MAX_CONCURRENT_DEBATES,
+    _active_debates,
+    _active_debates_lock,
 )
 
 
