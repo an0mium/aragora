@@ -41,10 +41,12 @@ function isTerminalState(state) {
 
 function resolveFinalAnswer(result) {
   return (
+    result?.conclusion ||
     result?.final_answer ||
     result?.finalAnswer ||
     result?.answer ||
     result?.summary ||
+    result?.consensus?.conclusion ||
     result?.consensus?.final_answer ||
     result?.consensus?.finalAnswer ||
     result?.consensus?.summary ||
@@ -123,7 +125,7 @@ function renderState(state) {
       : "-";
 
   const answer =
-    activeState.result?.finalAnswer ||
+    resolveFinalAnswer(activeState.result) ||
     activeState.result?.message ||
     (activeState.status === "submitting"
       ? "Submitting selection to Aragora."
@@ -194,9 +196,20 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 }
 
 function buildResultState(previousState, debate) {
-  const confidence = Number(debate?.consensus?.confidence);
+  const confidence = Number(debate?.consensus?.confidence ?? debate?.consensus?.agreement ?? debate?.confidence);
   const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
-  const finalAnswer = resolveFinalAnswer(debate);
+  const finalAnswer =
+    debate.final_answer ||
+    debate.finalAnswer ||
+    debate.conclusion ||
+    debate.answer ||
+    debate.summary ||
+    debate.consensus?.final_answer ||
+    debate.consensus?.finalAnswer ||
+    debate.consensus?.conclusion ||
+    debate.consensus?.summary ||
+    debate.consensus?.answer ||
+    resolveFinalAnswer(debate);
 
   return {
     ...previousState,
