@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
@@ -1546,6 +1546,103 @@ class TestCreateDebateAsync:
 
         # Should have posted at least starting + result
         assert slack_handler._post_to_response_url.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_create_debate_async_includes_receipt_link_in_final_result(
+        self, slack_handler, commands_module, monkeypatch
+    ):
+        """Final Slack result includes the generated receipt link and status metadata."""
+        monkeypatch.setattr(commands_module, "SLACK_BOT_TOKEN", None)
+        monkeypatch.setattr(commands_module, "create_tracked_task", MagicMock())
+        monkeypatch.setenv("ARAGORA_PUBLIC_URL", "https://app.example.ai")
+
+        try:
+            from aragora.server.handlers.social._slack_impl import blocks as blocks_mod
+
+            monkeypatch.setattr(blocks_mod, "SLACK_BOT_TOKEN", None)
+        except (ImportError, AttributeError):
+            pass
+
+        mock_env = MagicMock()
+        mock_protocol = MagicMock()
+        mock_protocol.rounds = 3
+        mock_arena = MagicMock()
+        mock_result = MagicMock()
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.9
+        mock_result.rounds_used = 3
+        mock_result.participants = ["anthropic-api", "openai-api"]
+        mock_result.final_answer = "The agents concluded that..."
+        mock_result.winner = None
+        mock_result.id = "test-debate-id"
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        fake_receipt = MagicMock()
+        fake_receipt.receipt_id = "rcpt-slack-123"
+        fake_receipt.to_dict.return_value = {"receipt_id": "rcpt-slack-123"}
+        fake_decision_receipt = MagicMock()
+        fake_decision_receipt.from_debate_result.return_value = fake_receipt
+        fake_receipt_store = MagicMock()
+
+        fake_receipt_module = ModuleType("aragora.gauntlet.receipt")
+        fake_receipt_module.DecisionReceipt = fake_decision_receipt
+        fake_store_module = ModuleType("aragora.storage.receipt_store")
+        fake_store_module.get_receipt_store = MagicMock(return_value=fake_receipt_store)
+
+        slack_handler._post_to_response_url = AsyncMock()
+        slack_handler._update_debate_status = MagicMock()
+
+        with patch(
+            "aragora.server.handlers.social._slack_impl.commands.register_debate_origin",
+            create=True,
+        ):
+            with patch("aragora.Environment", mock_env, create=True):
+                with patch("aragora.DebateProtocol", return_value=mock_protocol, create=True):
+                    with patch("aragora.Arena", create=True) as mock_arena_cls:
+                        mock_arena_cls.from_env.return_value = mock_arena
+                        with patch(
+                            "aragora.agents.get_agents_by_names",
+                            return_value=["a1", "a2"],
+                            create=True,
+                        ):
+                            with patch(
+                                "aragora.server.handlers.social._slack_impl.commands.maybe_emit_decision_integrity",
+                                new_callable=AsyncMock,
+                                create=True,
+                            ):
+                                with patch.dict(
+                                    "sys.modules",
+                                    {
+                                        "aragora.gauntlet.receipt": fake_receipt_module,
+                                        "aragora.storage.receipt_store": fake_store_module,
+                                    },
+                                ):
+                                    await slack_handler._create_debate_async(
+                                        "Should AI be regulated?",
+                                        "https://hooks.slack.com/resp",
+                                        "U1",
+                                        "C1",
+                                        "WS1",
+                                    )
+
+        final_payload = slack_handler._post_to_response_url.call_args_list[-1].args[1]
+        final_actions = [
+            element
+            for block in final_payload["blocks"]
+            if block.get("type") == "actions"
+            for element in block.get("elements", [])
+        ]
+
+        assert any(
+            action.get("text", {}).get("text") == "View Receipt"
+            and action.get("url") == "https://app.example.ai/receipts/rcpt-slack-123"
+            for action in final_actions
+        )
+        fake_receipt_store.save.assert_called_once_with({"receipt_id": "rcpt-slack-123"})
+
+        update_call = slack_handler._update_debate_status.call_args
+        assert update_call.args[1] == "completed"
+        assert update_call.kwargs["receipt_id"] == "rcpt-slack-123"
 
 
 # ---------------------------------------------------------------------------
