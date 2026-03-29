@@ -764,7 +764,6 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             skipped_grace += 1
         else:
             ok, status = _integrate_worktree(repo_root, path, args.base, args.strategy)
-        session["last_seen_at"] = _utc_now().isoformat()
         session["reconcile_status"] = status
         results.append(
             {
@@ -1094,9 +1093,13 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     repo_root = _repo_root_from(Path(args.repo))
     managed_root = (repo_root / args.managed_dir).resolve()
-    state = _load_state(_state_path(managed_root))
+    state_file = _state_path(managed_root)
+    state = _load_state(state_file)
     entries = _get_worktree_entries(repo_root)
     active_paths = _active_path_set(entries)
+    state, removed = _prune_stale_state(state, active_paths)
+    if removed:
+        _save_state(state_file, state)
 
     ttl = timedelta(hours=args.ttl_hours)
     rows: list[dict[str, Any]] = []
