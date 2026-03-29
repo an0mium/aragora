@@ -842,6 +842,140 @@ class TestHandleDebateCompletion:
     """Tests for handle_debate_completion function."""
 
     @pytest.mark.asyncio
+    async def test_record_debate_telemetry_records_usage_and_analytics(
+        self, mock_arena, execution_state
+    ):
+        """Telemetry records debate usage and per-agent analytics."""
+        result = execution_state.ctx.result
+        result.duration_seconds = 12.4
+        result.rounds_used = 4
+        result.messages = [MagicMock(), MagicMock(), MagicMock()]
+        result.votes = [MagicMock()]
+        result.metadata = {"provider_routing": {"primary": "anthropic"}}
+        result.total_cost_usd = 1.25
+        result.per_agent_cost = {"agent-0": 0.4}
+        mock_arena.user_id = "user-42"
+        mock_arena.protocol.consensus = "majority"
+        mock_arena.agents = mock_arena.agents[:2]
+
+        mock_arena.agents[0].provider = "anthropic"
+        mock_arena.agents[0].model = "claude-3-7-sonnet"
+        mock_arena.agents[0].metrics = SimpleNamespace(
+            total_input_tokens=120,
+            total_output_tokens=30,
+        )
+
+        mock_arena.agents[1].metrics = None
+        mock_arena.agents[1].agent_type = "openai"
+        mock_arena.agents[1].model = "gpt-4o-mini"
+        mock_arena.agents[1].total_tokens_in = 90
+        mock_arena.agents[1].total_tokens_out = 45
+
+        governor = MagicMock()
+        governor.agent_metrics = {"agent-0": SimpleNamespace(avg_latency_ms=321.5)}
+        usage_summary = {"total_tokens": 285, "agents_recorded": 2}
+        usage_meter = SimpleNamespace(flush_all=AsyncMock())
+        analytics = SimpleNamespace(
+            record_debate=AsyncMock(),
+            record_agent_activity=AsyncMock(),
+        )
+
+        with (
+            patch(
+                "aragora.billing.usage_metering_integration.record_debate_tokens",
+                new_callable=AsyncMock,
+            ) as mock_record_tokens,
+            patch(
+                "aragora.services.usage_metering.get_usage_meter",
+                return_value=usage_meter,
+            ),
+            patch(
+                "aragora.analytics.debate_analytics.get_debate_analytics",
+                return_value=analytics,
+            ),
+            patch(
+                "aragora.billing.usage.calculate_token_cost",
+                return_value=Decimal("0.33"),
+            ) as mock_calculate_cost,
+            patch(
+                "aragora.debate.orchestrator_runner.get_complexity_governor",
+                return_value=governor,
+            ),
+        ):
+            mock_record_tokens.return_value = usage_summary
+
+            await _record_debate_telemetry(mock_arena, execution_state)
+
+        mock_record_tokens.assert_awaited_once()
+        metering_kwargs = mock_record_tokens.await_args.kwargs
+        assert metering_kwargs["org_id"] == "test-org"
+        assert metering_kwargs["debate_id"] == execution_state.debate_id
+        assert metering_kwargs["user_id"] == "user-42"
+        assert metering_kwargs["rounds"] == 4
+        assert metering_kwargs["duration_seconds"] == 12
+        assert metering_kwargs["metadata"] == {
+            "status": "completed",
+            "confidence": 0.85,
+            "consensus_reached": True,
+            "message_count": 3,
+            "vote_count": 1,
+            "provider_routing": {"primary": "anthropic"},
+        }
+        usage_meter.flush_all.assert_awaited_once()
+        assert result.metadata["usage_metering"] == usage_summary
+
+        analytics.record_debate.assert_awaited_once()
+        debate_kwargs = analytics.record_debate.await_args.kwargs
+        assert debate_kwargs["debate_id"] == execution_state.debate_id
+        assert debate_kwargs["rounds"] == 4
+        assert debate_kwargs["duration_seconds"] == 12.4
+        assert debate_kwargs["agents"] == ["agent-0", "agent-1"]
+        assert debate_kwargs["org_id"] == "test-org"
+        assert debate_kwargs["user_id"] == "user-42"
+        assert debate_kwargs["protocol"] == "majority"
+        assert debate_kwargs["total_messages"] == 3
+        assert debate_kwargs["total_votes"] == 1
+        assert debate_kwargs["total_cost"] == Decimal("1.25")
+
+        assert analytics.record_agent_activity.await_count == 2
+        activity_calls = {
+            call.kwargs["agent_id"]: call.kwargs
+            for call in analytics.record_agent_activity.await_args_list
+        }
+        assert activity_calls["agent-0"]["tokens_in"] == 120
+        assert activity_calls["agent-0"]["tokens_out"] == 30
+        assert activity_calls["agent-0"]["response_time_ms"] == 321.5
+        assert activity_calls["agent-0"]["cost"] == Decimal("0.4")
+        assert activity_calls["agent-0"]["provider"] == "anthropic"
+        assert activity_calls["agent-1"]["tokens_in"] == 90
+        assert activity_calls["agent-1"]["tokens_out"] == 45
+        assert activity_calls["agent-1"]["cost"] == Decimal("0.33")
+        assert activity_calls["agent-1"]["provider"] == "openai"
+        mock_calculate_cost.assert_called_once_with("openai", "gpt-4o-mini", 90, 45)
+
+    @pytest.mark.asyncio
+    async def test_record_debate_telemetry_swallows_noncritical_failures(
+        self, mock_arena, execution_state
+    ):
+        """Telemetry failures should not break debate completion."""
+        execution_state.ctx.result.metadata = {}
+
+        with (
+            patch(
+                "aragora.billing.usage_metering_integration.record_debate_tokens",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("metering unavailable"),
+            ),
+            patch(
+                "aragora.analytics.debate_analytics.get_debate_analytics",
+                side_effect=RuntimeError("analytics unavailable"),
+            ),
+        ):
+            await _record_debate_telemetry(mock_arena, execution_state)
+
+        assert execution_state.ctx.result.metadata == {}
+
+    @pytest.mark.asyncio
     async def test_run_cross_verification_attaches_metadata(self, mock_agents):
         """Cross-verification attaches grounding metadata to the result."""
         result = DebateResult(task="Test task", final_answer="Test answer")
@@ -876,6 +1010,27 @@ class TestHandleDebateCompletion:
         mock_arena._trackers.on_debate_complete.assert_called_once_with(
             execution_state.ctx, execution_state.ctx.result
         )
+
+    @pytest.mark.asyncio
+    async def test_records_completion_telemetry(self, mock_arena, execution_state):
+        """Completion wiring includes the telemetry hook."""
+        with (
+            patch(
+                "aragora.debate.orchestrator_runner._populate_result_cost",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "aragora.debate.orchestrator_runner._populate_result_tokens_from_agents",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "aragora.debate.orchestrator_runner._record_debate_telemetry",
+                new_callable=AsyncMock,
+            ) as mock_record_telemetry,
+        ):
+            await handle_debate_completion(mock_arena, execution_state)
+
+        mock_record_telemetry.assert_awaited_once_with(mock_arena, execution_state)
 
     @pytest.mark.asyncio
     async def test_skips_tracker_notification_if_no_result(self, mock_arena, execution_state):
