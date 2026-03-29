@@ -192,6 +192,7 @@ class SMEUsageDashboardHandler(SecureHandler):
 
     def _get_average_confidence(
         self,
+        org_id: str,
         start_date: datetime,
         end_date: datetime,
     ) -> float:
@@ -201,16 +202,32 @@ class SMEUsageDashboardHandler(SecureHandler):
             try:
                 with storage.connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        SELECT AVG(confidence)
-                        FROM debates
-                        WHERE created_at >= ?
-                            AND created_at <= ?
-                            AND confidence IS NOT NULL
-                        """,
-                        (start_date.isoformat(), end_date.isoformat()),
-                    )
+                    cursor.execute("PRAGMA table_info(debates)")
+                    columns = {row[1] for row in cursor.fetchall()}
+
+                    if "org_id" in columns:
+                        cursor.execute(
+                            """
+                            SELECT AVG(confidence)
+                            FROM debates
+                            WHERE org_id = ?
+                                AND created_at >= ?
+                                AND created_at <= ?
+                                AND confidence IS NOT NULL
+                            """,
+                            (org_id, start_date.isoformat(), end_date.isoformat()),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT AVG(confidence)
+                            FROM debates
+                            WHERE created_at >= ?
+                                AND created_at <= ?
+                                AND confidence IS NOT NULL
+                            """,
+                            (start_date.isoformat(), end_date.isoformat()),
+                        )
                     row = cursor.fetchone()
                     avg_confidence = row[0] if row else None
                     if avg_confidence is not None:
@@ -223,16 +240,6 @@ class SMEUsageDashboardHandler(SecureHandler):
                 OSError,
             ) as e:
                 logger.warning("Failed to read confidence from storage: %s", e)
-
-        try:
-            from aragora.memory.consensus import ConsensusMemory
-
-            stats = ConsensusMemory().get_statistics()
-            avg_confidence = stats.get("avg_confidence")
-            if avg_confidence is not None:
-                return round(float(avg_confidence), 3)
-        except (ImportError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.warning("Failed to read consensus confidence: %s", e)
 
         return 0.0
 
@@ -275,24 +282,6 @@ class SMEUsageDashboardHandler(SecureHandler):
                 ]
         except (ImportError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning("Failed to read top agents from debate store: %s", e)
-
-        elo_system = self.ctx.get("elo_system")
-        if elo_system and hasattr(elo_system, "get_all_ratings"):
-            try:
-                ratings = elo_system.get_all_ratings() or []
-                return [
-                    {
-                        "agent_id": getattr(rating, "agent_name", ""),
-                        "agent_name": getattr(rating, "agent_name", "Unknown"),
-                        "participations": int(getattr(rating, "debates_count", 0) or 0),
-                        "consensus_contributions": int(getattr(rating, "wins", 0) or 0),
-                        "consensus_rate": f"{round(float(getattr(rating, 'win_rate', 0) or 0) * 100):.0f}%",
-                        "avg_agreement_score": round(float(getattr(rating, "win_rate", 0) or 0), 2),
-                    }
-                    for rating in list(ratings)[:3]
-                ]
-            except (ValueError, TypeError, AttributeError) as e:
-                logger.warning("Failed to build top agents from ELO: %s", e)
 
         return []
 
@@ -417,7 +406,7 @@ class SMEUsageDashboardHandler(SecureHandler):
         days_in_period = max(1, (end_date - start_date).days)
         active_days = min(days_in_period, total_debates) if total_debates > 0 else 0
         debates_per_day = total_debates / days_in_period if days_in_period > 0 else 0
-        avg_confidence = self._get_average_confidence(start_date, end_date)
+        avg_confidence = self._get_average_confidence(org.id, start_date, end_date)
         top_agents = self._get_top_agents(org.id, start_date, end_date)
 
         summary = {

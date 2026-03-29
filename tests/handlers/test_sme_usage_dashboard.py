@@ -729,15 +729,17 @@ class TestGetSummary:
                     """
                     CREATE TABLE debates (
                         confidence REAL,
-                        created_at TEXT
+                        created_at TEXT,
+                        org_id TEXT
                     )
                     """
                 )
                 conn.executemany(
-                    "INSERT INTO debates (confidence, created_at) VALUES (?, ?)",
+                    "INSERT INTO debates (confidence, created_at, org_id) VALUES (?, ?, ?)",
                     [
-                        (0.8, "2026-03-10T00:00:00+00:00"),
-                        (0.9, "2026-03-11T00:00:00+00:00"),
+                        (0.8, "2026-03-10T00:00:00+00:00", "test-org-001"),
+                        (0.9, "2026-03-11T00:00:00+00:00", "test-org-001"),
+                        (0.2, "2026-03-12T00:00:00+00:00", "other-org"),
                     ],
                 )
                 try:
@@ -755,6 +757,36 @@ class TestGetSummary:
         body = _body(result)
 
         assert body["quality"]["avg_confidence"] == 0.85
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch("aragora.memory.consensus.ConsensusMemory")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_quality_does_not_fallback_to_global_confidence(
+        self, mock_ct, mock_ut, mock_consensus_memory, mock_consensus, handler
+    ):
+        class BrokenStorage:
+            @contextmanager
+            def connection(self):
+                raise sqlite3.DatabaseError("db unavailable")
+                yield  # pragma: no cover
+
+        handler.ctx["storage"] = BrokenStorage()
+        mock_ct.return_value = _make_mock_cost_tracker()
+        mock_ut.return_value = _make_mock_usage_tracker()
+        mock_consensus_memory.return_value.get_statistics.return_value = {"avg_confidence": 0.987}
+
+        h = _make_handler(
+            query_params={"start": "2026-03-01T00:00:00Z", "end": "2026-03-31T00:00:00Z"}
+        )
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        assert body["quality"]["avg_confidence"] == 0.0
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
@@ -807,6 +839,32 @@ class TestGetSummary:
         assert [agent["agent_name"] for agent in top_agents] == ["Claude", "GPT-4", "Gemini"]
         assert top_agents[0]["participations"] == 12
         assert top_agents[0]["consensus_rate"] == "92%"
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch("aragora.memory.debate_store.get_debate_store")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_top_agents_do_not_fallback_to_global_elo(
+        self, mock_ct, mock_ut, mock_store, mock_consensus, handler
+    ):
+        debate_store = MagicMock()
+        debate_store.get_consensus_stats.return_value = {"by_agent": []}
+        mock_store.return_value = debate_store
+        handler.ctx["elo_system"] = MagicMock()
+        handler.ctx["elo_system"].get_all_ratings.return_value = [
+            MagicMock(agent_name="global-winner", debates_count=12, wins=11, win_rate=0.92)
+        ]
+        mock_ct.return_value = _make_mock_cost_tracker()
+        mock_ut.return_value = _make_mock_usage_tracker()
+
+        result = handler.handle("/api/v1/usage/summary", {}, _make_handler())
+        body = _body(result)
+
+        assert body["agents"]["top_agents"] == []
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
