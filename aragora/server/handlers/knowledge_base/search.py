@@ -233,7 +233,8 @@ class SearchOperationsMixin:
         )
         domain = get_bounded_string_param(query_params, "domain", None, max_length=100)
 
-        mound = self._get_knowledge_mound()
+        get_knowledge_mound = getattr(self, "_get_knowledge_mound", None)
+        mound = get_knowledge_mound() if callable(get_knowledge_mound) else None
         if mound and KnowledgeMoundRetriever is not None:
             retriever = KnowledgeMoundRetriever(
                 mound,
