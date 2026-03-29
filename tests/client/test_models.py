@@ -711,7 +711,19 @@ class TestMatrixDebateModels:
         request = MatrixDebateCreateRequest(task="Test")
         assert request.agents == ["anthropic-api", "openai-api"]
         assert request.scenarios == []
+        assert request.agent_combinations == []
         assert request.max_rounds == 3
+
+    def test_matrix_debate_create_response_with_best_result(self):
+        """Test MatrixDebateCreateResponse accepts best-result metadata."""
+        response = MatrixDebateCreateResponse(
+            matrix_id="matrix-123",
+            combination_count=2,
+            best_result={"scenario_name": "High confidence", "selection_score": 4.0},
+            selection_strategy="consensus_confidence_completion",
+        )
+        assert response.combination_count == 2
+        assert response.best_result["scenario_name"] == "High confidence"
 
 
 class TestVerificationModels:

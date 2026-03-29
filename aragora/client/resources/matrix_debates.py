@@ -27,6 +27,7 @@ class MatrixDebatesAPI:
         task: str,
         agents: list[str] | None = None,
         scenarios: list[dict[str, Any]] | None = None,
+        agent_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """
@@ -40,6 +41,7 @@ class MatrixDebatesAPI:
             agents: List of agent IDs to participate.
             scenarios: List of scenario configurations.
                 Each scenario can have: name, parameters, constraints, is_baseline.
+            agent_combinations: Explicit model/team combinations to compare.
             max_rounds: Maximum rounds per scenario (1-10).
 
         Returns:
@@ -54,6 +56,7 @@ class MatrixDebatesAPI:
             task=task,
             agents=agents or ["anthropic-api", "openai-api"],
             scenarios=scenario_models,
+            agent_combinations=agent_combinations or [],
             max_rounds=max_rounds,
         )
 
@@ -65,6 +68,7 @@ class MatrixDebatesAPI:
         task: str,
         agents: list[str] | None = None,
         scenarios: list[dict[str, Any]] | None = None,
+        agent_combinations: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """Async version of create()."""
@@ -77,6 +81,7 @@ class MatrixDebatesAPI:
             task=task,
             agents=agents or ["anthropic-api", "openai-api"],
             scenarios=scenario_models,
+            agent_combinations=agent_combinations or [],
             max_rounds=max_rounds,
         )
 

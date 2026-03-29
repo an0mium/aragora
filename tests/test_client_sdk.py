@@ -911,9 +911,16 @@ class TestMatrixDebateModels:
         request = MatrixDebateCreateRequest(
             task="Test policy",
             agents=["a1"],
+            agent_combinations=[
+                {
+                    "name": "combo",
+                    "agents": ["openai-api|gpt-4.1", "anthropic-api|claude-sonnet-4"],
+                }
+            ],
             max_rounds=5,
         )
         assert request.task == "Test policy"
+        assert request.agent_combinations[0]["name"] == "combo"
         assert request.max_rounds == 5
 
 

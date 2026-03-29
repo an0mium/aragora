@@ -8,6 +8,7 @@ Tests the matrix debates API endpoints including:
 """
 
 import json
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -179,6 +180,32 @@ class TestMatrixDebatePostValidation:
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "5000 characters" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_returns_400_for_scenarios_and_agent_combinations(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when both matrix modes are requested together."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "What is the best approach for this problem?",
+                "scenarios": [{"name": "baseline"}],
+                "agent_combinations": [
+                    {
+                        "name": "combo",
+                        "agents": [
+                            {"provider": "openai-api"},
+                            {"provider": "anthropic-api"},
+                        ],
+                    }
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "either scenarios or agent_combinations" in data.get("error", "").lower()
 
 
 # =============================================================================
@@ -667,6 +694,91 @@ class TestMatrixHelperMethods:
         assert result["consensus_rate"] == 0.5
         assert result["avg_confidence"] == 0.7
         assert result["avg_rounds"] == 4
+
+
+class TestMatrixAgentCombinationMode:
+    """Tests for explicit agent/model combination comparisons."""
+
+    @pytest.mark.asyncio
+    async def test_agent_combinations_pick_best_result(self, matrix_handler, mock_http_handler):
+        """Returns the highest-scoring combination and annotates the winner."""
+
+        async def fake_load_agents(agent_specs):
+            specs = agent_specs if isinstance(agent_specs, list) else []
+            first_spec = specs[0] if specs else {}
+            model = (
+                getattr(first_spec, "model", None)
+                if not isinstance(first_spec, dict)
+                else first_spec.get("model")
+            )
+            if model == "best-model":
+                return ["best-agent", "best-agent"]
+            return ["baseline-agent", "baseline-agent"]
+
+        class FakeArena:
+            def __init__(self, env, agents, protocol, **kwargs):
+                self.agents = agents
+
+            async def run(self):
+                if self.agents[0] == "best-agent":
+                    return SimpleNamespace(
+                        winner="best-agent",
+                        final_answer="Choose the best-model path",
+                        confidence=0.92,
+                        consensus_reached=True,
+                        rounds_used=2,
+                    )
+                return SimpleNamespace(
+                    winner="baseline-agent",
+                    final_answer="Choose the baseline path",
+                    confidence=0.51,
+                    consensus_reached=False,
+                    rounds_used=4,
+                )
+
+        payload = {
+            "task": "Compare the same debate question across model combinations",
+            "agent_combinations": [
+                {
+                    "name": "Baseline",
+                    "agents": [
+                        {"provider": "openai-api", "model": "baseline-model"},
+                        {"provider": "anthropic-api", "model": "baseline-model"},
+                    ],
+                },
+                {
+                    "name": "High confidence",
+                    "agents": [
+                        {"provider": "openai-api", "model": "best-model"},
+                        {"provider": "anthropic-api", "model": "best-model"},
+                    ],
+                },
+            ],
+            "max_rounds": 5,
+        }
+
+        with patch.object(
+            matrix_handler,
+            "_load_agents_from_specs",
+            side_effect=fake_load_agents,
+        ):
+            with patch("aragora.debate.orchestrator.Arena", FakeArena):
+                result = await matrix_handler._run_matrix_debate_fallback(
+                    mock_http_handler, payload
+                )
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["combination_count"] == 2
+        assert data["best_result"]["scenario_name"] == "High confidence"
+        assert data["best_result"]["selection_strategy"] == "consensus_confidence_completion"
+        assert data["comparison_matrix"]["best_result_name"] == "High confidence"
+
+        best_entry = next(
+            item for item in data["results"] if item["scenario_name"] == "High confidence"
+        )
+        assert best_entry["is_best"] is True
+        assert best_entry["selection_score"] > 0
 
 
 # =============================================================================

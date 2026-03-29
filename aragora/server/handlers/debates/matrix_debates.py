@@ -3,6 +3,7 @@ Matrix debates endpoint handlers.
 
 Endpoints:
 - POST /api/debates/matrix - Run parallel scenario debates
+- POST /api/debates/matrix with agent_combinations - Compare model/team combinations
 - GET /api/debates/matrix/{id} - Get matrix debate results
 - GET /api/debates/matrix/{id}/scenarios - Get all scenario results
 - GET /api/debates/matrix/{id}/conclusions - Get universal/conditional conclusions
@@ -81,6 +82,8 @@ logger = logging.getLogger(__name__)
 # RBAC permissions for matrix debates
 DEBATES_READ_PERMISSION = "debates:read"
 DEBATES_CREATE_PERMISSION = "debates:create"
+MAX_AGENT_COMBINATIONS = 10
+DEFAULT_SELECTION_STRATEGY = "consensus_confidence_completion"
 
 # Rate limiter for matrix debates (5 requests per minute - parallel debates are expensive)
 _matrix_limiter = RateLimiter(requests_per_minute=5)
@@ -252,6 +255,7 @@ class MatrixDebatesHandler(SecureHandler):
         Request body:
             task: str - Base debate topic/question (10-5000 chars)
             agents: list[str] - Agent names to participate (2-10 agents)
+            agent_combinations: list[dict] - Explicit agent/model combinations to compare
             scenarios: list[dict] - List of scenario configurations (1-10 scenarios)
                 - name: str - Scenario name (max 100 chars)
                 - parameters: dict - Scenario-specific parameters
@@ -275,10 +279,30 @@ class MatrixDebatesHandler(SecureHandler):
         scenarios = data.get("scenarios", [])
         if not isinstance(scenarios, list):
             return error_response("scenarios must be an array", 400)
-        if not scenarios:
-            return error_response("At least one scenario is required", 400)
         if len(scenarios) > 10:
             return error_response("Maximum 10 scenarios allowed", 400)
+
+        # Validate explicit agent/model combinations
+        agent_combinations = data.get("agent_combinations", [])
+        if not isinstance(agent_combinations, list):
+            return error_response("agent_combinations must be an array", 400)
+        if len(agent_combinations) > MAX_AGENT_COMBINATIONS:
+            return error_response(
+                f"Maximum {MAX_AGENT_COMBINATIONS} agent combinations allowed",
+                400,
+            )
+
+        if scenarios and agent_combinations:
+            return error_response(
+                "Use either scenarios or agent_combinations, not both",
+                400,
+            )
+
+        if not scenarios and not agent_combinations:
+            return error_response(
+                "At least one scenario or agent combination is required",
+                400,
+            )
 
         # Validate each scenario
         for i, scenario in enumerate(scenarios):
@@ -295,10 +319,21 @@ class MatrixDebatesHandler(SecureHandler):
                 if len(scenario["constraints"]) > 10:
                     return error_response(f"scenarios[{i}].constraints too many (max 10)", 400)
 
+        normalized_combinations, combo_error = self._normalize_agent_combinations(
+            agent_combinations
+        )
+        if combo_error is not None:
+            return combo_error
+
         # Validate agents
         agent_names = data.get("agents", [])
         if not isinstance(agent_names, list):
             return error_response("agents must be an array", 400)
+        if normalized_combinations and agent_names:
+            return error_response(
+                "Use either agents or agent_combinations, not both",
+                400,
+            )
         if len(agent_names) > 10:
             return error_response("Maximum 10 agents allowed", 400)
         for i, name in enumerate(agent_names):
@@ -318,6 +353,11 @@ class MatrixDebatesHandler(SecureHandler):
             return error_response("max_rounds must be at least 1", 400)
         if max_rounds > 10:
             return error_response("max_rounds must be at most 10", 400)
+
+        if normalized_combinations:
+            data = dict(data)
+            data["agent_combinations"] = normalized_combinations
+            return await self._run_matrix_debate_fallback(handler, data)
 
         try:
             # Dynamic import of scenario module classes
@@ -388,6 +428,158 @@ class MatrixDebatesHandler(SecureHandler):
             logger.exception("Matrix debate failed: %s", e)
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
+    def _normalize_agent_combinations(
+        self,
+        combinations: list[Any],
+    ) -> tuple[list[dict[str, Any]], HandlerResult | None]:
+        """Validate and normalize explicit agent/model combinations."""
+        if not combinations:
+            return [], None
+
+        try:
+            from aragora.agents.spec import AgentSpec
+        except ImportError as exc:
+            logger.warning("Agent combination parsing unavailable: %s", exc)
+            return [], error_response("Agent specification support is unavailable", 500)
+
+        normalized: list[dict[str, Any]] = []
+        for index, combo in enumerate(combinations):
+            if not isinstance(combo, dict):
+                return [], error_response(
+                    f"agent_combinations[{index}] must be an object",
+                    400,
+                )
+
+            raw_name = combo.get("name")
+            if raw_name is not None and not isinstance(raw_name, str):
+                return [], error_response(
+                    f"agent_combinations[{index}].name must be a string",
+                    400,
+                )
+            combo_name = (raw_name or "").strip() or f"Combination {index + 1}"
+            if len(combo_name) > 100:
+                return [], error_response(
+                    f"agent_combinations[{index}].name too long (max 100 chars)",
+                    400,
+                )
+
+            if "agents" not in combo:
+                return [], error_response(
+                    f"agent_combinations[{index}].agents is required",
+                    400,
+                )
+
+            try:
+                specs = AgentSpec.coerce_list(combo.get("agents"), warn=False)
+            except ValueError as exc:
+                return [], error_response(
+                    f"agent_combinations[{index}].agents invalid: {exc}",
+                    400,
+                )
+
+            if len(specs) < 2:
+                return [], error_response(
+                    f"agent_combinations[{index}] must include at least 2 agents",
+                    400,
+                )
+            if len(specs) > 10:
+                return [], error_response(
+                    f"agent_combinations[{index}] exceeds 10 agents",
+                    400,
+                )
+
+            normalized.append({"name": combo_name, "agents": specs})
+
+        return normalized, None
+
+    def _serialize_agent_specs(self, agent_specs: Any) -> list[dict[str, Any]]:
+        """Render agent specs into a JSON-safe response shape."""
+        try:
+            from aragora.agents.spec import AgentSpec
+
+            specs = AgentSpec.coerce_list(agent_specs, warn=False)
+        except (ImportError, ValueError, TypeError):
+            return []
+
+        return [
+            {
+                "provider": spec.provider,
+                "model": spec.model,
+                "persona": spec.persona,
+                "role": spec.role,
+                "name": spec.name,
+            }
+            for spec in specs
+        ]
+
+    async def _load_agents_from_specs(self, agent_specs: Any) -> list[Any]:
+        """Create fresh agent instances from flexible agent specifications."""
+        try:
+            from aragora.agents.spec import AgentSpec
+            from aragora.server.debate_factory import DebateFactory
+
+            specs = AgentSpec.coerce_list(agent_specs, warn=False)
+            if len(specs) < 2:
+                return []
+
+            factory = DebateFactory()
+            result = factory.create_agents(specs)
+            return result.agents
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.warning("Failed to load agents from specs: %s", e)
+            return []
+
+    def _score_matrix_entry(self, result: dict[str, Any], max_rounds: int) -> dict[str, Any]:
+        """Score a matrix result deterministically for best-result selection."""
+        confidence = result.get("confidence", 0.0)
+        if not isinstance(confidence, (int, float)):
+            confidence = 0.0
+        confidence = max(0.0, min(float(confidence), 1.0))
+
+        rounds_used = result.get("rounds_used", 0)
+        if not isinstance(rounds_used, int):
+            try:
+                rounds_used = int(rounds_used)
+            except (ValueError, TypeError):
+                rounds_used = 0
+
+        consensus_component = 2.0 if result.get("consensus_reached") else 0.0
+        confidence_component = confidence * 1.5
+        answer_component = 0.5 if str(result.get("final_answer") or "").strip() else 0.0
+        round_efficiency = 1.0
+        if max_rounds > 0:
+            round_efficiency = max(0.0, 1.0 - min(rounds_used / max_rounds, 1.0))
+        round_component = round_efficiency * 0.25
+
+        breakdown = {
+            "consensus": round(consensus_component, 4),
+            "confidence": round(confidence_component, 4),
+            "answer_completion": round(answer_component, 4),
+            "round_efficiency": round(round_component, 4),
+        }
+        score = round(sum(breakdown.values()), 4)
+        return {
+            "selection_score": score,
+            "selection_strategy": DEFAULT_SELECTION_STRATEGY,
+            "selection_breakdown": breakdown,
+        }
+
+    def _select_best_result(self, results: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Pick the strongest matrix result using the precomputed score."""
+        if not results:
+            return None
+
+        return max(
+            results,
+            key=lambda item: (
+                float(item.get("selection_score", 0.0) or 0.0),
+                int(bool(item.get("consensus_reached"))),
+                float(item.get("confidence", 0.0) or 0.0),
+                -int(item.get("rounds_used", 0) or 0),
+                len(str(item.get("final_answer") or "")),
+            ),
+        )
+
     async def _run_matrix_debate_fallback(
         self, handler: Any, data: dict[str, Any]
     ) -> HandlerResult:
@@ -395,35 +587,69 @@ class MatrixDebatesHandler(SecureHandler):
         from aragora.core import DebateProtocol, Environment
         from aragora.debate.orchestrator import Arena
 
-        task = data.get("task")
+        task = data.get("task") or data.get("question")
         scenarios = data.get("scenarios", [])
         agent_names = data.get("agents", [])
+        agent_combinations = data.get("agent_combinations", [])
         max_rounds = data.get("max_rounds", DEFAULT_ROUNDS)
 
         try:
-            agents = await self._load_agents(agent_names)
-            if not agents:
-                return error_response("No valid agents found", 400)
-
             matrix_id = str(uuid.uuid4())
-            all_conclusions: list[dict[str, Any]] = []
+            use_agent_combinations = bool(agent_combinations)
+            run_items: list[dict[str, Any]] = []
             ctx = getattr(self, "ctx", {}) or {}
             document_store = ctx.get("document_store")
             evidence_store = ctx.get("evidence_store")
 
-            # Run scenarios in parallel
-            async def run_scenario(scenario_data: dict) -> dict:
-                name = scenario_data.get("name", "Unnamed")
-                parameters = scenario_data.get("parameters", {})
-                constraints = scenario_data.get("constraints", [])
+            if use_agent_combinations:
+                for combo in agent_combinations:
+                    if not await self._load_agents_from_specs(combo.get("agents", [])):
+                        return error_response(
+                            f"No valid agents found for {combo.get('name', 'agent combination')}",
+                            400,
+                        )
+                    run_items.append(
+                        {
+                            "scenario_name": combo.get("name", "Unnamed Combination"),
+                            "parameters": {},
+                            "constraints": [],
+                            "is_baseline": False,
+                            "variant_type": "agent_combination",
+                            "agent_specs": combo.get("agents", []),
+                        }
+                    )
+            else:
+                if not await self._load_agents(agent_names):
+                    return error_response("No valid agents found", 400)
+                run_items = [
+                    {
+                        "scenario_name": scenario.get("name", "Unnamed"),
+                        "parameters": scenario.get("parameters", {}),
+                        "constraints": scenario.get("constraints", []),
+                        "is_baseline": scenario.get("is_baseline", False),
+                        "variant_type": "scenario",
+                        "agent_specs": agent_names,
+                    }
+                    for scenario in scenarios
+                ]
 
-                # Build scenario task with parameters and constraints
+            # Run scenarios or combinations in parallel
+            async def run_variant(run_item: dict[str, Any]) -> dict[str, Any]:
+                name = run_item["scenario_name"]
+                parameters = run_item.get("parameters", {})
+                constraints = run_item.get("constraints", [])
+
+                # Build variant task with parameters and constraints
                 scenario_task = f"{task}"
                 if parameters:
                     param_str = ", ".join(f"{k}={v}" for k, v in parameters.items())
                     scenario_task += f"\n\nParameters: {param_str}"
                 if constraints:
                     scenario_task += f"\n\nConstraints: {', '.join(constraints)}"
+
+                agents = await self._load_agents_from_specs(run_item.get("agent_specs", []))
+                if not agents:
+                    raise ValueError(f"No valid agents found for {name}")
 
                 # Run debate
                 env = Environment(task=scenario_task)
@@ -442,20 +668,24 @@ class MatrixDebatesHandler(SecureHandler):
 
                 result = await arena.run()
 
-                return {
+                response = {
                     "scenario_name": name,
                     "parameters": parameters,
                     "constraints": constraints,
-                    "is_baseline": scenario_data.get("is_baseline", False),
+                    "is_baseline": run_item.get("is_baseline", False),
+                    "variant_type": run_item.get("variant_type", "scenario"),
+                    "agent_specs": self._serialize_agent_specs(run_item.get("agent_specs", [])),
                     "winner": result.winner,
                     "final_answer": result.final_answer,
                     "confidence": result.confidence,
                     "consensus_reached": result.consensus_reached,
                     "rounds_used": result.rounds_used,
                 }
+                response.update(self._score_matrix_entry(response, max_rounds))
+                return response
 
             # Run all scenarios concurrently
-            scenario_tasks = [run_scenario(s) for s in scenarios]
+            scenario_tasks = [run_variant(item) for item in run_items]
             gather_results = await asyncio.gather(*scenario_tasks, return_exceptions=True)
 
             # Process results
@@ -465,14 +695,11 @@ class MatrixDebatesHandler(SecureHandler):
                     logger.error("Scenario failed: %s", r)
                 else:
                     valid_results.append(r)
-                    if r.get("final_answer"):
-                        all_conclusions.append(
-                            {
-                                "scenario": r["scenario_name"],
-                                "conclusion": r["final_answer"],
-                                "confidence": r["confidence"],
-                            }
-                        )
+
+            best_result = self._select_best_result(valid_results)
+            if best_result is not None:
+                for result in valid_results:
+                    result["is_best"] = result is best_result
 
             # Find universal conclusions (conclusions that appear in all scenarios)
             universal_conclusions = self._find_universal_conclusions(valid_results)
@@ -480,15 +707,20 @@ class MatrixDebatesHandler(SecureHandler):
             # Find conditional conclusions (conclusions specific to scenarios)
             conditional_conclusions = self._find_conditional_conclusions(valid_results)
 
+            comparison_matrix = self._build_comparison_matrix(valid_results)
+
             return json_response(
                 {
                     "matrix_id": matrix_id,
                     "task": task,
                     "scenario_count": len(valid_results),
+                    "combination_count": len(valid_results) if use_agent_combinations else 0,
                     "results": valid_results,
+                    "best_result": best_result,
+                    "selection_strategy": DEFAULT_SELECTION_STRATEGY,
                     "universal_conclusions": universal_conclusions,
                     "conditional_conclusions": conditional_conclusions,
-                    "comparison_matrix": self._build_comparison_matrix(valid_results),
+                    "comparison_matrix": comparison_matrix,
                 }
             )
 
@@ -525,35 +757,27 @@ class MatrixDebatesHandler(SecureHandler):
 
     def _build_comparison_matrix(self, results: list[dict]) -> dict:
         """Build a comparison matrix of scenarios."""
-        return {
+        best_result = self._select_best_result(results)
+        comparison = {
             "scenarios": [r["scenario_name"] for r in results],
             "consensus_rate": sum(1 for r in results if r.get("consensus_reached"))
             / max(len(results), 1),
             "avg_confidence": sum(r.get("confidence", 0) for r in results) / max(len(results), 1),
             "avg_rounds": sum(r.get("rounds_used", 0) for r in results) / max(len(results), 1),
         }
+        if best_result is not None:
+            comparison["best_result_name"] = best_result.get("scenario_name")
+            comparison["best_result_score"] = best_result.get("selection_score")
+            comparison["selection_strategy"] = best_result.get(
+                "selection_strategy",
+                DEFAULT_SELECTION_STRATEGY,
+            )
+        return comparison
 
     async def _load_agents(self, agent_names: list[str]) -> list[Any]:
         """Load agents by name."""
-        try:
-            from typing import cast
-
-            from aragora.agents.base import AgentType, create_agent
-
-            names = agent_names or ["claude", "openai"]
-            agents: list[Any] = []
-            for name in names:
-                try:
-                    # Cast string to AgentType - create_agent will raise ValueError
-                    # if the name is not a valid agent type
-                    agent = create_agent(cast(AgentType, name))
-                    agents.append(agent)
-                except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-                    logger.warning("Failed to create agent %s: %s", name, e)
-            return agents
-        except (ImportError, ValueError, TypeError) as e:
-            logger.warning("Failed to load agents: %s", e)
-            return []
+        names = agent_names or ["claude", "openai"]
+        return await self._load_agents_from_specs(names)
 
     async def _get_matrix_debate(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get a matrix debate by ID."""
