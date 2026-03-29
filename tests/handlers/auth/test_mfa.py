@@ -1303,8 +1303,9 @@ class TestModuleExports:
         assert "handle_mfa_disable" in mfa.__all__
         assert "handle_mfa_verify" in mfa.__all__
         assert "handle_mfa_backup_codes" in mfa.__all__
+        assert "handle_mfa_compliance" in mfa.__all__
 
     def test_all_exports_count(self):
         from aragora.server.handlers.auth import mfa
 
-        assert len(mfa.__all__) == 5
+        assert len(mfa.__all__) == 6
