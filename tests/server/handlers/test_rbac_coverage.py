@@ -162,6 +162,10 @@ EXEMPT_HANDLERS = frozenset(
         "OutcomeHandler",
         # Knowledge velocity (read-only metrics, future RBAC)
         "KnowledgeVelocityHandler",
+        # Read-only public discovery/telemetry endpoints
+        "PipelineTelemetryHandler",
+        "MCPToolsHandler",
+        "PublicDebateViewerHandler",
     }
 )
 
