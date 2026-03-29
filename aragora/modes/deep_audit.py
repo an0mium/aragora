@@ -287,7 +287,7 @@ Be rigorous but fair. Your goal is to ensure we haven't missed critical issues."
                 cross_exam_result = await synthesizer.generate(cross_exam_prompt, [])
             logger.info("Synthesizer cross-examination complete (%s chars)", len(cross_exam_result))
             return cross_exam_result
-        except (RuntimeError, ValueError, TypeError, OSError) as e:
+        except Exception as e:
             logger.warning("Cross-examination failed: %s", e)
             return f"Cross-examination failed: {e}"
 
