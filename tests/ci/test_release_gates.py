@@ -264,6 +264,23 @@ class TestDocsBuildWorkflow:
         assert "scripts/ci_install_project.sh --extras dev" in command
 
 
+class TestMigrationTestsWorkflow:
+    """Validate migration-tests workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "migration-tests.yml"
+
+    def test_migration_tests_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["migration-tests"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
 class TestFrontendE2EWorkflow:
     """Validate frontend E2E workflow backend bootstrap policy."""
 
