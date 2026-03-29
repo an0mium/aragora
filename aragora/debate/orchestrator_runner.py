@@ -244,8 +244,9 @@ async def _record_debate_telemetry(
         return
 
     duration_seconds = _coerce_non_negative_float(getattr(result, "duration_seconds", 0.0))
-    if duration_seconds <= 0 and state.debate_start_time > 0:
-        duration_seconds = max(time.perf_counter() - state.debate_start_time, 0.0)
+    debate_start_time = _coerce_non_negative_float(getattr(state, "debate_start_time", 0.0))
+    if duration_seconds <= 0 and debate_start_time > 0:
+        duration_seconds = max(time.perf_counter() - debate_start_time, 0.0)
 
     rounds_used = max(int(getattr(result, "rounds_used", 0) or 0), 0)
     total_messages = len(getattr(result, "messages", []) or [])

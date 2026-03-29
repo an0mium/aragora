@@ -246,6 +246,11 @@ class TestApplyDecay:
         manager = ConfidenceDecayManager()
         report = await manager.apply_decay(mock_mound, "test-workspace", force=True)
 
+        mock_mound.query.assert_awaited_once_with(
+            workspace_id="test-workspace",
+            query="*",
+            limit=10000,
+        )
         assert report.workspace_id == "test-workspace"
         assert report.items_processed == 0
         assert report.items_decayed == 0

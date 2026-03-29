@@ -977,6 +977,34 @@ class TestHandleDebateCompletion:
         assert execution_state.ctx.result.metadata == {}
 
     @pytest.mark.asyncio
+    async def test_record_debate_telemetry_tolerates_non_numeric_start_time(
+        self, mock_arena, execution_state
+    ):
+        """Telemetry should ignore non-numeric start times from mocked state."""
+        execution_state.debate_start_time = MagicMock()
+        execution_state.ctx.result.duration_seconds = 0.0
+        execution_state.ctx.result.metadata = {}
+
+        with (
+            patch(
+                "aragora.billing.usage_metering_integration.record_debate_tokens",
+                new_callable=AsyncMock,
+                return_value={"total_tokens": 0},
+            ) as mock_record_tokens,
+            patch(
+                "aragora.services.usage_metering.get_usage_meter",
+                return_value=SimpleNamespace(flush_all=AsyncMock()),
+            ),
+            patch(
+                "aragora.analytics.debate_analytics.get_debate_analytics",
+                side_effect=ImportError,
+            ),
+        ):
+            await _record_debate_telemetry(mock_arena, execution_state)
+
+        assert mock_record_tokens.await_args.kwargs["duration_seconds"] == 0
+
+    @pytest.mark.asyncio
     async def test_run_cross_verification_attaches_metadata(self, mock_agents):
         """Cross-verification attaches grounding metadata to the result."""
         result = DebateResult(task="Test task", final_answer="Test answer")

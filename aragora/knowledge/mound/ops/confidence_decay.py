@@ -346,10 +346,10 @@ class ConfidenceDecayManager:
                         adjustments=[],
                     )
 
-        # Get items
+        # Query all items; empty queries are rejected by mound validation.
         result = await mound.query(
             workspace_id=workspace_id,
-            query="",
+            query="*",
             limit=10000,
         )
         items = result.items if hasattr(result, "items") else []
