@@ -741,6 +741,10 @@ class TestSemaphoreEnforcement:
 
         engine = MagicMock()
         engine.execute = AsyncMock(side_effect=tracking_execute)
+        bc = MagicMock(spec=BranchCoordinator)
+        bc.create_track_branch = AsyncMock(return_value="dev/sme-task-001")
+        bc.cleanup_all_worktrees = MagicMock()
+        bc._worktree_paths = {}
 
         subtasks = [
             _make_subtask(str(i), f"Task {i}", file_scope=[f"tests/t{i}.py"]) for i in range(5)
@@ -749,6 +753,7 @@ class TestSemaphoreEnforcement:
         orch = AutonomousOrchestrator(
             workflow_engine=engine,
             task_decomposer=_mock_decomposer(_make_decomposition(subtasks)),
+            branch_coordinator=bc,
             max_parallel_tasks=2,
         )
 
