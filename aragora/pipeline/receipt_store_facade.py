@@ -68,7 +68,7 @@ class ReceiptStoreFacade:
                     },
                 }
             storage.save(receipt_data, signed_receipt=signed_receipt_data)
-        except (ImportError, RuntimeError, OSError, ValueError) as exc:
+        except Exception as exc:  # noqa: BLE001 - durable store is best-effort only
             logger.debug("Storage store write skipped for %s: %s", receipt_id, exc)
 
     def get_canonical(self, receipt_id: str) -> dict[str, Any] | None:

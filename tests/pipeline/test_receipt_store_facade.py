@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -73,12 +74,15 @@ class TestPersistAndSave:
         assert stored.state == ReceiptState.CREATED
 
     def test_storage_failure_does_not_raise(self):
-        """Best-effort storage write — import/runtime failures are swallowed."""
+        """Best-effort storage write — backend write failures are swallowed."""
         facade = ReceiptStoreFacade()
+        mock_storage = MagicMock()
+        mock_storage.save.side_effect = sqlite3.OperationalError("readonly database")
+
         with patch(
-            "aragora.pipeline.receipt_store_facade.get_receipt_store_facade",
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_storage,
         ):
-            # Even if storage store raises, persist_and_save completes
             facade.persist_and_save("r-003", _sample_receipt_data("r-003"))
 
         gauntlet = get_receipt_store()
