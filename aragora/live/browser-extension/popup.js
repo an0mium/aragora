@@ -196,18 +196,27 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 function buildResultState(previousState, debate) {
   const confidence = Number(debate?.consensus?.confidence);
   const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
-  const finalAnswer = resolveFinalAnswer(debate);
+  const finalAnswer =
+    debate.final_answer ||
+    debate.finalAnswer ||
+    debate.answer ||
+    debate.summary ||
+    debate.consensus?.final_answer ||
+    debate.consensus?.finalAnswer ||
+    debate.consensus?.summary ||
+    debate.consensus?.answer ||
+    resolveFinalAnswer(debate);
 
   return {
     ...previousState,
     status: nextStatus,
     error: null,
     result: {
-      debateId: debate.id || previousState.debateId,
+      debateId: debate.id || debate.debate_id || previousState.debateId,
       status: debate.status || previousState.status || "running",
       finalAnswer,
       confidence: Number.isNaN(confidence) ? null : confidence,
-      task: debate.task || "",
+      task: debate.task || debate.environment?.task || "",
     },
     updatedAt: new Date().toISOString(),
   };

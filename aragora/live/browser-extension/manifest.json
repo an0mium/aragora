@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Aragora Context Send",
   "version": "0.1.0",
-  "description": "Send highlighted webpage text to Aragora for adversarial review and inspect results in the popup.",
+  "description": "Send highlighted webpage text to Aragora for adversarial review, then review results in the popup.",
   "permissions": [
     "activeTab",
     "contextMenus",
