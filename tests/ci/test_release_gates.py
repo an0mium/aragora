@@ -163,7 +163,9 @@ class TestReleaseReadinessWorkflow:
     def test_workflow_uses_shared_ci_installer(self):
         data = _load_yaml(self.path)
         job = data["jobs"]["release-readiness"]
-        install_step = next(step for step in job["steps"] if step.get("name") == "Install (dev)")
+        install_step = next(
+            step for step in job["steps"] if "scripts/ci_install_project.sh" in step.get("run", "")
+        )
         run = install_step.get("run", "")
         assert "scripts/ci_install_project.sh" in run
         assert "--extras dev,test" in run
@@ -204,7 +206,7 @@ class TestAragoraReviewGateWorkflow:
         )
 
 
-class TestReleaseReadinessWorkflow:
+class TestReleaseReadinessBootstrapWorkflow:
     """Validate release-readiness workflow bootstraps the monorepo correctly."""
 
     @pytest.fixture(autouse=True)
