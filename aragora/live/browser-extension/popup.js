@@ -196,7 +196,16 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 function buildResultState(previousState, debate) {
   const confidence = Number(debate?.consensus?.confidence);
   const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
-  const finalAnswer = resolveFinalAnswer(debate);
+  const finalAnswer =
+    debate.final_answer ||
+    debate.finalAnswer ||
+    debate.answer ||
+    debate.summary ||
+    debate.consensus?.final_answer ||
+    debate.consensus?.finalAnswer ||
+    debate.consensus?.summary ||
+    debate.consensus?.answer ||
+    resolveFinalAnswer(debate);
 
   return {
     ...previousState,
