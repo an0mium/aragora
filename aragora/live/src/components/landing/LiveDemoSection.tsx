@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
+import { useSpectate } from '@/hooks/useSpectate';
 
 const DEMO_AGENTS = [
   {
@@ -22,10 +24,46 @@ const DEMO_AGENTS = [
 
 export function LiveDemoSection() {
   const { theme } = useTheme();
+  const { status, loaded } = useSpectate(undefined, undefined, {
+    pollInterval: 15000,
+    maxEvents: 20,
+  });
   const isDark = theme === 'dark';
+  const recentEventCount = status?.recent_event_count ?? 0;
+  const recentActivityWindowSeconds = status?.recent_activity_window_seconds ?? 120;
+  const activityWindowMinutes = Math.max(1, Math.round(recentActivityWindowSeconds / 60));
+  const activityAgeSeconds = status?.activity_age_seconds;
+
+  let bridgeBadge = 'Checking public bridge';
+  let bridgeSummary = 'Checking public live bridge before showing recent activity.';
+
+  if (loaded) {
+    if (!status?.active) {
+      bridgeBadge = 'Bridge offline';
+      bridgeSummary = 'Public spectate is offline right now, so the sample debate below stays illustrative.';
+    } else if (recentEventCount > 0) {
+      bridgeBadge = 'Bridge active';
+      bridgeSummary = `${recentEventCount} recent event${recentEventCount === 1 ? '' : 's'} in the last ${activityWindowMinutes} minute${activityWindowMinutes === 1 ? '' : 's'}.`;
+    } else {
+      bridgeBadge = 'Bridge ready';
+      bridgeSummary = 'Public spectate is online, but no recent live debate activity is visible yet.';
+    }
+  }
+
+  let activityAgeLabel: string | null = null;
+  if (typeof activityAgeSeconds === 'number') {
+    if (activityAgeSeconds < 60) {
+      activityAgeLabel = `Last activity ${Math.round(activityAgeSeconds)}s ago`;
+    } else if (activityAgeSeconds < 3600) {
+      activityAgeLabel = `Last activity ${Math.round(activityAgeSeconds / 60)}m ago`;
+    } else {
+      activityAgeLabel = `Last activity ${Math.round(activityAgeSeconds / 3600)}h ago`;
+    }
+  }
 
   return (
     <section
+      data-testid="live-demo-section"
       className="px-4"
       style={{
         paddingTop: '120px',
@@ -47,6 +85,52 @@ export function LiveDemoSection() {
         >
           Every debate produces a defensible, auditable result.
         </p>
+
+        <div
+          data-testid="live-demo-bridge-status"
+          className="flex flex-wrap items-center gap-3"
+          style={{
+            backgroundColor: 'var(--surface)',
+            borderRadius: 'var(--radius-card)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-card)',
+            padding: '16px 20px',
+            margin: '0 24px 20px',
+          }}
+        >
+          <span
+            className="font-bold px-2 py-0.5 uppercase tracking-wider"
+            style={{
+              fontSize: '10px',
+              backgroundColor: status?.active ? 'var(--accent)' : 'var(--border)',
+              color: status?.active ? 'var(--bg)' : 'var(--text)',
+              borderRadius: 'var(--radius-button)',
+            }}
+          >
+            {bridgeBadge}
+          </span>
+          <span
+            style={{
+              fontSize: isDark ? '13px' : '14px',
+              color: 'var(--text)',
+              fontFamily: 'var(--font-landing)',
+            }}
+          >
+            {bridgeSummary}
+          </span>
+          {activityAgeLabel ? (
+            <span
+              className="ml-auto"
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-landing)',
+              }}
+            >
+              {activityAgeLabel}
+            </span>
+          ) : null}
+        </div>
 
         <div
           style={{
@@ -73,7 +157,7 @@ export function LiveDemoSection() {
                 borderRadius: 'var(--radius-button)',
               }}
             >
-              Approved with conditions
+              Sample decision trace
             </span>
             <span
               className="font-medium"
@@ -85,7 +169,7 @@ export function LiveDemoSection() {
               className="ml-auto"
               style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
             >
-              78% confidence · 6 agents · 3 rounds
+              Example transcript · 6 agents · 3 rounds
             </span>
           </div>
 
@@ -123,10 +207,11 @@ export function LiveDemoSection() {
         </div>
 
         <div className="text-center mt-12">
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          <Link
+            href="/demo"
             className="text-sm font-semibold transition-all hover:scale-[1.02] cursor-pointer"
             style={{
+              display: 'inline-block',
               border: '1px solid var(--accent)',
               borderRadius: 'var(--radius-button)',
               color: 'var(--accent)',
@@ -136,7 +221,7 @@ export function LiveDemoSection() {
             }}
           >
             Run your own debate
-          </button>
+          </Link>
         </div>
       </div>
     </section>
