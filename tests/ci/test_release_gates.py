@@ -227,6 +227,26 @@ class TestReleaseReadinessBootstrapWorkflow:
         assert "scripts/ci_install_project.sh --extras dev,test" in command
 
 
+class TestMigrationTestsWorkflow:
+    """Validate migration-tests workflow bootstraps the monorepo correctly."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "migration-tests.yml"
+
+    def test_workflow_file_exists(self):
+        assert self.path.exists(), "migration-tests.yml does not exist"
+
+    def test_workflow_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["migration-tests"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
 class TestAutopilotWorktreeE2EWorkflow:
     """Validate autopilot-worktree-e2e workflow bootstrap policy."""
 
