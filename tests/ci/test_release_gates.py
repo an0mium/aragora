@@ -150,6 +150,20 @@ class TestIntegrationGateWorkflow:
         assert "needs" in summary_job
 
 
+class TestLiveDeployModeGateWorkflow:
+    """Validate live-deploy-mode-gate.yml runner policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "live-deploy-mode-gate.yml"
+
+    def test_gate_uses_linux_hetzner_runner_pool(self):
+        data = _load_yaml(self.path)
+        job = data["jobs"]["gate"]
+        runs_on = job["runs-on"]
+        assert runs_on == ["self-hosted", "Linux", "X64", "aragora", "hetzner"]
+
+
 class TestAragoraReviewGateWorkflow:
     """Validate Aragora PR review gate structure."""
 
