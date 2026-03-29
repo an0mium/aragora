@@ -32,6 +32,7 @@ from aragora.swarm.boss_loop import (
     GitHubIssue,
     GitHubIssueFeed,
     RunnerFreshnessResult,
+    _discover_focused_tests,
     check_runner_freshness,
     dispatch_bounded_spec,
     extract_issue_validation_contract,
@@ -1542,3 +1543,74 @@ class TestClassifyTerminalRunOutcome:
         assert deliverable["type"] == "branch"
         assert deliverable["branch"] == "codex/swarm-abc-subtask_1"
         assert deliverable["commit_shas"] == ["abc123"]
+
+
+# ---------------------------------------------------------------------------
+# _discover_focused_tests
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoverFocusedTests:
+    """Tests for git-diff-based test discovery."""
+
+    def test_focused_maps_source_to_test_mirror(self):
+        """Source files under aragora/ are mapped to their tests/ mirror."""
+        diff = "aragora/swarm/boss_loop.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == ["tests/swarm/test_boss_loop.py"]
+
+    def test_focused_passes_through_existing_test_files(self):
+        """Files already under tests/ are included directly."""
+        diff = "tests/swarm/test_boss_loop.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == ["tests/swarm/test_boss_loop.py"]
+
+    def test_focused_ignores_non_python_files(self):
+        """Non-.py files are skipped."""
+        diff = "aragora/swarm/boss_loop.py\nREADME.md\ndocs/guide.rst\n"
+        result = _discover_focused_tests(diff)
+        assert result == ["tests/swarm/test_boss_loop.py"]
+
+    def test_focused_deduplicates(self):
+        """Duplicate paths from source + test both present are deduplicated."""
+        diff = "aragora/swarm/boss_loop.py\ntests/swarm/test_boss_loop.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == ["tests/swarm/test_boss_loop.py"]
+
+    def test_focused_multiple_source_files(self):
+        """Multiple changed source files produce multiple test paths."""
+        diff = "aragora/analytics/dashboard.py\naragora/swarm/boss_loop.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == [
+            "tests/analytics/test_dashboard.py",
+            "tests/swarm/test_boss_loop.py",
+        ]
+
+    def test_focused_top_level_source_file(self):
+        """A source file at the root of aragora/ maps to tests/test_<name>.py."""
+        diff = "aragora/resilience.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == ["tests/test_resilience.py"]
+
+    def test_focused_respects_max_paths(self):
+        """Output is capped at max_paths."""
+        diff = "\n".join(f"aragora/mod{i}/file.py" for i in range(50))
+        result = _discover_focused_tests(diff, max_paths=5)
+        assert len(result) == 5
+
+    def test_focused_empty_diff(self):
+        """Empty diff produces empty result."""
+        assert _discover_focused_tests("") == []
+        assert _discover_focused_tests("   \n\n  ") == []
+
+    def test_focused_ignores_unrelated_paths(self):
+        """Files outside aragora/ and tests/ are ignored."""
+        diff = "scripts/deploy.py\nsetup.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == []
+
+    def test_focused_sorted_output(self):
+        """Result is always sorted alphabetically."""
+        diff = "aragora/swarm/boss_loop.py\naragora/analytics/dashboard.py\n"
+        result = _discover_focused_tests(diff)
+        assert result == sorted(result)

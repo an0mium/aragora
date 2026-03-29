@@ -1006,6 +1006,62 @@ def _extract_worker_outcome(run_dict: dict[str, Any]) -> str | None:
     return None
 
 
+def _discover_focused_tests(
+    diff_output: str,
+    *,
+    test_root: str = "tests",
+    source_root: str = "aragora",
+    max_paths: int = 20,
+) -> list[str]:
+    """Map ``git diff --name-only`` output to the corresponding test file paths.
+
+    Strategy:
+    1. Files already under *test_root* are included directly.
+    2. Source files under *source_root* are mirrored into *test_root* using the
+       convention ``aragora/foo/bar.py`` → ``tests/foo/test_bar.py``.
+    3. Non-Python files and duplicates are skipped.
+    4. The result is capped at *max_paths* to avoid exploding the pytest
+       invocation.
+
+    Returns a deduplicated, sorted list of test-file paths (relative to the
+    repo root).  The caller is responsible for filtering out paths that do not
+    exist on disk.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for raw_line in diff_output.splitlines():
+        path = raw_line.strip()
+        if not path or not path.endswith(".py"):
+            continue
+
+        candidates: list[str] = []
+
+        if path.startswith(f"{test_root}/"):
+            # Already a test file — include as-is.
+            candidates.append(path)
+        elif path.startswith(f"{source_root}/"):
+            # Mirror convention: aragora/foo/bar.py → tests/foo/test_bar.py
+            relative = path[len(source_root) + 1 :]  # e.g. "foo/bar.py"
+            parts = relative.rsplit("/", 1)
+            if len(parts) == 2:
+                package, filename = parts
+                test_path = f"{test_root}/{package}/test_{filename}"
+            else:
+                filename = parts[0]
+                test_path = f"{test_root}/test_{filename}"
+            candidates.append(test_path)
+
+        for c in candidates:
+            if c not in seen:
+                seen.add(c)
+                result.append(c)
+                if len(result) >= max_paths:
+                    return sorted(result)
+
+    return sorted(result)
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
