@@ -20,13 +20,17 @@ import pytest
 from aragora.resilience import reset_all_circuit_breakers
 from tests.utils import managed_fixture
 
-# Ensure local Python SDK package imports resolve during test collection.
+# Ensure local monorepo package imports resolve during test collection.
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_SDK_PYTHON_ROOT = _PROJECT_ROOT / "sdk" / "python"
-if _SDK_PYTHON_ROOT.is_dir():
-    _sdk_python = str(_SDK_PYTHON_ROOT)
-    if _sdk_python not in sys.path:
-        sys.path.insert(0, _sdk_python)
+_MONOREPO_IMPORT_ROOTS = [
+    _PROJECT_ROOT / "sdk" / "python",
+    _PROJECT_ROOT / "aragora-debate" / "src",
+]
+for _import_root in _MONOREPO_IMPORT_ROOTS:
+    if _import_root.is_dir():
+        _import_root_str = str(_import_root)
+        if _import_root_str not in sys.path:
+            sys.path.insert(0, _import_root_str)
 
 # Register skip governance plugin for expiry checking
 pytest_plugins = ["tests.plugins.skip_governance"]

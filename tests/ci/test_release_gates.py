@@ -185,6 +185,27 @@ class TestAragoraReviewGateWorkflow:
         )
 
 
+class TestReleaseReadinessWorkflow:
+    """Validate release-readiness workflow bootstraps the monorepo correctly."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "release-readiness.yml"
+
+    def test_workflow_file_exists(self):
+        assert self.path.exists(), "release-readiness.yml does not exist"
+
+    def test_workflow_uses_monorepo_safe_installer(self):
+        data = _load_yaml(self.path)
+        jobs = data["jobs"]
+        workflow = jobs["release-readiness"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
 class TestReleaseWorkflow:
     """Validate release.yml integrates all gates."""
 
