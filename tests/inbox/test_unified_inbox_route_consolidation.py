@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from aragora.server.handlers.inbox.team_inbox_handler import TeamInboxHandler
 from aragora.server.handlers.features.unified_inbox.handler import UnifiedInboxHandler
 from aragora.server.handlers.shared_inbox.handler import SharedInboxHandler
 from aragora.server.router import RequestRouter
@@ -67,12 +68,47 @@ def test_unified_inbox_can_handle_only_supported_paths():
 
 def test_shared_inbox_routes_dispatch_to_shared_handler_not_unified_handler():
     unified_handler = _build_unified_handler()
+    team_handler = TeamInboxHandler({})
     shared_handler = SharedInboxHandler({})
     router = RequestRouter()
 
     router.register(unified_handler)
+    router.register(team_handler)
     router.register(shared_handler)
 
     handler = router.get_handler_for_path("/api/v1/inbox/shared/inbox-123/messages")
 
     assert handler is shared_handler
+
+
+def test_team_inbox_mentions_route_dispatches_to_team_handler():
+    unified_handler = _build_unified_handler()
+    team_handler = TeamInboxHandler({})
+    shared_handler = SharedInboxHandler({})
+    router = RequestRouter()
+
+    router.register(unified_handler)
+    router.register(team_handler)
+    router.register(shared_handler)
+
+    handler = router.get_handler_for_path("/api/v1/inbox/mentions")
+
+    assert handler is team_handler
+
+
+def test_team_inbox_shared_collaboration_routes_dispatch_to_team_handler():
+    unified_handler = _build_unified_handler()
+    team_handler = TeamInboxHandler({})
+    shared_handler = SharedInboxHandler({})
+    router = RequestRouter()
+
+    router.register(unified_handler)
+    router.register(team_handler)
+    router.register(shared_handler)
+
+    assert router.get_handler_for_path("/api/v1/inbox/shared/inbox-123/team") is team_handler
+    assert (
+        router.get_handler_for_path("/api/v1/inbox/shared/inbox-123/messages/msg-123/notes")
+        is team_handler
+    )
+    assert router.get_handler_for_path("/api/v1/inbox/shared/inbox-123/activity") is team_handler
