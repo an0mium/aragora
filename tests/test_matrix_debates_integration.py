@@ -568,7 +568,12 @@ class TestMatrixDebateFallback:
         combo_b_agent.name = "gemini"
 
         with patch.object(handler, "_load_agents_from_specs", new_callable=AsyncMock) as mock_load:
-            mock_load.side_effect = [[combo_a_agent], [combo_b_agent], [combo_a_agent], [combo_b_agent]]
+            mock_load.side_effect = [
+                [combo_a_agent],
+                [combo_b_agent],
+                [combo_a_agent],
+                [combo_b_agent],
+            ]
 
             weak_arena = Mock()
             weak_arena.run = AsyncMock(

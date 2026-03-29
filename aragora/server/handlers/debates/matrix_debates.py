@@ -284,7 +284,9 @@ class MatrixDebatesHandler(SecureHandler):
         if len(scenarios) > 10:
             return error_response("Maximum 10 scenarios allowed", 400)
 
-        raw_model_combinations = data.get("model_combinations") if "model_combinations" in data else None
+        raw_model_combinations = (
+            data.get("model_combinations") if "model_combinations" in data else None
+        )
         if raw_model_combinations is not None and not isinstance(raw_model_combinations, list):
             return error_response("model_combinations must be an array", 400)
 
@@ -299,7 +301,9 @@ class MatrixDebatesHandler(SecureHandler):
                 f"Maximum {MAX_AGENT_COMBINATIONS} agent combinations allowed",
                 400,
             )
-        uses_model_combinations = raw_model_combinations is not None and "agent_combinations" not in data
+        uses_model_combinations = (
+            raw_model_combinations is not None and "agent_combinations" not in data
+        )
 
         if uses_model_combinations and scenarios and agent_combinations:
             return error_response(
@@ -630,9 +634,7 @@ class MatrixDebatesHandler(SecureHandler):
             for spec in specs
         ]
 
-    async def _load_agents_from_specs(
-        self, agent_specs: Any, min_agents: int = 2
-    ) -> list[Any]:
+    async def _load_agents_from_specs(self, agent_specs: Any, min_agents: int = 2) -> list[Any]:
         """Create fresh agent instances from flexible agent specifications."""
         try:
             from aragora.agents.spec import AgentSpec
@@ -726,7 +728,9 @@ class MatrixDebatesHandler(SecureHandler):
 
             if use_model_combinations:
                 for combo in model_combinations:
-                    if not await self._load_agents_from_specs(combo.get("agents", []), min_agents=1):
+                    if not await self._load_agents_from_specs(
+                        combo.get("agents", []), min_agents=1
+                    ):
                         return error_response(
                             f"No valid agents found for {combo.get('name', 'model combination')}",
                             400,
@@ -906,7 +910,9 @@ class MatrixDebatesHandler(SecureHandler):
                 )
         return conditional
 
-    def _build_comparison_matrix(self, results: list[dict], include_best_result: bool = True) -> dict:
+    def _build_comparison_matrix(
+        self, results: list[dict], include_best_result: bool = True
+    ) -> dict:
         """Build a comparison matrix of scenarios."""
         best_result = self._select_best_result(results) if include_best_result else None
         comparison = {
