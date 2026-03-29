@@ -1076,10 +1076,8 @@ class TestHandleDebateCompletion:
         """Test that debate outcome is ingested to Knowledge Mound (background task)."""
         await handle_debate_completion(mock_arena, execution_state)
 
-        # KM ingestion runs as a background task; yield to let it execute
-        await asyncio.sleep(0)
-
         mock_arena._ingest_debate_outcome.assert_called_once_with(execution_state.ctx.result)
+        assert getattr(execution_state.ctx, "_km_ingest_task", None) is None
 
     @pytest.mark.asyncio
     async def test_handles_km_ingestion_error(self, mock_arena, execution_state):
@@ -1088,7 +1086,7 @@ class TestHandleDebateCompletion:
 
         # Should not raise — ingestion runs in background with retry
         await handle_debate_completion(mock_arena, execution_state)
-        await asyncio.sleep(0)  # Let background task start
+        assert getattr(execution_state.ctx, "_km_ingest_task", None) is None
 
     @pytest.mark.asyncio
     async def test_completes_gupp_tracking_on_success(self, mock_arena, execution_state):

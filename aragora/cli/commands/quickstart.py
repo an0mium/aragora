@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -102,6 +103,20 @@ _TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
     "certificate verify failed",
     "unable to get local issuer certificate",
 )
+
+
+def _quickstart_loop_factory() -> asyncio.AbstractEventLoop:
+    """Create a private loop for sync CLI entrypoints without inheriting test policy."""
+    selector_loop = getattr(asyncio, "SelectorEventLoop", None)
+    if selector_loop is not None:
+        return selector_loop()
+    return asyncio.new_event_loop()
+
+
+def _run_sync(coro: Any) -> Any:
+    """Run quickstart coroutines on an isolated event loop."""
+    with asyncio.Runner(loop_factory=_quickstart_loop_factory) as runner:
+        return runner.run(coro)
 
 
 def add_quickstart_parser(subparsers: Any) -> None:
@@ -385,21 +400,21 @@ def _open_receipt_in_browser(
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
-    from aragora.agents.demo_agent import DemoAgent
-
-    agents = [
-        DemoAgent("analyst", role="proposer"),
-        DemoAgent("critic", role="critic"),
-        DemoAgent("synthesizer", role="synthesizer"),
-    ]
-    summary = await agents[-1].generate(f"Task: {question}")
+    agent_names = ["analyst", "critic", "synthesizer"]
+    summary = (
+        f"Demo synthesis for: {question}\n\n"
+        "- Combine a minimal baseline with explicit risk guardrails.\n"
+        "- Make metrics and rollback criteria first-class requirements.\n"
+        "- Ship in phases and revisit assumptions after initial data.\n\n"
+        "Decision: Proceed with a phased rollout and explicit success metrics."
+    )
 
     return {
         "question": question,
         "verdict": "consensus",
         "confidence": 0.85,
         "rounds": rounds,
-        "agents": [a.name for a in agents],
+        "agents": agent_names,
         "summary": summary,
         "dissent": [],
         "mode": "demo",
@@ -415,6 +430,17 @@ async def _run_live_debate(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Run a debate with live API agents."""
+    # Quickstart is a bounded onboarding lane that relies on already-detected
+    # env vars or inline keys. Avoid boot-time AWS Secrets Manager hydration
+    # when importing the full debate stack for this path.
+    os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
+    try:
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+    except ImportError:
+        pass
+
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -488,9 +514,13 @@ async def _run_live_debate(
         **_LIVE_ARENA_KWARGS,
     )
     arena.enable_introspection = False
+    run_task = asyncio.create_task(arena.run())
     try:
-        result = await asyncio.wait_for(arena.run(), timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
+        result = await asyncio.wait_for(run_task, timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
     except TimeoutError as exc:
+        run_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, RuntimeError):
+            await run_task
         raise RuntimeError(
             f"Live debate timed out after {_LIVE_DEBATE_TIMEOUT_SECONDS:.0f}s"
         ) from exc
@@ -901,9 +931,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     start_time = time.monotonic()
     try:
         if use_demo:
-            result = asyncio.run(_run_demo_debate(question, rounds))
+            result = _run_sync(_run_demo_debate(question, rounds))
         else:
-            result = asyncio.run(
+            result = _run_sync(
                 _run_live_debate(
                     question,
                     detected[:4],
@@ -924,7 +954,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             print("    Falling back to demo mode.")
         # Fall back to demo — the user should always get a result
         try:
-            result = asyncio.run(_run_demo_debate(question, rounds))
+            result = _run_sync(_run_demo_debate(question, rounds))
         except (OSError, RuntimeError, ValueError) as demo_err:
             logger.debug("Demo debate also failed: %s", demo_err)
             print(f"\n[!] Demo debate also failed: {demo_err}")

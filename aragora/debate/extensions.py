@@ -25,9 +25,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from aragora.billing.budget_manager import get_budget_manager
-from aragora.billing.cost_tracker import get_cost_tracker
-
 if TYPE_CHECKING:
     from aragora.billing.debate_costs import DebateCostSummary
     from aragora.core import Agent, DebateResult
@@ -167,6 +164,8 @@ class ArenaExtensions:
         org_id = getattr(self, "org_id", None)
         if org_id:
             try:
+                from aragora.billing.budget_manager import get_budget_manager
+
                 mgr = get_budget_manager()
                 if mgr.is_budget_suspended(org_id):
                     raise RuntimeError("Budget suspended")
@@ -182,6 +181,8 @@ class ArenaExtensions:
             from decimal import Decimal
 
             if self.cost_tracker is None:
+                from aragora.billing.cost_tracker import get_cost_tracker
+
                 self.cost_tracker = get_cost_tracker()
 
             limit = Decimal(str(self.debate_budget_limit_usd))

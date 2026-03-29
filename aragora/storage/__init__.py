@@ -27,9 +27,7 @@ from .interface import (
     sync_backend,
 )
 from .adapters import DebateStorageAdapter
-from .organization_store import OrganizationStore
 from .share_store import ShareLinkStore
-from .user_store import UserStore
 from .webhook_store import (
     InMemoryWebhookStore,
     SQLiteWebhookStore,
@@ -149,6 +147,10 @@ from typing import Any
 
 # Global debate storage singleton (set during server startup)
 _debate_storage: Any = None
+_LAZY_STORE_EXPORTS = {
+    "OrganizationStore": (".organization_store", "OrganizationStore"),
+    "UserStore": (".user_store", "UserStore"),
+}
 
 
 def get_storage() -> Any:
@@ -170,6 +172,19 @@ def reset_storage() -> None:
     """Reset debate storage to None (for testing)."""
     global _debate_storage
     _debate_storage = None
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module_name, attr_name = _LAZY_STORE_EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    from importlib import import_module
+
+    value = getattr(import_module(module_name, __name__), attr_name)
+    globals()[name] = value
+    return value
 
 
 __all__ = [

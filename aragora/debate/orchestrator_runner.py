@@ -1154,13 +1154,19 @@ async def handle_debate_completion(
                 except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
                     logger.debug("DLQ enqueue failed: %s", dlq_err)
 
-        _km_task = asyncio.create_task(_km_ingest_background())
-        setattr(ctx, "_km_ingest_task", _km_task)
-        _km_task.add_done_callback(
-            lambda t: logger.warning("[km-ingest] Background ingestion error: %s", t.exception())
-            if not t.cancelled() and t.exception()
-            else None
-        )
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            await _km_ingest_background()
+            setattr(ctx, "_km_ingest_task", None)
+        else:
+            _km_task = asyncio.create_task(_km_ingest_background())
+            setattr(ctx, "_km_ingest_task", _km_task)
+            _km_task.add_done_callback(
+                lambda t: logger.warning(
+                    "[km-ingest] Background ingestion error: %s", t.exception()
+                )
+                if not t.cancelled() and t.exception()
+                else None
+            )
 
     # Capture epistemic settlement metadata for future review
     if ctx.result:

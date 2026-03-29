@@ -688,6 +688,10 @@ class OutcomeVerifier:
         # Positive error = overconfident → adjustment < 1.0
         return max(0.5, min(1.5, 1.0 - error))
 
+    def close(self) -> None:
+        """Close the underlying database resources."""
+        self._db.close()
+
 
 class AsyncOutcomeVerifier:
     """Async wrapper for OutcomeVerifier."""

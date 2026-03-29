@@ -311,6 +311,14 @@ class CheckpointManager:
             return await self._recovery_narrator.get_resumption_prompt(debate_id, agent_name)
         return None
 
+    def close(self) -> None:
+        """Close checkpoint storage resources and clear transient state."""
+        store = getattr(self, "store", None)
+        if store is not None and hasattr(store, "close"):
+            store.close()
+        self._last_checkpoint_time.clear()
+        self._checkpoint_count.clear()
+
     def should_checkpoint(
         self,
         debate_id: str,

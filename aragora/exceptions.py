@@ -1161,39 +1161,48 @@ try:
 except ImportError:
     pass  # Optional: connectors module may not be installed
 
-# Control plane exceptions (re-exports for unified imports)
-try:
-    from aragora.control_plane.exceptions import (  # noqa: F401
-        AgentOverloadedError,
-        AgentUnavailableError,
-        ControlPlaneError,
-        InvalidTaskStateError,
-        PolicyConflictError,
-        PolicyEvaluationError,
-        PolicyNotFoundError,
-        RateLimitExceededError as ControlPlaneRateLimitError,
-        RegionRoutingError,
-        RegionUnavailableError,
-        ResourceQuotaExceededError,
-        SchedulerConnectionError,
-        TaskClaimError,
-        TaskNotFoundError,
-        TaskTimeoutError,
-    )
-except ImportError:
-    pass  # Optional: control_plane module may not be installed
+_LAZY_CONTROL_PLANE_EXCEPTIONS = {
+    "AgentOverloadedError": "AgentOverloadedError",
+    "AgentUnavailableError": "AgentUnavailableError",
+    "ControlPlaneError": "ControlPlaneError",
+    "InvalidTaskStateError": "InvalidTaskStateError",
+    "PolicyConflictError": "PolicyConflictError",
+    "PolicyEvaluationError": "PolicyEvaluationError",
+    "PolicyNotFoundError": "PolicyNotFoundError",
+    "ControlPlaneRateLimitError": "RateLimitExceededError",
+    "RegionRoutingError": "RegionRoutingError",
+    "RegionUnavailableError": "RegionUnavailableError",
+    "ResourceQuotaExceededError": "ResourceQuotaExceededError",
+    "SchedulerConnectionError": "SchedulerConnectionError",
+    "TaskClaimError": "TaskClaimError",
+    "TaskNotFoundError": "TaskNotFoundError",
+    "TaskTimeoutError": "TaskTimeoutError",
+}
 
-# Handler exceptions (re-exports for unified imports)
-try:
-    from aragora.server.handlers.exceptions import (  # noqa: F401
-        HandlerAuthorizationError,
-        HandlerConflictError,
-        HandlerDatabaseError,
-        HandlerError,
-        HandlerExternalServiceError,
-        HandlerNotFoundError,
-        HandlerRateLimitError,
-        HandlerValidationError,
-    )
-except ImportError:
-    pass  # Optional: server module may not be installed
+_LAZY_HANDLER_EXCEPTIONS = {
+    "HandlerAuthorizationError",
+    "HandlerConflictError",
+    "HandlerDatabaseError",
+    "HandlerError",
+    "HandlerExternalServiceError",
+    "HandlerNotFoundError",
+    "HandlerRateLimitError",
+    "HandlerValidationError",
+}
+
+
+def __getattr__(name: str):
+    control_plane_name = _LAZY_CONTROL_PLANE_EXCEPTIONS.get(name)
+    if control_plane_name is not None:
+        from aragora.control_plane.exceptions import __dict__ as control_plane_exceptions
+
+        value = control_plane_exceptions[control_plane_name]
+        globals()[name] = value
+        return value
+    if name in _LAZY_HANDLER_EXCEPTIONS:
+        from aragora.server.handlers.exceptions import __dict__ as handler_exceptions
+
+        value = handler_exceptions[name]
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
