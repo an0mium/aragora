@@ -362,11 +362,16 @@ def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkey
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GMAIL_CLIENT_SECRET", "client-secret")
     monkeypatch.delenv("GMAIL_REFRESH_TOKEN", raising=False)
 
-    with patch(
-        "aragora.connectors.enterprise.communication.gmail.GmailConnector",
-        _FakeConnector,
+    with (
+        patch.object(triage_cmd, "_get_secret_fallback", return_value=""),
+        patch.object(triage_cmd, "_load_local_dotenv"),
+        patch(
+            "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+            _FakeConnector,
+        ),
     ):
         connector = triage_cmd._get_gmail_connector()
 

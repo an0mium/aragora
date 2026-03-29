@@ -256,6 +256,7 @@ class TestConfigHelpers:
         set_tracing_config(TracingConfig(enabled=True))
         assert is_tracing_enabled() is True
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_is_metrics_enabled_true_by_default(self):
         assert is_metrics_enabled() is True
 
