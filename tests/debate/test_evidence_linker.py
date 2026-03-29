@@ -17,6 +17,8 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 import pytest
 
 from aragora.debate.evidence_linker import (
@@ -232,6 +234,24 @@ class TestEvidenceClaimLinkerInit:
 
         assert len(linker._claim_patterns) == len(CLAIM_INDICATORS)
         assert len(linker._non_claim_patterns) == len(NON_CLAIM_PATTERNS)
+
+    def test_linker_prefers_local_embedding_cache_in_pytest(self, monkeypatch):
+        """Pytest runs should not trigger remote model downloads."""
+        import aragora.debate.evidence_linker as linker_module
+
+        mock_transformer = Mock(return_value=object())
+        monkeypatch.setattr(linker_module, "_EMBEDDINGS_CHECKED", True)
+        monkeypatch.setattr(linker_module, "_EMBEDDINGS_AVAILABLE", True)
+        monkeypatch.setattr(linker_module, "_SentenceTransformer", mock_transformer)
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/debate/test_evidence_linker.py::test")
+
+        linker = EvidenceClaimLinker()
+
+        assert linker.uses_embeddings is True
+        mock_transformer.assert_called_once_with(
+            "sentence-transformers/all-MiniLM-L6-v2",
+            local_files_only=True,
+        )
 
 
 class TestEvidenceClaimLinkerClaimExtraction:
