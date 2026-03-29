@@ -35,6 +35,15 @@ class _SlowSyncController:
         return _SlowStartResponse()
 
 
+class _RecordingController:
+    def __init__(self) -> None:
+        self.request = None
+
+    def start_debate(self, request):
+        self.request = request
+        return _SlowStartResponse()
+
+
 @pytest.mark.asyncio
 async def test_list_debates_does_not_block_event_loop_for_sync_storage() -> None:
     async def ticker() -> int:
@@ -96,3 +105,44 @@ async def test_create_debate_does_not_block_event_loop_for_sync_controller(
     assert response.debate_id == "debate-123"
     assert response.status == "started"
     assert ticks >= 5
+
+
+@pytest.mark.asyncio
+async def test_create_debate_forwards_model_combinations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller = _RecordingController()
+    monkeypatch.setattr(
+        debate_controller_mod,
+        "get_debate_controller",
+        lambda: controller,
+        raising=False,
+    )
+
+    response = await create_debate(
+        body=CreateDebateRequest(
+            question="Which lineup produces the best implementation plan?",
+            model_combinations=[
+                [
+                    {"provider": "openai-api", "model": "gpt-4.1"},
+                    {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                ],
+                [
+                    {"provider": "openai-api", "model": "gpt-4.1-mini"},
+                    {"provider": "anthropic-api", "model": "claude-sonnet-4-5"},
+                ],
+            ],
+        ),
+        request=None,
+        auth=None,
+        storage=object(),
+    )
+
+    assert response.debate_id == "debate-123"
+    assert controller.request is not None
+    assert controller.request.comparison_config is not None
+    assert controller.request.comparison_config["agent_combinations"][0][0]["model"] == "gpt-4.1"
+    assert (
+        controller.request.model_combinations
+        == controller.request.comparison_config["agent_combinations"]
+    )
