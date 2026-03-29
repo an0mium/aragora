@@ -344,6 +344,11 @@ async def _shutdown_cmd_ask_resources() -> None:
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
+    # Give async transport/connector close callbacks one loop turn before
+    # asyncio.run() tears the loop down. This avoids intermittent unclosed
+    # socket warnings in CLI proof-path tests.
+    await asyncio.sleep(0)
+
 
 async def _run_coro_with_cmd_ask_cleanup(coro: Any) -> Any:
     """Await a CLI ask coroutine and close shared resources on the same loop."""
