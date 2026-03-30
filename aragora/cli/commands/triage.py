@@ -549,14 +549,23 @@ def _print_run_footer(
     next_page_token: str | None = None,
 ) -> None:
     """Print a compact diagnostics-aware run footer."""
-    print(
-        "Run summary: "
-        f"processed={len(decisions)} "
-        f"fast={meta.get('fast_tier_count', 0)} "
-        f"escalated={meta.get('escalated_count', 0)} "
-        f"blocked={meta.get('blocked_count', 0)} "
-        f"suppressed={meta.get('suppressed_diagnostics_count', 0)}"
+    message_suppressed = int(
+        meta.get(
+            "message_suppressed_diagnostics_count",
+            meta.get("suppressed_diagnostics_count", 0),
+        )
     )
+    global_suppressed = int(meta.get("global_suppressed_diagnostics_count", 0))
+    summary_parts = [
+        f"processed={len(decisions)}",
+        f"fast={meta.get('fast_tier_count', 0)}",
+        f"escalated={meta.get('escalated_count', 0)}",
+        f"blocked={meta.get('blocked_count', 0)}",
+        f"suppressed={message_suppressed}",
+    ]
+    if global_suppressed:
+        summary_parts.append(f"global_diag={global_suppressed}")
+    print("Run summary: " + " ".join(summary_parts))
     if getattr(diagnostics, "has_degraded_or_blocking", lambda: False)():
         print(f"Diagnostics: {meta.get('artifact_dir')}")
     if next_page_token:

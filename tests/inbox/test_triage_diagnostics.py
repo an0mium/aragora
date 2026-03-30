@@ -138,3 +138,36 @@ def test_finalize_writes_meta_and_event_artifacts(tmp_path):
     assert written_meta["profile"] == "staged_v1"
     assert written_meta["artifact_dir"] == str(diagnostics.artifact_dir)
     assert meta["severity_counts"]["diagnostic"] == 1
+    assert meta["message_suppressed_diagnostics_count"] == 1
+    assert meta["global_suppressed_diagnostics_count"] == 0
+
+
+def test_finalize_separates_global_and_message_suppressed_counts(tmp_path):
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+        diagnostics_dir=tmp_path,
+    )
+    with diagnostics.activate():
+        diagnostics.record_event(
+            code="startup",
+            severity="diagnostic",
+            logger_name="aragora.storage.pool_manager",
+            summary="startup warning",
+        )
+        with diagnostics.message_scope("msg-7"):
+            diagnostics.record_event(
+                code="slow_round",
+                severity="diagnostic",
+                logger_name="aragora.debate.performance_monitor",
+                summary="slow round",
+            )
+
+    meta = diagnostics.finalize([])
+
+    assert meta["suppressed_diagnostics_count"] == 2
+    assert meta["message_suppressed_diagnostics_count"] == 1
+    assert meta["global_suppressed_diagnostics_count"] == 1

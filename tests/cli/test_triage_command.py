@@ -234,6 +234,8 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
 
     out = capsys.readouterr().out
     assert "Run summary:" in out
+    assert "suppressed=0" in out
+    assert "global_diag=" in out
     assert "Diagnostics:" in out
     diag_root = tmp_path / "triage-runs"
     meta_files = list(diag_root.glob("*/meta.json"))
