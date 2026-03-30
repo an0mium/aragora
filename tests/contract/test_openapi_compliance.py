@@ -57,6 +57,10 @@ def handler_instances(all_handlers):
 class TestOpenAPIPaths:
     """Tests that OpenAPI paths have corresponding handlers."""
 
+    @staticmethod
+    def _normalize_template(path: str) -> str:
+        return re.sub(r"\{[^}]+\}", "*", path)
+
     def test_spec_has_paths(self, openapi_spec: dict) -> None:
         """OpenAPI spec should define paths."""
         assert "paths" in openapi_spec
@@ -114,12 +118,20 @@ class TestOpenAPIPaths:
 
         for path in legacy_paths:
             v1_path = path.replace("/api/", "/api/v1/", 1)
-            assert v1_path in spec_paths, f"Missing /api/v1 alias for {path}"
+            matching_v1_paths = [
+                candidate
+                for candidate in spec_paths
+                if self._normalize_template(candidate) == self._normalize_template(v1_path)
+            ]
+            assert matching_v1_paths, f"Missing /api/v1 alias for {path}"
             legacy_methods = {
                 method for method in spec_paths[path] if method.lower() in http_methods
             }
             v1_methods = {
-                method for method in spec_paths[v1_path] if method.lower() in http_methods
+                method
+                for candidate in matching_v1_paths
+                for method in spec_paths[candidate]
+                if method.lower() in http_methods
             }
             assert legacy_methods <= v1_methods, (
                 f"Legacy methods not covered by v1 for {path}: "
@@ -141,11 +153,31 @@ class TestHandlerPathCoverage:
     """Tests that handlers cover OpenAPI-defined paths."""
 
     @staticmethod
-    def _normalize_route(route: str) -> str:
+    def _normalize_route(route: Any) -> str:
+        if isinstance(route, tuple):
+            for candidate in reversed(route):
+                if hasattr(candidate, "pattern"):
+                    route = candidate.pattern
+                    break
+                if isinstance(candidate, str) and candidate.startswith("/"):
+                    route = candidate
+                    break
+            else:
+                route = ""
+        elif hasattr(route, "pattern"):
+            route = route.pattern
+        if not isinstance(route, str):
+            return ""
         return route.rstrip("*").rstrip("/")
 
     @staticmethod
-    def _pattern_prefix(pattern: str) -> str:
+    def _pattern_prefix(pattern: Any) -> str:
+        if isinstance(pattern, tuple):
+            pattern = pattern[0]
+        if hasattr(pattern, "pattern"):
+            pattern = pattern.pattern
+        if not isinstance(pattern, str):
+            return ""
         cleaned = pattern.lstrip("^")
         escaped = False
         for idx, ch in enumerate(cleaned):
@@ -169,10 +201,14 @@ class TestHandlerPathCoverage:
         for instance in handler_instances:
             if hasattr(instance, "ROUTES"):
                 for route in instance.ROUTES:
-                    handled_paths.add(self._normalize_route(route))
+                    normalized = self._normalize_route(route)
+                    if normalized:
+                        handled_paths.add(normalized)
             if hasattr(instance, "ROUTE_PREFIXES"):
                 for route in instance.ROUTE_PREFIXES:
-                    handled_paths.add(self._normalize_route(route))
+                    normalized = self._normalize_route(route)
+                    if normalized:
+                        handled_paths.add(normalized)
             if hasattr(instance, "ROUTE_PATTERNS"):
                 for pattern in instance.ROUTE_PATTERNS:
                     prefix = self._pattern_prefix(pattern)
