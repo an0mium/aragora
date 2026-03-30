@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 import time
 import uuid
@@ -330,6 +331,18 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
     "python3 -m aragora",
 )
 _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
+_UNSAFE_PRE_DISPATCH_SHELL_FRAGMENTS = (
+    "|",
+    "&&",
+    "||",
+    ";",
+    "<",
+    ">",
+    "$(",
+    "`",
+    "\n",
+    "\r",
+)
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -425,8 +438,28 @@ def _normalize_pre_dispatch_command(text: str) -> str:
     return normalized
 
 
+def split_pre_dispatch_validation_command(command: str) -> list[str]:
+    """Split a pre-dispatch validation command into argv after safety checks."""
+    normalized = str(command or "").strip()
+    if not normalized:
+        raise ValueError("empty validation command")
+    for fragment in _UNSAFE_PRE_DISPATCH_SHELL_FRAGMENTS:
+        if fragment in normalized:
+            raise ValueError(
+                "shell operators are not allowed in pre-dispatch validation commands; "
+                "use a single direct command instead"
+            )
+    try:
+        argv = shlex.split(normalized, posix=True)
+    except ValueError as exc:
+        raise ValueError(f"invalid shell quoting: {exc}") from exc
+    if not argv:
+        raise ValueError("empty validation command")
+    return argv
+
+
 def extract_pre_dispatch_validation_commands(issue_body: str) -> list[str]:
-    """Return explicit validation commands that are safe to probe before dispatch."""
+    """Return explicit validation commands declared in the issue body."""
     commands: list[str] = []
     for item in extract_issue_validation_contract(issue_body):
         normalized = _normalize_pre_dispatch_command(item)
@@ -448,8 +481,19 @@ def run_pre_dispatch_validation_commands(
     timeout = max(1, int(timeout_seconds))
     for command in commands:
         try:
+            argv = split_pre_dispatch_validation_command(command)
+        except ValueError as exc:
+            results.append(
+                {
+                    "command": command,
+                    "status": "unsafe",
+                    "detail": str(exc),
+                }
+            )
+            return {"satisfied": False, "results": results}
+        try:
             proc = subprocess.run(
-                ["/bin/bash", "-lc", command],
+                argv,
                 cwd=str(cwd),
                 text=True,
                 capture_output=True,

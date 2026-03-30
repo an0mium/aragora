@@ -22,7 +22,6 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 import sys
 import tempfile
@@ -104,26 +103,14 @@ def _trim_command_output(text: str, *, limit: int = 240) -> str | None:
     return normalized[: limit - 3] + "..."
 
 
-_UNSAFE_VALIDATION_SHELL_FRAGMENTS = (
-    "|",
-    "&&",
-    "||",
-    ";",
-    "<",
-    ">",
-    "$(",
-    "`",
-    "\n",
-    "\r",
-)
-
-
 def _probe_validation_command(
     command: str,
     *,
     repo_root: Path,
     timeout_seconds: float,
 ) -> dict[str, object]:
+    from aragora.swarm.boss_loop import split_pre_dispatch_validation_command
+
     normalized = str(command or "").strip()
     if not normalized:
         return {
@@ -131,29 +118,13 @@ def _probe_validation_command(
             "status": "unsafe",
             "detail": "empty validation command",
         }
-    for fragment in _UNSAFE_VALIDATION_SHELL_FRAGMENTS:
-        if fragment in normalized:
-            return {
-                "command": command,
-                "status": "unsafe",
-                "detail": (
-                    "shell operators are not allowed in auto-probed validation commands; "
-                    "use a single direct command instead"
-                ),
-            }
     try:
-        argv = shlex.split(normalized, posix=True)
+        argv = split_pre_dispatch_validation_command(normalized)
     except ValueError as exc:
         return {
             "command": command,
             "status": "unsafe",
-            "detail": f"invalid shell quoting: {exc}",
-        }
-    if not argv:
-        return {
-            "command": command,
-            "status": "unsafe",
-            "detail": "empty validation command",
+            "detail": str(exc),
         }
     try:
         proc = subprocess.run(

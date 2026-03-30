@@ -267,9 +267,32 @@ Acceptance Criteria:
             timeout_seconds=15,
         )
 
-        assert calls == [["/bin/bash", "-lc", "python -m pytest tests/swarm/test_boss_loop.py -q"]]
+        assert calls == [["python", "-m", "pytest", "tests/swarm/test_boss_loop.py", "-q"]]
         assert result["satisfied"] is False
         assert result["results"][0]["status"] == "failed"
+
+    def test_run_pre_dispatch_validation_commands_rejects_shell_operators(
+        self, monkeypatch, tmp_path: Path
+    ):
+        calls: list[object] = []
+
+        def _run(cmd, **kwargs):
+            calls.append(cmd)
+            raise AssertionError("unsafe command should not be executed")
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        marker = tmp_path / "injected.txt"
+        result = run_pre_dispatch_validation_commands(
+            [f"python -m pytest tests/swarm/test_boss_loop.py -q; echo injected > {marker}"],
+            cwd=tmp_path,
+            timeout_seconds=15,
+        )
+
+        assert calls == []
+        assert result["satisfied"] is False
+        assert result["results"][0]["status"] == "unsafe"
+        assert "shell operators are not allowed" in result["results"][0]["detail"]
+        assert not marker.exists()
 
     def test_requires_labels_when_specified(self):
         issues = [
