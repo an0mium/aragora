@@ -4,11 +4,46 @@ from __future__ import annotations
 
 import asyncio
 import argparse
+import gc
 import json
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _stub_cmd_ask_global_side_effects(request):
+    """Keep cmd_ask tests hermetic unless a test explicitly exercises cleanup semantics."""
+    if request.node.name in {
+        "test_cmd_ask_cleans_shared_resources_on_debate_loop",
+        "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
+    }:
+        yield
+        return
+
+    from aragora.cli.commands import debate as debate_cmd
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _collect_garbage_between_tests():
+    """Force deferred loop/socket finalizers to surface in the test that created them."""
+    yield
+    gc.collect()
+    gc.collect()
 
 
 @pytest.mark.asyncio
@@ -629,15 +664,23 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
         timeout=1,
     )
 
-    async def _raise_async_timeout(coro):
-        coro.close()
+    async def _raise_async_timeout(**_kwargs):
         raise asyncio.TimeoutError()
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
 
     with (
         patch.object(
             debate_cmd,
-            "_run_coro_with_cmd_ask_cleanup",
+            "run_debate",
+            new_callable=AsyncMock,
             side_effect=_raise_async_timeout,
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
         ),
         patch.object(
             debate_cmd,
@@ -688,8 +731,27 @@ def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     args.demo = False
     args.post_consensus_quality = False
 
+    async def _fake_run_with_cleanup(coro):
+        try:
+            return await coro
+        finally:
+            await asyncio.sleep(0)
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
     with (
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(
+            debate_cmd,
+            "_run_coro_with_cmd_ask_cleanup",
+            side_effect=_fake_run_with_cleanup,
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
         patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
     ):
         mock_result = MagicMock()
@@ -998,7 +1060,18 @@ def test_cmd_ask_quality_fail_closed_accepts_output_contract_file(monkeypatch, t
         output_contract_file=str(contract_path),
     )
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
         mock_result = MagicMock()
         mock_result.final_answer = """
 ## Ranked High-Level Tasks
