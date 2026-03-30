@@ -2705,6 +2705,9 @@ def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordin
 def test_refresh_run_salvages_dead_pid_detached_worker_before_stale_reap(
     repo: Path, store: DevCoordinationStore
 ) -> None:
+    (repo / ".gitignore").write_text(".aragora/\n.aragora_events/\n", encoding="utf-8")
+    _run(repo, "git", "add", ".gitignore")
+    _run(repo, "git", "commit", "-m", "ignore coordination artifacts")
     initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
     run_record = store.create_supervisor_run(
         goal="salvage detached worker",
