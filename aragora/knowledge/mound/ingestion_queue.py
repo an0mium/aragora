@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,7 +32,7 @@ class IngestionDeadLetterQueue:
 
     def _ensure_table(self) -> None:
         """Create the DLQ table if it doesn't exist."""
-        with closing(sqlite3.connect(self._db_path)) as conn:
+        with sqlite3.connect(self._db_path) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS ingestion_dlq (
@@ -49,7 +48,7 @@ class IngestionDeadLetterQueue:
 
     def enqueue(self, debate_id: str, result_dict: dict[str, Any], error: str) -> None:
         """Store a failed ingestion for later retry."""
-        with closing(sqlite3.connect(self._db_path)) as conn:
+        with sqlite3.connect(self._db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO ingestion_dlq (debate_id, result_json, error, created_at)
@@ -70,7 +69,7 @@ class IngestionDeadLetterQueue:
 
     def list_failed(self, limit: int = 50) -> list[dict[str, Any]]:
         """List recent failed ingestions."""
-        with closing(sqlite3.connect(self._db_path)) as conn:
+        with sqlite3.connect(self._db_path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM ingestion_dlq ORDER BY created_at DESC LIMIT ?",
@@ -119,7 +118,7 @@ class IngestionDeadLetterQueue:
                     e,
                 )
                 # Increment retry count
-                with closing(sqlite3.connect(self._db_path)) as conn:
+                with sqlite3.connect(self._db_path) as conn:
                     conn.execute(
                         "UPDATE ingestion_dlq SET retry_count = retry_count + 1 WHERE id = ?",
                         (item["id"],),
@@ -127,7 +126,7 @@ class IngestionDeadLetterQueue:
 
         # Delete successes
         if success_ids:
-            with closing(sqlite3.connect(self._db_path)) as conn:
+            with sqlite3.connect(self._db_path) as conn:
                 placeholders = ",".join("?" for _ in success_ids)
                 conn.execute(
                     f"DELETE FROM ingestion_dlq WHERE id IN ({placeholders})",  # noqa: S608 -- parameterized query
@@ -143,6 +142,6 @@ class IngestionDeadLetterQueue:
 
     def clear(self) -> int:
         """Remove all items from the queue. Returns count removed."""
-        with closing(sqlite3.connect(self._db_path)) as conn:
+        with sqlite3.connect(self._db_path) as conn:
             cursor = conn.execute("DELETE FROM ingestion_dlq")
             return cursor.rowcount
