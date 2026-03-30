@@ -13,11 +13,93 @@ from aragora.swarm.runner_registry import (
     DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS,
     LocalRunnerRegistry,
     authorization_context_from_env,
+    authorization_context_with_defaults,
     configured_claude_runner_profiles,
     discover_runner_inspections,
 )
 
 UTC = timezone.utc
+
+
+class TestAuthorizationContextWithDefaults:
+    def test_falls_back_to_local_user_and_repo_workspace(self, monkeypatch, tmp_path: Path) -> None:
+        repo_root = tmp_path / "aragora"
+        repo_root.mkdir()
+
+        monkeypatch.setattr("aragora.swarm.runner_registry.getpass.getuser", lambda: "armand")
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.subprocess.run",
+            lambda *args, **kwargs: type(
+                "_Proc",
+                (),
+                {"returncode": 0, "stdout": f"{repo_root / '.git'}\n", "stderr": ""},
+            )(),
+        )
+
+        context = authorization_context_with_defaults(repo_root=repo_root, env={})
+
+        assert context is not None
+        assert context.user_id == "armand"
+        assert context.workspace_id == "aragora"
+
+    def test_backfills_workspace_for_explicit_user_context(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        repo_root = tmp_path / "aragora"
+        repo_root.mkdir()
+
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.subprocess.run",
+            lambda *args, **kwargs: type(
+                "_Proc",
+                (),
+                {"returncode": 0, "stdout": f"{repo_root / '.git'}\n", "stderr": ""},
+            )(),
+        )
+
+        context = authorization_context_with_defaults(
+            repo_root=repo_root,
+            env={"ARAGORA_USER_ID": "user-123"},
+        )
+
+        assert context is not None
+        assert context.user_id == "user-123"
+        assert context.workspace_id == "aragora"
+
+    def test_prefers_git_common_dir_parent_for_managed_worktree(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        canonical_root = tmp_path / "aragora"
+        managed_worktree = (
+            canonical_root / ".worktrees" / "codex-auto" / "live-boss-proof-20260330b"
+        )
+        managed_worktree.mkdir(parents=True)
+
+        calls: list[list[str]] = []
+
+        def _run(command: list[str], **kwargs):
+            calls.append(command)
+            if "--git-common-dir" in command:
+                return type(
+                    "_Proc",
+                    (),
+                    {"returncode": 0, "stdout": f"{canonical_root / '.git'}\n", "stderr": ""},
+                )()
+            return type(
+                "_Proc",
+                (),
+                {"returncode": 0, "stdout": f"{managed_worktree}\n", "stderr": ""},
+            )()
+
+        monkeypatch.setattr("aragora.swarm.runner_registry.getpass.getuser", lambda: "armand")
+        monkeypatch.setattr("aragora.swarm.runner_registry.subprocess.run", _run)
+
+        context = authorization_context_with_defaults(repo_root=managed_worktree, env={})
+
+        assert context is not None
+        assert context.user_id == "armand"
+        assert context.workspace_id == "aragora"
+        assert any("--git-common-dir" in call for call in calls)
 
 
 class TestCodexRunnerInspector:

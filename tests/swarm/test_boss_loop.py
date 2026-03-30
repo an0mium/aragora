@@ -471,7 +471,16 @@ class TestRunnerFreshness:
         assert "codex-runner-1" in result.runner_ids
         assert result.blocked_reason is None
 
-    def test_missing_owner_context_blocks(self):
+    def test_missing_owner_context_blocks(self, monkeypatch):
+        monkeypatch.setattr("aragora.swarm.runner_registry.getpass.getuser", lambda: "")
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.subprocess.run",
+            lambda *args, **kwargs: type(
+                "_Proc",
+                (),
+                {"returncode": 1, "stdout": "", "stderr": "fatal: not a git repository"},
+            )(),
+        )
         result = check_runner_freshness(env={})
         assert result.fresh is False
         assert result.blocked_reason == "missing_owner_context"

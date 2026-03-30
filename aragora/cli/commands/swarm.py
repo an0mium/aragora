@@ -738,9 +738,12 @@ def _resolve_boss_routing(
     allowed_profiles: set[str] | None = None,
     rotation_interval_seconds: float = 1800.0,
 ) -> dict[str, object]:
-    from aragora.swarm.runner_registry import LocalRunnerRegistry, authorization_context_from_env
+    from aragora.swarm.runner_registry import (
+        LocalRunnerRegistry,
+        authorization_context_with_defaults,
+    )
 
-    owner_context = authorization_context_from_env()
+    owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
     return (
         LocalRunnerRegistry()
         .resolve_boss_routing(
@@ -979,7 +982,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.reporter import render_runner_registration_text
         from aragora.swarm.runner_registry import (
             LocalRunnerRegistry,
-            authorization_context_from_env,
+            authorization_context_with_defaults,
             discover_runner_inspections,
             prioritized_probe_candidates,
             probe_runner_execution,
@@ -1008,7 +1011,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 env=os.environ,
                 repo_root=Path.cwd(),
             )
-            owner_context = authorization_context_from_env()
+            owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             payloads = [
                 LocalRunnerRegistry()
                 .register(
@@ -1029,7 +1032,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 env=os.environ,
                 repo_root=Path.cwd(),
             )
-            owner_context = authorization_context_from_env()
+            owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             payloads = [
                 LocalRunnerRegistry()
                 .heartbeat(
@@ -1045,7 +1048,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else _build_multi_runner_payload(subaction=subaction, runners=payloads)
             )
         elif subaction == "report":
-            owner_context = authorization_context_from_env()
+            owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             registry = LocalRunnerRegistry()
             inspections = (
                 refresh_discovered_runners(
@@ -1073,7 +1076,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 discovered=[item.to_dict() for item in inspections],
             )
         elif subaction == "probe":
-            owner_context = authorization_context_from_env()
+            owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             registry = LocalRunnerRegistry()
             inspections = discover_runner_inspections(
                 runner_type,
@@ -1121,7 +1124,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 routing_after=routing_after,
             )
         elif subaction == "maintain":
-            owner_context = authorization_context_from_env()
+            owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             registry = LocalRunnerRegistry()
             inspections = (
                 refresh_discovered_runners(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import getpass
 import hashlib
 import json
 import os
@@ -1819,6 +1820,76 @@ def authorization_context_from_env(
         user_email=email,
         org_id=org_id,
         workspace_id=workspace_id,
+        roles=roles,
+    )
+
+
+def _repo_workspace_id(repo_root: Path | None) -> str | None:
+    candidate = (repo_root or Path.cwd()).resolve()
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(candidate), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if common_dir_proc.returncode == 0 and common_dir_proc.stdout.strip():
+        common_dir = Path(common_dir_proc.stdout.strip()).resolve()
+        if common_dir.name == ".git" and common_dir.parent.name.strip():
+            return common_dir.parent.name.strip()
+
+    proc = subprocess.run(
+        ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        candidate = Path(proc.stdout.strip()).resolve()
+    name = candidate.name.strip()
+    return name or None
+
+
+def authorization_context_with_defaults(
+    repo_root: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> AuthorizationContext | None:
+    values = dict(os.environ if env is None else env)
+    context = authorization_context_from_env(values)
+    if context is not None and _text(context.user_id):
+        if _text(context.workspace_id):
+            return context
+        workspace_id = _repo_workspace_id(repo_root)
+        if not workspace_id:
+            return context
+        return AuthorizationContext(
+            user_id=context.user_id,
+            user_email=context.user_email,
+            org_id=context.org_id,
+            workspace_id=workspace_id,
+            roles=set(context.roles),
+        )
+
+    user_id = _text(values.get("USER") or values.get("USERNAME"))
+    if not user_id:
+        try:
+            user_id = _text(getpass.getuser())
+        except (OSError, KeyError):
+            user_id = ""
+    if not user_id:
+        return context
+
+    workspace_id = _text(
+        values.get("ARAGORA_WORKSPACE_ID") or values.get("ARAGORA_WORKSPACE")
+    ) or _repo_workspace_id(repo_root)
+    org_id = _text(values.get("ARAGORA_ORG_ID")) or None
+    email = _text(values.get("ARAGORA_USER_EMAIL")) or None
+    role = _text(values.get("ARAGORA_ROLE"))
+    roles = {role} if role else set()
+    return AuthorizationContext(
+        user_id=user_id,
+        user_email=email,
+        org_id=org_id,
+        workspace_id=workspace_id or None,
         roles=roles,
     )
 

@@ -689,7 +689,7 @@ def check_runner_freshness(
     """
     from aragora.swarm.runner_registry import (
         LocalRunnerRegistry,
-        authorization_context_from_env,
+        authorization_context_with_defaults,
         configured_claude_runner_profiles,
         make_runner_inspector,
         prioritized_probe_candidates,
@@ -699,7 +699,7 @@ def check_runner_freshness(
 
     now = datetime.now(UTC)
     checked_at = now.isoformat()
-    owner_context = authorization_context_from_env(env)
+    owner_context = authorization_context_with_defaults(repo_root=Path.cwd(), env=env)
 
     if owner_context is None:
         return RunnerFreshnessResult(
@@ -2823,10 +2823,10 @@ class BossLoop:
     ) -> tuple[dict[str, Any] | None, str | None]:
         from aragora.swarm.runner_registry import (
             LocalRunnerRegistry,
-            authorization_context_from_env,
+            authorization_context_with_defaults,
         )
 
-        owner_context = authorization_context_from_env(self._env)
+        owner_context = authorization_context_with_defaults(repo_root=Path.cwd(), env=self._env)
         registry = (
             LocalRunnerRegistry(path=self.config.registry_path)
             if self.config.registry_path
@@ -2847,13 +2847,13 @@ class BossLoop:
     def _release_runner_claim(self, runner_id: str) -> None:
         from aragora.swarm.runner_registry import (
             LocalRunnerRegistry,
-            authorization_context_from_env,
+            authorization_context_with_defaults,
         )
 
         normalized_runner_id = str(runner_id).strip()
         if not normalized_runner_id:
             return
-        owner_context = authorization_context_from_env(self._env)
+        owner_context = authorization_context_with_defaults(repo_root=Path.cwd(), env=self._env)
         registry = (
             LocalRunnerRegistry(path=self.config.registry_path)
             if self.config.registry_path

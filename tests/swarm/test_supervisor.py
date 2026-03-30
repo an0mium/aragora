@@ -250,6 +250,76 @@ def test_refresh_run_requeues_leased_work_order_when_active_lease_is_missing(
     assert work_order["owner_session_id"] == "swarm-released-requeue"
 
 
+def test_refresh_run_rebinds_released_work_order_to_new_active_lease(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-rebound-lease"
+    session_path.mkdir()
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    old_lease = store.claim_lease(
+        task_id="wo-rebound-lease",
+        title="Rebind stale lane",
+        owner_agent="codex",
+        owner_session_id="swarm-rebound-lease",
+        branch="codex/swarm-rebound-lease",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-rebound-lease",
+            "work_order_id": "wo-rebound-lease",
+            "task_key": "run-rebound-lease:wo-rebound-lease",
+        },
+    )
+    store.release_lease(old_lease.lease_id)
+    new_lease = store.claim_lease(
+        task_id="wo-rebound-lease",
+        title="Rebind stale lane",
+        owner_agent="codex",
+        owner_session_id="swarm-rebound-lease",
+        branch="codex/swarm-rebound-lease",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-rebound-lease",
+            "work_order_id": "wo-rebound-lease",
+            "task_key": "run-rebound-lease:wo-rebound-lease",
+        },
+    )
+    run_record = store.create_supervisor_run(
+        goal="rebind released lease",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "rebind released lease"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-rebound-lease",
+                "title": "Rebind stale lane",
+                "description": "Rebind stale lane",
+                "status": "leased",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "lease_id": old_lease.lease_id,
+                "owner_session_id": "swarm-rebound-lease",
+                "task_key": "run-rebound-lease:wo-rebound-lease",
+                "branch": "codex/swarm-rebound-lease",
+                "worktree_path": str(session_path),
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"] == new_lease.lease_id
+    assert work_order["owner_session_id"] == "swarm-rebound-lease"
+
+
 def test_refresh_run_respects_dispatched_workers_as_active(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -2712,6 +2782,64 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
     assert "without receipt or exit marker" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_exited_without_receipt"
     assert "existing worktree" in work_order["blocking_question"]
+    assert "pid" not in work_order
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_falls_back_when_in_memory_collection_raises(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="dead worker with broken in-memory collector",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "dead worker with broken in-memory collector"},
+        work_orders=[
+            {
+                "work_order_id": "wo-dead-fallback",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 9999,
+                "initial_head": "abc123",
+                "dispatched_at": "2026-03-06T00:00:00+00:00",
+                "last_progress_at": "2026-03-06T00:00:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(side_effect=RuntimeError("event loop is closed"))
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": False,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert "without receipt or exit marker" in work_order["dispatch_error"]
+    assert work_order["failure_reason"] == "worker_exited_without_receipt"
     assert "pid" not in work_order
 
 

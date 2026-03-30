@@ -252,6 +252,29 @@ def _active_lease_session_ids(repo_root: Path) -> set[str]:
     return active_session_ids
 
 
+def _managed_session_snapshots(repo_root: Path) -> dict[str, dict[str, Any]]:
+    managed_root = repo_root / ".worktrees"
+    if not managed_root.exists():
+        return {}
+
+    snapshots: dict[str, dict[str, Any]] = {}
+    for state_path in managed_root.glob("*/state.json"):
+        try:
+            loaded = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        sessions = loaded.get("sessions")
+        if not isinstance(sessions, list):
+            continue
+        for session in sessions:
+            if not isinstance(session, dict):
+                continue
+            session_id = str(session.get("session_id", "")).strip()
+            if session_id:
+                snapshots[session_id] = session
+    return snapshots
+
+
 def _count_dirty(worktree_path: Path) -> int:
     if not worktree_path.exists():
         return 0
@@ -481,6 +504,7 @@ class FleetCoordinationStore:
             if str(row.get("session_id", "")).strip() and bool(row.get("pid_alive"))
         }
         active_lease_sessions = _active_lease_session_ids(self.repo_root)
+        managed_session_snapshots = _managed_session_snapshots(self.repo_root)
 
         def mutate(state: dict[str, Any]) -> dict[str, Any]:
             claims = [c for c in state["claims"] if isinstance(c, dict)]
@@ -522,6 +546,35 @@ class FleetCoordinationStore:
                         }
                     )
                     continue
+
+                snapshot = managed_session_snapshots.get(session_id)
+                if snapshot:
+                    active_session = bool(snapshot.get("active_session"))
+                    tracked_worktree = bool(snapshot.get("tracked_worktree"))
+                    lease_status = str(snapshot.get("lease_status", "") or "").strip().lower()
+                    if (
+                        tracked_worktree
+                        and not active_session
+                        and lease_status
+                        in {
+                            "released",
+                            "completed",
+                            "expired",
+                        }
+                    ):
+                        stale_sessions.add(session_id)
+                        reaped_sessions.append(
+                            {
+                                "session_id": session_id,
+                                "claim_count": len(session_claims),
+                                "reason": "inactive_managed_session",
+                                "lease_status": lease_status,
+                                "last_updated_at": last_updated.isoformat()
+                                if last_updated
+                                else None,
+                            }
+                        )
+                        continue
 
                 if last_updated is not None:
                     age_seconds = max(0.0, (now - last_updated).total_seconds())

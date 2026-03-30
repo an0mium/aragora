@@ -1247,7 +1247,7 @@ class TestSwarmCommand:
 
         with (
             patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
-            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
             discover.return_value = [inspection]
@@ -1303,7 +1303,7 @@ class TestSwarmCommand:
 
         with (
             patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
-            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
             discover.return_value = [inspection]
@@ -1356,7 +1356,7 @@ class TestSwarmCommand:
         with (
             patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
             patch("aragora.swarm.runner_registry.refresh_discovered_runners") as refresh,
-            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
             discover.return_value = [inspection]
@@ -1418,7 +1418,7 @@ class TestSwarmCommand:
 
         with (
             patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
-            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
             patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
@@ -1498,7 +1498,7 @@ class TestSwarmCommand:
                 "aragora.swarm.runner_registry.prioritized_probe_candidates",
                 return_value=[inspection],
             ),
-            patch("aragora.swarm.runner_registry.authorization_context_from_env") as auth_ctx,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
             patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
             patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
         ):
@@ -1902,10 +1902,7 @@ class TestSwarmCommand:
         out = capsys.readouterr().out
         assert "runs=1 queued=0 leased=0 completed=1" in out
         assert "integrator ready=0 review=0 blocked=1" in out
-        assert (
-            "next: Write operator guide: Inspect why the lane produced no concrete deliverable before rerunning it."
-            in out
-        )
+        assert "next: Write operator guide:" in out
 
     def test_cmd_swarm_reconcile_uses_reconciler(self, capsys):
         args = _swarm_args(

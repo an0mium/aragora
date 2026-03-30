@@ -576,11 +576,90 @@ class SwarmSupervisor:
         ]
         for item in work_orders:
             self._prune_stale_conflicts(item, active_leases, live_claims)
+            replacement_lease = self._replacement_active_lease(item, active_leases)
+            if replacement_lease is not None:
+                self._apply_active_lease_binding(item, replacement_lease)
+                continue
             if self._should_requeue_stale_work_order(item, active_leases):
                 self._reset_work_order_for_requeue(item)
                 continue
             if self._should_requeue_conflict_only_needs_human(item):
                 self._reset_work_order_for_requeue(item)
+
+    @staticmethod
+    def _replacement_active_lease(
+        item: dict[str, Any],
+        active_leases: dict[str, Any],
+    ) -> Any | None:
+        current_lease_id = str(item.get("lease_id", "")).strip()
+        if current_lease_id in active_leases:
+            return None
+
+        owner_session_id = str(item.get("owner_session_id", "")).strip()
+        work_order_id = str(item.get("work_order_id", "")).strip()
+        task_key = str(item.get("task_key", "")).strip()
+        branch = str(item.get("branch", "")).strip()
+        worktree_path = str(item.get("worktree_path", "")).strip()
+
+        candidates = []
+        for lease in active_leases.values():
+            if str(getattr(lease, "lease_id", "")).strip() == current_lease_id:
+                continue
+            if (
+                owner_session_id
+                and str(getattr(lease, "owner_session_id", "")).strip() != owner_session_id
+            ):
+                continue
+            metadata = getattr(lease, "metadata", {}) or {}
+            lease_work_order_id = (
+                str(metadata.get("work_order_id", "")).strip()
+                or str(getattr(lease, "task_id", "")).strip()
+            )
+            lease_task_key = str(metadata.get("task_key", "")).strip()
+            if work_order_id and lease_work_order_id and lease_work_order_id != work_order_id:
+                continue
+            if task_key and lease_task_key and lease_task_key != task_key:
+                continue
+            if branch and str(getattr(lease, "branch", "")).strip() not in {"", branch}:
+                continue
+            if worktree_path and str(getattr(lease, "worktree_path", "")).strip() not in {
+                "",
+                worktree_path,
+            }:
+                continue
+            candidates.append(lease)
+
+        if not candidates:
+            return None
+        return max(candidates, key=lambda lease: str(getattr(lease, "updated_at", "")).strip())
+
+    @staticmethod
+    def _apply_active_lease_binding(item: dict[str, Any], lease: Any) -> None:
+        item["lease_id"] = str(getattr(lease, "lease_id", "")).strip() or item.get("lease_id")
+        item["owner_session_id"] = str(getattr(lease, "owner_session_id", "")).strip() or item.get(
+            "owner_session_id"
+        )
+        item["branch"] = str(getattr(lease, "branch", "")).strip() or item.get("branch")
+        item["worktree_path"] = str(getattr(lease, "worktree_path", "")).strip() or item.get(
+            "worktree_path"
+        )
+        if getattr(lease, "owner_agent", None):
+            item["target_agent"] = str(getattr(lease, "owner_agent")).strip()
+        expected_tests = [
+            str(test).strip() for test in getattr(lease, "expected_tests", []) if str(test).strip()
+        ]
+        if expected_tests:
+            item["expected_tests"] = expected_tests
+        metadata = getattr(lease, "metadata", {}) or {}
+        worker_pid = metadata.get("worker_pid")
+        try:
+            pid_value = int(worker_pid)
+        except (TypeError, ValueError):
+            pid_value = None
+        if pid_value and pid_value > 0:
+            item["pid"] = pid_value
+            if str(item.get("status", "")).strip() == "leased":
+                item["status"] = "dispatched"
 
     def _prune_stale_conflicts(
         self,
@@ -1022,7 +1101,15 @@ class SwarmSupervisor:
         ]
 
         # Try in-memory collection first (same process that launched workers)
-        finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
+        try:
+            finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
+        except Exception:
+            logger.debug(
+                "in-memory finished-worker collection failed for run %s",
+                run_id,
+                exc_info=True,
+            )
+            finished = []
         changed = False
 
         # Fall back to detached collection for workers not in memory

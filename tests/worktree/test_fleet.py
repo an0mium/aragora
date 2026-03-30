@@ -216,6 +216,45 @@ def test_reap_stale_claims_keeps_recent_claims_inside_grace_window(tmp_path: Pat
     assert store.list_claims()[0]["session_id"] == "recent-session"
 
 
+def test_reap_stale_claims_releases_inactive_managed_sessions_even_inside_grace_window(
+    tmp_path: Path,
+) -> None:
+    repo = _make_repo(tmp_path)
+    managed_root = repo / ".worktrees" / "codex-auto"
+    managed_root.mkdir(parents=True)
+    worktree_path = managed_root / "swarm-test-subtask_1"
+    worktree_path.mkdir(parents=True)
+    (managed_root / "state.json").write_text(
+        json.dumps(
+            {
+                "sessions": [
+                    {
+                        "session_id": "swarm-test-subtask_1",
+                        "path": str(worktree_path),
+                        "tracked_worktree": True,
+                        "active_session": False,
+                        "lease_status": "released",
+                        "lifecycle_state": "grace",
+                    }
+                ]
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    store = FleetCoordinationStore(repo)
+    store.claim_paths(session_id="swarm-test-subtask_1", paths=["aragora/live/**"])
+
+    result = store.reap_stale_claims()
+
+    assert result["released"] == 1
+    assert result["reaped_sessions"][0]["session_id"] == "swarm-test-subtask_1"
+    assert result["reaped_sessions"][0]["reason"] == "inactive_managed_session"
+    assert store.list_claims() == []
+
+
 def test_reap_stale_claims_keeps_live_worktree_sessions(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     worktree_path = tmp_path / "session-live"
