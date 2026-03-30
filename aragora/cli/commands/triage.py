@@ -571,6 +571,9 @@ def _print_wedge_receipt_handoffs(decisions: list) -> None:
     print("\nInspect inbox receipts:")
     for receipt_id in receipt_ids:
         print(f"  aragora inbox-wedge show {receipt_id}")
+    print("\nReview inbox receipts:")
+    for receipt_id in receipt_ids:
+        print(f"  aragora inbox-wedge review {receipt_id} --choice <approve|reject|edit|skip>")
 
 
 def _show_status() -> None:
