@@ -8,6 +8,7 @@ from aragora.cli.commands.inbox_wedge import (
     cmd_inbox_wedge_list,
     cmd_inbox_wedge_export,
     cmd_inbox_wedge_report,
+    cmd_inbox_wedge_review,
     cmd_inbox_wedge_show,
 )
 from aragora.cli.parser import build_parser
@@ -123,6 +124,9 @@ def test_parser_registers_report_and_export_commands():
 
     report_args = parser.parse_args(["inbox-wedge", "report"])
     export_args = parser.parse_args(["inbox-wedge", "export", "/tmp/receipts.jsonl"])
+    review_args = parser.parse_args(
+        ["inbox-wedge", "review", "receipt-1", "--choice", "skip", "--json"]
+    )
 
     assert report_args.command == "inbox-wedge"
     assert report_args.inbox_wedge_command == "report"
@@ -130,6 +134,7 @@ def test_parser_registers_report_and_export_commands():
     assert export_args.inbox_wedge_command == "export"
     assert callable(export_args.func)
     assert report_args.json is False
+    assert review_args.json is True
 
 
 def test_report_command_summarizes_receipts(monkeypatch, tmp_path, capsys):
@@ -274,6 +279,83 @@ def test_report_command_renders_terminal_summary_by_default(monkeypatch, tmp_pat
     assert "Total Receipts:" in output
     assert "Actions:" in output
     assert "archive" in output
+
+
+def test_review_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "review.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x08" * 32, key_id="review-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-review",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_service",
+        lambda: service,
+    )
+
+    args = argparse.Namespace(
+        receipt_id=envelope.receipt.receipt_id,
+        choice="skip",
+        action=None,
+        rationale=None,
+        label_id=None,
+        json=False,
+    )
+    try:
+        cmd_inbox_wedge_review(args)
+        output = capsys.readouterr().out
+    finally:
+        store.close()
+
+    assert "Inbox Trust Wedge Receipt" in output
+    assert "Selected:" in output
+    assert "skip" in output
+    assert "Effect:" in output
+    assert "no state change" in output
+
+
+def test_review_command_can_emit_json(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "review-json.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x09" * 32, key_id="review-json-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-review-json",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_service",
+        lambda: service,
+    )
+
+    args = argparse.Namespace(
+        receipt_id=envelope.receipt.receipt_id,
+        choice="skip",
+        action=None,
+        rationale=None,
+        label_id=None,
+        json=True,
+    )
+    try:
+        cmd_inbox_wedge_review(args)
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        store.close()
+
+    assert payload["receipt"]["receipt_id"] == envelope.receipt.receipt_id
+    assert payload["review_choice"] is None
 
 
 def test_export_command_writes_jsonl(monkeypatch, tmp_path, capsys):

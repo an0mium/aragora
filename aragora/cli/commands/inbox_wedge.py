@@ -101,6 +101,7 @@ def add_inbox_wedge_parser(subparsers: Any) -> None:
     )
     review_parser.add_argument("--rationale", help="Edited rationale when --choice edit")
     review_parser.add_argument("--label-id", help="Edited label id when --choice edit")
+    review_parser.add_argument("--json", action="store_true", help="Emit raw JSON")
     review_parser.set_defaults(func=cmd_inbox_wedge_review)
 
     show_parser = sub.add_parser("show", help="Show a receipt envelope")
@@ -328,11 +329,12 @@ def cmd_inbox_wedge_create(args: argparse.Namespace) -> None:
 def cmd_inbox_wedge_review(args: argparse.Namespace) -> None:
     service = get_inbox_trust_wedge_service()
     choice = args.choice or _prompt("Choice [approve/reject/edit/skip]: ")
+    normalized_choice = choice.strip().lower()
     edited_action = args.action
     edited_rationale = args.rationale
     label_id = args.label_id
 
-    if choice == "edit":
+    if normalized_choice == "edit":
         if not edited_action and not edited_rationale and not label_id:
             edited_action = _prompt("New action (blank to keep current): ") or None
             edited_rationale = _prompt("New rationale (blank to keep current): ") or None
@@ -340,12 +342,23 @@ def cmd_inbox_wedge_review(args: argparse.Namespace) -> None:
 
     envelope = service.review_receipt(
         args.receipt_id,
-        choice=choice,
+        choice=normalized_choice,
         edited_action=edited_action,
         edited_rationale=edited_rationale,
         label_id=label_id,
     )
-    _dump(envelope.to_dict())
+    if getattr(args, "json", False):
+        _dump(envelope.to_dict())
+        return
+
+    _print_envelope_summary(envelope)
+    print("")
+    print("--- Review Command ---")
+    print(f"Selected:      {normalized_choice}")
+    if normalized_choice == "skip":
+        print("Effect:        no state change")
+    elif envelope.receipt.state is ReceiptState.APPROVED:
+        print(f"Next:          aragora inbox-wedge execute {envelope.receipt.receipt_id}")
 
 
 def cmd_inbox_wedge_show(args: argparse.Namespace) -> None:
