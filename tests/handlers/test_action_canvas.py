@@ -389,6 +389,25 @@ class TestAdvanceToOrchestration:
             assert status == 404
 
     @patch("aragora.canvas.action_store.get_action_canvas_store")
+    def test_advance_requires_live_canvas_state(self, mock_get_store, handler):
+        mock_store = MagicMock()
+        mock_store.load_canvas.return_value = {
+            "id": "ac-1",
+            "name": "Sprint 1",
+            "metadata": {"stage": "actions"},
+        }
+        mock_get_store.return_value = mock_store
+
+        with patch.object(handler, "_get_canvas_manager"):
+            with patch.object(handler, "_run_async", return_value=None):
+                ctx = MagicMock()
+                result = handler._advance_to_orchestration(ctx, "ac-1", {}, "u1")
+                assert result is not None
+                status = getattr(result, "status_code", getattr(result, "status", None))
+                if status:
+                    assert status == 409
+
+    @patch("aragora.canvas.action_store.get_action_canvas_store")
     def test_advance_materializes_orchestration_canvas(self, mock_get_store, handler):
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {

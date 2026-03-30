@@ -206,6 +206,28 @@ class TestActionsToOrchestration:
     """Stage 3 → Stage 4 transition via ActionCanvasHandler.advance."""
 
     @patch("aragora.canvas.action_store.get_action_canvas_store")
+    def test_advance_rejects_missing_live_canvas_state(self, mock_get_store):
+        handler = ActionCanvasHandler(ctx={})
+
+        mock_store = MagicMock()
+        mock_store.load_canvas.return_value = {
+            "id": "actions-1",
+            "name": "Sprint 1",
+            "metadata": {"stage": "actions"},
+        }
+        mock_get_store.return_value = mock_store
+
+        with patch.object(handler, "_get_canvas_manager"):
+            with patch.object(handler, "_run_async", return_value=None):
+                ctx = MagicMock()
+                result = handler._advance_to_orchestration(ctx, "actions-1", {}, "u1")
+                assert result is not None
+
+                body = _parse_result(result)
+                assert result["status"] == 409
+                assert body.get("error") == "Action canvas state unavailable"
+
+    @patch("aragora.canvas.action_store.get_action_canvas_store")
     def test_advance_returns_orchestration_stage_metadata(self, mock_get_store):
         handler = ActionCanvasHandler(ctx={})
 
