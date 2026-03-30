@@ -811,6 +811,77 @@ class TestBossLoop:
         assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
         assert "Approval required for merge." in result.needs_human_reasons
 
+    def test_retry_rotation_switches_target_agent_after_needs_human(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Retry with rotated agent")]
+
+        freshness_requests: list[str | None] = []
+
+        def _freshness_checker(**kwargs):
+            freshness_requests.append(kwargs.get("requested_runner_type"))
+            return RunnerFreshnessResult(
+                fresh=True,
+                runner_ids=["claude-runner-1", "codex-runner-1"],
+                checked_at=datetime.now(UTC).isoformat(),
+                details={
+                    "routing": {
+                        "selected_runners": [
+                            {"runner_id": "claude-runner-1", "runner_type": "claude"},
+                            {"runner_id": "codex-runner-1", "runner_type": "codex"},
+                        ],
+                        "selected_runner_ids": ["claude-runner-1", "codex-runner-1"],
+                    }
+                },
+            )
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=2,
+                max_retries_per_issue=3,
+                auto_continue_on_needs_human=True,
+                default_target_agent="claude",
+                model_rotation=["claude", "codex"],
+            ),
+            issue_feed=feed,
+            freshness_checker=_freshness_checker,
+        )
+
+        def _claim_runner(freshness, *, requested_target_agent=None):
+            runner_type = requested_target_agent or "claude"
+            return (
+                {
+                    "runner_id": f"{runner_type}-runner-1",
+                    "runner_type": runner_type,
+                },
+                f"{runner_type}-runner-1",
+            )
+
+        loop._claim_runner_for_dispatch = _claim_runner
+        loop._release_runner_claim = lambda runner_id: None
+
+        dispatch_results = AsyncMock(
+            side_effect=[
+                {"status": "needs_human", "reasons": ["Approval required."]},
+                {
+                    "status": "completed",
+                    "outcome": "deliverable_created",
+                    "deliverable": {"type": "branch"},
+                },
+            ]
+        )
+
+        with patch("aragora.swarm.boss_loop.dispatch_bounded_spec", dispatch_results):
+            result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert freshness_requests == ["claude", None]
+        first_call = dispatch_results.await_args_list[0].kwargs
+        second_call = dispatch_results.await_args_list[1].kwargs
+        assert first_call["default_target_agent"] == "claude"
+        assert first_call["selected_runner"]["runner_type"] == "claude"
+        assert second_call["default_target_agent"] == "codex"
+        assert second_call["selected_runner"]["runner_type"] == "codex"
+
     def test_retry_skips_maxed_issues(self):
         """Issues that have been attempted max_retries_per_issue times are skipped."""
         feed = MagicMock(spec=GitHubIssueFeed)

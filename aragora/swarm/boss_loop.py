@@ -814,6 +814,7 @@ class BossLoopConfig:
     budget_limit_usd: float = 5.0
     dispatch_enabled: bool = True
     default_target_agent: str | None = None
+    model_rotation: list[str] = field(default_factory=lambda: ["claude", "codex"])
     default_reviewer_agent: str | None = None
     allowed_runner_profiles: set[str] | None = None
     runner_rotation_interval_seconds: float = 1800.0
@@ -1150,6 +1151,47 @@ class BossLoop:
                 handle.write("\n")
         except Exception as exc:
             logger.debug("Boss metrics emission skipped: %s", exc)
+
+    def _normalized_model_rotation(self) -> list[str]:
+        seen: set[str] = set()
+        normalized: list[str] = []
+        for item in self.config.model_rotation:
+            runner_type = str(item).strip().lower()
+            if not runner_type or runner_type in seen:
+                continue
+            seen.add(runner_type)
+            normalized.append(runner_type)
+        return normalized
+
+    def _has_retryable_attempts(self) -> bool:
+        return any(
+            isinstance(issue_number, int) and attempt_count > 0
+            for issue_number, attempt_count in self._issue_attempt_counts.items()
+        )
+
+    def _requested_runner_type_for_freshness(self) -> str | None:
+        # Once retries are in play, keep the freshness pool broad enough that
+        # dispatch can rotate to the next runner type instead of reusing the
+        # original default forever.
+        if self._has_retryable_attempts() and len(self._normalized_model_rotation()) > 1:
+            return None
+        return self.config.default_target_agent
+
+    def _requested_target_agent_for_issue(self, issue_number: int) -> str | None:
+        attempt_count = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+        default_target = str(self.config.default_target_agent or "").strip().lower() or None
+        if attempt_count <= 1:
+            return default_target
+
+        rotation = self._normalized_model_rotation()
+        if not rotation:
+            return default_target
+        if default_target and default_target in rotation:
+            base_index = rotation.index(default_target)
+            return rotation[(base_index + attempt_count - 1) % len(rotation)]
+        if default_target:
+            return rotation[(attempt_count - 2) % len(rotation)]
+        return rotation[(attempt_count - 2) % len(rotation)]
 
     def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
         reasons = [
@@ -1533,7 +1575,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self.config.default_target_agent,
+            requested_runner_type=self._requested_runner_type_for_freshness(),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )
@@ -1662,7 +1704,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self.config.default_target_agent,
+            requested_runner_type=self._requested_runner_type_for_freshness(),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )
@@ -2252,10 +2294,18 @@ class BossLoop:
                 ],
             }
 
+        requested_target_agent = self._requested_target_agent_for_issue(issue.number)
+
         claimed_runner_id: str | None = None
-        selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(freshness)
+        selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        )
         if selected_runner is None:
-            selected_runner = self._selected_runner_for_dispatch(freshness)
+            selected_runner = self._selected_runner_for_dispatch(
+                freshness,
+                requested_target_agent=requested_target_agent,
+            )
         try:
             result = await dispatch_bounded_spec(
                 spec,
@@ -2263,7 +2313,7 @@ class BossLoop:
                 budget_limit_usd=self.config.budget_limit_usd,
                 max_ticks=360,
                 wait_for_completion=self.config.max_iterations > 1,
-                default_target_agent=self.config.default_target_agent,
+                default_target_agent=requested_target_agent,
                 default_reviewer_agent=self.config.default_reviewer_agent,
                 # The supervisor already provisions the worktree, so the session
                 # script wrapper is redundant and crashes on bash 3.2 (macOS
@@ -2279,6 +2329,7 @@ class BossLoop:
             issue=issue,
             freshness=freshness,
             selected_runner=selected_runner,
+            requested_target_agent=requested_target_agent,
         )
         if result.get("status") == "failed":
             error = str(result.get("error", "")).strip()
@@ -2293,6 +2344,7 @@ class BossLoop:
         issue: GitHubIssue,
         freshness: RunnerFreshnessResult,
         selected_runner: dict[str, Any] | None = None,
+        requested_target_agent: str | None = None,
     ) -> dict[str, Any]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
@@ -2330,7 +2382,7 @@ class BossLoop:
 
         return {
             "issue_number": issue.number,
-            "requested_target_agent": self.config.default_target_agent,
+            "requested_target_agent": requested_target_agent,
             "requested_reviewer_agent": self.config.default_reviewer_agent,
             "actual_target_agent": actual_target_agent,
             "actual_reviewer_agent": actual_reviewer_agent,
@@ -2346,6 +2398,8 @@ class BossLoop:
     def _runner_candidates_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> list[dict[str, Any]]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
@@ -2354,7 +2408,9 @@ class BossLoop:
         selected_runners = routing.get("selected_runners")
         if not isinstance(selected_runners, list):
             return []
-        requested = str(self.config.default_target_agent or "").strip().lower()
+        requested = (
+            str(requested_target_agent or self.config.default_target_agent or "").strip().lower()
+        )
         candidates: list[dict[str, Any]] = []
         for item in selected_runners:
             if not isinstance(item, dict):
@@ -2375,13 +2431,20 @@ class BossLoop:
     def _selected_runner_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        candidates = self._runner_candidates_for_dispatch(freshness)
+        candidates = self._runner_candidates_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        )
         return dict(candidates[0]) if candidates else None
 
     def _claim_runner_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> tuple[dict[str, Any] | None, str | None]:
         from aragora.swarm.runner_registry import (
             LocalRunnerRegistry,
@@ -2394,7 +2457,10 @@ class BossLoop:
             if self.config.registry_path
             else LocalRunnerRegistry()
         )
-        for selected_runner in self._runner_candidates_for_dispatch(freshness):
+        for selected_runner in self._runner_candidates_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        ):
             runner_id = str(selected_runner.get("runner_id", "")).strip()
             if not runner_id:
                 continue
