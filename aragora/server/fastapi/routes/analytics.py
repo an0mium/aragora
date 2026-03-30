@@ -52,6 +52,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Any
 
@@ -65,6 +66,66 @@ from ..dependencies.auth import require_authenticated, require_permission
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2/analytics", tags=["Analytics"])
+
+
+def _has_positive_cost(value: Any) -> bool:
+    """Return whether a cost-like value is greater than zero."""
+    try:
+        return Decimal(str(value)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
+def _has_cost_breakdown(total_spend: Any, agent_costs: Any) -> bool:
+    """Return whether the current breakdown already carries non-zero spend."""
+    if _has_positive_cost(total_spend):
+        return True
+    if not isinstance(agent_costs, dict):
+        return False
+    return any(_has_positive_cost(cost) for cost in agent_costs.values())
+
+
+def _format_cost(value: Any) -> str:
+    """Format metered costs with at least cents and up to 4 decimals."""
+    try:
+        quantized = Decimal(str(value)).quantize(Decimal("0.0001"))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0.00"
+    rendered = format(quantized, "f").rstrip("0").rstrip(".")
+    if not rendered:
+        return "0.00"
+    if "." not in rendered:
+        return f"{rendered}.00"
+    decimals = rendered.split(".", 1)[1]
+    if len(decimals) == 1:
+        return f"{rendered}0"
+    return rendered
+
+
+def _metered_agent_costs(breakdown: Any) -> dict[str, str]:
+    """Project durable metering breakdowns onto the legacy agent-costs shape."""
+    agent_costs: dict[str, str] = {}
+    for row in getattr(breakdown, "by_model", []) or []:
+        model = row.get("model")
+        cost = row.get("cost")
+        if model and _has_positive_cost(cost):
+            agent_costs[str(model)] = _format_cost(cost)
+    if agent_costs:
+        return agent_costs
+    for row in getattr(breakdown, "by_provider", []) or []:
+        provider = row.get("provider")
+        cost = row.get("cost")
+        if provider and _has_positive_cost(cost):
+            agent_costs[str(provider)] = _format_cost(cost)
+    return agent_costs
+
+
+async def _get_metered_cost_breakdown(workspace_id: str) -> tuple[str, dict[str, str]]:
+    """Load durable cost totals from usage metering for a workspace/org."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    breakdown = await get_usage_meter().get_usage_breakdown(org_id=workspace_id)
+    return _format_cost(getattr(breakdown, "total_cost", 0)), _metered_agent_costs(breakdown)
 
 
 # =============================================================================
@@ -613,10 +674,16 @@ async def get_cost_breakdown(
         from aragora.billing.cost_tracker import get_cost_tracker
 
         cost_tracker = get_cost_tracker()
-        workspace_stats = cost_tracker.get_workspace_stats(workspace_id)
+        workspace_stats = cost_tracker.get_workspace_stats(workspace_id) or {}
 
         total_spend = workspace_stats.get("total_cost_usd", "0")
-        agent_costs = workspace_stats.get("cost_by_agent", {})
+        agent_costs = workspace_stats.get("cost_by_agent", {}) or {}
+
+        if not _has_cost_breakdown(total_spend, agent_costs):
+            try:
+                total_spend, agent_costs = await _get_metered_cost_breakdown(workspace_id)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered cost breakdown unavailable: %s", e)
 
         # Get budget utilization
         budget_info: dict[str, Any] = {}

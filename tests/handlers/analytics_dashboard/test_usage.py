@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -118,10 +118,18 @@ def _mock_http_handler() -> MagicMock:
 @pytest.fixture(autouse=True)
 def _patch_auth():
     """Patch auth to always succeed for all tests."""
-    with patch(
-        "aragora.billing.jwt_auth.extract_user_from_request",
-        return_value=FakeUserCtx(),
+    with (
+        patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=FakeUserCtx(),
+        ),
+        patch("aragora.services.usage_metering.get_usage_meter") as mock_get_usage_meter,
     ):
+        mock_meter = MagicMock()
+        mock_meter.get_usage_breakdown = AsyncMock(
+            return_value=MagicMock(total_cost=Decimal("0"), by_model=[], by_provider=[])
+        )
+        mock_get_usage_meter.return_value = mock_meter
         yield
 
 
