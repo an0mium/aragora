@@ -314,6 +314,8 @@ def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
     assert loop_ids["run"] == loop_ids["shutdown"]
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
     """Compare mode should run each combination and keep the highest-scoring result."""
     from aragora.cli.commands import debate as debate_cmd
