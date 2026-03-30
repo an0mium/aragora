@@ -599,6 +599,63 @@ def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
     assert saved_state["sessions"][0]["lifecycle_state"] == "grace"
 
 
+def test_create_managed_worktree_retries_when_branch_is_created_concurrently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = tmp_path / "managed"
+    now = datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc)
+    branches_seen: list[str] = []
+
+    def _proc(returncode: int, stderr: str = "") -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
+
+    def _run_git(_repo: Path, *args: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ("worktree", "add"):
+            branch = args[3]
+            branches_seen.append(branch)
+            if len(branches_seen) == 1:
+                return _proc(
+                    128,
+                    f"fatal: a branch named '{branch}' already exists",
+                )
+            return _proc(0)
+        raise AssertionError(f"unexpected git args: {args}")
+
+    class _UUID:
+        def __init__(self, value: str) -> None:
+            self.hex = value
+
+    uuids = iter(
+        [
+            _UUID("sessiontokdeadbeef"),
+            _UUID("retryabcd12345678"),
+        ]
+    )
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_branch_exists", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "uuid4", lambda: next(uuids))
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-ec71e047-subtask_1",
+    )
+
+    assert branches_seen[0] == "codex/swarm-ec71e047-subtask_1"
+    assert session["branch"] == "codex/swarm-ec71e047-subtask_1-retr"
+    assert branches_seen[1] == session["branch"]
+
+
 def test_cmd_ensure_evicts_branch_mismatch_before_recreate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

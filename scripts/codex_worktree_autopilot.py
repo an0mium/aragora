@@ -611,36 +611,43 @@ def _create_managed_worktree(
     token = uuid4().hex[:8]
     sid = session_id or f"{agent}-{now.strftime('%Y%m%d-%H%M%S')}-{token}"
     branch = f"codex/{sid}"
-    while _branch_exists(repo_root, branch):
-        branch = f"{branch}-{uuid4().hex[:4]}"
     worktree_path = (managed_root / sid).resolve()
 
     if worktree_path.exists():
         shutil.rmtree(worktree_path, ignore_errors=True)
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
-    source = f"origin/{base}"
-    add_proc = _run_git(
-        repo_root,
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(worktree_path),
-        source,
-    )
-    if add_proc.returncode != 0:
-        add_proc = _run_git(
-            repo_root,
-            "worktree",
-            "add",
-            "-b",
-            branch,
-            str(worktree_path),
-            base,
-        )
-    if add_proc.returncode != 0:
-        raise RuntimeError(add_proc.stderr.strip() or "git worktree add failed")
+    while True:
+        while _branch_exists(repo_root, branch):
+            branch = f"codex/{sid}-{uuid4().hex[:4]}"
+
+        retry_branch = False
+        add_proc = None
+        for source in (f"origin/{base}", base):
+            add_proc = _run_git(
+                repo_root,
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                str(worktree_path),
+                source,
+            )
+            if add_proc.returncode == 0:
+                retry_branch = False
+                break
+            stderr = add_proc.stderr.strip().lower()
+            if "branch named" in stderr and "already exists" in stderr:
+                branch = f"codex/{sid}-{uuid4().hex[:4]}"
+                retry_branch = True
+                break
+        if retry_branch:
+            continue
+        if add_proc is None or add_proc.returncode != 0:
+            raise RuntimeError(
+                add_proc.stderr.strip() if add_proc is not None else "git worktree add failed"
+            )
+        break
 
     return {
         "session_id": sid,
