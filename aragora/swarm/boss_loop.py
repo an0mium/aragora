@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import time
 import uuid
@@ -328,6 +329,7 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
     "python -m aragora",
     "python3 -m aragora",
 )
+_BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -409,11 +411,25 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
     return _ordered_unique_strings(criteria)
 
 
+def _normalize_pre_dispatch_command(text: str) -> str:
+    normalized = str(text).strip()
+    if not normalized:
+        return ""
+    backtick_match = _BACKTICK_COMMAND_RE.search(normalized)
+    if backtick_match:
+        normalized = backtick_match.group("command").strip()
+    if normalized.endswith(" passes."):
+        normalized = normalized[: -len(" passes.")].strip()
+    if normalized.startswith("aragora ") and shutil.which("aragora") is None:
+        normalized = f"python3 -m aragora.cli.main {normalized[len('aragora ') :].strip()}"
+    return normalized
+
+
 def extract_pre_dispatch_validation_commands(issue_body: str) -> list[str]:
     """Return explicit validation commands that are safe to probe before dispatch."""
     commands: list[str] = []
     for item in extract_issue_validation_contract(issue_body):
-        normalized = str(item).strip().strip("`").strip()
+        normalized = _normalize_pre_dispatch_command(item)
         if not normalized:
             continue
         if any(normalized.startswith(prefix) for prefix in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES):
