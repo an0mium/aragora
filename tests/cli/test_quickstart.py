@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.agents.base import create_agent as create_real_agent
+from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
     _build_live_receipt,
     _build_live_team,
@@ -862,6 +863,38 @@ class TestCmdQuickstart:
         assert Path(output_path).exists()
         data = json.loads(Path(output_path).read_text())
         assert data["verdict"] == "yes"
+
+    def test_demo_mode_saves_receipt_that_verifies(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should we verify the saved quickstart receipt?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=2,
+            no_browser=True,
+        )
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=MagicMock(),
+        ):
+            cmd_quickstart(args)
+
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        assert artifact_path.exists()
+
+        capsys.readouterr()
+        with pytest.raises(SystemExit) as excinfo:
+            cmd_receipt_verify(argparse.Namespace(receipt=str(artifact_path), verbose=False))
+
+        assert excinfo.value.code == 0
+        output = capsys.readouterr().out
+        assert "Result: VALID" in output
 
     def test_live_mode_saves_default_receipt_artifact(self, tmp_path, monkeypatch, capsys):
         """Test live quickstart saves a deterministic default artifact."""
