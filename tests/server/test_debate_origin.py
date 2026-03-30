@@ -647,6 +647,36 @@ class TestRegisterDebateOrigin:
         assert origin.metadata["username"] == "john_doe"
         assert origin.metadata["language"] == "en"
 
+    @pytest.mark.asyncio
+    async def test_async_context_uses_sync_sqlite_fallback_without_main_loop(self):
+        """Async callers without a durable server loop should persist synchronously."""
+        from aragora.server.debate_origin import register_debate_origin
+
+        mock_store = MagicMock()
+        mock_store.save_async = AsyncMock()
+
+        with patch(
+            "aragora.server.debate_origin.registry._get_postgres_store_sync",
+            return_value=None,
+        ):
+            with patch(
+                "aragora.server.debate_origin.registry._get_sqlite_store",
+                return_value=mock_store,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.registry._resolve_store_origin_redis"
+                ) as mock_redis:
+                    mock_redis.return_value = MagicMock(side_effect=ImportError)
+                    register_debate_origin(
+                        debate_id="async-sqlite-test",
+                        platform="slack",
+                        channel_id="C123",
+                        user_id="U456",
+                    )
+
+        mock_store.save.assert_called_once()
+        mock_store.save_async.assert_not_called()
+
 
 class TestGetDebateOrigin:
     """Tests for get_debate_origin function."""
@@ -753,6 +783,43 @@ class TestMarkResultSent:
 
                 # Should not raise
                 mark_result_sent("nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_async_context_uses_sync_sqlite_fallback_without_main_loop(self):
+        """Async callers without a durable server loop should update synchronously."""
+        from aragora.server.debate_origin import (
+            DebateOrigin,
+            _origin_store,
+            mark_result_sent,
+        )
+
+        origin = DebateOrigin(
+            debate_id="mark-async-test",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+        _origin_store["mark-async-test"] = origin
+
+        mock_store = MagicMock()
+        mock_store.save_async = AsyncMock()
+
+        with patch(
+            "aragora.server.debate_origin.registry._get_postgres_store_sync",
+            return_value=None,
+        ):
+            with patch(
+                "aragora.server.debate_origin.registry._get_sqlite_store",
+                return_value=mock_store,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.registry._resolve_store_origin_redis"
+                ) as mock_redis:
+                    mock_redis.return_value = MagicMock(side_effect=ImportError)
+                    mark_result_sent("mark-async-test")
+
+        mock_store.save.assert_called_once_with(origin)
+        mock_store.save_async.assert_not_called()
 
 
 class TestCleanupExpiredOrigins:

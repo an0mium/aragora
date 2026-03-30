@@ -431,6 +431,11 @@ class TestCommandAsk:
             "What is quantum computing used for?", "U1", "C1", "https://hooks.slack.com/r"
         )
         mock_create.assert_called_once()
+        task_factory = mock_create.call_args.args[0]
+        assert callable(task_factory)
+        coro = task_factory()
+        assert asyncio.iscoroutine(coro)
+        coro.close()
 
     def test_ask_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()
@@ -909,6 +914,11 @@ class TestCommandDebate:
             "Should AI be regulated by governments?", "U1", "C1", "https://hooks.slack.com/x"
         )
         mock_create.assert_called_once()
+        task_factory = mock_create.call_args.args[0]
+        assert callable(task_factory)
+        coro = task_factory()
+        assert asyncio.iscoroutine(coro)
+        coro.close()
 
     def test_debate_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()
@@ -1033,6 +1043,11 @@ class TestCommandGauntlet:
             "https://hooks.slack.com/resp",
         )
         mock_create.assert_called_once()
+        task_factory = mock_create.call_args.args[0]
+        assert callable(task_factory)
+        coro = task_factory()
+        assert asyncio.iscoroutine(coro)
+        coro.close()
 
     def test_gauntlet_no_response_url_skips_task(self, slack_handler, commands_module, monkeypatch):
         mock_create = MagicMock()

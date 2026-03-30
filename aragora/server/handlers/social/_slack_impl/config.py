@@ -137,7 +137,17 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         logger.error("Task %s failed with exception: %s", task_name, exc, exc_info=exc)
 
 
-def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
+TrackedTaskInput = Coroutine[Any, Any, Any] | Callable[[], Coroutine[Any, Any, Any]]
+
+
+def _resolve_tracked_task_coro(coro_or_factory: TrackedTaskInput) -> Coroutine[Any, Any, Any]:
+    """Materialize a coroutine only when the scheduler is actually going to use it."""
+    if callable(coro_or_factory):
+        return coro_or_factory()
+    return coro_or_factory
+
+
+def create_tracked_task(coro_or_factory: TrackedTaskInput, name: str) -> asyncio.Task[Any]:
     """Schedule a fire-and-forget async task on the server's main event loop.
 
     In SQLite mode, HTTP handlers run in temporary event loops created by
@@ -146,7 +156,12 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 
     This function ALWAYS dispatches to the persistent main server loop
     (set in ``unified_server.start()``) so background tasks survive.
+
+    Accepts either a coroutine object or a no-arg coroutine factory so callers
+    can defer coroutine creation until scheduling is certain.
     """
+    coro = _resolve_tracked_task_coro(coro_or_factory)
+
     # 1. Find the persistent main server loop
     main_loop = None
     try:

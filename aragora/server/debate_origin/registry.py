@@ -14,6 +14,7 @@ import sqlite3
 import sys
 import time
 from typing import Any
+from collections.abc import Callable, Coroutine
 
 from .models import DebateOrigin
 from .stores import (
@@ -69,6 +70,82 @@ def _get_postgres_store_sync():
         if fn is not _get_postgres_store_sync:
             return fn()
     return _stores_get_postgres_store_sync()
+
+
+def _get_persistence_loop() -> asyncio.AbstractEventLoop | None:
+    """Return the persistent server loop when one is available."""
+    try:
+        from aragora.server.unified_server import get_main_event_loop
+
+        main_loop = get_main_event_loop()
+        if main_loop is not None and main_loop.is_running():
+            return main_loop
+    except ImportError:
+        pass
+
+    try:
+        from aragora.storage.pool_manager import get_pool_event_loop
+
+        pool_loop = get_pool_event_loop()
+        if pool_loop is not None and pool_loop.is_running():
+            return pool_loop
+    except ImportError:
+        pass
+
+    return None
+
+
+def _handle_persistence_task_result(task: asyncio.Task[Any], task_name: str) -> None:
+    """Log background persistence failures without crashing the caller."""
+    if task.cancelled():
+        logger.debug("Persistence task %s was cancelled", task_name)
+        return
+    exc = task.exception()
+    if exc:
+        logger.warning("Persistence task %s failed: %s", task_name, exc, exc_info=exc)
+
+
+def _handle_persistence_future_result(future: Any, task_name: str) -> None:
+    """Log threadsafe persistence failures without crashing the caller."""
+    try:
+        exc = future.exception()
+    except Exception as err:  # noqa: BLE001 - concurrent futures vary by backend
+        logger.warning("Persistence task %s failed: %s", task_name, err, exc_info=err)
+        return
+    if exc:
+        logger.warning("Persistence task %s failed: %s", task_name, exc, exc_info=exc)
+
+
+def _schedule_persistence_task(
+    coro_factory: Callable[[], Coroutine[Any, Any, Any]],
+    sync_fallback: Callable[[], None],
+    task_name: str,
+) -> None:
+    """Dispatch persistence work to the durable server loop when possible.
+
+    Temporary handler loops disappear as soon as the sync HTTP request returns,
+    so raw ``asyncio.create_task(...)`` on the current loop can silently drop
+    origin persistence. When no durable loop is available, fall back to the
+    existing synchronous write path instead of spawning a doomed task.
+    """
+    main_loop = _get_persistence_loop()
+    if main_loop is None:
+        sync_fallback()
+        return
+
+    try:
+        current = asyncio.get_running_loop()
+    except RuntimeError:
+        current = None
+
+    coro = coro_factory()
+    if current is main_loop:
+        task = main_loop.create_task(coro, name=task_name)
+        task.add_done_callback(lambda t: _handle_persistence_task_result(t, task_name))
+        return
+
+    future = asyncio.run_coroutine_threadsafe(coro, main_loop)
+    future.add_done_callback(lambda f: _handle_persistence_future_result(f, task_name))
 
 
 def _store_origin_redis(origin: DebateOrigin) -> None:
@@ -237,12 +314,8 @@ def register_debate_origin(
     # Try PostgreSQL first if configured
     pg_store = _get_postgres_store_sync()
     if pg_store:
-        try:
-            # Check if we're in an async context
-            asyncio.get_running_loop()
-            asyncio.create_task(pg_store.save(origin))
-        except RuntimeError:
-            # No running event loop - create one for sync execution
+
+        def _save_postgres_sync() -> None:
             try:
                 loop = asyncio.new_event_loop()
                 try:
@@ -251,19 +324,25 @@ def register_debate_origin(
                     loop.close()
             except OSError as e:
                 logger.warning("PostgreSQL origin storage failed: %s", e)
+
+        _schedule_persistence_task(
+            lambda: pg_store.save(origin),
+            _save_postgres_sync,
+            task_name=f"debate-origin-save:{debate_id}",
+        )
     else:
-        # Fall back to SQLite for durability (always available)
-        # Use async version when in running event loop to avoid blocking
-        try:
-            loop = asyncio.get_running_loop()
-            # We're in async context - use async method via create_task
-            asyncio.create_task(_get_sqlite_store().save_async(origin))
-        except RuntimeError:
-            # No running event loop - use sync version
+
+        def _save_sqlite_sync() -> None:
             try:
                 _get_sqlite_store().save(origin)
             except (sqlite3.Error, OSError, RuntimeError, ValueError, Exception) as e:
                 logger.warning("SQLite origin storage failed: %s", e)
+
+        _schedule_persistence_task(
+            lambda: _get_sqlite_store().save_async(origin),
+            _save_sqlite_sync,
+            task_name=f"debate-origin-save:{debate_id}",
+        )
 
     # Persist to Redis for distributed deployments
     redis_success = False
@@ -439,12 +518,8 @@ def mark_result_sent(debate_id: str) -> None:
         # Update PostgreSQL if configured
         pg_store = _get_postgres_store_sync()
         if pg_store:
-            try:
-                # Check if we're in an async context
-                asyncio.get_running_loop()
-                asyncio.create_task(pg_store.save(origin))
-            except RuntimeError:
-                # No running event loop - create one for sync execution
+
+            def _save_postgres_sync() -> None:
                 try:
                     loop = asyncio.new_event_loop()
                     try:
@@ -453,18 +528,25 @@ def mark_result_sent(debate_id: str) -> None:
                         loop.close()
                 except OSError as e:
                     logger.debug("PostgreSQL update failed: %s", e)
+
+            _schedule_persistence_task(
+                lambda: pg_store.save(origin),
+                _save_postgres_sync,
+                task_name=f"debate-origin-mark-sent:{debate_id}",
+            )
         else:
-            # Update SQLite - use async when in running event loop
-            try:
-                loop = asyncio.get_running_loop()
-                # We're in async context - use async method
-                asyncio.create_task(_get_sqlite_store().save_async(origin))
-            except RuntimeError:
-                # No running event loop - use sync version
+
+            def _save_sqlite_sync() -> None:
                 try:
                     _get_sqlite_store().save(origin)
                 except sqlite3.OperationalError as e:
                     logger.debug("SQLite update failed: %s", e)
+
+            _schedule_persistence_task(
+                lambda: _get_sqlite_store().save_async(origin),
+                _save_sqlite_sync,
+                task_name=f"debate-origin-mark-sent:{debate_id}",
+            )
 
         # Update Redis if available
         if _should_use_redis():
