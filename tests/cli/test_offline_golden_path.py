@@ -245,6 +245,8 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         debate_cmd.cmd_ask(args)
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
     """CLI ask cleanup should run on the same loop that executed the debate."""
     from aragora.cli.commands import debate as debate_cmd
