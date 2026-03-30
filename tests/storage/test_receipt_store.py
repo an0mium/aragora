@@ -1125,6 +1125,19 @@ class TestFileReceiptFallback:
         ids = [r.receipt_id for r in results]
         assert "quickstart-abc123" in ids
 
+    def test_list_filters_db_receipts_by_canonical_verdict_alias(
+        self, receipt_store, sample_receipt_dict
+    ):
+        """PASS filters should include durable receipts saved under positive alias labels."""
+        sample_receipt_dict["receipt_id"] = "quickstart-consensus"
+        sample_receipt_dict["gauntlet_id"] = "quickstart-consensus"
+        sample_receipt_dict["verdict"] = "consensus"
+        receipt_store.save(sample_receipt_dict)
+
+        results = receipt_store.list(verdict="PASS")
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-consensus" in ids
+
     def test_get_by_gauntlet_falls_back_to_file(self, store_with_file_receipts):
         """Test that get_by_gauntlet() finds file-based receipts."""
         result = store_with_file_receipts.get_by_gauntlet("quickstart-abc123")

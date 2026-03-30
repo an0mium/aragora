@@ -34,6 +34,7 @@ import builtins
 from typing import Any
 
 from aragora.config import resolve_db_path
+from aragora.storage.receipt_verdicts import receipt_verdict_aliases
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -852,8 +853,11 @@ class ReceiptStore:
             params: list[Any] = []
 
             if verdict:
-                conditions.append("verdict = ?")
-                params.append(verdict)
+                verdict_aliases = receipt_verdict_aliases(verdict)
+                if verdict_aliases:
+                    placeholders = ", ".join("?" for _ in verdict_aliases)
+                    conditions.append(f"UPPER(verdict) IN ({placeholders})")
+                    params.extend(verdict_aliases)
             if risk_level:
                 conditions.append("risk_level = ?")
                 params.append(risk_level)
@@ -931,8 +935,11 @@ class ReceiptStore:
             params: list[Any] = []
 
             if verdict:
-                conditions.append("verdict = ?")
-                params.append(verdict)
+                verdict_aliases = receipt_verdict_aliases(verdict)
+                if verdict_aliases:
+                    placeholders = ", ".join("?" for _ in verdict_aliases)
+                    conditions.append(f"UPPER(verdict) IN ({placeholders})")
+                    params.extend(verdict_aliases)
             if risk_level:
                 conditions.append("risk_level = ?")
                 params.append(risk_level)

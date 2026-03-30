@@ -750,7 +750,7 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr().out
         assert "QUICKSTART" in output
-        assert "consensus" in output.lower()
+        assert "Pass" in output
 
     def test_live_mode_defaults_to_one_round_when_unspecified(self, capsys):
         args = argparse.Namespace(
@@ -870,7 +870,7 @@ class TestCmdQuickstart:
 
         assert Path(output_path).exists()
         data = json.loads(Path(output_path).read_text())
-        assert data["verdict"] == "yes"
+        assert data["verdict"] == "PASS"
 
     def test_demo_mode_saves_receipt_that_verifies(self, tmp_path, monkeypatch, capsys):
         monkeypatch.chdir(tmp_path)
@@ -1121,6 +1121,7 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "demo"
+        assert saved["verdict"] == "PASS"
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
@@ -1249,6 +1250,7 @@ class TestCmdQuickstart:
         output = capsys.readouterr()
         payload = json.loads(output.out)
         assert payload["receipt_id"].startswith("quickstart-demo-")
+        assert payload["verdict"] == "PASS"
         assert payload["consensus"] is True
         assert payload["consensus_reached"] is True
         assert payload["agent_votes"] == []

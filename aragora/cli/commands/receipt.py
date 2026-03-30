@@ -21,6 +21,8 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
+from aragora.storage.receipt_verdicts import normalize_receipt_verdict
+
 logger = logging.getLogger(__name__)
 
 
@@ -249,7 +251,7 @@ def _normalize_receipt_verdict_and_confidence(
     confidence: float | None,
 ) -> tuple[str, float]:
     """Fill missing verdict/confidence for trust-wedge receipts from nested metadata."""
-    normalized_verdict = str(verdict or "").strip()
+    normalized_verdict = normalize_receipt_verdict(verdict)
     normalized_confidence = float(confidence or 0.0)
 
     triage = data.get("triage_decision")

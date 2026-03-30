@@ -112,6 +112,24 @@ def test_receipt_list_normalizes_trust_wedge_receipts(
     assert "73%" in output
 
 
+def test_receipt_list_normalizes_alias_verdicts(capsys: pytest.CaptureFixture[str]) -> None:
+    stored = _StoredReceiptStub(
+        receipt_id="rcpt-consensus-123",
+        gauntlet_id="rcpt-consensus-123",
+        verdict="CONSENSUS",
+        confidence=0.85,
+        created_at=1711300000.0,
+        data={"consensus_proof": {"reached": True}},
+    )
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
+        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, kind=None, org_id=None))
+
+    output = capsys.readouterr().out
+    assert "PASS" in output
+    assert "CONSENSUS" not in output
+
+
 def test_receipt_list_filters_by_kind(capsys: pytest.CaptureFixture[str]) -> None:
     inbox = _StoredReceiptStub(
         receipt_id="rcpt-inbox-123",
@@ -195,6 +213,24 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "BLOCKED"
     assert payload["confidence"] == pytest.approx(0.61)
+
+
+def test_receipt_show_normalizes_alias_verdicts_for_json(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-consensus-456",
+        "gauntlet_id": "rcpt-consensus-456",
+        "verdict": "approved",
+        "confidence": 0.91,
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-consensus-456", format="json", org_id=None))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "PASS"
+    assert payload["confidence"] == pytest.approx(0.91)
 
 
 def test_receipt_show_renders_inbox_receipt_details(
