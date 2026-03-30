@@ -486,6 +486,9 @@ class TestRunnerFreshness:
                             "updated_at": now,
                             "heartbeat_at": now,
                             "freshness_status": "fresh",
+                            "probe_status": "passed",
+                            "probe_checked_at": now,
+                            "probe_ttl_seconds": 3600,
                         }
                     ]
                 }
@@ -625,6 +628,96 @@ class TestRunnerFreshness:
         assert result.fresh is True
         assert result.details["probe"]["auto_probe_triggered"] is True
         assert result.details["probe"]["passed"] == 1
+
+    def test_runner_freshness_blocks_when_no_selected_runner_is_execution_verified(
+        self, tmp_path, monkeypatch
+    ):
+        registry_path = tmp_path / "runners.json"
+        now = datetime.now(UTC).isoformat()
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-01",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "1")
+        monkeypatch.setenv("ARAGORA_BOSS_RUNNER_PROBE_LIMIT", "1")
+        inspection = SimpleNamespace(runner_id="claude-runner-1", profile="max-01")
+        failed_probe = SimpleNamespace(
+            status="failed",
+            detail="Probe failed (exit 1): org access denied",
+            to_runner_fields=lambda: {
+                "probe_status": "failed",
+                "probe_checked_at": now,
+                "probe_detail": "Probe failed (exit 1): org access denied",
+                "probe_latency_seconds": 1.0,
+                "probe_ttl_seconds": 3600,
+            },
+            to_dict=lambda: {
+                "runner_id": "claude-runner-1",
+                "runner_type": "claude",
+                "probe_status": "failed",
+            },
+        )
+
+        class _Inspector:
+            def inspect(self) -> MagicMock:
+                inspected = MagicMock()
+                inspected.available = True
+                inspected.auth_mode = "subscription"
+                inspected.runner_id = "claude-runner-1"
+                inspected.to_dict.return_value = {
+                    "runner_id": "claude-runner-1",
+                    "available": True,
+                    "auth_mode": "subscription",
+                }
+                return inspected
+
+        with (
+            patch(
+                "aragora.swarm.runner_registry.refresh_discovered_runners",
+                return_value=[inspection],
+            ),
+            patch(
+                "aragora.swarm.runner_registry.prioritized_probe_candidates",
+                return_value=[inspection],
+            ),
+            patch(
+                "aragora.swarm.runner_registry.probe_runner_execution",
+                return_value=failed_probe,
+            ),
+            patch(
+                "aragora.swarm.runner_registry.make_runner_inspector",
+                return_value=_Inspector(),
+            ),
+        ):
+            result = check_runner_freshness(
+                freshness_ttl_seconds=3600.0,
+                registry_path=str(registry_path),
+                env={"ARAGORA_USER_ID": "user-1", "ARAGORA_WORKSPACE_ID": "ws-1"},
+                requested_runner_type="claude",
+            )
+
+        assert result.fresh is False
+        assert result.blocked_reason == "no_execution_verified_runner"
+        assert result.details["probe"]["failed"] == 1
 
 
 # ---------------------------------------------------------------------------

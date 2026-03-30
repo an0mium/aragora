@@ -605,6 +605,21 @@ def check_runner_freshness(
                     allowed_profiles=allowed_profile_set or None,
                     rotation_interval_seconds=rotation_interval_seconds,
                 )
+        selected_verified = len(
+            [
+                item
+                for item in routing.selected_runners
+                if isinstance(item, dict) and registry._probe_status(item) == "passed"
+            ]
+        )
+        if selected_verified == 0:
+            return RunnerFreshnessResult(
+                fresh=False,
+                runner_ids=routing.selected_runner_ids,
+                checked_at=checked_at,
+                blocked_reason="no_execution_verified_runner",
+                details={"routing": routing.to_dict(), "probe": probe_summary},
+            )
 
     if routing.is_blocked:
         return RunnerFreshnessResult(
