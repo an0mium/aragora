@@ -198,6 +198,14 @@ class TestGenerateOpenAPISchema:
         assert security["bearerAuth"]["type"] == "http"
         assert security["bearerAuth"]["scheme"] == "bearer"
 
+    def test_gauntlet_receipt_verify_endpoint_uses_post(self):
+        """Runtime schema includes the handler-backed gauntlet receipt verify POST route."""
+        schema = generate_openapi_schema()
+        path = "/api/v1/gauntlet/{gauntlet_id}/receipt/verify"
+        assert path in schema["paths"]
+        assert "post" in schema["paths"][path]
+        assert schema["paths"][path]["post"]["operationId"] == "verify_gauntlet_receipt"
+
 
 class TestGetOpenAPIJson:
     """Tests for JSON output."""

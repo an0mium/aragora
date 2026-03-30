@@ -78,6 +78,10 @@ from aragora.server.openapi.endpoints.playbooks import PLAYBOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.marketplace import MARKETPLACE_ENDPOINTS
 from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOINTS
 
+# Import decorator-backed gauntlet receipt endpoints so they are present in the
+# registry before we merge decorator metadata into ALL_ENDPOINTS.
+from aragora.server.handlers.gauntlet import receipts as _gauntlet_receipt_handlers  # noqa: F401
+
 
 import logging
 from typing import Any
