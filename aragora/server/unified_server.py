@@ -62,6 +62,20 @@ _server_ready: bool = False
 # separately so /readyz does not report a false negative while already serving.
 _http_server_started: bool = False
 
+# Main async event loop reference.  Set in start() so background tasks from
+# sync HTTP handler threads can use asyncio.run_coroutine_threadsafe().
+_main_event_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _set_main_event_loop(loop: asyncio.AbstractEventLoop) -> None:
+    global _main_event_loop
+    _main_event_loop = loop
+
+
+def get_main_event_loop() -> asyncio.AbstractEventLoop | None:
+    """Get the server's main asyncio event loop, if available."""
+    return _main_event_loop
+
 
 def mark_server_ready() -> None:
     """Mark the server as ready to accept traffic."""
@@ -1109,6 +1123,10 @@ class UnifiedServer:
                 If None, determined by ARAGORA_PARALLEL_INIT env var (default: True).
         """
         import time as time_mod
+
+        # Store the main event loop reference so background tasks dispatched
+        # from sync HTTP handler threads can use run_coroutine_threadsafe.
+        _set_main_event_loop(asyncio.get_running_loop())
 
         startup_start = time_mod.perf_counter()
 

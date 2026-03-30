@@ -19,21 +19,43 @@ jobs:
           script: |
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
+              '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
+              '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
+              '.github/workflows/live-deploy-mode-gate.yml',
               '.github/workflows/sdk-parity.yml',
               '.github/workflows/sdk-test.yml',
+              '.github/workflows/test.yml',
               '.github/workflows/openapi.yml',
+              '.github/workflows/pr-admission-controller.yml',
+              '.github/workflows/quality-smoke.yml',
+              '.github/workflows/release-readiness.yml',
+              '.github/workflows/security-gate.yml',
+              '.github/workflows/self-hosted-shadow.yml',
+              '.github/workflows/smoke.yml',
+              '.github/workflows/smoke-offline.yml',
               '.github/workflows/required-check-priority.yml',
-              '.github/workflows/autopilot-worktree-e2e.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
+              'Autopilot Worktree E2E',
+              'Contract Drift Governance',
+              'Core Suites (Decision Integrity)',
+              'Offline Golden Path',
+              'Live Deploy Mode Gate',
+              'PR Admission Controller',
+              'Quality Pipeline Smoke',
               'Required Check Priority',
+              'Release Readiness Gate',
+              'Security Gate',
               'Lint',
+              'Self-Hosted Shadow CI',
               'SDK Parity Check',
               'SDK Tests',
+              'Smoke Tests',
+              'Tests',
               'OpenAPI Spec',
-              'Autopilot Worktree E2E',
             ]);
 """
 
@@ -98,6 +120,18 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: Aragora Code Review\njobs:\n  aragora-review:\n    runs-on: ubuntu-latest\n",
         encoding="utf-8",
     )
+    (wf_dir / "autopilot-worktree-e2e.yml").write_text(
+        "name: Autopilot Worktree E2E\njobs:\n  scope:\n    name: Autopilot Scope\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "contract-drift-governance.yml").write_text(
+        "name: Contract Drift Governance\njobs:\n  governance:\n    name: governance\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "core-suites.yml").write_text(
+        "name: Core Suites (Decision Integrity)\njobs:\n  core:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
     (wf_dir / "sdk-parity.yml").write_text(
         "name: SDK Parity Check\njobs:\n  sdk-parity:\n    runs-on: ubuntu-latest\n",
         encoding="utf-8",
@@ -106,12 +140,48 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: SDK Tests\njobs:\n  typescript-sdk:\n    name: TypeScript SDK Type Check\n",
         encoding="utf-8",
     )
+    (wf_dir / "test.yml").write_text(
+        "name: Tests\njobs:\n  python-tests:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
     (wf_dir / "openapi.yml").write_text(
         "name: OpenAPI Spec\njobs:\n  generate:\n    name: Generate & Validate\n",
         encoding="utf-8",
     )
+    (wf_dir / "live-deploy-mode-gate.yml").write_text(
+        "name: Live Deploy Mode Gate\njobs:\n  gate:\n    name: Validate Live Deploy Mode\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "pr-admission-controller.yml").write_text(
+        "name: PR Admission Controller\njobs:\n  enforce:\n    name: PR Admission Signal (Advisory)\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "quality-smoke.yml").write_text(
+        "name: Quality Pipeline Smoke\njobs:\n  quality:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
     (wf_dir / "required-check-priority.yml").write_text(
         "name: Required Check Priority\n", encoding="utf-8"
+    )
+    (wf_dir / "release-readiness.yml").write_text(
+        "name: Release Readiness Gate\njobs:\n  release:\n    name: Release Readiness\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "security-gate.yml").write_text(
+        "name: Security Gate\njobs:\n  summary:\n    name: Security Gate Summary\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "self-hosted-shadow.yml").write_text(
+        "name: Self-Hosted Shadow CI\njobs:\n  shadow:\n    name: Mac TypeScript SDK Shadow\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "smoke.yml").write_text(
+        "name: Smoke Tests\njobs:\n  smoke:\n    name: Smoke Tests\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "smoke-offline.yml").write_text(
+        "name: Offline Golden Path\njobs:\n  offline:\n    name: Offline Demo Smoke\n",
+        encoding="utf-8",
     )
 
     text = """
@@ -124,18 +194,42 @@ jobs:
           script: |
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
+              '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
+              '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
+              '.github/workflows/live-deploy-mode-gate.yml',
               '.github/workflows/sdk-parity.yml',
               '.github/workflows/sdk-test.yml',
+              '.github/workflows/test.yml',
               '.github/workflows/openapi.yml',
+              '.github/workflows/pr-admission-controller.yml',
+              '.github/workflows/quality-smoke.yml',
               '.github/workflows/required-check-priority.yml',
+              '.github/workflows/release-readiness.yml',
+              '.github/workflows/security-gate.yml',
+              '.github/workflows/self-hosted-shadow.yml',
+              '.github/workflows/smoke.yml',
+              '.github/workflows/smoke-offline.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
+              'Autopilot Worktree E2E',
+              'Contract Drift Governance',
+              'Core Suites (Decision Integrity)',
+              'Offline Golden Path',
+              'Live Deploy Mode Gate',
+              'PR Admission Controller',
+              'Quality Pipeline Smoke',
               'Required Check Priority',
+              'Release Readiness Gate',
+              'Security Gate',
               'Lint',
+              'Self-Hosted Shadow CI',
               'SDK Parity Check',
               'SDK Tests',
+              'Smoke Tests',
+              'Tests',
               'OpenAPI Spec',
             ]);
 """

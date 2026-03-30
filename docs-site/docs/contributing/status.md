@@ -10,39 +10,64 @@ description: Aragora Project Status
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
-## March 23, 2026 — Execution Program Complete
+## March 23, 2026 — Structural PMF Slices Landed, Live Gate Still Open
 
-**All 6 program epics are closed.** The product loop is operational. The system has moved from "build and wire" to "operate and prove."
+The earlier March docs overstated readiness. Current `main` is materially better, but the right statement is:
 
-### Closed Program Epics
+- the structural PMF slices are landed
+- the mocked founder-loop proof passes on `main`
+- the live founder loop still needs repeatable dogfood proof before external selling
 
-- **#804** — Truthfulness and documentation hygiene
-- **#806** — Sequential surface productization and value prop
-- **#836** — Developer swarm control plane
-- **#989** — Idea-to-execution workbench
-- **#990** — Dogfood the pipeline to build more of Aragora
-- **#1036** — Continuous self-assessment and autonomous improvement cadence
+Focused verification on current `main`:
 
-### What Is Operational
+```bash
+python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+```
 
-- **Product loop end-to-end**: onboarding -> credentials -> ProviderRouter-backed debate -> KM-enriched context -> receipt -> KM writeback -> live dashboard -> real demo surface.
-- **Swarm control plane**: queue-backed execution, label-scoped unattended dispatch, preserved verification evidence, terminal tranche reconciliation.
-- **Boss loop**: runs unattended with label-scoped dispatch on queue v5.
-- **KM bidirectional flow**: debates read org knowledge, outcomes write back.
+Observed result on March 23, 2026: `57 passed` in `33.75s`.
 
-### What Remains (5 Open Issues)
+Recent `main` improvements relevant to the founder loop:
 
-- **[#820](https://github.com/synaptent/aragora/issues/820)** (medium): Wave 2 surfaces — SME onboarding, spectate, conditional public endpoints
-- **[#1011](https://github.com/synaptent/aragora/issues/1011)** (medium): Design partner refresh and repeatable external usage
-- **[#273](https://github.com/synaptent/aragora/issues/273)**, **[#274](https://github.com/synaptent/aragora/issues/274)**, **[#509](https://github.com/synaptent/aragora/issues/509)** (P3): Enterprise assurance — pentest, SOC 2, certification (parked)
+1. **ProviderRouter wired into DebateFactory** ([#1167](https://github.com/synaptent/aragora/pull/1167))
+2. **KnowledgeMound retrieval wired into DebateFactory** ([#1168](https://github.com/synaptent/aragora/pull/1168))
+3. **Versioned API key management endpoints** ([#1169](https://github.com/synaptent/aragora/pull/1169))
+4. **Interactive onboarding/get-started flow** ([#1170](https://github.com/synaptent/aragora/pull/1170))
+5. **Debate outcome -> KM ingestion** ([#1176](https://github.com/synaptent/aragora/pull/1176))
+6. **Demo wired to real backend** ([#1177](https://github.com/synaptent/aragora/pull/1177))
+7. **Wave 2 surfaces productized** ([#1188](https://github.com/synaptent/aragora/pull/1188))
+8. **Quickstart fails fast on bad TLS** ([#1180](https://github.com/synaptent/aragora/pull/1180))
+9. **Quickstart inline provider keys and structured receipts** ([#1192](https://github.com/synaptent/aragora/pull/1192))
+10. **Integrations dashboard uses truthful backend state** ([#1196](https://github.com/synaptent/aragora/pull/1196))
+
+The current execution order is now:
+
+1. prove the canonical founder loop live
+2. harvest the concrete blockers from that proof
+3. feed only those blockers into the idea-to-execution / swarm machinery
+4. defer GTM and enterprise-assurance expansion until the live loop is repeatable
+
+Canonical references:
+
+- [docs/status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md)
+- [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md)
+- [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](plans/PMF_DOGFOOD_EXECUTION_PLAN.md)
+
+### Wave 2 Surface Productization
+
+| Surface | Status | Notes |
+|---------|--------|-------|
+| **Spectate** | productized | Frontend wired to real WebSocket + polling. Conditional auth redacts debate IDs for unauthenticated callers. |
+| **SME Onboarding** | productized | 3-step wizard wired to backend. 9 starter templates including SME-specific profiles. |
+| **Conditional Public Endpoints** | productized | `GET /api/v1/public/surfaces` lists all public surfaces with readiness. Auth manifest declares spectate + onboarding as public. |
 
 ### Current Frontier
 
-The frontier is continuous operation, not construction:
+The frontier is no longer building or wiring. It is:
 
-- run the product loop with real users, collect feedback, fix what breaks
-- productize Wave 2 surfaces when ready
-- enterprise certification follows a proven product loop
+- **continuous operation** — run the product loop with real users, collect feedback, fix what breaks
+- **Wave 2 polish** — SME onboarding, spectate, conditional public endpoints ([#820](https://github.com/synaptent/aragora/issues/820))
+- **design partner refresh** — repeatable external usage ([#1011](https://github.com/synaptent/aragora/issues/1011))
+- **enterprise assurance when ready** — pentest, SOC 2, certification parked at P3
 
 ## March 12-18, 2026 — Ralph Autonomous Loop Validation
 

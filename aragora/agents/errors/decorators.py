@@ -14,10 +14,30 @@ import asyncio
 import functools
 import logging
 import secrets
+from types import SimpleNamespace
 from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
-import aiohttp
+try:
+    import aiohttp
+except ImportError:
+
+    class _MissingAiohttpError(Exception):
+        """Fallback exception type when aiohttp is unavailable."""
+
+    class _MissingAiohttpSession:
+        """Raise a clear import error if runtime code tries to open an aiohttp session."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("aiohttp is required for API-backed agent networking")
+
+    aiohttp = SimpleNamespace(
+        ClientConnectorError=_MissingAiohttpError,
+        ServerDisconnectedError=_MissingAiohttpError,
+        ClientPayloadError=_MissingAiohttpError,
+        ClientResponseError=_MissingAiohttpError,
+        ClientSession=_MissingAiohttpSession,
+    )
 
 # Generic type variables for decorators
 T = TypeVar("T")

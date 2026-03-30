@@ -10,11 +10,30 @@ _ID_PARAM = {
     "description": "Pipeline ID",
 }
 
+_DEBATE_ID_PARAM = {
+    "name": "id",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string"},
+    "description": "Debate ID",
+}
+
+_AGENT_ID_PARAM = {
+    "name": "agent_id",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string"},
+    "description": "Agent assignment ID",
+}
+
 _STAGE_PARAM = {
     "name": "stage",
     "in": "path",
     "required": True,
-    "schema": {"type": "string", "enum": ["ideas", "goals", "actions", "orchestration"]},
+    "schema": {
+        "type": "string",
+        "enum": ["ideas", "principles", "goals", "actions", "orchestration"],
+    },
     "description": "Pipeline stage name",
 }
 
@@ -63,7 +82,72 @@ def _json_response(description: str) -> dict:
     }
 
 
+def _transition_request_body(*, include_pipeline_id: bool) -> dict:
+    """Request body for approve/reject transition endpoints."""
+    required = ["from_stage", "to_stage"]
+    properties = {
+        "from_stage": {"type": "string"},
+        "to_stage": {"type": "string"},
+        "approved": {
+            "type": "boolean",
+            "description": "Defaults to true when omitted; set to false to reject.",
+        },
+        "comment": {"type": "string"},
+    }
+    if include_pipeline_id:
+        required.insert(0, "pipeline_id")
+        properties["pipeline_id"] = {"type": "string"}
+
+    return {
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": required,
+                    "properties": properties,
+                }
+            }
+        },
+    }
+
+
 PIPELINE_ENDPOINTS = {
+    "/api/v1/canvas/pipeline": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "Get latest pipeline or list pipelines",
+            "operationId": "listOrLatestPipeline",
+            "description": (
+                "Return the latest canvas pipeline by default. Pass `list=true` to return "
+                "pipeline summaries instead."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "list",
+                    "in": "query",
+                    "schema": {"type": "boolean"},
+                    "description": "Return pipeline summaries instead of the latest pipeline.",
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "schema": {"type": "string"},
+                    "description": "Optional status filter when list mode is enabled.",
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "description": "Maximum number of pipeline summaries to return in list mode.",
+                },
+            ],
+            "responses": {
+                "200": _json_response("Latest pipeline payload or pipeline list"),
+            },
+        },
+    },
     "/api/v1/canvas/pipeline/from-ideas": {
         "post": {
             "tags": ["Pipeline"],
@@ -111,6 +195,40 @@ PIPELINE_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/canvas/pipeline/from-braindump": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Create pipeline from brain dump",
+            "operationId": "createPipelineFromBrainDump",
+            "description": (
+                "Parse unstructured text into ideas and immediately create a pipeline from "
+                "the extracted ideas."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["text"],
+                            "properties": {
+                                "text": {"type": "string"},
+                                "context": {"type": "string"},
+                                "auto_advance": {"type": "boolean"},
+                                "use_unified_orchestrator": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "201": _json_response("Pipeline created from a parsed brain dump"),
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/v1/canvas/pipeline/from-template": {
         "post": {
             "tags": ["Pipeline"],
@@ -136,6 +254,35 @@ PIPELINE_ENDPOINTS = {
             "responses": {
                 "200": _json_response("Pipeline result"),
                 "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/demo": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Create demo pipeline",
+            "operationId": "createDemoPipeline",
+            "description": "Create a pre-populated demo pipeline with all stages completed.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "ideas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                }
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "201": _json_response("Demo pipeline created"),
                 "500": STANDARD_ERRORS["500"],
             },
         },
@@ -169,6 +316,24 @@ PIPELINE_ENDPOINTS = {
                 "200": _json_response("Advance result"),
                 "400": STANDARD_ERRORS["400"],
                 "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/approve-transition": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Approve stage transition by body",
+            "operationId": "approvePipelineTransitionByBody",
+            "description": (
+                "Approve or reject a pending stage transition when the pipeline ID is sent "
+                "in the request body."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": _transition_request_body(include_pipeline_id=True),
+            "responses": {
+                "200": _json_response("Transition result"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
             },
         },
     },
@@ -226,6 +391,94 @@ PIPELINE_ENDPOINTS = {
             "responses": {
                 "200": _json_response("Extracted goals"),
                 "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/extract-principles": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Extract principles from ideas canvas",
+            "operationId": "extractPipelinePrinciples",
+            "description": "Extract principles and themes from an ideas canvas.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["ideas_canvas"],
+                            "properties": {
+                                "ideas_canvas": {"type": "object"},
+                                "themes": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Principles canvas"),
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/auto-run": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Auto-run pipeline from freeform text",
+            "operationId": "autoRunPipeline",
+            "description": (
+                "Start an asynchronous pipeline from freeform text and return a pipeline "
+                "identifier immediately."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["text"],
+                            "properties": {
+                                "text": {"type": "string"},
+                                "automation_level": {
+                                    "type": "string",
+                                    "enum": ["full", "guided", "manual"],
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Auto-run pipeline start status"),
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/from-system-metrics": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Create pipeline from system metrics",
+            "operationId": "createPipelineFromSystemMetrics",
+            "description": "Auto-generate a pipeline from system health analysis.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "object"},
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Pipeline created from system metrics"),
                 "500": STANDARD_ERRORS["500"],
             },
         },
@@ -384,25 +637,231 @@ PIPELINE_ENDPOINTS = {
             "description": "Approve or reject a pending stage transition.",
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "parameters": [_ID_PARAM],
+            "requestBody": _transition_request_body(include_pipeline_id=False),
+            "responses": {
+                "200": _json_response("Transition result"),
+                "404": STANDARD_ERRORS["404"],
+                "400": STANDARD_ERRORS["400"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/execute": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Execute completed pipeline",
+            "operationId": "executeCanvasPipeline",
+            "description": (
+                "Queue execution for a completed pipeline or return a dry-run summary of the "
+                "planned work."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
             "requestBody": {
-                "required": True,
+                "required": False,
                 "content": {
                     "application/json": {
                         "schema": {
                             "type": "object",
-                            "required": ["transition_id", "approved"],
                             "properties": {
-                                "transition_id": {"type": "string"},
-                                "approved": {"type": "boolean"},
-                                "reason": {"type": "string"},
+                                "dry_run": {"type": "boolean"},
                             },
                         }
                     }
                 },
             },
             "responses": {
-                "200": _json_response("Transition result"),
+                "200": _json_response("Dry-run execution summary"),
+                "202": _json_response("Pipeline execution queued"),
+                "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/intelligence": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "Get pipeline intelligence rollup",
+            "operationId": "getPipelineIntelligence",
+            "description": (
+                "Return beliefs, explanations, and precedents for nodes in the pipeline."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "responses": {
+                "200": _json_response("Pipeline intelligence"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/beliefs": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "Get pipeline beliefs",
+            "operationId": "getPipelineBeliefs",
+            "description": "Return belief-network-style confidence data for pipeline nodes.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "responses": {
+                "200": _json_response("Pipeline beliefs"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/explanations": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "Get pipeline explanations",
+            "operationId": "getPipelineExplanations",
+            "description": "Return explainability factors for pipeline nodes.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "responses": {
+                "200": _json_response("Pipeline explanations"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/precedents": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "Get pipeline precedents",
+            "operationId": "getPipelinePrecedents",
+            "description": "Return similar goals or precedents linked to the pipeline.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "responses": {
+                "200": _json_response("Pipeline precedents"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/canvas/pipeline/{id}/self-improve": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Feed pipeline into self-improvement",
+            "operationId": "selfImprovePipeline",
+            "description": (
+                "Trigger the self-improvement system using a pipeline as the source task "
+                "definition."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "budget_limit": {"type": "number"},
+                                "require_approval": {"type": "boolean"},
+                                "dry_run": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Self-improvement preview"),
+                "201": _json_response("Self-improvement run started"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/to-pipeline": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Convert debate to pipeline",
+            "operationId": "convertDebateToPipeline",
+            "description": (
+                "Load a completed debate's argument graph and create a pipeline from it."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_DEBATE_ID_PARAM],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "use_universal": {"type": "boolean"},
+                                "auto_advance": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "201": _json_response("Pipeline created from debate"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/pipeline/{id}/agents": {
+        "get": {
+            "tags": ["Pipeline"],
+            "summary": "List pipeline agents",
+            "operationId": "listPipelineAgents",
+            "description": "Return current agent assignments and statuses for a pipeline.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM],
+            "responses": {
+                "200": _json_response("Pipeline agent assignments"),
+            },
+        },
+    },
+    "/api/v1/pipeline/{id}/agents/{agent_id}/approve": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Approve pipeline agent",
+            "operationId": "approvePipelineAgent",
+            "description": "Approve an assigned agent task for a pipeline.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM, _AGENT_ID_PARAM],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "notes": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Agent approval recorded"),
+            },
+        },
+    },
+    "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {
+        "post": {
+            "tags": ["Pipeline"],
+            "summary": "Reject pipeline agent",
+            "operationId": "rejectPipelineAgent",
+            "description": "Reject an assigned agent task for a pipeline.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_ID_PARAM, _AGENT_ID_PARAM],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["feedback"],
+                            "properties": {
+                                "feedback": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _json_response("Agent rejection recorded"),
                 "400": STANDARD_ERRORS["400"],
             },
         },

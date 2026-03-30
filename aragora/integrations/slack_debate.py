@@ -753,6 +753,21 @@ class SlackDebateLifecycle:
         if self._session is not None and not self._session.closed:
             await self._session.close()
 
+    @staticmethod
+    def _build_receipt_url(receipt: Any, receipt_url: str = "") -> str:
+        """Return a canonical receipt URL when the receipt has an ID."""
+        if receipt_url:
+            return receipt_url
+
+        import os as _os
+
+        receipt_id = getattr(receipt, "receipt_id", "")
+        if not receipt_id:
+            return ""
+
+        base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
+        return f"{base_url}/receipts/{receipt_id}"
+
     async def _post_to_thread(
         self,
         channel_id: str,
@@ -935,6 +950,7 @@ class SlackDebateLifecycle:
         Returns:
             True if posted successfully.
         """
+        receipt_url = self._build_receipt_url(receipt, receipt_url)
         blocks = _build_receipt_blocks(receipt, debate_id, receipt_url)
         verdict = getattr(receipt, "verdict", "UNKNOWN")
         text = f"Decision receipt: {verdict}"
@@ -1487,8 +1503,6 @@ class SlackDebateLifecycle:
         Returns:
             True if the receipt was delivered successfully.
         """
-        import os as _os
-
         # Load receipt if not provided
         if receipt is None:
             receipt = self._load_receipt(debate_id)
@@ -1497,11 +1511,7 @@ class SlackDebateLifecycle:
                 return False
 
         # Build receipt URL if not provided
-        if not receipt_url:
-            base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
-            receipt_id = getattr(receipt, "receipt_id", "")
-            if receipt_id:
-                receipt_url = f"{base_url}/receipts/{receipt_id}"
+        receipt_url = self._build_receipt_url(receipt, receipt_url)
 
         blocks = _build_receipt_with_approval_blocks(
             receipt, debate_id=debate_id, receipt_url=receipt_url

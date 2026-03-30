@@ -399,6 +399,7 @@ export default function Home() {
     return (
       <LandingPage
         apiBase={apiBase}
+        wsUrl={wsUrl}
         onEnterDashboard={() => router.push('/auth/login')}
       />
     );
@@ -419,6 +420,7 @@ export default function Home() {
     return (
       <LandingPage
         apiBase={apiBase}
+        wsUrl={wsUrl}
         onEnterDashboard={handleEnterDashboard}
       />
     );

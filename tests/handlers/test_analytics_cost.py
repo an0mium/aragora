@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -79,10 +79,18 @@ def _patch_auth():
     import aragora.billing.cost_tracker as ct_mod
 
     ct_mod._cost_tracker = None
-    with patch(
-        "aragora.billing.jwt_auth.extract_user_from_request",
-        return_value=FakeUserCtx(),
+    with (
+        patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=FakeUserCtx(),
+        ),
+        patch("aragora.services.usage_metering.get_usage_meter") as mock_get_usage_meter,
     ):
+        mock_meter = MagicMock()
+        mock_meter.get_usage_breakdown = AsyncMock(
+            return_value=MagicMock(total_cost=Decimal("0"), by_model=[], by_provider=[])
+        )
+        mock_get_usage_meter.return_value = mock_meter
         yield
     ct_mod._cost_tracker = None
 
@@ -155,6 +163,43 @@ class TestCostBreakdownEndpoint:
         result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["agent_costs"] == {}
+
+    @patch("aragora.services.usage_metering.get_usage_meter")
+    @patch("aragora.billing.cost_tracker.get_cost_tracker")
+    def test_falls_back_to_usage_meter_when_tracker_empty(
+        self, mock_get_tracker, mock_get_usage_meter
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.get_workspace_stats.return_value = {
+            "workspace_id": "ws_123",
+            "total_cost_usd": "0",
+            "cost_by_agent": {},
+        }
+        mock_tracker.get_budget.return_value = None
+        mock_get_tracker.return_value = mock_tracker
+
+        mock_breakdown = MagicMock(
+            total_cost=Decimal("12.3400"),
+            by_model=[
+                {"model": "anthropic/claude-opus-4-6", "cost": "7.3400"},
+                {"model": "openai/gpt-4.1", "cost": "5.0000"},
+            ],
+            by_provider=[],
+        )
+        mock_meter = MagicMock()
+        mock_meter.get_usage_breakdown = AsyncMock(return_value=mock_breakdown)
+        mock_get_usage_meter.return_value = mock_meter
+
+        handler = _make_mixin_instance()
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
+        body = _parse_body(result)
+
+        assert body["total_spend_usd"] == "12.34"
+        assert body["agent_costs"] == {
+            "anthropic/claude-opus-4-6": "7.34",
+            "openai/gpt-4.1": "5.00",
+        }
+        mock_meter.get_usage_breakdown.assert_awaited_once_with(org_id="ws_123")
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
     def test_budget_utilization(self, mock_get_tracker):

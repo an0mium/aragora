@@ -28,11 +28,13 @@ class TestGrokAgentInitialization:
     def test_init_with_defaults(self, mock_env_with_api_keys):
         """Should initialize with default values."""
         from aragora.agents.api_agents.grok import GrokAgent
+        from aragora.agents.registry import AgentRegistry
 
         agent = GrokAgent()
+        spec = AgentRegistry.get_spec("grok")
 
         assert agent.name == "grok"
-        assert agent.model == "grok-4-latest"
+        assert agent.model == "grok-4.2"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "grok"
@@ -102,12 +104,13 @@ class TestGrokAgentInitialization:
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):
         """Should be registered in agent registry."""
+        from aragora.agents.api_agents.grok import GrokAgent
         from aragora.agents.registry import AgentRegistry
 
         spec = AgentRegistry.get_spec("grok")
 
         assert spec is not None
-        assert spec.default_model == "grok-4-latest"
+        assert spec.default_model == "grok-4.2"
         assert spec.agent_type == "API"
 
     def test_base_url_is_xai_endpoint(self, mock_env_with_api_keys):

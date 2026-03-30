@@ -5,8 +5,11 @@ import json
 
 from aragora.cli.commands.inbox_wedge import (
     cmd_inbox_wedge_create,
+    cmd_inbox_wedge_list,
     cmd_inbox_wedge_export,
     cmd_inbox_wedge_report,
+    cmd_inbox_wedge_review,
+    cmd_inbox_wedge_show,
 )
 from aragora.cli.parser import build_parser
 from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
@@ -121,12 +124,17 @@ def test_parser_registers_report_and_export_commands():
 
     report_args = parser.parse_args(["inbox-wedge", "report"])
     export_args = parser.parse_args(["inbox-wedge", "export", "/tmp/receipts.jsonl"])
+    review_args = parser.parse_args(
+        ["inbox-wedge", "review", "receipt-1", "--choice", "skip", "--json"]
+    )
 
     assert report_args.command == "inbox-wedge"
     assert report_args.inbox_wedge_command == "report"
     assert callable(report_args.func)
     assert export_args.inbox_wedge_command == "export"
     assert callable(export_args.func)
+    assert report_args.json is False
+    assert review_args.json is True
 
 
 def test_report_command_summarizes_receipts(monkeypatch, tmp_path, capsys):
@@ -156,7 +164,7 @@ def test_report_command_summarizes_receipts(monkeypatch, tmp_path, capsys):
         lambda: store,
     )
 
-    args = argparse.Namespace(state=None, limit=50)
+    args = argparse.Namespace(state=None, limit=50, json=True)
     try:
         cmd_inbox_wedge_report(args)
         payload = json.loads(capsys.readouterr().out)
@@ -172,6 +180,182 @@ def test_report_command_summarizes_receipts(monkeypatch, tmp_path, capsys):
     assert payload["provider_routes"]["direct"] == 1
     assert payload["auto_approved_count"] == 1
     assert payload["average_confidence"] == 0.925
+
+
+def test_list_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "list.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x05" * 32, key_id="list-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-listed",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_store",
+        lambda: store,
+    )
+
+    args = argparse.Namespace(state=None, limit=10, json=False)
+    try:
+        cmd_inbox_wedge_list(args)
+        output = capsys.readouterr().out
+    finally:
+        store.close()
+
+    assert "STATE" in output
+    assert envelope.receipt.receipt_id[:12] in output
+    assert "archive" in output
+    assert "direct" in output
+    assert "1 receipt(s) shown." in output
+
+
+def test_show_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "show.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x06" * 32, key_id="show-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-show",
+        action="ignore",
+        confidence=0.4,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_store",
+        lambda: store,
+    )
+
+    args = argparse.Namespace(receipt_id=envelope.receipt.receipt_id, json=False)
+    try:
+        cmd_inbox_wedge_show(args)
+        output = capsys.readouterr().out
+    finally:
+        store.close()
+
+    assert "Inbox Trust Wedge Receipt" in output
+    assert envelope.receipt.receipt_id in output
+    assert "Action:" in output
+    assert "ignore" in output
+    assert "Message ID:" in output
+    assert "msg-show" in output
+
+
+def test_report_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "report-human.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x07" * 32, key_id="report-human-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    _create_receipt(
+        service,
+        message_id="msg-report-human",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_store",
+        lambda: store,
+    )
+
+    args = argparse.Namespace(state=None, limit=10, json=False)
+    try:
+        cmd_inbox_wedge_report(args)
+        output = capsys.readouterr().out
+    finally:
+        store.close()
+
+    assert "Inbox Trust Wedge Report" in output
+    assert "Total Receipts:" in output
+    assert "Actions:" in output
+    assert "archive" in output
+
+
+def test_review_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "review.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x08" * 32, key_id="review-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-review",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_service",
+        lambda: service,
+    )
+
+    args = argparse.Namespace(
+        receipt_id=envelope.receipt.receipt_id,
+        choice="skip",
+        action=None,
+        rationale=None,
+        label_id=None,
+        json=False,
+    )
+    try:
+        cmd_inbox_wedge_review(args)
+        output = capsys.readouterr().out
+    finally:
+        store.close()
+
+    assert "Inbox Trust Wedge Receipt" in output
+    assert "Selected:" in output
+    assert "skip" in output
+    assert "Effect:" in output
+    assert "no state change" in output
+
+
+def test_review_command_can_emit_json(monkeypatch, tmp_path, capsys):
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "review-json.db"))
+    service = InboxTrustWedgeService(
+        store=store,
+        signer=ReceiptSigner(HMACSigner(secret_key=b"\x09" * 32, key_id="review-json-test-key")),
+        email_actions_service=EmailActionsService(),
+    )
+    envelope = _create_receipt(
+        service,
+        message_id="msg-review-json",
+        action="archive",
+        confidence=0.9,
+        provider_route="direct",
+    )
+    monkeypatch.setattr(
+        "aragora.cli.commands.inbox_wedge.get_inbox_trust_wedge_service",
+        lambda: service,
+    )
+
+    args = argparse.Namespace(
+        receipt_id=envelope.receipt.receipt_id,
+        choice="skip",
+        action=None,
+        rationale=None,
+        label_id=None,
+        json=True,
+    )
+    try:
+        cmd_inbox_wedge_review(args)
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        store.close()
+
+    assert payload["receipt"]["receipt_id"] == envelope.receipt.receipt_id
+    assert payload["review_choice"] is None
 
 
 def test_export_command_writes_jsonl(monkeypatch, tmp_path, capsys):

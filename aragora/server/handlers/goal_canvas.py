@@ -209,6 +209,11 @@ class GoalCanvasHandler(SecureHandler):
 
         return get_goal_canvas_store()
 
+    def _get_action_store(self):
+        from aragora.canvas.action_store import get_action_canvas_store
+
+        return get_action_canvas_store()
+
     def _get_canvas_manager(self):
         from aragora.canvas import get_canvas_manager
 
@@ -224,6 +229,142 @@ class GoalCanvasHandler(SecureHandler):
                 return future.result(timeout=30)
         except RuntimeError:
             return asyncio.run(coro)
+
+    def _goal_canvas_to_goal_graph(self, canvas):
+        from aragora.canvas import EdgeType
+        from aragora.canvas.stages import GoalNodeType
+        from aragora.goals.extractor import GoalGraph, GoalNode
+
+        goal_ids = set(canvas.nodes)
+        dependencies_by_target: dict[str, list[str]] = {}
+
+        for edge in canvas.edges.values():
+            if edge.source_id not in goal_ids or edge.target_id not in goal_ids:
+                continue
+
+            edge_type = getattr(edge.edge_type, "value", edge.edge_type)
+            stage_edge_type = str(edge.data.get("stage_edge_type", "")).lower()
+            edge_label = str(edge.label or "").lower()
+            if (
+                edge_type != EdgeType.DEPENDENCY.value
+                and stage_edge_type != "requires"
+                and edge_label not in {"requires", "after"}
+            ):
+                continue
+
+            deps = dependencies_by_target.setdefault(edge.target_id, [])
+            if edge.source_id not in deps:
+                deps.append(edge.source_id)
+
+        goals = []
+        for node in canvas.nodes.values():
+            if node.node_type.value != "decision" and node.data.get("stage") != "goals":
+                continue
+
+            goal_type_str = str(node.data.get("goal_type", "goal")).lower()
+            try:
+                goal_type = GoalNodeType(goal_type_str)
+            except ValueError:
+                goal_type = GoalNodeType.GOAL
+
+            source_node_id = node.data.get("source_node_id")
+            confidence = node.data.get("confidence", 0.0)
+            try:
+                confidence_value = float(confidence)
+            except (TypeError, ValueError):
+                confidence_value = 0.0
+
+            goals.append(
+                GoalNode(
+                    id=node.id,
+                    title=node.label or "Untitled Goal",
+                    description=node.data.get("description", ""),
+                    goal_type=goal_type,
+                    priority=str(node.data.get("priority", "medium")).lower(),
+                    measurable=str(node.data.get("measurable", "")),
+                    dependencies=dependencies_by_target.get(node.id, []),
+                    source_idea_ids=[source_node_id] if source_node_id else [],
+                    confidence=confidence_value,
+                    metadata={
+                        key: value
+                        for key, value in node.data.items()
+                        if key
+                        not in {
+                            "stage",
+                            "goal_type",
+                            "description",
+                            "priority",
+                            "measurable",
+                            "source_node_id",
+                            "content_hash",
+                            "rf_type",
+                            "confidence",
+                        }
+                    },
+                )
+            )
+
+        return GoalGraph(
+            id=canvas.id,
+            goals=goals,
+            metadata={"source_canvas_id": canvas.id, "source_stage": "goals"},
+        )
+
+    def _build_actions_canvas(self, canvas, canvas_meta: dict[str, Any], body: dict[str, Any]):
+        from aragora.canvas import workflow_to_actions_canvas
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        goal_graph = self._goal_canvas_to_goal_graph(canvas)
+        if not goal_graph.goals:
+            raise ValueError("Goal canvas has no goal nodes to advance")
+
+        pipeline = IdeaToExecutionPipeline()
+        workflow_data = pipeline._goals_to_workflow(goal_graph)
+
+        target_canvas_id = (
+            body.get("target_canvas_id") or body.get("id") or f"actions-{uuid.uuid4().hex[:8]}"
+        )
+        target_canvas_name = (
+            body.get("name") or f"Action Plan for {canvas_meta.get('name', 'Goals')}"
+        )
+
+        action_canvas = workflow_to_actions_canvas(
+            workflow_data,
+            canvas_id=target_canvas_id,
+            canvas_name=target_canvas_name,
+        )
+        action_canvas.owner_id = canvas.owner_id or canvas_meta.get("owner_id")
+        action_canvas.workspace_id = canvas.workspace_id or canvas_meta.get("workspace_id")
+        action_canvas.metadata.update(
+            {
+                "stage": "actions",
+                "source_canvas_id": canvas.id,
+                "source_stage": "goals",
+                "workflow_step_count": len(workflow_data.get("steps", [])),
+            }
+        )
+        return action_canvas, workflow_data
+
+    def _persist_canvas_state(self, canvas):
+        manager = self._get_canvas_manager()
+
+        async def _persist():
+            live_canvas = await manager.get_or_create_canvas(
+                canvas.id,
+                name=canvas.name,
+                owner_id=canvas.owner_id,
+                workspace_id=canvas.workspace_id,
+                **canvas.metadata,
+            )
+            live_canvas.name = canvas.name
+            live_canvas.owner_id = canvas.owner_id
+            live_canvas.workspace_id = canvas.workspace_id
+            live_canvas.metadata = dict(canvas.metadata)
+            live_canvas.nodes = dict(canvas.nodes)
+            live_canvas.edges = dict(canvas.edges)
+            return live_canvas
+
+        return self._run_async(_persist())
 
     # ------------------------------------------------------------------
     # Canvas CRUD
@@ -547,11 +688,7 @@ class GoalCanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Advance goal canvas to the actions stage (Stage 3).
-
-        Currently returns the goal canvas data as a placeholder.
-        The full actions stage conversion will be implemented separately.
-        """
+        """Advance goal canvas to the actions stage (Stage 3)."""
         try:
             store = self._get_store()
             canvas_meta = store.load_canvas(canvas_id)
@@ -560,25 +697,40 @@ class GoalCanvasHandler(SecureHandler):
 
             manager = self._get_canvas_manager()
             canvas = self._run_async(manager.get_canvas(canvas_id))
+            if not canvas:
+                return error_response("Goal canvas state unavailable", 409)
 
-            nodes = []
-            edges = []
-            if canvas:
-                nodes = [n.to_dict() for n in canvas.nodes.values()]
-                edges = [e.to_dict() for e in canvas.edges.values()]
+            action_canvas, workflow_data = self._build_actions_canvas(canvas, canvas_meta, body)
+            action_store = self._get_action_store()
+            saved_canvas = action_store.save_canvas(
+                canvas_id=action_canvas.id,
+                name=action_canvas.name,
+                owner_id=action_canvas.owner_id or user_id,
+                workspace_id=action_canvas.workspace_id,
+                description=body.get("description", canvas_meta.get("description", "")),
+                source_canvas_id=canvas_id,
+                metadata=action_canvas.metadata,
+            )
+            self._persist_canvas_state(action_canvas)
 
             return json_response(
                 {
+                    "canvas_id": action_canvas.id,
+                    "target_canvas_id": action_canvas.id,
                     "source_canvas_id": canvas_id,
                     "source_stage": "goals",
                     "target_stage": "actions",
-                    "nodes": nodes,
-                    "edges": edges,
-                    "metadata": canvas_meta.get("metadata", {}),
+                    "nodes": [n.to_dict() for n in action_canvas.nodes.values()],
+                    "edges": [e.to_dict() for e in action_canvas.edges.values()],
+                    "metadata": saved_canvas.get("metadata", action_canvas.metadata),
+                    "workflow_step_count": len(workflow_data.get("steps", [])),
                     "status": "ready",
                 },
                 status=201,
             )
+        except ValueError as e:
+            logger.warning("Cannot advance goal canvas %s: %s", canvas_id, e)
+            return error_response(str(e), 422)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to advance goal canvas: %s", e)
             return error_response("Advance to actions failed", 500)

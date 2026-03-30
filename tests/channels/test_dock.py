@@ -428,6 +428,85 @@ class TestSlackDock:
         assert "blocks" in payload
         assert payload["text"]  # Plain text fallback
 
+    def test_build_payload_converts_markdown_links(self):
+        """Test Slack payload converts markdown links to Slack mrkdwn."""
+        from aragora.channels.docks.slack import SlackDock
+
+        dock = SlackDock({"token": "test-token"})
+
+        message = NormalizedMessage(
+            content="See [the receipt](https://example.com/receipt/1)",
+            format=MessageFormat.MARKDOWN,
+        )
+
+        payload = dock._build_payload("C123", message)
+        section = payload["blocks"][0]
+
+        assert section["text"]["text"] == "See <https://example.com/receipt/1|the receipt>"
+
+    @pytest.mark.asyncio
+    async def test_send_result_adds_receipt_button(self):
+        """Test debate results expose the receipt URL in Slack."""
+        from aragora.channels.docks.slack import SlackDock
+
+        dock = SlackDock({"token": "test-token"})
+        receipt_url = "https://example.com/receipt/123"
+
+        with patch.object(
+            dock,
+            "send_message",
+            new_callable=AsyncMock,
+            return_value=SendResult.ok(platform="slack", channel_id="C123"),
+        ) as mock_send:
+            await dock.send_result(
+                "C123",
+                {
+                    "consensus_reached": True,
+                    "confidence": 0.85,
+                    "final_answer": "Ship the change.",
+                    "receipt_url": receipt_url,
+                },
+                thread_id="1234567890.123456",
+            )
+
+        sent_message = mock_send.await_args.args[1]
+        assert sent_message.title == "Aragora Debate Complete"
+        assert sent_message.thread_id == "1234567890.123456"
+        assert "Ship the change." in sent_message.content
+        assert any(button.action == receipt_url for button in sent_message.buttons)
+
+    @pytest.mark.asyncio
+    async def test_send_receipt_adds_receipt_button(self):
+        """Test Slack receipt posts include a dedicated receipt button."""
+        from aragora.channels.docks.slack import SlackDock
+
+        dock = SlackDock({"token": "test-token"})
+        receipt_url = "https://example.com/receipt/123"
+        summary = (
+            "✅ **Decision Receipt**\n"
+            "• Verdict: APPROVED\n"
+            "• [View Full Receipt](https://example.com/receipt/123)"
+        )
+
+        with patch.object(
+            dock,
+            "send_message",
+            new_callable=AsyncMock,
+            return_value=SendResult.ok(platform="slack", channel_id="C123"),
+        ) as mock_send:
+            await dock.send_receipt(
+                "C123",
+                summary=summary,
+                receipt_url=receipt_url,
+                thread_id="1234567890.123456",
+            )
+
+        sent_message = mock_send.await_args.args[1]
+        assert sent_message.title == "Decision Receipt"
+        assert sent_message.thread_id == "1234567890.123456"
+        assert "[View Full Receipt]" not in sent_message.content
+        assert any(button.action == receipt_url for button in sent_message.buttons)
+
 
 class TestTelegramDock:
     """Tests for TelegramDock implementation."""

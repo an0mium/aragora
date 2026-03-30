@@ -6,6 +6,8 @@ import json
 from unittest.mock import AsyncMock, patch
 
 from aragora.cli.commands.idea import (
+    _create_intake_issue,
+    _create_triage_issues,
     _compose_initiative_brief,
     _issue_body_for_brief,
     _run_idea_intake,
@@ -146,6 +148,11 @@ def test_compose_initiative_brief_uses_spec_metadata() -> None:
     assert brief["preferred_reviewer_agent"] == "codex"
     assert brief["success_criteria"] == ["The system asks clarifying questions before execution."]
     assert brief["open_questions"] == ["Should intake always create a GitHub issue?"]
+    assert brief["summary"] == "A structured intake brief exists before coding starts."
+    assert brief["acceptance_criteria"] == [
+        "The system asks clarifying questions before execution."
+    ]
+    assert brief["validation"]
 
 
 def test_run_idea_intake_returns_brief_without_issue_creation() -> None:
@@ -473,6 +480,9 @@ def test_issue_body_mentions_queue_metadata() -> None:
 
     assert "## Initiative Brief" in body
     assert "## Queue Metadata" in body
+    assert "- Summary: " in body
+    assert "## Acceptance Criteria" in body
+    assert "## Validation" in body
     assert "Preferred Worker Agent: claude" in body
     assert "Open questions: Should intake always create a GitHub issue?" in body
 
@@ -504,3 +514,75 @@ def test_triage_issue_body_mentions_scope_and_policy() -> None:
     assert "## File Scope" in body
     assert "server/auth/oidc.py" in body
     assert "Policy Notes: sensitive_scope:auth_rbac" in body
+
+
+def test_create_intake_issue_keeps_incomplete_brief_as_idea_intake_only() -> None:
+    brief = {
+        "title": "Founder intake",
+        "summary": "Clarify founder notes before queue creation.",
+        "user_goal": "Turn vague founder notes into executable work.",
+        "desired_business_outcome": "A structured intake brief exists before coding starts.",
+        "success_criteria": ["Open questions are captured before execution."],
+        "acceptance_criteria": ["Open questions are captured before execution."],
+        "validation": [
+            "Artifact remains `idea-intake` only until clarification reaches decision_complete."
+        ],
+        "constraints": [],
+        "explicit_non_goals": [],
+        "affected_product_surfaces": ["frontend", "server"],
+        "proof_evidence_expected": "Validation and review notes recorded.",
+        "sequencing_priority": "high",
+        "clarification_completeness_status": "needs_clarification",
+        "open_questions": ["Should intake always create a GitHub issue?"],
+        "risk": "medium",
+        "merge_class": "manual",
+        "autonomy_mode": "checkpoint",
+        "track": "2",
+        "preferred_worker_agent": "claude",
+        "preferred_reviewer_agent": "codex",
+    }
+    proc = type(
+        "Proc",
+        (),
+        {
+            "returncode": 0,
+            "stdout": "https://github.com/synaptent/aragora/issues/321\n",
+            "stderr": "",
+        },
+    )()
+
+    with patch("subprocess.run", return_value=proc) as run:
+        issue = asyncio.run(_create_intake_issue(brief, repo="synaptent/aragora"))
+
+    assert issue["number"] == 321
+    cmd = run.call_args.args[0]
+    assert "[Idea Intake] Founder intake" in cmd
+    assert "idea-intake" in cmd
+    assert "initiative" not in cmd
+
+
+def test_create_triage_issues_rejects_placeholder_handoff_titles() -> None:
+    with patch("subprocess.run") as run:
+        try:
+            asyncio.run(
+                _create_triage_issues(
+                    [
+                        {
+                            "task_title": "Untitled handoff",
+                            "acceptance_criteria": ["Done"],
+                            "validation": ["pytest tests/a.py -q"],
+                            "merge_class": "manual",
+                            "autonomy_mode": "checkpoint",
+                            "labels": ["boss-ready"],
+                        }
+                    ],
+                    brief={"title": "Founder intake"},
+                    repo="synaptent/aragora",
+                )
+            )
+        except ValueError as exc:
+            assert "placeholder" in str(exc)
+        else:
+            raise AssertionError("Expected triage issue creation to reject placeholder title")
+
+    run.assert_not_called()

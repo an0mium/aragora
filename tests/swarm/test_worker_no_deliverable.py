@@ -268,6 +268,7 @@ class TestSupervisorWorkerOutcome:
         new_head = _head(repo)
 
         item = _make_dispatched_item(repo, initial_head=head)
+        item["expected_tests"] = ["python -m pytest tests/swarm/test_worker_no_deliverable.py -q"]
         run_id = _create_run(store, item)
 
         result = WorkerProcess(
@@ -279,6 +280,7 @@ class TestSupervisorWorkerOutcome:
             changed_paths=["README.md"],
             commit_shas=[new_head],
             head_sha=new_head,
+            tests_run=["python -m pytest tests/swarm/test_worker_no_deliverable.py -q"],
         )
 
         with patch.object(

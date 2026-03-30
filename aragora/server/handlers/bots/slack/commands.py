@@ -209,7 +209,13 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 )
 
             decision_integrity = None
-            if subcommand in ("plan", "implement"):
+            if subcommand == "ask":
+                decision_integrity = {
+                    "include_receipt": True,
+                    "include_plan": False,
+                    "notify_origin": True,
+                }
+            elif subcommand in ("plan", "implement"):
                 decision_integrity = {
                     "include_receipt": True,
                     "include_plan": True,

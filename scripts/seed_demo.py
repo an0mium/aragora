@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import random
 import sys
 import time
@@ -20,10 +21,26 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT))
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger("seed_demo")
 random.seed(42)
+
+
+def _default_demo_data_dir() -> Path:
+    """Keep demo data rooted in the current checkout by default."""
+    return _REPO_ROOT / ".nomic"
+
+
+def _ensure_demo_data_dir_env() -> None:
+    """Avoid linked-worktree defaults that place demo data under the shared git dir."""
+    if os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR"):
+        return
+    os.environ["ARAGORA_DATA_DIR"] = str(_default_demo_data_dir())
+
+
+_ensure_demo_data_dir_env()
 
 # -- Demo content -----------------------------------------------------------
 DEBATES = [
@@ -661,7 +678,7 @@ def seed_analytics(clear: bool) -> int:
                     debate_id=f"demo_analytics_{random.randint(0, len(extended_debates) - 1):03d}",
                 )
 
-    asyncio.get_event_loop().run_until_complete(_seed())
+    asyncio.run(_seed())
     return count
 
 

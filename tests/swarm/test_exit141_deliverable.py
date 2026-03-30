@@ -174,14 +174,14 @@ class TestWaitGateNarrowed:
     """Verify wait() only salvages _SALVAGEABLE_EXIT_CODES, not all non-zero."""
 
     def test_wait_source_checks_salvageable_set(self) -> None:
-        """The wait() method should gate on _SALVAGEABLE_EXIT_CODES."""
+        """The verification/auto-commit gates should reference the salvage set."""
         import inspect
 
-        src = inspect.getsource(WorkerLauncher.wait)
-        # Must NOT have the old blanket gate
-        assert "exit_code == 0" not in src or "_SALVAGEABLE_EXIT_CODES" in src
-        # Must reference the salvageable set
-        assert "_SALVAGEABLE_EXIT_CODES" in src
+        verify_src = inspect.getsource(WorkerLauncher._should_run_verification)
+        auto_commit_src = inspect.getsource(WorkerLauncher._should_attempt_auto_commit)
+
+        assert "_SALVAGEABLE_EXIT_CODES" in verify_src
+        assert "_SALVAGEABLE_EXIT_CODES" in auto_commit_src
 
 
 class TestNonSalvageableExitsBlocked:

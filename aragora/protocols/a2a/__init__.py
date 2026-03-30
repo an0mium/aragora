@@ -23,8 +23,14 @@ from aragora.protocols.a2a.types import (
     ContextItem,
     SecurityCard,
 )
-from aragora.protocols.a2a.client import A2AClient
 from aragora.protocols.a2a.server import A2AServer
+
+try:
+    from aragora.protocols.a2a.client import A2AClient
+except ImportError:
+    # httpx is an optional dependency in lean CI environments. Keep the
+    # broader protocols package importable when the client transport is absent.
+    A2AClient = None  # type: ignore[assignment]
 
 __all__ = [
     # Types

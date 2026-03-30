@@ -204,6 +204,41 @@ class TestGetWalConnection:
             conn.close()
 
 
+class TestDatabaseManagerInstanceRegistry:
+    """Tests for selective DatabaseManager instance cleanup."""
+
+    def teardown_method(self):
+        DatabaseManager.clear_instances()
+
+    def test_instance_paths_reports_registered_managers(self, tmp_path):
+        first = tmp_path / "first.db"
+        second = tmp_path / "second.db"
+
+        DatabaseManager.get_instance(first)
+        DatabaseManager.get_instance(second)
+
+        paths = DatabaseManager.instance_paths()
+
+        assert str(first.resolve()) in paths
+        assert str(second.resolve()) in paths
+
+    def test_close_instances_closes_only_requested_paths(self, tmp_path):
+        first = tmp_path / "first.db"
+        second = tmp_path / "second.db"
+
+        first_manager = DatabaseManager.get_instance(first)
+        second_manager = DatabaseManager.get_instance(second)
+
+        closed = DatabaseManager.close_instances([str(first)])
+
+        assert closed == {str(first.resolve())}
+        assert DatabaseManager.instance_paths() == {str(second.resolve())}
+
+        recreated = DatabaseManager.get_instance(first)
+        assert recreated is not first_manager
+        assert DatabaseManager.get_instance(second) is second_manager
+
+
 # ============================================================================
 # Migration
 # ============================================================================

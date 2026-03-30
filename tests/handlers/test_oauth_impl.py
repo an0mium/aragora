@@ -426,6 +426,18 @@ class TestValidateRedirectUrl:
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb#token=abc") is True
 
+    def test_public_oauth_patch_is_respected(self):
+        """Patching the public oauth module path should still drive validation."""
+        import aragora.server.handlers.oauth as oauth_public
+
+        with patch.object(
+            oauth_public,
+            "_get_allowed_redirect_hosts",
+            return_value=frozenset({"public.example.com"}),
+        ):
+            assert _oauth_impl._validate_redirect_url("https://public.example.com/callback") is True
+            assert _oauth_impl._validate_redirect_url("https://example.com/callback") is False
+
     def test_url_with_path_only(self):
         """Relative path without scheme should return False."""
         with patch.object(

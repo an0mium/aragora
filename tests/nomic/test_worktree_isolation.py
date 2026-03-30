@@ -144,6 +144,33 @@ class TestWorktreeBranchCreation:
             assert ".worktrees" in str(wt_path)
 
     @pytest.mark.asyncio
+    async def test_same_goal_gets_unique_branch_names(self):
+        """Repeated same-day goals should not reuse the same branch/worktree name."""
+        config = BranchCoordinatorConfig(use_worktrees=True)
+        coordinator = BranchCoordinator(
+            repo_path=Path("/tmp/test-repo"),
+            config=config,
+        )
+
+        with (
+            patch.object(coordinator, "_run_git") as mock_git,
+            patch.object(coordinator, "branch_exists", return_value=False),
+        ):
+            mock_git.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            first = await coordinator.create_track_branch(
+                track=Track.QA,
+                goal="do task 0",
+            )
+            second = await coordinator.create_track_branch(
+                track=Track.QA,
+                goal="do task 0",
+            )
+
+        assert first != second
+        assert coordinator.get_worktree_path(first) != coordinator.get_worktree_path(second)
+
+    @pytest.mark.asyncio
     async def test_worktree_add_uses_remote_base_when_local_branch_missing(self):
         """Should fall back to origin/<base> when no local base branch exists."""
         config = BranchCoordinatorConfig(use_worktrees=True)

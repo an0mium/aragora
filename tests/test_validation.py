@@ -485,6 +485,32 @@ class TestValidateAgainstSchema:
         # Schema allows 0+ agents (auto_select can fill remaining)
         assert result.is_valid is True
 
+    def test_debate_start_comparison_config_valid(self):
+        """Comparison config object should validate for debate start requests."""
+        data = {
+            "task": "Discuss the strongest model lineup for this implementation task",
+            "comparison_config": {
+                "agent_combinations": [
+                    ["claude", "gemini"],
+                    ["openai-api", "grok"],
+                ]
+            },
+        }
+        result = validate_against_schema(data, DEBATE_START_SCHEMA)
+
+        assert result.is_valid is True
+
+    def test_debate_start_agent_combinations_requires_list(self):
+        """Top-level comparison aliases should still enforce list shape."""
+        data = {
+            "task": "Discuss the strongest model lineup for this implementation task",
+            "agent_combinations": "claude,gemini",
+        }
+        result = validate_against_schema(data, DEBATE_START_SCHEMA)
+
+        assert result.is_valid is False
+        assert "must be a list" in result.error
+
     def test_verification_schema_valid(self):
         """Test valid verification payload."""
         data = {

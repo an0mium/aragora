@@ -7,6 +7,8 @@ const DEFAULT_SETTINGS = {
   rounds: 3,
   consensus: "majority",
 };
+const ADVERSARIAL_REVIEW_PROMPT =
+  "Provide an adversarial review of the selected webpage text. Surface the strongest objections, hidden assumptions, factual uncertainties, risks, and follow-up questions.";
 const QUESTION_LIMIT = 5000;
 const SELECTION_LIMIT = 9000;
 
@@ -36,11 +38,63 @@ function normalizeApiUrl(apiUrl) {
   return String(apiUrl || DEFAULT_SETTINGS.apiUrl).trim().replace(/\/+$/, "");
 }
 
+function buildAuthorizationHeader(apiKey) {
+  const trimmed = String(apiKey || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  return /^Bearer\s+/i.test(trimmed) ? trimmed : `Bearer ${trimmed}`;
+}
+
 function sanitizeSelectionText(value) {
   return String(value || "")
     .replace(/\u0000/g, "")
     .trim()
     .slice(0, SELECTION_LIMIT);
+}
+
+function resolveDebateAnswer(result) {
+  return (
+    result?.conclusion ||
+    result?.final_answer ||
+    result?.finalAnswer ||
+    result?.answer ||
+    result?.summary ||
+    result?.consensus?.conclusion ||
+    result?.consensus?.final_answer ||
+    result?.consensus?.finalAnswer ||
+    result?.consensus?.summary ||
+    result?.consensus?.answer ||
+    ""
+  );
+}
+
+function resolveDebateConfidence(result) {
+  const rawConfidence =
+    result?.confidence ??
+    result?.consensus?.confidence ??
+    result?.consensus?.agreement;
+  const confidence =
+    typeof rawConfidence === "string" ? Number(rawConfidence) : rawConfidence;
+
+  return typeof confidence === "number" && !Number.isNaN(confidence)
+    ? confidence
+    : null;
+}
+
+function buildStoredResult(result) {
+  const finalAnswer = resolveDebateAnswer(result);
+
+  return {
+    debateId: result?.debate_id || result?.id || null,
+    status: result?.status || "running",
+    message: result?.message || finalAnswer || null,
+    finalAnswer: finalAnswer || null,
+    confidence: resolveDebateConfidence(result),
+    consensus: result?.consensus || null,
+    task: result?.task || result?.environment?.task || "",
+  };
 }
 
 async function setBadge(text, color) {
@@ -84,24 +138,19 @@ function buildRequestPayload(selectionText, source, settings) {
   const titleLine = source.pageTitle ? `Source title: ${source.pageTitle}` : "";
   const urlLine = source.pageUrl ? `Source URL: ${source.pageUrl}` : "";
   const sourceContext = [titleLine, urlLine].filter(Boolean).join("\n");
-
-  let question = selectionText;
-  let context = sourceContext;
-
-  if (selectionText.length > QUESTION_LIMIT) {
-    question = source.pageTitle
-      ? `Analyze the selected text from "${source.pageTitle}".`
-      : "Analyze the selected text from the current page.";
-    context = [sourceContext, "Selected text:", selectionText].filter(Boolean).join("\n\n");
-  }
+  const selectionContext = selectionText.length > QUESTION_LIMIT
+    ? `${selectionText.slice(0, QUESTION_LIMIT)}\n\n[truncated]`
+    : selectionText;
+  const context = [sourceContext, "Selected text:", selectionContext].filter(Boolean).join("\n\n");
 
   const payload = {
-    question,
+    question: ADVERSARIAL_REVIEW_PROMPT,
     rounds: Number(settings.rounds) || DEFAULT_SETTINGS.rounds,
     consensus: settings.consensus || DEFAULT_SETTINGS.consensus,
     auto_select: !String(settings.agents || "").trim(),
     metadata: {
       source: "browser_extension_context_menu",
+      review_type: "adversarial_selection",
       source_title: source.pageTitle || "",
       source_url: source.pageUrl || "",
     },
@@ -141,7 +190,7 @@ async function createDebate(selectionText, source, settings) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
+      Authorization: buildAuthorizationHeader(settings.apiKey),
     },
     body: JSON.stringify(buildRequestPayload(selectionText, source, settings)),
   });
@@ -223,11 +272,7 @@ async function handleContextMenuClick(info, tab) {
       status: createdDebate.status || "running",
       debateId,
       error: null,
-      result: {
-        debateId,
-        status: createdDebate.status || "running",
-        message: createdDebate.message || null,
-      },
+      result: buildStoredResult(createdDebate),
       selectionText,
       source,
     });

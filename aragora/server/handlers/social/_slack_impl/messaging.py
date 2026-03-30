@@ -83,8 +83,9 @@ class MessagingMixin:
             }
         )
 
-    # Auth context flows from the parent event/command handler that invokes this method.
-    @require_permission("slack:write")
+    # No RBAC here: this is an internal system method called from background
+    # tasks that lack an HTTP auth context. SSRF protection below validates
+    # the URL is a legitimate Slack endpoint.
     async def _post_to_response_url(self, url: str, payload: dict[str, Any]) -> None:
         """POST a message to Slack's response_url.
 

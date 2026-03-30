@@ -25,6 +25,7 @@ from aragora.fabric.models import (
     Usage,
 )
 from aragora.debate.fabric_integration import (
+    FABRIC_DEFAULT_MAX_AGENTS,
     FabricAgentAdapter,
     FabricDebateConfig,
     FabricDebateRunner,
@@ -103,7 +104,7 @@ class TestFabricDebateConfig:
         assert config.priority == Priority.NORMAL
         assert config.timeout_seconds == 600.0
         assert config.min_agents == 2
-        assert config.max_agents == 10
+        assert config.max_agents == FABRIC_DEFAULT_MAX_AGENTS
         assert config.require_policy_check is True
 
     def test_custom_config(self):

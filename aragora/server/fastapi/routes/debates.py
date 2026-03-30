@@ -27,6 +27,7 @@ Migration Notes:
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict, is_dataclass
 import inspect
 import json as json_mod
 import logging
@@ -36,8 +37,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from aragora.agents.spec import AgentSpec
 from aragora.rbac.models import AuthorizationContext
 
 from ..dependencies.auth import require_permission
@@ -152,12 +154,47 @@ class CreateDebateRequest(BaseModel):
     question: str = Field(
         ..., min_length=1, max_length=5000, description="Topic/question to debate"
     )
-    agents: str | None = Field(None, description="Comma-separated agent list")
+    agents: str | dict[str, Any] | list[str | dict[str, Any]] | None = Field(
+        None,
+        description="Agent specs as a comma-separated string, object, or list",
+    )
     rounds: int = Field(3, ge=1, le=20, description="Number of debate rounds")
     consensus: str = Field("majority", description="Consensus method")
     auto_select: bool = Field(False, description="Auto-select agents")
     context: str | None = Field(None, max_length=10000, description="Additional context")
     metadata: dict[str, Any] | None = Field(None, description="Custom metadata")
+    comparison_config: dict[str, Any] | None = Field(
+        None,
+        description="Run the same debate across candidate lineups and keep the best result",
+    )
+    model_comparison: dict[str, Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config",
+    )
+    agent_combinations: list[Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config.agent_combinations",
+    )
+    model_combinations: list[Any] | None = Field(
+        None,
+        description="Human-facing alias for comparison_config.agent_combinations",
+    )
+
+    @field_validator("agents")
+    @classmethod
+    def validate_agents(
+        cls, value: str | dict[str, Any] | list[str | dict[str, Any]] | None
+    ) -> str | dict[str, Any] | list[str | dict[str, Any]] | None:
+        """Reject malformed structured agent specs early."""
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            return value
+        try:
+            AgentSpec.coerce_list(value, warn=False)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
 
 class CreateDebateResponse(BaseModel):
@@ -245,6 +282,245 @@ def get_nomic_dir() -> Path | None:
     return None
 
 
+def _lookup_value(record: Any, *names: str) -> Any:
+    """Read a field from a dict- or object-backed record."""
+
+    if isinstance(record, dict):
+        for name in names:
+            if name in record and record[name] is not None:
+                return record[name]
+        return None
+
+    for name in names:
+        value = getattr(record, name, None)
+        if value is not None:
+            return value
+    return None
+
+
+def _coerce_dict(value: Any) -> dict[str, Any]:
+    """Convert common object containers into dictionaries for API responses."""
+
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        dumped = value.model_dump(exclude_none=True)
+        if isinstance(dumped, dict):
+            return dumped
+    if hasattr(value, "to_dict"):
+        dumped = value.to_dict()
+        if isinstance(dumped, dict):
+            return dumped
+    if is_dataclass(value) and not isinstance(value, type):
+        dumped = asdict(value)
+        if isinstance(dumped, dict):
+            return dumped
+    if hasattr(value, "__dict__"):
+        return {
+            key: item
+            for key, item in vars(value).items()
+            if not key.startswith("_") and item is not None
+        }
+    return {}
+
+
+def _coerce_message_list(messages: Any) -> list[dict[str, Any]]:
+    """Normalize message payloads to dictionaries."""
+
+    if not isinstance(messages, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for message in messages:
+        if isinstance(message, dict):
+            normalized.append(message)
+            continue
+
+        message_dict = _coerce_dict(message)
+        normalized.append(message_dict or {"content": str(message)})
+
+    return normalized
+
+
+def _extract_rounds(record: Any) -> list[dict[str, Any]]:
+    """Normalize round payloads from dict- or object-backed debates."""
+
+    rounds = _lookup_value(record, "rounds")
+    if isinstance(rounds, list):
+        normalized_rounds: list[dict[str, Any]] = []
+        for index, round_data in enumerate(rounds, start=1):
+            round_dict = (
+                dict(round_data) if isinstance(round_data, dict) else _coerce_dict(round_data)
+            )
+            if not round_dict:
+                round_dict = {"round_num": index}
+            round_dict["messages"] = _coerce_message_list(round_dict.get("messages", []))
+            normalized_rounds.append(round_dict)
+        return normalized_rounds
+
+    messages = _lookup_value(record, "messages")
+    if isinstance(messages, list) and messages:
+        return [{"round_num": 1, "messages": _coerce_message_list(messages)}]
+
+    return []
+
+
+def _extract_agents(record: Any) -> list[str]:
+    """Normalize agent identifiers from storage records."""
+
+    agents = _lookup_value(record, "agents", "participants")
+    if isinstance(agents, list):
+        return [str(agent) for agent in agents]
+    return []
+
+
+def _extract_task(record: Any) -> str:
+    """Resolve a debate task from common storage shapes."""
+
+    task = _lookup_value(record, "task")
+    if isinstance(task, str) and task.strip():
+        return task
+
+    environment = _coerce_dict(_lookup_value(record, "environment"))
+    task = environment.get("task")
+    return str(task) if task else ""
+
+
+def _extract_consensus(record: Any) -> dict[str, Any] | None:
+    """Normalize consensus details for popup polling and detail views."""
+
+    raw_consensus = _lookup_value(record, "consensus", "consensus_proof")
+    consensus = _coerce_dict(raw_consensus)
+
+    confidence = _lookup_value(record, "confidence")
+    if isinstance(confidence, (int, float)) and "confidence" not in consensus:
+        consensus["confidence"] = float(confidence)
+
+    reached = _lookup_value(record, "consensus_reached")
+    if isinstance(reached, bool) and "reached" not in consensus:
+        consensus["reached"] = reached
+
+    final_answer = _lookup_value(record, "final_answer")
+    if isinstance(final_answer, str) and final_answer and "final_answer" not in consensus:
+        consensus["final_answer"] = final_answer
+
+    if consensus:
+        return consensus
+    return None
+
+
+def _extract_final_answer(record: Any, consensus: dict[str, Any] | None = None) -> str | None:
+    """Resolve the best available final answer text."""
+
+    final_answer = _lookup_value(record, "final_answer", "conclusion")
+    if isinstance(final_answer, str) and final_answer.strip():
+        return final_answer
+
+    if consensus:
+        for key in ("final_answer", "answer", "summary"):
+            value = consensus.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+
+    return None
+
+
+def _extract_status(record: Any, consensus: dict[str, Any] | None, final_answer: str | None) -> str:
+    """Resolve a stable status string for detail and list responses."""
+
+    status = _lookup_value(record, "status")
+    if isinstance(status, str) and status.strip():
+        return status
+    if consensus and consensus.get("reached") is True:
+        return "completed"
+    if final_answer:
+        return "completed"
+    return "unknown"
+
+
+def _stringify_optional(value: Any) -> str | None:
+    """Convert timestamps or IDs to strings without forcing empty values."""
+
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _auto_select_agents_for_fastapi(
+    question: str,
+    config: dict[str, Any],
+    ctx: dict[str, Any],
+) -> str:
+    """Provide agent auto-selection for standalone FastAPI debate creation."""
+    from aragora.server.agent_selection import auto_select_agents
+
+    return auto_select_agents(
+        question=question,
+        config=config,
+        elo_system=ctx.get("elo_system"),
+        persona_manager=ctx.get("persona_manager"),
+    )
+
+
+def _build_fastapi_debate_controller(request: Request, storage: Any) -> Any:
+    """Construct a debate controller directly from FastAPI app context."""
+    from aragora.server.debate_controller import DebateController
+    from aragora.server.debate_factory import DebateFactory
+    from aragora.server.stream.emitter import SyncEventEmitter, get_global_emitter
+
+    ctx = getattr(request.app.state, "context", {}) or {}
+    emitter = ctx.get("stream_emitter") or get_global_emitter() or SyncEventEmitter()
+    factory = DebateFactory(
+        elo_system=ctx.get("elo_system"),
+        persona_manager=ctx.get("persona_manager"),
+        debate_embeddings=ctx.get("debate_embeddings"),
+        position_tracker=ctx.get("position_tracker"),
+        position_ledger=ctx.get("position_ledger"),
+        flip_detector=ctx.get("flip_detector"),
+        dissent_retriever=ctx.get("dissent_retriever"),
+        moment_detector=ctx.get("moment_detector"),
+        stream_emitter=emitter,
+        document_store=ctx.get("document_store"),
+        evidence_store=ctx.get("evidence_store"),
+        knowledge_mound=ctx.get("knowledge_mound"),
+    )
+
+    return DebateController(
+        factory=factory,
+        emitter=emitter,
+        elo_system=ctx.get("elo_system"),
+        auto_select_fn=lambda question, config: _auto_select_agents_for_fastapi(
+            question, config, ctx
+        ),
+        storage=storage,
+    )
+
+
+def _get_debate_controller(request: Request, storage: Any) -> Any:
+    """Resolve a debate controller for FastAPI routes."""
+    try:
+        import aragora.server.debate_controller as debate_controller_mod  # type: ignore[import-not-found]
+    except ImportError as e:
+        logger.warning("Debate controller module not available: %s", e)
+        raise HTTPException(status_code=503, detail="Debate orchestrator not available") from e
+
+    try:
+        controller_getter = getattr(debate_controller_mod, "get_debate_controller", None)
+        if callable(controller_getter):
+            controller = controller_getter()
+            if controller is not None:
+                return controller
+
+        return _build_fastapi_debate_controller(request, storage)
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+        logger.exception("Failed to resolve debate controller: %s", e)
+        raise HTTPException(status_code=503, detail="Debate orchestrator not available") from e
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -287,33 +563,18 @@ async def list_debates(
         # Convert to summaries
         debates = []
         for d in debates_raw:
-            if isinstance(d, dict):
-                summary = DebateSummary(
-                    id=d.get("id", ""),
-                    task=d.get("task", d.get("environment", {}).get("task", "")),
-                    status=d.get("status", "unknown"),
-                    created_at=d.get("created_at"),
-                    updated_at=d.get("updated_at"),
-                    round_count=len(d.get("rounds", [])),
-                    agent_count=len(d.get("agents", [])),
-                    has_consensus=d.get("consensus") is not None,
-                )
-            else:
-                # Handle dataclass/object
-                summary = DebateSummary(
-                    id=getattr(d, "id", ""),
-                    task=getattr(d, "task", getattr(getattr(d, "environment", None), "task", "")),
-                    status=getattr(d, "status", "unknown"),
-                    created_at=str(getattr(d, "created_at", ""))
-                    if hasattr(d, "created_at")
-                    else None,
-                    updated_at=str(getattr(d, "updated_at", ""))
-                    if hasattr(d, "updated_at")
-                    else None,
-                    round_count=len(getattr(d, "rounds", [])),
-                    agent_count=len(getattr(d, "agents", [])),
-                    has_consensus=getattr(d, "consensus", None) is not None,
-                )
+            consensus = _extract_consensus(d)
+            final_answer = _extract_final_answer(d, consensus)
+            summary = DebateSummary(
+                id=str(_lookup_value(d, "id", "debate_id") or ""),
+                task=_extract_task(d),
+                status=_extract_status(d, consensus, final_answer),
+                created_at=_stringify_optional(_lookup_value(d, "created_at")),
+                updated_at=_stringify_optional(_lookup_value(d, "updated_at")),
+                round_count=len(_extract_rounds(d)),
+                agent_count=len(_extract_agents(d)),
+                has_consensus=consensus is not None,
+            )
             debates.append(summary)
 
         return DebateListResponse(
@@ -350,46 +611,22 @@ async def get_debate(
         if not debate:
             raise NotFoundError(f"Debate {debate_id} not found")
 
-        # Convert to response model
-        if isinstance(debate, dict):
-            return DebateDetail(
-                id=debate.get("id", debate_id),
-                task=debate.get("task", debate.get("environment", {}).get("task", "")),
-                status=debate.get("status", "unknown"),
-                protocol=debate.get("protocol", {}),
-                agents=debate.get("agents", []),
-                rounds=debate.get("rounds", []),
-                final_answer=debate.get("final_answer"),
-                consensus=debate.get("consensus"),
-                created_at=debate.get("created_at"),
-                updated_at=debate.get("updated_at"),
-                metadata=debate.get("metadata", {}),
-            )
-        else:
-            # Handle dataclass/object
-            return DebateDetail(
-                id=getattr(debate, "id", debate_id),
-                task=getattr(
-                    debate, "task", getattr(getattr(debate, "environment", None), "task", "")
-                ),
-                status=getattr(debate, "status", "unknown"),
-                protocol=getattr(debate, "protocol", {}).__dict__
-                if hasattr(getattr(debate, "protocol", None), "__dict__")
-                else {},
-                agents=[str(a) for a in getattr(debate, "agents", [])],
-                rounds=[
-                    r if isinstance(r, dict) else r.__dict__ for r in getattr(debate, "rounds", [])
-                ],
-                final_answer=getattr(debate, "final_answer", None),
-                consensus=getattr(debate, "consensus", None),
-                created_at=str(getattr(debate, "created_at", ""))
-                if hasattr(debate, "created_at")
-                else None,
-                updated_at=str(getattr(debate, "updated_at", ""))
-                if hasattr(debate, "updated_at")
-                else None,
-                metadata=getattr(debate, "metadata", {}),
-            )
+        consensus = _extract_consensus(debate)
+        final_answer = _extract_final_answer(debate, consensus)
+
+        return DebateDetail(
+            id=str(_lookup_value(debate, "id", "debate_id") or debate_id),
+            task=_extract_task(debate),
+            status=_extract_status(debate, consensus, final_answer),
+            protocol=_coerce_dict(_lookup_value(debate, "protocol")),
+            agents=_extract_agents(debate),
+            rounds=_extract_rounds(debate),
+            final_answer=final_answer,
+            consensus=consensus,
+            created_at=_stringify_optional(_lookup_value(debate, "created_at")),
+            updated_at=_stringify_optional(_lookup_value(debate, "updated_at")),
+            metadata=_coerce_dict(_lookup_value(debate, "metadata")),
+        )
 
     except NotFoundError:
         raise
@@ -483,15 +720,11 @@ async def get_debate_convergence(
         if not debate:
             raise NotFoundError(f"Debate {debate_id} not found")
 
-        # Extract convergence info
-        if isinstance(debate, dict):
-            consensus = debate.get("consensus")
-            converged = consensus is not None
-            confidence = consensus.get("confidence", 0.0) if consensus else 0.0
-        else:
-            consensus = getattr(debate, "consensus", None)
-            converged = consensus is not None
-            confidence = getattr(consensus, "confidence", 0.0) if consensus else 0.0
+        consensus = _extract_consensus(debate)
+        converged = consensus is not None and bool(
+            consensus.get("reached", True) or consensus.get("final_answer")
+        )
+        confidence = float(consensus.get("confidence", 0.0)) if consensus else 0.0
 
         # Get similarity scores if available
         similarity_scores: list[float] = []
@@ -507,9 +740,7 @@ async def get_debate_convergence(
             debate_id=debate_id,
             converged=converged,
             confidence=confidence,
-            rounds_to_convergence=len(debate.get("rounds", []))
-            if converged and isinstance(debate, dict)
-            else None,
+            rounds_to_convergence=len(_extract_rounds(debate)) if converged else None,
             similarity_scores=similarity_scores,
         )
 
@@ -714,6 +945,14 @@ async def create_debate(
             debate_body["context"] = body.context
         if body.metadata:
             debate_body["metadata"] = body.metadata
+        if body.comparison_config is not None:
+            debate_body["comparison_config"] = body.comparison_config
+        if body.model_comparison is not None:
+            debate_body["model_comparison"] = body.model_comparison
+        if body.agent_combinations is not None:
+            debate_body["agent_combinations"] = body.agent_combinations
+        if body.model_combinations is not None:
+            debate_body["model_combinations"] = body.model_combinations
 
         # Delegate to the debate controller
         try:
@@ -725,19 +964,20 @@ async def create_debate(
             raise HTTPException(status_code=400, detail="Invalid debate request")
 
         try:
-            import aragora.server.debate_controller as debate_controller_mod  # type: ignore[import-not-found]
-
-            controller_getter = getattr(debate_controller_mod, "get_debate_controller", None)
-            if not callable(controller_getter):
-                raise HTTPException(status_code=503, detail="Debate orchestrator not available")
-            controller = controller_getter()
+            controller = _get_debate_controller(request, storage)
             response = await _call_sync_aware(controller.start_debate, debate_request)
-        except ImportError:
-            logger.warning("Debate controller not available")
-            raise HTTPException(status_code=503, detail="Debate orchestrator not available")
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.exception("Failed to start debate: %s", e)
             raise HTTPException(status_code=500, detail="Failed to start debate")
+
+        if not getattr(response, "success", False):
+            status_code = getattr(response, "status_code", 500)
+            if not isinstance(status_code, int) or status_code < 400 or status_code > 599:
+                status_code = 500
+
+            detail = getattr(response, "error", None) or "Failed to start debate"
+            logger.warning("Debate create rejected: %s", detail)
+            raise HTTPException(status_code=status_code, detail=detail)
 
         logger.info("Debate created: %s", response.debate_id)
 

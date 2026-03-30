@@ -99,17 +99,23 @@ class ProtocolBridge:
     async def initialize(self) -> None:
         """Initialize protocol clients."""
         if self.config.enable_a2a:
-            self._a2a_client = A2AClient(timeout=self.config.a2a_timeout)
             self._a2a_server = A2AServer()
+            if A2AClient is None:
+                logger.warning(
+                    "A2A client unavailable; install the optional httpx dependency to enable"
+                    " outbound A2A discovery and invocation"
+                )
+            else:
+                self._a2a_client = A2AClient(timeout=self.config.a2a_timeout)
 
-            # Discover agents from registries
-            for registry in self.config.a2a_registries:
-                try:
-                    agents = await self._a2a_client.discover_agents(registry)
-                    for agent in agents:
-                        self._external_agents[agent.name] = agent
-                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-                    logger.warning("Failed to discover agents from %s: %s", registry, e)
+                # Discover agents from registries
+                for registry in self.config.a2a_registries:
+                    try:
+                        agents = await self._a2a_client.discover_agents(registry)
+                        for agent in agents:
+                            self._external_agents[agent.name] = agent
+                    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
+                        logger.warning("Failed to discover agents from %s: %s", registry, e)
 
         logger.info("Protocol bridge initialized")
 
@@ -269,6 +275,8 @@ class ProtocolBridge:
     ) -> dict[str, Any]:
         """Invoke via A2A protocol."""
         if not self._a2a_client:
+            if A2AClient is None:
+                raise RuntimeError("A2A client unavailable; install optional dependency 'httpx'")
             raise RuntimeError("A2A client not initialized")
 
         # Convert context to A2A format

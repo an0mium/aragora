@@ -163,7 +163,8 @@ class TestBuildCommand:
         cmd = launcher._build_command("codex", "fix bug", "/tmp/wt")
         assert cmd[0] == "bash"
         assert "exec" in cmd
-        assert "fix bug" in cmd
+        # Prompt is piped via stdin using "-" to avoid ARG_MAX limits
+        assert "-" in cmd
         assert "--full-auto" in cmd
         assert "--model" in cmd
         assert "o3" in cmd
@@ -333,11 +334,12 @@ class TestLaunch:
         assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.DEVNULL
 
     @pytest.mark.asyncio
-    async def test_launch_detached_sets_stdin_devnull(self, tmp_path: Path):
-        """Detached workers also close stdin."""
+    async def test_launch_detached_codex_uses_stdin_pipe(self, tmp_path: Path):
+        """Codex workers pipe prompt via stdin to avoid ARG_MAX limits."""
         launcher = WorkerLauncher(LaunchConfig(detach=True))
         mock_proc = AsyncMock()
         mock_proc.pid = 100
+        mock_proc.stdin = AsyncMock()
         worktree = tmp_path / "wt"
         (worktree / "scripts").mkdir(parents=True)
         (worktree / "scripts" / "codex_session.sh").write_text(
@@ -358,7 +360,7 @@ class TestLaunch:
             await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
 
         call_kwargs = mock_exec.call_args
-        assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.DEVNULL
+        assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.PIPE
 
     @pytest.mark.asyncio
     async def test_launch_detached_closes_parent_log_handles(self, tmp_path: Path):
@@ -399,6 +401,41 @@ class TestLaunch:
         with patch("shutil.which", return_value=None):
             with pytest.raises(FileNotFoundError, match="CLI not found"):
                 await launcher.launch(wo, worktree_path="/tmp/wt")
+
+    @pytest.mark.asyncio
+    async def test_launch_merges_metadata_worker_env(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(detach=False))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 103
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-env",
+            "target_agent": "claude",
+            "title": "Env propagation test",
+            "metadata": {
+                "worker_env": {
+                    "ARAGORA_RELEVANT_FILES": "aragora/swarm/boss_loop.py",
+                    "ARAGORA_TEST_PATTERNS": "tests/swarm/test_boss_loop.py",
+                }
+            },
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        env = mock_exec.call_args.kwargs.get("env")
+        assert isinstance(env, dict)
+        assert env["ARAGORA_RELEVANT_FILES"] == "aragora/swarm/boss_loop.py"
+        assert env["ARAGORA_TEST_PATTERNS"] == "tests/swarm/test_boss_loop.py"
 
 
 class TestWait:
@@ -574,12 +611,11 @@ class TestWait:
         ):
             result = await launcher.wait("wo-timeout-salvage")
 
-        assert result.exit_code == 0
-        assert result.commit_shas == ["abc123"]
-        assert "salvageable commit" in result.stderr
+        assert result.exit_code == -1
+        assert "salvageable commit" not in result.stderr
         mock_proc.kill.assert_called_once()
-        mock_commit.assert_awaited_once()
-        mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
+        mock_commit.assert_not_awaited()
+        mock_verify.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_wait_unknown_raises(self):

@@ -909,6 +909,40 @@ class TestGetEntries:
         assert body["ids"] == ["m1", "m2", "m3"]
 
 
+class TestCoordinatorBackendParity:
+    """Regression tests for coordinator-backed continuum memory."""
+
+    def test_coordinator_backend_supports_entries_and_timeline(self, monkeypatch):
+        monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "0")
+
+        from aragora.memory.continuum.coordinator import ContinuumMemory
+        from aragora.memory.tier_manager import MemoryTier
+        from aragora.server.handlers.memory.memory import MemoryHandler
+
+        continuum = ContinuumMemory(":memory:")
+        continuum.add("mem-before", "before", tier=MemoryTier.FAST, importance=0.4)
+        continuum.add("mem-anchor", "anchor", tier=MemoryTier.FAST, importance=0.9)
+        continuum.add("mem-after", "after", tier=MemoryTier.FAST, importance=0.5)
+
+        handler = MemoryHandler({"continuum_memory": continuum})
+        _bypass_rbac(handler)
+
+        entries = handler._get_entries({"ids": "mem-anchor,mem-before"})
+        assert entries.status_code == 200
+        entries_body = _body(entries)
+        assert entries_body["ids"] == ["mem-anchor", "mem-before"]
+        assert [entry["id"] for entry in entries_body["entries"]] == ["mem-anchor", "mem-before"]
+
+        timeline = handler._search_timeline(
+            {"anchor_id": "mem-anchor", "before": "1", "after": "1"}
+        )
+        assert timeline.status_code == 200
+        timeline_body = _body(timeline)
+        assert timeline_body["anchor"]["id"] == "mem-anchor"
+        assert [entry["id"] for entry in timeline_body["before"]] == ["mem-before"]
+        assert [entry["id"] for entry in timeline_body["after"]] == ["mem-after"]
+
+
 # ===========================================================================
 # _search_memories tests
 # ===========================================================================

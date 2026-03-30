@@ -131,8 +131,8 @@ describe('DebateComparePage', () => {
 
     expect(await screen.findByText(/outcome shift detected/i)).toBeInTheDocument();
     expect(screen.getByText(/configuration delta/i)).toBeInTheDocument();
-    expect(screen.getByText('claude')).toBeInTheDocument();
-    expect(screen.getByText('gemini')).toBeInTheDocument();
+    expect(screen.getAllByText('claude').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('gemini').length).toBeGreaterThan(0);
     expect(screen.getByText('Ship the staged rollout.')).toBeInTheDocument();
     expect(
       screen.getByText('Hold the rollout until the metrics gap is explained.'),

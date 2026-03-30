@@ -396,6 +396,30 @@ class TestExportReceipt:
         assert exported["agents_involved"] == ["claude", "codex"]
         assert data["format"] == "json"
 
+    def test_export_receipt_from_stored_receipt_preserves_cost_summary(
+        self, client, mock_receipt_store, sample_stored_receipt
+    ):
+        """Stored rich receipt payloads export even when cost_summary is present."""
+        sample_stored_receipt.data = dict(sample_stored_receipt.data)
+        sample_stored_receipt.data["cost_summary"] = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+            "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
+        }
+        mock_receipt_store.get.return_value = sample_stored_receipt
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=json")
+
+        assert response.status_code == 200
+        data = response.json()
+        import json
+
+        exported = json.loads(data["content"])
+        assert exported["cost_summary"]["total_cost_usd"] == "0.0234"
+        assert exported["cost_summary"]["per_agent"]["claude"]["call_count"] == 3
+
     def test_export_receipt_default_format_is_json(
         self, client, mock_receipt_store, sample_receipt_dict
     ):

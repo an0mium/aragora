@@ -53,7 +53,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-FABRIC_DEFAULT_MAX_AGENTS = 10
+FABRIC_DEFAULT_MAX_AGENTS = DEBATE_DEFAULTS.max_agents_per_debate
 
 
 @dataclass

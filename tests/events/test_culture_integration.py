@@ -207,10 +207,12 @@ class TestOrchestratorCultureIntegration:
     """Tests for orchestrator culture hint application."""
 
     @patch("aragora.events.cross_subscribers.get_cross_subscriber_manager")
-    def test_orchestrator_gets_culture_hints(self, mock_get_manager):
+    def test_orchestrator_gets_culture_hints(self, mock_get_manager, monkeypatch):
         """Test that orchestrator retrieves culture hints."""
         from aragora.debate.orchestrator import Arena
         from aragora.core_types import Environment
+
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
 
         mock_manager = MagicMock()
         mock_manager.get_debate_culture_hints.return_value = {"recommended_consensus": "majority"}

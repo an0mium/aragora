@@ -102,20 +102,19 @@ function tokenMapFromCostSummary(value: unknown): Record<string, unknown> | null
   const perAgent = asObject(obj?.per_agent);
   if (!perAgent) return null;
 
-  const tokenMap = Object.fromEntries(
-    Object.entries(perAgent)
-      .map(([agent, summary]) => {
-        const summaryObj = asObject(summary);
-        if (!summaryObj) return null;
+  const tokenEntries: Array<[string, unknown]> = [];
+  for (const [agent, summary] of Object.entries(perAgent)) {
+    const summaryObj = asObject(summary);
+    if (!summaryObj) continue;
 
-        const totalTokens = summaryObj.total_tokens ?? (
-          asNumber(summaryObj.total_tokens_in, 0) + asNumber(summaryObj.total_tokens_out, 0)
-        );
+    const totalTokens = summaryObj.total_tokens ?? (
+      asNumber(summaryObj.total_tokens_in, 0) + asNumber(summaryObj.total_tokens_out, 0)
+    );
 
-        return [agent, totalTokens];
-      })
-      .filter((entry): entry is [string, unknown] => entry !== null)
-  );
+    tokenEntries.push([agent, totalTokens]);
+  }
+
+  const tokenMap = Object.fromEntries(tokenEntries) as Record<string, unknown>;
 
   return Object.keys(tokenMap).length > 0 ? tokenMap : null;
 }

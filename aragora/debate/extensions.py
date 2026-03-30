@@ -25,15 +25,34 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from aragora.billing.budget_manager import get_budget_manager
-from aragora.billing.cost_tracker import get_cost_tracker
-
 if TYPE_CHECKING:
     from aragora.billing.debate_costs import DebateCostSummary
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
+
+def get_budget_manager() -> Any:
+    """Return the shared budget manager.
+
+    Kept as a module-level accessor so tests and callers can patch the
+    budget manager dependency at the extension boundary.
+    """
+    from aragora.billing.budget_manager import get_budget_manager as _get_budget_manager
+
+    return _get_budget_manager()
+
+
+def get_cost_tracker() -> Any:
+    """Return the shared cost tracker.
+
+    Kept as a module-level accessor so tests and callers can patch the
+    cost tracker dependency at the extension boundary.
+    """
+    from aragora.billing.cost_tracker import get_cost_tracker as _get_cost_tracker
+
+    return _get_cost_tracker()
 
 
 @dataclass
@@ -369,8 +388,6 @@ class ArenaExtensions:
         # Get or create cost tracker
         if self.cost_tracker is None:
             try:
-                from aragora.billing.cost_tracker import get_cost_tracker
-
                 self.cost_tracker = get_cost_tracker()
             except (ImportError, RuntimeError) as e:
                 logger.debug("cost_tracker_init_skipped: %s", e)

@@ -888,3 +888,7 @@ class DatabaseCheckpointStore(CheckpointStore):
             "db_path": str(self._db.db_path),
             "pool": pool_stats,
         }
+
+    def close(self) -> None:
+        """Close database resources used by the checkpoint store."""
+        self._db.close()

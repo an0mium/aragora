@@ -485,6 +485,28 @@ class TestDebateCreateRequest:
         with pytest.raises(ValueError):
             DebateCreateRequest(task="Test", rounds=MAX_ROUNDS + 1)
 
+    def test_comparison_config_aliases(self):
+        """Comparison mode aliases should normalize onto comparison_config."""
+        request = DebateCreateRequest(
+            task="Compare candidate lineups",
+            model_comparison={
+                "model_combinations": [["claude", "gemini"]],
+            },
+        )
+        assert request.comparison_config is not None
+        assert request.agent_combinations == [["claude", "gemini"]]
+        assert request.model_comparison == request.comparison_config
+
+    def test_top_level_agent_combinations_promote_to_comparison_config(self):
+        """Top-level combination aliases should hydrate comparison_config automatically."""
+        request = DebateCreateRequest(
+            task="Compare candidate lineups",
+            agent_combinations=[["claude", "gemini"], ["openai-api", "grok"]],
+        )
+        assert request.comparison_config is not None
+        assert request.comparison_config["pick_best_result"] is True
+        assert request.agent_combinations == [["claude", "gemini"], ["openai-api", "grok"]]
+
 
 class TestAgentProfile:
     """Tests for AgentProfile model."""
@@ -711,7 +733,21 @@ class TestMatrixDebateModels:
         request = MatrixDebateCreateRequest(task="Test")
         assert request.agents == ["anthropic-api", "openai-api"]
         assert request.scenarios == []
+        assert request.agent_combinations == []
+        assert request.model_combinations == []
         assert request.max_rounds == 3
+        assert request.select_best_result is True
+
+    def test_matrix_debate_create_response_with_best_result(self):
+        """Test MatrixDebateCreateResponse accepts best-result metadata."""
+        response = MatrixDebateCreateResponse(
+            matrix_id="matrix-123",
+            combination_count=2,
+            best_result={"scenario_name": "High confidence", "selection_score": 4.0},
+            selection_strategy="consensus_confidence_completion",
+        )
+        assert response.combination_count == 2
+        assert response.best_result["scenario_name"] == "High confidence"
 
 
 class TestVerificationModels:

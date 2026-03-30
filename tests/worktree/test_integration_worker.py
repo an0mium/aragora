@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -266,9 +266,13 @@ async def test_process_next_executes_merge_successfully(tmp_path: Path) -> None:
     assert outcome.queue_status == "merged"
     assert outcome.merge_commit_sha == "abc123"
     assert store.list_merge_queue()[0]["metadata"]["merge_commit_sha"] == "abc123"
+    assert store.list_merge_queue()[0]["metadata"]["merge_ref"] == "abc123"
+    assert store.list_merge_queue()[0]["metadata"]["merge_sha"] == "abc123"
+    assert store.list_merge_queue()[0]["metadata"]["merged_at"]
     store_cls.return_value.mark_supervisor_run_merged.assert_called_once_with(
         receipt_id="receipt-123",
         merge_commit_sha="abc123",
+        merged_at=ANY,
     )
 
 

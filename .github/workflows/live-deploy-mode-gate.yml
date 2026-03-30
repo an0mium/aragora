@@ -24,7 +24,7 @@ jobs:
   gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Validate Live Deploy Mode
-    runs-on: aragora
+    runs-on: [self-hosted, Linux, X64, aragora, hetzner]
     timeout-minutes: 30
     env:
       NODE_VERSION: '20'
@@ -84,7 +84,12 @@ jobs:
         run: |
           npx tsc --noEmit
           npm run build
-          npx playwright install --with-deps chromium
+          if command -v apt-get >/dev/null 2>&1; then
+            npx playwright install --with-deps chromium
+          else
+            echo "::notice::apt-get unavailable on runner; installing Chromium without OS package bootstrap"
+            npx playwright install chromium
+          fi
           npx playwright test \
             e2e/debate-viewing.spec.ts \
             e2e/debate-intervention-live.spec.ts \

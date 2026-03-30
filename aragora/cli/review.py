@@ -977,7 +977,11 @@ def cmd_review(args: argparse.Namespace) -> int:
         return 1
 
     if not diff.strip():
-        print("Error: Empty diff", file=sys.stderr)
+        print("Error: Empty diff — no changes to review.", file=sys.stderr)
+        print("  Make some code changes first, then run:", file=sys.stderr)
+        print("    aragora review                    # Review unstaged changes", file=sys.stderr)
+        print("    aragora review --diff-file d.patch # Review a diff file", file=sys.stderr)
+        print("    aragora review <PR-URL>           # Review a GitHub PR", file=sys.stderr)
         return 1
 
     # Determine which agents to use

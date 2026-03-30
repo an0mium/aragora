@@ -1126,8 +1126,8 @@ class MemoryManager:
 
             # Also emit to WebSocket stream for live dashboard
             if self.event_emitter:
-                self.event_emitter.emit_sync(
-                    event_type="memory_recall",
+                self._emit_event(
+                    "memory_recall",
                     debate_id="",
                     query=task,
                     hits=[
@@ -1257,8 +1257,8 @@ class MemoryManager:
             except (AttributeError, TypeError) as e:
                 # Expected: spectator method or signature issues
                 logger.debug("Spectator notification error: %s", e)
-            except (RuntimeError, OSError, ConnectionError) as e:
-                # Unexpected error
+            except Exception as e:
+                # Spectator delivery must never break debate execution.
                 logger.warning("Unexpected spectator notification error: %s", e)
 
     def track_retrieved_ids(

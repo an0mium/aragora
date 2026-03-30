@@ -34,6 +34,11 @@ from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
 
+_PLACEHOLDER_TASK_TITLES = {
+    "untitled task",
+    "task",
+}
+
 
 def cmd_build(args: argparse.Namespace) -> None:
     """Turn a vague idea into executed, reviewed, merged code."""
@@ -162,11 +167,10 @@ async def _run_build_pipeline(
     if not tasks:
         _progress(
             emit_progress,
-            "  ! Founder review produced no queueable tasks, falling back to bounded task decomposition.",
+            "  ! Founder review produced no queueable tasks. Generating a preview only; no boss-ready issues will be created.",
         )
-        fallback_tasks = await _decompose_tasks(spec, max_tasks=max_tasks)
-        tasks = _annotate_tasks(
-            fallback_tasks,
+        result["stages"]["fallback_tasks"] = _annotate_tasks(
+            await _decompose_tasks(spec, max_tasks=max_tasks),
             spec=spec,
             idea=idea,
             repo=repo_name,
@@ -176,8 +180,21 @@ async def _run_build_pipeline(
             worker_model=worker_model,
             review_model=review_model,
         )
+        result["status"] = "triage_required"
+        result["elapsed_seconds"] = time.monotonic() - start
+        return result
 
     result["stages"]["tasks"] = tasks
+    task_validation = _validate_queueable_tasks(tasks)
+    result["stages"]["task_validation"] = task_validation
+    if task_validation["invalid"]:
+        result["status"] = "invalid_tasks"
+        result["elapsed_seconds"] = time.monotonic() - start
+        _progress(
+            emit_progress,
+            f"  ! Refusing to create queue items with invalid metadata ({task_validation['invalid_count']} invalid task(s)).",
+        )
+        return result
     _progress(emit_progress, f"  ✓ {len(tasks)} tasks identified")
     for i, task in enumerate(tasks, 1):
         _progress(emit_progress, f"    {i}. {task['title']}")
@@ -461,12 +478,68 @@ def _string_list(value: Any) -> list[str]:
     return []
 
 
+def _collapse_whitespace(value: Any) -> str:
+    return " ".join(str(value or "").split()).strip()
+
+
+def _is_placeholder_task_title(value: Any) -> bool:
+    title = _collapse_whitespace(value).strip(" -:_")
+    if not title:
+        return True
+    normalized = title.lower()
+    if normalized in _PLACEHOLDER_TASK_TITLES:
+        return True
+    return normalized.startswith("untitled ")
+
+
+def _task_persistence_errors(task: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if _is_placeholder_task_title(task.get("title")):
+        errors.append("title must be non-empty and not a placeholder")
+    if not _collapse_whitespace(task.get("description")):
+        errors.append("description is required")
+    if not _string_list(task.get("acceptance_criteria", [])):
+        errors.append("acceptance criteria are required")
+    if not _collapse_whitespace(task.get("verification")):
+        errors.append("verification is required")
+    if not _collapse_whitespace(task.get("merge_class")):
+        errors.append("merge class is required")
+    if not _collapse_whitespace(task.get("autonomy_mode")):
+        errors.append("autonomy mode is required")
+    return errors
+
+
+def _validate_queueable_tasks(tasks: list[dict[str, Any]]) -> dict[str, Any]:
+    invalid: list[dict[str, Any]] = []
+    for index, task in enumerate(tasks, start=1):
+        errors = _task_persistence_errors(task)
+        if errors:
+            invalid.append(
+                {
+                    "index": index,
+                    "title": _collapse_whitespace(task.get("title")) or "<missing>",
+                    "errors": errors,
+                }
+            )
+    return {
+        "invalid": invalid,
+        "invalid_count": len(invalid),
+        "valid_count": max(0, len(tasks) - len(invalid)),
+    }
+
+
 async def _create_issues(tasks: list[dict[str, Any]], *, repo: str) -> list[int]:
     """Create GitHub issues for each task."""
     import subprocess
 
     issue_numbers = []
     for task in tasks:
+        errors = _task_persistence_errors(task)
+        if errors:
+            raise ValueError(
+                f"Cannot persist boss-ready issue for {task.get('title', 'unknown task')!r}: "
+                + "; ".join(errors)
+            )
         labels = [
             "boss-ready",
             *[str(item).strip() for item in task.get("labels", []) if str(item).strip()],

@@ -25,6 +25,7 @@ from aragora.knowledge.mound.ops.confidence_decay import (
     DecayReport,
     get_decay_manager,
 )
+from aragora.knowledge.mound import KnowledgeMound, MoundBackend, MoundConfig
 
 
 # =============================================================================
@@ -250,6 +251,30 @@ class TestApplyDecay:
         assert report.items_processed == 0
         assert report.items_decayed == 0
         assert report.adjustments == []
+        mock_mound.query.assert_awaited_once_with(
+            workspace_id="test-workspace",
+            query="*",
+            limit=10000,
+        )
+
+    @pytest.mark.asyncio
+    async def test_apply_decay_initialized_mound_uses_non_empty_query(self, tmp_path):
+        """Should work against a real initialized mound without validation errors."""
+        config = MoundConfig(
+            backend=MoundBackend.SQLITE,
+            sqlite_path=tmp_path / "confidence_decay.db",
+        )
+        mound = KnowledgeMound(config=config, workspace_id="test-workspace")
+        await mound.initialize()
+        manager = ConfidenceDecayManager()
+
+        try:
+            report = await manager.apply_decay(mound, "test-workspace", force=True)
+        finally:
+            await mound.close()
+
+        assert report.workspace_id == "test-workspace"
+        assert report.items_processed == 0
 
     @pytest.mark.asyncio
     async def test_apply_decay_single_item(self):

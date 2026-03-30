@@ -22276,6 +22276,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/canvas/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get latest pipeline or list pipelines
+         * @description Return the latest canvas pipeline by default. Pass `list=true` to return pipeline summaries instead.
+         */
+        get: operations["listOrLatestPipeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/canvas/pipeline/advance": {
         parameters: {
             query?: never;
@@ -22296,6 +22316,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/canvas/pipeline/approve-transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve stage transition by body
+         * @description Approve or reject a pending stage transition when the pipeline ID is sent in the request body.
+         */
+        post: operations["approvePipelineTransitionByBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/auto-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto-run pipeline from freeform text
+         * @description Start an asynchronous pipeline from freeform text and return a pipeline identifier immediately.
+         */
+        post: operations["autoRunPipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create demo pipeline
+         * @description Create a pre-populated demo pipeline with all stages completed.
+         */
+        post: operations["createDemoPipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/canvas/pipeline/extract-goals": {
         parameters: {
             query?: never;
@@ -22310,6 +22390,46 @@ export interface paths {
          * @description Use AI to extract structured goals from an ideas canvas.
          */
         post: operations["extractGoals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/extract-principles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract principles from ideas canvas
+         * @description Extract principles and themes from an ideas canvas.
+         */
+        post: operations["extractPipelinePrinciples"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/from-braindump": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create pipeline from brain dump
+         * @description Parse unstructured text into ideas and immediately create a pipeline from the extracted ideas.
+         */
+        post: operations["createPipelineFromBrainDump"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22350,6 +22470,26 @@ export interface paths {
          * @description Create a full 4-stage pipeline from a list of raw idea strings.
          */
         post: operations["createPipelineFromIdeas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/from-system-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create pipeline from system metrics
+         * @description Auto-generate a pipeline from system health analysis.
+         */
+        post: operations["createPipelineFromSystemMetrics"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22460,6 +22600,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/canvas/pipeline/{id}/beliefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get pipeline beliefs
+         * @description Return belief-network-style confidence data for pipeline nodes.
+         */
+        get: operations["getPipelineBeliefs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/{id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute completed pipeline
+         * @description Queue execution for a completed pipeline or return a dry-run summary of the planned work.
+         */
+        post: operations["executeCanvasPipeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/{id}/explanations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get pipeline explanations
+         * @description Return explainability factors for pipeline nodes.
+         */
+        get: operations["getPipelineExplanations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/canvas/pipeline/{id}/graph": {
         parameters: {
             query?: never;
@@ -22472,6 +22672,46 @@ export interface paths {
          * @description Get the React Flow compatible graph JSON for a pipeline.
          */
         get: operations["getPipelineGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/{id}/intelligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get pipeline intelligence rollup
+         * @description Return beliefs, explanations, and precedents for nodes in the pipeline.
+         */
+        get: operations["getPipelineIntelligence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/{id}/precedents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get pipeline precedents
+         * @description Return similar goals or precedents linked to the pipeline.
+         */
+        get: operations["getPipelinePrecedents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22494,6 +22734,26 @@ export interface paths {
         get: operations["getPipelineReceipt"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvas/pipeline/{id}/self-improve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feed pipeline into self-improvement
+         * @description Trigger the self-improvement system using a pipeline as the source task definition.
+         */
+        post: operations["selfImprovePipeline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30746,6 +31006,26 @@ export interface paths {
          * @description Submit a suggestion or argument to be considered by debate agents in the next round.
          */
         post: operations["submitDebateSuggestionV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/to-pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert debate to pipeline
+         * @description Load a completed debate's argument graph and create a pipeline from it.
+         */
+        post: operations["convertDebateToPipeline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -46200,6 +46480,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pipeline/{id}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pipeline agents
+         * @description Return current agent assignments and statuses for a pipeline.
+         */
+        get: operations["listPipelineAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipeline/{id}/agents/{agent_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve pipeline agent
+         * @description Approve an assigned agent task for a pipeline.
+         */
+        post: operations["approvePipelineAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject pipeline agent
+         * @description Reject an assigned agent task for a pipeline.
+         */
+        post: operations["rejectPipelineAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plans": {
         parameters: {
             query?: never;
@@ -58022,6 +58362,62 @@ export interface components {
                 /** @default 0.5 */
                 diversity_preference: number;
             };
+            /** @description Run the same debate across multiple candidate agent/model combinations and keep the best result. */
+            comparison_config?: {
+                /**
+                 * @description Enable comparison mode (default true when this object is present)
+                 * @default true
+                 */
+                enabled: boolean;
+                /**
+                 * @description Automatically select the strongest result after all combinations finish
+                 * @default true
+                 */
+                pick_best_result: boolean;
+                /**
+                 * @description Optional strategy name for choosing the winning result
+                 * @example llm_judge
+                 */
+                selection_strategy?: string;
+                /**
+                 * @description Candidate lineups to run against the same debate question
+                 * @example [
+                 *       [
+                 *         "claude",
+                 *         "openai-api",
+                 *         "gemini"
+                 *       ],
+                 *       [
+                 *         "claude",
+                 *         "grok",
+                 *         "qwen"
+                 *       ]
+                 *     ]
+                 */
+                agent_combinations?: (string | {
+                    provider: string;
+                    model?: string;
+                    persona?: string;
+                    role?: string;
+                    name?: string;
+                    hierarchy_role?: string;
+                })[][];
+            };
+            /**
+             * @deprecated
+             * @description Deprecated alias for comparison_config.
+             */
+            model_comparison?: Record<string, never>;
+            /**
+             * @deprecated
+             * @description Deprecated alias for comparison_config.agent_combinations.
+             */
+            agent_combinations?: string[][];
+            /**
+             * @deprecated
+             * @description Deprecated human-facing alias for comparison_config.agent_combinations.
+             */
+            model_combinations?: string[][];
             /**
              * @description Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS)
              * @default true
@@ -98379,6 +98775,33 @@ export interface operations {
             };
         };
     };
+    listOrLatestPipeline: {
+        parameters: {
+            query?: {
+                /** @description Return pipeline summaries instead of the latest pipeline. */
+                list?: boolean;
+                /** @description Optional status filter when list mode is enabled. */
+                status?: string;
+                /** @description Maximum number of pipeline summaries to return in list mode. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest pipeline payload or pipeline list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     advancePipelineStage: {
         parameters: {
             query?: never;
@@ -98433,6 +98856,156 @@ export interface operations {
             };
         };
     };
+    approvePipelineTransitionByBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    from_stage: string;
+                    to_stage: string;
+                    /** @description Defaults to true when omitted; set to false to reject. */
+                    approved?: boolean;
+                    comment?: string;
+                    pipeline_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Transition result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    autoRunPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                    /** @enum {string} */
+                    automation_level?: "full" | "guided" | "manual";
+                };
+            };
+        };
+        responses: {
+            /** @description Auto-run pipeline start status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDemoPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    ideas?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Demo pipeline created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     extractGoals: {
         parameters: {
             query?: never;
@@ -98460,6 +99033,114 @@ export interface operations {
         responses: {
             /** @description Extracted goals */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    extractPipelinePrinciples: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ideas_canvas: Record<string, never>;
+                    themes?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Principles canvas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPipelineFromBrainDump: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                    context?: string;
+                    auto_advance?: boolean;
+                    use_unified_orchestrator?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Pipeline created from a parsed brain dump */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -98593,6 +99274,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPipelineFromSystemMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Pipeline created from system metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Internal server error - Unexpected error occurred */
@@ -98827,9 +99545,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    transition_id: string;
-                    approved: boolean;
-                    reason?: string;
+                    from_stage: string;
+                    to_stage: string;
+                    /** @description Defaults to true when omitted; set to false to reject. */
+                    approved?: boolean;
+                    comment?: string;
                 };
             };
         };
@@ -98871,6 +99591,142 @@ export interface operations {
             };
         };
     };
+    getPipelineBeliefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pipeline beliefs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    executeCanvasPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    dry_run?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Dry-run execution summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Pipeline execution queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPipelineExplanations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pipeline explanations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getPipelineGraph: {
         parameters: {
             query?: {
@@ -98887,6 +99743,78 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description React Flow graph */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPipelineIntelligence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pipeline intelligence */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPipelinePrecedents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pipeline precedents */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -98946,6 +99874,59 @@ export interface operations {
             };
         };
     };
+    selfImprovePipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    budget_limit?: number;
+                    require_approval?: boolean;
+                    dry_run?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Self-improvement preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Self-improvement run started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getPipelineStage: {
         parameters: {
             query?: never;
@@ -98954,7 +99935,7 @@ export interface operations {
                 /** @description Pipeline ID */
                 id: string;
                 /** @description Pipeline stage name */
-                stage: "ideas" | "goals" | "actions" | "orchestration";
+                stage: "ideas" | "principles" | "goals" | "actions" | "orchestration";
             };
             cookie?: never;
         };
@@ -117444,6 +118425,62 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    convertDebateToPipeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Debate ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    use_universal?: boolean;
+                    auto_advance?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Pipeline created from debate */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -149582,6 +150619,104 @@ export interface operations {
                         id?: string;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    listPipelineAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pipeline agent assignments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    approvePipelineAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+                /** @description Agent assignment ID */
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Agent approval recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    rejectPipelineAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pipeline ID */
+                id: string;
+                /** @description Agent assignment ID */
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    feedback: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Agent rejection recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

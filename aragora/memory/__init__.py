@@ -35,12 +35,21 @@ from aragora.memory.capture import (
     ToolCapturePolicy,
     ToolMemoryCapture,
 )
-from aragora.memory.embeddings import (
-    GeminiEmbedding,
-    OllamaEmbedding,
-    OpenAIEmbedding,
-    SemanticRetriever,
-)
+
+try:
+    from aragora.memory.embeddings import (
+        GeminiEmbedding,
+        OllamaEmbedding,
+        OpenAIEmbedding,
+        SemanticRetriever,
+    )
+except ImportError:
+    # aiohttp is optional in lean CI environments. Keep the memory package
+    # importable when only the transport-backed embedding providers are absent.
+    GeminiEmbedding = None  # type: ignore[assignment]
+    OllamaEmbedding = None  # type: ignore[assignment]
+    OpenAIEmbedding = None  # type: ignore[assignment]
+    SemanticRetriever = None  # type: ignore[assignment]
 from aragora.memory.hybrid_search import (
     HybridMemoryConfig,
     HybridMemorySearch,

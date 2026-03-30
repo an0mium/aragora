@@ -501,35 +501,41 @@ class TestMatrixDebateFallback:
 
         with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
             mock_load.return_value = [mock_agent]
+            with patch.object(
+                handler,
+                "_load_agents_from_specs",
+                new_callable=AsyncMock,
+            ) as mock_load_specs:
+                mock_load_specs.return_value = [mock_agent, mock_agent]
 
-            # Mock Arena to track scenario runs
-            with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
-                mock_arena = Mock()
-                mock_arena.run = AsyncMock(
-                    return_value=Mock(
-                        winner="claude",
-                        final_answer="Test answer",
-                        confidence=0.8,
-                        consensus_reached=True,
-                        rounds_used=2,
+                # Mock Arena to track scenario runs
+                with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
+                    mock_arena = Mock()
+                    mock_arena.run = AsyncMock(
+                        return_value=Mock(
+                            winner="claude",
+                            final_answer="Test answer",
+                            confidence=0.8,
+                            consensus_reached=True,
+                            rounds_used=2,
+                        )
                     )
-                )
-                mock_arena_class.return_value = mock_arena
+                    mock_arena_class.return_value = mock_arena
 
-                result = await handler._run_matrix_debate_fallback(
-                    mock_handler,
-                    {
-                        "task": "Test task",
-                        "scenarios": sample_scenarios,
-                        "agents": ["claude"],
-                        "max_rounds": 3,
-                    },
-                )
+                    result = await handler._run_matrix_debate_fallback(
+                        mock_handler,
+                        {
+                            "task": "Test task",
+                            "scenarios": sample_scenarios,
+                            "agents": ["claude"],
+                            "max_rounds": 3,
+                        },
+                    )
 
-                assert result.status_code == 200
-                data = json.loads(result.body)
-                assert "matrix_id" in data
-                assert data["scenario_count"] == 3
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert "matrix_id" in data
+                    assert data["scenario_count"] == 3
 
     @pytest.mark.asyncio
     async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
@@ -550,3 +556,62 @@ class TestMatrixDebateFallback:
             assert result.status_code == 400
             data = json.loads(result.body)
             assert "agent" in data.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_fallback_selects_best_model_combination(self, mock_handler):
+        """Model-combination runs should include the strongest result when requested."""
+        handler = MatrixDebatesHandler({})
+
+        combo_a_agent = Mock()
+        combo_a_agent.name = "anthropic-api"
+        combo_b_agent = Mock()
+        combo_b_agent.name = "gemini"
+
+        with patch.object(handler, "_load_agents_from_specs", new_callable=AsyncMock) as mock_load:
+            mock_load.side_effect = [
+                [combo_a_agent],
+                [combo_b_agent],
+                [combo_a_agent],
+                [combo_b_agent],
+            ]
+
+            weak_arena = Mock()
+            weak_arena.run = AsyncMock(
+                return_value=Mock(
+                    winner="anthropic-api",
+                    final_answer="Lower confidence answer",
+                    confidence=0.61,
+                    consensus_reached=True,
+                    rounds_used=3,
+                )
+            )
+            strong_arena = Mock()
+            strong_arena.run = AsyncMock(
+                return_value=Mock(
+                    winner="gemini",
+                    final_answer="Higher confidence answer",
+                    confidence=0.93,
+                    consensus_reached=True,
+                    rounds_used=2,
+                )
+            )
+
+            with patch("aragora.debate.orchestrator.Arena", side_effect=[weak_arena, strong_arena]):
+                result = await handler._run_matrix_debate_fallback(
+                    mock_handler,
+                    {
+                        "task": "Compare the same debate across multiple model combinations",
+                        "model_combinations": [
+                            {"name": "combo-a", "agents": ["anthropic-api"]},
+                            {"name": "combo-b", "agents": ["gemini"]},
+                        ],
+                        "select_best_result": True,
+                    },
+                )
+
+        assert mock_load.await_count == 4
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["scenario_count"] == 2
+        assert data["best_result"]["combination_name"] == "combo-b"
+        assert data["best_result"]["confidence"] == pytest.approx(0.93)

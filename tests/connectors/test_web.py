@@ -303,6 +303,22 @@ class TestSearch:
         assert "Search service error" in result.content
         assert result.confidence == 0.0
 
+    @pytest.mark.asyncio
+    async def test_search_subprocess_failure_returns_error_evidence(self, connector):
+        """Native DDGS crashes should degrade to an error result, not abort pytest."""
+        with patch("aragora.connectors.web.DDGS_AVAILABLE", True):
+            with patch.object(
+                connector,
+                "_run_ddgs_search_subprocess",
+                side_effect=RuntimeError("DDGS subprocess failed: native panic"),
+            ):
+                results = await connector._search_web_actual("test query")
+
+        assert len(results) == 1
+        assert "[Error]" in results[0].content
+        assert "native panic" in results[0].content
+        assert results[0].confidence == 0.0
+
 
 class TestFetchUrl:
     """Tests for URL fetching functionality."""

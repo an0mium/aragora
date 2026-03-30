@@ -133,9 +133,7 @@ class TestCircuitBreakerNotification:
             patch("aragora.agents.fallback.record_fallback_activation"),
             patch("aragora.agents.fallback.record_fallback_success"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
-                stub.fallback_generate("test prompt", status_code=401)
-            )
+            result = asyncio.run(stub.fallback_generate("test prompt", status_code=401))
 
         assert result == "fallback response"
         cb.mark_provider_failed.assert_called_once()
@@ -167,7 +165,7 @@ class TestCircuitBreakerNotification:
             patch("aragora.agents.fallback.record_fallback_activation"),
             patch("aragora.agents.fallback.record_fallback_success"),
         ):
-            asyncio.get_event_loop().run_until_complete(_collect())
+            asyncio.run(_collect())
 
         assert tokens == ["token1", "token2"]
         cb.mark_provider_failed.assert_called_once()
@@ -238,9 +236,7 @@ class TestProviderPinnedCheck:
                 patch("aragora.agents.fallback.record_fallback_activation"),
                 patch("aragora.agents.fallback.record_fallback_success"),
             ):
-                result = asyncio.get_event_loop().run_until_complete(
-                    stub.fallback_generate("test prompt", status_code=429)
-                )
+                result = asyncio.run(stub.fallback_generate("test prompt", status_code=429))
 
         assert result == "openrouter response"
         mock_fallback.generate.assert_called_once()
@@ -283,9 +279,7 @@ class TestCircuitBreakerUnavailable:
             patch("aragora.agents.fallback.record_fallback_activation"),
             patch("aragora.agents.fallback.record_fallback_success"),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
-                stub.fallback_generate("prompt", status_code=429)
-            )
+            result = asyncio.run(stub.fallback_generate("prompt", status_code=429))
 
         assert result == "response without cb"
 

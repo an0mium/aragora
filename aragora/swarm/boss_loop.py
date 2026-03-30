@@ -25,9 +25,18 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from aragora.swarm.terminal_truth import (
+    extract_run_deliverable,
+    extract_run_worker_outcome,
+    qualify_work_order_terminal_state,
+    qualify_run_terminal_state,
+)
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
+
 logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
+_LANE_TELEMETRY = LaneTelemetryCollector()
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +163,7 @@ class GitHubIssueFeed:
             )
         return issues
 
-    def _fetch_issue(self, number: int) -> GitHubIssue | None:
+    def _fetch_issue(self, number: int, *, allow_closed: bool = False) -> GitHubIssue | None:
         cmd = [
             "gh",
             "issue",
@@ -192,7 +201,7 @@ class GitHubIssueFeed:
             return None
 
         state = str(item.get("state", "OPEN")).strip().lower()
-        if state != "open":
+        if not allow_closed and state != "open":
             return None
 
         labels_raw = item.get("labels") or []
@@ -220,18 +229,24 @@ def select_eligible_issue(
     *,
     skip_labels: set[str] | None = None,
     require_labels: set[str] | None = None,
+    use_value_ranking: bool = False,
 ) -> GitHubIssue | None:
-    """Select the first open issue that passes eligibility filters.
+    """Select the best open issue that passes eligibility filters.
 
-    Selection is intentionally simple and truthful:
+    Selection rules:
     - Must be in ``open`` state
     - Must have a non-empty title
     - Must not carry any label in ``skip_labels``
     - If ``require_labels`` is set, must carry ALL of them
 
+    When ``use_value_ranking`` is True, eligible issues are scored by
+    expected value-per-cost and the highest-scored issue is returned.
+    Otherwise returns the first eligible issue (GitHub order).
+
     Returns ``None`` with no improvisation if nothing qualifies.
     """
     _skip = skip_labels or set()
+    eligible: list[GitHubIssue] = []
     for issue in issues:
         if issue.state.upper() != "OPEN":
             continue
@@ -241,12 +256,51 @@ def select_eligible_issue(
             continue
         if require_labels and not require_labels.issubset(set(issue.labels)):
             continue
-        return issue
-    return None
+        eligible.append(issue)
+
+    if not eligible:
+        return None
+
+    if not use_value_ranking:
+        return eligible[0]
+
+    try:
+        from aragora.swarm.value_estimator import (
+            load_outcomes,
+            log_prediction,
+            rank_issues,
+        )
+
+        history = load_outcomes()
+        issue_dicts = [i.to_dict() for i in eligible]
+        ranked = rank_issues(issue_dicts, historical_outcomes=history)
+        if ranked:
+            best_estimate, best_dict = ranked[0]
+            log_prediction(best_estimate)
+            best_number = best_dict.get("number")
+            logger.info(
+                "value_ranking: #%s score=%.3f (value=%.2f p_success=%.2f proof=%.2f) — %s",
+                best_number,
+                best_estimate.priority_score,
+                best_estimate.expected_value,
+                best_estimate.p_success,
+                best_estimate.proof_weight,
+                best_estimate.reasoning[:80],
+            )
+            # Return the original GitHubIssue object
+            for issue in eligible:
+                if issue.number == best_number:
+                    return issue
+    except Exception as exc:
+        logger.debug("Value ranking failed, falling back to first eligible: %s", exc)
+
+    return eligible[0]
 
 
 _VALIDATION_SECTION_PREFIXES = (
     "acceptance criteria",
+    "acceptance",
+    "test",
     "validation",
     "validation contract",
     "definition of done",
@@ -256,6 +310,7 @@ _VALIDATION_SECTION_PREFIXES = (
 _VALIDATION_INLINE_PREFIXES = (
     "acceptance",
     "acceptance criteria",
+    "test",
     "validation",
     "validation contract",
     "definition of done",
@@ -263,6 +318,7 @@ _VALIDATION_INLINE_PREFIXES = (
     "test plan",
 )
 _VALIDATION_BULLET_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(?:\[(?: |x|X)\]\s*)?(?P<text>.+?)\s*$")
+_MARKDOWN_BOLD_RE = re.compile(r"\*\*(?P<text>.+?)\*\*")
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -275,6 +331,15 @@ def _ordered_unique_strings(items: list[str]) -> list[str]:
         seen.add(text)
         ordered.append(text)
     return ordered
+
+
+def _normalize_validation_line(text: str) -> str:
+    normalized = str(text or "").strip()
+    if not normalized:
+        return ""
+    # GitHub issues commonly use bold inline markers like "**Acceptance:** ..."
+    normalized = _MARKDOWN_BOLD_RE.sub(lambda match: match.group("text"), normalized)
+    return normalized.strip()
 
 
 def extract_issue_validation_contract(issue_body: str) -> list[str]:
@@ -291,7 +356,7 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
 
     for raw_line in lines:
         stripped = raw_line.strip()
-        normalized = stripped.lstrip("#").strip()
+        normalized = _normalize_validation_line(stripped.lstrip("#").strip())
         normalized_lower = normalized.rstrip(":").strip().lower()
 
         if any(
@@ -333,6 +398,68 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
         criteria.append(stripped)
 
     return _ordered_unique_strings(criteria)
+
+
+# ---------------------------------------------------------------------------
+# Focused Test Discovery
+# ---------------------------------------------------------------------------
+
+
+def discover_focused_tests(
+    repo_path: Path,
+    *,
+    base_ref: str = "origin/main",
+) -> list[str]:
+    """Discover test files corresponding to source files changed since *base_ref*.
+
+    Uses the ``tests/`` mirror convention: a source file at
+    ``aragora/swarm/boss_loop.py`` maps to ``tests/swarm/test_boss_loop.py``.
+
+    Returns a list of relative paths (strings) for test files that actually
+    exist on disk.  Returns an empty list when ``git`` is unavailable or the
+    diff is empty.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--name-only", base_ref + "..HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_path),
+            timeout=15,
+        )
+        if proc.returncode != 0:
+            logger.debug("git diff failed (rc=%d): %s", proc.returncode, proc.stderr.strip())
+            return []
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        logger.debug("discover_focused_tests: git unavailable: %s", exc)
+        return []
+
+    changed = [line.strip() for line in proc.stdout.strip().splitlines() if line.strip()]
+
+    test_paths: list[str] = []
+    seen: set[str] = set()
+
+    for filepath in changed:
+        parts = Path(filepath).parts
+        if not filepath.endswith(".py"):
+            continue
+
+        # Source files under aragora/ → mirror in tests/
+        if parts and parts[0] == "aragora" and len(parts) >= 2:
+            test_relative = Path("tests") / Path(*parts[1:])
+            test_candidate = test_relative.parent / f"test_{test_relative.stem}.py"
+            candidate_str = str(test_candidate)
+            if candidate_str not in seen and (repo_path / test_candidate).exists():
+                seen.add(candidate_str)
+                test_paths.append(candidate_str)
+
+        # Changed files already under tests/ → include directly
+        elif parts and parts[0] == "tests" and Path(filepath).name.startswith("test_"):
+            if filepath not in seen and (repo_path / filepath).exists():
+                seen.add(filepath)
+                test_paths.append(filepath)
+
+    return test_paths
 
 
 # ---------------------------------------------------------------------------
@@ -680,13 +807,14 @@ class BossLoopConfig:
 
     # Retry / self-correction
     max_consecutive_failures: int = 3
-    max_retries_per_issue: int = 2
+    max_retries_per_issue: int = 5  # Generous: allows initial attempt + 2 repairs + 2 retries
 
     # Dispatch
     target_branch: str = "main"
     budget_limit_usd: float = 5.0
     dispatch_enabled: bool = True
     default_target_agent: str | None = None
+    model_rotation: list[str] = field(default_factory=lambda: ["claude", "codex"])
     default_reviewer_agent: str | None = None
     allowed_runner_profiles: set[str] | None = None
     runner_rotation_interval_seconds: float = 1800.0
@@ -705,8 +833,14 @@ class BossLoopConfig:
     # pre-existing failures in unrelated modules.
     use_focused_verification: bool = True
 
+    # Value-per-cost ranking: when True, rank eligible issues by estimated
+    # value/cost before selecting.  This pushes the loop toward high-leverage
+    # work instead of processing issues in arbitrary GitHub order.
+    use_value_ranking: bool = True
+
     # Reporting
     status_report_interval: int = 5  # every N iterations
+    metrics_jsonl_path: str | None = ".aragora/overnight/boss_metrics.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -715,61 +849,34 @@ class BossLoopConfig:
 
 
 def _classify_terminal_run_outcome(run_dict: dict[str, Any]) -> str:
-    """Map a supervisor run dict to a stable outcome classification.
+    """Map a supervisor run dict to a stable, shared terminal outcome."""
+    return qualify_run_terminal_state(run_dict).terminal_outcome
 
-    Uses LLM classification for ambiguous cases, falling back to keyword
-    matching if the LLM is unavailable.
-    """
-    status = str(run_dict.get("status", "")).strip().lower()
-    if status == "completed":
-        deliverable = _extract_deliverable(run_dict)
-        if deliverable is None:
-            return "clean_exit_no_deliverable"
-        if deliverable.get("type") == "adopted_pr":
-            return "pr_adopted"
-        return "deliverable_created"
-    if status == "needs_human":
-        # A run can be "needs_human" overall (e.g. one lane blocked) but still
-        # have deliverables from other lanes.  Prioritize the deliverable so
-        # the campaign can extract branch/commit info for PR creation.
-        deliverable = _extract_deliverable(run_dict)
-        if deliverable is not None:
-            if deliverable.get("type") == "adopted_pr":
-                return "pr_adopted"
-            return "deliverable_created"
-        return "needs_human"
 
-    # --- LLM classification for ambiguous terminal states ---
-    try:
-        from aragora.ralph.llm_classifier import LLMBlockerClassifier
-
-        import asyncio
-
-        classifier = LLMBlockerClassifier()
-        verdict = asyncio.run(classifier.classify_run_outcome(run_dict))
-        # Only trust the LLM verdict if it actually ran (not a fallback default)
-        if verdict.reasoning != "LLM call failed":
-            logger.info(
-                "LLM run outcome classification: %s (reasoning: %s)",
-                verdict.outcome,
-                verdict.reasoning,
+def _qualify_worker_result_terminal_state(worker_result: dict[str, Any]) -> tuple[str, str]:
+    """Normalize legacy flat worker_result payloads into canonical terminal truth."""
+    deliverable = worker_result.get("deliverable")
+    adapted: dict[str, Any] = {
+        "status": worker_result.get("status"),
+        "worker_outcome": worker_result.get("worker_outcome"),
+        "failure_reason": worker_result.get("error"),
+        "blockers": list(worker_result.get("reasons", []) or []),
+    }
+    if isinstance(deliverable, dict):
+        deliverable_type = str(deliverable.get("type", "")).strip().lower()
+        if deliverable_type == "branch":
+            adapted["branch"] = deliverable.get("branch")
+            adapted["commit_shas"] = deliverable.get("commit_shas") or []
+        elif deliverable_type == "pr":
+            adapted["pr_url"] = deliverable.get("pr_url") or worker_result.get("pr_url")
+        elif deliverable_type == "adopted_pr":
+            adapted["adopted_pr"] = (
+                deliverable.get("adopted_pr")
+                or deliverable.get("pr_url")
+                or worker_result.get("pr_url")
             )
-            return verdict.outcome
-    except Exception:
-        logger.debug("LLM run outcome classification failed, using keyword fallback", exc_info=True)
-
-    # --- keyword fallback ---
-    return _keyword_classify_terminal_run(run_dict)
-
-
-def _keyword_classify_terminal_run(run_dict: dict[str, Any]) -> str:
-    """Keyword-based fallback for terminal run classification."""
-    details = json.dumps(run_dict, sort_keys=True).lower()
-    if "timeout" in details:
-        return "timeout"
-    if "exit_code" in details or "traceback" in details or "crash" in details:
-        return "crash"
-    return "blocked"
+    qualification = qualify_work_order_terminal_state(adapted)
+    return qualification.terminal_outcome, qualification.deliverable_type or ""
 
 
 async def dispatch_bounded_spec(
@@ -784,6 +891,7 @@ async def dispatch_bounded_spec(
     default_reviewer_agent: str | None = None,
     use_managed_session_script: bool = True,
     selected_runner: dict[str, Any] | None = None,
+    worker_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     # Auto-detect Claude profile from environment if no runner specified
     if selected_runner is None:
@@ -837,6 +945,7 @@ async def dispatch_bounded_spec(
             default_reviewer_agent=default_reviewer_agent,
             use_managed_session_script=use_managed_session_script,
             default_target_runner=selected_runner,
+            worker_env=worker_env,
         )
         run_dict = run.to_dict()
         run_status = str(run_dict.get("status", "")).strip().lower()
@@ -847,8 +956,13 @@ async def dispatch_bounded_spec(
                 "run": run_dict,
                 "run_id": run_dict.get("run_id"),
             }
-        outcome = _classify_terminal_run_outcome(run_dict)
-        deliverable = _extract_deliverable(run_dict)
+        qualification = qualify_run_terminal_state(run_dict)
+        outcome = qualification.terminal_outcome
+        deliverable = qualification.deliverable
+        reasons = qualification.reasons or (
+            [qualification.blocked_reason] if qualification.blocked_reason else []
+        )
+        worker_receipt_id = _first_receipt_id_from_run(run_dict)
         if outcome in {"deliverable_created", "pr_adopted"}:
             return {
                 "status": "completed",
@@ -856,6 +970,7 @@ async def dispatch_bounded_spec(
                 "run": run_dict,
                 "run_id": run_dict.get("run_id"),
                 "deliverable": deliverable,
+                "receipt_id": worker_receipt_id,
             }
         if outcome == "clean_exit_no_deliverable":
             return {
@@ -863,27 +978,27 @@ async def dispatch_bounded_spec(
                 "outcome": outcome,
                 "run": run_dict,
                 "run_id": run_dict.get("run_id"),
-                "reasons": [
+                "deliverable": deliverable,
+                "receipt_id": worker_receipt_id,
+                "reasons": reasons
+                or [
                     "Run reported completed but produced no concrete deliverable "
                     "(no pushed branch, no PR, no committed artifact)."
                 ],
             }
-        if outcome == "needs_human":
-            reasons: list[str] = []
-            for wo in run_dict.get("work_orders", []):
-                if isinstance(wo, dict):
-                    for blocker in wo.get("blockers", []):
-                        reasons.append(str(blocker))
-                    err = wo.get("dispatch_error")
-                    if err:
-                        reasons.append(str(err))
+        if outcome in {"needs_human", "blocked", "crash", "timeout"}:
             return {
                 "status": "needs_human",
                 "outcome": outcome,
                 "run": run_dict,
                 "run_id": run_dict.get("run_id"),
                 "deliverable": deliverable,
-                "reasons": reasons or ["Worker reached needs_human state."],
+                "receipt_id": worker_receipt_id,
+                "reasons": reasons
+                or [
+                    qualification.blocked_reason
+                    or "Worker requires human review before integration."
+                ],
             }
         return {
             "status": "failed",
@@ -900,61 +1015,22 @@ async def dispatch_bounded_spec(
 
 
 def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
-    """Check a completed run for a concrete deliverable.
-
-    A run is only considered to have produced a real deliverable if at least
-    one work order has:
-    - A non-empty ``pr_url``, OR
-    - A non-empty ``branch`` with at least one ``commit_sha``, OR
-    - An explicit ``adopted_pr`` reference
-
-    Returns a summary dict describing the deliverable, or ``None`` if the run
-    produced only a dirty local worktree with no pushed/committed artifact.
-    """
-    work_orders = run_dict.get("work_orders", [])
-    for wo in work_orders:
-        if not isinstance(wo, dict):
-            continue
-        wo_status = str(wo.get("status", "")).strip()
-        if wo_status not in {"completed", "merged"}:
-            continue
-
-        pr_url = str(wo.get("pr_url", "")).strip()
-        if pr_url:
-            return {"type": "pr", "pr_url": pr_url, "work_order_id": wo.get("work_order_id")}
-
-        adopted_pr = str(wo.get("adopted_pr", "")).strip()
-        if adopted_pr:
-            return {
-                "type": "adopted_pr",
-                "adopted_pr": adopted_pr,
-                "work_order_id": wo.get("work_order_id"),
-            }
-
-        branch = str(wo.get("branch", "")).strip()
-        commit_shas = [s for s in wo.get("commit_shas", []) if str(s).strip()]
-        if branch and commit_shas:
-            return {
-                "type": "branch",
-                "branch": branch,
-                "commit_shas": commit_shas,
-                "work_order_id": wo.get("work_order_id"),
-            }
-
-    return None
+    """Return the first concrete deliverable on the run, if any."""
+    return extract_run_deliverable(run_dict)
 
 
 def _extract_worker_outcome(run_dict: dict[str, Any]) -> str | None:
-    """Extract the first non-empty ``worker_outcome`` from a completed run.
+    """Extract the first non-empty ``worker_outcome`` from a run."""
+    return extract_run_worker_outcome(run_dict)
 
-    Returns None if no work order carries a ``worker_outcome`` field.
-    """
-    for wo in run_dict.get("work_orders", []):
-        if not isinstance(wo, dict):
+
+def _first_receipt_id_from_run(run_dict: dict[str, Any]) -> str | None:
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
             continue
-        outcome = str(wo.get("worker_outcome", "")).strip()
-        if outcome:
-            return outcome
+        receipt_id = str(work_order.get("receipt_id", "")).strip()
+        if receipt_id:
+            return receipt_id
     return None
 
 
@@ -997,6 +1073,196 @@ class BossLoop:
         self._consecutive_failures = 0
         self._issue_attempt_counts: dict[int, int] = {}
         self._stop_reason: str | None = None
+
+    def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
+        """Summarize changed files and test verification from a worker run."""
+        run_dict = worker_result.get("run")
+        if not isinstance(run_dict, dict):
+            return 0, 0, 0
+
+        changed_files: list[str] = []
+        tests_run: list[str] = []
+        tests_passed = 0
+        saw_verification_results = False
+
+        for work_order in run_dict.get("work_orders", []):
+            if not isinstance(work_order, dict):
+                continue
+
+            changed_files.extend(
+                str(path).strip()
+                for path in work_order.get("changed_paths", [])
+                if str(path).strip()
+            )
+            tests_run.extend(
+                str(command).strip()
+                for command in work_order.get("tests_run", [])
+                if str(command).strip()
+            )
+
+            verification_results = work_order.get("verification_results", [])
+            if not isinstance(verification_results, list):
+                continue
+
+            for verification in verification_results:
+                if not isinstance(verification, dict):
+                    continue
+                saw_verification_results = True
+                if verification.get("passed") is True:
+                    tests_passed += 1
+
+        unique_changed_files = list(dict.fromkeys(changed_files))
+        unique_tests_run = list(dict.fromkeys(tests_run))
+        if (
+            not saw_verification_results
+            and unique_tests_run
+            and str(worker_result.get("status", "")).strip().lower() == "completed"
+        ):
+            tests_passed = len(unique_tests_run)
+
+        return len(unique_changed_files), len(unique_tests_run), tests_passed
+
+    def _append_iteration_metrics(
+        self,
+        *,
+        iteration: int,
+        issue_number: int | None,
+        worker_result: dict[str, Any],
+        elapsed_seconds: float,
+    ) -> None:
+        """Append one JSONL row for a finalized boss-loop iteration."""
+        metrics_path_text = str(self.config.metrics_jsonl_path or "").strip()
+        if not metrics_path_text:
+            return
+
+        try:
+            files_changed, tests_run, tests_passed = self._extract_iteration_metrics(worker_result)
+            metrics_path = Path(metrics_path_text)
+            metrics_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "iteration": int(iteration),
+                "issue_number": issue_number,
+                "worker_status": str(worker_result.get("status", "")).strip() or "unknown",
+                "elapsed_seconds": float(elapsed_seconds or 0.0),
+                "files_changed": files_changed,
+                "tests_run": tests_run,
+                "tests_passed": tests_passed,
+            }
+            with metrics_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True))
+                handle.write("\n")
+        except Exception as exc:
+            logger.debug("Boss metrics emission skipped: %s", exc)
+
+    def _normalized_model_rotation(self) -> list[str]:
+        seen: set[str] = set()
+        normalized: list[str] = []
+        for item in self.config.model_rotation:
+            runner_type = str(item).strip().lower()
+            if not runner_type or runner_type in seen:
+                continue
+            seen.add(runner_type)
+            normalized.append(runner_type)
+        return normalized
+
+    def _has_retryable_attempts(self) -> bool:
+        return any(
+            isinstance(issue_number, int) and attempt_count > 0
+            for issue_number, attempt_count in self._issue_attempt_counts.items()
+        )
+
+    def _requested_runner_type_for_freshness(self) -> str | None:
+        # Once retries are in play, keep the freshness pool broad enough that
+        # dispatch can rotate to the next runner type instead of reusing the
+        # original default forever.
+        if self._has_retryable_attempts() and len(self._normalized_model_rotation()) > 1:
+            return None
+        return self.config.default_target_agent
+
+    def _requested_target_agent_for_issue(self, issue_number: int) -> str | None:
+        attempt_count = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+        default_target = str(self.config.default_target_agent or "").strip().lower() or None
+        if attempt_count <= 1:
+            return default_target
+
+        rotation = self._normalized_model_rotation()
+        if not rotation:
+            return default_target
+        if default_target and default_target in rotation:
+            base_index = rotation.index(default_target)
+            return rotation[(base_index + attempt_count - 1) % len(rotation)]
+        if default_target:
+            return rotation[(attempt_count - 2) % len(rotation)]
+        return rotation[(attempt_count - 2) % len(rotation)]
+
+    def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
+        reasons = [
+            f"Target issue #{issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
+        ]
+        next_actions = [
+            f"Verify issue #{issue_number} is still open, eligible, and has not exceeded retry limits.",
+            "Remove --boss-issue-number to return to feed-driven selection.",
+        ]
+        fetch_issue = getattr(self._feed, "_fetch_issue", None)
+        if not callable(fetch_issue):
+            return reasons, next_actions
+        try:
+            issue = fetch_issue(issue_number, allow_closed=True)
+        except TypeError:
+            try:
+                issue = fetch_issue(issue_number)
+            except Exception:
+                return reasons, next_actions
+        except Exception:
+            return reasons, next_actions
+        if not isinstance(issue, GitHubIssue):
+            return reasons, next_actions
+
+        state = str(issue.state or "").strip().lower()
+        if state and state != "open":
+            return (
+                [
+                    f"Target issue #{issue_number} is {state} and cannot be selected by the open-issue boss feed."
+                ],
+                [
+                    f"Reopen issue #{issue_number} if it should be eligible for Boss dispatch.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ],
+            )
+
+        labels = {str(label).strip() for label in issue.labels if str(label).strip()}
+        skipped = sorted(labels & set(self.config.skip_labels or set()))
+        if skipped:
+            return (
+                [f"Target issue #{issue_number} is excluded by skip labels: {', '.join(skipped)}."],
+                [
+                    f"Remove skip labels from issue #{issue_number} or adjust --label-filter/skip-label settings.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ],
+            )
+
+        required = set(self.config.require_labels or set())
+        missing_labels = sorted(required - labels)
+        if missing_labels:
+            return (
+                [
+                    f"Target issue #{issue_number} is missing required labels: {', '.join(missing_labels)}."
+                ],
+                [
+                    f"Add the required labels to issue #{issue_number} or adjust --require-label settings.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ],
+            )
+
+        if not issue.title:
+            return (
+                [f"Target issue #{issue_number} is missing a title and cannot be selected."],
+                [
+                    f"Add a non-empty title to issue #{issue_number}.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ],
+            )
+        return reasons, next_actions
 
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
         try:
@@ -1045,14 +1311,77 @@ class BossLoop:
         except Exception as exc:
             logger.debug("Boss loop operational receipt skipped: %s", exc)
 
+    def _log_value_outcome(
+        self,
+        issue_dict: dict[str, Any],
+        worker_status: str,
+        elapsed_seconds: float,
+    ) -> None:
+        """Log outcome for value-per-cost calibration and cross-loop signals."""
+        issue_num = issue_dict.get("number", 0)
+        try:
+            from aragora.swarm.value_estimator import OutcomeRecord, log_outcome
+
+            log_outcome(
+                OutcomeRecord(
+                    issue_number=issue_num,
+                    predicted_score=0.0,
+                    predicted_p_success=0.0,
+                    did_merge=worker_status == "completed",
+                    needed_human_rescue=worker_status == "needs_human",
+                    actual_minutes=elapsed_seconds / 60.0,
+                    worker_status=worker_status,
+                )
+            )
+        except Exception as exc:
+            logger.debug("Value outcome logging skipped: %s", exc)
+
+        # Emit cross-loop outcome signal
+        try:
+            from aragora.swarm.outcome_signals import OutcomeSignal, get_signal_bus
+
+            get_signal_bus().emit(
+                OutcomeSignal(
+                    source_loop="boss",
+                    signal_type="completed" if worker_status == "completed" else "failed",
+                    entity_id=str(issue_num),
+                    entity_title=issue_dict.get("title", ""),
+                    elapsed_seconds=elapsed_seconds,
+                    did_merge=worker_status == "completed",
+                    needed_human_rescue=worker_status == "needs_human",
+                    failure_reason=worker_status if worker_status != "completed" else "",
+                )
+            )
+        except Exception as exc:
+            logger.debug("Outcome signal emission skipped: %s", exc)
+
     def _emit_lane_receipt(
         self,
         worker_result: dict[str, Any],
         issue_dict: dict[str, Any],
         elapsed: float,
-    ) -> None:
+    ) -> str | None:
         try:
             from aragora.receipts.lane import LaneCompletionReceipt, emit_lane_receipt
+
+            terminal_outcome = str(worker_result.get("outcome", "")).strip().lower()
+            deliverable = worker_result.get("deliverable")
+            deliverable_present = isinstance(deliverable, dict) and bool(deliverable)
+            if terminal_outcome in {"deliverable_created", "pr_adopted"}:
+                receipt_outcome = "pass"
+            elif deliverable_present and terminal_outcome in {"crash", "timeout"}:
+                receipt_outcome = "blocked"
+            elif terminal_outcome in {
+                "needs_human",
+                "blocked",
+                "clean_exit_no_deliverable",
+                "preview_only",
+            }:
+                receipt_outcome = "blocked"
+            elif terminal_outcome in {"crash", "timeout"}:
+                receipt_outcome = "fail"
+            else:
+                receipt_outcome = "unknown"
 
             receipt = LaneCompletionReceipt(
                 task_id=str(issue_dict.get("number", "")),
@@ -1062,17 +1391,97 @@ class BossLoop:
                 head_sha=worker_result.get("head_sha"),
                 changed_files=list(worker_result.get("changed_files", [])),
                 validations_run=list(worker_result.get("validations_run", [])),
-                outcome="pass",
+                outcome=receipt_outcome,
                 risks=list(worker_result.get("risks", [])),
                 pr_url=worker_result.get("pr_url"),
                 pr_number=worker_result.get("pr_number"),
                 branch=worker_result.get("branch"),
                 duration_seconds=elapsed,
-                metadata=dict(worker_result.get("receipt_metadata") or {}),
+                metadata={
+                    **dict(worker_result.get("receipt_metadata") or {}),
+                    "terminal_outcome": terminal_outcome or None,
+                    "worker_receipt_id": worker_result.get("receipt_id"),
+                    "blocked_reasons": list(worker_result.get("reasons", [])),
+                },
             )
-            emit_lane_receipt(receipt)
+            receipt_id = emit_lane_receipt(receipt)
+            self._record_lane_telemetry(worker_result, issue_dict, elapsed, receipt_id)
+            return receipt_id
         except Exception as exc:
             logger.debug("Lane receipt emission skipped: %s", exc)
+            self._record_lane_telemetry(worker_result, issue_dict, elapsed, None)
+            return None
+
+    def _record_lane_telemetry(
+        self,
+        worker_result: dict[str, Any],
+        issue_dict: dict[str, Any],
+        elapsed: float,
+        lane_receipt_id: str | None,
+    ) -> None:
+        terminal_outcome = str(worker_result.get("outcome", "")).strip().lower()
+        deliverable = worker_result.get("deliverable")
+        deliverable_type = ""
+        pr_url = ""
+        pr_number: int | None = None
+        if isinstance(deliverable, dict):
+            deliverable_type = str(deliverable.get("type", "")).strip()
+            pr_url = str(
+                deliverable.get("pr_url")
+                or worker_result.get("pr_url")
+                or deliverable.get("adopted_pr")
+                or ""
+            ).strip()
+        if isinstance(worker_result.get("pr_number"), int):
+            pr_number = int(worker_result["pr_number"])
+        if not terminal_outcome:
+            terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
+                worker_result
+            )
+            if normalized_deliverable_type:
+                deliverable_type = normalized_deliverable_type
+            if not terminal_outcome:
+                terminal_outcome = "unknown"
+        receipt_id = str(lane_receipt_id or worker_result.get("receipt_id") or "").strip()
+        false_success_candidate = (
+            terminal_outcome
+            in {
+                "deliverable_created",
+                "pr_adopted",
+            }
+            and not deliverable_type
+        )
+        try:
+            _LANE_TELEMETRY.record_lane(
+                LaneTelemetryRecord(
+                    lane_kind="boss_dispatch",
+                    lane_id=str(
+                        worker_result.get("run_id")
+                        or worker_result.get("lease_id")
+                        or issue_dict.get("number")
+                        or ""
+                    ).strip(),
+                    run_id=str(worker_result.get("run_id", "")).strip(),
+                    task_id=str(issue_dict.get("number", "")).strip(),
+                    terminal_outcome=terminal_outcome,
+                    worker_outcome=str(worker_result.get("worker_outcome", "")).strip(),
+                    deliverable_type=deliverable_type,
+                    receipt_id=receipt_id,
+                    human_intervention_required=terminal_outcome
+                    not in {"deliverable_created", "pr_adopted", "preview_only"},
+                    duration_seconds=float(elapsed or 0.0),
+                    pr_url=pr_url,
+                    pr_number=pr_number,
+                    false_success_candidate=false_success_candidate,
+                    metadata={
+                        "issue_title": str(issue_dict.get("title", "")).strip() or None,
+                        "worker_status": str(worker_result.get("status", "")).strip() or None,
+                        "reasons": list(worker_result.get("reasons", []) or []),
+                    },
+                )
+            )
+        except Exception:
+            logger.debug("Boss lane telemetry emission skipped", exc_info=True)
 
     async def run(
         self,
@@ -1168,7 +1577,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self.config.default_target_agent,
+            requested_runner_type=self._requested_runner_type_for_freshness(),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )
@@ -1242,17 +1651,14 @@ class BossLoop:
                 candidate_issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                use_value_ranking=self.config.use_value_ranking,
             )
 
         if selected is None:
             if self.config.issue_number is not None:
-                needs_human_reasons = [
-                    f"Target issue #{self.config.issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
-                ]
-                next_actions = [
-                    f"Verify issue #{self.config.issue_number} is still open, eligible, and has not exceeded retry limits.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ]
+                needs_human_reasons, next_actions = self._target_issue_miss_guidance(
+                    self.config.issue_number
+                )
             else:
                 needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
                 next_actions = [
@@ -1300,7 +1706,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self.config.default_target_agent,
+            requested_runner_type=self._requested_runner_type_for_freshness(),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )
@@ -1364,13 +1770,9 @@ class BossLoop:
 
         if not selected_issues:
             if self.config.issue_number is not None:
-                needs_human_reasons = [
-                    f"Target issue #{self.config.issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
-                ]
-                next_actions = [
-                    f"Verify issue #{self.config.issue_number} is still open, eligible, and has not exceeded retry limits.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ]
+                needs_human_reasons, next_actions = self._target_issue_miss_guidance(
+                    self.config.issue_number
+                )
             else:
                 needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
                 next_actions = [
@@ -1532,6 +1934,8 @@ class BossLoop:
         worker_result: dict[str, Any],
         elapsed_seconds: float,
     ) -> BossIterationStatus:
+        issue_number = int(issue.number)
+
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0
             worker_run_id = str(worker_result.get("run_id", "")).strip()
@@ -1547,6 +1951,12 @@ class BossLoop:
                 ),
                 "Inspect the active supervisor run before starting another live boss-loop tick.",
             ]
+            self._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue_number,
+                worker_result=worker_result,
+                elapsed_seconds=elapsed_seconds,
+            )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1565,6 +1975,13 @@ class BossLoop:
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
+            self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
+            self._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue_number,
+                worker_result=worker_result,
+                elapsed_seconds=elapsed_seconds,
+            )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1580,13 +1997,19 @@ class BossLoop:
 
         if worker_result.get("status") == "needs_human":
             has_deliverable = bool(worker_result.get("deliverable"))
+            self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             if self.config.auto_continue_on_needs_human and has_deliverable:
-                self._completed_issues.append(issue_dict)
+                self._failed_issues.append(issue_dict)
                 self._consecutive_failures = 0
-                self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
                 logger.info(
-                    "boss_loop_auto_continue issue=#%s (needs_human with deliverable → treating as completed)",
+                    "boss_loop_auto_continue issue=#%s (recoverable deliverable still blocked)",
                     issue_dict.get("number", "?"),
+                )
+                self._append_iteration_metrics(
+                    iteration=iteration,
+                    issue_number=issue_number,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed_seconds,
                 )
                 return BossIterationStatus(
                     iteration=iteration,
@@ -1594,13 +2017,20 @@ class BossLoop:
                     timestamp=timestamp,
                     runner_freshness=runner_freshness,
                     selected_issue=issue_dict,
-                    worker_status="completed",
+                    worker_status="needs_human",
                     stop_reason=None,
-                    needs_human_reasons=[],
-                    next_actions=["Auto-continuing: deliverable created, review can happen async."],
+                    needs_human_reasons=worker_result.get(
+                        "reasons",
+                        ["Recovered deliverable requires human review before integration."],
+                    ),
+                    next_actions=[
+                        "Auto-continuing: recovered deliverable is receipt-backed but still blocked on human review."
+                    ],
                     elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
             self._failed_issues.append(issue_dict)
+            self._log_value_outcome(issue_dict, "needs_human", elapsed_seconds)
 
             # Fix-forward: if verification failed and we haven't exhausted
             # repair attempts, re-dispatch with a targeted repair prompt
@@ -1628,6 +2058,12 @@ class BossLoop:
                     self.config.max_repair_attempts,
                 )
                 # Don't count as consecutive failure — we're actively repairing
+                self._append_iteration_metrics(
+                    iteration=iteration,
+                    issue_number=issue_number,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed_seconds,
+                )
                 return BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
@@ -1642,6 +2078,7 @@ class BossLoop:
                         f"for issue #{issue_num} — fixing verification failures."
                     ],
                     elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
 
             if self.config.auto_continue_on_needs_human:
@@ -1649,6 +2086,12 @@ class BossLoop:
                 logger.warning(
                     "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
                     issue_dict.get("number", "?"),
+                )
+                self._append_iteration_metrics(
+                    iteration=iteration,
+                    issue_number=issue_number,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed_seconds,
                 )
                 return BossIterationStatus(
                     iteration=iteration,
@@ -1663,12 +2106,19 @@ class BossLoop:
                     ),
                     next_actions=["Skipping to next issue (auto-continue mode)."],
                     elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
             next_actions = [
                 str(item).strip()
                 for item in worker_result.get("next_actions", [])
                 if str(item).strip()
             ] or ["Review the worker output and decide next steps."]
+            self._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue_number,
+                worker_result=worker_result,
+                elapsed_seconds=elapsed_seconds,
+            )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1680,11 +2130,19 @@ class BossLoop:
                 needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
                 next_actions=next_actions,
                 elapsed_seconds=elapsed_seconds,
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
 
         self._failed_issues.append(issue_dict)
         self._consecutive_failures += 1
+        self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
         if self._consecutive_failures >= self.config.max_consecutive_failures:
+            self._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue_number,
+                worker_result=worker_result,
+                elapsed_seconds=elapsed_seconds,
+            )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1702,8 +2160,15 @@ class BossLoop:
                 ],
                 elapsed_seconds=elapsed_seconds,
                 error=worker_result.get("error"),
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
 
+        self._append_iteration_metrics(
+            iteration=iteration,
+            issue_number=issue_number,
+            worker_result=worker_result,
+            elapsed_seconds=elapsed_seconds,
+        )
         return BossIterationStatus(
             iteration=iteration,
             run_id=self.run_id,
@@ -1720,6 +2185,7 @@ class BossLoop:
             ],
             elapsed_seconds=elapsed_seconds,
             error=worker_result.get("error"),
+            worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
         )
 
     async def _dispatch_issue(
@@ -1733,10 +2199,42 @@ class BossLoop:
         """
         from aragora.swarm.spec import SwarmSpec
 
+        # Refine the prompt with codebase context before dispatch
         goal = f"[Issue #{issue.number}] {issue.title}"
-        body_context = issue.body[:500] if issue.body else ""
+        body_context = issue.body[:2000] if issue.body else ""
         if body_context:
             goal = f"{goal}\n\n{body_context}"
+        # Ensure workers always commit — this is the #1 reason for needs_human failures
+        goal += (
+            "\n\n## CRITICAL: You MUST commit your changes\n"
+            "After making changes, run:\n"
+            "```\ngit add -A && git commit -m 'fix: description of changes'\n```\n"
+            "If you do not commit, your work will be lost."
+        )
+
+        try:
+            from aragora.swarm.prompt_refiner import (
+                build_refinement_worker_env,
+                refine_worker_prompt,
+            )
+
+            refinement = await refine_worker_prompt(
+                issue.title,
+                issue.body or "",
+                repo_path=Path.cwd(),
+            )
+            refinement_worker_env = build_refinement_worker_env(refinement)
+            if refinement.get("context_gathered"):
+                goal = refinement["refined_prompt"]
+                logger.info(
+                    "Refined prompt for #%s: %d relevant files, %d test patterns",
+                    issue.number,
+                    len(refinement.get("files_to_change", [])),
+                    len(refinement.get("test_patterns", [])),
+                )
+        except Exception as exc:
+            logger.debug("Prompt refinement skipped: %s", exc)
+            refinement_worker_env = {}
 
         spec = SwarmSpec.from_direct_goal(
             goal,
@@ -1748,16 +2246,17 @@ class BossLoop:
         if validation_contract and self.config.use_focused_verification:
             # Replace broad test suite commands with focused verification
             # that only tests files related to the worker's changes
+            focused_tests = discover_focused_tests(Path.cwd())
             focused = []
             for criterion in validation_contract:
                 if "pytest tests/" in criterion and "-k" not in criterion.lower():
-                    # Replace broad suite with a marker that the supervisor
-                    # will resolve to the actual changed-file test paths
-                    focused.append(
-                        "python -m pytest --timeout=30 -x -q "
-                        "$(git diff --name-only origin/main -- '*.py' "
-                        "| grep '^tests/' | head -20 | tr '\\n' ' ')"
-                    )
+                    if focused_tests:
+                        test_list = " ".join(focused_tests[:20])
+                        focused.append(f"python -m pytest --timeout=30 -x -q {test_list}")
+                    else:
+                        # No focused tests found — keep the original criterion
+                        # rather than running an empty pytest invocation
+                        focused.append(criterion)
                 else:
                     focused.append(criterion)
             spec.acceptance_criteria = focused
@@ -1792,6 +2291,7 @@ class BossLoop:
         if not self.config.dispatch_enabled:
             return {
                 "status": "needs_human",
+                "outcome": "preview_only",
                 "reasons": [
                     f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
                 ],
@@ -1801,10 +2301,18 @@ class BossLoop:
                 ],
             }
 
+        requested_target_agent = self._requested_target_agent_for_issue(issue.number)
+
         claimed_runner_id: str | None = None
-        selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(freshness)
+        selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        )
         if selected_runner is None:
-            selected_runner = self._selected_runner_for_dispatch(freshness)
+            selected_runner = self._selected_runner_for_dispatch(
+                freshness,
+                requested_target_agent=requested_target_agent,
+            )
         try:
             result = await dispatch_bounded_spec(
                 spec,
@@ -1812,13 +2320,14 @@ class BossLoop:
                 budget_limit_usd=self.config.budget_limit_usd,
                 max_ticks=360,
                 wait_for_completion=self.config.max_iterations > 1,
-                default_target_agent=self.config.default_target_agent,
+                default_target_agent=requested_target_agent,
                 default_reviewer_agent=self.config.default_reviewer_agent,
                 # The supervisor already provisions the worktree, so the session
                 # script wrapper is redundant and crashes on bash 3.2 (macOS
                 # default) due to ${VAR,,} syntax.  Matches tranche_queue.py.
                 use_managed_session_script=False,
                 selected_runner=selected_runner,
+                worker_env=refinement_worker_env or None,
             )
         finally:
             if claimed_runner_id:
@@ -1828,6 +2337,7 @@ class BossLoop:
             issue=issue,
             freshness=freshness,
             selected_runner=selected_runner,
+            requested_target_agent=requested_target_agent,
         )
         if result.get("status") == "failed":
             error = str(result.get("error", "")).strip()
@@ -1842,6 +2352,7 @@ class BossLoop:
         issue: GitHubIssue,
         freshness: RunnerFreshnessResult,
         selected_runner: dict[str, Any] | None = None,
+        requested_target_agent: str | None = None,
     ) -> dict[str, Any]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
@@ -1879,7 +2390,7 @@ class BossLoop:
 
         return {
             "issue_number": issue.number,
-            "requested_target_agent": self.config.default_target_agent,
+            "requested_target_agent": requested_target_agent,
             "requested_reviewer_agent": self.config.default_reviewer_agent,
             "actual_target_agent": actual_target_agent,
             "actual_reviewer_agent": actual_reviewer_agent,
@@ -1895,6 +2406,8 @@ class BossLoop:
     def _runner_candidates_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> list[dict[str, Any]]:
         details = freshness.details if isinstance(freshness.details, dict) else {}
         routing = details.get("routing") if isinstance(details, dict) else {}
@@ -1903,7 +2416,9 @@ class BossLoop:
         selected_runners = routing.get("selected_runners")
         if not isinstance(selected_runners, list):
             return []
-        requested = str(self.config.default_target_agent or "").strip().lower()
+        requested = (
+            str(requested_target_agent or self.config.default_target_agent or "").strip().lower()
+        )
         candidates: list[dict[str, Any]] = []
         for item in selected_runners:
             if not isinstance(item, dict):
@@ -1924,13 +2439,20 @@ class BossLoop:
     def _selected_runner_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        candidates = self._runner_candidates_for_dispatch(freshness)
+        candidates = self._runner_candidates_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        )
         return dict(candidates[0]) if candidates else None
 
     def _claim_runner_for_dispatch(
         self,
         freshness: RunnerFreshnessResult,
+        *,
+        requested_target_agent: str | None = None,
     ) -> tuple[dict[str, Any] | None, str | None]:
         from aragora.swarm.runner_registry import (
             LocalRunnerRegistry,
@@ -1943,7 +2465,10 @@ class BossLoop:
             if self.config.registry_path
             else LocalRunnerRegistry()
         )
-        for selected_runner in self._runner_candidates_for_dispatch(freshness):
+        for selected_runner in self._runner_candidates_for_dispatch(
+            freshness,
+            requested_target_agent=requested_target_agent,
+        ):
             runner_id = str(selected_runner.get("runner_id", "")).strip()
             if not runner_id:
                 continue
@@ -1978,6 +2503,14 @@ class BossLoop:
 
     def _derive_next_actions(self) -> list[str]:
         """Derive final next actions based on stop reason."""
+        if self._stop_reason in {
+            BossStopReason.NO_FRESH_RUNNER.value,
+            BossStopReason.NO_SUITABLE_ISSUE.value,
+            BossStopReason.ISSUE_FEED_ERROR.value,
+        }:
+            for status in reversed(self._iteration_statuses):
+                if status.stop_reason == self._stop_reason and status.next_actions:
+                    return list(status.next_actions)
         if self._stop_reason == BossStopReason.MAX_ITERATIONS.value:
             for status in reversed(self._iteration_statuses):
                 if status.worker_status == "running" and status.next_actions:

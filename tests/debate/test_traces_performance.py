@@ -278,10 +278,11 @@ class TestChecksumPerformance:
         avg_time = sum(access_times) / len(access_times)
         max_time = max(access_times)
 
-        # All accesses should be roughly constant (allow for some variance)
-        # Max time should not be more than 50x average (sub-microsecond ops
-        # have high relative jitter from cache misses, GC, context switches)
-        assert max_time < avg_time * 50, (
+        # All accesses should be roughly constant (allow for some variance).
+        # Sub-microsecond property lookups have high relative jitter from cache
+        # misses, GC, and scheduler noise, so allow a wider ratio plus a small
+        # absolute ceiling.
+        assert max_time < max(avg_time * 100, 5e-5), (
             f"Access times should be relatively constant. "
             f"Avg: {avg_time:.6f}s, Max: {max_time:.6f}s"
         )

@@ -17,25 +17,27 @@ from typing import Any
 from aragora.agents.base import create_agent
 from aragora.agents.errors import CLISubprocessError
 from aragora.nomic.pipeline_bridge import NomicPipelineBridge
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
 from aragora.swarm.boss_loop import (
     _extract_deliverable,
-    _classify_terminal_run_outcome,
     dispatch_bounded_spec,
 )
 from aragora.swarm.review_routing import ReviewRoutingError, generate_review_response
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import (
-    CAMPAIGN_BLOCKERS_METADATA_KEY,
     CAMPAIGN_OUTCOME_METADATA_KEY,
     CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY,
     SwarmSupervisor,
+    WorkerOutcome,
 )
+from aragora.swarm.terminal_truth import collect_run_blockers, qualify_run_terminal_state
 from aragora.swarm.worker_launcher import MAX_WORKER_LOG_TAIL_CHARS, WorkerLauncher
 
 logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
+_LANE_TELEMETRY = LaneTelemetryCollector()
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
 _BUDGET_EPSILON = 1e-9
 
@@ -1646,8 +1648,11 @@ class CampaignExecutor:
         self, manifest: CampaignManifest, project: CampaignProject, result: dict[str, Any]
     ) -> None:
         run_dict = dict(result.get("run") or {})
+        qualification = qualify_run_terminal_state(run_dict) if run_dict else None
         project.run_id = str(result.get("run_id", "")).strip() or project.run_id
         deliverable = dict(result.get("deliverable") or {})
+        if not deliverable and qualification and qualification.deliverable:
+            deliverable = dict(qualification.deliverable)
         outcome = self._resolve_dispatch_outcome(
             result,
             run_dict=run_dict,
@@ -1670,6 +1675,10 @@ class CampaignExecutor:
 
         project.retry_count += 1
         manifest.execution_state.total_cost_usd += float(project.estimated_cost_usd or 0.0)
+        deliverable_requires_review = bool(deliverable) and outcome not in {
+            CampaignRunOutcome.DELIVERABLE_CREATED.value,
+            CampaignRunOutcome.PR_ADOPTED.value,
+        }
         if outcome in {
             CampaignRunOutcome.DELIVERABLE_CREATED.value,
             CampaignRunOutcome.PR_ADOPTED.value,
@@ -1682,7 +1691,9 @@ class CampaignExecutor:
         elif outcome == CampaignRunOutcome.NEEDS_HUMAN.value:
             project.status = CampaignProjectStatus.BLOCKED.value
         elif outcome in {CampaignRunOutcome.TIMEOUT.value, CampaignRunOutcome.CRASH.value}:
-            if project.retry_count <= manifest.max_retries_per_project:
+            if deliverable_requires_review:
+                project.status = CampaignProjectStatus.BLOCKED.value
+            elif project.retry_count <= manifest.max_retries_per_project:
                 project.status = CampaignProjectStatus.NEEDS_REVISION.value
             else:
                 project.status = CampaignProjectStatus.FAILED.value
@@ -1739,14 +1750,49 @@ class CampaignExecutor:
         run_dict: dict[str, Any],
         deliverable: dict[str, Any],
     ) -> str:
-        deliverable = dict(deliverable or {})
-        if deliverable.get("type") == "adopted_pr":
-            return CampaignRunOutcome.PR_ADOPTED.value
-        if deliverable:
-            return CampaignRunOutcome.DELIVERABLE_CREATED.value
-
         metadata = dict(run_dict.get("metadata") or {})
         metadata_outcome = str(metadata.get(CAMPAIGN_OUTCOME_METADATA_KEY, "")).strip()
+        statuses = {
+            str(item.get("status", "")).strip().lower()
+            for item in run_dict.get("work_orders", [])
+            if isinstance(item, dict) and str(item.get("status", "")).strip()
+        }
+        worker_outcomes = {
+            str(item.get("worker_outcome", "")).strip().lower()
+            for item in run_dict.get("work_orders", [])
+            if isinstance(item, dict) and str(item.get("worker_outcome", "")).strip()
+        }
+        if (
+            not metadata_outcome and WorkerOutcome.TIMEOUT_NO_PROGRESS.value in worker_outcomes
+        ) or (
+            statuses & {"waiting_conflict", "waiting_resource"}
+            and not (statuses & {"queued", "leased", "dispatched"})
+        ):
+            return CampaignRunOutcome.STALLED.value
+
+        qualification = qualify_run_terminal_state(run_dict) if run_dict else None
+        if qualification and qualification.terminal_outcome != "unknown":
+            if (
+                metadata_outcome == CampaignRunOutcome.STALLED.value
+                and qualification.terminal_outcome
+                in {
+                    CampaignRunOutcome.NEEDS_HUMAN.value,
+                    CampaignRunOutcome.TIMEOUT.value,
+                }
+            ):
+                return metadata_outcome
+            if (
+                deliverable
+                and qualification.terminal_outcome
+                == CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value
+            ):
+                return (
+                    CampaignRunOutcome.PR_ADOPTED.value
+                    if str(deliverable.get("type", "")).strip() == "adopted_pr"
+                    else CampaignRunOutcome.DELIVERABLE_CREATED.value
+                )
+            return qualification.terminal_outcome
+
         if metadata_outcome:
             return metadata_outcome
 
@@ -1756,21 +1802,11 @@ class CampaignExecutor:
         if inferred_outcome:
             return inferred_outcome
 
-        if run_dict:
-            classified = _classify_terminal_run_outcome(run_dict)
-            if classified:
-                return classified
-
         return str(result.get("outcome", CampaignRunOutcome.BLOCKED.value)).strip()
 
     @staticmethod
     def _dispatch_blockers(run_dict: dict[str, Any]) -> list[str]:
-        metadata = dict(run_dict.get("metadata") or {})
-        blockers = [
-            str(item).strip()
-            for item in metadata.get(CAMPAIGN_BLOCKERS_METADATA_KEY, [])
-            if str(item).strip()
-        ]
+        blockers = collect_run_blockers(run_dict)
         if blockers:
             return blockers
         _, fallback_blockers = SwarmSupervisor._campaign_outcome_for_work_orders(
@@ -1795,6 +1831,9 @@ class CampaignExecutor:
 
     @staticmethod
     def _run_requeue_eligible(run_dict: dict[str, Any], outcome: str) -> bool:
+        qualification = qualify_run_terminal_state(run_dict) if run_dict else None
+        if qualification and qualification.deliverable is not None:
+            return False
         metadata = dict(run_dict.get("metadata") or {})
         if CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY in metadata:
             return bool(metadata.get(CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY))
@@ -2151,6 +2190,81 @@ class CampaignExecutor:
             tmp_path.replace(receipt_path)
 
             project.receipt_id = str(receipt_path.relative_to(self.repo_root))
+            qualification = qualify_run_terminal_state(run_dict) if run_dict else None
+            deliverable_type = ""
+            pr_reference = str(project.pr_url or project.adopted_pr or "").strip()
+            if qualification and qualification.deliverable_type:
+                deliverable_type = qualification.deliverable_type
+                pr_reference = (
+                    str(
+                        qualification.deliverable.get("pr_url")
+                        if isinstance(qualification.deliverable, dict)
+                        else ""
+                    ).strip()
+                    or pr_reference
+                )
+            elif project.adopted_pr:
+                deliverable_type = "adopted_pr"
+            elif project.pr_url:
+                deliverable_type = "pr"
+            elif worker_branches and worker_commits:
+                deliverable_type = "branch"
+            terminal_outcome = str(project.last_run_outcome or "").strip()
+            if not terminal_outcome and qualification is not None:
+                terminal_outcome = str(qualification.terminal_outcome or "").strip()
+            if not terminal_outcome:
+                if deliverable_type == "adopted_pr":
+                    terminal_outcome = CampaignRunOutcome.PR_ADOPTED.value
+                elif deliverable_type in {"pr", "branch"}:
+                    terminal_outcome = CampaignRunOutcome.DELIVERABLE_CREATED.value
+                elif project.status == CampaignProjectStatus.STALLED.value:
+                    terminal_outcome = CampaignRunOutcome.STALLED.value
+                elif project.status == CampaignProjectStatus.BLOCKED.value:
+                    terminal_outcome = CampaignRunOutcome.BLOCKED.value
+                elif project.status == CampaignProjectStatus.FAILED.value:
+                    terminal_outcome = CampaignRunOutcome.CRASH.value
+                elif project.status == CampaignProjectStatus.COMPLETED.value:
+                    terminal_outcome = CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value
+                else:
+                    terminal_outcome = "unknown"
+            false_success_candidate = (
+                terminal_outcome
+                in {
+                    CampaignRunOutcome.DELIVERABLE_CREATED.value,
+                    CampaignRunOutcome.PR_ADOPTED.value,
+                }
+                and not deliverable_type
+            )
+            try:
+                _LANE_TELEMETRY.record_lane(
+                    LaneTelemetryRecord(
+                        lane_kind="campaign_project",
+                        lane_id=f"{manifest.campaign_id}:{project.project_id}",
+                        run_id=str(project.run_id or ""),
+                        task_id=project.project_id,
+                        project_id=project.project_id,
+                        terminal_outcome=terminal_outcome,
+                        worker_outcome=str(
+                            qualification.worker_outcome if qualification else ""
+                        ).strip(),
+                        deliverable_type=deliverable_type,
+                        receipt_id=str(project.receipt_id or ""),
+                        human_intervention_required=project.status
+                        != CampaignProjectStatus.COMPLETED.value,
+                        duration_seconds=float(payload.get("duration_seconds") or 0.0),
+                        pr_url=pr_reference,
+                        pr_number=SwarmSupervisor._extract_pr_number(pr_reference),
+                        false_success_candidate=false_success_candidate,
+                        metadata={
+                            "campaign_id": manifest.campaign_id,
+                            "project_status": project.status,
+                            "worker_receipt_id": project.worker_receipt_id,
+                            "review_status": project.review.status,
+                        },
+                    )
+                )
+            except Exception:
+                logger.debug("Campaign lane telemetry emission skipped", exc_info=True)
             logger.info(
                 "receipt_emitted: project=%s status=%s path=%s",
                 project.project_id,
