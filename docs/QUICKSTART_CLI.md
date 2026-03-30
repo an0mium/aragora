@@ -47,6 +47,13 @@ Use demo mode when you want an offline, no-key first run:
 aragora quickstart --demo --no-browser
 ```
 
+If you want machine-readable terminal output without changing the saved receipt file, add
+`--json`:
+
+```bash
+aragora quickstart --demo --json --no-browser
+```
+
 If you omit `--question` in demo mode, quickstart uses a built-in sample question.
 
 Expected behavior:
@@ -54,6 +61,8 @@ Expected behavior:
 - The terminal reports `Run mode: demo`
 - The debate uses local mock agents
 - A saved artifact is written to `.aragora/receipts/quickstart-demo-receipt.json` by default
+- The saved artifact is still a receipt-shaped JSON file, so `aragora receipt inspect ...`
+  and `aragora receipt verify ...` work on demo runs too
 
 ## Live Run
 
@@ -94,6 +103,9 @@ Inspect or verify that saved receipt with the existing receipt tooling:
 aragora receipt inspect .aragora/receipts/quickstart-live-receipt.json
 aragora receipt verify .aragora/receipts/quickstart-live-receipt.json
 ```
+
+When `--json` is enabled, quickstart prints a structured run summary to stdout, but the
+file saved to `.aragora/receipts/...` remains the durable receipt artifact.
 
 If no supported API keys are detected and you did not pass `--demo`, quickstart says it is falling back to demo mode and the saved artifact will reflect `mode: "demo"`.
 

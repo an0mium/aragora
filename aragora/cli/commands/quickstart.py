@@ -403,6 +403,13 @@ def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[
     return payload
 
 
+def _attach_legacy_checksum(payload: dict[str, Any]) -> None:
+    """Populate the legacy checksum used by ``aragora verify``."""
+    from aragora.cli.commands.verify import _recompute_checksum
+
+    payload["checksum"] = _recompute_checksum(payload)
+
+
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
     output_path = Path(path)
@@ -463,8 +470,13 @@ def _open_receipt_in_browser(
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
+    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+
     agent_names = ["analyst", "critic", "synthesizer"]
     receipt_id = _derive_receipt_id(mode="demo", question=question, rounds=rounds)
+    timestamp = datetime.now(timezone.utc).isoformat()
+    input_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()
+    confidence = 0.85
     summary = (
         f"Demo synthesis for: {question}\n\n"
         "- Combine a minimal baseline with explicit risk guardrails.\n"
@@ -472,27 +484,75 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
         "- Ship in phases and revisit assumptions after initial data.\n\n"
         "Decision: Proceed with a phased rollout and explicit success metrics."
     )
-
-    return {
-        "question": question,
-        "receipt_id": receipt_id,
-        "verdict": "consensus",
-        "confidence": 0.85,
-        "rounds": rounds,
-        "agents": agent_names,
-        "summary": summary,
-        "dissent": [],
-        "votes": [],
-        "consensus": True,
-        "consensus_reached": True,
-        "receipt": {
-            "id": receipt_id,
-            "confidence": 0.85,
+    receipt = DecisionReceipt(
+        receipt_id=receipt_id,
+        gauntlet_id=receipt_id,
+        timestamp=timestamp,
+        input_summary=question,
+        input_hash=input_hash,
+        risk_summary={"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+        attacks_attempted=rounds * len(agent_names),
+        attacks_successful=0,
+        probes_run=0,
+        vulnerabilities_found=0,
+        verdict="PASS",
+        confidence=confidence,
+        robustness_score=confidence,
+        verdict_reasoning=summary,
+        dissenting_views=[],
+        consensus_proof=ConsensusProof(
+            reached=True,
+            confidence=confidence,
+            supporting_agents=agent_names,
+            dissenting_agents=[],
+            method="majority",
+            evidence_hash=input_hash,
+        ),
+        provenance_chain=[
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="task",
+                description=question,
+            ),
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=summary,
+            ),
+        ],
+        cost_summary={"cost_usd": 0.0, "tokens_used": 0},
+        config_used={
+            "mode": "quickstart-demo",
+            "rounds": rounds,
             "participants": agent_names,
-            "consensus_reached": True,
         },
-        "mode": "demo",
-    }
+    )
+
+    payload = receipt.to_dict()
+    payload.update(
+        {
+            "question": question,
+            "debate_id": receipt.receipt_id,
+            "rounds": rounds,
+            "agents": agent_names,
+            "summary": summary,
+            "dissent": [],
+            "votes": [],
+            "consensus": True,
+            "consensus_reached": True,
+            "receipt": {
+                "id": receipt.receipt_id,
+                "artifact_hash": receipt.artifact_hash,
+                "confidence": confidence,
+                "participants": agent_names,
+                "consensus_reached": True,
+                "timestamp": timestamp,
+            },
+            "mode": "demo",
+        }
+    )
+    _attach_legacy_checksum(payload)
+    return payload
 
 
 async def _run_live_debate(
@@ -833,6 +893,7 @@ def _build_live_receipt(
     payload.update(
         {
             "question": question,
+            "debate_id": receipt.receipt_id,
             "rounds": rounds_used,
             "agents": participants,
             "summary": final_answer,
@@ -850,6 +911,7 @@ def _build_live_receipt(
             "consensus_reached": consensus_reached,
         }
     )
+    _attach_legacy_checksum(payload)
     return payload
 
 

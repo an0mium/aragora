@@ -32,6 +32,7 @@ from aragora.cli.commands.quickstart import (
     add_quickstart_parser,
     cmd_quickstart,
 )
+from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
@@ -496,10 +497,14 @@ class TestCmdQuickstart:
         result = await _run_demo_debate("Should we ship the fallback fix?", rounds=2)
 
         assert result["mode"] == "demo"
-        assert result["verdict"] == "consensus"
+        assert result["verdict"] == "PASS"
         assert result["confidence"] == 0.85
         assert result["agents"] == ["analyst", "critic", "synthesizer"]
         assert "Demo synthesis for: Should we ship the fallback fix?" in result["summary"]
+        assert result["artifact_hash"]
+        assert result["checksum"]
+        assert result["receipt"]["artifact_hash"] == result["artifact_hash"]
+        assert result["consensus_proof"]["reached"] is True
 
     @pytest.mark.asyncio
     async def test_run_live_debate_raises_when_arena_returns_none(self):
@@ -1083,6 +1088,37 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
+
+    def test_demo_artifact_is_verifiable_with_receipt_cli(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should demo quickstart emit a real receipt?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=2,
+            no_browser=True,
+        )
+
+        cmd_quickstart(args)
+        capsys.readouterr()
+
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        saved = json.loads(artifact_path.read_text())
+        assert saved["receipt_id"].startswith("quickstart-demo-")
+        assert saved["artifact_hash"]
+        assert saved["checksum"]
+
+        with pytest.raises(SystemExit) as excinfo:
+            cmd_receipt_verify(argparse.Namespace(receipt=str(artifact_path), verbose=False))
+
+        assert excinfo.value.code == 0
+        output = capsys.readouterr().out
+        assert "Result: VALID" in output
 
     def test_live_mode_falls_back_to_demo_on_tls_failure(self, capsys):
         """TLS/provider failures should fall back to demo mode, not exit."""
