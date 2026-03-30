@@ -2580,6 +2580,94 @@ def test_refresh_run_reaps_expired_leases(repo: Path, store: DevCoordinationStor
     assert expired.lease_id not in active_lease_ids
 
 
+def test_refresh_run_salvages_finished_detached_worker_before_stale_reap(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "salvaged.txt").write_text("salvaged work\n", encoding="utf-8")
+    _run(repo, "git", "add", "salvaged.txt")
+    _run(repo, "git", "commit", "-m", "salvaged detached work")
+    salvaged_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    lease = store.claim_lease(
+        task_id="refresh-detached-salvage",
+        title="Refresh detached salvage",
+        owner_agent="codex",
+        owner_session_id="refresh-detached-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["salvaged.txt"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="refresh detached salvage",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "refresh detached salvage"},
+        work_orders=[
+            {
+                "work_order_id": "wo-refresh-detached",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "refresh-detached-session",
+                "lease_id": lease.lease_id,
+                "pid": 2147483647,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["salvaged.txt"],
+            }
+        ],
+        status="active",
+    )
+    store.update_lease_metadata(
+        lease.lease_id,
+        {
+            "supervisor_run_id": run_record["run_id"],
+            "work_order_id": "wo-refresh-detached",
+            "worker_pid": 2147483647,
+        },
+    )
+
+    detached_worker = WorkerProcess(
+        work_order_id="wo-refresh-detached",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="refresh-detached-session",
+        pid=2147483647,
+        initial_head=initial_head,
+        exit_code=0,
+        completed_at="2026-03-30T02:00:00+00:00",
+        diff="diff --git a/salvaged.txt b/salvaged.txt",
+        changed_paths=["salvaged.txt"],
+        commit_shas=[salvaged_head],
+        head_sha=salvaged_head,
+        stdout="worker stdout",
+        stderr="",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    collect_detached = AsyncMock(return_value=detached_worker)
+    with patch.object(WorkerLauncher, "collect_detached_result", new=collect_detached):
+        refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    collect_detached.assert_awaited_once()
+    assert refreshed.status == "completed"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["commit_shas"] == [salvaged_head]
+    assert work_order["head_sha"] == salvaged_head
+    assert work_order["receipt_id"]
+    assert "failure_reason" not in work_order
+    assert lease.lease_id not in {item.lease_id for item in store.list_active_leases()}
+
+
 def test_refresh_run_marks_expired_leased_work_order(
     repo: Path, store: DevCoordinationStore
 ) -> None:

@@ -7,6 +7,7 @@ SupervisorRun in the existing development coordination store.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -339,6 +340,8 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
+        self._collect_finished_detached_results_before_reap(run_id)
+
         # Reap dead-session active leases before deriving run status so
         # orphaned leased work orders do not remain "active" indefinitely.
         try:
@@ -431,6 +434,31 @@ class SwarmSupervisor:
             ),
         )
         return SupervisorRun.from_record(refreshed)
+
+    def _collect_finished_detached_results_before_reap(self, run_id: str) -> None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            # Async callers should collect detached workers explicitly before
+            # invoking refresh_run() so refresh does not need to nest an event loop.
+            return
+
+        try:
+            finished = asyncio.run(self.collect_finished_detached_results(run_id))
+            if finished:
+                logger.info(
+                    "collected %d detached worker result(s) before lease reaping for run %s",
+                    len(finished),
+                    run_id,
+                )
+        except Exception:
+            logger.debug(
+                "detached result collection failed during refresh_run for %s",
+                run_id,
+                exc_info=True,
+            )
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""
@@ -770,6 +798,13 @@ class SwarmSupervisor:
         # Fall back to detached collection for workers not in memory
         # (parent process restarted, or --dispatch-only mode)
         finished_ids = {w.work_order_id for w in finished}
+        detached_finished = await self._collect_detached_results(
+            work_orders,
+            skip_work_order_ids=finished_ids,
+        )
+        finished.extend(detached_finished)
+        finished_ids.update(worker.work_order_id for worker in detached_finished)
+
         for item in work_orders:
             woid = str(item.get("work_order_id", "")).strip()
             if str(item.get("status", "")) != "dispatched":
@@ -777,26 +812,6 @@ class SwarmSupervisor:
             if woid in finished_ids:
                 continue
             worktree_path = str(item.get("worktree_path", "")).strip()
-            if not worktree_path:
-                continue
-            result = await WorkerLauncher.collect_detached_result(
-                work_order_id=woid,
-                agent=str(item.get("target_agent", "codex")),
-                worktree_path=worktree_path,
-                branch=str(item.get("branch", "main")),
-                pid=item.get("pid"),
-                initial_head=str(item.get("initial_head", "")),
-                auto_commit=self.launcher.config.auto_commit,
-                expected_tests=[
-                    str(test).strip()
-                    for test in item.get("expected_tests", [])
-                    if str(test).strip()
-                ],
-            )
-            if result is not None:
-                finished.append(result)
-                finished_ids.add(woid)
-                continue
 
             progress = await self.launcher.snapshot_progress(item)
             observed_at = datetime.now(UTC).isoformat()
@@ -947,6 +962,93 @@ class SwarmSupervisor:
         if not finished and not changed:
             return []
 
+        self._apply_finished_workers(
+            work_orders,
+            finished,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
+            worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+        )
+        self._persist_run_work_orders(
+            run_id,
+            work_orders=work_orders,
+            metadata=metadata,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
+        )
+        return finished
+
+    async def collect_finished_detached_results(self, run_id: str) -> list[WorkerProcess]:
+        """Collect detached worker results without progress polling or stale reaping."""
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
+
+        finished = await self._collect_detached_results(work_orders)
+        if not finished:
+            return []
+
+        self._apply_finished_workers(
+            work_orders,
+            finished,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
+            worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+        )
+        self._persist_run_work_orders(
+            run_id,
+            work_orders=work_orders,
+            metadata=metadata,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
+        )
+        return finished
+
+    async def _collect_detached_results(
+        self,
+        work_orders: list[dict[str, Any]],
+        *,
+        skip_work_order_ids: set[str] | None = None,
+    ) -> list[WorkerProcess]:
+        finished: list[WorkerProcess] = []
+        skipped = skip_work_order_ids or set()
+        for item in work_orders:
+            woid = str(item.get("work_order_id", "")).strip()
+            if str(item.get("status", "")) != "dispatched" or woid in skipped:
+                continue
+            if isinstance(self.launcher.get_worker(woid), WorkerProcess):
+                continue
+            worktree_path = str(item.get("worktree_path", "")).strip()
+            if not worktree_path:
+                continue
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id=woid,
+                agent=str(item.get("target_agent", "codex")),
+                worktree_path=worktree_path,
+                branch=str(item.get("branch", "main")),
+                pid=item.get("pid"),
+                initial_head=str(item.get("initial_head", "")),
+                auto_commit=self.launcher.config.auto_commit,
+                expected_tests=[
+                    str(test).strip()
+                    for test in item.get("expected_tests", [])
+                    if str(test).strip()
+                ],
+            )
+            if result is not None:
+                finished.append(result)
+        return finished
+
+    def _apply_finished_workers(
+        self,
+        work_orders: list[dict[str, Any]],
+        finished: list[WorkerProcess],
+        *,
+        worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
+        worker_type_circuit_breaker_policy: dict[str, Any] | None = None,
+    ) -> None:
         finished_by_id = {worker.work_order_id: worker for worker in finished}
         for item in work_orders:
             worker = finished_by_id.get(str(item.get("work_order_id", "")).strip())
@@ -959,6 +1061,14 @@ class SwarmSupervisor:
                 worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
             )
 
+    def _persist_run_work_orders(
+        self,
+        run_id: str,
+        *,
+        work_orders: list[dict[str, Any]],
+        metadata: dict[str, Any],
+        worker_type_circuit_breakers: dict[str, dict[str, Any]],
+    ) -> None:
         self._record_terminal_work_order_telemetry(run_id, work_orders)
         self.store.update_supervisor_run(
             run_id,
@@ -972,7 +1082,6 @@ class SwarmSupervisor:
                 work_orders,
             ),
         )
-        return finished
 
     def _build_supervised_work_orders(self, spec: SwarmSpec) -> list[BoundedWorkOrder]:
         explicit = self._explicit_work_orders_from_spec(spec)
