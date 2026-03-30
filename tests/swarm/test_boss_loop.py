@@ -221,6 +221,53 @@ class TestSelectEligibleIssue:
         assert selected is not None
         assert selected.number == 2
 
+
+class TestPreDispatchValidationCommands:
+    def test_extract_pre_dispatch_validation_commands_filters_non_commands(self):
+        body = """
+Acceptance Criteria:
+- Dashboard query path remains bounded to aragora/analytics/dashboard.py
+- python -m pytest tests/swarm/test_boss_loop.py -q
+- `aragora quickstart --topic test --rounds 1 --json | python3 -c "import json,sys; json.load(sys.stdin)"`
+"""
+        assert extract_pre_dispatch_validation_commands(body) == [
+            "python -m pytest tests/swarm/test_boss_loop.py -q",
+            'python3 -m aragora.cli.main quickstart --topic test --rounds 1 --json | python3 -c "import json,sys; json.load(sys.stdin)"',
+        ]
+
+    def test_extract_pre_dispatch_validation_commands_normalizes_inline_acceptance(self):
+        body = """**Test:** `aragora quickstart --topic "test" --rounds 1 --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'receipt_id' in d"`
+
+**Acceptance:** `pytest tests/cli/test_quickstart.py -x -q` passes."""
+
+        assert extract_pre_dispatch_validation_commands(body) == [
+            'python3 -m aragora.cli.main quickstart --topic "test" --rounds 1 --json | '
+            "python3 -c \"import json,sys; d=json.load(sys.stdin); assert 'receipt_id' in d\"",
+            "pytest tests/cli/test_quickstart.py -x -q",
+        ]
+
+    def test_run_pre_dispatch_validation_commands_stops_on_failure(self, monkeypatch):
+        calls: list[str] = []
+
+        def _run(cmd, **kwargs):
+            calls.append(cmd)
+            result = MagicMock()
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = "failed"
+            return result
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        result = run_pre_dispatch_validation_commands(
+            ["python -m pytest tests/swarm/test_boss_loop.py -q"],
+            cwd=Path.cwd(),
+            timeout_seconds=15,
+        )
+
+        assert calls == ["python -m pytest tests/swarm/test_boss_loop.py -q"]
+        assert result["satisfied"] is False
+        assert result["results"][0]["status"] == "failed"
+
     def test_requires_labels_when_specified(self):
         issues = [
             _make_issue(1, "No label"),
