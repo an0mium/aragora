@@ -318,6 +318,16 @@ _VALIDATION_INLINE_PREFIXES = (
 )
 _VALIDATION_BULLET_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(?:\[(?: |x|X)\]\s*)?(?P<text>.+?)\s*$")
 _MARKDOWN_BOLD_RE = re.compile(r"\*\*(?P<text>.+?)\*\*")
+_PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
+    "pytest ",
+    "python -m pytest",
+    "python3 -m pytest",
+    "uv run pytest",
+    "uv run python -m pytest",
+    "aragora ",
+    "python -m aragora",
+    "python3 -m aragora",
+)
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -397,6 +407,69 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
         criteria.append(stripped)
 
     return _ordered_unique_strings(criteria)
+
+
+def extract_pre_dispatch_validation_commands(issue_body: str) -> list[str]:
+    """Return explicit validation commands that are safe to probe before dispatch."""
+    commands: list[str] = []
+    for item in extract_issue_validation_contract(issue_body):
+        normalized = str(item).strip().strip("`").strip()
+        if not normalized:
+            continue
+        if any(normalized.startswith(prefix) for prefix in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES):
+            commands.append(normalized)
+    return _ordered_unique_strings(commands)
+
+
+def run_pre_dispatch_validation_commands(
+    commands: list[str],
+    *,
+    cwd: Path,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    """Execute bounded validation commands locally before spawning a worker lane."""
+    results: list[dict[str, Any]] = []
+    timeout = max(1, int(timeout_seconds))
+    for command in commands:
+        try:
+            proc = subprocess.run(
+                command,
+                shell=True,
+                executable="/bin/bash",
+                cwd=str(cwd),
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            results.append(
+                {
+                    "command": command,
+                    "status": "timeout",
+                }
+            )
+            return {"satisfied": False, "results": results}
+        except (FileNotFoundError, OSError) as exc:
+            results.append(
+                {
+                    "command": command,
+                    "status": "error",
+                    "detail": str(exc),
+                }
+            )
+            return {"satisfied": False, "results": results}
+
+        results.append(
+            {
+                "command": command,
+                "status": "passed" if proc.returncode == 0 else "failed",
+                "returncode": proc.returncode,
+            }
+        )
+        if proc.returncode != 0:
+            return {"satisfied": False, "results": results}
+    return {"satisfied": True, "results": results}
 
 
 # ---------------------------------------------------------------------------
@@ -818,6 +891,8 @@ class BossLoopConfig:
     skip_labels: set[str] = field(default_factory=lambda: {"wontfix", "duplicate", "invalid"})
     require_labels: set[str] | None = None
     require_validation_contract: bool = True
+    enable_pre_dispatch_satisfaction_check: bool = True
+    pre_dispatch_validation_timeout_seconds: float = 45.0
 
     # Retry / self-correction
     max_consecutive_failures: int = 3
@@ -1830,6 +1905,11 @@ class BossLoop:
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
+            next_actions = [
+                str(item).strip()
+                for item in worker_result.get("next_actions", [])
+                if str(item).strip()
+            ] or ["Proceeding to next issue."]
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -1839,8 +1919,9 @@ class BossLoop:
                 worker_status="completed",
                 stop_reason=None,
                 needs_human_reasons=[],
-                next_actions=["Proceeding to next issue."],
+                next_actions=next_actions,
                 elapsed_seconds=elapsed_seconds,
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
 
         if worker_result.get("status") == "needs_human":
@@ -2050,6 +2131,27 @@ class BossLoop:
             user_expertise="developer",
         )
         validation_contract = extract_issue_validation_contract(issue.body)
+        if self.config.enable_pre_dispatch_satisfaction_check:
+            pre_dispatch_commands = extract_pre_dispatch_validation_commands(issue.body)
+            if pre_dispatch_commands:
+                probe = run_pre_dispatch_validation_commands(
+                    pre_dispatch_commands,
+                    cwd=Path.cwd(),
+                    timeout_seconds=self.config.pre_dispatch_validation_timeout_seconds,
+                )
+                if probe.get("satisfied"):
+                    return {
+                        "status": "completed",
+                        "outcome": "already_satisfied",
+                        "validations_run": pre_dispatch_commands,
+                        "next_actions": [
+                            (
+                                f"Issue #{issue.number} already satisfies its explicit validation "
+                                "contract on the current branch."
+                            ),
+                            "Close, relabel, or remove the stale boss-ready issue before the next tick.",
+                        ],
+                    }
         if validation_contract and self.config.use_focused_verification:
             # Replace broad test suite commands with focused verification
             # that only tests files related to the worker's changes
