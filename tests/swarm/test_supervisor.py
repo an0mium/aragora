@@ -2642,6 +2642,80 @@ def test_refresh_run_marks_expired_leased_work_order(
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
 
 
+def test_refresh_run_salvages_completed_detached_worker_before_stale_reap(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="detached-worker",
+        agent="codex",
+        branch="main",
+        path=repo,
+        created=False,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="detached-lane",
+                title="Detached work",
+                description="Recover detached work before stale reaping.",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "README.md").write_text("hello\nsalvaged work\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "salvage detached work")
+
+    record = store.get_supervisor_run(run.run_id)
+    assert record is not None
+    work_order = dict(record["work_orders"][0])
+    lease_id = str(work_order["lease_id"])
+    pid = 424242
+    work_order.update(
+        {
+            "status": "dispatched",
+            "pid": pid,
+            "initial_head": initial_head,
+        }
+    )
+    store.update_supervisor_run(run.run_id, status="active", work_orders=[work_order])
+    store.update_lease_metadata(lease_id, {"worker_pid": pid})
+
+    with (
+        patch("os.kill", side_effect=ProcessLookupError),
+        patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+    ):
+        refreshed = supervisor.refresh_run(run.run_id)
+
+    assert refreshed.status == "completed"
+    updated_work_order = refreshed.work_orders[0]
+    assert updated_work_order["status"] == "completed"
+    assert updated_work_order["worker_outcome"] == "crash_with_salvage"
+    assert updated_work_order["failure_reason"] != "stale_lease_reaped"
+    assert updated_work_order["commit_shas"]
+    assert updated_work_order["receipt_id"]
+    assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+
+
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
     """refresh_run should not leave dead leased work orders active forever."""
     lifecycle = MagicMock()

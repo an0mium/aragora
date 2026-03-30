@@ -451,10 +451,27 @@ class SwarmSupervisor:
         """
         import asyncio
 
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            logger.debug(
+                "Skipping sync detached-result collection for %s inside running event loop",
+                run_id,
+            )
+            return
+
         record = self.store.get_supervisor_run(run_id)
         if record is None:
             return
-        work_orders = record.get("work_orders", [])
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
+        finished: list[WorkerProcess] = []
+
         for item in work_orders:
             if str(item.get("status", "")) != "dispatched":
                 continue
@@ -485,25 +502,60 @@ class SwarmSupervisor:
                         branch=branch,
                         pid=int(pid),
                         initial_head=initial_head,
-                        auto_commit=True,
+                        auto_commit=self.launcher.config.auto_commit,
+                        expected_tests=[
+                            str(test).strip()
+                            for test in item.get("expected_tests", [])
+                            if str(test).strip()
+                        ],
                     )
                 )
-                if result is not None and result.commit_shas:
-                    logger.info(
-                        "Pre-reap collection: salvaged %d commits from %s",
-                        len(result.commit_shas),
-                        item.get("work_order_id"),
-                    )
-                    item["commit_shas"] = list(result.commit_shas)
-                    item["head_sha"] = result.head_sha or ""
-                    item["changed_paths"] = list(result.changed_paths or [])
-                    self.store.update_supervisor_run(run_id, record)
+                if result is None:
+                    continue
+                if result.commit_shas:
+                    item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
+                finished.append(result)
+                logger.info(
+                    "Pre-reap collection: collected detached result for %s (exit=%s commits=%d)",
+                    item.get("work_order_id"),
+                    result.exit_code,
+                    len(result.commit_shas),
+                )
             except Exception:
                 logger.debug(
                     "Pre-reap collection failed for %s",
                     item.get("work_order_id"),
                     exc_info=True,
                 )
+
+        if not finished:
+            return
+
+        finished_by_id = {worker.work_order_id: worker for worker in finished}
+        for item in work_orders:
+            worker = finished_by_id.get(str(item.get("work_order_id", "")).strip())
+            if worker is None:
+                continue
+            self._apply_worker_result(
+                item,
+                worker,
+                worker_type_circuit_breakers=worker_type_circuit_breakers,
+                worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+            )
+
+        self._record_terminal_work_order_telemetry(run_id, work_orders)
+        self.store.update_supervisor_run(
+            run_id,
+            status=self._derive_status(work_orders),
+            work_orders=work_orders,
+            metadata=self._campaign_metadata(
+                self._worker_type_circuit_breaker_metadata(
+                    metadata,
+                    worker_type_circuit_breakers,
+                ),
+                work_orders,
+            ),
+        )
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""
