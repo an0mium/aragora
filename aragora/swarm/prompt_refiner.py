@@ -19,6 +19,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+RELEVANT_FILES_ENV_VAR = "ARAGORA_RELEVANT_FILES"
+TEST_PATTERNS_ENV_VAR = "ARAGORA_TEST_PATTERNS"
+
 
 async def refine_worker_prompt(
     issue_title: str,
@@ -64,6 +67,29 @@ async def refine_worker_prompt(
         logger.warning("Prompt refinement failed, using raw goal: %s", exc)
 
     return result
+
+
+def _normalized_refinement_list(values: Any) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in values if isinstance(values, list) else []:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
+
+
+def build_worker_context_env(refinement: dict[str, Any] | None) -> dict[str, str]:
+    """Translate prompt-refiner hints into subprocess env vars."""
+    payload = refinement if isinstance(refinement, dict) else {}
+    return {
+        RELEVANT_FILES_ENV_VAR: "\n".join(
+            _normalized_refinement_list(payload.get("files_to_change"))
+        ),
+        TEST_PATTERNS_ENV_VAR: "\n".join(_normalized_refinement_list(payload.get("test_patterns"))),
+    }
 
 
 def _extract_keywords(title: str) -> list[str]:

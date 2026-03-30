@@ -19,6 +19,7 @@ import re
 import subprocess
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime, timezone
@@ -891,6 +892,7 @@ async def dispatch_bounded_spec(
     default_reviewer_agent: str | None = None,
     use_managed_session_script: bool = True,
     selected_runner: dict[str, Any] | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     # Auto-detect Claude profile from environment if no runner specified
     if selected_runner is None:
@@ -925,26 +927,31 @@ async def dispatch_bounded_spec(
             budget_limit_usd=budget_limit_usd,
             require_approval=True,
         )
-        commander = SwarmCommander(config=config)
-        run = await commander.run_supervised_from_spec(
-            spec,
-            repo_path=repo_path,
-            target_branch=target_branch,
-            max_concurrency=1,
-            approval_policy=SwarmApprovalPolicy(
-                require_merge_approval=True,
-                require_external_action_approval=True,
-            ),
-            dispatch=True,
-            wait=wait_for_completion,
-            interval_seconds=5.0,
-            max_ticks=max_ticks,
-            force_collect_on_max_ticks=True,
-            default_target_agent=default_target_agent,
-            default_reviewer_agent=default_reviewer_agent,
-            use_managed_session_script=use_managed_session_script,
-            default_target_runner=selected_runner,
-        )
+        dispatch_env = {
+            str(key).strip(): str(value) for key, value in (env or {}).items() if str(key).strip()
+        }
+        setattr(config, "worker_env", dict(dispatch_env))
+        with _patched_environ(dispatch_env):
+            commander = SwarmCommander(config=config)
+            run = await commander.run_supervised_from_spec(
+                spec,
+                repo_path=repo_path,
+                target_branch=target_branch,
+                max_concurrency=1,
+                approval_policy=SwarmApprovalPolicy(
+                    require_merge_approval=True,
+                    require_external_action_approval=True,
+                ),
+                dispatch=True,
+                wait=wait_for_completion,
+                interval_seconds=5.0,
+                max_ticks=max_ticks,
+                force_collect_on_max_ticks=True,
+                default_target_agent=default_target_agent,
+                default_reviewer_agent=default_reviewer_agent,
+                use_managed_session_script=use_managed_session_script,
+                default_target_runner=selected_runner,
+            )
         run_dict = run.to_dict()
         run_status = str(run_dict.get("status", "")).strip().lower()
         if not wait_for_completion and run_status not in {"completed", "needs_human"}:
@@ -1030,6 +1037,27 @@ def _first_receipt_id_from_run(run_dict: dict[str, Any]) -> str | None:
         if receipt_id:
             return receipt_id
     return None
+
+
+@contextmanager
+def _patched_environ(overrides: dict[str, str] | None):
+    normalized = {
+        str(key).strip(): str(value) for key, value in (overrides or {}).items() if str(key).strip()
+    }
+    if not normalized:
+        yield
+        return
+
+    previous = {key: os.environ.get(key) for key in normalized}
+    try:
+        os.environ.update(normalized)
+        yield
+    finally:
+        for key, old_value in previous.items():
+            if old_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old_value
 
 
 class BossLoop:
@@ -2209,15 +2237,33 @@ class BossLoop:
             "```\ngit add -A && git commit -m 'fix: description of changes'\n```\n"
             "If you do not commit, your work will be lost."
         )
+        dispatch_env = {
+            str(key).strip(): str(value)
+            for key, value in (self._env or {}).items()
+            if str(key).strip()
+        }
 
         try:
-            from aragora.swarm.prompt_refiner import refine_worker_prompt
+            from aragora.swarm.prompt_refiner import (
+                RELEVANT_FILES_ENV_VAR,
+                TEST_PATTERNS_ENV_VAR,
+                build_worker_context_env,
+                refine_worker_prompt,
+            )
+
+            dispatch_env.update(
+                {
+                    RELEVANT_FILES_ENV_VAR: "",
+                    TEST_PATTERNS_ENV_VAR: "",
+                }
+            )
 
             refinement = await refine_worker_prompt(
                 issue.title,
                 issue.body or "",
                 repo_path=Path.cwd(),
             )
+            dispatch_env.update(build_worker_context_env(refinement))
             if refinement.get("context_gathered"):
                 goal = refinement["refined_prompt"]
                 logger.info(
@@ -2320,6 +2366,7 @@ class BossLoop:
                 # default) due to ${VAR,,} syntax.  Matches tranche_queue.py.
                 use_managed_session_script=False,
                 selected_runner=selected_runner,
+                env=dispatch_env,
             )
         finally:
             if claimed_runner_id:
