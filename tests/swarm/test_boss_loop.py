@@ -26,6 +26,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.swarm.boss_loop import (
+    _should_replace_with_focused_tests,
     BossIterationStatus,
     BossLoop,
     BossLoopConfig,
@@ -40,6 +41,7 @@ from aragora.swarm.boss_loop import (
     extract_pre_dispatch_validation_commands,
     extract_issue_validation_contract,
     run_pre_dispatch_validation_commands,
+    sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
 
@@ -337,6 +339,26 @@ python -m pytest tests/swarm/test_boss_loop.py -q
             "python -m pytest tests/swarm/test_boss_loop.py -q",
         ]
 
+    def test_stops_at_scope_hints_and_restart_sections_without_colons(self):
+        body = """
+Summary text.
+
+Acceptance Criteria
+- pytest -q tests/swarm/test_boss_loop.py -k focused
+- Keep the boss loop bounded
+
+Scope hints
+- aragora/swarm/boss_loop.py
+
+Implementation Rules
+- do not include these in validation
+"""
+
+        assert extract_issue_validation_contract(body) == [
+            "pytest -q tests/swarm/test_boss_loop.py -k focused",
+            "Keep the boss loop bounded",
+        ]
+
     def test_extracts_bold_inline_test_and_acceptance_markers(self):
         body = """
 Add `--json` flag to `aragora quickstart`.
@@ -364,6 +386,40 @@ Add `--json` flag to `aragora quickstart`.
         selected = select_eligible_issue(issues)
         assert selected is not None
         assert selected.number == 2
+
+
+class TestFocusedVerificationReplacement:
+    def test_keeps_explicit_test_file_commands(self):
+        command = "python -m pytest tests/swarm/test_boss_loop.py tests/swarm/test_spec.py -q"
+        assert _should_replace_with_focused_tests(command) is False
+
+    def test_rewrites_directory_level_test_commands(self):
+        command = "python -m pytest tests/swarm/ -q"
+        assert _should_replace_with_focused_tests(command) is True
+
+
+class TestDispatchIssueNormalization:
+    def test_sanitize_issue_body_for_dispatch_keeps_context_only(self):
+        body = """
+Summary:
+- Fix the boss loop prompt pollution.
+
+Context:
+Workers should only see bounded context.
+
+Acceptance Criteria:
+- pytest -q tests/swarm/test_boss_loop.py
+
+Scope hints:
+- aragora/swarm/boss_loop.py
+"""
+
+        sanitized = sanitize_issue_body_for_dispatch(body)
+
+        assert "Fix the boss loop prompt pollution." in sanitized
+        assert "Workers should only see bounded context." in sanitized
+        assert "Acceptance Criteria" not in sanitized
+        assert "Scope hints" not in sanitized
 
 
 # ---------------------------------------------------------------------------
@@ -778,8 +834,11 @@ class TestRunnerFreshness:
 class TestBossLoop:
     def test_no_fresh_runner_stops_immediately(self):
         config = _boss_config()
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(1, "Runner blocked issue")]
         loop = BossLoop(
             config=config,
+            issue_feed=feed,
             freshness_checker=lambda **kw: _fresh_result(
                 fresh=False, blocked_reason="no_eligible_registered_runners"
             ),
@@ -1485,9 +1544,16 @@ class TestBossLoopCLI:
 
         args = self._swarm_args(json=True, max_ticks=1)
 
-        with patch(
-            "aragora.swarm.boss_loop.check_runner_freshness",
-            return_value=_fresh_result(fresh=False, blocked_reason="missing_owner_context"),
+        with (
+            patch.object(
+                GitHubIssueFeed,
+                "fetch",
+                return_value=[_make_issue(1, "Runner blocked issue")],
+            ),
+            patch(
+                "aragora.swarm.boss_loop.check_runner_freshness",
+                return_value=_fresh_result(fresh=False, blocked_reason="missing_owner_context"),
+            ),
         ):
             cmd_swarm(args)
 
@@ -1540,10 +1606,17 @@ class TestBossLoopCLI:
 
         args = self._swarm_args(json=False, max_ticks=1)
 
-        with patch(
-            "aragora.swarm.boss_loop.check_runner_freshness",
-            return_value=_fresh_result(
-                fresh=False, blocked_reason="no_eligible_registered_runners"
+        with (
+            patch.object(
+                GitHubIssueFeed,
+                "fetch",
+                return_value=[_make_issue(1, "Runner blocked issue")],
+            ),
+            patch(
+                "aragora.swarm.boss_loop.check_runner_freshness",
+                return_value=_fresh_result(
+                    fresh=False, blocked_reason="no_eligible_registered_runners"
+                ),
             ),
         ):
             cmd_swarm(args)
@@ -1828,6 +1901,158 @@ async def test_dispatch_issue_refine_exports_worker_env_to_commander() -> None:
         "ARAGORA_RELEVANT_FILES": os.pathsep.join(refinement["files_to_change"]),
         "ARAGORA_TEST_PATTERNS": os.pathsep.join(refinement["test_patterns"]),
     }
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_builds_clean_spec_from_issue_body() -> None:
+    issue = _make_issue(
+        1733,
+        "Tighten supervisor merge gate",
+        body=(
+            "Summary:\n"
+            "- Use a clean worker goal instead of the whole issue blob.\n\n"
+            "Context:\n"
+            "Workers should keep only dispatch-relevant context.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py\n\n"
+            "Scope hints:\n"
+            "- aragora/swarm/supervisor.py\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-1733",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/merge-gate", "commit_shas": ["abc123"]}
+        ],
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
+    assert "[Issue #1733] Tighten supervisor merge gate" in spec.raw_goal
+    assert "Workers should keep only dispatch-relevant context." in spec.raw_goal
+    assert "Scope hints" not in spec.raw_goal
+    assert "aragora/swarm/supervisor.py" in spec.file_scope_hints
+    assert spec.acceptance_criteria == ["pytest -q tests/swarm/test_boss_loop.py"]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> None:
+    issue = _make_issue(
+        1641,
+        "Wire prompt refiner env",
+        body=(
+            "Pass prompt-refiner file and test hints as worker env vars.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py -k refine\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-1641",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/refine-env", "commit_shas": ["abc123"]}
+        ],
+    }
+
+    refinement = {
+        "refined_prompt": "Use the refined goal only.",
+        "files_to_change": ["aragora/swarm/boss_loop.py"],
+        "test_patterns": ["tests/swarm/test_boss_loop.py"],
+        "constraints": [],
+        "context_gathered": True,
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(return_value=refinement),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
+    assert spec.raw_goal.startswith("[Issue #1641] Wire prompt refiner env")
+    assert "Use the refined goal only." in spec.raw_goal
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_keeps_explicit_validation_commands_when_focused_enabled() -> None:
+    issue = _make_issue(
+        1640,
+        "Keep explicit validation",
+        body=(
+            "Do the narrow fix.\n\n"
+            "Acceptance Criteria:\n"
+            "- python -m pytest tests/swarm/test_boss_loop.py tests/swarm/test_spec.py -q\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-1640",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/keep-tests", "commit_shas": ["abc123"]}
+        ],
+    }
+
+    with (
+        patch(
+            "aragora.swarm.boss_loop.discover_focused_tests",
+            return_value=["tests/swarm/test_other.py"],
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
+    assert spec.acceptance_criteria == [
+        "python -m pytest tests/swarm/test_boss_loop.py tests/swarm/test_spec.py -q"
+    ]
 
 
 # ---------------------------------------------------------------------------

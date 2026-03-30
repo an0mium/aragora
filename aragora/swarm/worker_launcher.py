@@ -632,7 +632,9 @@ class WorkerLauncher:
                 "search the codebase for the actual files that match the intent "
                 "(e.g. `find . -name '*.py' | grep <keyword>`). Work on the real files "
                 "you find — do not create files at non-existent paths just to satisfy "
-                "the scope list. Stay within the spirit of the task."
+                "the scope list. Treat the resolved scope as a hard boundary: do not "
+                "modify files outside it, and if the fix genuinely requires other files, "
+                "stop and report that blocker instead of widening scope."
             )
 
         expected_tests = work_order.get("expected_tests", [])
@@ -788,7 +790,7 @@ class WorkerLauncher:
         diff_range = ""
         if initial_head and head_sha and initial_head != head_sha:
             diff_range = f"{initial_head}..{head_sha}"
-        elif head_sha:
+        elif head_sha and not initial_head:
             # Fallback: compare against origin/main when initial_head is missing
             diff_range = "origin/main..HEAD"
         if diff_range:

@@ -47,6 +47,35 @@ async def test_tick_run_dispatches_collects_and_syncs_queue() -> None:
 
 
 @pytest.mark.asyncio
+async def test_tick_run_collects_finished_before_reaping_stale_leases() -> None:
+    store = MagicMock()
+    store.reap_stale_leases = MagicMock(return_value=[])
+    store.reap_expired_leases = MagicMock(return_value=[])
+    store.sync_pending_work_queue = AsyncMock(return_value={"created": 0})
+    store.get_supervisor_run.return_value = _run("active", ["dispatched"]).to_dict()
+
+    supervisor = MagicMock()
+    supervisor.store = store
+    supervisor.refresh_run.side_effect = [_run("active", ["leased"])]
+    supervisor.dispatch_workers = AsyncMock(return_value=[])
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+
+    parent = MagicMock()
+    parent.attach_mock(supervisor.collect_finished_results, "collect_finished_results")
+    parent.attach_mock(store.reap_stale_leases, "reap_stale_leases")
+    parent.attach_mock(store.reap_expired_leases, "reap_expired_leases")
+
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    await reconciler.tick_run("run-123")
+
+    assert parent.mock_calls[:3] == [
+        call.collect_finished_results("run-123"),
+        call.reap_stale_leases(),
+        call.reap_expired_leases(),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_tick_run_reaps_stale_then_expired_leases_before_dispatch() -> None:
     store = MagicMock()
     store.reap_stale_leases = MagicMock(return_value=[MagicMock(lease_id="stale-1")])
@@ -80,11 +109,8 @@ async def test_tick_run_reaps_stale_then_expired_leases_before_dispatch() -> Non
 @pytest.mark.asyncio
 async def test_tick_run_redispatches_after_finished_workers_free_capacity() -> None:
     supervisor = MagicMock()
-    supervisor.refresh_run.side_effect = [
-        _run("active", ["leased"]),
-        _run("active", ["completed", "leased"]),
-    ]
-    supervisor.dispatch_workers = AsyncMock(side_effect=[[], []])
+    supervisor.refresh_run.side_effect = [_run("active", ["completed", "leased"])]
+    supervisor.dispatch_workers = AsyncMock(return_value=[])
     supervisor.collect_finished_results = AsyncMock(return_value=[MagicMock(work_order_id="wo-1")])
     supervisor.store.sync_pending_work_queue = AsyncMock(return_value={"created": 1})
     supervisor.store.get_supervisor_run.return_value = _run(
@@ -95,8 +121,8 @@ async def test_tick_run_redispatches_after_finished_workers_free_capacity() -> N
     result = await reconciler.tick_run("run-123")
 
     assert result.run_id == "run-123"
-    assert supervisor.refresh_run.call_args_list == [call("run-123"), call("run-123")]
-    assert supervisor.dispatch_workers.await_args_list == [call("run-123"), call("run-123")]
+    assert supervisor.refresh_run.call_args_list == [call("run-123")]
+    assert supervisor.dispatch_workers.await_args_list == [call("run-123")]
     supervisor.collect_finished_results.assert_awaited_once_with("run-123")
 
 

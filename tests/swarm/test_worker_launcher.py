@@ -128,6 +128,18 @@ class TestBuildPrompt:
 
         assert "Codex lane discipline:" not in prompt
 
+    def test_file_scope_guidance_is_hard_boundary(self):
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "title": "Stay in scope",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+            }
+        )
+
+        assert "Treat the resolved scope as a hard boundary" in prompt
+        assert "do not modify files outside it" in prompt
+        assert "stop and report that blocker" in prompt
+
 
 class TestBuildCommand:
     def test_claude_command(self, monkeypatch):
@@ -887,6 +899,28 @@ class TestSnapshotProgress:
 
         assert snapshot["stdout_tail"] == long_stdout[-4000:]
         assert snapshot["stderr_tail"] == long_stderr[-4000:]
+
+
+class TestCollectChangedPaths:
+    @pytest.mark.asyncio
+    async def test_skips_origin_main_fallback_when_initial_head_matches_head_sha(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            if args[:2] == ("status", "--porcelain"):
+                return ""
+            return "aragora/swarm/boss_loop.py\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            changed = await WorkerLauncher._collect_changed_paths(
+                "/tmp/wt",
+                initial_head="abc123",
+                head_sha="abc123",
+            )
+
+        assert changed == []
+        assert ("diff", "--name-only", "origin/main..HEAD") not in calls
 
 
 class TestIsPidRunning:

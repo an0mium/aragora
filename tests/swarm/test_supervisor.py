@@ -194,6 +194,62 @@ def test_refresh_run_scales_queued_work_after_completion(
     assert counter["value"] >= 2
 
 
+def test_refresh_run_requeues_leased_work_order_when_active_lease_is_missing(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-released-requeue"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-released-requeue",
+        agent="codex",
+        branch="codex/swarm-released-requeue",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="requeue stale leased work order",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "requeue stale leased work order"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-stale-lease",
+                "title": "Requeue stale lane",
+                "description": "Requeue stale lane",
+                "status": "leased",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "lease_id": "missing-lease",
+                "worktree_path": str(repo / "missing-worktree"),
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "conflicts": [
+                    {
+                        "source": "lease",
+                        "lease_id": "old-conflict-lease",
+                        "worktree_path": str(repo / "missing-conflict-worktree"),
+                    }
+                ],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"] != "missing-lease"
+    assert "conflicts" not in work_order
+    assert work_order["owner_session_id"] == "swarm-released-requeue"
+
+
 def test_refresh_run_respects_dispatched_workers_as_active(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -804,6 +860,54 @@ def test_start_run_collapses_redundant_identical_scope_work_orders(
     ]
     assert work_order["metadata"]["collapsed_redundant_work_orders"] == ["wo-cli", "wo-tests"]
     lifecycle.ensure_managed_worktree.assert_called_once()
+
+
+def test_start_run_single_lane_uses_clean_goal_description(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-single-clean"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-single-clean",
+        agent="codex",
+        branch="codex/swarm-single-clean",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Original goal",
+        complexity_score=1,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="wo-single",
+                title="Planner lane",
+                description="Planner-specific decomposition text",
+                file_scope=["aragora/swarm/supervisor.py"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Original goal",
+        refined_goal="Use the cleaned boss-loop goal text",
+        file_scope_hints=["aragora/swarm/supervisor.py"],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=1)
+
+    assert len(run.work_orders) == 1
+    assert run.work_orders[0]["description"] == "Use the cleaned boss-loop goal text"
 
 
 def test_start_run_preserves_distinct_scope_work_orders(
@@ -1557,6 +1661,108 @@ async def test_collect_finished_results_uses_terminal_session_meta_even_when_pid
     summary = store.status_summary()
     assert summary["counts"]["active_leases"] == 0
     assert summary["counts"]["scope_violations"] == 0
+
+
+def test_refresh_run_collects_finished_detached_worker_before_stale_lease_reap(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    lease = store.claim_lease(
+        task_id="detached-pre-reap",
+        title="Detached pre-reap lane",
+        owner_agent="codex",
+        owner_session_id="detached-pre-reap-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=[expected_test],
+    )
+    run_record = store.create_supervisor_run(
+        goal="collect detached result before stale reaping",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "collect detached result before stale reaping"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-pre-reap",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "detached-pre-reap-session",
+                "lease_id": lease.lease_id,
+                "pid": 424242,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": [expected_test],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    finished_worker = WorkerProcess(
+        work_order_id="wo-detached-pre-reap",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="detached-pre-reap-session",
+        pid=424242,
+        initial_head=initial_head,
+        exit_code=0,
+        completed_at="2026-03-21T01:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        head_sha="abc12345",
+        stdout="worker stdout",
+        stderr="",
+        tests_run=[expected_test],
+        verification_results=[
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.2,
+            }
+        ],
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock()
+    mock_launcher.get_worker = MagicMock(return_value=None)
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    observed: dict[str, str] = {}
+
+    def _reap_stale() -> list[object]:
+        current = store.get_supervisor_run(run_id)
+        assert current is not None
+        observed["status_before_reap"] = current["work_orders"][0]["status"]
+        return []
+
+    store.reap_stale_leases = MagicMock(side_effect=_reap_stale)
+    store.reap_expired_leases = MagicMock(return_value=[])
+
+    with patch.object(
+        WorkerLauncher,
+        "collect_detached_result",
+        new=AsyncMock(return_value=finished_worker),
+    ):
+        refreshed = supervisor.refresh_run(run_id)
+
+    assert observed["status_before_reap"] == "completed"
+    assert refreshed.work_orders[0]["status"] == "completed"
+    assert refreshed.work_orders[0]["review_status"] == "pending_heterogeneous_review"
+    assert refreshed.work_orders[0]["merge_gate"]["checks_passed"] is True
 
 
 @pytest.mark.asyncio
@@ -2743,6 +2949,59 @@ def test_refresh_run_marks_expired_leased_work_order(
     assert work_order["status"] == "needs_human"
     assert work_order["failure_reason"] == "expired_lease_reaped"
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+
+
+def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_stale(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-fleet-requeue"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-fleet-requeue",
+        agent="codex",
+        branch="codex/swarm-fleet-requeue",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="requeue stale fleet conflicts",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "requeue stale fleet conflicts"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-stale-fleet",
+                "title": "Stale fleet lane",
+                "description": "Stale fleet lane",
+                "status": "needs_human",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/swarm/reconciler.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_reconciler.py -q"],
+                "conflicts": [
+                    {
+                        "source": "fleet_claim",
+                        "session_id": "swarm-missing-session",
+                        "path": "aragora/swarm/reconciler.py",
+                    }
+                ],
+            }
+        ],
+        status="needs_human",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["owner_session_id"] == "swarm-fleet-requeue"
+    assert "conflicts" not in work_order
 
 
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:

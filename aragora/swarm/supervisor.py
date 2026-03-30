@@ -7,6 +7,7 @@ SupervisorRun in the existing development coordination store.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -339,9 +340,14 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
-        # Collect finished detached workers BEFORE reaping leases.
-        # Without this, a worker that just completed gets its lease reaped
-        # as "stale" before results are collected — losing the deliverable.
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        self._collect_finished_results_before_reap(run_id, record)
+        # Keep the direct dead-PID salvage path as a second chance before
+        # lease reaping so detached workers with completed deliverables do not
+        # get downgraded into stale state first.
         try:
             self._collect_finished_workers_sync(run_id)
         except Exception:
@@ -377,6 +383,7 @@ class SwarmSupervisor:
         work_orders = [dict(item) for item in record.get("work_orders", [])]
         for item in work_orders:
             self._backfill_missing_completion_receipt(item)
+        self._reconcile_stale_work_order_state(work_orders)
         active_count = sum(
             1 for item in work_orders if str(item.get("status", "")) in {"leased", "dispatched"}
         )
@@ -517,7 +524,171 @@ class SwarmSupervisor:
                 )
 
         if changed:
-            self.store.update_supervisor_run(run_id, work_orders=record.get("work_orders"))
+            self.store.update_supervisor_run(run_id, work_orders=work_orders)
+
+    def _collect_finished_results_before_reap(
+        self,
+        run_id: str,
+        record: dict[str, Any],
+    ) -> None:
+        work_orders = [
+            dict(item) for item in record.get("work_orders", []) if isinstance(item, dict)
+        ]
+        if not any(self._should_precollect_finished_result(item) for item in work_orders):
+            return
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            return
+        try:
+            completed = asyncio.run(self.collect_finished_results(run_id))
+            if completed:
+                logger.info(
+                    "pre_reap_collect_finished_results run_id=%s completed=%d",
+                    run_id,
+                    len(completed),
+                )
+        except Exception:
+            logger.debug(
+                "collect_finished_results failed during pre-reap refresh for %s",
+                run_id,
+                exc_info=True,
+            )
+
+    def _should_precollect_finished_result(self, item: dict[str, Any]) -> bool:
+        if str(item.get("status", "")).strip() != "dispatched":
+            return False
+        work_order_id = str(item.get("work_order_id", "")).strip()
+        if work_order_id and self.launcher.get_worker(work_order_id) is not None:
+            return True
+        pid = item.get("pid")
+        try:
+            return int(pid or 0) > 0
+        except (TypeError, ValueError):
+            return False
+
+    def _reconcile_stale_work_order_state(self, work_orders: list[dict[str, Any]]) -> None:
+        active_leases = {lease.lease_id: lease for lease in self.store.list_active_leases()}
+        live_claims = [
+            claim for claim in self.store.fleet_store.list_claims() if isinstance(claim, dict)
+        ]
+        for item in work_orders:
+            self._prune_stale_conflicts(item, active_leases, live_claims)
+            if self._should_requeue_stale_work_order(item, active_leases):
+                self._reset_work_order_for_requeue(item)
+                continue
+            if self._should_requeue_conflict_only_needs_human(item):
+                self._reset_work_order_for_requeue(item)
+
+    def _prune_stale_conflicts(
+        self,
+        item: dict[str, Any],
+        active_leases: dict[str, Any],
+        live_claims: list[dict[str, Any]],
+    ) -> None:
+        raw_conflicts = item.get("conflicts")
+        if not isinstance(raw_conflicts, list) or not raw_conflicts:
+            return
+
+        current_lease_id = str(item.get("lease_id", "")).strip()
+        live_claim_keys = {
+            (
+                str(claim.get("session_id", "")).strip(),
+                str(claim.get("path", "")).strip(),
+            )
+            for claim in live_claims
+        }
+        live_claim_sessions = {
+            str(claim.get("session_id", "")).strip()
+            for claim in live_claims
+            if claim.get("session_id")
+        }
+
+        kept: list[dict[str, Any]] = []
+        for conflict in raw_conflicts:
+            if not isinstance(conflict, dict):
+                continue
+            source = str(conflict.get("source", "lease")).strip()
+            if source in {"lease", ""}:
+                conflict_lease_id = str(conflict.get("lease_id", "")).strip()
+                if conflict_lease_id == current_lease_id:
+                    continue
+                if conflict_lease_id and conflict_lease_id in active_leases:
+                    kept.append(conflict)
+                    continue
+                worktree_path = str(conflict.get("worktree_path", "")).strip()
+                if worktree_path and self._orphaned_conflict_reason(worktree_path):
+                    continue
+                if conflict_lease_id and conflict_lease_id not in active_leases:
+                    continue
+                kept.append(conflict)
+                continue
+            if source == "fleet_claim":
+                session_id = str(conflict.get("session_id", "")).strip()
+                path = str(conflict.get("path", "")).strip()
+                if (session_id, path) in live_claim_keys:
+                    kept.append(conflict)
+                    continue
+                if session_id and session_id in live_claim_sessions:
+                    kept.append(conflict)
+                continue
+            kept.append(conflict)
+
+        if kept:
+            item["conflicts"] = kept
+        else:
+            item.pop("conflicts", None)
+
+    def _should_requeue_stale_work_order(
+        self,
+        item: dict[str, Any],
+        active_leases: dict[str, Any],
+    ) -> bool:
+        status = str(item.get("status", "")).strip()
+        if status not in {"leased", "dispatched"}:
+            return False
+        lease_id = str(item.get("lease_id", "")).strip()
+        if not lease_id or lease_id in active_leases:
+            return False
+        pid = item.get("pid")
+        try:
+            running = int(pid or 0) > 0 and WorkerLauncher._is_pid_running(int(pid))
+        except (TypeError, ValueError):
+            running = False
+        return not running
+
+    @staticmethod
+    def _should_requeue_conflict_only_needs_human(item: dict[str, Any]) -> bool:
+        if str(item.get("status", "")).strip() != "needs_human":
+            return False
+        if item.get("conflicts"):
+            return False
+        if str(item.get("worker_outcome", "")).strip():
+            return False
+        if str(item.get("dispatch_error", "")).strip():
+            return False
+        if str(item.get("failure_reason", "")).strip():
+            return False
+        return True
+
+    @staticmethod
+    def _reset_work_order_for_requeue(item: dict[str, Any]) -> None:
+        item["status"] = "queued"
+        item["review_status"] = "pending"
+        for key in (
+            "lease_id",
+            "owner_session_id",
+            "worktree_path",
+            "pid",
+            "dispatched_at",
+            "dispatch_error",
+            "blocking_question",
+            "failure_reason",
+            "resource_error",
+        ):
+            item.pop(key, None)
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""
@@ -1069,7 +1240,7 @@ class SwarmSupervisor:
         goal = spec.refined_goal or spec.raw_goal
         spec_hints = list(spec.file_scope_hints) if spec.file_scope_hints else []
         decomposition = self.decomposer.analyze(
-            self._task_prompt(spec),
+            goal,
             file_scope_hints=spec_hints or None,
         )
         subtasks = list(decomposition.subtasks)
@@ -1088,6 +1259,8 @@ class SwarmSupervisor:
             ]
         work_orders = self.bridge.build_work_orders(subtasks)
         work_orders = self._collapse_redundant_work_orders(work_orders, spec)
+        if len(work_orders) == 1:
+            work_orders[0].description = goal
         for item in work_orders:
             _ensure_work_order_scope(item, spec)
             item.expected_tests = self._default_tests(item, spec)
@@ -1585,7 +1758,8 @@ class SwarmSupervisor:
                 item["verification_missing_reason"] = merge_gate["verification_missing_reason"]
             if not _is_salvage and not bool(merge_gate.get("checks_passed")):
                 # LLM second opinion: is the merge gate failure genuine?
-                if self._llm_override_merge_gate(item, merge_gate):
+                can_override_merge_gate = not bool(merge_gate.get("verification_missing_reason"))
+                if can_override_merge_gate and self._llm_override_merge_gate(item, merge_gate):
                     # LLM says deliverable is ready despite gate failure
                     merge_gate["checks_passed"] = True
                     merge_gate["llm_override"] = True
@@ -2528,7 +2702,7 @@ class SwarmSupervisor:
         if not expected_checks:
             verification_missing_reason = "missing_verification_plan"
             blocked_reasons.append(
-                "merge gate blocked: missing verification plan for code-change lane"
+                "merge gate blocked: missing verification plan or verification command"
             )
         if missing_checks:
             blocked_reasons.append(
@@ -2546,9 +2720,7 @@ class SwarmSupervisor:
                 reason = f"{reason} - {stderr.splitlines()[0][:200]}"
             blocked_reasons.append(reason)
 
-        checks_passed = (
-            verification_missing_reason is None and not missing_checks and not failed_checks
-        )
+        checks_passed = not blocked_reasons
         return {
             "enabled": True,
             "expected_checks": expected_checks,

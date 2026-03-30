@@ -307,6 +307,25 @@ _VALIDATION_SECTION_PREFIXES = (
     "done when",
     "test plan",
 )
+_ISSUE_SECTION_PREFIXES = (
+    "summary",
+    "context",
+    "background",
+    "acceptance criteria",
+    "acceptance",
+    "test",
+    "validation",
+    "validation contract",
+    "definition of done",
+    "done when",
+    "test plan",
+    "scope hints",
+    "file scope hints",
+    "file scope",
+    "implementation rules",
+    "constraints",
+)
+_DISPATCH_CONTEXT_SECTION_PREFIXES = ("summary", "context", "background")
 _VALIDATION_INLINE_PREFIXES = (
     "acceptance",
     "acceptance criteria",
@@ -353,6 +372,72 @@ def _normalize_validation_line(text: str) -> str:
     return normalized.strip()
 
 
+def _match_issue_section_prefix(normalized_lower: str) -> str | None:
+    for prefix in _ISSUE_SECTION_PREFIXES:
+        if normalized_lower == prefix or normalized_lower.startswith(f"{prefix} "):
+            return prefix
+    return None
+
+
+def _normalize_dispatch_text(lines: list[str]) -> str:
+    normalized: list[str] = []
+    previous_blank = True
+    for raw in lines:
+        text = str(raw).rstrip()
+        if text.strip():
+            normalized.append(text)
+            previous_blank = False
+            continue
+        if previous_blank:
+            continue
+        normalized.append("")
+        previous_blank = True
+    return "\n".join(normalized).strip()
+
+
+def sanitize_issue_body_for_dispatch(issue_body: str) -> str:
+    """Keep contextual issue text while dropping sections modeled elsewhere."""
+    lines = [str(line).rstrip() for line in str(issue_body or "").splitlines()]
+    kept: list[str] = []
+    active_section: str | None = None
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        normalized = _normalize_validation_line(stripped.lstrip("#").strip())
+        normalized_lower = normalized.rstrip(":").strip().lower()
+        section_prefix = _match_issue_section_prefix(normalized_lower)
+
+        if section_prefix is not None:
+            active_section = section_prefix
+            if section_prefix in _DISPATCH_CONTEXT_SECTION_PREFIXES:
+                if kept and kept[-1].strip():
+                    kept.append("")
+                kept.append(normalized.rstrip(":").strip())
+            continue
+
+        if active_section and active_section not in _DISPATCH_CONTEXT_SECTION_PREFIXES:
+            continue
+        kept.append(raw_line.rstrip())
+
+    return _normalize_dispatch_text(kept)
+
+
+def _compose_issue_dispatch_goal(
+    issue_number: int,
+    issue_title: str,
+    *,
+    issue_body: str = "",
+    refined_prompt: str = "",
+) -> str:
+    header = f"[Issue #{issue_number}] {issue_title}".strip()
+    body = str(refined_prompt or "").strip() or sanitize_issue_body_for_dispatch(issue_body)
+    if body.startswith(header):
+        body = body[len(header) :].strip()
+    if body:
+        return f"{header}\n\n{body}"
+    return header
+
+
 def extract_issue_validation_contract(issue_body: str) -> list[str]:
     """Extract an explicit validation contract from a GitHub issue body.
 
@@ -370,17 +455,15 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
         normalized = _normalize_validation_line(stripped.lstrip("#").strip())
         normalized_lower = normalized.rstrip(":").strip().lower()
 
-        if any(
-            normalized_lower == prefix or normalized_lower.startswith(f"{prefix} ")
-            for prefix in _VALIDATION_SECTION_PREFIXES
-        ):
-            in_validation_section = True
-            continue
-
         inline_prefix, _, inline_value = normalized.partition(":")
         if inline_value and inline_prefix.strip().lower() in _VALIDATION_INLINE_PREFIXES:
             criteria.append(inline_value.strip())
             in_validation_section = False
+            continue
+
+        section_prefix = _match_issue_section_prefix(normalized_lower)
+        if section_prefix is not None:
+            in_validation_section = section_prefix in _VALIDATION_SECTION_PREFIXES
             continue
 
         if stripped.startswith("pytest ") or stripped.startswith("python -m pytest"):
@@ -546,6 +629,19 @@ def discover_focused_tests(
                 test_paths.append(filepath)
 
     return test_paths
+
+
+def _should_replace_with_focused_tests(command: str) -> bool:
+    text = str(command or "").strip()
+    lowered = text.lower()
+    if "-k" in lowered:
+        return False
+    if not (lowered.startswith("pytest ") or lowered.startswith("python -m pytest ")):
+        return False
+    explicit_file_target = re.search(r"(?<!\S)tests/\S+\.py(?:::\S+)?(?!\S)", text)
+    if explicit_file_target:
+        return False
+    return "tests/" in text
 
 
 # ---------------------------------------------------------------------------
@@ -2444,18 +2540,8 @@ class BossLoop:
         """
         from aragora.swarm.spec import SwarmSpec
 
-        # Refine the prompt with codebase context before dispatch
-        goal = f"[Issue #{issue.number}] {issue.title}"
-        body_context = issue.body[:2000] if issue.body else ""
-        if body_context:
-            goal = f"{goal}\n\n{body_context}"
-        # Ensure workers always commit — this is the #1 reason for needs_human failures
-        goal += (
-            "\n\n## CRITICAL: You MUST commit your changes\n"
-            "After making changes, run:\n"
-            "```\ngit add -A && git commit -m 'fix: description of changes'\n```\n"
-            "If you do not commit, your work will be lost."
-        )
+        refinement: dict[str, Any] = {}
+        refined_prompt = ""
 
         try:
             from aragora.swarm.prompt_refiner import (
@@ -2470,7 +2556,7 @@ class BossLoop:
             )
             refinement_worker_env = build_refinement_worker_env(refinement)
             if refinement.get("context_gathered"):
-                goal = refinement["refined_prompt"]
+                refined_prompt = str(refinement.get("refined_prompt", "")).strip()
                 logger.info(
                     "Refined prompt for #%s: %d relevant files, %d test patterns",
                     issue.number,
@@ -2481,10 +2567,46 @@ class BossLoop:
             logger.debug("Prompt refinement skipped: %s", exc)
             refinement_worker_env = {}
 
-        spec = SwarmSpec.from_direct_goal(
-            goal,
+        body_lines = [str(line).strip() for line in str(issue.body or "").splitlines()]
+        scope_hints = list(
+            dict.fromkeys(
+                [
+                    *[
+                        str(path).strip()
+                        for path in refinement.get("files_to_change", [])
+                        if str(path).strip()
+                    ],
+                    *SwarmSpec.infer_file_scope_hints(issue.body or ""),
+                ]
+            )
+        )
+        constraints = list(
+            dict.fromkeys(
+                [
+                    *SwarmSpec.infer_constraints(body_lines),
+                    *[
+                        str(item).strip()
+                        for item in refinement.get("constraints", [])
+                        if str(item).strip()
+                    ],
+                ]
+            )
+        )
+        goal = _compose_issue_dispatch_goal(
+            issue.number,
+            issue.title,
+            issue_body=issue.body or "",
+            refined_prompt=refined_prompt,
+        )
+
+        spec = SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            constraints=constraints,
             budget_limit_usd=self.config.budget_limit_usd,
+            file_scope_hints=scope_hints,
             requires_approval=True,
+            interrogation_turns=0,
             user_expertise="developer",
         )
         validation_contract = extract_issue_validation_contract(issue.body)
@@ -2494,7 +2616,7 @@ class BossLoop:
             focused_tests = discover_focused_tests(Path.cwd())
             focused = []
             for criterion in validation_contract:
-                if "pytest tests/" in criterion and "-k" not in criterion.lower():
+                if _should_replace_with_focused_tests(criterion):
                     if focused_tests:
                         test_list = " ".join(focused_tests[:20])
                         focused.append(f"python -m pytest --timeout=30 -x -q {test_list}")
