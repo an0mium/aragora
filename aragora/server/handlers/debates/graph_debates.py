@@ -2,6 +2,7 @@
 Graph debates endpoint handlers.
 
 Endpoints:
+- GET /api/debates/graph - List recent graph debates for the live browser
 - POST /api/debates/graph - Run a graph-structured debate with branching
 - GET /api/debates/graph/{id} - Get graph debate by ID
 - GET /api/debates/graph/{id}/branches - Get all branches for a debate
@@ -10,6 +11,10 @@ Endpoints:
 
 from __future__ import annotations
 
+from collections import OrderedDict
+from copy import deepcopy
+from datetime import datetime, timezone
+import inspect
 import logging
 import re
 from typing import Any, cast
@@ -48,6 +53,73 @@ DEBATES_WRITE_PERMISSION = "debates:create"
 
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
+_GRAPH_DEBATE_CACHE_LIMIT = 100
+_graph_debate_cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+
+def _graph_debate_created_at(debate: dict[str, Any]) -> str:
+    """Return an ISO timestamp for graph debate sorting and responses."""
+    created_at = debate.get("created_at")
+    if isinstance(created_at, str) and created_at:
+        return created_at
+
+    graph = debate.get("graph")
+    if isinstance(graph, dict):
+        graph_created_at = graph.get("created_at")
+        if isinstance(graph_created_at, str) and graph_created_at:
+            return graph_created_at
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_graph_debate_payload(debate: dict[str, Any]) -> dict[str, Any]:
+    """Ensure cached/listed graph debates share a stable shape."""
+    normalized = deepcopy(debate)
+    normalized.setdefault("created_at", _graph_debate_created_at(normalized))
+    normalized.setdefault("status", "completed")
+
+    graph = normalized.get("graph")
+    if isinstance(graph, dict):
+        branches = graph.get("branches")
+        if normalized.get("branches") is None and isinstance(branches, dict):
+            normalized["branches"] = list(branches.values())
+
+    return normalized
+
+
+async def _maybe_await(result: Any) -> Any:
+    """Await async storage hooks while also accepting sync fallbacks."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+def _remember_graph_debate(debate: dict[str, Any]) -> dict[str, Any]:
+    """Store a graph debate in the in-process cache for live UI retrieval."""
+    normalized = _normalize_graph_debate_payload(debate)
+    debate_id = str(normalized.get("debate_id") or "").strip()
+    if not debate_id:
+        return normalized
+
+    _graph_debate_cache[debate_id] = normalized
+    _graph_debate_cache.move_to_end(debate_id)
+    while len(_graph_debate_cache) > _GRAPH_DEBATE_CACHE_LIMIT:
+        _graph_debate_cache.popitem(last=False)
+    return normalized
+
+
+def _get_cached_graph_debate(debate_id: str) -> dict[str, Any] | None:
+    """Return a cached graph debate by ID if one exists."""
+    debate = _graph_debate_cache.get(debate_id)
+    return deepcopy(debate) if debate is not None else None
+
+
+def _list_cached_graph_debates(limit: int = 20) -> list[dict[str, Any]]:
+    """Return cached graph debates newest-first."""
+    debates = list(reversed(_graph_debate_cache.values()))
+    if limit >= 0:
+        debates = debates[:limit]
+    return [deepcopy(debate) for debate in debates]
 
 
 class GraphDebatesHandler(SecureHandler):
@@ -124,6 +196,9 @@ class GraphDebatesHandler(SecureHandler):
         if normalized.startswith("/api/graph-debates"):
             normalized = normalized.replace("/api/graph-debates", "/api/debates/graph", 1)
         parts = normalized.rstrip("/").split("/")
+
+        if normalized.rstrip("/") == "/api/debates/graph":
+            return await self._list_graph_debates(handler, query_params)
 
         # GET /api/debates/graph/{id} - Get specific graph debate
         # Path structure: ['', 'api', 'debates', 'graph', '{id}', ...]
@@ -344,26 +419,30 @@ class GraphDebatesHandler(SecureHandler):
             )
 
             # Convert to response format
-            return json_response(
-                {
-                    "debate_id": debate_id,
-                    "task": task,
-                    "graph": graph.to_dict(),
-                    "branches": [b.to_dict() for b in graph.branches.values()],
-                    "merge_results": [
-                        {
-                            "merged_node_id": m.merged_node_id,
-                            "source_branch_ids": m.source_branch_ids,
-                            "strategy": m.strategy.value,
-                            "conflicts_resolved": m.conflicts_resolved,
-                            "insights_preserved": m.insights_preserved,
-                        }
-                        for m in graph.merge_history
-                    ],
-                    "node_count": len(graph.nodes),
-                    "branch_count": len(graph.branches),
-                }
-            )
+            graph_dict = graph.to_dict()
+            debate_payload = {
+                "debate_id": debate_id,
+                "task": task,
+                "status": "completed",
+                "created_at": graph_dict.get("created_at")
+                or datetime.now(timezone.utc).isoformat(),
+                "graph": graph_dict,
+                "branches": [b.to_dict() for b in graph.branches.values()],
+                "merge_results": [
+                    {
+                        "merged_node_id": m.merged_node_id,
+                        "source_branch_ids": m.source_branch_ids,
+                        "strategy": m.strategy.value,
+                        "conflicts_resolved": m.conflicts_resolved,
+                        "insights_preserved": m.insights_preserved,
+                    }
+                    for m in graph.merge_history
+                ],
+                "node_count": len(graph.nodes),
+                "branch_count": len(graph.branches),
+            }
+            await self._persist_graph_debate(handler, debate_payload)
+            return json_response(debate_payload)
 
         except ImportError as e:
             logger.error("Import error for graph debates: %s", e)
@@ -390,21 +469,71 @@ class GraphDebatesHandler(SecureHandler):
             logger.warning("Failed to load agents: %s", e)
             return []
 
+    async def _persist_graph_debate(self, handler: Any, debate: dict[str, Any]) -> None:
+        """Persist completed graph debates via storage when available and cache otherwise."""
+        cached = _remember_graph_debate(debate)
+
+        storage = getattr(handler, "storage", None)
+        save_graph_debate = getattr(storage, "save_graph_debate", None)
+        if not callable(save_graph_debate):
+            return
+
+        try:
+            await _maybe_await(save_graph_debate(cached))
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
+            logger.warning("Failed to persist graph debate %s: %s", cached.get("debate_id"), e)
+
+    async def _list_graph_debates(self, handler: Any, query_params: dict) -> HandlerResult:
+        """List recently available graph debates for the live graph browser."""
+        limit_raw = query_params.get("limit", 20)
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            return error_response("limit must be an integer", 400)
+        if limit < 1 or limit > 100:
+            return error_response("limit must be between 1 and 100", 400)
+
+        combined: dict[str, dict[str, Any]] = {}
+
+        storage = getattr(handler, "storage", None)
+        list_graph_debates = getattr(storage, "list_graph_debates", None)
+        if callable(list_graph_debates):
+            try:
+                stored = await _maybe_await(list_graph_debates(limit=limit))
+                for debate in stored or []:
+                    normalized = _remember_graph_debate(debate)
+                    debate_id = normalized.get("debate_id")
+                    if isinstance(debate_id, str) and debate_id:
+                        combined[debate_id] = normalized
+            except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
+                logger.warning("Failed to list graph debates from storage: %s", e)
+
+        for debate in _list_cached_graph_debates(limit=-1):
+            debate_id = debate.get("debate_id")
+            if isinstance(debate_id, str) and debate_id and debate_id not in combined:
+                combined[debate_id] = debate
+
+        debates = sorted(combined.values(), key=_graph_debate_created_at, reverse=True)[:limit]
+        return json_response({"debates": debates})
+
     async def _get_graph_debate(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get a graph debate by ID."""
         storage = getattr(handler, "storage", None)
-        if not storage:
-            return error_response("Storage not configured", 503)
+        if storage and callable(getattr(storage, "get_graph_debate", None)):
+            try:
+                debate = await _maybe_await(storage.get_graph_debate(debate_id))
+                if debate:
+                    return json_response(_remember_graph_debate(debate))
+            except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.warning("Failed to get graph debate %s from storage: %s", debate_id, e)
 
-        try:
-            debate = await storage.get_graph_debate(debate_id)
-            if not debate:
-                return error_response("Graph debate not found", 404)
-
+        debate = _get_cached_graph_debate(debate_id)
+        if debate:
             return json_response(debate)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error("Failed to get graph debate %s: %s", debate_id, e)
-            return error_response("Failed to retrieve graph debate", 500)
+
+        if not storage:
+            return error_response("Graph debate not found", 404)
+        return error_response("Graph debate not found", 404)
 
     @api_endpoint(
         method="GET",
@@ -424,15 +553,29 @@ class GraphDebatesHandler(SecureHandler):
     async def _get_branches(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get all branches for a graph debate."""
         storage = getattr(handler, "storage", None)
-        if not storage:
-            return error_response("Storage not configured", 503)
+        if storage and callable(getattr(storage, "get_debate_branches", None)):
+            try:
+                branches = await _maybe_await(storage.get_debate_branches(debate_id))
+                return json_response({"debate_id": debate_id, "branches": branches})
+            except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.warning("Failed to get branches for %s from storage: %s", debate_id, e)
 
-        try:
-            branches = await storage.get_debate_branches(debate_id)
-            return json_response({"debate_id": debate_id, "branches": branches})
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error("Failed to get branches for %s: %s", debate_id, e)
-            return error_response("Failed to retrieve branches", 500)
+        debate = _get_cached_graph_debate(debate_id)
+        if debate:
+            branches = debate.get("branches")
+            if isinstance(branches, list):
+                return json_response({"debate_id": debate_id, "branches": branches})
+            graph = debate.get("graph")
+            if isinstance(graph, dict):
+                graph_branches = graph.get("branches")
+                if isinstance(graph_branches, dict):
+                    return json_response(
+                        {"debate_id": debate_id, "branches": list(graph_branches.values())}
+                    )
+
+        if not storage:
+            return error_response("Graph debate not found", 404)
+        return error_response("Failed to retrieve branches", 500)
 
     @api_endpoint(
         method="GET",
@@ -452,12 +595,23 @@ class GraphDebatesHandler(SecureHandler):
     async def _get_nodes(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get all nodes in a graph debate."""
         storage = getattr(handler, "storage", None)
-        if not storage:
-            return error_response("Storage not configured", 503)
+        if storage and callable(getattr(storage, "get_debate_nodes", None)):
+            try:
+                nodes = await _maybe_await(storage.get_debate_nodes(debate_id))
+                return json_response({"debate_id": debate_id, "nodes": nodes})
+            except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.warning("Failed to get nodes for %s from storage: %s", debate_id, e)
 
-        try:
-            nodes = await storage.get_debate_nodes(debate_id)
-            return json_response({"debate_id": debate_id, "nodes": nodes})
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
-            logger.error("Failed to get nodes for %s: %s", debate_id, e)
-            return error_response("Failed to retrieve nodes", 500)
+        debate = _get_cached_graph_debate(debate_id)
+        if debate:
+            graph = debate.get("graph")
+            if isinstance(graph, dict):
+                graph_nodes = graph.get("nodes")
+                if isinstance(graph_nodes, dict):
+                    return json_response(
+                        {"debate_id": debate_id, "nodes": list(graph_nodes.values())}
+                    )
+
+        if not storage:
+            return error_response("Graph debate not found", 404)
+        return error_response("Failed to retrieve nodes", 500)

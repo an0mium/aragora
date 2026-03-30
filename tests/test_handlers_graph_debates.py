@@ -15,7 +15,7 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-from aragora.server.handlers.debates import GraphDebatesHandler, _graph_limiter
+from aragora.server.handlers.debates import GraphDebatesHandler, _graph_limiter, graph_debates
 
 
 # ============================================================================
@@ -52,6 +52,7 @@ def mock_storage():
             {"id": "node-1", "content": "Test", "branch_id": "main"},
         ]
     )
+    storage.list_graph_debates = AsyncMock(return_value=[])
     return storage
 
 
@@ -69,6 +70,7 @@ def mock_handler_obj(mock_storage):
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
     _graph_limiter._buckets.clear()
+    graph_debates._graph_debate_cache.clear()
 
 
 # ============================================================================
@@ -124,7 +126,7 @@ class TestGetGraphDebate:
 
     @pytest.mark.asyncio
     async def test_get_debate_no_storage(self, handler):
-        """Test 503 when storage not configured."""
+        """Test 404 when no storage or cached debate is available."""
         mock_handler = Mock()
         mock_handler.storage = None
 
@@ -134,7 +136,7 @@ class TestGetGraphDebate:
             {},
         )
 
-        assert result.status_code == 503
+        assert result.status_code == 404
 
 
 # ============================================================================
@@ -817,13 +819,15 @@ class TestPathParsing:
 
     @pytest.mark.asyncio
     async def test_short_path_returns_404(self, handler, mock_handler_obj):
-        """Test path without debate ID returns 404."""
+        """Test root path returns an empty list response."""
         result = await handler.handle_get(
             mock_handler_obj,
             "/api/debates/graph",
             {},
         )
-        assert result.status_code == 404
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["debates"] == []
 
 
 # ============================================================================
@@ -836,7 +840,7 @@ class TestStorageConfiguration:
 
     @pytest.mark.asyncio
     async def test_get_debate_no_storage(self, handler):
-        """Test 503 when storage not configured."""
+        """Test 404 when graph debate storage and cache are both empty."""
         mock_handler = Mock()
         mock_handler.storage = None
 
@@ -845,13 +849,11 @@ class TestStorageConfiguration:
             "/api/debates/graph/graph-123",
             {},
         )
-        assert result.status_code == 503
-        data = json.loads(result.body)
-        assert "storage" in data["error"].lower()
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_branches_no_storage(self, handler):
-        """Test branches endpoint returns 503 without storage."""
+        """Test branches endpoint returns 404 without storage or cache."""
         mock_handler = Mock()
         mock_handler.storage = None
 
@@ -860,11 +862,11 @@ class TestStorageConfiguration:
             "/api/debates/graph/graph-123/branches",
             {},
         )
-        assert result.status_code == 503
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_nodes_no_storage(self, handler):
-        """Test nodes endpoint returns 503 without storage."""
+        """Test nodes endpoint returns 404 without storage or cache."""
         mock_handler = Mock()
         mock_handler.storage = None
 
@@ -873,4 +875,4 @@ class TestStorageConfiguration:
             "/api/debates/graph/graph-123/nodes",
             {},
         )
-        assert result.status_code == 503
+        assert result.status_code == 404

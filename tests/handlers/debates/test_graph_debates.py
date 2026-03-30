@@ -39,6 +39,7 @@ def reset_state():
         from aragora.server.handlers.debates import graph_debates
 
         graph_debates._graph_limiter = graph_debates.RateLimiter(requests_per_minute=5)
+        graph_debates._graph_debate_cache.clear()
     except (ImportError, AttributeError):
         pass
 
@@ -51,6 +52,13 @@ def reset_state():
     except ImportError:
         pass
 
+    try:
+        from aragora.server.handlers.debates import graph_debates
+
+        graph_debates._graph_debate_cache.clear()
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture
 def mock_http_handler():
@@ -59,7 +67,85 @@ def mock_http_handler():
     handler.client_address = ("127.0.0.1", 12345)
     handler.headers = {}
     handler.event_emitter = None
+    handler.storage = None
     return handler
+
+
+@pytest.fixture
+def graph_debate_payload():
+    """Create a representative graph debate payload."""
+    return {
+        "debate_id": "graph-123",
+        "task": "Should AI systems require formal approval for deployment?",
+        "status": "completed",
+        "created_at": "2026-03-30T18:30:00+00:00",
+        "graph": {
+            "debate_id": "graph-123",
+            "root_id": "node-1",
+            "main_branch_id": "main",
+            "created_at": "2026-03-30T18:30:00+00:00",
+            "nodes": {
+                "node-1": {
+                    "id": "node-1",
+                    "node_type": "root",
+                    "agent_id": "claude",
+                    "content": "Root prompt",
+                    "timestamp": "2026-03-30T18:30:00+00:00",
+                    "parent_ids": [],
+                    "child_ids": ["node-2"],
+                    "branch_id": "main",
+                    "confidence": 0.71,
+                    "agreement_scores": {},
+                    "claims": [],
+                    "evidence": [],
+                    "metadata": {},
+                    "hash": "hash-1",
+                }
+            },
+            "branches": {
+                "main": {
+                    "id": "main",
+                    "name": "main",
+                    "reason": "root",
+                    "start_node_id": "node-1",
+                    "end_node_id": None,
+                    "hypothesis": "Primary line",
+                    "confidence": 0.71,
+                    "is_active": True,
+                    "is_merged": False,
+                    "merged_into": None,
+                    "node_count": 1,
+                    "total_agreement": 0.71,
+                }
+            },
+            "merge_history": [],
+            "policy": {
+                "disagreement_threshold": 0.7,
+                "uncertainty_threshold": 0.3,
+                "max_branches": 3,
+                "max_depth": 5,
+            },
+        },
+        "branches": [
+            {
+                "id": "main",
+                "name": "main",
+                "reason": "root",
+                "start_node_id": "node-1",
+                "end_node_id": None,
+                "hypothesis": "Primary line",
+                "confidence": 0.71,
+                "is_active": True,
+                "is_merged": False,
+                "merged_into": None,
+                "node_count": 1,
+                "total_agreement": 0.71,
+            }
+        ],
+        "merge_results": [],
+        "node_count": 1,
+        "branch_count": 1,
+    }
 
 
 # =============================================================================
@@ -89,6 +175,55 @@ class TestGraphDebatesHandlerInit:
         assert not graph_handler.can_handle("/api/v1/debates/abc123")
         assert not graph_handler.can_handle("/api/v1/debates/matrix")
         assert not graph_handler.can_handle("/api/v1/users")
+
+
+class TestGraphDebatesLiveListing:
+    """Tests for listing and cache-backed retrieval of graph debates."""
+
+    @pytest.mark.asyncio
+    async def test_get_root_lists_cached_graph_debates(
+        self, graph_handler, mock_http_handler, graph_debate_payload
+    ):
+        """GET /api/v1/debates/graph returns cached debates instead of 404."""
+        from aragora.server.handlers.debates import graph_debates
+
+        graph_handler.get_auth_context = AsyncMock(return_value={})
+        graph_handler.check_permission = MagicMock()
+        graph_debates._remember_graph_debate(graph_debate_payload)
+
+        result = await graph_handler.handle_get(mock_http_handler, "/api/v1/debates/graph", {})
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["debates"][0]["debate_id"] == "graph-123"
+        assert data["debates"][0]["task"] == graph_debate_payload["task"]
+
+    @pytest.mark.asyncio
+    async def test_get_graph_debate_falls_back_to_cache(
+        self, graph_handler, mock_http_handler, graph_debate_payload
+    ):
+        """Cached graph debates remain readable even without external storage."""
+        from aragora.server.handlers.debates import graph_debates
+
+        graph_debates._remember_graph_debate(graph_debate_payload)
+
+        result = await graph_handler._get_graph_debate(mock_http_handler, "graph-123")
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["debate_id"] == "graph-123"
+
+    @pytest.mark.asyncio
+    async def test_persist_graph_debate_saves_when_storage_hook_exists(
+        self, graph_handler, mock_http_handler, graph_debate_payload
+    ):
+        """Completed graph debates use optional storage save hooks when present."""
+        mock_http_handler.storage = MagicMock()
+        mock_http_handler.storage.save_graph_debate = AsyncMock()
+
+        await graph_handler._persist_graph_debate(mock_http_handler, graph_debate_payload)
+
+        mock_http_handler.storage.save_graph_debate.assert_awaited_once()
 
 
 # =============================================================================
@@ -403,21 +538,21 @@ class TestGraphDebateGetEndpoints:
     """Tests for GET endpoints."""
 
     @pytest.mark.asyncio
-    async def test_get_returns_404_for_base_path(self, graph_handler, mock_http_handler):
-        """Returns 404 for GET on base graph path."""
+    async def test_get_base_path_returns_empty_list(self, graph_handler, mock_http_handler):
+        """Returns an empty graph debate list for the root path."""
         result = await graph_handler.handle_get(mock_http_handler, "/api/v1/debates/graph", {})
-        assert result.status_code == 404
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["debates"] == []
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_503_without_storage(self, graph_handler, mock_http_handler):
-        """Returns 503 when storage is not configured."""
+    async def test_get_debate_returns_404_without_storage(self, graph_handler, mock_http_handler):
+        """Returns 404 when no stored or cached graph debate exists."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
             mock_http_handler, "/api/v1/debates/graph/test-123", {}
         )
-        assert result.status_code == 503
-        data = json.loads(result.body)
-        assert "storage" in data.get("error", "").lower()
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_debate_returns_404_when_not_found(self, graph_handler, mock_http_handler):
@@ -447,13 +582,13 @@ class TestGraphDebateGetEndpoints:
         assert data["id"] == "test-123"
 
     @pytest.mark.asyncio
-    async def test_get_branches_returns_503_without_storage(self, graph_handler, mock_http_handler):
-        """Returns 503 when storage is not configured for branches."""
+    async def test_get_branches_returns_404_without_storage(self, graph_handler, mock_http_handler):
+        """Returns 404 when branch data is unavailable from storage and cache."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
             mock_http_handler, "/api/v1/debates/graph/test-123/branches", {}
         )
-        assert result.status_code == 503
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_branches_returns_branch_data(self, graph_handler, mock_http_handler):
@@ -472,13 +607,13 @@ class TestGraphDebateGetEndpoints:
         assert len(data["branches"]) == 2
 
     @pytest.mark.asyncio
-    async def test_get_nodes_returns_503_without_storage(self, graph_handler, mock_http_handler):
-        """Returns 503 when storage is not configured for nodes."""
+    async def test_get_nodes_returns_404_without_storage(self, graph_handler, mock_http_handler):
+        """Returns 404 when node data is unavailable from storage and cache."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
             mock_http_handler, "/api/v1/debates/graph/test-123/nodes", {}
         )
-        assert result.status_code == 503
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_nodes_returns_node_data(self, graph_handler, mock_http_handler):

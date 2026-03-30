@@ -157,6 +157,11 @@ describe('GraphDebateBrowser', () => {
   });
 
   it('renders the header and empty state', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ debates: [] }),
+    });
+
     render(<GraphDebateBrowser />);
 
     expect(screen.getByRole('heading', { name: /graph debates/i })).toBeInTheDocument();
@@ -171,7 +176,35 @@ describe('GraphDebateBrowser', () => {
     expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
   });
 
+  it('loads existing graph debates and auto-selects the first result', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ debates: [mockGraphDebate] }),
+    });
+
+    render(<GraphDebateBrowser />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/debates/graph')
+      );
+    });
+
+    const listItem = await screen.findByTestId('graph-debate-item-debate-1');
+    expect(within(listItem).getByText('Should AI be regulated?')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('graph-debate-title')).toHaveTextContent('Should AI be regulated?');
+    });
+
+    expect(document.querySelector('svg')).toBeInTheDocument();
+  });
+
   it('creates a new graph debate and renders it in the list', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ debates: [] }),
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockGraphDebate),
@@ -206,6 +239,10 @@ describe('GraphDebateBrowser', () => {
   it('loads an initial debate when initialDebateId is provided', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      json: () => Promise.resolve({ debates: [] }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
       json: () => Promise.resolve(mockGraphDebate),
     });
 
@@ -234,6 +271,10 @@ describe('GraphDebateBrowser', () => {
       status: 'disconnected',
     });
 
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ debates: [] }),
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockGraphDebate),

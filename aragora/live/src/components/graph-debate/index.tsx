@@ -106,16 +106,35 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
   const fetchDebates = useCallback(async () => {
     try {
       setLoading(true);
-      // For now, we'll show a placeholder since the API stores in memory
-      // In production, this would fetch from storage
-      setDebates([]);
+      const apiUrl = API_BASE_URL;
+      const response = await fetch(`${apiUrl}/api/debates/graph`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch graph debates (${response.status})`);
+      }
+      const data = await response.json();
+      const fetchedDebates = Array.isArray(data?.debates) ? data.debates : [];
+      setDebates(fetchedDebates);
+      if (!initialDebateId) {
+        setSelectedDebate((current) => {
+          if (fetchedDebates.length === 0) {
+            return null;
+          }
+
+          if (current) {
+            return fetchedDebates.find((debate) => debate.debate_id === current.debate_id)
+              ?? fetchedDebates[0];
+          }
+
+          return fetchedDebates[0];
+        });
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch graph debates');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [initialDebateId]);
 
   useEffect(() => {
     fetchDebates();
