@@ -1018,6 +1018,8 @@ class SwarmSupervisor:
             woid = str(item.get("work_order_id", "")).strip()
             if str(item.get("status", "")) != "dispatched" or woid in skipped:
                 continue
+            if item.get("pid") is None:
+                continue
             if isinstance(self.launcher.get_worker(woid), WorkerProcess):
                 continue
             worktree_path = str(item.get("worktree_path", "")).strip()
