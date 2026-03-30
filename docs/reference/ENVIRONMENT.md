@@ -1262,8 +1262,9 @@ See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setu
 - `ARAGORA_ENCRYPTION_REQUIRED` is automatically enabled when `ARAGORA_ENV=production`
 - `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` should **never** be set in production - webhooks will fail-closed if verification is unavailable
 - Webhook verification requires: Slack (signing secret), Discord (PyNaCl + public key), Teams/Google Chat (PyJWT)
-- When `AWS_REGION`/`AWS_DEFAULT_REGION` is set, Secrets Manager is enabled by default and
-  `ARAGORA_SECRET_NAME` falls back to `aragora/production` if not provided.
+- Secrets Manager is auto-enabled in production/staging or AWS-managed runtimes.
+  For local development, set `ARAGORA_USE_SECRETS_MANAGER=true` to opt in.
+  `ARAGORA_SECRET_NAME` still falls back to `aragora/production` when Secrets Manager is enabled.
 
 ## Knowledge System
 

@@ -49,11 +49,27 @@ class TestSecretsConfig:
         assert config.cache_ttl_seconds == 300
 
     def test_from_env_defaults(self):
-        """Config defaults to use_aws=True (graceful fallback to env vars)."""
+        """Config defaults to local-only secrets in development environments."""
         with patch.dict(os.environ, {}, clear=True):
             config = SecretsConfig.from_env()
             assert config.aws_region == "us-east-1"
             assert config.secret_name == "aragora/production"
+            assert config.use_aws is False
+
+    def test_from_env_defaults_to_use_aws_in_production(self):
+        """Production-like environments auto-enable AWS Secrets Manager."""
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
+            config = SecretsConfig.from_env()
+            assert config.use_aws is True
+
+    def test_from_env_defaults_to_use_aws_in_aws_runtime(self):
+        """AWS-managed runtimes auto-enable Secrets Manager when unset."""
+        with patch.dict(
+            os.environ,
+            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.11"},
+            clear=True,
+        ):
+            config = SecretsConfig.from_env()
             assert config.use_aws is True
 
     def test_from_env_with_values(self):
@@ -84,10 +100,10 @@ class TestSecretsConfig:
             assert config.use_aws is False
 
     def test_use_aws_default_when_unset(self):
-        """Config defaults to use_aws=True when env var is not set."""
+        """Config defaults to use_aws=False when env var is not set in dev."""
         with patch.dict(os.environ, {}, clear=True):
             config = SecretsConfig.from_env()
-            assert config.use_aws is True
+            assert config.use_aws is False
 
 
 class TestSecretManager:

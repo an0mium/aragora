@@ -1218,7 +1218,7 @@ Primary AI provider API keys. At least one is required.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager name | `aragora/production` |
-| `ARAGORA_USE_SECRETS_MANAGER` | Optional | Use AWS Secrets Manager | Auto |
+| `ARAGORA_USE_SECRETS_MANAGER` | Optional | Use AWS Secrets Manager | `false` locally, auto in prod/staging/AWS runtimes |
 | `AWS_REGION` | Optional | AWS region | - |
 | `AWS_DEFAULT_REGION` | Optional | Default AWS region | - |
 | `AWS_SECRET_NAME` | Optional | AWS secret name | - |
