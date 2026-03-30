@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from aragora.canvas.models import Canvas, CanvasNode, CanvasNodeType, Position
 from aragora.server.handlers.idea_canvas import IdeaCanvasHandler
 from aragora.server.handlers.goal_canvas import GoalCanvasHandler
 from aragora.server.handlers.action_canvas import ActionCanvasHandler
@@ -142,8 +143,9 @@ class TestStageTypes:
 class TestGoalsToActions:
     """Stage 2 → Stage 3 transition via GoalCanvasHandler.advance."""
 
+    @patch("aragora.canvas.action_store.get_action_canvas_store")
     @patch("aragora.canvas.goal_store.get_goal_canvas_store")
-    def test_advance_returns_action_stage_metadata(self, mock_get_store):
+    def test_advance_returns_action_stage_metadata(self, mock_get_store, mock_get_action_store):
         handler = GoalCanvasHandler(ctx={})
 
         mock_store = MagicMock()
@@ -151,24 +153,53 @@ class TestGoalsToActions:
             "id": "goals-1",
             "name": "Q1 Goals",
             "metadata": {"stage": "goals"},
+            "workspace_id": "ws-1",
         }
         mock_get_store.return_value = mock_store
+        action_store = MagicMock()
+        action_store.save_canvas.side_effect = lambda **kwargs: {
+            "id": kwargs["canvas_id"],
+            "metadata": kwargs["metadata"],
+        }
+        mock_get_action_store.return_value = action_store
 
         with patch.object(handler, "_get_canvas_manager"):
             with patch.object(handler, "_run_async") as mock_run:
-                canvas_mock = MagicMock()
-                canvas_mock.nodes = {}
-                canvas_mock.edges = {}
-                mock_run.return_value = canvas_mock
+                canvas = Canvas(
+                    id="goals-1",
+                    name="Q1 Goals",
+                    owner_id="u1",
+                    workspace_id="ws-1",
+                    metadata={"stage": "goals"},
+                )
+                canvas.nodes["goal-1"] = CanvasNode(
+                    id="goal-1",
+                    node_type=CanvasNodeType.DECISION,
+                    position=Position(0, 0),
+                    label="Ship receipts",
+                    data={
+                        "stage": "goals",
+                        "goal_type": "goal",
+                        "description": "Make receipts easy to trust",
+                        "priority": "high",
+                        "rf_type": "goalNode",
+                    },
+                )
+                mock_run.return_value = canvas
 
                 ctx = MagicMock()
-                result = handler._advance_to_actions(ctx, "goals-1", {}, "u1")
-                assert result is not None
+                with patch.object(handler, "_persist_canvas_state"):
+                    result = handler._advance_to_actions(ctx, "goals-1", {}, "u1")
+                    assert result is not None
 
-                body = _parse_result(result)
-                assert body.get("source_stage") == "goals"
-                assert body.get("target_stage") == "actions"
-                assert body.get("source_canvas_id") == "goals-1"
+                    body = _parse_result(result)
+                    assert body.get("source_stage") == "goals"
+                    assert body.get("target_stage") == "actions"
+                    assert body.get("source_canvas_id") == "goals-1"
+                    assert body.get("canvas_id", "").startswith("actions-")
+                    assert body.get("metadata", {}).get("stage") == "actions"
+                    assert body.get("workflow_step_count") == 4
+                    assert all(node["data"]["stage"] == "actions" for node in body["nodes"])
 
 
 class TestActionsToOrchestration:
