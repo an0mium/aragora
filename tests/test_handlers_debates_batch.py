@@ -101,7 +101,8 @@ class TestWebhookValidation:
         """Test valid HTTPS webhook URL."""
         from aragora.server.debate_queue import validate_webhook_url
 
-        is_valid, _ = validate_webhook_url("https://example.com/webhook")
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]):
+            is_valid, _ = validate_webhook_url("https://example.com/webhook")
         assert is_valid is True
 
     def test_validate_webhook_url_localhost_rejected(self):

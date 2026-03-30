@@ -164,6 +164,121 @@ class TestTaskDecomposer:
         assert len(result.subtasks) == 1
         assert result.subtasks[0].title == "Gate defaults"
 
+    @pytest.mark.asyncio
+    async def test_analyze_with_model_collapses_same_scope_siblings(self):
+        decomposer = TaskDecomposer()
+        task = "Add --json output flag to aragora quickstart CLI"
+        hints = [
+            "aragora/cli/commands/quickstart.py",
+            "aragora/cli/parser.py",
+            "tests/cli/test_quickstart.py",
+        ]
+        mock_agent = SimpleNamespace(
+            generate=AsyncMock(
+                return_value=(
+                    '{"rationale":"planner output","subtasks":['
+                    '{"id":"subtask_1","title":"Cli Changes","description":"update cli","estimated_complexity":"low",'
+                    '"file_scope":["aragora/cli/commands/quickstart.py","aragora/cli/parser.py","tests/cli/test_quickstart.py"],'
+                    '"success_criteria":{"tests":"python -m pytest tests/cli/test_quickstart.py -q"}},'
+                    '{"id":"subtask_2","title":"Tests Changes","description":"update tests","estimated_complexity":"medium",'
+                    '"file_scope":["aragora/cli/commands/quickstart.py","aragora/cli/parser.py","tests/cli/test_quickstart.py"]}'
+                    "]}"
+                )
+            )
+        )
+
+        with patch("aragora.agents.base.create_agent", return_value=mock_agent):
+            result = await decomposer.analyze_with_model(
+                task,
+                planner_model="codex",
+                file_scope_hints=hints,
+            )
+
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].title == task
+        assert result.subtasks[0].description == task
+        assert result.subtasks[0].file_scope == hints
+        assert result.subtasks[0].estimated_complexity == "medium"
+        assert (
+            result.subtasks[0].success_criteria["tests"].endswith("tests/cli/test_quickstart.py -q")
+        )
+
+    @patch.object(TaskDecomposer, "_llm_extract_subtasks", return_value=[])
+    def test_file_scoped_vague_task_fails_closed_to_single_mirrored_subtask(
+        self, _mock_llm_extract: object
+    ):
+        decomposer = TaskDecomposer(DecomposerConfig(complexity_threshold=8))
+        task = "Make quickstart emit machine-readable output for automation tooling"
+        hints = [
+            "aragora/cli/commands/quickstart.py",
+            "aragora/cli/parser.py",
+            "tests/cli/test_quickstart.py",
+        ]
+
+        result = decomposer.analyze(task, file_scope_hints=hints)
+
+        assert result.should_decompose is True
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].title == task
+        assert result.subtasks[0].description == task
+        assert result.subtasks[0].file_scope == hints
+        assert "mirrored subtask" in result.rationale.lower()
+
+    @patch.object(TaskDecomposer, "_llm_extract_subtasks", return_value=[])
+    def test_same_scope_heuristic_subtasks_collapse_to_one_lane(self, _mock_llm_extract: object):
+        decomposer = TaskDecomposer(DecomposerConfig(complexity_threshold=1))
+        task = (
+            "Add quickstart JSON output while updating analytics, storage, debate, "
+            "tests, and cli handling"
+        )
+        hints = [
+            "aragora/cli/commands/quickstart.py",
+            "aragora/cli/parser.py",
+            "tests/cli/test_quickstart.py",
+        ]
+
+        result = decomposer.analyze(task, file_scope_hints=hints)
+
+        assert result.should_decompose is True
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].title.startswith("Add quickstart JSON output")
+        assert result.subtasks[0].title.endswith("...")
+        assert result.subtasks[0].description == task
+        assert result.subtasks[0].file_scope == hints
+
+    @patch.object(TaskDecomposer, "_llm_extract_subtasks", return_value=[])
+    def test_live_issue_1639_markdown_shape_stays_one_file_scoped_lane(
+        self, _mock_llm_extract: object
+    ):
+        decomposer = TaskDecomposer(DecomposerConfig(complexity_threshold=1))
+        task = """Add --json output flag to aragora quickstart CLI
+
+Add `--json` flag to `aragora quickstart` so the debate result (receipt_id, consensus,
+confidence, agent votes) is printed as structured JSON to stdout. Currently only prints
+human-readable text.
+
+**Files:** `aragora/cli/commands/quickstart.py`, `aragora/cli/parser.py`
+
+**Test:** `aragora quickstart --topic 'test' --rounds 1 --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'receipt_id' in d"`
+
+**Acceptance:** `pytest tests/cli/test_quickstart.py -x -q` passes.
+"""
+        hints = [
+            "aragora/cli/commands/quickstart.py",
+            "aragora/cli/parser.py",
+            "tests/cli/test_quickstart.py",
+        ]
+
+        result = decomposer.analyze(task, file_scope_hints=hints)
+
+        assert result.should_decompose is True
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].description == task.strip()
+        assert result.subtasks[0].file_scope == hints
+        assert result.subtasks[0].title.startswith(
+            "Add --json output flag to aragora quickstart CLI"
+        )
+
 
 class TestSubTask:
     """Tests for SubTask dataclass."""

@@ -37,8 +37,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from aragora.agents.spec import AgentSpec
 from aragora.rbac.models import AuthorizationContext
 
 from ..dependencies.auth import require_permission
@@ -153,12 +154,47 @@ class CreateDebateRequest(BaseModel):
     question: str = Field(
         ..., min_length=1, max_length=5000, description="Topic/question to debate"
     )
-    agents: str | None = Field(None, description="Comma-separated agent list")
+    agents: str | dict[str, Any] | list[str | dict[str, Any]] | None = Field(
+        None,
+        description="Agent specs as a comma-separated string, object, or list",
+    )
     rounds: int = Field(3, ge=1, le=20, description="Number of debate rounds")
     consensus: str = Field("majority", description="Consensus method")
     auto_select: bool = Field(False, description="Auto-select agents")
     context: str | None = Field(None, max_length=10000, description="Additional context")
     metadata: dict[str, Any] | None = Field(None, description="Custom metadata")
+    comparison_config: dict[str, Any] | None = Field(
+        None,
+        description="Run the same debate across candidate lineups and keep the best result",
+    )
+    model_comparison: dict[str, Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config",
+    )
+    agent_combinations: list[Any] | None = Field(
+        None,
+        description="Deprecated alias for comparison_config.agent_combinations",
+    )
+    model_combinations: list[Any] | None = Field(
+        None,
+        description="Human-facing alias for comparison_config.agent_combinations",
+    )
+
+    @field_validator("agents")
+    @classmethod
+    def validate_agents(
+        cls, value: str | dict[str, Any] | list[str | dict[str, Any]] | None
+    ) -> str | dict[str, Any] | list[str | dict[str, Any]] | None:
+        """Reject malformed structured agent specs early."""
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            return value
+        try:
+            AgentSpec.coerce_list(value, warn=False)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
 
 class CreateDebateResponse(BaseModel):
@@ -909,6 +945,14 @@ async def create_debate(
             debate_body["context"] = body.context
         if body.metadata:
             debate_body["metadata"] = body.metadata
+        if body.comparison_config is not None:
+            debate_body["comparison_config"] = body.comparison_config
+        if body.model_comparison is not None:
+            debate_body["model_comparison"] = body.model_comparison
+        if body.agent_combinations is not None:
+            debate_body["agent_combinations"] = body.agent_combinations
+        if body.model_combinations is not None:
+            debate_body["model_combinations"] = body.model_combinations
 
         # Delegate to the debate controller
         try:

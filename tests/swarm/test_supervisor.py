@@ -642,6 +642,136 @@ def test_explicit_work_orders_merge_spec_hints_into_existing_scope(
     assert "tests/live" in work_order["file_scope"]
 
 
+def test_start_run_collapses_redundant_identical_scope_work_orders(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-collapsed"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-collapsed",
+        agent="codex",
+        branch="codex/swarm-collapsed",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Add quickstart json output",
+        complexity_score=4,
+        complexity_level="moderate",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="wo-cli",
+                title="CLI Changes",
+                description="Update quickstart command output.",
+                file_scope=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+            ),
+            SubTask(
+                id="wo-tests",
+                title="Tests Changes",
+                description="Add JSON output regression tests.",
+                file_scope=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+            ),
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Add quickstart json output",
+        refined_goal="Add --json output to quickstart",
+        file_scope_hints=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=1)
+
+    assert len(run.work_orders) == 1
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["file_scope"] == [
+        "aragora/cli/commands/quickstart.py",
+        "tests/cli/test_quickstart.py",
+    ]
+    assert work_order["metadata"]["collapsed_redundant_work_orders"] == ["wo-cli", "wo-tests"]
+    lifecycle.ensure_managed_worktree.assert_called_once()
+
+
+def test_start_run_preserves_distinct_scope_work_orders(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    sessions = [
+        ManagedWorktreeSession(
+            session_id="swarm-distinct-a",
+            agent="codex",
+            branch="codex/swarm-distinct-a",
+            path=repo / "wt-distinct-a",
+            created=True,
+            reconcile_status="up_to_date",
+            payload={},
+        ),
+        ManagedWorktreeSession(
+            session_id="swarm-distinct-b",
+            agent="claude",
+            branch="codex/swarm-distinct-b",
+            path=repo / "wt-distinct-b",
+            created=True,
+            reconcile_status="up_to_date",
+            payload={},
+        ),
+    ]
+    sessions[0].path.mkdir()
+    sessions[1].path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = sessions
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Fix CLI and server",
+        complexity_score=5,
+        complexity_level="moderate",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="wo-cli",
+                title="CLI Changes",
+                description="Update quickstart command output.",
+                file_scope=["aragora/cli/commands/quickstart.py"],
+            ),
+            SubTask(
+                id="wo-server",
+                title="Server Changes",
+                description="Update receipt route output.",
+                file_scope=["aragora/server/fastapi/receipts.py"],
+            ),
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Fix CLI and server",
+        refined_goal="Fix CLI and server",
+        file_scope_hints=[
+            "aragora/cli/commands/quickstart.py",
+            "aragora/server/fastapi/receipts.py",
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=2)
+
+    assert len(run.work_orders) == 2
+    assert lifecycle.ensure_managed_worktree.call_count == 2
+
+
 def test_start_run_initializes_worker_type_circuit_breaker_metadata(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -870,6 +1000,7 @@ async def test_collect_results_records_passed_merge_gate_checks(
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "receipt_id": None,
             }
         ],
         status="active",
@@ -919,6 +1050,7 @@ async def test_collect_results_records_passed_merge_gate_checks(
     assert wo["status"] == "completed"
     assert wo["review_status"] == "pending_heterogeneous_review"
     assert wo["receipt_id"] is not None
+    assert store.get_completion_receipt(wo["receipt_id"]) is not None
     assert wo["merge_gate"]["checks_passed"] is True
     assert wo["merge_gate"]["human_approval_required"] is True
 
@@ -1091,6 +1223,80 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert wo["failure_reason"] == "missing_verification_plan"
     assert "verification command" in wo["blocking_question"]
     assert "missing verification plan" in wo["dispatch_error"]
+
+
+def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="backfill receipt lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "backfill receipt lane"},
+        work_orders=[
+            {
+                "work_order_id": "wo-backfill",
+                "status": "queued",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "backfill-session",
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+    lease = store.claim_lease(
+        task_id="wo-backfill",
+        title="Backfill lane",
+        owner_agent="claude",
+        owner_session_id="backfill-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        metadata={"supervisor_run_id": run_id, "work_order_id": "wo-backfill"},
+    )
+    store.update_supervisor_run(
+        run_id,
+        status="completed",
+        work_orders=[
+            {
+                "work_order_id": "wo-backfill",
+                "status": "completed",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "backfill-session",
+                "lease_id": lease.lease_id,
+                "receipt_id": None,
+                "review_status": "pending_heterogeneous_review",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "commit_shas": ["abc12345"],
+                "tests_run": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "worker_outcome": "completed",
+                "initial_head": "base123",
+                "head_sha": "head456",
+                "confidence": 0.82,
+            }
+        ],
+    )
+    store.fleet_store.release_paths(session_id="backfill-session")
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    refreshed = supervisor.refresh_run(run_id)
+
+    wo = refreshed.work_orders[0]
+    assert wo["status"] == "completed"
+    assert wo["receipt_id"] is not None
+    receipt = store.get_completion_receipt(wo["receipt_id"])
+    assert receipt is not None
+    assert receipt.lease_id == lease.lease_id
+    assert receipt.metadata["backfilled_receipt"] is True
 
 
 @pytest.mark.asyncio

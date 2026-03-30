@@ -22,6 +22,7 @@ ALLOWED_QUERY_PARAMS = {
     # Pagination (numeric, validated by int parsing)
     "limit": None,
     "offset": None,
+    "count": None,
     "min_debates": None,
     "since": None,
     # Filtering (string, need length limits)
@@ -46,6 +47,7 @@ ALLOWED_QUERY_PARAMS = {
     "prioritized": 10,
     "scopes": 500,
     "debate_id": 100,
+    "pipeline_id": 100,
     "org_id": 100,
     "organization_id": 100,
     "user_id": 100,

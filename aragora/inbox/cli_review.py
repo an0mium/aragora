@@ -150,6 +150,17 @@ class CLIReviewLoop:
             self._print("  Status  : blocked pending human review")
         else:
             self._print(f"  Status  : {decision.receipt_state}")
+        if decision.provider_route:
+            self._print(f"  Route   : {decision.provider_route}")
+        self._print(f"  Tier    : {decision.execution_tier}")
+        if decision.escalation_reasons:
+            self._print(f"  Escal.  : {', '.join(decision.escalation_reasons)}")
+        if decision.suppressed_diagnostics_count:
+            self._print(f"  Suppres.: {decision.suppressed_diagnostics_count}")
+        if decision.cost_usd is not None:
+            self._print(f"  Cost    : ${decision.cost_usd:.4f}")
+        if decision.latency_seconds is not None:
+            self._print(f"  Latency : {decision.latency_seconds:.2f}s")
         if decision.dissent_summary:
             self._print(f"  Dissent : {decision.dissent_summary}")
         self._print(f"  Receipt : {decision.receipt_id}")
@@ -258,6 +269,11 @@ class CLIReviewLoop:
         decision.provider_route = updated.provider_route
         decision.label_id = updated.label_id
         decision.blocked_by_policy = updated.blocked_by_policy
+        decision.cost_usd = updated.cost_usd
+        decision.latency_seconds = updated.latency_seconds
+        decision.execution_tier = updated.execution_tier
+        decision.escalation_reasons = list(updated.escalation_reasons)
+        decision.suppressed_diagnostics_count = updated.suppressed_diagnostics_count
 
 
 __all__ = ["CLIReviewLoop"]

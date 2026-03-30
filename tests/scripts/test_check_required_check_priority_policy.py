@@ -20,6 +20,7 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
@@ -31,13 +32,17 @@ jobs:
               '.github/workflows/quality-smoke.yml',
               '.github/workflows/release-readiness.yml',
               '.github/workflows/security-gate.yml',
+              '.github/workflows/self-hosted-shadow.yml',
               '.github/workflows/smoke.yml',
+              '.github/workflows/smoke-offline.yml',
               '.github/workflows/required-check-priority.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
+              'Offline Golden Path',
               'Live Deploy Mode Gate',
               'PR Admission Controller',
               'Quality Pipeline Smoke',
@@ -45,6 +50,7 @@ jobs:
               'Release Readiness Gate',
               'Security Gate',
               'Lint',
+              'Self-Hosted Shadow CI',
               'SDK Parity Check',
               'SDK Tests',
               'Smoke Tests',
@@ -118,6 +124,10 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: Autopilot Worktree E2E\njobs:\n  scope:\n    name: Autopilot Scope\n",
         encoding="utf-8",
     )
+    (wf_dir / "contract-drift-governance.yml").write_text(
+        "name: Contract Drift Governance\njobs:\n  governance:\n    name: governance\n",
+        encoding="utf-8",
+    )
     (wf_dir / "core-suites.yml").write_text(
         "name: Core Suites (Decision Integrity)\njobs:\n  core:\n    runs-on: ubuntu-latest\n",
         encoding="utf-8",
@@ -161,8 +171,16 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: Security Gate\njobs:\n  summary:\n    name: Security Gate Summary\n",
         encoding="utf-8",
     )
+    (wf_dir / "self-hosted-shadow.yml").write_text(
+        "name: Self-Hosted Shadow CI\njobs:\n  shadow:\n    name: Mac TypeScript SDK Shadow\n",
+        encoding="utf-8",
+    )
     (wf_dir / "smoke.yml").write_text(
         "name: Smoke Tests\njobs:\n  smoke:\n    name: Smoke Tests\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "smoke-offline.yml").write_text(
+        "name: Offline Golden Path\njobs:\n  offline:\n    name: Offline Demo Smoke\n",
         encoding="utf-8",
     )
 
@@ -177,6 +195,7 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
@@ -189,12 +208,16 @@ jobs:
               '.github/workflows/required-check-priority.yml',
               '.github/workflows/release-readiness.yml',
               '.github/workflows/security-gate.yml',
+              '.github/workflows/self-hosted-shadow.yml',
               '.github/workflows/smoke.yml',
+              '.github/workflows/smoke-offline.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
+              'Offline Golden Path',
               'Live Deploy Mode Gate',
               'PR Admission Controller',
               'Quality Pipeline Smoke',
@@ -202,6 +225,7 @@ jobs:
               'Release Readiness Gate',
               'Security Gate',
               'Lint',
+              'Self-Hosted Shadow CI',
               'SDK Parity Check',
               'SDK Tests',
               'Smoke Tests',

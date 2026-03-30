@@ -333,6 +333,7 @@ async def _run_triage(
                     diagnostics,
                     next_page_token=getattr(runner, "next_page_token", None),
                 )
+                _print_wedge_receipt_handoffs(decisions)
                 return
 
             _print_decisions(decisions)
@@ -518,6 +519,15 @@ def _print_decisions(decisions: list) -> None:
 
     print(f"{'─' * 60}")
     print(f"Total: {len(decisions)} decisions")
+    receipt_ids = []
+    for decision in decisions:
+        receipt_id = getattr(decision, "receipt_id", None)
+        if receipt_id and receipt_id not in receipt_ids:
+            receipt_ids.append(receipt_id)
+    if receipt_ids:
+        print("Inspect receipts:")
+        for receipt_id in receipt_ids:
+            print(f"  aragora receipt show {receipt_id}")
 
     from aragora.inbox.trust_wedge import ReceiptState
 
@@ -539,22 +549,53 @@ def _print_run_footer(
     next_page_token: str | None = None,
 ) -> None:
     """Print a compact diagnostics-aware run footer."""
-    print(
-        "Run summary: "
-        f"processed={len(decisions)} "
-        f"fast={meta.get('fast_tier_count', 0)} "
-        f"escalated={meta.get('escalated_count', 0)} "
-        f"blocked={meta.get('blocked_count', 0)} "
-        f"suppressed={meta.get('suppressed_diagnostics_count', 0)}"
+    message_suppressed = int(
+        meta.get(
+            "message_suppressed_diagnostics_count",
+            meta.get("suppressed_diagnostics_count", 0),
+        )
     )
+    global_suppressed = int(meta.get("global_suppressed_diagnostics_count", 0))
+    summary_parts = [
+        f"processed={len(decisions)}",
+        f"fast={meta.get('fast_tier_count', 0)}",
+        f"escalated={meta.get('escalated_count', 0)}",
+        f"blocked={meta.get('blocked_count', 0)}",
+        f"suppressed={message_suppressed}",
+    ]
+    if global_suppressed:
+        summary_parts.append(f"global_diag={global_suppressed}")
+    print("Run summary: " + " ".join(summary_parts))
     if getattr(diagnostics, "has_degraded_or_blocking", lambda: False)():
         print(f"Diagnostics: {meta.get('artifact_dir')}")
     if next_page_token:
         print(f"Next page token: {next_page_token}")
 
 
+def _print_wedge_receipt_handoffs(decisions: list) -> None:
+    """Print inbox trust wedge inspect handles for created receipts."""
+    receipt_ids: list[str] = []
+    seen: set[str] = set()
+    for decision in decisions:
+        receipt_id = str(getattr(decision, "receipt_id", "") or "").strip()
+        if not receipt_id or receipt_id in seen:
+            continue
+        seen.add(receipt_id)
+        receipt_ids.append(receipt_id)
+
+    if not receipt_ids:
+        return
+
+    print("\nInspect inbox receipts:")
+    for receipt_id in receipt_ids:
+        print(f"  aragora inbox-wedge show {receipt_id}")
+    print("\nReview inbox receipts:")
+    for receipt_id in receipt_ids:
+        print(f"  aragora inbox-wedge review {receipt_id} --choice <approve|reject|edit|skip>")
+
+
 def _show_status() -> None:
-    """Show triage configuration status."""
+    """Show triage configuration status and dogfood metrics."""
     print("Inbox Triage Status")
     print(f"{'─' * 40}")
 
@@ -581,3 +622,118 @@ def _show_status() -> None:
     for name, var in providers.items():
         status = "yes" if os.environ.get(var) else "no"
         print(f"  {name + ' key:':<22}{status}")
+
+    _show_dogfood_metrics()
+
+
+def _show_dogfood_metrics() -> None:
+    """Show aggregate dogfood metrics from the trust wedge DB."""
+    import json
+    import sqlite3
+
+    try:
+        from aragora.config import resolve_db_path
+    except ImportError:
+        return
+
+    db_path = resolve_db_path(
+        os.environ.get("ARAGORA_INBOX_TRUST_WEDGE_DB", "inbox_trust_wedge.db")
+    )
+    if not os.path.exists(db_path):
+        return
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=5.0)
+        conn.row_factory = sqlite3.Row
+    except sqlite3.Error:
+        return
+
+    try:
+        total = conn.execute("SELECT count(*) FROM inbox_trust_receipts").fetchone()[0]
+        if total == 0:
+            return
+
+        print(f"\n{'─' * 40}")
+        print("Dogfood Metrics")
+        print(f"{'─' * 40}")
+        print(f"  Total receipts:       {total}")
+
+        # State breakdown
+        rows = conn.execute(
+            "SELECT state, count(*) as cnt FROM inbox_trust_receipts GROUP BY state ORDER BY cnt DESC"
+        ).fetchall()
+        for row in rows:
+            print(f"    {row['state'] or 'unknown':<20} {row['cnt']}")
+
+        # Action breakdown
+        rows = conn.execute(
+            "SELECT action, count(*) as cnt FROM inbox_trust_receipts GROUP BY action ORDER BY cnt DESC"
+        ).fetchall()
+        print("\n  Actions:")
+        for row in rows:
+            print(f"    {row['action'] or 'unknown':<20} {row['cnt']}")
+
+        # Confidence stats from decision_json
+        decision_rows = conn.execute(
+            "SELECT decision_json FROM inbox_trust_receipts WHERE decision_json IS NOT NULL"
+        ).fetchall()
+        confidences: list[float] = []
+        latencies: list[float] = []
+        fast_count = 0
+        escalated_count = 0
+        blocked_count = 0
+        for row in decision_rows:
+            try:
+                d = json.loads(row["decision_json"])
+                if not isinstance(d, dict):
+                    continue
+                conf = d.get("confidence")
+                if conf is not None:
+                    confidences.append(float(conf))
+                lat = d.get("latency_seconds")
+                if lat is not None:
+                    latencies.append(float(lat))
+                tier = str(d.get("execution_tier", "")).strip().lower()
+                if tier == "fast":
+                    fast_count += 1
+                elif tier == "escalated":
+                    escalated_count += 1
+                if d.get("blocked_by_policy"):
+                    blocked_count += 1
+            except (json.JSONDecodeError, TypeError, ValueError):
+                continue
+
+        if confidences:
+            avg_conf = sum(confidences) / len(confidences)
+            print(f"\n  Avg confidence:       {avg_conf:.1%}")
+        if latencies:
+            avg_lat = sum(latencies) / len(latencies)
+            print(f"  Avg latency:          {avg_lat:.1f}s")
+        if fast_count or escalated_count:
+            print(f"  Fast decisions:       {fast_count}")
+            print(f"  Escalated:            {escalated_count}")
+        if blocked_count:
+            print(f"  Blocked by policy:    {blocked_count}")
+
+        # Date range
+        date_row = conn.execute(
+            "SELECT min(created_at) as first, max(created_at) as last FROM inbox_trust_receipts"
+        ).fetchone()
+        if date_row["first"]:
+            first_date = str(date_row["first"])[:10]
+            last_date = str(date_row["last"])[:10]
+            print(f"\n  Date range:           {first_date} → {last_date}")
+
+        # Override rate (human edits)
+        override_count = conn.execute(
+            "SELECT count(*) FROM inbox_trust_receipts WHERE review_choice IS NOT NULL "
+            "AND review_choice NOT IN ('auto_approve', '')"
+        ).fetchone()[0]
+        if total > 0:
+            override_pct = (override_count / total) * 100
+            print(f"  Human overrides:      {override_count} ({override_pct:.1f}%)")
+
+    except sqlite3.Error:
+        pass
+    finally:
+        conn.close()

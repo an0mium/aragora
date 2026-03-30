@@ -8,9 +8,15 @@ The Pydantic layer gives typed field access and richer constraint checking.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
+
+from aragora.agents.spec import AgentSpec
+
+
+AgentSpecInput = str | dict[str, Any]
 
 
 class DebateRequest(BaseModel):
@@ -34,7 +40,7 @@ class DebateRequest(BaseModel):
 
     question: str = Field(..., min_length=10, max_length=2000)
     rounds: int = Field(default=3, ge=1, le=10)
-    agents: list[str] = Field(default_factory=list, max_length=10)
+    agents: list[AgentSpecInput] = Field(default_factory=list, max_length=10)
 
     # Optional passthrough fields accepted by the existing handler
     auto_select: bool = False
@@ -54,10 +60,45 @@ class DebateRequest(BaseModel):
 
     @field_validator("agents", mode="before")
     @classmethod
-    def parse_agents(cls, v: Any) -> list[str]:
-        """Accept comma-separated string OR a proper list."""
+    def parse_agents(cls, v: Any) -> list[AgentSpecInput]:
+        """Accept flexible agent spec inputs used by the runtime."""
+        if v is None:
+            return []
+        if isinstance(v, dict):
+            return [v]
         if isinstance(v, str):
-            return [a.strip() for a in v.split(",") if a.strip()]
+            stripped = v.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("[") or stripped.startswith("{"):
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError:
+                    payload = None
+                if payload is not None:
+                    return cls.parse_agents(payload)
+            return [a.strip() for a in stripped.split(",") if a.strip()]
+        return v
+
+    @field_validator("agents")
+    @classmethod
+    def validate_agents(cls, v: list[AgentSpecInput]) -> list[AgentSpecInput]:
+        """Validate structured agent specs without narrowing legacy string inputs."""
+        if not v:
+            return []
+
+        for index, item in enumerate(v):
+            if isinstance(item, str):
+                continue
+            if not isinstance(item, dict):
+                raise ValueError(
+                    f"agents[{index}] must be a string or object, got {type(item).__name__}"
+                )
+            try:
+                AgentSpec.coerce_list(item, warn=False)
+            except ValueError as exc:
+                raise ValueError(f"agents[{index}]: {exc}") from exc
+
         return v
 
     def to_handler_dict(self) -> dict[str, Any]:

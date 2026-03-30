@@ -364,7 +364,7 @@ aragora/
 ├── gauntlet/       # Adversarial stress testing
 ├── knowledge/      # Knowledge Mound with 42 registered adapter specs
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 3,000+ API operations, 260+ WebSocket event types
+├── server/         # 3,000+ API operations, 270+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
@@ -373,7 +373,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,700+ Python modules | 208,000+ tests across 5,000+ test files
+**Scale:** 3,000+ Python modules | 212,000+ tests across 5,000+ test files
 
 ### Performance and Costs
 

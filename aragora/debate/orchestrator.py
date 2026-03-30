@@ -8,6 +8,7 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 import asyncio
 from collections import deque
+import os
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast
 import warnings  # noqa: F401 - used for deprecation warnings in __init__
@@ -360,6 +361,7 @@ class Arena(ArenaDelegatesMixin):
     _selection_feedback_loop: Any
     _cost_tracker: Any
     _health_registry: Any
+    _db_manager_snapshot: set[str]
 
     def __init__(
         self,
@@ -515,7 +517,10 @@ class Arena(ArenaDelegatesMixin):
         enable_sandbox_verification: bool = False,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
+        from aragora.storage.schema import DatabaseManager
+
         self.mode_sequence = mode_sequence
+        self._db_manager_snapshot = DatabaseManager.instance_paths()
         knowledge_mound_param_provided = knowledge_mound is not _KNOWLEDGE_MOUND_UNSET
         knowledge_mound_param_none = knowledge_mound is None
 
@@ -1111,11 +1116,42 @@ class Arena(ArenaDelegatesMixin):
         if hasattr(self, "context_gatherer") and self.context_gatherer:
             self.context_gatherer.clear_cache()
         self._cleanup_convergence_cache()
+        await self._cleanup_debate_persistence()
         # Close shared HTTP connector to prevent resource leak warnings
         try:
             from aragora.agents.api_agents.common import close_shared_connector
 
             await close_shared_connector()
+        except (ImportError, RuntimeError, OSError):
+            pass
+
+    def _cleanup_debate_database_managers(self) -> None:
+        """Close only DatabaseManager instances created after this arena was built."""
+        from aragora.storage.schema import DatabaseManager
+
+        created_paths = DatabaseManager.instance_paths() - self._db_manager_snapshot
+        if not created_paths:
+            return
+        DatabaseManager.close_instances(created_paths)
+
+    async def _cleanup_debate_persistence(self) -> None:
+        """Release debate-created persistence resources."""
+        self._cleanup_debate_database_managers()
+
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+
+        try:
+            from aragora.storage.receipt_store import close_receipt_store
+
+            close_receipt_store()
+        except (ImportError, RuntimeError, OSError):
+            pass
+
+        try:
+            from aragora.storage.webhook_config_store import reset_webhook_config_store
+
+            reset_webhook_config_store()
         except (ImportError, RuntimeError, OSError):
             pass
 
@@ -1152,6 +1188,7 @@ class Arena(ArenaDelegatesMixin):
                     )
             return await self._run_inner(correlation_id=correlation_id)
         finally:
+            await self._cleanup_debate_persistence()
             # Close shared HTTP connector to prevent resource leak warnings
             try:
                 from aragora.agents.api_agents.common import close_shared_connector

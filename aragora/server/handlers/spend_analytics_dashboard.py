@@ -16,11 +16,14 @@ These endpoints aggregate data from:
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.utils.async_utils import run_async
 
 from .base import (
     HandlerResult,
@@ -57,6 +60,134 @@ def _get_budget_manager() -> Any:
     except (ImportError, RuntimeError, OSError) as e:
         logger.debug("BudgetManager not available: %s", e)
         return None
+
+
+def _has_positive_cost(value: Any) -> bool:
+    """Return whether a cost-like value is greater than zero."""
+    try:
+        return Decimal(str(value)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
+def _format_cost(value: Any) -> str:
+    """Format costs with at least cents and up to 4 decimals."""
+    try:
+        quantized = Decimal(str(value)).quantize(Decimal("0.0001"))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0.00"
+    rendered = format(quantized, "f").rstrip("0").rstrip(".")
+    if not rendered:
+        return "0.00"
+    if "." not in rendered:
+        return f"{rendered}.00"
+    decimals = rendered.split(".", 1)[1]
+    if len(decimals) == 1:
+        return f"{rendered}0"
+    return rendered
+
+
+def _summary_has_usage(total_spend_usd: Any, total_api_calls: Any, total_tokens: Any) -> bool:
+    """Return whether the current summary already carries meaningful usage."""
+    return _has_positive_cost(total_spend_usd) or bool(total_api_calls) or bool(total_tokens)
+
+
+def _get_metered_summary(scope_id: str) -> tuple[str, int, int]:
+    """Load durable spend summary data from usage metering."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    summary = run_async(get_usage_meter().get_usage_summary(org_id=scope_id))
+    return _format_cost(summary.token_cost), summary.api_call_count, summary.total_tokens
+
+
+def _get_metered_agents(org_id: str) -> tuple[str, list[dict[str, Any]]]:
+    """Load durable per-agent spend from usage metering token usage rows."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    meter = get_usage_meter()
+    run_async(meter.initialize())
+    if meter._conn is None:
+        return "0.00", []
+
+    cursor = meter._conn.cursor()
+    rows = cursor.execute(
+        """
+        SELECT metadata, total_cost
+        FROM token_usage
+        WHERE org_id = ?
+        """,
+        (org_id,),
+    ).fetchall()
+
+    by_agent: dict[str, Decimal] = {}
+    total_cost = Decimal("0")
+    for row in rows:
+        raw_cost = row["total_cost"] or "0"
+        try:
+            cost = Decimal(str(raw_cost))
+        except (InvalidOperation, TypeError, ValueError):
+            cost = Decimal("0")
+        total_cost += cost
+
+        metadata_raw = row["metadata"]
+        metadata: dict[str, Any] = {}
+        if isinstance(metadata_raw, str) and metadata_raw.strip():
+            try:
+                parsed = json.loads(metadata_raw)
+                if isinstance(parsed, dict):
+                    metadata = parsed
+            except json.JSONDecodeError:
+                metadata = {}
+
+        agent_name = (
+            str(metadata.get("agent_name") or metadata.get("agent") or "unknown").strip()
+            or "unknown"
+        )
+        by_agent[agent_name] = by_agent.get(agent_name, Decimal("0")) + cost
+
+    rendered_total = _format_cost(total_cost)
+    total_float = float(total_cost) if total_cost > 0 else 0.0
+    agents = [
+        {
+            "agent_name": agent_name,
+            "cost_usd": _format_cost(cost),
+            "percentage": round((float(cost) / total_float) * 100, 1) if total_float > 0 else 0.0,
+        }
+        for agent_name, cost in sorted(by_agent.items(), key=lambda item: item[1], reverse=True)
+    ]
+    return rendered_total, agents
+
+
+def _get_metered_decisions(org_id: str, limit: int) -> list[dict[str, str]]:
+    """Load per-debate costs from durable usage metering."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    meter = get_usage_meter()
+    run_async(meter.initialize())
+    if meter._conn is None:
+        return []
+
+    cursor = meter._conn.cursor()
+    rows = cursor.execute(
+        """
+        SELECT debate_id, SUM(CAST(total_cost AS REAL)) AS cost
+        FROM debate_usage
+        WHERE org_id = ?
+        GROUP BY debate_id
+        ORDER BY cost DESC
+        LIMIT ?
+        """,
+        (org_id, limit),
+    ).fetchall()
+
+    return [
+        {
+            "debate_id": row["debate_id"],
+            "cost_usd": _format_cost(row["cost"]),
+        }
+        for row in rows
+        if row["debate_id"]
+    ]
 
 
 class SpendAnalyticsDashboardHandler(SecureHandler):
@@ -185,6 +316,13 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
             total_spend_usd = stats.get("total_cost_usd", "0")
             total_api_calls = stats.get("total_api_calls", 0)
             total_tokens = stats.get("total_tokens_in", 0) + stats.get("total_tokens_out", 0)
+
+        if not _summary_has_usage(total_spend_usd, total_api_calls, total_tokens):
+            try:
+                scope_id = org_id if org_id and org_id != "default" else workspace_id
+                total_spend_usd, total_api_calls, total_tokens = _get_metered_summary(scope_id)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered spend summary unavailable: %s", e)
 
         # Budget utilization
         budget_limit_usd = 0.0
@@ -322,6 +460,12 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
             # Sort by cost descending
             agents.sort(key=lambda x: float(x.get("cost_usd", "0")), reverse=True)
 
+        if not agents:
+            try:
+                total_usd, agents = _get_metered_agents(workspace_id)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered agent spend unavailable: %s", e)
+
         return json_response(
             {
                 "workspace_id": workspace_id,
@@ -371,6 +515,12 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                         "cost_usd": str(cost),
                     }
                 )
+
+        if not decisions:
+            try:
+                decisions = _get_metered_decisions(workspace_id, limit)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered decision spend unavailable: %s", e)
 
         return json_response(
             {

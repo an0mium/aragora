@@ -123,6 +123,10 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
     assert "[DRY RUN] Proposed triage decisions" in out
     assert "archive" in out
     assert "Run summary:" in out
+    assert "Inspect inbox receipts:" in out
+    assert "aragora inbox-wedge show receipt-2" in out
+    assert "Review inbox receipts:" in out
+    assert "aragora inbox-wedge review receipt-2 --choice <approve|reject|edit|skip>" in out
     assert "Next page token: next-page-xyz" in out
 
 
@@ -230,6 +234,8 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
 
     out = capsys.readouterr().out
     assert "Run summary:" in out
+    assert "suppressed=0" in out
+    assert "global_diag=" in out
     assert "Diagnostics:" in out
     diag_root = tmp_path / "triage-runs"
     meta_files = list(diag_root.glob("*/meta.json"))
@@ -275,6 +281,7 @@ def test_print_decisions_formats_enum_values(capsys):
     assert "ignore" in out
     assert "InboxWedgeAction" not in out
     assert "created" in out
+    assert "aragora receipt show receipt-1" in out
 
 
 def test_print_decisions_shows_blocked_status_for_truthful_stop(capsys):
@@ -362,11 +369,16 @@ def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkey
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GMAIL_CLIENT_SECRET", "client-secret")
     monkeypatch.delenv("GMAIL_REFRESH_TOKEN", raising=False)
 
-    with patch(
-        "aragora.connectors.enterprise.communication.gmail.GmailConnector",
-        _FakeConnector,
+    with (
+        patch.object(triage_cmd, "_get_secret_fallback", return_value=""),
+        patch.object(triage_cmd, "_load_local_dotenv"),
+        patch(
+            "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+            _FakeConnector,
+        ),
     ):
         connector = triage_cmd._get_gmail_connector()
 

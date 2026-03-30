@@ -15,6 +15,15 @@ function normalizeApiUrl(apiUrl) {
   return String(apiUrl || DEFAULT_SETTINGS.apiUrl).trim().replace(/\/+$/, "");
 }
 
+function buildAuthorizationHeader(apiKey) {
+  const trimmed = String(apiKey || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  return /^Bearer\s+/i.test(trimmed) ? trimmed : `Bearer ${trimmed}`;
+}
+
 function humanizeStatus(status) {
   const normalized = String(status || "idle").trim().toLowerCase();
 
@@ -36,21 +45,36 @@ function humanizeStatus(status) {
 
 function isTerminalState(state) {
   const normalized = String(state?.status || "").toLowerCase();
-  return TERMINAL_STATUSES.has(normalized) || Boolean(state?.result?.finalAnswer);
+  return TERMINAL_STATUSES.has(normalized) || Boolean(resolveFinalAnswer(state?.result));
 }
 
 function resolveFinalAnswer(result) {
   return (
+    result?.conclusion ||
     result?.final_answer ||
     result?.finalAnswer ||
     result?.answer ||
     result?.summary ||
+    result?.consensus?.conclusion ||
     result?.consensus?.final_answer ||
     result?.consensus?.finalAnswer ||
     result?.consensus?.summary ||
     result?.consensus?.answer ||
     ""
   );
+}
+
+function resolveConfidence(result) {
+  const rawConfidence =
+    result?.confidence ??
+    result?.consensus?.confidence ??
+    result?.consensus?.agreement;
+  const confidence =
+    typeof rawConfidence === "string" ? Number(rawConfidence) : rawConfidence;
+
+  return typeof confidence === "number" && !Number.isNaN(confidence)
+    ? confidence
+    : null;
 }
 
 async function getStoredState() {
@@ -107,6 +131,7 @@ function renderError(errorMessage) {
 
 function renderState(state) {
   const activeState = state || {};
+  const result = activeState.result || {};
   setStatusPill(activeState.status || "idle");
 
   elements.selectionPreview.textContent =
@@ -114,17 +139,17 @@ function renderState(state) {
   renderSource(activeState.source);
 
   elements.debateId.textContent = activeState.debateId || "-";
-  elements.resultStatus.textContent = humanizeStatus(activeState.result?.status || activeState.status || "idle");
+  elements.resultStatus.textContent = humanizeStatus(result.status || activeState.status || "idle");
 
-  const confidence = activeState.result?.confidence;
+  const confidence = resolveConfidence(result);
   elements.resultConfidence.textContent =
     typeof confidence === "number" && !Number.isNaN(confidence)
       ? `${Math.round(confidence * 100)}%`
       : "-";
 
   const answer =
-    activeState.result?.finalAnswer ||
-    activeState.result?.message ||
+    resolveFinalAnswer(result) ||
+    result.message ||
     (activeState.status === "submitting"
       ? "Submitting selection to Aragora."
       : activeState.status === "running"
@@ -182,7 +207,7 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
   const response = await fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`, {
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: buildAuthorizationHeader(apiKey),
     },
   });
 
@@ -194,18 +219,9 @@ async function fetchDebate(apiUrl, apiKey, debateId) {
 }
 
 function buildResultState(previousState, debate) {
-  const confidence = Number(debate?.consensus?.confidence);
+  const confidence = resolveConfidence(debate);
   const nextStatus = String(debate?.status || previousState.status || "running").toLowerCase();
-  const finalAnswer =
-    debate.final_answer ||
-    debate.finalAnswer ||
-    debate.answer ||
-    debate.summary ||
-    debate.consensus?.final_answer ||
-    debate.consensus?.finalAnswer ||
-    debate.consensus?.summary ||
-    debate.consensus?.answer ||
-    resolveFinalAnswer(debate);
+  const finalAnswer = resolveFinalAnswer(debate);
 
   return {
     ...previousState,
@@ -215,7 +231,7 @@ function buildResultState(previousState, debate) {
       debateId: debate.id || debate.debate_id || previousState.debateId,
       status: debate.status || previousState.status || "running",
       finalAnswer,
-      confidence: Number.isNaN(confidence) ? null : confidence,
+      confidence,
       task: debate.task || debate.environment?.task || "",
     },
     updatedAt: new Date().toISOString(),

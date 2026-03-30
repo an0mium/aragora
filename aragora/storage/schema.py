@@ -623,6 +623,28 @@ class DatabaseManager:
             cls._instances.clear()
             logger.debug("Cleared all DatabaseManager instances")
 
+    @classmethod
+    def instance_paths(cls) -> set[str]:
+        """Return the currently registered manager paths."""
+        with timed_lock(cls._instances_lock, timeout=30.0, name="DatabaseManager.instances"):
+            return set(cls._instances.keys())
+
+    @classmethod
+    def close_instances(cls, paths: set[str] | list[str] | tuple[str, ...]) -> set[str]:
+        """Close and remove only the specified cached instances."""
+        normalized = {str(Path(path).resolve()) for path in paths}
+        closed: set[str] = set()
+        with timed_lock(cls._instances_lock, timeout=30.0, name="DatabaseManager.instances"):
+            for path in normalized:
+                manager = cls._instances.pop(path, None)
+                if manager is None:
+                    continue
+                manager.close()
+                closed.add(path)
+        if closed:
+            logger.debug("Closed %d DatabaseManager instances", len(closed))
+        return closed
+
     def get_connection(self) -> sqlite3.Connection:
         """Get a database connection.
 

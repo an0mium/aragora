@@ -1,70 +1,87 @@
 # Aragora Project Status
 
-*Last updated: March 23, 2026*
+*Last updated: March 29, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## March 23, 2026 — Structural PMF Slices Landed, Live Gate Still Open
+## March 29, 2026 — Public Debate Sharing Landed, Queue Needs Truthful Triage
 
 ### Canonical Current Reality
 
-- The March 21-23 merge stream landed the structural PMF slices that were missing earlier in the month:
-  - ProviderRouter-backed runtime debate selection
-  - KM retrieval and writeback on the product path
-  - versioned API-key management
-  - onboarding/get-started flow
-  - truthful integrations and dashboard state
-  - quickstart fail-closed behavior, structured receipts, and inline provider-key support
-- The strongest current proof on `main` is this focused verification:
+- `main` is materially cleaner than it was on March 23:
+  - the open PR queue is back to zero
+  - the recent merge stream fixed shared CI noise, public debate auth/spectate gaps, debate-share host correctness, and workflow governance cleanup
+- The strongest current product proof on `main` is now the anonymous public debate share path:
+  - `POST /api/v1/debates/{id}/share` enables public sharing
+  - `GET /api/v1/debates/public/{id}` returns the public payload without auth
+  - the standalone `/debate/{id}` page renders the full shared argument, critiques, and transcript
+- The strongest focused verification on March 29, 2026 is:
 
   ```bash
-  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+  python3 -m pytest tests/e2e/test_demo_public_funnel.py tests/server/handlers/test_public_debate_viewer.py tests/handlers/test_debate_share.py -q
+  cd aragora/live && npx jest --ci --runInBand --runTestsByPath 'src/app/(standalone)/debate/__tests__/page.test.tsx' 'src/app/(standalone)/debate/__tests__/fetchDebate.test.ts'
   ```
 
-  Result on March 23, 2026: `57 passed` in `33.75s`.
+  Results on March 29, 2026:
+  - `19 passed` in the Python public-share suites
+  - `27 passed` in the standalone debate page/fetch suites
 
-- That is enough to say the repo contains a verified mocked founder loop and a verified quickstart contract.
-- It is **not** enough to say the product is already operational for external users without babysitting.
-- GitHub's current open issues no longer track PMF truthfully. The only open issues are enterprise-assurance items: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
-- So the active execution program is now: prove the canonical founder loop live, harvest the concrete blockers, and aim Aragora's own pipeline/swarm machinery at those blockers only.
+- That is enough to say the repo contains a working public proof surface for shared debates and a cleaner CI baseline.
+- It is **not** enough to say the full operator-facing proof pack is done. Telemetry, receipt UI, cost accounting, and dashboard visibility remain the most important open product work.
+- GitHub's open issues are **not** only enterprise-assurance items anymore. The active product backlog is [#1492](https://github.com/synaptent/aragora/issues/1492) through [#1503](https://github.com/synaptent/aragora/issues/1503), plus the enterprise-assurance issues [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
+- [#1498](https://github.com/synaptent/aragora/issues/1498) was closed as satisfied by the merged public-share work.
 
 ### What Recently Landed On `main`
 
-The March 23 wave materially improved the real founder loop:
+The late-March merge stream materially improved the product proof surface:
 
-1. **ProviderRouter wired into DebateFactory** via [#1167](https://github.com/synaptent/aragora/pull/1167)
-2. **KnowledgeMound retrieval wired into DebateFactory** via [#1168](https://github.com/synaptent/aragora/pull/1168)
-3. **Versioned API key management endpoints** via [#1169](https://github.com/synaptent/aragora/pull/1169)
-4. **Interactive 3-step onboarding wizard** via [#1170](https://github.com/synaptent/aragora/pull/1170)
-5. **Debate outcome -> KM ingestion** via [#1176](https://github.com/synaptent/aragora/pull/1176)
-6. **Demo wired to real backend** via [#1177](https://github.com/synaptent/aragora/pull/1177)
-7. **Wave 2 surfaces productized** via [#1188](https://github.com/synaptent/aragora/pull/1188)
-8. **Quickstart fails fast on bad live-provider TLS** via [#1180](https://github.com/synaptent/aragora/pull/1180)
-9. **Lane completion receipt audit trail** via [#1181](https://github.com/synaptent/aragora/pull/1181)
-10. **Truthful integrations dashboard state** via [#1196](https://github.com/synaptent/aragora/pull/1196)
-11. **Quickstart inline provider keys and structured receipts** via [#1192](https://github.com/synaptent/aragora/pull/1192)
+1. **Queue hygiene for founder/build intake artifacts** via [#1566](https://github.com/synaptent/aragora/pull/1566)
+2. **Shared CI baseline hardening** via [#1572](https://github.com/synaptent/aragora/pull/1572)
+3. **Frontend stale-test baseline cleanup** via [#1604](https://github.com/synaptent/aragora/pull/1604)
+4. **Public spectate/auth contract fix** via [#1601](https://github.com/synaptent/aragora/pull/1601)
+5. **Insights flip-detector initialization hardening** via [#1602](https://github.com/synaptent/aragora/pull/1602)
+6. **Governance workflow cancel guard** via [#1616](https://github.com/synaptent/aragora/pull/1616)
+7. **Public standalone debate share links from the detail view** via [#1617](https://github.com/synaptent/aragora/pull/1617)
 
-These are real product improvements. They just still need live dogfood proof as one coherent loop.
+These are real product improvements. They also shift the next highest-value work away from more generic autonomy infrastructure and toward truthful proof surfaces.
 
 ### Current Frontier
 
-The frontier is no longer generic infrastructure expansion. It is:
+The frontier is no longer “make more infrastructure exist.” It is:
 
-- **live founder-loop proof** — run the product path with real providers and truthful receipts
-- **bounded blocker harvest** — reopen or create only the issues exposed by that live proof
-- **dogfood-first repair lanes** — use the idea-to-execution pipeline, Nomic, and swarm only on those PMF blockers
-- **second-workflow validation** — inbox trust wedge after the founder loop holds
+- **telemetry foundation** — capture debate usage, latency, and cost data truthfully
+- **receipt proof surface** — expose that telemetry in the receipt UI and API
+- **dashboard proof** — show counts, confidence, spend, and top-agent performance from real data
+- **comparison/demo polish** — compare debate outcomes and make the public demo stronger only after the proof surface is trustworthy
 - **enterprise assurance later** — still real, but sequenced after product proof
+
+### Canonical Execution Order
+
+The current `boss-ready` queue should be treated in this order:
+
+1. [#1492](https://github.com/synaptent/aragora/issues/1492) Backend telemetry pipeline and analytics store
+2. [#1493](https://github.com/synaptent/aragora/issues/1493) Cost calculation and API layer
+3. [#1494](https://github.com/synaptent/aragora/issues/1494) React receipt UI component
+4. [#1501](https://github.com/synaptent/aragora/issues/1501) Dashboard counts, confidence, spend, and agent performance
+5. [#1499](https://github.com/synaptent/aragora/issues/1499) Side-by-side debate comparison
+6. [#1496](https://github.com/synaptent/aragora/issues/1496) Live debate on the landing page
+7. [#1497](https://github.com/synaptent/aragora/issues/1497) Slack debated answer with receipt
+
+The remaining idea backlog should stay open but **not** be treated as the active queue until the proof surface above is stronger:
+
+- [#1500](https://github.com/synaptent/aragora/issues/1500) learn from past debates
+- [#1502](https://github.com/synaptent/aragora/issues/1502) automatic retry across models
+- [#1503](https://github.com/synaptent/aragora/issues/1503) run model combinations and pick the best result
 
 ### Strategic Direction
 
 The strategy document is [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md).
 The short version is now:
 
-- structural PMF slices are landed on `main`
-- the live founder loop is the current gate
-- the pipeline/workbench/swarm stack should be used to finish Aragora itself
+- the repo has a working public debate proof surface
+- the next gate is truthful telemetry/receipt/dashboard proof, not more speculative expansion
+- the pipeline/workbench/swarm stack should be used on the bounded queue above, not on a flat wishlist
 - GTM starts after repeatable live proof, not before
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure

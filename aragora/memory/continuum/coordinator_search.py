@@ -25,6 +25,7 @@ from aragora.memory.continuum.base import (
     ContinuumMemoryEntry,
     _km_similarity_cache,
 )
+from aragora.memory.continuum.retrieval import TenantRequiredError
 
 if TYPE_CHECKING:
     pass
@@ -37,6 +38,8 @@ _MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 
 class CoordinatorSearchMixin:
     """Mixin providing search and retrieval operations for ContinuumMemory coordinator."""
+
+    _GET_MANY_MAX_IDS: int = 200
 
     if TYPE_CHECKING:
         _km_adapter: Any
@@ -236,6 +239,177 @@ class CoordinatorSearchMixin:
                 pass  # Emitter not available
 
         return AwaitableList(entries)
+
+    def get_many(
+        self,
+        ids: list[str],
+        tenant_id: str | None = None,
+    ) -> list[ContinuumMemoryEntry]:
+        """Fetch multiple memory entries by ID while preserving input order."""
+        if not ids:
+            return []
+
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for entry_id in ids:
+            if entry_id in seen:
+                continue
+            seen.add(entry_id)
+            ordered.append(entry_id)
+            if len(ordered) >= self._GET_MANY_MAX_IDS:
+                break
+
+        placeholders: str = ",".join("?" * len(ordered))
+        with self.connection() as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE id IN ({placeholders})
+                """,  # noqa: S608 -- parameterized query
+                tuple(ordered),
+            )
+            rows: list[tuple[Any, ...]] = cursor.fetchall()
+
+        entries_by_id: dict[str, ContinuumMemoryEntry] = {}
+        for row in rows:
+            entry = ContinuumMemoryEntry(
+                id=row[0],
+                tier=MemoryTier(row[1]),
+                content=row[2],
+                importance=row[3],
+                surprise_score=row[4],
+                consolidation_score=row[5],
+                update_count=row[6],
+                success_count=row[7],
+                failure_count=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+                metadata=safe_json_loads(row[11], {}),
+                red_line=bool(row[12]),
+                red_line_reason=row[13],
+            )
+            if tenant_id is not None and entry.metadata.get("tenant_id") != tenant_id:
+                continue
+            entries_by_id[entry.id] = entry
+
+        return [entries_by_id[entry_id] for entry_id in ordered if entry_id in entries_by_id]
+
+    def get_timeline_entries(
+        self,
+        anchor_id: str,
+        before: int = 3,
+        after: int = 3,
+        tiers: list[MemoryTier] | None = None,
+        min_importance: float = 0.0,
+        tenant_id: str | None = None,
+        enforce_tenant_isolation: bool = False,
+    ) -> dict[str, Any] | None:
+        """Get timeline entries around a specific memory ID."""
+        if enforce_tenant_isolation and tenant_id is None:
+            raise TenantRequiredError("timeline")
+
+        anchor = self.get(anchor_id)
+        if anchor is None:
+            return None
+        if tenant_id is not None and anchor.metadata.get("tenant_id") != tenant_id:
+            return None
+
+        if tiers is None:
+            tiers = list(MemoryTier)
+        tier_values: list[str] = [t.value for t in tiers]
+        placeholders: str = ",".join("?" * len(tier_values))
+
+        def _rows_to_entries(rows: list[tuple[Any, ...]]) -> list[ContinuumMemoryEntry]:
+            entries: list[ContinuumMemoryEntry] = []
+            for row in rows:
+                entry = ContinuumMemoryEntry(
+                    id=row[0],
+                    tier=MemoryTier(row[1]),
+                    content=row[2],
+                    importance=row[3],
+                    surprise_score=row[4],
+                    consolidation_score=row[5],
+                    update_count=row[6],
+                    success_count=row[7],
+                    failure_count=row[8],
+                    created_at=row[9],
+                    updated_at=row[10],
+                    metadata=safe_json_loads(row[11], {}),
+                    red_line=bool(row[12]),
+                    red_line_reason=row[13],
+                )
+                if tenant_id is not None and entry.metadata.get("tenant_id") != tenant_id:
+                    continue
+                entries.append(entry)
+            return entries
+
+        tenant_clause = ""
+        tenant_params: list[str] = []
+        if tenant_id is not None:
+            tenant_clause = " AND json_extract(metadata, '$.tenant_id') = ?"
+            tenant_params = [tenant_id]
+
+        with self.connection() as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE tier IN ({placeholders})
+                  AND importance >= ?
+                  AND id != ?
+                  AND created_at < ?
+                  {tenant_clause}
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,  # noqa: S608 -- dynamic clause from internal state
+                (
+                    *tier_values,
+                    min_importance,
+                    anchor_id,
+                    anchor.created_at,
+                    *tenant_params,
+                    before,
+                ),
+            )
+            before_rows: list[tuple[Any, ...]] = cursor.fetchall()
+
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE tier IN ({placeholders})
+                  AND importance >= ?
+                  AND id != ?
+                  AND created_at > ?
+                  {tenant_clause}
+                ORDER BY created_at ASC
+                LIMIT ?
+                """,  # noqa: S608 -- dynamic clause from internal state
+                (
+                    *tier_values,
+                    min_importance,
+                    anchor_id,
+                    anchor.created_at,
+                    *tenant_params,
+                    after,
+                ),
+            )
+            after_rows: list[tuple[Any, ...]] = cursor.fetchall()
+
+        return {
+            "anchor": anchor,
+            "before": list(reversed(_rows_to_entries(before_rows))),
+            "after": _rows_to_entries(after_rows),
+        }
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def hybrid_search(

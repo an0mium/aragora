@@ -20,6 +20,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+import inspect
 from typing import TYPE_CHECKING, Any
 from collections.abc import AsyncIterator
 
@@ -371,7 +372,9 @@ class KnowledgeMoundCore:
             except (RuntimeError, ConnectionError, OSError) as e:
                 logger.debug("Error closing vector store: %s", e)
         if hasattr(self._meta_store, "close"):
-            await self._meta_store.close()
+            close_result = self._meta_store.close()
+            if inspect.isawaitable(close_result):
+                await close_result
 
         self._initialized = False
         logger.info("Knowledge Mound closed")

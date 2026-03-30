@@ -12,6 +12,7 @@ integration lane. It does not invent a new merge implementation; instead it:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -252,12 +253,14 @@ class FleetIntegrationWorker:
 
         if merge_result.success:
             receipt_id = str(metadata.get("receipt_id", "")).strip()
+            merged_at = datetime.now(timezone.utc).isoformat()
             if receipt_id:
                 from aragora.nomic.dev_coordination import DevCoordinationStore
 
                 DevCoordinationStore(repo_root=self.repo_path).mark_supervisor_run_merged(
                     receipt_id=receipt_id,
                     merge_commit_sha=merge_result.commit_sha,
+                    merged_at=merged_at,
                 )
             updated = self.fleet_store.update_merge_queue_item(
                 item_id=item_id,
@@ -266,6 +269,9 @@ class FleetIntegrationWorker:
                 | {
                     "executed_by": worker_session_id,
                     "merge_commit_sha": merge_result.commit_sha,
+                    "merge_sha": merge_result.commit_sha,
+                    "merge_ref": merge_result.commit_sha,
+                    "merged_at": merged_at,
                 },
             )
             return FleetIntegrationOutcome(

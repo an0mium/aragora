@@ -77,8 +77,13 @@ def temp_db_path():
 
 @pytest.fixture
 def receipt_store(temp_db_path):
-    """Create a receipt store for testing."""
-    store = ReceiptStore(db_path=temp_db_path, backend="sqlite")
+    """Create a receipt store for testing.
+
+    Passes file_receipt_dirs=[] to disable file-based fallback scanning
+    so that real .aragora/receipts/ files in the working directory do
+    not interfere with DB-focused tests.
+    """
+    store = ReceiptStore(db_path=temp_db_path, backend="sqlite", file_receipt_dirs=[])
     yield store
     store.close()
 
@@ -965,3 +970,202 @@ class TestReceiptStoreGDPR:
         assert "already_expired" in status
         assert "timestamps" in status
         assert "generated_at" in status
+
+
+# ===========================================================================
+# File-based receipt fallback tests (issue #1638)
+# ===========================================================================
+
+
+class TestFileReceiptFallback:
+    """Tests for the .aragora/receipts/ JSON file-based fallback."""
+
+    @pytest.fixture
+    def receipts_dir(self, tmp_path):
+        """Create a .aragora/receipts directory with sample JSON files."""
+        d = tmp_path / ".aragora" / "receipts"
+        d.mkdir(parents=True)
+        return d
+
+    @pytest.fixture
+    def sample_file_receipt(self):
+        """Return a quickstart-style receipt dict."""
+        return {
+            "receipt_id": "quickstart-abc123",
+            "gauntlet_id": "quickstart-abc123",
+            "timestamp": "2026-03-20T12:00:00+00:00",
+            "verdict": "PASS",
+            "confidence": 0.85,
+            "risk_level": "LOW",
+            "risk_score": 0.1,
+            "checksum": "sha256:deadbeef",
+            "input_summary": "Should we migrate?",
+            "receipt": {
+                "id": "quickstart-abc123",
+                "artifact_hash": "sha256:deadbeef",
+            },
+        }
+
+    @pytest.fixture
+    def store_with_file_receipts(self, tmp_path, receipts_dir, sample_file_receipt):
+        """Create a ReceiptStore that scans receipts_dir for JSON files."""
+        # Write sample receipt to file
+        (receipts_dir / "quickstart-demo-receipt.json").write_text(
+            json.dumps(sample_file_receipt, indent=2)
+        )
+        # Create DB-backed store pointing to the temp receipts dir
+        store = ReceiptStore(
+            db_path=tmp_path / "test.db",
+            backend="sqlite",
+            file_receipt_dirs=[receipts_dir],
+        )
+        yield store
+        store.close()
+
+    def test_parse_file_receipt_basic(self, tmp_path, sample_file_receipt):
+        """Test _parse_file_receipt converts a quickstart JSON dict correctly."""
+        fake_path = tmp_path / "receipt.json"
+        fake_path.write_text("{}")  # just so stat() works
+
+        sr = ReceiptStore._parse_file_receipt(sample_file_receipt, fake_path)
+
+        assert sr.receipt_id == "quickstart-abc123"
+        assert sr.gauntlet_id == "quickstart-abc123"
+        assert sr.verdict == "PASS"
+        assert sr.confidence == 0.85
+        assert sr.risk_level == "LOW"
+        assert sr.checksum == "sha256:deadbeef"
+        assert sr.data == sample_file_receipt
+
+    def test_parse_file_receipt_missing_receipt_id_uses_nested(self, tmp_path):
+        """Test _parse_file_receipt falls back to receipt.id."""
+        fake_path = tmp_path / "receipt.json"
+        fake_path.write_text("{}")
+        data = {"receipt": {"id": "nested-id"}, "verdict": "FAIL", "confidence": 0.3}
+
+        sr = ReceiptStore._parse_file_receipt(data, fake_path)
+
+        assert sr.receipt_id == "nested-id"
+
+    def test_parse_file_receipt_falls_back_to_filename(self, tmp_path):
+        """Test _parse_file_receipt uses filename stem when no IDs present."""
+        fake_path = tmp_path / "my-receipt-file.json"
+        fake_path.write_text("{}")
+        data = {"verdict": "PASS", "confidence": 0.9}
+
+        sr = ReceiptStore._parse_file_receipt(data, fake_path)
+
+        assert sr.receipt_id == "my-receipt-file"
+
+    def test_get_falls_back_to_file(self, store_with_file_receipts):
+        """Test that get() finds receipts from .aragora/receipts/ when not in DB."""
+        result = store_with_file_receipts.get("quickstart-abc123")
+        assert result is not None
+        assert result.receipt_id == "quickstart-abc123"
+        assert result.verdict == "PASS"
+
+    def test_get_prefers_db_over_file(self, store_with_file_receipts, sample_file_receipt):
+        """Test that DB results take priority over file results."""
+        store = store_with_file_receipts
+
+        # Save to DB with different verdict
+        db_receipt = dict(sample_file_receipt)
+        db_receipt["verdict"] = "APPROVED"
+        db_receipt["risk_level"] = "MEDIUM"
+        store.save(db_receipt)
+
+        result = store.get("quickstart-abc123")
+        assert result is not None
+        # DB result wins
+        assert result.verdict == "APPROVED"
+
+    def test_list_includes_file_receipts(self, store_with_file_receipts):
+        """Test that list() includes file-based receipts."""
+        results = store_with_file_receipts.list(limit=50)
+        assert len(results) >= 1
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-abc123" in ids
+
+    def test_list_deduplicates_file_and_db(self, store_with_file_receipts, sample_file_receipt):
+        """Test that list() does not duplicate receipts present in both DB and file."""
+        store = store_with_file_receipts
+
+        # Save to DB as well
+        store.save(sample_file_receipt)
+
+        results = store.list(limit=50)
+        ids = [r.receipt_id for r in results]
+        assert ids.count("quickstart-abc123") == 1
+
+    def test_count_includes_file_receipts(self, store_with_file_receipts):
+        """Test that count() includes file-based receipts."""
+        total = store_with_file_receipts.count()
+        assert total >= 1
+
+    def test_count_deduplicates(self, store_with_file_receipts, sample_file_receipt):
+        """Test that count() does not double-count file+DB receipts."""
+        store = store_with_file_receipts
+        store.save(sample_file_receipt)
+
+        total = store.count()
+        # Should be 1, not 2
+        assert total == 1
+
+    def test_list_filters_file_receipts_by_verdict(self, store_with_file_receipts):
+        """Test that list() filters file-based receipts by verdict."""
+        store = store_with_file_receipts
+
+        # Receipt has verdict PASS - filtering for FAIL should exclude it
+        results = store.list(verdict="FAIL")
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-abc123" not in ids
+
+        # Filtering for PASS should include it
+        results = store.list(verdict="PASS")
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-abc123" in ids
+
+    def test_get_by_gauntlet_falls_back_to_file(self, store_with_file_receipts):
+        """Test that get_by_gauntlet() finds file-based receipts."""
+        result = store_with_file_receipts.get_by_gauntlet("quickstart-abc123")
+        assert result is not None
+        assert result.receipt_id == "quickstart-abc123"
+
+    def test_malformed_json_file_skipped(self, store_with_file_receipts, receipts_dir):
+        """Test that malformed JSON files are gracefully skipped."""
+        # Write a malformed file alongside the good one
+        (receipts_dir / "broken.json").write_text("not valid json{{{")
+
+        # Should still return the valid receipt without errors
+        results = store_with_file_receipts.list(limit=50)
+        assert len(results) >= 1
+
+    def test_non_dict_json_file_skipped(self, store_with_file_receipts, receipts_dir):
+        """Test that JSON files containing non-dict values are skipped."""
+        # Write a JSON array instead of object
+        (receipts_dir / "array.json").write_text("[1, 2, 3]")
+
+        results = store_with_file_receipts.list(limit=50)
+        # Only the valid receipt should appear
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-abc123" in ids
+
+    def test_multiple_file_receipts(self, store_with_file_receipts, receipts_dir):
+        """Test that multiple JSON receipt files are loaded."""
+        # Add a second receipt file
+        second = {
+            "receipt_id": "quickstart-def456",
+            "gauntlet_id": "quickstart-def456",
+            "timestamp": "2026-03-21T12:00:00+00:00",
+            "verdict": "FAIL",
+            "confidence": 0.3,
+            "risk_level": "HIGH",
+        }
+        (receipts_dir / "quickstart-live-receipt.json").write_text(json.dumps(second, indent=2))
+
+        store = store_with_file_receipts
+        results = store.list(limit=50)
+        ids = [r.receipt_id for r in results]
+        assert "quickstart-abc123" in ids
+        assert "quickstart-def456" in ids
+        assert store.count() == 2

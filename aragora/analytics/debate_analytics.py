@@ -16,6 +16,7 @@ import json
 import logging
 import sqlite3
 import threading
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -274,7 +275,7 @@ class DebateAnalytics:
 
     def _init_db(self) -> None:
         """Initialize database schema."""
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS debate_records (
                     id TEXT PRIMARY KEY,
@@ -360,7 +361,7 @@ class DebateAnalytics:
         now = datetime.now(timezone.utc)
         event_id = f"debate_{uuid4().hex[:12]}"
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.execute(
                 """
                 INSERT INTO debate_records (
@@ -406,7 +407,7 @@ class DebateAnalytics:
         now = datetime.now(timezone.utc)
         event_id = f"agent_{uuid4().hex[:12]}"
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.execute(
                 """
                 INSERT INTO agent_records (
@@ -443,7 +444,7 @@ class DebateAnalytics:
         now = datetime.now(timezone.utc)
         event_id = f"elo_{uuid4().hex[:12]}"
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.execute(
                 """
                 INSERT INTO elo_records (
@@ -463,7 +464,7 @@ class DebateAnalytics:
         period_end = datetime.now(timezone.utc)
         period_start = period_end - timedelta(days=days_back)
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.row_factory = sqlite3.Row
 
             if org_id:
@@ -528,7 +529,7 @@ class DebateAnalytics:
         """Get performance metrics for an agent."""
         period_start = datetime.now(timezone.utc) - timedelta(days=days_back)
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.row_factory = sqlite3.Row
 
             cursor = conn.execute(
@@ -601,7 +602,7 @@ class DebateAnalytics:
         """Get agent leaderboard."""
         period_start = datetime.now(timezone.utc) - timedelta(days=days_back)
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             cursor = conn.execute(
                 """
                 SELECT DISTINCT agent_id
@@ -650,7 +651,7 @@ class DebateAnalytics:
 
         trends = []
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             if metric == DebateMetricType.DEBATE_COUNT:
                 if org_id:
                     query = f"""
@@ -694,7 +695,7 @@ class DebateAnalytics:
         period_end = datetime.now(timezone.utc)
         period_start = period_end - timedelta(days=days_back)
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             # Total cost
             if org_id:
                 cursor = conn.execute(
@@ -769,7 +770,7 @@ class DebateAnalytics:
             org_id,
         )
 
-        with sqlite3.connect(self.db_path) as conn:
+        with closing(sqlite3.connect(self.db_path)) as conn:
             cursor = conn.execute(
                 """
                 SELECT COUNT(DISTINCT agent_id)

@@ -41,12 +41,68 @@ from aragora.services.email_actions import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_PATH = resolve_db_path(os.getenv("ARAGORA_INBOX_TRUST_WEDGE_DB", "inbox_trust_wedge.db"))
-DEFAULT_SIGNING_KEY_PATH = Path(
-    resolve_db_path(
-        os.getenv("ARAGORA_INBOX_TRUST_WEDGE_KEY_FILE", "inbox_trust_wedge_signing.key")
-    )
-)
+
+def _linked_worktree_shared_inbox_wedge_dir() -> Path | None:
+    """Return a repo-shared data dir for inbox trust wedge artifacts.
+
+    Inbox trust wedge state is an operator-facing approval surface. Like the
+    canonical receipt store, it should remain visible across linked worktrees so
+    review/execute flows do not lose sight of receipts when the current checkout
+    changes.
+    """
+
+    current = Path.cwd().resolve()
+    for candidate in (current, *current.parents):
+        git_marker = candidate / ".git"
+        if not git_marker.is_file():
+            if git_marker.is_dir():
+                return None
+            continue
+        try:
+            raw = git_marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        prefix = "gitdir:"
+        if not raw.startswith(prefix):
+            return None
+        gitdir = Path(raw[len(prefix) :].strip())
+        if not gitdir.is_absolute():
+            gitdir = (candidate / gitdir).resolve()
+        if gitdir.parent.name != "worktrees":
+            return None
+        common_git_dir = gitdir.parent.parent
+        repo_root = common_git_dir.parent
+        shared_data_dir = repo_root / ".nomic"
+        if not shared_data_dir.exists() and (repo_root / "data").exists():
+            shared_data_dir = repo_root / "data"
+        return shared_data_dir
+    return None
+
+
+def _default_inbox_wedge_db_path() -> Path:
+    explicit_path = os.environ.get("ARAGORA_INBOX_TRUST_WEDGE_DB")
+    if explicit_path:
+        return Path(explicit_path)
+    if not (os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")):
+        shared_dir = _linked_worktree_shared_inbox_wedge_dir()
+        if shared_dir is not None:
+            return shared_dir / "inbox_trust_wedge.db"
+    return Path(resolve_db_path("inbox_trust_wedge.db"))
+
+
+def _default_inbox_wedge_signing_key_path() -> Path:
+    explicit_path = os.environ.get("ARAGORA_INBOX_TRUST_WEDGE_KEY_FILE")
+    if explicit_path:
+        return Path(explicit_path)
+    if not (os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")):
+        shared_dir = _linked_worktree_shared_inbox_wedge_dir()
+        if shared_dir is not None:
+            return shared_dir / "inbox_trust_wedge_signing.key"
+    return Path(resolve_db_path("inbox_trust_wedge_signing.key"))
+
+
+DEFAULT_DB_PATH = _default_inbox_wedge_db_path()
+DEFAULT_SIGNING_KEY_PATH = _default_inbox_wedge_signing_key_path()
 SIGNING_KEY_ENV_VAR = "ARAGORA_INBOX_TRUST_WEDGE_SIGNING_KEY"
 AUTO_APPROVAL_THRESHOLD = float(
     os.getenv("ARAGORA_INBOX_TRUST_WEDGE_AUTO_APPROVAL_THRESHOLD", "0.85")
@@ -511,11 +567,23 @@ class InboxTrustWedgeStore:
         created_at: datetime,
         expires_at: datetime | None,
     ) -> dict[str, Any]:
+        if decision.blocked_by_policy:
+            verdict = "BLOCKED"
+        elif state in {ReceiptState.APPROVED, ReceiptState.EXECUTED}:
+            verdict = "PASS"
+        elif state == ReceiptState.EXPIRED:
+            verdict = "FAIL"
+        else:
+            verdict = "CONDITIONAL"
         return {
             "receipt_id": receipt_id,
+            "gauntlet_id": receipt_id,
             "intent_hash": intent.intent_hash(),
             "action_intent": intent.to_dict(),
             "triage_decision": decision.to_dict(),
+            "timestamp": created_at.isoformat(),
+            "verdict": verdict,
+            "confidence": float(decision.confidence),
             "state": state.value,
             "created_at": created_at.isoformat(),
             "expires_at": _isoformat(expires_at),
@@ -658,10 +726,16 @@ class InboxTrustWedgeStore:
             dissent_summary=decision_dict.get("dissent_summary", ""),
             receipt_id=decision_dict.get("receipt_id"),
             auto_approval_eligible=bool(decision_dict.get("auto_approval_eligible")),
+            receipt_state=decision_dict.get("receipt_state", "created"),
+            intent=intent if decision_dict.get("intent") else None,
+            provider_route=decision_dict.get("provider_route", row["provider_route"]),
             label_id=decision_dict.get("label_id"),
             blocked_by_policy=bool(decision_dict.get("blocked_by_policy")),
             cost_usd=decision_dict.get("cost_usd"),
             latency_seconds=decision_dict.get("latency_seconds"),
+            execution_tier=decision_dict.get("execution_tier", "baseline"),
+            escalation_reasons=decision_dict.get("escalation_reasons", []),
+            suppressed_diagnostics_count=int(decision_dict.get("suppressed_diagnostics_count", 0)),
         )
         receipt = PersistedReceipt(
             receipt_id=row["receipt_id"],

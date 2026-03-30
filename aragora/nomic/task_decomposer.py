@@ -343,6 +343,10 @@ class TaskDecomposer:
         payload = self._extract_first_json_payload(raw)
         subtasks, rationale = self._parse_model_subtasks(
             payload,
+        )
+        subtasks = self._finalize_generated_subtasks(
+            task_description,
+            subtasks,
             file_scope_hints=file_scope_hints,
         )
         if not subtasks:
@@ -440,10 +444,12 @@ class TaskDecomposer:
         if complexity_score < self.config.complexity_threshold and not self._is_specific_goal(
             task_description
         ):
-            llm_subtasks = self._llm_extract_subtasks(
-                task_description, file_scope_hints=file_scope_hints
+            llm_subtasks = self._finalize_generated_subtasks(
+                task_description,
+                self._llm_extract_subtasks(task_description, file_scope_hints=file_scope_hints),
+                file_scope_hints=file_scope_hints,
             )
-            if llm_subtasks and len(llm_subtasks) >= 2:
+            if llm_subtasks and (len(llm_subtasks) >= 2 or file_scope_hints):
                 return TaskDecomposition(
                     original_task=task_description,
                     complexity_score=max(complexity_score, self.config.complexity_threshold),
@@ -454,13 +460,33 @@ class TaskDecomposer:
                     subtasks=llm_subtasks[: self.config.max_subtasks],
                     rationale=self._build_rationale(task_description, complexity_score, True),
                 )
+            if file_scope_hints:
+                return TaskDecomposition(
+                    original_task=task_description,
+                    complexity_score=max(complexity_score, self.config.complexity_threshold),
+                    complexity_level=self._score_to_level(
+                        max(complexity_score, self.config.complexity_threshold)
+                    ),
+                    should_decompose=True,
+                    subtasks=[
+                        self._build_mirrored_subtask(
+                            task_description,
+                            file_scope=file_scope_hints,
+                        )
+                    ],
+                    rationale=(
+                        "Bounded file-scoped task kept as one mirrored subtask "
+                        "instead of vague expansion"
+                    ),
+                )
             # LLM unavailable — fall back to template/track keyword expansion
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
-                if file_scope_hints:
-                    expanded.subtasks = self._constrain_scopes_to_hints(
-                        expanded.subtasks, file_scope_hints
-                    )
+                expanded.subtasks = self._finalize_generated_subtasks(
+                    task_description,
+                    expanded.subtasks,
+                    file_scope_hints=file_scope_hints,
+                )
                 logger.info(
                     "vague_goal_expanded original_score=%s subtasks=%s depth=%s",
                     complexity_score,
@@ -495,11 +521,13 @@ class TaskDecomposer:
 
         # Extract subtasks if decomposition is needed
         if should_decompose:
-            result.subtasks = self._generate_subtasks(
-                task_description, debate_result, file_scope_hints=file_scope_hints
+            result.subtasks = self._finalize_generated_subtasks(
+                task_description,
+                self._generate_subtasks(
+                    task_description, debate_result, file_scope_hints=file_scope_hints
+                ),
+                file_scope_hints=file_scope_hints,
             )
-            if file_scope_hints:
-                result.subtasks = self._constrain_scopes_to_hints(result.subtasks, file_scope_hints)
             logger.info(
                 "task_decomposed complexity=%s subtasks=%s depth=%s",
                 complexity_score,
@@ -837,8 +865,6 @@ class TaskDecomposer:
     def _parse_model_subtasks(
         self,
         payload: dict[str, Any],
-        *,
-        file_scope_hints: list[str] | None = None,
     ) -> tuple[list[SubTask], str]:
         raw_subtasks = payload.get("subtasks")
         if not isinstance(raw_subtasks, list):
@@ -892,10 +918,125 @@ class TaskDecomposer:
                 )
             )
 
-        if file_scope_hints:
-            subtasks = self._constrain_scopes_to_hints(subtasks, file_scope_hints)
         rationale = str(payload.get("rationale", "")).strip() or "model-based planner output"
         return subtasks, rationale
+
+    def _finalize_generated_subtasks(
+        self,
+        task_description: str,
+        subtasks: list[SubTask],
+        *,
+        file_scope_hints: list[str] | None = None,
+    ) -> list[SubTask]:
+        """Constrain scopes and collapse unsafe same-scope sibling plans."""
+        finalized = list(subtasks)
+        if file_scope_hints:
+            finalized = self._constrain_scopes_to_hints(finalized, file_scope_hints)
+        return self._collapse_same_scope_subtasks(
+            task_description,
+            finalized,
+            file_scope_hints=file_scope_hints,
+        )
+
+    @staticmethod
+    def _normalize_scope(file_scope: list[str]) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    path.strip().removeprefix("./").rstrip("/")
+                    for path in file_scope
+                    if path and path.strip()
+                }
+            )
+        )
+
+    @staticmethod
+    def _merge_success_criteria(subtasks: list[SubTask]) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
+        for subtask in subtasks:
+            for key, value in subtask.success_criteria.items():
+                if key not in merged:
+                    merged[key] = value
+                    continue
+                if merged[key] == value:
+                    continue
+                merged_values = merged[key] if isinstance(merged[key], list) else [merged[key]]
+                next_values = value if isinstance(value, list) else [value]
+                for item in next_values:
+                    if item not in merged_values:
+                        merged_values.append(item)
+                merged[key] = merged_values[0] if len(merged_values) == 1 else merged_values
+        return merged
+
+    @staticmethod
+    def _truncate_task_title(task_description: str, *, max_length: int = 80) -> str:
+        title = " ".join(str(task_description or "").strip().split()).strip(" .")
+        if len(title) <= max_length:
+            return title
+        shortened = title[: max_length - 3].rstrip()
+        if " " in shortened:
+            shortened = shortened.rsplit(" ", 1)[0]
+        return f"{shortened}..."
+
+    def _build_mirrored_subtask(
+        self,
+        task_description: str,
+        *,
+        file_scope: list[str],
+        source_subtasks: list[SubTask] | None = None,
+    ) -> SubTask:
+        subtasks = list(source_subtasks or [])
+        complexity_rank = {"low": 0, "medium": 1, "high": 2}
+        complexity = "low"
+        if subtasks:
+            complexity = max(
+                (subtask.estimated_complexity for subtask in subtasks),
+                key=lambda level: complexity_rank.get(level, 1),
+            )
+        return SubTask(
+            id="subtask_1",
+            title=self._truncate_task_title(task_description),
+            description=str(task_description or "").strip(),
+            dependencies=[],
+            estimated_complexity=complexity,
+            file_scope=list(file_scope),
+            success_criteria=self._merge_success_criteria(subtasks),
+        )
+
+    def _collapse_same_scope_subtasks(
+        self,
+        task_description: str,
+        subtasks: list[SubTask],
+        *,
+        file_scope_hints: list[str] | None = None,
+    ) -> list[SubTask]:
+        """Collapse sibling subtasks when every lane targets the same scope.
+
+        Multiple same-scope siblings cannot execute independently and tend to
+        pile up in waiting_conflict. Fail closed to one mirrored subtask.
+        """
+        if len(subtasks) < 2:
+            return subtasks
+        normalized_scopes = [self._normalize_scope(subtask.file_scope) for subtask in subtasks]
+        if any(not scope for scope in normalized_scopes):
+            return subtasks
+        first_scope = normalized_scopes[0]
+        if any(scope != first_scope for scope in normalized_scopes[1:]):
+            return subtasks
+        collapsed_scope = list(file_scope_hints or subtasks[0].file_scope)
+        logger.info(
+            "collapse_same_scope_subtasks task=%r subtasks=%d scope=%s",
+            self._truncate_task_title(task_description),
+            len(subtasks),
+            list(first_scope),
+        )
+        return [
+            self._build_mirrored_subtask(
+                task_description,
+                file_scope=collapsed_scope,
+                source_subtasks=subtasks,
+            )
+        ]
 
     _SPECIFIC_ACTION_VERBS = {
         "add",

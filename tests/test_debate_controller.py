@@ -13,6 +13,7 @@ import pytest
 import asyncio
 import threading
 import time
+from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from dataclasses import asdict
 
@@ -22,6 +23,8 @@ from aragora.server.debate_controller import (
     DebateResponse,
     DebateController,
     MAX_CONCURRENT_DEBATES,
+    _active_debates,
+    _active_debates_lock,
 )
 
 
@@ -61,6 +64,43 @@ class TestDebateRequest:
         assert request.auto_select_config == {"strategy": "best"}
         assert request.use_trending is True
         assert request.trending_category == "tech"
+
+    def test_from_dict_normalizes_comparison_aliases(self):
+        """Comparison config should normalize top-level and nested aliases."""
+        data = {
+            "question": "Which agent lineup produces the best implementation plan?",
+            "model_comparison": {
+                "model_combinations": [
+                    ["claude", "gemini"],
+                    "openai-api,grok",
+                ],
+                "selection_strategy": "llm_judge",
+            },
+        }
+
+        request = DebateRequest.from_dict(data)
+
+        assert request.comparison_config is not None
+        assert request.comparison_config["agent_combinations"] == [
+            ["claude", "gemini"],
+            ["openai-api", "grok"],
+        ]
+        assert request.comparison_config["pick_best_result"] is True
+        assert request.model_comparison == request.comparison_config
+        assert request.model_combinations == request.comparison_config["agent_combinations"]
+        assert request.metadata["comparison_config"] == request.comparison_config
+
+    def test_from_dict_invalid_comparison_combination_raises(self):
+        """Comparison mode requires at least two agents per candidate lineup."""
+        data = {
+            "question": "Which lineup is strongest?",
+            "comparison_config": {
+                "agent_combinations": [["claude"]],
+            },
+        }
+
+        with pytest.raises(ValueError, match="must include at least 2 agents"):
+            DebateRequest.from_dict(data)
 
     def test_from_dict_epistemic_hygiene_mode_enriches_context_and_metadata(self):
         """Epistemic hygiene mode should append protocol guidance and settlement scaffolding."""
@@ -477,6 +517,41 @@ class TestDebateControllerStartDebate:
 
         auto_select.assert_called_once_with("Auto select test?", {"strategy": "best"})
 
+    def test_start_debate_passes_comparison_config_to_factory(self):
+        """Comparison config should be preserved on the debate config sent to the worker."""
+        from aragora.server.debate_factory import DebateConfig
+
+        controller = DebateController(
+            factory=self.factory,
+            emitter=self.emitter,
+            storage=self.storage,
+        )
+        mock_executor = Mock()
+        request = DebateRequest(
+            question="Which lineup gives the best result?",
+            comparison_config={
+                "agent_combinations": [
+                    ["claude", "gemini"],
+                    ["openai-api", "grok"],
+                ],
+                "pick_best_result": True,
+            },
+        )
+
+        with patch.object(controller, "_get_executor", return_value=mock_executor):
+            response = controller.start_debate(request)
+
+        submit_args = mock_executor.submit.call_args.args
+        config = submit_args[1]
+        assert response.success is True
+        assert isinstance(config, DebateConfig)
+        assert config.comparison_config == request.comparison_config
+        with _active_debates_lock:
+            assert (
+                _active_debates[response.debate_id]["comparison_config"]
+                == request.comparison_config
+            )
+
     def test_start_debate_auto_select_failure_uses_default(self):
         """Should use default agents if auto_select fails."""
         auto_select = Mock(side_effect=Exception("Auto select failed"))
@@ -614,6 +689,86 @@ class TestDebateControllerRunDebate:
             "agent1": [{"phase": "proposal", "error_type": "timeout"}]
         }
         assert result_payload["participants"] == ["agent1", "agent2"]
+
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_comparison_mode_selects_best_candidate(self, mock_update):
+        """Comparison mode should run each lineup and persist the strongest result."""
+        from aragora.server.debate_factory import DebateConfig
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+
+        def build_arena(result: SimpleNamespace) -> MagicMock:
+            arena = MagicMock()
+            arena.protocol = SimpleNamespace(timeout_seconds=0)
+
+            async def run():
+                return result
+
+            arena.run = run
+            return arena
+
+        baseline_result = SimpleNamespace(
+            final_answer="Choose the baseline path",
+            consensus_reached=False,
+            confidence=0.51,
+            grounded_verdict=None,
+            status="no_consensus",
+            agent_failures={},
+            participants=["baseline-a", "baseline-b"],
+            rounds_used=4,
+        )
+        best_result = SimpleNamespace(
+            final_answer="Choose the best-model path",
+            consensus_reached=True,
+            confidence=0.92,
+            grounded_verdict=None,
+            status="consensus_reached",
+            agent_failures={},
+            participants=["best-a", "best-b"],
+            rounds_used=2,
+        )
+
+        def create_arena_side_effect(cfg, **kwargs):
+            first_agent = cfg.agents_str[0]
+            if first_agent.get("model") == "best-model":
+                return build_arena(best_result)
+            return build_arena(baseline_result)
+
+        self.factory.create_arena.side_effect = create_arena_side_effect
+
+        config = DebateConfig(
+            question="Which model combination produces the best result?",
+            rounds=5,
+            debate_id="test_123",
+            comparison_config={
+                "agent_combinations": [
+                    [
+                        {"provider": "openai-api", "model": "baseline-model"},
+                        {"provider": "anthropic-api", "model": "baseline-model"},
+                    ],
+                    [
+                        {"provider": "openai-api", "model": "best-model"},
+                        {"provider": "anthropic-api", "model": "best-model"},
+                    ],
+                ],
+                "pick_best_result": True,
+            },
+        )
+
+        controller._run_debate(config, "test_123")
+
+        assert self.factory.create_arena.call_count == 2
+        completed_calls = [c for c in mock_update.call_args_list if c[0][1] == "completed"]
+        assert len(completed_calls) >= 1
+        result_payload = completed_calls[0][1].get("result", {})
+        comparison_meta = result_payload["model_comparison"]
+
+        assert result_payload["final_answer"] == "Choose the best-model path"
+        assert comparison_meta["selection_strategy"] == "consensus_confidence_completion"
+        assert comparison_meta["selected_candidate_index"] == 2
+        assert comparison_meta["selected_agents"][0]["model"] == "best-model"
+        assert len(comparison_meta["candidates"]) == 2
+        assert comparison_meta["candidates"][1]["selected"] is True
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_includes_mode_and_settlement_metadata(self, mock_update):

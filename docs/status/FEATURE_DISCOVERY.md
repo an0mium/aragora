@@ -127,7 +127,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Streams** | Stable | Event-based memory updates | `aragora/memory/streams.py` | |
 | **Embeddings** | Stable | Semantic embedding for retrieval (OpenAI, Gemini, Ollama) | `aragora/memory/embeddings.py` | |
 | **Critique Store** | Stable | Critique pattern storage | `aragora/memory/store.py` | |
-| **Progressive Memory Search** | Partial | Staged retrieval (index → timeline → entries); some timeline and batch flows remain backend-conditional and can return `501` | `aragora/server/handlers/memory/memory.py`, `aragora/server/handlers/memory/memory_progressive.py` | |
+| **Progressive Memory Search** | Stable | Staged retrieval (index → timeline → entries) across both continuum backends | `aragora/server/handlers/memory/memory.py`, `aragora/server/handlers/memory/memory_progressive.py` | |
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 | **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory`; handler availability still depends on optional unified-memory backends | `aragora/memory/gateway.py`, `aragora/memory/retention_gate.py`, `aragora/memory/dedup.py` | |

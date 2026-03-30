@@ -362,9 +362,9 @@ class RetrievalMixin:
                 WHERE tier IN ({placeholders})
                   AND importance >= ?
                   AND id != ?
-                  AND datetime(created_at) <= datetime(?)
+                  AND created_at < ?
                   {tenant_clause}
-                ORDER BY datetime(created_at) DESC
+                ORDER BY created_at DESC
                 LIMIT ?
                 """,  # noqa: S608 -- dynamic clause from internal state
                 (
@@ -387,9 +387,9 @@ class RetrievalMixin:
                 WHERE tier IN ({placeholders})
                   AND importance >= ?
                   AND id != ?
-                  AND datetime(created_at) >= datetime(?)
+                  AND created_at > ?
                   {tenant_clause}
-                ORDER BY datetime(created_at) ASC
+                ORDER BY created_at ASC
                 LIMIT ?
                 """,  # noqa: S608 -- dynamic clause from internal state
                 (*tier_values, min_importance, anchor_id, anchor.created_at, *tenant_params, after),

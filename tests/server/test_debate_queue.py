@@ -153,6 +153,34 @@ class TestBatchItemFromDict:
 
         assert item.agents == "claude,gpt4,gemini"
 
+    def test_agents_as_structured_object(self):
+        """from_dict serializes a structured agent spec into pipe format."""
+        data = {
+            "question": "Test",
+            "agents": {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+        }
+        item = BatchItem.from_dict(data)
+
+        assert item.agents == "anthropic-api|claude-opus-4-6||"
+
+    def test_agents_as_mixed_list(self):
+        """from_dict preserves legacy strings and serializes structured specs."""
+        data = {
+            "question": "Test",
+            "agents": [
+                "claude",
+                {"provider": "openai-api", "model": "gpt-4.1", "role": "critic"},
+            ],
+        }
+        item = BatchItem.from_dict(data)
+
+        assert item.agents == "claude,openai-api|gpt-4.1||critic"
+
+    def test_agents_object_missing_provider_raises(self):
+        """Structured agent specs without a provider-like field are rejected."""
+        with pytest.raises(ValueError, match="provider"):
+            BatchItem.from_dict({"question": "Test", "agents": {"model": "claude-opus-4-6"}})
+
     def test_missing_question_raises(self):
         """from_dict raises ValueError for missing question."""
         with pytest.raises(ValueError, match="question is required"):
@@ -294,14 +322,16 @@ class TestValidateWebhookUrl:
 
     def test_valid_https_url(self):
         """Accepts valid HTTPS URLs."""
-        is_valid, error = validate_webhook_url("https://example.com/webhook")
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 443))]):
+            is_valid, error = validate_webhook_url("https://example.com/webhook")
 
         assert is_valid is True
         assert error == ""
 
     def test_valid_http_url(self):
         """Accepts valid HTTP URLs."""
-        is_valid, error = validate_webhook_url("http://example.com/webhook")
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 80))]):
+            is_valid, error = validate_webhook_url("http://example.com/webhook")
 
         assert is_valid is True
         assert error == ""

@@ -4,11 +4,51 @@ from __future__ import annotations
 
 import asyncio
 import argparse
+import gc
 import json
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _stub_cmd_ask_global_side_effects(request):
+    """Keep cmd_ask tests hermetic unless a test explicitly exercises cleanup semantics."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    cleanup_sensitive_tests = {
+        "test_cmd_ask_demo_forces_local_offline",
+        "test_cmd_ask_cleans_shared_resources_on_debate_loop",
+        "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
+    }
+
+    receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
+    if request.node.name in cleanup_sensitive_tests:
+        with receipt_patch:
+            yield
+        return
+
+    with (
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        receipt_patch,
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _collect_garbage_between_tests():
+    """Force deferred loop/socket finalizers to surface in the test that created them."""
+    yield
+    gc.collect()
+    gc.collect()
 
 
 @pytest.mark.asyncio
@@ -53,9 +93,33 @@ async def test_run_debate_offline_is_network_free(monkeypatch):
         assert kwargs["disable_post_debate_pipeline"] is True
 
 
+def test_build_parser_parses_compare_against() -> None:
+    """Ask parser should accept repeated comparison agent combinations."""
+    from aragora.cli.parser import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            "compare teams",
+            "--agents",
+            "anthropic-api,openai-api",
+            "--compare-against",
+            "openai-api,gemini",
+            "--compare-against",
+            "anthropic-api,gemini",
+        ]
+    )
+
+    assert args.compare_against == ["openai-api,gemini", "anthropic-api,gemini"]
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     """Demo mode should always execute locally with offline-safe settings."""
     from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
 
     monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
 
@@ -95,9 +159,7 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     )
 
     with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
-        mock_result = MagicMock()
-        mock_result.final_answer = "demo answer"
-        mock_result.dissenting_views = []
+        mock_result = DebateResult(task=args.task, final_answer="demo answer", metadata={})
         mock_run_debate.return_value = mock_result
 
         debate_cmd.cmd_ask(args)
@@ -183,6 +245,318 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         debate_cmd.cmd_ask(args)
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
+def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
+    """CLI ask cleanup should run on the same loop that executed the debate."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    loop_ids: dict[str, int] = {}
+    result = DebateResult(task="smoke demo", final_answer="loop-safe answer", metadata={})
+
+    args = argparse.Namespace(
+        task="smoke demo with cleanup",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=False,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        compare_against=None,
+        timeout=30,
+        post_consensus_quality=False,
+    )
+
+    async def fake_run_debate(*_args, **_kwargs):
+        loop_ids["run"] = id(asyncio.get_running_loop())
+        return result
+
+    async def fake_shutdown() -> None:
+        loop_ids["shutdown"] = id(asyncio.get_running_loop())
+
+    with (
+        patch.object(debate_cmd, "run_debate", new=AsyncMock(side_effect=fake_run_debate)),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    assert loop_ids["run"] == loop_ids["shutdown"]
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
+def test_cmd_ask_compare_mode_picks_best_result(monkeypatch, capsys):
+    """Compare mode should run each combination and keep the highest-scoring result."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.cli.parser import build_parser
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            (
+                "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+                "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+            ),
+            "--local",
+            "--rounds",
+            "1",
+            "--consensus",
+            "judge",
+            "--agents",
+            "anthropic-api,openai-api",
+            "--compare-against",
+            "openai-api,gemini",
+            "--compare-against",
+            "anthropic-api,gemini",
+            "--no-upgrade-to-good",
+            "--quality-concretize-max-rounds",
+            "0",
+            "--quality-extra-assessment-rounds",
+            "0",
+        ]
+    )
+    args.db = ":memory:"
+
+    weak_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Gate Criteria
+- Should be reliable.
+"""
+    strong_answer = """
+## Ranked High-Level Tasks
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents participating in multi-round consensus
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+
+## Suggested Subtasks
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test that runs a minimal debate and verifies receipt hash chain integrity
+
+## Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
+
+## Test Plan
+- Run full settlement hook unit tests with both successful and failed settle paths for comprehensive coverage
+- Execute integration smoke test covering debate creation through receipt persistence to validate end-to-end flow
+- Verify ERC-8004 reputation updates are idempotent and handle concurrent writes correctly under load
+
+## Rollback Plan
+If settlement hook error rate exceeds 2% over a sustained 10 minute window, rollback by disabling the settlement feature flag in the control plane and redeploying the previous stable build from the artifact registry.
+
+## Gate Criteria
+- Settlement hook p95 latency <= 200ms measured over a 15 minute steady-state window
+- Overall debate error rate < 0.5% over 15 minutes of production traffic with settlement enabled
+
+## JSON Payload
+```json
+{
+  "ranked_high_level_tasks": ["Settlement tracker ERC-8004 integration", "Data-feed verification"],
+  "suggested_subtasks": ["Settlement hook tests", "Brier score validation", "Receipt hash smoke test"],
+  "owner_module_file_paths": ["aragora/debate/settlement_hooks.py"],
+  "test_plan": ["Settlement unit tests", "Integration smoke", "ERC-8004 idempotency"],
+  "rollback_plan": {"trigger": "settlement hook error > 2%", "action": "disable settlement flag"},
+  "gate_criteria": [
+    {"metric": "settlement_p95_latency", "op": "<=", "threshold": 200, "unit": "ms"},
+    {"metric": "debate_error_rate", "op": "<", "threshold": 0.5, "unit": "%"}
+  ]
+}
+```
+"""
+
+    def _result_for_agents(agents_str: str) -> DebateResult:
+        if agents_str == "openai-api,gemini":
+            return DebateResult(
+                task=args.task,
+                debate_id="debate-best",
+                final_answer=strong_answer,
+                metadata={},
+                confidence=0.84,
+                consensus_reached=True,
+                rounds_used=1,
+            )
+        return DebateResult(
+            task=args.task,
+            debate_id=f"debate-{agents_str.replace(',', '-')}",
+            final_answer=weak_answer,
+            metadata={},
+            confidence=0.51,
+            consensus_reached=False,
+            rounds_used=1,
+        )
+
+    @contextmanager
+    def _no_timeout(_seconds: float):
+        yield
+
+    async def _fake_run_debate(**kwargs):
+        return _result_for_agents(kwargs["agents_str"])
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(
+            debate_cmd, "run_debate", new_callable=AsyncMock, side_effect=_fake_run_debate
+        ) as mock_run,
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None) as mock_receipt,
+    ):
+        debate_cmd.cmd_ask(args)
+
+    out = capsys.readouterr().out
+    assert [call.kwargs["agents_str"] for call in mock_run.await_args_list] == [
+        "anthropic-api,openai-api",
+        "openai-api,gemini",
+        "anthropic-api,gemini",
+    ]
+    assert "MODEL COMPARISON" in out
+    assert "[compare] selected agents=openai-api,gemini" in out
+    assert "Settlement tracker ERC-8004 integration" in out
+
+    selected_result = mock_receipt.call_args.args[0]
+    assert selected_result.metadata["model_comparison"]["selected_agents"] == "openai-api,gemini"
+    assert len(selected_result.metadata["model_comparison"]["candidates"]) == 3
+
+
+def test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup(monkeypatch):
+    """Compare mode should keep all candidates and cleanup on one event loop."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.cli.parser import build_parser
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            (
+                "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+                "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+            ),
+            "--local",
+            "--rounds",
+            "1",
+            "--consensus",
+            "judge",
+            "--agents",
+            "anthropic-api,openai-api",
+            "--compare-against",
+            "openai-api,gemini",
+            "--compare-against",
+            "anthropic-api,gemini",
+            "--no-upgrade-to-good",
+            "--quality-concretize-max-rounds",
+            "0",
+            "--quality-extra-assessment-rounds",
+            "0",
+        ]
+    )
+    args.db = ":memory:"
+
+    answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Suggested Subtasks
+- Subtask 1
+
+## Owner module / file paths
+- aragora/debate/orchestrator.py
+
+## Test Plan
+- Run the focused test.
+
+## Rollback Plan
+- Revert the change.
+
+## Gate Criteria
+- Keep the contract stable.
+
+## JSON Payload
+```json
+{"ranked_high_level_tasks":["Task 1"]}
+```
+"""
+
+    loop_ids: list[int] = []
+    shutdown_loop_ids: list[int] = []
+
+    @contextmanager
+    def _no_timeout(_seconds: float):
+        yield
+
+    async def _fake_run_debate(**kwargs):
+        loop_ids.append(id(asyncio.get_running_loop()))
+        return DebateResult(
+            task=args.task,
+            debate_id=f"debate-{kwargs['agents_str'].replace(',', '-')}",
+            final_answer=answer,
+            metadata={},
+            confidence=0.8,
+            consensus_reached=True,
+            rounds_used=1,
+        )
+
+    async def _fake_shutdown() -> None:
+        shutdown_loop_ids.append(id(asyncio.get_running_loop()))
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(
+            debate_cmd, "run_debate", new_callable=AsyncMock, side_effect=_fake_run_debate
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ) as mock_shutdown,
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    assert len(loop_ids) == 3
+    assert len(set(loop_ids)) == 1
+    assert shutdown_loop_ids == [loop_ids[0]]
+    assert mock_shutdown.await_count == 1
+
+
 def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
     """Strict wall-clock timeout should terminate ask with a clear timeout message."""
     from aragora.cli.commands import debate as debate_cmd
@@ -230,7 +604,14 @@ def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
         raise debate_cmd._StrictWallClockTimeout("forced strict timeout")
         yield
 
-    with patch.object(debate_cmd, "_strict_wall_clock_timeout", _always_timeout):
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _always_timeout),
+        patch.object(
+            debate_cmd,
+            "_cleanup_cli_subprocesses_for_timeout",
+            return_value={"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
 
@@ -249,6 +630,8 @@ def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     """Async wait_for timeout should emit machine-readable timeout JSON."""
     from aragora.cli.commands import debate as debate_cmd
@@ -291,7 +674,30 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
         timeout=1,
     )
 
-    with patch.object(debate_cmd.asyncio, "run", side_effect=asyncio.TimeoutError()):
+    async def _raise_async_timeout(**_kwargs):
+        raise asyncio.TimeoutError()
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(
+            debate_cmd,
+            "run_debate",
+            new_callable=AsyncMock,
+            side_effect=_raise_async_timeout,
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        patch.object(
+            debate_cmd,
+            "_cleanup_cli_subprocesses_for_timeout",
+            return_value={"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             debate_cmd.cmd_ask(args)
 
@@ -310,6 +716,8 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     """Explicit CLI flag should disable context-init RLM limiter in local debates."""
     from aragora.cli.commands import debate as debate_cmd
@@ -331,8 +739,31 @@ def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     args.learn = False
     args.db = ":memory:"
     args.demo = False
+    args.post_consensus_quality = False
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    async def _fake_run_with_cleanup(coro):
+        try:
+            return await coro
+        finally:
+            await asyncio.sleep(0)
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(
+            debate_cmd,
+            "_run_coro_with_cmd_ask_cleanup",
+            side_effect=_fake_run_with_cleanup,
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
         mock_result = MagicMock()
         mock_result.final_answer = "ok"
         mock_result.dissenting_views = []
@@ -639,7 +1070,18 @@ def test_cmd_ask_quality_fail_closed_accepts_output_contract_file(monkeypatch, t
         output_contract_file=str(contract_path),
     )
 
-    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
+    with (
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
+        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+    ):
         mock_result = MagicMock()
         mock_result.final_answer = """
 ## Ranked High-Level Tasks
@@ -907,12 +1349,22 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     )
 
     result = DebateResult(task=args.task, final_answer=weak_answer, metadata={})
-    timed_out_agent = MagicMock()
-    timed_out_agent.generate = AsyncMock(side_effect=TimeoutError("request timed out"))
-    low_quality_agent = MagicMock()
-    low_quality_agent.generate = AsyncMock(return_value=weak_answer)
-    upgraded_agent = MagicMock()
-    upgraded_agent.generate = AsyncMock(return_value=upgraded_answer)
+
+    class _FakeRepairAgent:
+        def __init__(self, behavior: str):
+            self.behavior = behavior
+            self.system_prompt = ""
+
+        async def generate(self, _prompt: str) -> str:
+            if self.behavior == "timeout":
+                raise TimeoutError("request timed out")
+            if self.behavior == "weak":
+                return weak_answer
+            return upgraded_answer
+
+    timed_out_agent = _FakeRepairAgent("timeout")
+    low_quality_agent = _FakeRepairAgent("weak")
+    upgraded_agent = _FakeRepairAgent("good")
     created_specs: list[tuple[str, str | None]] = []
 
     def _fake_create_agent(*, model_type, name, role, model=None, **_kwargs):
@@ -930,9 +1382,12 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     def _no_timeout(_seconds: float):
         yield
 
+    async def _fake_run_debate(**_kwargs):
+        return result
+
     with (
         patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
-        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(debate_cmd, "run_debate", new=_fake_run_debate),
         patch.object(debate_cmd, "create_agent", side_effect=_fake_create_agent),
     ):
         debate_cmd.cmd_ask(args)

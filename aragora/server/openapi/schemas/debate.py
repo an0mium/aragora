@@ -143,6 +143,76 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                     "diversity_preference": {"type": "number", "default": 0.5},
                 },
             },
+            "comparison_config": {
+                "type": "object",
+                "description": "Run the same debate across multiple candidate agent/model combinations and keep the best result.",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Enable comparison mode (default true when this object is present)",
+                        "default": True,
+                    },
+                    "pick_best_result": {
+                        "type": "boolean",
+                        "description": "Automatically select the strongest result after all combinations finish",
+                        "default": True,
+                    },
+                    "selection_strategy": {
+                        "type": "string",
+                        "description": "Optional strategy name for choosing the winning result",
+                        "example": "llm_judge",
+                    },
+                    "agent_combinations": {
+                        "type": "array",
+                        "description": "Candidate lineups to run against the same debate question",
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "items": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 10,
+                            "items": {
+                                "oneOf": [
+                                    {"type": "string"},
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "provider": {"type": "string"},
+                                            "model": {"type": "string"},
+                                            "persona": {"type": "string"},
+                                            "role": {"type": "string"},
+                                            "name": {"type": "string"},
+                                            "hierarchy_role": {"type": "string"},
+                                        },
+                                        "required": ["provider"],
+                                    },
+                                ]
+                            },
+                        },
+                        "example": [
+                            ["claude", "openai-api", "gemini"],
+                            ["claude", "grok", "qwen"],
+                        ],
+                    },
+                },
+            },
+            "model_comparison": {
+                "type": "object",
+                "description": "Deprecated alias for comparison_config.",
+                "deprecated": True,
+            },
+            "agent_combinations": {
+                "type": "array",
+                "description": "Deprecated alias for comparison_config.agent_combinations.",
+                "deprecated": True,
+                "items": {"type": "array", "items": {"type": "string"}},
+            },
+            "model_combinations": {
+                "type": "array",
+                "description": "Deprecated human-facing alias for comparison_config.agent_combinations.",
+                "deprecated": True,
+                "items": {"type": "array", "items": {"type": "string"}},
+            },
             "enable_verticals": {
                 "type": "boolean",
                 "description": "Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS)",

@@ -390,8 +390,33 @@ class SMEUsageDashboardHandler(SecureHandler):
             except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning("Failed to get usage summary: %s", e)
 
+        def _decimal_or_fallback(value: Any, fallback: Any) -> Decimal:
+            """Convert dashboard totals to Decimal while preserving explicit zeroes."""
+            candidate = fallback if value is None else value
+            return Decimal(str(candidate))
+
+        def _int_or_fallback(value: Any, fallback: Any) -> int:
+            """Convert dashboard counters to int while preserving explicit zeroes."""
+            candidate = fallback if value is None else value
+            return int(candidate)
+
         # Build summary response
-        total_cost = Decimal(workspace_stats.get("total_cost_usd", "0"))
+        total_cost = _decimal_or_fallback(
+            getattr(usage_summary, "total_cost_usd", None),
+            workspace_stats.get("total_cost_usd", "0"),
+        )
+        total_tokens_in = _int_or_fallback(
+            getattr(usage_summary, "total_tokens_in", None),
+            workspace_stats.get("total_tokens_in", 0),
+        )
+        total_tokens_out = _int_or_fallback(
+            getattr(usage_summary, "total_tokens_out", None),
+            workspace_stats.get("total_tokens_out", 0),
+        )
+        total_api_calls = _int_or_fallback(
+            getattr(usage_summary, "total_api_calls", None),
+            workspace_stats.get("total_api_calls", 0),
+        )
         total_debates = usage_summary.total_debates if usage_summary else 0
         completed_debates = usage_summary.total_debates if usage_summary else 0
 
@@ -437,15 +462,14 @@ class SMEUsageDashboardHandler(SecureHandler):
                 "top_agents": top_agents,
             },
             "tokens": {
-                "total": workspace_stats.get("total_tokens_in", 0)
-                + workspace_stats.get("total_tokens_out", 0),
-                "input": workspace_stats.get("total_tokens_in", 0),
-                "output": workspace_stats.get("total_tokens_out", 0),
+                "total": total_tokens_in + total_tokens_out,
+                "input": total_tokens_in,
+                "output": total_tokens_out,
             },
             "activity": {
                 "active_days": active_days,
                 "debates_per_day": round(debates_per_day, 1),
-                "api_calls": workspace_stats.get("total_api_calls", 0),
+                "api_calls": total_api_calls,
             },
         }
 

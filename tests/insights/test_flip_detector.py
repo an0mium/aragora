@@ -5,6 +5,7 @@ Tests flip detection, consistency scoring, and UI formatting.
 """
 
 import tempfile
+import threading
 from pathlib import Path
 
 import pytest
@@ -305,6 +306,53 @@ class TestFlipDetector:
 
         assert "detected_flips" in tables
         assert "positions" in tables
+
+    def test_initializes_tables_once_per_database_path(self, monkeypatch, temp_db):
+        """Concurrent instances should not rerun schema bootstrap for one DB."""
+        path_key = str(temp_db.resolve())
+        FlipDetector._database_cache.pop(path_key, None)
+        FlipDetector._initialized_paths.discard(path_key)
+
+        original_init_tables = FlipDetector._init_tables
+        init_calls = 0
+        init_calls_lock = threading.Lock()
+        barrier = threading.Barrier(4)
+        errors: list[Exception] = []
+
+        def wrapped(self):
+            nonlocal init_calls
+            with init_calls_lock:
+                init_calls += 1
+            return original_init_tables(self)
+
+        def create_detector():
+            try:
+                barrier.wait(timeout=5)
+                FlipDetector(db_path=temp_db, similarity_threshold=0.6)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        monkeypatch.setattr(FlipDetector, "_init_tables", wrapped)
+
+        threads = [threading.Thread(target=create_detector) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        assert errors == []
+        assert init_calls == 1
+
+    def test_reuses_database_wrapper_per_database_path(self, temp_db):
+        """Repeated detectors for the same path should share one DB wrapper."""
+        path_key = str(temp_db.resolve())
+        FlipDetector._database_cache.pop(path_key, None)
+        FlipDetector._initialized_paths.discard(path_key)
+
+        first = FlipDetector(db_path=temp_db, similarity_threshold=0.6)
+        second = FlipDetector(db_path=temp_db, similarity_threshold=0.6)
+
+        assert first.db is second.db
 
     def test_get_agent_consistency_no_data(self, detector):
         """Test getting consistency for agent with no data."""

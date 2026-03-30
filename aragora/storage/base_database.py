@@ -209,6 +209,10 @@ class BaseDatabase:
         with self.connection() as conn:
             conn.executemany(sql, params_list)
 
+    def close(self) -> None:
+        """Close the underlying manager-backed connections."""
+        self._manager.close()
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.db_path!r})"
 

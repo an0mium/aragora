@@ -30,10 +30,10 @@ DEBATE_START_SCHEMA = {
     "task": {
         "type": "string",
         "min_length": 1,
-        "max_length": 100_000,
+        "max_length": 2_000,
         "required": False,
     },  # Can use 'question' too
-    "question": {"type": "string", "min_length": 1, "max_length": 100_000, "required": False},
+    "question": {"type": "string", "min_length": 1, "max_length": 2_000, "required": False},
     "agents": {
         "type": "list",
         "min_length": 0,
@@ -43,6 +43,10 @@ DEBATE_START_SCHEMA = {
     },
     "auto_select": {"type": "bool", "required": False},
     "auto_select_config": {"type": "object", "required": False},
+    "comparison_config": {"type": "object", "required": False},
+    "model_comparison": {"type": "object", "required": False},
+    "agent_combinations": {"type": "list", "max_length": 10, "item_type": list, "required": False},
+    "model_combinations": {"type": "list", "max_length": 10, "item_type": list, "required": False},
     "use_trending": {"type": "bool", "required": False},
     "trending_category": {"type": "string", "max_length": 64, "required": False},
     "enable_verticals": {"type": "bool", "required": False},

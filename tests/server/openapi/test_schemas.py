@@ -93,6 +93,14 @@ class TestRequiredSchemas:
         assert "required" in schema
         assert "task" in schema["required"]
 
+    def test_debate_create_request_exposes_comparison_config(self):
+        """DebateCreateRequest should document comparison mode for best-result selection."""
+        schema = COMMON_SCHEMAS["DebateCreateRequest"]
+        comparison = schema["properties"]["comparison_config"]
+        assert comparison["type"] == "object"
+        assert "agent_combinations" in comparison["properties"]
+        assert schema["properties"]["model_comparison"]["deprecated"] is True
+
     def test_debate_status_enum_values(self):
         """DebateStatus should have expected enum values."""
         schema = COMMON_SCHEMAS["DebateStatus"]

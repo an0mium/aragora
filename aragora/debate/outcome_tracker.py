@@ -422,6 +422,10 @@ class OutcomeTracker:
         # Clamp to reasonable range
         return max(0.5, min(1.5, adjustment))
 
+    def close(self) -> None:
+        """Close the underlying database resources."""
+        self._db.close()
+
 
 class AsyncOutcomeTracker:
     """Async wrapper for OutcomeTracker that avoids blocking the event loop.

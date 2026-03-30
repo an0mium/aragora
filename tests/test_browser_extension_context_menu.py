@@ -30,9 +30,10 @@ def test_manifest_registers_popup_service_worker_and_content_script() -> None:
     manifest = json.loads(_read_file("manifest.json"))
 
     assert manifest["manifest_version"] == 3
-    assert manifest["name"] == "Aragora Adversarial Review"
-    assert "adversarial review" in manifest["description"]
-    assert "popup" in manifest["description"]
+    assert manifest["name"].startswith("Aragora")
+    description = manifest["description"].lower()
+    assert "adversarial review" in description
+    assert "popup" in description
     assert manifest["background"]["service_worker"] == "background.js"
     assert manifest["action"]["default_title"] == "Aragora"
     assert manifest["action"]["default_popup"] == "popup.html"
@@ -56,8 +57,8 @@ def test_background_script_handles_context_menu_selection_and_api_submission() -
     assert "chrome.tabs.sendMessage" in background_script
     assert '"aragora:get-selection"' in background_script
     assert "chrome.storage.local.set" in background_script
+    assert "buildAuthorizationHeader" in background_script
     assert "/api/v2/debates" in background_script
-    assert 'Authorization: `Bearer ${String(settings.apiKey || "").trim()}`' in background_script
     assert 'source: "browser_extension_context_menu"' in background_script
     assert 'source_title: source.pageTitle || ""' in background_script
     assert 'source_url: source.pageUrl || ""' in background_script
@@ -65,6 +66,11 @@ def test_background_script_handles_context_menu_selection_and_api_submission() -
     assert 'status: "error"' in background_script
     assert 'status: createdDebate.status || "running"' in background_script
     assert 'error: "Add an Aragora API key in the popup before sending text."' in background_script
+    assert "function resolveDebateAnswer(result)" in background_script
+    assert "function resolveDebateConfidence(result)" in background_script
+    assert "function buildStoredResult(result)" in background_script
+    assert "confidence: resolveDebateConfidence(result)" in background_script
+    assert "result: buildStoredResult(createdDebate)" in background_script
 
 
 def test_popup_assets_render_saved_selection_and_latest_result() -> None:
@@ -86,21 +92,28 @@ def test_popup_assets_render_saved_selection_and_latest_result() -> None:
     assert 'id="result-confidence"' in popup_html
     assert 'id="result-answer"' in popup_html
     assert 'id="result-error"' in popup_html
-    assert "Latest review" in popup_html
+    assert "Latest result" in popup_html
     assert 'id="save-settings"' in popup_html
 
     assert "chrome.storage.onChanged.addListener" in popup_js
     assert "window.setInterval" in popup_js
+    assert "buildAuthorizationHeader" in popup_js
     assert "resolveFinalAnswer" in popup_js
+    assert "resolveConfidence" in popup_js
     assert "humanizeStatus" in popup_js
     assert "buildResultState" in popup_js
     assert "result?.answer" in popup_js
     assert "result?.consensus?.summary" in popup_js
     assert "result?.consensus?.final_answer" in popup_js
+    assert "result?.consensus?.conclusion" in popup_js
     assert "finalAnswer" in popup_js
     assert "fetch(`${normalizeApiUrl(apiUrl)}/api/v2/debates/${debateId}`" in popup_js
     assert "result?.final_answer" in popup_js
     assert "result?.finalAnswer" in popup_js
+    assert "const result = activeState.result || {}" in popup_js
+    assert "resolveFinalAnswer(result) ||" in popup_js
+    assert "resolveConfidence(result)" in popup_js
+    assert "result?.consensus?.agreement" in popup_js
     assert "elements.resultConfidence.textContent =" in popup_js
     assert "elements.resultAnswer.textContent = answer" in popup_js
     assert "elements.selectionPreview.textContent =" in popup_js

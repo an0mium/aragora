@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.agents.base import create_agent as create_real_agent
+from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
     _build_live_receipt,
     _build_live_team,
@@ -32,6 +33,7 @@ from aragora.cli.commands.quickstart import (
     add_quickstart_parser,
     cmd_quickstart,
 )
+from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
@@ -55,6 +57,13 @@ class TestQuickstartParser:
         add_quickstart_parser(subparsers)
         args = parser.parse_args(["quickstart", "-q", "Test question"])
         assert args.question == "Test question"
+
+    def test_parser_topic_alias(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--topic", "Topic question"])
+        assert args.question == "Topic question"
 
     def test_parser_output_flag(self):
         parser = argparse.ArgumentParser()
@@ -95,6 +104,20 @@ class TestQuickstartParser:
         for fmt in ["json", "md", "html"]:
             args = parser.parse_args(["quickstart", "--format", fmt])
             assert args.format == fmt
+
+    def test_parser_json_flag(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--json"])
+        assert args.json is True
+
+    def test_build_parser_registers_quickstart_json_flag(self):
+        parser = build_parser()
+        args = parser.parse_args(["quickstart", "--topic", "Topic question", "--json"])
+        assert args.command == "quickstart"
+        assert args.question == "Topic question"
+        assert args.json is True
 
 
 # =============================================================================
@@ -202,12 +225,12 @@ class TestGetQuestion:
         assert "microservices" in result.lower() or "monolith" in result.lower()
 
     def test_interactive_prompt(self, monkeypatch):
-        monkeypatch.setattr("builtins.input", lambda _: "Interactive Q")
+        monkeypatch.setattr("builtins.input", lambda: "Interactive Q")
         args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) == "Interactive Q"
 
     def test_empty_input_returns_none(self, monkeypatch):
-        monkeypatch.setattr("builtins.input", lambda _: "")
+        monkeypatch.setattr("builtins.input", lambda: "")
         args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) is None
 
@@ -705,6 +728,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -737,6 +761,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=None,
             no_browser=True,
         )
@@ -773,6 +798,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=None,
             no_browser=True,
         )
@@ -804,6 +830,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -822,6 +849,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=output_path,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -844,6 +872,38 @@ class TestCmdQuickstart:
         data = json.loads(Path(output_path).read_text())
         assert data["verdict"] == "yes"
 
+    def test_demo_mode_saves_receipt_that_verifies(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should we verify the saved quickstart receipt?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=2,
+            no_browser=True,
+        )
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=MagicMock(),
+        ):
+            cmd_quickstart(args)
+
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        assert artifact_path.exists()
+
+        capsys.readouterr()
+        with pytest.raises(SystemExit) as excinfo:
+            cmd_receipt_verify(argparse.Namespace(receipt=str(artifact_path), verbose=False))
+
+        assert excinfo.value.code == 0
+        output = capsys.readouterr().out
+        assert "Result: VALID" in output
+
     def test_live_mode_saves_default_receipt_artifact(self, tmp_path, monkeypatch, capsys):
         """Test live quickstart saves a deterministic default artifact."""
         monkeypatch.chdir(tmp_path)
@@ -855,6 +915,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -914,6 +975,7 @@ class TestCmdQuickstart:
             save_key=True,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -969,6 +1031,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1027,6 +1090,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1071,6 +1135,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1118,6 +1183,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1146,3 +1212,88 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Live debate failed: Live debate timed out after 120s" in output
         assert "Mode:       Demo" in output
+
+    def test_json_mode_prints_structured_result_to_stdout(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should quickstart emit JSON?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=True,
+            rounds=1,
+            no_browser=False,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value={
+                    "question": "Should quickstart emit JSON?",
+                    "verdict": "consensus",
+                    "confidence": 0.85,
+                    "rounds": 1,
+                    "agents": ["analyst", "critic", "synthesizer"],
+                    "summary": "Emit structured output.",
+                    "dissent": [],
+                    "mode": "demo",
+                },
+            ),
+            patch("aragora.cli.commands.quickstart._open_receipt_in_browser") as open_browser,
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr()
+        payload = json.loads(output.out)
+        assert payload["receipt_id"].startswith("quickstart-demo-")
+        assert payload["consensus"] is True
+        assert payload["consensus_reached"] is True
+        assert payload["agent_votes"] == []
+        assert Path(payload["artifact_path"]).exists()
+        assert "ARAGORA QUICKSTART" in output.err
+        open_browser.assert_not_called()
+
+    def test_json_mode_interactive_prompt_keeps_stdout_clean(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("builtins.input", lambda: "Should JSON prompts stay off stdout?")
+        args = argparse.Namespace(
+            question=None,
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=True,
+            rounds=1,
+            no_browser=True,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value={
+                    "question": "Should JSON prompts stay off stdout?",
+                    "verdict": "consensus",
+                    "confidence": 0.85,
+                    "rounds": 1,
+                    "agents": ["analyst", "critic", "synthesizer"],
+                    "summary": "Keep stdout reserved for machine-readable JSON.",
+                    "dissent": [],
+                    "mode": "demo",
+                },
+            ),
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr()
+        payload = json.loads(output.out)
+        assert payload["question"] == "Should JSON prompts stay off stdout?"
+        assert "> " in output.err

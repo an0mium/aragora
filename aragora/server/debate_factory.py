@@ -127,7 +127,20 @@ class DebateConfig:
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
     enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
     enable_interventions: bool | None = None  # Enable intervention queue for human-in-the-loop
+    comparison_config: dict | None = None  # Candidate lineups for best-result selection
     quality_pipeline: dict | None = None  # Post-consensus quality pipeline config
+
+    @property
+    def model_comparison(self) -> dict | None:
+        """Backward-compatible alias for comparison config."""
+        return self.comparison_config
+
+    @property
+    def agent_combinations(self) -> list[Any] | None:
+        """Expose normalized comparison combinations."""
+        if not isinstance(self.comparison_config, dict):
+            return None
+        return self.comparison_config.get("agent_combinations")
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.

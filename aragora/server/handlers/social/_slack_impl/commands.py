@@ -478,10 +478,14 @@ Reply in thread to add suggestions to ongoing debates
         channel_id: str,
     ) -> None:
         """Answer a question asynchronously using a single agent."""
-        from aragora.server.http_client_pool import get_http_pool
 
         try:
+            from aragora.server.http_client_pool import get_http_pool
+
             pool = get_http_pool()
+            # Internal self-calls need the API token to bypass auth
+            api_token = os.environ.get("ARAGORA_API_TOKEN", "")
+            headers = {"Authorization": f"Bearer {api_token}"} if api_token else {}
             async with pool.get_session("slack") as client:
                 resp = await client.post(
                     f"{ARAGORA_API_BASE_URL}/api/quick-answer",
@@ -493,6 +497,7 @@ Reply in thread to add suggestions to ongoing debates
                             "user_id": user_id,
                         },
                     },
+                    headers=headers,
                     timeout=60,
                 )
                 if resp.status_code != 200:
@@ -511,6 +516,7 @@ Reply in thread to add suggestions to ongoing debates
                             "rounds": 1,
                             "agents": ["anthropic-api"],
                         },
+                        headers=headers,
                         timeout=60,
                     )
                     if debate_resp.status_code == 200 or debate_resp.status_code == 201:

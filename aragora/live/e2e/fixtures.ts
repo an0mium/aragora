@@ -62,11 +62,25 @@ export class AragoraPage {
   }
 
   /**
+   * Dismiss the global connectivity warning if present.
+   * This fixed-bottom banner can intercept pointer events during E2E runs.
+   */
+  async dismissConnectivityWarning() {
+    const dismissButton = this.page.locator('button[aria-label="Dismiss connectivity warning"]');
+    if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await dismissButton.click().catch(() => {});
+      await this.page.locator('[role="alert"]').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    }
+  }
+
+  /**
    * Dismiss all overlays (boot animation, onboarding wizard).
    */
   async dismissAllOverlays() {
     await this.dismissBootAnimation();
     await this.dismissOnboarding();
+    await this.dismissConnectivityWarning();
+    await this.dismissToast();
   }
 
   async waitForAppReady() {

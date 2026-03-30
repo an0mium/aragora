@@ -53,6 +53,20 @@ def register_receipt(receipt: dict[str, Any]) -> None:
         _receipt_store[receipt_id] = receipt
 
 
+def _receipt_matches_filters(
+    receipt: dict[str, Any],
+    *,
+    pipeline_id: str | None,
+    status: str | None,
+) -> bool:
+    """Apply list filters to both in-memory and KM-backed receipt records."""
+    if pipeline_id and receipt.get("pipeline_id") != pipeline_id:
+        return False
+    if status and receipt.get("execution", {}).get("status") != status:
+        return False
+    return True
+
+
 class ReceiptExplorerHandler(BaseHandler):
     """HTTP handler for pipeline receipt exploration and verification."""
 
@@ -112,30 +126,32 @@ class ReceiptExplorerHandler(BaseHandler):
         status = get_string_param(params, "status")
         limit = get_int_param(params, "limit", 50)
 
-        receipts = list(_receipt_store.values())
+        receipts_by_id: dict[str, dict[str, Any]] = {
+            receipt.get("receipt_id"): receipt
+            for receipt in _receipt_store.values()
+            if receipt.get("receipt_id")
+        }
 
-        if pipeline_id:
-            receipts = [r for r in receipts if r.get("pipeline_id") == pipeline_id]
-        if status:
-            receipts = [r for r in receipts if r.get("execution", {}).get("status") == status]
-
-        # Merge KM-stored historical receipts into listing
+        # Merge KM-stored historical receipts into listing using the same singleton
+        # adapter that post-debate persistence writes into.
         try:
-            from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
+            from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
 
-            adapter = ReceiptAdapter()
+            adapter = get_receipt_adapter()
             km_receipts = adapter.list_receipts(limit=limit)
             if km_receipts:
-                # Deduplicate by receipt_id (in-memory takes precedence)
-                existing_ids = {r.get("receipt_id") for r in receipts}
                 for km_receipt in km_receipts:
                     rid = km_receipt.get("receipt_id")
-                    if rid and rid not in existing_ids:
-                        receipts.append(km_receipt)
-                        existing_ids.add(rid)
+                    if rid and rid not in receipts_by_id:
+                        receipts_by_id[rid] = km_receipt
         except (ImportError, RuntimeError, AttributeError, TypeError) as e:
             logger.debug("KM receipt lookup skipped: %s", type(e).__name__)
 
+        receipts = [
+            receipt
+            for receipt in receipts_by_id.values()
+            if _receipt_matches_filters(receipt, pipeline_id=pipeline_id, status=status)
+        ]
         receipts = receipts[:limit]
         return json_response(
             {

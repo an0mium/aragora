@@ -19,6 +19,7 @@ from aragora.swarm.worker_launcher import LaunchConfig
 UTC = timezone.utc
 VERIFIED_AUTH_MODES = {"chatgpt_login", "api_key", "subscription"}
 DEFAULT_RUNNER_STALE_AFTER_SECONDS = 3600
+DEFAULT_RUNNER_CLAIM_TTL_SECONDS = 8 * 3600
 DEFAULT_RUNNER_ROTATION_INTERVAL_SECONDS = 1800.0
 DEFAULT_RUNNER_PROBE_TTL_SECONDS = 3600
 RUNNER_PROBE_TOKEN = "ARAGORA_RUNNER_PROBE_OK"
@@ -521,10 +522,45 @@ class CLIRunnerInspector:
         return self._run_command([base_command_path, "--help"])
 
     def _claude_profile_script(self) -> str | None:
-        script = (self.repo_root / "scripts" / "claude_profile.sh").resolve()
+        script = (self._canonical_repo_root() / "scripts" / "claude_profile.sh").resolve()
         if not script.exists():
             return None
         return str(script)
+
+    def _canonical_repo_root(self) -> Path:
+        common_git_dir = self._git_common_dir(self.repo_root)
+        if common_git_dir is not None and common_git_dir.name == ".git":
+            return common_git_dir.parent.resolve()
+        return self.repo_root
+
+    @staticmethod
+    def _git_common_dir(repo_root: Path) -> Path | None:
+        dot_git = repo_root / ".git"
+        if dot_git.is_dir():
+            return dot_git.resolve()
+        if not dot_git.is_file():
+            return None
+        try:
+            text = dot_git.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        if not text.startswith("gitdir:"):
+            return None
+        gitdir = text.split(":", 1)[1].strip()
+        resolved = (dot_git.parent / gitdir).resolve()
+        if not resolved.is_dir():
+            return None
+        commondir_file = resolved / "commondir"
+        if commondir_file.is_file():
+            try:
+                commondir = commondir_file.read_text(encoding="utf-8").strip()
+            except OSError:
+                commondir = ""
+            if commondir:
+                common = (resolved / commondir).resolve()
+                if common.is_dir():
+                    return common
+        return resolved
 
     @staticmethod
     def _run_command(command: list[str]) -> dict[str, Any]:
@@ -1058,6 +1094,7 @@ class LocalRunnerRegistry:
         now = _utcnow()
         freshness_status = self._freshness_for_inspection(inspection)
         owner_binding = owner_binding_from_context(owner_context)
+        claimed_lanes = self._normalized_claimed_lanes(existing, inspection=inspection)
         updated_entry = self._preserve_probe_fields(
             existing,
             {
@@ -1067,6 +1104,7 @@ class LocalRunnerRegistry:
                 "owner_binding": owner_binding,
                 "registered_at": existing.get("registered_at"),
                 "heartbeat_at": now,
+                "claimed_lanes": claimed_lanes,
                 "freshness_status": freshness_status,
                 "updated_at": now,
             },
@@ -1156,9 +1194,32 @@ class LocalRunnerRegistry:
         return runner_payload
 
     def list_registrations(self) -> list[dict[str, Any]]:
-        return [
-            dict(item) for item in self._load().get("registrations", []) if isinstance(item, dict)
+        records = self._load()
+        registrations = [
+            dict(item) for item in records.get("registrations", []) if isinstance(item, dict)
         ]
+        valid_registrations: list[dict[str, Any]] = []
+        dedupe_indexes: dict[tuple[str, ...], int] = {}
+        pruned = False
+        for item in registrations:
+            if self._invalid_registration_reason(item) is not None:
+                pruned = True
+                continue
+            dedupe_key = self._registration_dedupe_key(item)
+            if dedupe_key is not None:
+                existing_index = dedupe_indexes.get(dedupe_key)
+                if existing_index is not None:
+                    pruned = True
+                    current = valid_registrations[existing_index]
+                    if self._prefer_registration(item, over=current):
+                        valid_registrations[existing_index] = item
+                    continue
+                dedupe_indexes[dedupe_key] = len(valid_registrations)
+            valid_registrations.append(item)
+        if pruned:
+            records["registrations"] = valid_registrations
+            self._save(records)
+        return valid_registrations
 
     def resolve_boss_routing(
         self,
@@ -1195,6 +1256,7 @@ class LocalRunnerRegistry:
         rejected_runner_ids: list[str] = []
         saw_compatible_nonfresh = False
         saw_requested_type = False
+        saw_requested_capacity_exhausted = False
         now = datetime.now(UTC)
         for runner in self.list_registrations():
             runner_type = _text(runner.get("runner_type"))
@@ -1206,10 +1268,20 @@ class LocalRunnerRegistry:
                         rejected_runner_ids.append(runner_id)
                     continue
             if self._is_owner_compatible(runner, owner_context=owner_context):
-                if bool(runner.get("registered")) and self._freshness_status(runner) != "fresh":
-                    saw_compatible_nonfresh = True
+                runner_freshness = self._freshness_status(runner)
                 if requested and runner_type == requested:
                     saw_requested_type = True
+                    if bool(runner.get("registered")) and runner_freshness != "fresh":
+                        saw_compatible_nonfresh = True
+                    elif bool(runner.get("registered")):
+                        capabilities = dict(runner.get("capabilities") or {})
+                        max_parallel = int(capabilities.get("max_parallel_lanes") or 1)
+                        if self._effective_active_lanes(runner) >= max_parallel:
+                            saw_requested_capacity_exhausted = True
+                elif (
+                    not requested and bool(runner.get("registered")) and runner_freshness != "fresh"
+                ):
+                    saw_compatible_nonfresh = True
             if not self._is_runner_eligible(runner, owner_context=owner_context):
                 runner_id = _text(runner.get("runner_id"))
                 if runner_id:
@@ -1218,22 +1290,30 @@ class LocalRunnerRegistry:
             eligible.append(self._runner_summary(runner))
 
         if not eligible:
+            blocked_reason = (
+                "no_fresh_registered_runners"
+                if saw_compatible_nonfresh
+                else "no_eligible_registered_runners"
+            )
+            next_action = (
+                "Refresh the heartbeat for an available registered runner in this exact Aragora "
+                "user/workspace context before running Boss mode."
+                if saw_compatible_nonfresh
+                else "Register an available runner for this exact Aragora user/workspace context "
+                "before running Boss mode."
+            )
+            if requested and saw_requested_capacity_exhausted and not saw_compatible_nonfresh:
+                next_action = (
+                    f"Free capacity on the registered {requested} runner for this exact Aragora "
+                    "user/workspace context or register another available runner of that type "
+                    "before running Boss mode."
+                )
             return BossRoutingDecision(
                 owner_binding=owner_binding,
                 selection_basis=selection_basis,
-                blocked_reason=(
-                    "no_fresh_registered_runners"
-                    if saw_compatible_nonfresh
-                    else "no_eligible_registered_runners"
-                ),
+                blocked_reason=blocked_reason,
                 rejected_runner_ids=sorted(set(rejected_runner_ids)),
-                next_action=(
-                    "Refresh the heartbeat for an available registered runner in this exact Aragora "
-                    "user/workspace context before running Boss mode."
-                    if saw_compatible_nonfresh
-                    else "Register an available runner for this exact Aragora user/workspace context "
-                    "before running Boss mode."
-                ),
+                next_action=next_action,
                 requested_runner_type=requested,
             )
 
@@ -1421,6 +1501,89 @@ class LocalRunnerRegistry:
             return False
         return True
 
+    def _invalid_registration_reason(self, runner: dict[str, Any]) -> str | None:
+        command_path = _text(runner.get("command_path") or runner.get("codex_path"))
+        if not command_path:
+            return None
+        if not self._command_path_exists(command_path):
+            return "missing_command_executable"
+        return None
+
+    @staticmethod
+    def _registration_dedupe_key(runner: dict[str, Any]) -> tuple[str, ...] | None:
+        runner_type = _text(runner.get("runner_type"))
+        profile = _text(runner.get("profile"))
+        if runner_type == "claude" and profile:
+            owner_binding = dict(runner.get("owner_binding") or {})
+            return (
+                "claude_profile",
+                profile,
+                _text(owner_binding.get("user_id")),
+                _text(owner_binding.get("workspace_id")),
+                _text(owner_binding.get("org_id")),
+            )
+        return None
+
+    def _prefer_registration(
+        self,
+        candidate: dict[str, Any],
+        *,
+        over: dict[str, Any],
+    ) -> bool:
+        return self._registration_rank(candidate) < self._registration_rank(over)
+
+    def _registration_rank(self, runner: dict[str, Any]) -> tuple[int, int, float, float, str]:
+        command_path = _text(runner.get("command_path") or runner.get("codex_path"))
+        return (
+            self._command_path_stability_rank(command_path),
+            self._dedupe_probe_rank(self._probe_status(runner)),
+            -self._timestamp_rank(_text(runner.get("probe_checked_at"))),
+            -self._timestamp_rank(_text(runner.get("heartbeat_at"))),
+            _text(runner.get("runner_id")),
+        )
+
+    @staticmethod
+    def _command_path_stability_rank(command_path: str) -> int:
+        normalized = _text(command_path)
+        if not normalized:
+            return 1
+        marker = f"{os.sep}.worktrees{os.sep}"
+        if marker in normalized or (
+            os.altsep and f"{os.altsep}.worktrees{os.altsep}" in normalized
+        ):
+            return 1
+        return 0
+
+    @staticmethod
+    def _dedupe_probe_rank(status: Any) -> int:
+        normalized = _text(status).lower()
+        if normalized == "passed":
+            return 0
+        if normalized == "failed":
+            return 1
+        return 2
+
+    def _timestamp_rank(self, value: str) -> float:
+        parsed = self._parse_timestamp(value)
+        if parsed is None:
+            return 0.0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.timestamp()
+
+    @staticmethod
+    def _command_path_exists(command_path: str) -> bool:
+        normalized = _text(command_path)
+        if not normalized:
+            return False
+        if (
+            Path(normalized).is_absolute()
+            or os.sep in normalized
+            or (os.altsep and os.altsep in normalized)
+        ):
+            return Path(normalized).exists()
+        return shutil.which(normalized) is not None
+
     @staticmethod
     def _effective_active_lanes(runner: dict[str, Any]) -> int:
         capabilities = dict(runner.get("capabilities") or {})
@@ -1510,6 +1673,29 @@ class LocalRunnerRegistry:
         if age_seconds > stale_after_seconds:
             return "stale"
         return "fresh"
+
+    def _normalized_claimed_lanes(
+        self,
+        runner: dict[str, Any],
+        *,
+        inspection: RunnerInspection | None = None,
+    ) -> int:
+        claimed_lanes = _optional_int(runner.get("claimed_lanes"))
+        if claimed_lanes <= 0:
+            return 0
+        inspection_payload = inspection.to_dict() if inspection is not None else {}
+        if self._effective_active_lanes(inspection_payload) > 0:
+            return claimed_lanes
+        last_selected_at = self._parse_timestamp(_text(runner.get("last_selected_at")))
+        if last_selected_at is None:
+            return claimed_lanes
+        if last_selected_at.tzinfo is None:
+            last_selected_at = last_selected_at.replace(tzinfo=UTC)
+        claim_ttl_seconds = int(runner.get("claim_ttl_seconds") or DEFAULT_RUNNER_CLAIM_TTL_SECONDS)
+        age_seconds = max(0.0, (datetime.now(UTC) - last_selected_at).total_seconds())
+        if age_seconds > claim_ttl_seconds:
+            return 0
+        return claimed_lanes
 
     def _probe_status(self, runner: dict[str, Any]) -> str | None:
         status = _text(runner.get("probe_status")).lower() or None

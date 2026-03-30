@@ -294,6 +294,9 @@ export function LiveDemoSection() {
     ? liveTranscript
     : FALLBACK_STREAM.slice(0, demoVisibleCount);
   const debateTask = hasLiveTranscript ? deriveTask(focusedLiveEvents) : FALLBACK_TASK;
+  const spectateHref = dominantDebateId
+    ? `/spectate/${encodeURIComponent(dominantDebateId)}`
+    : '/spectate';
   const activeRound = transcriptEvents[transcriptEvents.length - 1]?.roundNumber ?? null;
   const participants = Array.from(
     new Set(
@@ -673,7 +676,7 @@ export function LiveDemoSection() {
 
         <div className="text-center mt-12 flex flex-wrap justify-center gap-4">
           <Link
-            href="/spectate"
+            href={spectateHref}
             className="text-sm font-semibold transition-all hover:scale-[1.02] cursor-pointer"
             style={{
               display: 'inline-block',
@@ -685,7 +688,7 @@ export function LiveDemoSection() {
               padding: '18px 32px',
             }}
           >
-            Open full spectate view
+            {hasLiveTranscript ? 'Watch this debate live' : 'Open full spectate view'}
           </Link>
           <Link
             href="/demo"

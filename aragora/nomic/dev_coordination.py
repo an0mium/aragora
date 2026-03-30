@@ -26,13 +26,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.event_bus import EventBus
 from aragora.nomic.global_work_queue import GlobalWorkQueue, WorkItem, WorkStatus, WorkType
 from aragora.worktree.fleet import FleetCoordinationStore
 
 UTC = timezone.utc
+if TYPE_CHECKING:
+    from aragora.swarm.lane_telemetry import LaneTelemetryCollector
+
+_LANE_TELEMETRY: LaneTelemetryCollector | None = None
 _ACTIVE_LEASE_STATUSES = {"active"}
 _PENDING_INTEGRATION_DECISIONS = {"pending_review"}
 _OPEN_SALVAGE_STATUSES = {"detected", "claimed"}
@@ -63,6 +67,31 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
     "timed_out",
     "failed",
 }
+
+
+def _get_lane_telemetry() -> LaneTelemetryCollector:
+    global _LANE_TELEMETRY
+    if _LANE_TELEMETRY is None:
+        from aragora.swarm.lane_telemetry import LaneTelemetryCollector
+
+        _LANE_TELEMETRY = LaneTelemetryCollector()
+    return _LANE_TELEMETRY
+
+
+def _normalize_completion_outcome(
+    *,
+    outcome: str,
+    commit_shas: list[str],
+    changed_paths: list[str],
+    pr_url: str,
+    pr_number: int | None,
+) -> str:
+    normalized = str(outcome or "").strip()
+    lowered = normalized.lower()
+    if lowered and lowered != "completed":
+        return normalized
+    has_deliverable = bool(pr_url.strip() or pr_number is not None or commit_shas or changed_paths)
+    return "deliverable_created" if has_deliverable else "clean_exit_no_deliverable"
 
 
 class LeaseConflictError(ValueError):
@@ -1534,6 +1563,7 @@ class DevCoordinationStore:
         pr_number: int | None = None,
         confidence: float = 0.0,
         metadata: dict[str, Any] | None = None,
+        require_session_ownership: bool = True,
     ) -> CompletionReceipt:
         normalized_changed_paths = [
             _normalize_claim(item) for item in changed_paths or [] if str(item).strip()
@@ -1548,6 +1578,25 @@ class DevCoordinationStore:
                 raise KeyError(f"Unknown lease_id: {lease_id}")
             lease = WorkLease.from_row(lease_row)
             lease_metadata = _json_loads(lease_row["metadata_json"], {})
+            receipt_metadata = {
+                **dict(metadata or {}),
+                "supervisor_run_id": lease_metadata.get("supervisor_run_id"),
+                "work_order_id": lease_metadata.get("work_order_id"),
+                "task_key": lease_metadata.get("task_key"),
+                "reviewer_agent": lease_metadata.get("reviewer_agent"),
+                "risk_level": lease_metadata.get("risk_level"),
+            }
+            if (str(pr_url or "").strip() or pr_number is not None) and not str(
+                receipt_metadata.get("pr_created_at", "")
+            ).strip():
+                receipt_metadata["pr_created_at"] = now
+            normalized_outcome = _normalize_completion_outcome(
+                outcome=str(outcome or "completed").strip() or "completed",
+                commit_shas=list(commit_shas or []),
+                changed_paths=normalized_changed_paths,
+                pr_url=str(pr_url or "").strip(),
+                pr_number=pr_number,
+            )
             receipt = CompletionReceipt(
                 receipt_id=str(uuid.uuid4())[:12],
                 lease_id=lease_id,
@@ -1564,25 +1613,20 @@ class DevCoordinationStore:
                 validations_run=list(validations_run or tests_run or []),
                 assumptions=list(assumptions or []),
                 blockers=list(blockers or []),
-                outcome=str(outcome or "completed").strip() or "completed",
+                outcome=normalized_outcome,
                 risks=list(risks or blockers or []),
                 pr_url=str(pr_url or "").strip(),
                 pr_number=pr_number,
                 confidence=float(confidence),
-                metadata={
-                    **dict(metadata or {}),
-                    "supervisor_run_id": lease_metadata.get("supervisor_run_id"),
-                    "work_order_id": lease_metadata.get("work_order_id"),
-                    "task_key": lease_metadata.get("task_key"),
-                    "reviewer_agent": lease_metadata.get("reviewer_agent"),
-                    "risk_level": lease_metadata.get("risk_level"),
-                },
+                created_at=now,
+                metadata=receipt_metadata,
             )
             violations = self._validate_completion_scope(
                 lease,
                 changed_paths=receipt.changed_paths,
                 owner_session_id=owner_session_id,
                 branch=branch,
+                require_session_ownership=require_session_ownership,
             )
             if violations:
                 metadata = {
@@ -1709,6 +1753,7 @@ class DevCoordinationStore:
                 "risks": receipt.risks,
                 "pr_url": receipt.pr_url or None,
                 "pr_number": receipt.pr_number,
+                "pr_created_at": receipt.metadata.get("pr_created_at"),
                 "metadata": dict(receipt.metadata),
             },
         )
@@ -1742,6 +1787,7 @@ class DevCoordinationStore:
                 "risks": receipt.risks,
                 "pr_url": receipt.pr_url or None,
                 "pr_number": receipt.pr_number,
+                "pr_created_at": receipt.metadata.get("pr_created_at"),
             },
         )
         self._sync_supervisor_run_from_lease(
@@ -2258,6 +2304,7 @@ class DevCoordinationStore:
         changed_paths: list[str],
         owner_session_id: str,
         branch: str,
+        require_session_ownership: bool = True,
     ) -> list[dict[str, Any]]:
         scope_patterns = list(dict.fromkeys([*lease.claimed_paths, *lease.allowed_globs]))
         protected_patterns = list(
@@ -2301,24 +2348,25 @@ class DevCoordinationStore:
                     }
                 )
 
-        audit = self.fleet_store.audit_session_paths(
-            session_id=owner_session_id,
-            paths=changed_paths,
-            branch=branch,
-        )
-        for path in audit["unowned_paths"]:
-            violations.append({"type": "unowned_path", "path": path})
-        for conflict in audit["conflicts"]:
-            violations.append(
-                {
-                    "type": "conflicting_claim",
-                    "path": str(conflict.get("path", "")),
-                    "conflicting_path": str(conflict.get("conflicting_path", "")),
-                    "session_id": str(conflict.get("session_id", "")),
-                    "branch": str(conflict.get("branch", "")),
-                    "mode": str(conflict.get("mode", "")),
-                }
+        if require_session_ownership:
+            audit = self.fleet_store.audit_session_paths(
+                session_id=owner_session_id,
+                paths=changed_paths,
+                branch=branch,
             )
+            for path in audit["unowned_paths"]:
+                violations.append({"type": "unowned_path", "path": path})
+            for conflict in audit["conflicts"]:
+                violations.append(
+                    {
+                        "type": "conflicting_claim",
+                        "path": str(conflict.get("path", "")),
+                        "conflicting_path": str(conflict.get("conflicting_path", "")),
+                        "session_id": str(conflict.get("session_id", "")),
+                        "branch": str(conflict.get("branch", "")),
+                        "mode": str(conflict.get("mode", "")),
+                    }
+                )
         return violations
 
     def mark_supervisor_run_merged(
@@ -2326,26 +2374,132 @@ class DevCoordinationStore:
         *,
         receipt_id: str,
         merge_commit_sha: str | None = None,
+        merged_at: str | None = None,
     ) -> None:
+        receipt = self.get_completion_receipt(receipt_id)
+        if receipt is None:
+            return
         conn = self._connect()
         try:
-            receipt_row = conn.execute(
-                "SELECT lease_id FROM completion_receipts WHERE receipt_id = ?",
-                (receipt_id,),
-            ).fetchone()
-            if receipt_row is None:
-                return
             lease_row = conn.execute(
                 "SELECT metadata_json FROM leases WHERE lease_id = ?",
-                (receipt_row["lease_id"],),
+                (receipt.lease_id,),
             ).fetchone()
         finally:
             conn.close()
         lease_metadata = _json_loads(lease_row["metadata_json"], {}) if lease_row else {}
-        update = {"status": "merged"}
+        merged_at_text = str(merged_at or _utcnow().isoformat()).strip() or _utcnow().isoformat()
+        update = {"status": "merged", "merged_at": merged_at_text}
         if merge_commit_sha:
             update["merge_commit_sha"] = merge_commit_sha
         self._sync_supervisor_run_from_lease(lease_metadata, update=update)
+        self._record_supervisor_merge_telemetry(
+            lease_metadata,
+            receipt=receipt,
+            merge_commit_sha=merge_commit_sha,
+            merged_at=merged_at_text,
+        )
+
+    def _record_supervisor_merge_telemetry(
+        self,
+        lease_metadata: dict[str, Any] | None,
+        *,
+        receipt: CompletionReceipt,
+        merge_commit_sha: str | None,
+        merged_at: str,
+    ) -> None:
+        from aragora.swarm.lane_telemetry import LaneTelemetryRecord
+
+        if not isinstance(lease_metadata, dict):
+            lease_metadata = {}
+        run_id = str(lease_metadata.get("supervisor_run_id", "")).strip()
+        work_order_id = str(lease_metadata.get("work_order_id", "")).strip()
+        task_key = str(lease_metadata.get("task_key", "")).strip()
+        lane_id = task_key or (
+            f"{run_id}:{work_order_id}" if run_id and work_order_id else work_order_id or run_id
+        )
+        if not lane_id:
+            return
+
+        collector = _get_lane_telemetry()
+        existing = collector.get_lane("supervisor_work_order", lane_id)
+        deliverable_type = str(existing.deliverable_type if existing else "").strip()
+        if not deliverable_type:
+            if receipt.pr_url or receipt.pr_number is not None:
+                deliverable_type = "pr"
+            elif receipt.branch and receipt.commit_shas:
+                deliverable_type = "branch"
+        terminal_outcome = str(existing.terminal_outcome if existing else "").strip()
+        if not terminal_outcome:
+            terminal_outcome = str(receipt.outcome or "").strip()
+        if terminal_outcome == "completed":
+            terminal_outcome = (
+                "deliverable_created" if deliverable_type else "clean_exit_no_deliverable"
+            )
+        if not terminal_outcome:
+            if deliverable_type == "adopted_pr":
+                terminal_outcome = "pr_adopted"
+            elif deliverable_type:
+                terminal_outcome = "deliverable_created"
+            else:
+                terminal_outcome = "unknown"
+
+        time_to_merge_seconds = existing.time_to_merge_seconds if existing else None
+        try:
+            time_to_merge_seconds = max(
+                0.0,
+                (_parse_dt(merged_at) - _parse_dt(receipt.created_at)).total_seconds(),
+            )
+        except (TypeError, ValueError):
+            pass
+        time_to_pr_seconds = existing.time_to_pr_seconds if existing else None
+        pr_created_at = str((receipt.metadata or {}).get("pr_created_at", "")).strip()
+        try:
+            if pr_created_at:
+                time_to_pr_seconds = max(
+                    0.0,
+                    (_parse_dt(pr_created_at) - _parse_dt(receipt.created_at)).total_seconds(),
+                )
+        except (TypeError, ValueError):
+            pass
+
+        metadata = dict(existing.metadata if existing else {})
+        metadata.update(
+            {
+                "status": "merged",
+                "merge_commit_sha": merge_commit_sha or metadata.get("merge_commit_sha"),
+                "merged_at": merged_at,
+                "receipt_outcome": receipt.outcome or None,
+            }
+        )
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="supervisor_work_order",
+                lane_id=lane_id,
+                run_id=run_id or (existing.run_id if existing else ""),
+                task_id=(existing.task_id if existing else "") or task_key or work_order_id,
+                work_order_id=work_order_id or (existing.work_order_id if existing else ""),
+                terminal_outcome=terminal_outcome,
+                worker_outcome=(existing.worker_outcome if existing else "") or "",
+                deliverable_type=deliverable_type,
+                receipt_id=receipt.receipt_id or (existing.receipt_id if existing else ""),
+                human_intervention_required=False,
+                duration_seconds=existing.duration_seconds if existing else 0.0,
+                pr_url=receipt.pr_url or (existing.pr_url if existing else ""),
+                pr_number=receipt.pr_number
+                if receipt.pr_number is not None
+                else (existing.pr_number if existing else None),
+                merge_ref=merge_commit_sha or (existing.merge_ref if existing else ""),
+                merged_at=merged_at,
+                time_to_pr_seconds=time_to_pr_seconds,
+                time_to_merge_seconds=time_to_merge_seconds,
+                false_success_candidate=False
+                if deliverable_type
+                else bool(existing.false_success_candidate if existing else False),
+                timestamp=existing.timestamp if existing else _utcnow().timestamp(),
+                metadata=metadata,
+            )
+        )
 
     @staticmethod
     def _supervisor_run_from_row(row: sqlite3.Row) -> dict[str, Any]:
@@ -2504,6 +2658,21 @@ class DevCoordinationStore:
             for item in record["work_orders"]:
                 if str(item.get("work_order_id", "")).strip() != work_order_id:
                     continue
+                reaped_failure = _optional_text(update.get("failure_reason"))
+                if reaped_failure in {
+                    "stale_lease_reaped",
+                    "expired_lease_reaped",
+                } and _work_order_has_concrete_deliverable(item):
+                    preserved_update = {
+                        key: value
+                        for key, value in update.items()
+                        if key not in {"status", "failure_reason", "blocking_question", "blocker"}
+                    }
+                    if not preserved_update:
+                        break
+                    item.update(preserved_update)
+                    changed = True
+                    break
                 item.update(update)
                 changed = True
                 break
@@ -2523,6 +2692,17 @@ def _optional_text(*values: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _work_order_has_concrete_deliverable(work_order: dict[str, Any]) -> bool:
+    receipt_id = _optional_text(work_order.get("receipt_id"))
+    pr_url = _optional_text(work_order.get("pr_url"))
+    adopted_pr = _optional_text(work_order.get("adopted_pr"))
+    branch = _optional_text(work_order.get("branch"))
+    commit_shas = [
+        str(item).strip() for item in work_order.get("commit_shas", []) if str(item).strip()
+    ]
+    return bool(receipt_id or pr_url or adopted_pr or (branch and commit_shas))
 
 
 def _flatten_acceptance_value(value: Any) -> list[str]:

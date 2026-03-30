@@ -312,6 +312,10 @@ class AuthChecksMixin:
             "/api/v1/playground/status",
             # Public demo — no auth, no API credits (offline fixture mode)
             "/api/v1/demo/adversarial",
+            # Public spectate bridge surfaces for landing/watch mode
+            "/api/v1/spectate/recent",
+            "/api/v1/spectate/status",
+            "/api/v1/spectate/stream",
             # OAuth callbacks from external providers (redirects carry no auth headers)
             "/api/integrations/slack/callback",
             "/api/integrations/teams/callback",
@@ -320,6 +324,14 @@ class AuthChecksMixin:
             "/api/integrations/zoom/callback",
             "/api/v1/bots/slack/oauth/callback",
             "/api/v1/bots/slack/oauth/start",
+            # Slack webhooks are authenticated by Slack signatures, not API/JWT auth.
+            "/api/v1/integrations/slack/commands",
+            "/api/v1/integrations/slack/events",
+            "/api/v1/integrations/slack/interactive",
+            "/api/v1/bots/slack/commands",
+            "/api/v1/bots/slack/events",
+            "/api/v1/bots/slack/interactions",
+            "/api/v1/bots/slack/interactive",
         ]
     )
 

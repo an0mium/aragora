@@ -45,6 +45,10 @@ describe('LiveDemoSection', () => {
         'Should a fast-growing software org split the monolith now or sequence the migration later?',
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open full spectate view' })).toHaveAttribute(
+      'href',
+      '/spectate',
+    );
   });
 
   it('shows a live transcript when recent debate events are available', () => {
@@ -126,5 +130,9 @@ describe('LiveDemoSection', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId('live-debate-event')).toHaveLength(3);
+    expect(screen.getByRole('link', { name: 'Watch this debate live' })).toHaveAttribute(
+      'href',
+      '/spectate/debate-1',
+    );
   });
 });

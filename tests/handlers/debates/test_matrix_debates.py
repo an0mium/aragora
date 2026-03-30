@@ -8,6 +8,7 @@ Tests the matrix debates API endpoints including:
 """
 
 import json
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -180,6 +181,32 @@ class TestMatrixDebatePostValidation:
         data = json.loads(result.body)
         assert "5000 characters" in data.get("error", "")
 
+    @pytest.mark.asyncio
+    async def test_returns_400_for_scenarios_and_agent_combinations(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when both matrix modes are requested together."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "What is the best approach for this problem?",
+                "scenarios": [{"name": "baseline"}],
+                "agent_combinations": [
+                    {
+                        "name": "combo",
+                        "agents": [
+                            {"provider": "openai-api"},
+                            {"provider": "anthropic-api"},
+                        ],
+                    }
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "either scenarios or agent_combinations" in data.get("error", "").lower()
+
 
 # =============================================================================
 # Scenario Validation Tests
@@ -300,6 +327,115 @@ class TestMatrixDebateScenarioValidation:
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "constraints" in data.get("error", "")
+
+
+class TestMatrixDebateModelCombinationValidation:
+    """Tests for model combination validation."""
+
+    @pytest.mark.asyncio
+    async def test_returns_400_for_non_array_model_combinations(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when model_combinations is not an array."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": "invalid",
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "model_combinations" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_returns_400_when_agents_and_model_combinations_are_combined(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 for ambiguous legacy/new execution settings."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "agents": ["anthropic-api", "openai-api"],
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "cannot be used together" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_returns_400_when_scenarios_and_model_combinations_are_combined(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 because cross-product execution is not supported here."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "scenarios": [{"name": "baseline"}],
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "cannot be combined" in data.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_accepts_model_combinations_without_scenarios(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Model combinations should be a valid alternative to scenarios."""
+        matrix_handler._run_matrix_debate_fallback = AsyncMock(
+            return_value=HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=b"{}",
+            )
+        )
+
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]},
+                    {"name": "combo-b", "agents": ["gemini", "grok"]},
+                ],
+                "select_best_result": True,
+            },
+        )
+
+        assert result.status_code == 200
+        matrix_handler._run_matrix_debate_fallback.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_400_for_non_boolean_select_best_result(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Returns 400 when select_best_result is not a boolean."""
+        result = await matrix_handler._run_matrix_debate(
+            mock_http_handler,
+            {
+                "task": "Compare the same debate across multiple model combinations",
+                "model_combinations": [
+                    {"name": "combo-a", "agents": ["anthropic-api", "openai-api"]}
+                ],
+                "select_best_result": "yes",
+            },
+        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "select_best_result" in data.get("error", "")
 
 
 # =============================================================================
@@ -667,6 +803,165 @@ class TestMatrixHelperMethods:
         assert result["consensus_rate"] == 0.5
         assert result["avg_confidence"] == 0.7
         assert result["avg_rounds"] == 4
+
+
+class TestMatrixAgentCombinationMode:
+    """Tests for explicit agent/model combination comparisons."""
+
+    @pytest.mark.asyncio
+    async def test_agent_combinations_pick_best_result(self, matrix_handler, mock_http_handler):
+        """Returns the highest-scoring combination and annotates the winner."""
+
+        async def fake_load_agents(agent_specs, min_agents=2):
+            specs = agent_specs if isinstance(agent_specs, list) else []
+            first_spec = specs[0] if specs else {}
+            model = (
+                getattr(first_spec, "model", None)
+                if not isinstance(first_spec, dict)
+                else first_spec.get("model")
+            )
+            if model == "best-model":
+                return ["best-agent", "best-agent"]
+            return ["baseline-agent", "baseline-agent"]
+
+        class FakeArena:
+            def __init__(self, env, agents, protocol, **kwargs):
+                self.agents = agents
+
+            async def run(self):
+                if self.agents[0] == "best-agent":
+                    return SimpleNamespace(
+                        winner="best-agent",
+                        final_answer="Choose the best-model path",
+                        confidence=0.92,
+                        consensus_reached=True,
+                        rounds_used=2,
+                    )
+                return SimpleNamespace(
+                    winner="baseline-agent",
+                    final_answer="Choose the baseline path",
+                    confidence=0.51,
+                    consensus_reached=False,
+                    rounds_used=4,
+                )
+
+        payload = {
+            "task": "Compare the same debate question across model combinations",
+            "agent_combinations": [
+                {
+                    "name": "Baseline",
+                    "agents": [
+                        {"provider": "openai-api", "model": "baseline-model"},
+                        {"provider": "anthropic-api", "model": "baseline-model"},
+                    ],
+                },
+                {
+                    "name": "High confidence",
+                    "agents": [
+                        {"provider": "openai-api", "model": "best-model"},
+                        {"provider": "anthropic-api", "model": "best-model"},
+                    ],
+                },
+            ],
+            "max_rounds": 5,
+        }
+
+        with patch.object(
+            matrix_handler,
+            "_load_agents_from_specs",
+            side_effect=fake_load_agents,
+        ):
+            with patch("aragora.debate.orchestrator.Arena", FakeArena):
+                result = await matrix_handler._run_matrix_debate_fallback(
+                    mock_http_handler, payload
+                )
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["combination_count"] == 2
+        assert data["best_result"]["scenario_name"] == "High confidence"
+        assert data["best_result"]["selection_strategy"] == "consensus_confidence_completion"
+        assert data["comparison_matrix"]["best_result_name"] == "High confidence"
+
+        best_entry = next(
+            item for item in data["results"] if item["scenario_name"] == "High confidence"
+        )
+        assert best_entry["is_best"] is True
+        assert best_entry["selection_score"] > 0
+
+    @pytest.mark.asyncio
+    async def test_model_combinations_alias_pick_best_result(
+        self, matrix_handler, mock_http_handler
+    ):
+        """Accepts model_combinations as an alias for agent_combinations."""
+
+        async def fake_load_agents(agent_specs, min_agents=2):
+            specs = agent_specs if isinstance(agent_specs, list) else []
+            first_spec = specs[0] if specs else {}
+            model = (
+                getattr(first_spec, "model", None)
+                if not isinstance(first_spec, dict)
+                else first_spec.get("model")
+            )
+            if model == "best-model":
+                return ["best-agent", "best-agent"]
+            return ["baseline-agent", "baseline-agent"]
+
+        class FakeArena:
+            def __init__(self, env, agents, protocol, **kwargs):
+                self.agents = agents
+
+            async def run(self):
+                if self.agents[0] == "best-agent":
+                    return SimpleNamespace(
+                        winner="best-agent",
+                        final_answer="Choose the best-model path",
+                        confidence=0.92,
+                        consensus_reached=True,
+                        rounds_used=2,
+                    )
+                return SimpleNamespace(
+                    winner="baseline-agent",
+                    final_answer="Choose the baseline path",
+                    confidence=0.51,
+                    consensus_reached=False,
+                    rounds_used=4,
+                )
+
+        payload = {
+            "task": "Compare the same debate question across model combinations",
+            "model_combinations": [
+                {
+                    "name": "Baseline",
+                    "agents": [
+                        {"provider": "openai-api", "model": "baseline-model"},
+                        {"provider": "anthropic-api", "model": "baseline-model"},
+                    ],
+                },
+                {
+                    "name": "High confidence",
+                    "agents": [
+                        {"provider": "openai-api", "model": "best-model"},
+                        {"provider": "anthropic-api", "model": "best-model"},
+                    ],
+                },
+            ],
+            "max_rounds": 5,
+        }
+
+        with patch.object(
+            matrix_handler,
+            "_load_agents_from_specs",
+            side_effect=fake_load_agents,
+        ):
+            with patch("aragora.debate.orchestrator.Arena", FakeArena):
+                result = await matrix_handler._run_matrix_debate(mock_http_handler, payload)
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["combination_count"] == 2
+        assert data["best_result"]["scenario_name"] == "High confidence"
+        assert data["comparison_matrix"]["best_result_name"] == "High confidence"
 
 
 # =============================================================================

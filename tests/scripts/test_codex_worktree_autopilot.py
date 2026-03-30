@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 
@@ -120,6 +121,29 @@ def test_choose_reusable_session_honors_session_id_filter():
     assert chosen["session_id"] == "a"
 
 
+def test_choose_reusable_session_skips_branch_mismatches():
+    import codex_worktree_autopilot as mod
+
+    state = {
+        "sessions": [
+            {
+                "agent": "codex",
+                "session_id": "s1",
+                "branch": "codex/s1",
+                "path": "/repo/.worktrees/codex-auto/s1",
+            }
+        ]
+    }
+    chosen = mod._choose_reusable_session(
+        state,
+        agent="codex",
+        session_id="s1",
+        active_paths={"/repo/.worktrees/codex-auto/s1"},
+        active_branches_by_path={"/repo/.worktrees/codex-auto/s1": "codex/unrelated"},
+    )
+    assert chosen is None
+
+
 def test_cleanup_parser_defaults_to_delete_branches():
     import codex_worktree_autopilot as mod
 
@@ -174,6 +198,117 @@ def test_parse_ts_normalizes_naive_timestamp_to_utc():
     parsed = mod._parse_ts("2026-02-24T12:00:00")
     assert parsed is not None
     assert parsed.tzinfo == timezone.utc
+
+
+def test_create_managed_worktree_reuses_unattached_existing_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = repo_root / ".worktrees" / "codex-auto"
+    calls: list[tuple[str, ...]] = []
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_branch_exists", lambda _repo, branch: branch == "codex/swarm-123")
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=repo_root, branch="main")],
+    )
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(tuple(args))
+        return subprocess.CompletedProcess(args=("git", *args), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-123",
+    )
+
+    assert session["branch"] == "codex/swarm-123"
+    assert any(
+        call[:4]
+        == ("worktree", "add", str((managed_root / "swarm-123").resolve()), "codex/swarm-123")
+        for call in calls
+    )
+    assert not any(call[:3] == ("worktree", "add", "-b") for call in calls)
+
+
+def test_create_managed_worktree_retries_add_time_branch_collision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = repo_root / ".worktrees" / "codex-auto"
+    calls: list[tuple[str, ...]] = []
+    uuid_values = iter(["race0001", "b16b00b5", "cafe1234"])
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_branch_exists", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=repo_root, branch="main")],
+    )
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(
+        mod,
+        "uuid4",
+        lambda: type("FakeUUID", (), {"hex": next(uuid_values)})(),
+    )
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(tuple(args))
+        if args[:3] == ("worktree", "add", "-b") and args[3] == "codex/swarm-race":
+            return subprocess.CompletedProcess(
+                args=("git", *args),
+                returncode=128,
+                stdout="",
+                stderr="fatal: a branch named 'codex/swarm-race' already exists",
+            )
+        return subprocess.CompletedProcess(args=("git", *args), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-race",
+    )
+
+    assert session["branch"] == "codex/swarm-race-b16b"
+    assert (
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-race",
+        str((managed_root / "swarm-race").resolve()),
+        "origin/main",
+    ) in calls
+    assert (
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-race-b16b",
+        str((managed_root / "swarm-race").resolve()),
+        "origin/main",
+    ) in calls
 
 
 def test_cmd_cleanup_keeps_session_when_worktree_remove_fails(
@@ -301,11 +436,198 @@ def test_cmd_cleanup_reports_failed_branch_deletions(
     assert saved_state["sessions"] == []
 
 
+def test_cmd_reconcile_preserves_last_seen_at_for_skipped_grace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    now = datetime(2026, 3, 29, 0, 0, tzinfo=timezone.utc)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    original_last_seen = "2026-03-28T12:30:00+00:00"
+    state = {
+        "sessions": [
+            {
+                "session_id": "s-grace",
+                "agent": "codex",
+                "branch": "codex/s-grace",
+                "path": str(worktree),
+                "created_at": "2026-03-28T10:00:00+00:00",
+                "last_seen_at": original_last_seen,
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=worktree, branch="codex/s-grace")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda *_args, **_kwargs: {
+            "lookup_failed": False,
+            "has_live_lease": False,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_id": None,
+            "lease_expires_at": None,
+        },
+    )
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_safe_worktree_dirty", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(
+        mod,
+        "_integrate_worktree",
+        lambda *_args, **_kwargs: pytest.fail("grace sessions should not be integrated"),
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        strategy="ff-only",
+        all=True,
+        path=None,
+        ttl_hours=24,
+        json=True,
+    )
+    rc = mod.cmd_reconcile(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["results"][0]["status"] == "skipped_grace"
+    assert saved_state["sessions"][0]["last_seen_at"] == original_last_seen
+
+
+def test_cmd_reconcile_preserves_last_seen_at_for_safe_to_clean_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    original_last_seen = "2026-03-20T12:00:00+00:00"
+    state = {
+        "sessions": [
+            {
+                "session_id": "s-safe",
+                "agent": "codex",
+                "branch": "codex/s-safe",
+                "path": str(worktree),
+                "created_at": "2026-03-20T10:00:00+00:00",
+                "last_seen_at": original_last_seen,
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=worktree, branch="codex/s-safe")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda *_args, **_kwargs: {
+            "lookup_failed": False,
+            "has_live_lease": False,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_id": None,
+            "lease_expires_at": None,
+        },
+    )
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_safe_worktree_dirty", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "_integrate_worktree", lambda *_args, **_kwargs: (True, "up_to_date"))
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        strategy="ff-only",
+        all=True,
+        path=None,
+        ttl_hours=24,
+        json=True,
+    )
+    rc = mod.cmd_reconcile(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["results"][0]["status"] == "up_to_date"
+    assert saved_state["sessions"][0]["last_seen_at"] == original_last_seen
+
+
+def test_cmd_status_prunes_missing_sessions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    missing_path = tmp_path / "missing-wt"
+    state = {
+        "sessions": [
+            {
+                "session_id": "s-missing",
+                "agent": "codex",
+                "branch": "codex/s-missing",
+                "path": str(missing_path),
+                "created_at": "2026-03-20T10:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: [])
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        ttl_hours=24,
+        json=True,
+    )
+    rc = mod.cmd_status(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["sessions"] == []
+    assert saved_state["sessions"] == []
+
+
 def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     import codex_worktree_autopilot as mod
 
+    now = datetime(2026, 3, 24, 0, 0, tzinfo=timezone.utc)
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     created_path = tmp_path / "managed" / "session-1"
@@ -332,8 +654,8 @@ def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
             "branch": "codex/session-1",
             "path": str(created_path),
             "base_branch": "main",
-            "created_at": "2026-03-24T00:00:00+00:00",
-            "last_seen_at": "2026-03-24T00:00:00+00:00",
+            "created_at": now.isoformat(),
+            "last_seen_at": now.isoformat(),
         },
     )
     monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
@@ -360,6 +682,7 @@ def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
     )
     monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
     monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
     monkeypatch.setattr(
         mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
     )
@@ -385,6 +708,113 @@ def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
     assert payload["session"]["lifecycle_state"] == "grace"
     assert saved_state["sessions"][0]["tracked_worktree"] is True
     assert saved_state["sessions"][0]["lifecycle_state"] == "grace"
+
+
+def test_cmd_ensure_evicts_branch_mismatch_before_recreate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    now = datetime(2026, 3, 30, 7, 50, tzinfo=timezone.utc)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    mismatched_path = tmp_path / "stale-session"
+    mismatched_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "swarm-run-subtask_1",
+                "agent": "codex",
+                "branch": "codex/swarm-run-subtask_1",
+                "path": str(mismatched_path),
+                "created_at": now.isoformat(),
+                "last_seen_at": now.isoformat(),
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+    removed_paths: list[str] = []
+    create_calls: list[dict[str, object]] = []
+
+    entries_iter = iter(
+        [
+            [mod.WorktreeEntry(path=mismatched_path, branch="codex/unrelated")],
+            [],
+            [],
+        ]
+    )
+
+    def _create(*_args: object, **kwargs: object) -> dict[str, object]:
+        create_calls.append(dict(kwargs))
+        return {
+            "session_id": "swarm-run-subtask_1",
+            "agent": "codex",
+            "branch": "codex/swarm-run-subtask_1",
+            "path": str(mismatched_path),
+            "base_branch": "main",
+            "created_at": now.isoformat(),
+            "last_seen_at": now.isoformat(),
+        }
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: next(entries_iter))
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_create_managed_worktree", _create)
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_has_active_lease", lambda _repo, _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_remove_worktree",
+        lambda _repo, path: removed_paths.append(str(path)) or True,
+    )
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda _repo_root, _path: {
+            "lease_id": None,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_expires_at": None,
+            "owner_agent": None,
+            "owner_session_id": None,
+            "branch": None,
+            "title": None,
+            "has_live_lease": False,
+            "lookup_failed": False,
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_worktree_status",
+        lambda *_args, **_kwargs: {"dirty": False, "ahead": 0, "behind": 0},
+    )
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        agent="codex",
+        base="main",
+        session_id="swarm-run-subtask_1",
+        force_new=False,
+        reconcile=True,
+        strategy="ff-only",
+        print_path=False,
+        json=True,
+    )
+    rc = mod.cmd_ensure(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["created"] is True
+    assert removed_paths == [str(mismatched_path)]
+    assert create_calls and create_calls[0]["session_id"] == "swarm-run-subtask_1"
+    assert saved_state["sessions"][0]["branch"] == "codex/swarm-run-subtask_1"
 
 
 def test_cmd_cleanup_skips_worktree_with_active_lease(
@@ -911,20 +1341,24 @@ def test_cmd_status_reports_lifecycle_and_lock_metadata(
 
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
+    active_path = tmp_path / "active"
+    safe_path = tmp_path / "safe"
+    active_path.mkdir()
+    safe_path.mkdir()
     state = {
         "sessions": [
             {
                 "session_id": "s1",
                 "agent": "codex",
                 "branch": "codex/s1",
-                "path": str(tmp_path / "active"),
+                "path": str(active_path),
                 "created_at": "2026-02-01T00:00:00+00:00",
             },
             {
                 "session_id": "s2",
                 "agent": "codex",
                 "branch": "codex/s2",
-                "path": str(tmp_path / "safe"),
+                "path": str(safe_path),
                 "created_at": "2026-02-01T00:00:00+00:00",
             },
         ]
