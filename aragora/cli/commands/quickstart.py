@@ -364,21 +364,80 @@ def _derive_receipt_id(
 
 def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[str, Any]:
     """Return a stdout-safe JSON payload with stable top-level quickstart fields."""
+    payload = _build_quickstart_receipt_payload(result)
+    payload["artifact_path"] = str(artifact_path)
+    return payload
+
+
+def _coerce_string_list(values: Any) -> list[str]:
+    """Return a clean string list from optional mixed values."""
+    if not isinstance(values, (list, tuple, set)):
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _normalize_dissent_records(
+    payload: dict[str, Any], participants: list[str]
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Normalize dissent entries into receipt-friendly records and reasons."""
+    dissent = payload.get("dissent")
+    if isinstance(dissent, list) and dissent:
+        records: list[dict[str, str]] = []
+        reasons: list[str] = []
+        for index, entry in enumerate(dissent):
+            if isinstance(entry, dict):
+                agent = (
+                    str(
+                        entry.get("agent")
+                        or (participants[index % len(participants)] if participants else "agent")
+                    ).strip()
+                    or "agent"
+                )
+                reason = str(entry.get("reason") or entry.get("description") or "").strip()
+            else:
+                agent = participants[index % len(participants)] if participants else "agent"
+                reason = str(entry).strip()
+            if reason:
+                reasons.append(reason)
+            records.append({"agent": agent, "reason": reason or "N/A"})
+        return records, reasons
+
+    reasons = _coerce_string_list(payload.get("dissenting_views"))
+    return _summarize_dissenting_views(reasons, participants), reasons
+
+
+def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
+    """Normalize quickstart debate results into a receipt-compatible artifact payload."""
+    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+
     payload = dict(result)
     receipt_info = payload.get("receipt", {})
     if not isinstance(receipt_info, dict):
         receipt_info = {}
 
     rounds = int(payload.get("rounds", 0) or 0)
-    question = str(payload.get("question", "") or "")
-    mode = str(payload.get("mode", "demo") or "demo")
+    question = str(payload.get("question") or payload.get("input_summary") or "")
+    mode = str(payload.get("mode", "demo") or "demo").strip().lower() or "demo"
+    participants = _coerce_string_list(payload.get("agents") or receipt_info.get("participants"))
+    summary = str(payload.get("summary") or payload.get("verdict_reasoning") or "")
+    confidence = _clamp_confidence(payload.get("confidence", 0.0))
     receipt_id = _derive_receipt_id(
         mode=mode,
         question=question,
         rounds=rounds,
         existing=str(payload.get("receipt_id") or receipt_info.get("id") or ""),
     )
+    timestamp = str(payload.get("timestamp") or datetime.now(timezone.utc).isoformat())
+    input_hash = str(
+        payload.get("input_hash") or hashlib.sha256(question.encode("utf-8")).hexdigest()
+    )
 
+    dissent_records, dissenting_views = _normalize_dissent_records(payload, participants)
     consensus = payload.get("consensus_reached")
     if consensus is None and isinstance(payload.get("consensus_proof"), dict):
         consensus = bool(payload["consensus_proof"].get("reached"))
@@ -392,15 +451,145 @@ def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[
 
     votes = payload.get("votes")
     if not isinstance(votes, list):
+        votes = payload.get("agent_votes")
+    if not isinstance(votes, list):
         votes = []
 
-    payload["receipt_id"] = receipt_id
-    payload["consensus"] = bool(consensus)
-    payload["consensus_reached"] = bool(consensus)
-    payload["agent_votes"] = votes
-    payload["votes"] = votes
-    payload["artifact_path"] = str(artifact_path)
-    return payload
+    has_receipt_contract = bool(
+        str(payload.get("receipt_id") or "").strip()
+        and str(payload.get("timestamp") or "").strip()
+        and str(payload.get("artifact_hash") or "").strip()
+        and str(payload.get("input_hash") or "").strip()
+        and isinstance(payload.get("risk_summary"), dict)
+    )
+
+    existing_consensus = payload.get("consensus_proof")
+    supporting_agents = (
+        _coerce_string_list(existing_consensus.get("supporting_agents"))
+        if isinstance(existing_consensus, dict)
+        else []
+    )
+    dissenting_agents = (
+        _coerce_string_list(existing_consensus.get("dissenting_agents"))
+        if isinstance(existing_consensus, dict)
+        else []
+    )
+    if not supporting_agents and consensus:
+        supporting_agents = participants[:]
+    if not dissenting_agents and dissent_records:
+        dissenting_agents = _coerce_string_list([record["agent"] for record in dissent_records])
+
+    risk_summary = payload.get("risk_summary")
+    if not isinstance(risk_summary, dict):
+        risk_summary = {}
+    if not risk_summary:
+        risk_summary = {
+            "critical": 0 if consensus else int(bool(dissenting_views)),
+            "high": len(dissenting_agents) if not consensus else 0,
+            "medium": len(dissenting_views) if not consensus else 0,
+            "low": 0,
+        }
+    risk_summary = dict(risk_summary)
+    risk_summary.setdefault(
+        "total",
+        sum(
+            int(risk_summary.get(bucket, 0) or 0)
+            for bucket in ("critical", "high", "medium", "low")
+        ),
+    )
+
+    if has_receipt_contract:
+        canonical = dict(payload)
+    else:
+        receipt = DecisionReceipt(
+            receipt_id=receipt_id,
+            gauntlet_id=str(payload.get("gauntlet_id") or receipt_id),
+            timestamp=timestamp,
+            input_summary=str(payload.get("input_summary") or question),
+            input_hash=input_hash,
+            risk_summary=risk_summary,
+            attacks_attempted=int(
+                payload.get("attacks_attempted", 0) or rounds * max(1, len(participants))
+            ),
+            attacks_successful=int(
+                payload.get("attacks_successful", 0)
+                or (0 if consensus else max(1, len(dissenting_views)) if dissenting_views else 0)
+            ),
+            probes_run=int(payload.get("probes_run", 0) or len(votes)),
+            vulnerabilities_found=int(
+                payload.get("vulnerabilities_found", 0) or len(dissenting_views)
+            ),
+            verdict=str(payload.get("verdict", "")),
+            confidence=confidence,
+            robustness_score=_clamp_confidence(payload.get("robustness_score", confidence)),
+            verdict_reasoning=str(payload.get("verdict_reasoning") or summary),
+            dissenting_views=dissenting_views,
+            consensus_proof=ConsensusProof(
+                reached=bool(consensus),
+                confidence=confidence,
+                supporting_agents=supporting_agents,
+                dissenting_agents=dissenting_agents,
+                method=(
+                    str(existing_consensus.get("method") or "majority")
+                    if isinstance(existing_consensus, dict)
+                    else "majority"
+                ),
+                evidence_hash=input_hash,
+                tainted_proposals=(
+                    _coerce_string_list(existing_consensus.get("tainted_proposals"))
+                    if isinstance(existing_consensus, dict)
+                    else []
+                ),
+                trust_score=(
+                    float(existing_consensus.get("trust_score", 1.0))
+                    if isinstance(existing_consensus, dict)
+                    else 1.0
+                ),
+            ),
+            provenance_chain=[
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="task",
+                    description=question,
+                ),
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="verdict",
+                    description=str(
+                        payload.get("verdict_reasoning") or summary or payload.get("verdict", "")
+                    ),
+                ),
+            ],
+            cost_summary=payload.get("cost_summary"),
+            thinking_traces=payload.get("thinking_traces"),
+            config_used=(
+                payload.get("config_used", {})
+                if isinstance(payload.get("config_used"), dict)
+                else {}
+            ),
+            artifact_hash=str(payload.get("artifact_hash") or ""),
+        )
+        canonical = dict(payload)
+        canonical.update(receipt.to_dict())
+
+    canonical["question"] = question
+    canonical["rounds"] = rounds
+    canonical["agents"] = participants
+    canonical["summary"] = summary
+    canonical["dissent"] = dissent_records
+    canonical["mode"] = mode
+    canonical["votes"] = votes
+    canonical["agent_votes"] = votes
+    canonical["consensus"] = bool(consensus)
+    canonical["consensus_reached"] = bool(consensus)
+    canonical["receipt"] = {
+        "id": str(canonical.get("receipt_id") or receipt_id),
+        "artifact_hash": str(canonical.get("artifact_hash") or ""),
+        "consensus_reached": bool(consensus),
+        "confidence": confidence,
+        "participants": participants,
+    }
+    return canonical
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -1086,8 +1275,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     # Step 6: Save receipt
     output_path = getattr(args, "output", None)
     fmt = getattr(args, "format", "json")
+    canonical_result = _build_quickstart_receipt_payload(result)
     saved_artifact = _save_receipt(
-        result,
+        canonical_result,
         output_path or _default_receipt_path(str(result.get("mode", "demo")), fmt),
         fmt,
     )
@@ -1099,12 +1289,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         from aragora.storage.receipt_store import get_receipt_store
 
         store = get_receipt_store()
-        receipt_nested = result.get("receipt", {}) or {}
-        store_payload = dict(result)
+        receipt_nested = canonical_result.get("receipt", {}) or {}
+        store_payload = dict(canonical_result)
         store_payload.setdefault("receipt_id", receipt_nested.get("id", ""))
-        store_payload.setdefault("debate_id", result.get("receipt_id", ""))
-        store_payload.setdefault("verdict", result.get("verdict", ""))
-        store_payload.setdefault("checksum", result.get("artifact_hash", ""))
+        store_payload.setdefault(
+            "debate_id",
+            str(canonical_result.get("debate_id") or canonical_result.get("receipt_id") or ""),
+        )
+        store_payload.setdefault("verdict", canonical_result.get("verdict", ""))
+        store_payload.setdefault("checksum", canonical_result.get("artifact_hash", ""))
         store.save(store_payload)
         logger.info("receipt_persisted id=%s", store_payload.get("receipt_id", ""))
     except Exception:  # noqa: BLE001 - best-effort, local file is primary
@@ -1135,7 +1328,12 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             emit("\nCould not open browser. View the saved artifact directly.")
 
     if output_json:
-        json.dump(_normalize_json_result(result, saved_artifact), sys.stdout, indent=2, default=str)
+        json.dump(
+            _normalize_json_result(canonical_result, saved_artifact),
+            sys.stdout,
+            indent=2,
+            default=str,
+        )
         sys.stdout.write("\n")
         return
 
