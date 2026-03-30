@@ -389,25 +389,63 @@ class TestAdvanceToOrchestration:
             assert status == 404
 
     @patch("aragora.canvas.action_store.get_action_canvas_store")
-    def test_advance_success(self, mock_get_store, handler):
+    def test_advance_materializes_orchestration_canvas(self, mock_get_store, handler):
         mock_store = MagicMock()
         mock_store.load_canvas.return_value = {
             "id": "ac-1",
             "name": "Sprint 1",
+            "workspace_id": "ws-1",
             "metadata": {"stage": "actions"},
         }
         mock_get_store.return_value = mock_store
 
-        with patch.object(handler, "_get_canvas_manager"):
-            with patch.object(handler, "_run_async") as mock_run:
-                canvas_mock = MagicMock()
-                canvas_mock.nodes = {}
-                canvas_mock.edges = {}
-                mock_run.return_value = canvas_mock
+        orchestration_store = MagicMock()
+        orchestration_store.save_canvas.return_value = {
+            "id": "orch-1",
+            "name": "Sprint 1 Orchestration",
+            "metadata": {"stage": "orchestration", "source_canvas_id": "ac-1"},
+        }
 
-                ctx = MagicMock()
-                result = handler._advance_to_orchestration(ctx, "ac-1", {}, "u1")
-                assert result is not None
+        source_canvas = MagicMock()
+        source_canvas.nodes = {}
+        source_canvas.edges = {}
+
+        orchestration_canvas = MagicMock()
+        orchestration_canvas.id = "orch-1"
+        orchestration_canvas.name = "Sprint 1 Orchestration"
+        orchestration_canvas.metadata = {"stage": "orchestration", "source_canvas_id": "ac-1"}
+        orchestration_canvas.nodes = {}
+        orchestration_canvas.edges = {}
+
+        live_orchestration = MagicMock()
+        live_orchestration.nodes = orchestration_canvas.nodes
+        live_orchestration.edges = orchestration_canvas.edges
+        live_orchestration.metadata = orchestration_canvas.metadata
+
+        with patch.object(
+            handler, "_get_orchestration_store", return_value=orchestration_store, create=True
+        ):
+            with patch.object(
+                handler,
+                "_build_orchestration_canvas",
+                return_value=orchestration_canvas,
+                create=True,
+            ):
+                with patch.object(handler, "_get_canvas_manager"):
+                    with patch.object(
+                        handler, "_run_async", side_effect=[source_canvas, live_orchestration]
+                    ):
+                        ctx = MagicMock()
+                        result = handler._advance_to_orchestration(ctx, "ac-1", {}, "u1")
+                        assert result is not None
+
+        orchestration_store.save_canvas.assert_called_once()
+        body = json.loads(result.body.decode("utf-8"))
+        assert body["source_stage"] == "actions"
+        assert body["target_stage"] == "orchestration"
+        assert body["source_canvas_id"] == "ac-1"
+        assert body["orchestration_canvas_id"] == "orch-1"
+        assert body["status"] == "created"
 
 
 # ---------------------------------------------------------------------------

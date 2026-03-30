@@ -209,6 +209,11 @@ class ActionCanvasHandler(SecureHandler):
 
         return get_action_canvas_store()
 
+    def _get_orchestration_store(self):
+        from aragora.canvas.orchestration_store import get_orchestration_canvas_store
+
+        return get_orchestration_canvas_store()
+
     def _get_canvas_manager(self):
         from aragora.canvas import get_canvas_manager
 
@@ -520,6 +525,30 @@ class ActionCanvasHandler(SecureHandler):
     # Export & Advance
     # ------------------------------------------------------------------
 
+    def _build_orchestration_canvas(
+        self,
+        action_canvas: Any,
+        source_canvas_id: str,
+        canvas_meta: dict[str, Any],
+    ):
+        from aragora.canvas import execution_to_orchestration_canvas
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        pipeline = IdeaToExecutionPipeline()
+        execution_plan = pipeline._actions_to_execution_plan(action_canvas)
+        orchestration_canvas = execution_to_orchestration_canvas(
+            execution_plan,
+            canvas_name=f"{canvas_meta.get('name', 'Untitled Actions')} Orchestration",
+        )
+        orchestration_canvas.metadata.update(
+            {
+                "stage": "orchestration",
+                "source_canvas_id": source_canvas_id,
+                "source_stage": "actions",
+            }
+        )
+        return orchestration_canvas
+
     @require_permission("actions:read")
     def _export_canvas(
         self,
@@ -549,6 +578,8 @@ class ActionCanvasHandler(SecureHandler):
     ) -> HandlerResult:
         """Advance action canvas to the orchestration stage (Stage 4)."""
         try:
+            from aragora.canvas import Canvas
+
             store = self._get_store()
             canvas_meta = store.load_canvas(canvas_id)
             if not canvas_meta:
@@ -556,22 +587,54 @@ class ActionCanvasHandler(SecureHandler):
 
             manager = self._get_canvas_manager()
             canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is None:
+                canvas = Canvas(
+                    id=canvas_id,
+                    name=canvas_meta.get("name", "Untitled Actions"),
+                    metadata=dict(canvas_meta.get("metadata", {})),
+                    owner_id=user_id,
+                    workspace_id=canvas_meta.get("workspace_id"),
+                )
 
-            nodes = []
-            edges = []
-            if canvas:
-                nodes = [n.to_dict() for n in canvas.nodes.values()]
-                edges = [e.to_dict() for e in canvas.edges.values()]
+            orchestration_canvas = self._build_orchestration_canvas(canvas, canvas_id, canvas_meta)
+            orchestration_store = self._get_orchestration_store()
+            orchestration_meta = orchestration_store.save_canvas(
+                canvas_id=orchestration_canvas.id,
+                name=orchestration_canvas.name,
+                owner_id=user_id,
+                workspace_id=canvas_meta.get("workspace_id"),
+                description=body.get("description", canvas_meta.get("description", "")),
+                source_canvas_id=canvas_id,
+                metadata=orchestration_canvas.metadata,
+            )
+
+            live_orchestration = self._run_async(
+                manager.get_or_create_canvas(
+                    orchestration_canvas.id,
+                    name=orchestration_canvas.name,
+                    owner_id=user_id,
+                    workspace_id=canvas_meta.get("workspace_id"),
+                    metadata=orchestration_canvas.metadata,
+                )
+            )
+            live_orchestration.name = orchestration_canvas.name
+            live_orchestration.metadata = dict(orchestration_canvas.metadata)
+            live_orchestration.owner_id = user_id
+            live_orchestration.workspace_id = canvas_meta.get("workspace_id")
+            live_orchestration.nodes = dict(orchestration_canvas.nodes)
+            live_orchestration.edges = dict(orchestration_canvas.edges)
 
             return json_response(
                 {
+                    **orchestration_meta,
                     "source_canvas_id": canvas_id,
                     "source_stage": "actions",
                     "target_stage": "orchestration",
-                    "nodes": nodes,
-                    "edges": edges,
-                    "metadata": canvas_meta.get("metadata", {}),
-                    "status": "ready",
+                    "orchestration_canvas_id": orchestration_canvas.id,
+                    "nodes": [n.to_dict() for n in live_orchestration.nodes.values()],
+                    "edges": [e.to_dict() for e in live_orchestration.edges.values()],
+                    "metadata": orchestration_meta.get("metadata", live_orchestration.metadata),
+                    "status": "created",
                 },
                 status=201,
             )
