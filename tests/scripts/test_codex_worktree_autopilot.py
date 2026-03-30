@@ -749,6 +749,7 @@ def test_create_managed_worktree_retries_when_branch_is_created_concurrently(
 
     monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(mod, "_branch_exists", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(mod, "_run_git", _run_git)
     monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
     monkeypatch.setattr(mod, "_utc_now", lambda: now)
