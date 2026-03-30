@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -202,11 +202,50 @@ class TestSummaryEndpoint:
         mock_tracker_fn.return_value = None
         mock_budget_fn.return_value = None
 
-        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_summary",
+            return_value=("0.00", 0, 0),
+        ):
+            result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         body = _parse_body(result)
         assert body["total_spend_usd"] == "0.00"
         assert body["total_api_calls"] == 0
         assert body["total_tokens"] == 0
+
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_falls_back_to_usage_meter_when_tracker_empty(
+        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
+    ):
+        tracker = MagicMock()
+        tracker.get_workspace_stats.return_value = {
+            "workspace_id": "ws_123",
+            "total_cost_usd": "0.00",
+            "total_api_calls": 0,
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "cost_by_agent": {},
+            "cost_by_model": {},
+        }
+        tracker.get_dashboard_summary.return_value = {}
+        mock_tracker_fn.return_value = tracker
+        mock_budget_fn.return_value = None
+
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_summary",
+            return_value=("12.34", 17, 9000),
+        ) as mock_metered:
+            result = handler.handle(
+                "/api/v1/analytics/spend/summary",
+                {"workspace_id": "ws_123", "org_id": "org_123"},
+                mock_http,
+            )
+
+        body = _parse_body(result)
+        assert body["total_spend_usd"] == "12.34"
+        assert body["total_api_calls"] == 17
+        assert body["total_tokens"] == 9000
+        mock_metered.assert_called_once_with("org_123")
 
     @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
