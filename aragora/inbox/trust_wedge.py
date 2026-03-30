@@ -41,12 +41,68 @@ from aragora.services.email_actions import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_PATH = resolve_db_path(os.getenv("ARAGORA_INBOX_TRUST_WEDGE_DB", "inbox_trust_wedge.db"))
-DEFAULT_SIGNING_KEY_PATH = Path(
-    resolve_db_path(
-        os.getenv("ARAGORA_INBOX_TRUST_WEDGE_KEY_FILE", "inbox_trust_wedge_signing.key")
-    )
-)
+
+def _linked_worktree_shared_inbox_wedge_dir() -> Path | None:
+    """Return a repo-shared data dir for inbox trust wedge artifacts.
+
+    Inbox trust wedge state is an operator-facing approval surface. Like the
+    canonical receipt store, it should remain visible across linked worktrees so
+    review/execute flows do not lose sight of receipts when the current checkout
+    changes.
+    """
+
+    current = Path.cwd().resolve()
+    for candidate in (current, *current.parents):
+        git_marker = candidate / ".git"
+        if not git_marker.is_file():
+            if git_marker.is_dir():
+                return None
+            continue
+        try:
+            raw = git_marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        prefix = "gitdir:"
+        if not raw.startswith(prefix):
+            return None
+        gitdir = Path(raw[len(prefix) :].strip())
+        if not gitdir.is_absolute():
+            gitdir = (candidate / gitdir).resolve()
+        if gitdir.parent.name != "worktrees":
+            return None
+        common_git_dir = gitdir.parent.parent
+        repo_root = common_git_dir.parent
+        shared_data_dir = repo_root / ".nomic"
+        if not shared_data_dir.exists() and (repo_root / "data").exists():
+            shared_data_dir = repo_root / "data"
+        return shared_data_dir
+    return None
+
+
+def _default_inbox_wedge_db_path() -> Path:
+    explicit_path = os.environ.get("ARAGORA_INBOX_TRUST_WEDGE_DB")
+    if explicit_path:
+        return Path(explicit_path)
+    if not (os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")):
+        shared_dir = _linked_worktree_shared_inbox_wedge_dir()
+        if shared_dir is not None:
+            return shared_dir / "inbox_trust_wedge.db"
+    return Path(resolve_db_path("inbox_trust_wedge.db"))
+
+
+def _default_inbox_wedge_signing_key_path() -> Path:
+    explicit_path = os.environ.get("ARAGORA_INBOX_TRUST_WEDGE_KEY_FILE")
+    if explicit_path:
+        return Path(explicit_path)
+    if not (os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")):
+        shared_dir = _linked_worktree_shared_inbox_wedge_dir()
+        if shared_dir is not None:
+            return shared_dir / "inbox_trust_wedge_signing.key"
+    return Path(resolve_db_path("inbox_trust_wedge_signing.key"))
+
+
+DEFAULT_DB_PATH = _default_inbox_wedge_db_path()
+DEFAULT_SIGNING_KEY_PATH = _default_inbox_wedge_signing_key_path()
 SIGNING_KEY_ENV_VAR = "ARAGORA_INBOX_TRUST_WEDGE_SIGNING_KEY"
 AUTO_APPROVAL_THRESHOLD = float(
     os.getenv("ARAGORA_INBOX_TRUST_WEDGE_AUTO_APPROVAL_THRESHOLD", "0.85")
