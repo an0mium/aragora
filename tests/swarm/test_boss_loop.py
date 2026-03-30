@@ -895,6 +895,55 @@ class TestBossLoop:
         assert len(result.issues_completed) == 2
         assert len(result.issues_failed) == 1
 
+    def test_iteration_appends_jsonl_metrics(self, tmp_path: Path):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Emit boss metrics")]
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _completed_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "run": {
+                    "work_orders": [
+                        {
+                            "changed_paths": [
+                                "aragora/swarm/boss_loop.py",
+                                "tests/swarm/test_boss_loop.py",
+                            ],
+                            "tests_run": ["python -m pytest tests/swarm/test_boss_loop.py -q"],
+                            "verification_results": [
+                                {
+                                    "command": "python -m pytest tests/swarm/test_boss_loop.py -q",
+                                    "passed": True,
+                                }
+                            ],
+                        }
+                    ]
+                },
+            }
+
+        loop._dispatch_issue = _completed_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        assert payload["iteration"] == 1
+        assert payload["issue_number"] == 42
+        assert payload["worker_status"] == "completed"
+        assert payload["files_changed"] == 2
+        assert payload["tests_run"] == 1
+        assert payload["tests_passed"] == 1
+        assert payload["elapsed_seconds"] >= 0.0
+
     def test_missing_validation_contract_stops_with_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [
