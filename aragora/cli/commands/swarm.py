@@ -140,8 +140,8 @@ def _classify_issue_validation_status(
         and ("unrecognized arguments" in combined_output or "usage: main.py" in combined_output)
     ):
         return (
-            "invalid_cli_contract",
-            "Update the issue's CLI validation command to match the current Aragora parser.",
+            "cli_usage_failure",
+            "The current Aragora parser rejects this queued CLI command. Refresh the contract if the flags were renamed, or keep the issue queued if it is meant to add that CLI surface.",
         )
     if returncode == 5 and (
         command.startswith("pytest ")
@@ -149,8 +149,8 @@ def _classify_issue_validation_status(
         or command.startswith("python3 -m pytest ")
     ):
         return (
-            "stale_test_selector",
-            "Update the issue's pytest selector or test path; the current contract does not collect any matching tests.",
+            "no_matching_tests_collected",
+            "The queued pytest selector collects no tests on the current branch. Refresh the selector if tests moved, or keep the issue queued if the expected coverage has not been added yet.",
         )
     if any(
         cmd.startswith(prefix)
