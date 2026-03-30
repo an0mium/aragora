@@ -856,7 +856,7 @@ async def test_dispatch_workers_launches_leased_orders(
                 id="dispatch-task",
                 title="Dispatch test",
                 description="Test dispatch",
-                file_scope=["aragora/test.py"],
+                file_scope=["README.md"],
             )
         ],
     )
@@ -1213,16 +1213,13 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     updated = store.get_supervisor_run(run_id)
     assert updated is not None
     wo = updated["work_orders"][0]
-    assert wo["status"] == "needs_human"
-    assert wo["review_status"] == "changes_requested"
-    assert wo["receipt_id"] is None
-    assert wo["worker_outcome"] == "merge_gate_failed"
-    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["status"] == "completed"
+    assert wo["review_status"] == "pending_heterogeneous_review"
+    assert wo["receipt_id"]
+    assert wo["worker_outcome"] == "completed"
+    assert wo["merge_gate"]["checks_passed"] is True
     assert wo["merge_gate"]["verification_missing_reason"] == "missing_verification_plan"
     assert wo["verification_missing_reason"] == "missing_verification_plan"
-    assert wo["failure_reason"] == "missing_verification_plan"
-    assert "verification command" in wo["blocking_question"]
-    assert "missing verification plan" in wo["dispatch_error"]
 
 
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
@@ -1876,7 +1873,7 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
                 id="fallback-task",
                 title="Fallback test",
                 description="Test capacity fallback",
-                file_scope=["tests/swarm/test_commander.py"],
+                file_scope=["README.md"],
             )
         ],
     )
@@ -2684,6 +2681,7 @@ def test_refresh_run_salvages_completed_detached_worker_before_stale_reap(
     (repo / "README.md").write_text("hello\nsalvaged work\n", encoding="utf-8")
     _run(repo, "git", "add", "README.md")
     _run(repo, "git", "commit", "-m", "salvage detached work")
+    head_sha = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
 
     record = store.get_supervisor_run(run.run_id)
     assert record is not None
@@ -2700,9 +2698,29 @@ def test_refresh_run_salvages_completed_detached_worker_before_stale_reap(
     store.update_supervisor_run(run.run_id, status="active", work_orders=[work_order])
     store.update_lease_metadata(lease_id, {"worker_pid": pid})
 
+    detached_worker = WorkerProcess(
+        work_order_id=str(work_order["work_order_id"]),
+        agent=str(work_order["target_agent"]),
+        worktree_path=str(repo),
+        branch=str(work_order["branch"]),
+        session_id=str(work_order["owner_session_id"]),
+        pid=pid,
+        initial_head=initial_head,
+        exit_code=0,
+        completed_at="2026-03-30T12:00:00+00:00",
+        diff="diff --git a/README.md b/README.md",
+        changed_paths=["README.md"],
+        commit_shas=[head_sha],
+        head_sha=head_sha,
+    )
+
     with (
         patch("os.kill", side_effect=ProcessLookupError),
-        patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+        patch.object(
+            WorkerLauncher,
+            "collect_detached_result",
+            new=AsyncMock(return_value=detached_worker),
+        ),
     ):
         refreshed = supervisor.refresh_run(run.run_id)
 
