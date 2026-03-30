@@ -41,10 +41,7 @@ import {
   type Deliberation,
 } from '@/components/control-plane';
 
-// Verticals Components
-import {
-  VerticalSelector,
-} from '@/components/verticals';
+import { VerticalSelector } from '@/components/VerticalSelector';
 
 export default function ControlPlanePage() {
   const { config: backendConfig } = useBackend();

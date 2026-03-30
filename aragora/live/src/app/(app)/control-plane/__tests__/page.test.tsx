@@ -89,8 +89,8 @@ jest.mock('@/components/control-plane', () => ({
   SystemHealthDashboard: () => <div data-testid="system-health-dashboard">System Health</div>,
 }));
 
-// Mock verticals components
-jest.mock('@/components/verticals', () => ({
+// Mock vertical selector
+jest.mock('@/components/VerticalSelector', () => ({
   VerticalSelector: ({
     apiBase: _apiBase,
     selectedVertical: _selectedVertical,
@@ -104,10 +104,6 @@ jest.mock('@/components/verticals', () => ({
   }) => (
     <div data-testid="vertical-selector">Vertical Selector</div>
   ),
-  KnowledgeExplorer: ({ selectedVertical: _selectedVertical }: { selectedVertical?: string }) => (
-    <div data-testid="vertical-knowledge-explorer">Vertical Knowledge Explorer</div>
-  ),
-  ExecutionMonitor: () => <div data-testid="vertical-execution-monitor">Vertical Execution Monitor</div>,
 }));
 
 // Mock fetch globally
