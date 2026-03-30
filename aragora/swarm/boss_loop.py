@@ -1330,6 +1330,60 @@ class BossLoop:
         except Exception:
             logger.debug("Boss lane telemetry emission skipped", exc_info=True)
 
+    def _append_iteration_metrics(
+        self,
+        *,
+        iteration: int,
+        issue_number: int,
+        worker_status: str,
+        elapsed_seconds: float,
+        worker_result: dict[str, Any],
+    ) -> None:
+        changed_files = [
+            str(path).strip()
+            for path in worker_result.get("changed_files", [])
+            if str(path).strip()
+        ]
+        tests_run_entries = [
+            item
+            for item in worker_result.get("tests_run", [])
+            if (isinstance(item, dict) and item) or str(item).strip()
+        ]
+        validations_run = [
+            item
+            for item in worker_result.get("validations_run", [])
+            if (isinstance(item, dict) and item) or str(item).strip()
+        ]
+        tests_run = len(tests_run_entries or validations_run)
+
+        passed_from_validations = sum(
+            1 for item in validations_run if isinstance(item, dict) and item.get("passed") is True
+        )
+        if passed_from_validations > 0 or any(
+            isinstance(item, dict) and "passed" in item for item in validations_run
+        ):
+            tests_passed = passed_from_validations
+        else:
+            tests_passed = tests_run if worker_status == "completed" else 0
+
+        payload = {
+            "iteration": int(iteration),
+            "issue_number": int(issue_number),
+            "worker_status": str(worker_status).strip(),
+            "elapsed_seconds": float(elapsed_seconds or 0.0),
+            "files_changed": len(changed_files),
+            "tests_run": int(tests_run),
+            "tests_passed": int(tests_passed),
+        }
+        metrics_path = Path.cwd() / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        try:
+            metrics_path.parent.mkdir(parents=True, exist_ok=True)
+            with metrics_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True))
+                handle.write("\n")
+        except Exception:
+            logger.debug("Boss metrics logging skipped", exc_info=True)
+
     async def run(
         self,
         *,
@@ -1781,6 +1835,16 @@ class BossLoop:
         worker_result: dict[str, Any],
         elapsed_seconds: float,
     ) -> BossIterationStatus:
+        def _return(status: BossIterationStatus) -> BossIterationStatus:
+            self._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue.number,
+                worker_status=status.worker_status,
+                elapsed_seconds=elapsed_seconds,
+                worker_result=worker_result,
+            )
+            return status
+
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0
             worker_run_id = str(worker_result.get("run_id", "")).strip()
@@ -1796,18 +1860,20 @@ class BossLoop:
                 ),
                 "Inspect the active supervisor run before starting another live boss-loop tick.",
             ]
-            return BossIterationStatus(
-                iteration=iteration,
-                run_id=self.run_id,
-                timestamp=timestamp,
-                runner_freshness=runner_freshness,
-                selected_issue=issue_dict,
-                worker_status="running",
-                stop_reason=None,
-                needs_human_reasons=[],
-                next_actions=next_actions,
-                elapsed_seconds=elapsed_seconds,
-                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+            return _return(
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="running",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=next_actions,
+                    elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                )
             )
 
         if worker_result.get("status") == "completed":
@@ -1815,17 +1881,19 @@ class BossLoop:
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
-            return BossIterationStatus(
-                iteration=iteration,
-                run_id=self.run_id,
-                timestamp=timestamp,
-                runner_freshness=runner_freshness,
-                selected_issue=issue_dict,
-                worker_status="completed",
-                stop_reason=None,
-                needs_human_reasons=[],
-                next_actions=["Proceeding to next issue."],
-                elapsed_seconds=elapsed_seconds,
+            return _return(
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="completed",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=["Proceeding to next issue."],
+                    elapsed_seconds=elapsed_seconds,
+                )
             )
 
         if worker_result.get("status") == "needs_human":
@@ -1838,23 +1906,25 @@ class BossLoop:
                     "boss_loop_auto_continue issue=#%s (recoverable deliverable still blocked)",
                     issue_dict.get("number", "?"),
                 )
-                return BossIterationStatus(
-                    iteration=iteration,
-                    run_id=self.run_id,
-                    timestamp=timestamp,
-                    runner_freshness=runner_freshness,
-                    selected_issue=issue_dict,
-                    worker_status="needs_human",
-                    stop_reason=None,
-                    needs_human_reasons=worker_result.get(
-                        "reasons",
-                        ["Recovered deliverable requires human review before integration."],
-                    ),
-                    next_actions=[
-                        "Auto-continuing: recovered deliverable is receipt-backed but still blocked on human review."
-                    ],
-                    elapsed_seconds=elapsed_seconds,
-                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                return _return(
+                    BossIterationStatus(
+                        iteration=iteration,
+                        run_id=self.run_id,
+                        timestamp=timestamp,
+                        runner_freshness=runner_freshness,
+                        selected_issue=issue_dict,
+                        worker_status="needs_human",
+                        stop_reason=None,
+                        needs_human_reasons=worker_result.get(
+                            "reasons",
+                            ["Recovered deliverable requires human review before integration."],
+                        ),
+                        next_actions=[
+                            "Auto-continuing: recovered deliverable is receipt-backed but still blocked on human review."
+                        ],
+                        elapsed_seconds=elapsed_seconds,
+                        worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                    )
                 )
             self._failed_issues.append(issue_dict)
             self._log_value_outcome(issue_dict, "needs_human", elapsed_seconds)
@@ -1885,21 +1955,23 @@ class BossLoop:
                     self.config.max_repair_attempts,
                 )
                 # Don't count as consecutive failure — we're actively repairing
-                return BossIterationStatus(
-                    iteration=iteration,
-                    run_id=self.run_id,
-                    timestamp=timestamp,
-                    runner_freshness=runner_freshness,
-                    selected_issue=issue_dict,
-                    worker_status="repairing",
-                    stop_reason=None,
-                    needs_human_reasons=[],
-                    next_actions=[
-                        f"Repair attempt {repair_count + 1}/{self.config.max_repair_attempts} "
-                        f"for issue #{issue_num} — fixing verification failures."
-                    ],
-                    elapsed_seconds=elapsed_seconds,
-                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                return _return(
+                    BossIterationStatus(
+                        iteration=iteration,
+                        run_id=self.run_id,
+                        timestamp=timestamp,
+                        runner_freshness=runner_freshness,
+                        selected_issue=issue_dict,
+                        worker_status="repairing",
+                        stop_reason=None,
+                        needs_human_reasons=[],
+                        next_actions=[
+                            f"Repair attempt {repair_count + 1}/{self.config.max_repair_attempts} "
+                            f"for issue #{issue_num} — fixing verification failures."
+                        ],
+                        elapsed_seconds=elapsed_seconds,
+                        worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                    )
                 )
 
             if self.config.auto_continue_on_needs_human:
@@ -1908,81 +1980,91 @@ class BossLoop:
                     "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
                     issue_dict.get("number", "?"),
                 )
-                return BossIterationStatus(
-                    iteration=iteration,
-                    run_id=self.run_id,
-                    timestamp=timestamp,
-                    runner_freshness=runner_freshness,
-                    selected_issue=issue_dict,
-                    worker_status="needs_human",
-                    stop_reason=None,
-                    needs_human_reasons=worker_result.get(
-                        "reasons", ["Worker requires human input."]
-                    ),
-                    next_actions=["Skipping to next issue (auto-continue mode)."],
-                    elapsed_seconds=elapsed_seconds,
-                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                return _return(
+                    BossIterationStatus(
+                        iteration=iteration,
+                        run_id=self.run_id,
+                        timestamp=timestamp,
+                        runner_freshness=runner_freshness,
+                        selected_issue=issue_dict,
+                        worker_status="needs_human",
+                        stop_reason=None,
+                        needs_human_reasons=worker_result.get(
+                            "reasons", ["Worker requires human input."]
+                        ),
+                        next_actions=["Skipping to next issue (auto-continue mode)."],
+                        elapsed_seconds=elapsed_seconds,
+                        worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                    )
                 )
             next_actions = [
                 str(item).strip()
                 for item in worker_result.get("next_actions", [])
                 if str(item).strip()
             ] or ["Review the worker output and decide next steps."]
-            return BossIterationStatus(
-                iteration=iteration,
-                run_id=self.run_id,
-                timestamp=timestamp,
-                runner_freshness=runner_freshness,
-                selected_issue=issue_dict,
-                worker_status="needs_human",
-                stop_reason=BossStopReason.NEEDS_HUMAN.value,
-                needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
-                next_actions=next_actions,
-                elapsed_seconds=elapsed_seconds,
-                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+            return _return(
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="needs_human",
+                    stop_reason=BossStopReason.NEEDS_HUMAN.value,
+                    needs_human_reasons=worker_result.get(
+                        "reasons", ["Worker requires human input."]
+                    ),
+                    next_actions=next_actions,
+                    elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                )
             )
 
         self._failed_issues.append(issue_dict)
         self._consecutive_failures += 1
         self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
         if self._consecutive_failures >= self.config.max_consecutive_failures:
-            return BossIterationStatus(
+            return _return(
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="failed",
+                    stop_reason=BossStopReason.CONSECUTIVE_FAILURES.value,
+                    needs_human_reasons=[
+                        f"Consecutive failures reached threshold ({self.config.max_consecutive_failures})."
+                    ],
+                    next_actions=[
+                        "Investigate the last failures before resuming.",
+                        f"Error: {worker_result.get('error', 'unknown')}",
+                    ],
+                    elapsed_seconds=elapsed_seconds,
+                    error=worker_result.get("error"),
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                )
+            )
+
+        return _return(
+            BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
                 timestamp=timestamp,
                 runner_freshness=runner_freshness,
                 selected_issue=issue_dict,
                 worker_status="failed",
-                stop_reason=BossStopReason.CONSECUTIVE_FAILURES.value,
-                needs_human_reasons=[
-                    f"Consecutive failures reached threshold ({self.config.max_consecutive_failures})."
-                ],
+                stop_reason=None,
+                needs_human_reasons=[],
                 next_actions=[
-                    "Investigate the last failures before resuming.",
-                    f"Error: {worker_result.get('error', 'unknown')}",
+                    f"Issue #{issue.number} failed (attempt "
+                    f"{self._issue_attempt_counts[issue.number]}/{self.config.max_retries_per_issue}). "
+                    "Will retry with next iteration.",
                 ],
                 elapsed_seconds=elapsed_seconds,
                 error=worker_result.get("error"),
                 worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
-
-        return BossIterationStatus(
-            iteration=iteration,
-            run_id=self.run_id,
-            timestamp=timestamp,
-            runner_freshness=runner_freshness,
-            selected_issue=issue_dict,
-            worker_status="failed",
-            stop_reason=None,
-            needs_human_reasons=[],
-            next_actions=[
-                f"Issue #{issue.number} failed (attempt "
-                f"{self._issue_attempt_counts[issue.number]}/{self.config.max_retries_per_issue}). "
-                "Will retry with next iteration.",
-            ],
-            elapsed_seconds=elapsed_seconds,
-            error=worker_result.get("error"),
-            worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
         )
 
     async def _dispatch_issue(

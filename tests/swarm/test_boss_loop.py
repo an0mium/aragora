@@ -1000,6 +1000,58 @@ class TestBossLoop:
         assert result.iteration_statuses[0]["worker_status"] == "running"
         assert result.iteration_statuses[0]["worker_outcome"] == "dispatched"
 
+    def test_metrics_appends_jsonl_for_completed_iteration(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Metrics issue")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._emit_lane_receipt = MagicMock(return_value=None)
+        loop._log_value_outcome = MagicMock()
+
+        async def _completed_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "changed_files": [
+                    "aragora/swarm/boss_loop.py",
+                    "tests/swarm/test_boss_loop.py",
+                ],
+                "tests_run": [
+                    "python -m pytest tests/swarm/test_boss_loop.py -q -k metrics",
+                    "python -m pytest tests/swarm/test_boss_loop.py -q",
+                ],
+                "validations_run": [
+                    {"name": "metrics", "passed": True},
+                    {"name": "full_file", "passed": False},
+                ],
+            }
+
+        loop._dispatch_issue = _completed_dispatch
+
+        result = asyncio.run(loop.run())
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        lines = metrics_path.read_text(encoding="utf-8").splitlines()
+
+        assert result.iterations_completed == 1
+        assert len(lines) == 1
+
+        payload = json.loads(lines[0])
+        assert payload == {
+            "iteration": 1,
+            "issue_number": 42,
+            "worker_status": "completed",
+            "elapsed_seconds": payload["elapsed_seconds"],
+            "files_changed": 2,
+            "tests_run": 2,
+            "tests_passed": 1,
+        }
+        assert payload["elapsed_seconds"] >= 0.0
+
 
 # ---------------------------------------------------------------------------
 # Status payload shape tests
