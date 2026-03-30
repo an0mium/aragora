@@ -175,6 +175,29 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
         "triage_decision": {
             "confidence": 0.61,
             "blocked_by_policy": True,
+=======
+def test_receipt_show_renders_inbox_receipt_details(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-inbox-789",
+        "gauntlet_id": "rcpt-inbox-789",
+        "verdict": "CONDITIONAL",
+        "confidence": 0.95,
+        "state": "created",
+        "action_intent": {
+            "provider": "gmail",
+            "message_id": "msg-123",
+            "action": "archive",
+            "provider_route": "direct",
+            "synthesized_rationale": "Archive the newsletter.",
+        },
+        "triage_decision": {
+            "final_action": "archive",
+            "provider_route": "direct",
+            "receipt_state": "created",
+            "blocked_by_policy": False,
+>>>>>>> eb63fb1ac (feat(cli): show inbox receipt details in inspect view)
         },
     }
 
@@ -184,6 +207,47 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "BLOCKED"
     assert payload["confidence"] == pytest.approx(0.61)
+        cmd_receipt_show(argparse.Namespace(id="rcpt-triage-456", format="json", org_id=None))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "BLOCKED"
+    assert payload["confidence"] == pytest.approx(0.61)
+
+
+def test_receipt_show_renders_inbox_receipt_details(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-inbox-789",
+        "gauntlet_id": "rcpt-inbox-789",
+        "verdict": "CONDITIONAL",
+        "confidence": 0.95,
+        "state": "created",
+        "action_intent": {
+            "provider": "gmail",
+            "message_id": "msg-123",
+            "action": "archive",
+            "provider_route": "direct",
+            "synthesized_rationale": "Archive the newsletter.",
+        },
+        "triage_decision": {
+            "final_action": "archive",
+            "provider_route": "direct",
+            "receipt_state": "created",
+            "blocked_by_policy": False,
+        },
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-inbox-789", format=None, org_id=None))
+
+    output = capsys.readouterr().out
+    assert "Type:          inbox" in output
+    assert "Action:        archive" in output
+    assert "Provider:      gmail" in output
+    assert "Message ID:    msg-123" in output
+    assert "Receipt State: created" in output
+    assert "Rationale:     Archive the newsletter." in output
 
 
 def test_receipt_show_falls_back_to_legacy_when_durable_missing(

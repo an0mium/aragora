@@ -852,9 +852,40 @@ def _inspect_receipt_data(data: dict[str, Any]) -> None:
     print("=" * 60)
     print(f"\nReceipt ID:    {data.get('receipt_id', 'N/A')}")
     print(f"Gauntlet ID:   {data.get('gauntlet_id', 'N/A')}")
+    print(f"Type:          {_receipt_kind(data)}")
     print(f"Verdict:       {data.get('verdict', 'UNKNOWN')}")
     confidence = data.get("confidence", 0)
     print(f"Confidence:    {confidence:.1%}")
+    state = data.get("state")
+    if state:
+        print(f"State:         {state}")
+
+    action_intent = data.get("action_intent")
+    triage_decision = data.get("triage_decision")
+    if isinstance(action_intent, dict) or isinstance(triage_decision, dict):
+        action_intent = action_intent if isinstance(action_intent, dict) else {}
+        triage_decision = triage_decision if isinstance(triage_decision, dict) else {}
+        print("\n--- Inbox Trust Wedge ---")
+        print(
+            f"Action:        {triage_decision.get('final_action') or action_intent.get('action') or 'N/A'}"
+        )
+        print(f"Provider:      {action_intent.get('provider', 'N/A')}")
+        print(f"Message ID:    {action_intent.get('message_id', 'N/A')}")
+        print(
+            f"Route:         {triage_decision.get('provider_route') or action_intent.get('provider_route') or 'N/A'}"
+        )
+        print(
+            f"Receipt State: {triage_decision.get('receipt_state') or data.get('state') or 'N/A'}"
+        )
+        print(f"Blocked:       {'yes' if triage_decision.get('blocked_by_policy') else 'no'}")
+        if action_intent.get("label_id") or triage_decision.get("label_id"):
+            print(
+                f"Label ID:      {triage_decision.get('label_id') or action_intent.get('label_id')}"
+            )
+        rationale = str(action_intent.get("synthesized_rationale") or "").strip()
+        if rationale:
+            print(f"Rationale:     {rationale[:280]}")
+
     risk_summary = data.get("risk_summary", {})
     if risk_summary:
         print(
