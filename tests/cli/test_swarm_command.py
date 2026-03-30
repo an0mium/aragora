@@ -1570,7 +1570,7 @@ class TestSwarmCommand:
         assert '"validation_fails_now": 1' in out
         audit_issue.assert_called_once()
 
-    def test_classify_issue_validation_status_detects_invalid_cli_contract(self):
+    def test_classify_issue_validation_status_detects_cli_usage_failure(self):
         status, next_action = _classify_issue_validation_status(
             validation_contract=["aragora quickstart --json"],
             commands=["python3 -m aragora.cli.main quickstart --json"],
@@ -1583,10 +1583,10 @@ class TestSwarmCommand:
                 }
             ],
         )
-        assert status == "invalid_cli_contract"
-        assert "CLI validation command" in next_action
+        assert status == "cli_usage_failure"
+        assert "parser rejects this queued CLI command" in next_action
 
-    def test_classify_issue_validation_status_detects_stale_test_selector(self):
+    def test_classify_issue_validation_status_detects_no_matching_tests_collected(self):
         status, next_action = _classify_issue_validation_status(
             validation_contract=["pytest tests/swarm/test_boss_loop.py -k refine -q"],
             commands=["pytest tests/swarm/test_boss_loop.py -k refine -q"],
@@ -1599,8 +1599,8 @@ class TestSwarmCommand:
                 }
             ],
         )
-        assert status == "stale_test_selector"
-        assert "does not collect any matching tests" in next_action
+        assert status == "no_matching_tests_collected"
+        assert "collects no tests on the current branch" in next_action
 
     def test_cmd_swarm_requires_goal_or_spec(self, capsys):
         args = argparse.Namespace(
