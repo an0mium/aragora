@@ -198,6 +198,14 @@ class TestSwarmParser:
         assert args.boss_issue_list == "101,102"
         assert args.worker_model == "claude"
 
+    def test_swarm_boss_parser_defaults_to_claude_worker_and_codex_review(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["swarm", "boss-loop"])
+        assert args.worker_model == "claude"
+        assert args.review_model == "codex"
+
     def test_swarm_boss_parser_accepts_claude_profile_pool(self):
         from aragora.cli.parser import build_parser
 
