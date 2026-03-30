@@ -333,6 +333,7 @@ async def _run_triage(
                     diagnostics,
                     next_page_token=getattr(runner, "next_page_token", None),
                 )
+                _print_wedge_receipt_handoffs(decisions)
                 return
 
             _print_decisions(decisions)
@@ -551,6 +552,25 @@ def _print_run_footer(
         print(f"Diagnostics: {meta.get('artifact_dir')}")
     if next_page_token:
         print(f"Next page token: {next_page_token}")
+
+
+def _print_wedge_receipt_handoffs(decisions: list) -> None:
+    """Print inbox trust wedge inspect handles for created receipts."""
+    receipt_ids: list[str] = []
+    seen: set[str] = set()
+    for decision in decisions:
+        receipt_id = str(getattr(decision, "receipt_id", "") or "").strip()
+        if not receipt_id or receipt_id in seen:
+            continue
+        seen.add(receipt_id)
+        receipt_ids.append(receipt_id)
+
+    if not receipt_ids:
+        return
+
+    print("\nInspect inbox receipts:")
+    for receipt_id in receipt_ids:
+        print(f"  aragora inbox-wedge show {receipt_id}")
 
 
 def _show_status() -> None:

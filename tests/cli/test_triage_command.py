@@ -123,6 +123,8 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
     assert "[DRY RUN] Proposed triage decisions" in out
     assert "archive" in out
     assert "Run summary:" in out
+    assert "Inspect inbox receipts:" in out
+    assert "aragora inbox-wedge show receipt-2" in out
     assert "Next page token: next-page-xyz" in out
 
 
