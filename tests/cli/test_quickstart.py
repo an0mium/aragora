@@ -1146,3 +1146,77 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Live debate failed: Live debate timed out after 120s" in output
         assert "Mode:       Demo" in output
+
+    def test_json_flag_outputs_structured_json(self, capsys):
+        """Test --json flag prints structured JSON to stdout."""
+        args = argparse.Namespace(
+            question="Should we use JSON output?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=1,
+            no_browser=True,
+            json_output=True,
+        )
+        with patch(
+            "aragora.cli.commands.quickstart._run_demo_debate",
+            return_value={
+                "question": "Should we use JSON output?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 1,
+                "agents": ["analyst", "critic", "synthesizer"],
+                "summary": "JSON output is useful.",
+                "dissent": [],
+                "mode": "demo",
+                "receipt_id": "demo-receipt-json-1",
+                "consensus_proof": {"reached": True},
+                "votes": [
+                    {"agent": "analyst", "choice": "yes"},
+                    {"agent": "critic", "choice": "yes"},
+                ],
+            },
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr().out
+        data = json.loads(output)
+        assert data["receipt_id"] == "demo-receipt-json-1"
+        assert data["consensus"] is True
+        assert data["confidence"] == 0.85
+        assert data["verdict"] == "consensus"
+        assert data["agents"] == ["analyst", "critic", "synthesizer"]
+        assert len(data["votes"]) == 2
+        assert data["rounds"] == 1
+        assert data["mode"] == "demo"
+        assert "elapsed_seconds" in data
+        # Should NOT contain human-readable banner
+        assert "QUICKSTART" not in output
+        assert "RESULT" not in output
+
+    def test_json_flag_parser_registration(self):
+        """Test --json flag is registered in quickstart parser."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--json"])
+        assert args.json_output is True
+
+    def test_json_flag_default_is_false(self):
+        """Test --json defaults to false."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--demo"])
+        assert args.json_output is False
+
+    def test_topic_alias_for_question(self):
+        """Test --topic works as alias for --question."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--topic", "Test topic"])
+        assert args.question == "Test topic"
