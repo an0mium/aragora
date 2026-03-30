@@ -81,6 +81,15 @@ def mock_http():
     return h
 
 
+@pytest.fixture(autouse=True)
+def _patch_metered_decisions():
+    with patch(
+        "aragora.server.handlers.spend_analytics_dashboard._get_metered_decisions",
+        return_value=[],
+    ):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Routing tests
 # ---------------------------------------------------------------------------
@@ -396,6 +405,31 @@ class TestByDecisionEndpoint:
         body = _parse_body(result)
         assert body["decisions"] == []
         assert body["count"] == 0
+
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_decision_falls_back_to_usage_meter(self, mock_tracker_fn, handler, mock_http):
+        tracker = MagicMock()
+        tracker._debate_costs = {}
+        mock_tracker_fn.return_value = tracker
+
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_decisions",
+            return_value=[
+                {"debate_id": "debate_x", "cost_usd": "7.50"},
+                {"debate_id": "debate_y", "cost_usd": "3.25"},
+            ],
+        ) as mock_metered:
+            result = handler.handle(
+                "/api/v1/analytics/spend/by-decision",
+                {"workspace_id": "ws_123", "limit": "2"},
+                mock_http,
+            )
+
+        body = _parse_body(result)
+        assert body["count"] == 2
+        assert body["decisions"][0]["debate_id"] == "debate_x"
+        assert body["decisions"][0]["cost_usd"] == "7.50"
+        mock_metered.assert_called_once_with("ws_123", 2)
 
 
 # ---------------------------------------------------------------------------

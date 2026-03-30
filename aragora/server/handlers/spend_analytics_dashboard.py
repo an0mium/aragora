@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.utils.async_utils import run_async
 
 from .base import (
     HandlerResult,
@@ -57,6 +59,55 @@ def _get_budget_manager() -> Any:
     except (ImportError, RuntimeError, OSError) as e:
         logger.debug("BudgetManager not available: %s", e)
         return None
+
+
+def _format_cost(value: Any) -> str:
+    """Format costs with at least cents and up to 4 decimals."""
+    try:
+        quantized = Decimal(str(value)).quantize(Decimal("0.0001"))
+    except (InvalidOperation, TypeError, ValueError):
+        return "0.00"
+    rendered = format(quantized, "f").rstrip("0").rstrip(".")
+    if not rendered:
+        return "0.00"
+    if "." not in rendered:
+        return f"{rendered}.00"
+    decimals = rendered.split(".", 1)[1]
+    if len(decimals) == 1:
+        return f"{rendered}0"
+    return rendered
+
+
+def _get_metered_decisions(org_id: str, limit: int) -> list[dict[str, str]]:
+    """Load per-debate costs from durable usage metering."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    meter = get_usage_meter()
+    run_async(meter.initialize())
+    if meter._conn is None:
+        return []
+
+    cursor = meter._conn.cursor()
+    rows = cursor.execute(
+        """
+        SELECT debate_id, SUM(CAST(total_cost AS REAL)) as cost
+        FROM debate_usage
+        WHERE org_id = ?
+        GROUP BY debate_id
+        ORDER BY cost DESC
+        LIMIT ?
+        """,
+        (org_id, limit),
+    ).fetchall()
+
+    return [
+        {
+            "debate_id": row["debate_id"],
+            "cost_usd": _format_cost(row["cost"]),
+        }
+        for row in rows
+        if row["debate_id"]
+    ]
 
 
 class SpendAnalyticsDashboardHandler(SecureHandler):
@@ -371,6 +422,12 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                         "cost_usd": str(cost),
                     }
                 )
+
+        if not decisions:
+            try:
+                decisions = _get_metered_decisions(workspace_id, limit)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered decision spend unavailable: %s", e)
 
         return json_response(
             {
