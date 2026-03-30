@@ -2728,7 +2728,7 @@ def test_refresh_run_salvages_completed_detached_worker_before_stale_reap(
     updated_work_order = refreshed.work_orders[0]
     assert updated_work_order["status"] == "completed"
     assert updated_work_order["worker_outcome"] == "crash_with_salvage"
-    assert updated_work_order["failure_reason"] != "stale_lease_reaped"
+    assert updated_work_order.get("failure_reason") != "stale_lease_reaped"
     assert updated_work_order["commit_shas"]
     assert updated_work_order["receipt_id"]
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
