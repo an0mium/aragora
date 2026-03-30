@@ -578,8 +578,6 @@ class ActionCanvasHandler(SecureHandler):
     ) -> HandlerResult:
         """Advance action canvas to the orchestration stage (Stage 4)."""
         try:
-            from aragora.canvas import Canvas
-
             store = self._get_store()
             canvas_meta = store.load_canvas(canvas_id)
             if not canvas_meta:
@@ -588,13 +586,11 @@ class ActionCanvasHandler(SecureHandler):
             manager = self._get_canvas_manager()
             canvas = self._run_async(manager.get_canvas(canvas_id))
             if canvas is None:
-                canvas = Canvas(
-                    id=canvas_id,
-                    name=canvas_meta.get("name", "Untitled Actions"),
-                    metadata=dict(canvas_meta.get("metadata", {})),
-                    owner_id=user_id,
-                    workspace_id=canvas_meta.get("workspace_id"),
+                logger.warning(
+                    "Cannot advance action canvas %s: live state missing while metadata still exists",
+                    canvas_id,
                 )
+                return error_response("Action canvas state unavailable", 409)
 
             orchestration_canvas = self._build_orchestration_canvas(canvas, canvas_id, canvas_meta)
             orchestration_store = self._get_orchestration_store()
