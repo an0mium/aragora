@@ -260,14 +260,15 @@ export function useSpendDashboardTrends(
 
 /**
  * Fetch spend breakdown by agent.
- * Hits GET /api/v1/analytics/spend/by-agent?workspace_id=...
+ * Hits GET /api/v1/analytics/spend/by-agent?workspace_id=...&org_id=...
  */
 export function useSpendDashboardByAgent(
   workspaceId: string = 'default',
+  orgId: string = 'default',
   options?: UseSWRFetchOptions<SpendDashboardByAgent>,
 ) {
   const result = useSWRFetch<SpendDashboardByAgent>(
-    `/api/v1/analytics/spend/by-agent?workspace_id=${workspaceId}`,
+    `/api/v1/analytics/spend/by-agent?workspace_id=${workspaceId}&org_id=${orgId}`,
     {
       refreshInterval: 60000,
       ...options,
@@ -282,15 +283,16 @@ export function useSpendDashboardByAgent(
 
 /**
  * Fetch spend breakdown by decision/debate.
- * Hits GET /api/v1/analytics/spend/by-decision?workspace_id=...&limit=...
+ * Hits GET /api/v1/analytics/spend/by-decision?workspace_id=...&org_id=...&limit=...
  */
 export function useSpendDashboardByDecision(
   workspaceId: string = 'default',
+  orgId: string = 'default',
   limit: number = 20,
   options?: UseSWRFetchOptions<SpendDashboardByDecision>,
 ) {
   const result = useSWRFetch<SpendDashboardByDecision>(
-    `/api/v1/analytics/spend/by-decision?workspace_id=${workspaceId}&limit=${limit}`,
+    `/api/v1/analytics/spend/by-decision?workspace_id=${workspaceId}&org_id=${orgId}&limit=${limit}`,
     {
       refreshInterval: 60000,
       ...options,

@@ -100,7 +100,7 @@ def _get_metered_summary(scope_id: str) -> tuple[str, int, int]:
     return _format_cost(summary.token_cost), summary.api_call_count, summary.total_tokens
 
 
-def _get_metered_agents(org_id: str) -> tuple[str, list[dict[str, Any]]]:
+def _get_metered_agents(scope_id: str) -> tuple[str, list[dict[str, Any]]]:
     """Load durable per-agent spend from usage metering token usage rows."""
     from aragora.services.usage_metering import get_usage_meter
 
@@ -116,7 +116,7 @@ def _get_metered_agents(org_id: str) -> tuple[str, list[dict[str, Any]]]:
         FROM token_usage
         WHERE org_id = ?
         """,
-        (org_id,),
+        (scope_id,),
     ).fetchall()
 
     by_agent: dict[str, Decimal] = {}
@@ -158,7 +158,7 @@ def _get_metered_agents(org_id: str) -> tuple[str, list[dict[str, Any]]]:
     return rendered_total, agents
 
 
-def _get_metered_decisions(org_id: str, limit: int) -> list[dict[str, str]]:
+def _get_metered_decisions(scope_id: str, limit: int) -> list[dict[str, str]]:
     """Load per-debate costs from durable usage metering."""
     from aragora.services.usage_metering import get_usage_meter
 
@@ -177,7 +177,7 @@ def _get_metered_decisions(org_id: str, limit: int) -> list[dict[str, str]]:
         ORDER BY cost DESC
         LIMIT ?
         """,
-        (org_id, limit),
+        (scope_id, limit),
     ).fetchall()
 
     return [
@@ -263,6 +263,14 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
         if isinstance(org, list):
             org = org[0] if org else "default"
         return str(org)
+
+    @classmethod
+    def _get_metering_scope_id(cls, query_params: dict[str, Any]) -> str:
+        """Prefer org scope for durable metering, falling back to workspace scope."""
+        org_id = cls._get_org_id(query_params)
+        if org_id and org_id != "default":
+            return org_id
+        return cls._get_workspace_id(query_params)
 
     @staticmethod
     def _get_period(query_params: dict[str, Any]) -> str:
@@ -426,8 +434,10 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
 
         Query params:
         - workspace_id: Workspace to query (default: "default")
+        - org_id: Organization scope for durable metering fallback (optional)
         """
         workspace_id = self._get_workspace_id(query_params)
+        scope_id = self._get_metering_scope_id(query_params)
 
         tracker = _get_cost_tracker()
         agents: list[dict[str, Any]] = []
@@ -462,7 +472,7 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
 
         if not agents:
             try:
-                total_usd, agents = _get_metered_agents(workspace_id)
+                total_usd, agents = _get_metered_agents(scope_id)
             except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
                 logger.debug("Metered agent spend unavailable: %s", e)
 
@@ -488,9 +498,11 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
 
         Query params:
         - workspace_id: Workspace to query (default: "default")
+        - org_id: Organization scope for durable metering fallback (optional)
         - limit: Maximum number of debates to return (default: 20, max: 100)
         """
         workspace_id = self._get_workspace_id(query_params)
+        scope_id = self._get_metering_scope_id(query_params)
         limit_raw = query_params.get("limit", "20")
         if isinstance(limit_raw, list):
             limit_raw = limit_raw[0] if limit_raw else "20"
@@ -518,7 +530,7 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
 
         if not decisions:
             try:
-                decisions = _get_metered_decisions(workspace_id, limit)
+                decisions = _get_metered_decisions(scope_id, limit)
             except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
                 logger.debug("Metered decision spend unavailable: %s", e)
 

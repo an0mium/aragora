@@ -426,6 +426,29 @@ class TestByAgentEndpoint:
         assert body["agents"][1]["agent_name"] == "codex"
         mock_metered.assert_called_once_with("ws_123")
 
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_agent_prefers_org_id_for_usage_meter_fallback(
+        self, mock_tracker_fn, handler, mock_http
+    ):
+        tracker = MagicMock()
+        tracker.get_workspace_stats.return_value = _make_workspace_stats(
+            total_cost="0.00",
+            agent_costs={},
+        )
+        mock_tracker_fn.return_value = tracker
+
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_agents",
+            return_value=("9.75", []),
+        ) as mock_metered:
+            handler.handle(
+                "/api/v1/analytics/spend/by-agent",
+                {"workspace_id": "ws_123", "org_id": "org_123"},
+                mock_http,
+            )
+
+        mock_metered.assert_called_once_with("org_123")
+
 
 # ---------------------------------------------------------------------------
 # By-decision endpoint tests
@@ -507,6 +530,26 @@ class TestByDecisionEndpoint:
         assert body["decisions"][0]["debate_id"] == "debate_x"
         assert body["decisions"][0]["cost_usd"] == "7.50"
         mock_metered.assert_called_once_with("ws_123", 2)
+
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_decision_prefers_org_id_for_usage_meter_fallback(
+        self, mock_tracker_fn, handler, mock_http
+    ):
+        tracker = MagicMock()
+        tracker._debate_costs = {}
+        mock_tracker_fn.return_value = tracker
+
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_decisions",
+            return_value=[],
+        ) as mock_metered:
+            handler.handle(
+                "/api/v1/analytics/spend/by-decision",
+                {"workspace_id": "ws_123", "org_id": "org_123", "limit": "2"},
+                mock_http,
+            )
+
+        mock_metered.assert_called_once_with("org_123", 2)
 
 
 # ---------------------------------------------------------------------------

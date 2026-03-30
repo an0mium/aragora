@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { useAuth } from '@/context/AuthContext';
 import {
   MetricCard,
   TrendChart,
@@ -216,20 +217,23 @@ export default function SpendDashboardPage() {
     'daily',
   );
   const [days, _setDays] = useState(30);
+  const { organization, user } = useAuth();
+  const workspaceId = organization?.id || user?.org_id || 'default';
+  const orgId = organization?.id || user?.org_id || 'default';
 
   // Fetch data from all 5 endpoints
   const { summary, isLoading: summaryLoading, error: summaryError } =
-    useSpendDashboardSummary();
+    useSpendDashboardSummary(workspaceId, orgId);
   const { trends, isLoading: trendsLoading } = useSpendDashboardTrends(
-    'default',
+    orgId,
     period,
     days,
   );
   const { agentBreakdown, isLoading: agentLoading } =
-    useSpendDashboardByAgent();
+    useSpendDashboardByAgent(workspaceId, orgId);
   const { decisionBreakdown, isLoading: decisionLoading } =
-    useSpendDashboardByDecision();
-  const { budget, isLoading: budgetLoading } = useSpendDashboardBudget();
+    useSpendDashboardByDecision(workspaceId, orgId);
+  const { budget, isLoading: budgetLoading } = useSpendDashboardBudget(orgId);
 
   const _isLoading =
     summaryLoading ||
