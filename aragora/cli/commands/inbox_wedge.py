@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from datetime import datetime
 import json
 import sys
 from collections import Counter
@@ -104,6 +105,7 @@ def add_inbox_wedge_parser(subparsers: Any) -> None:
 
     show_parser = sub.add_parser("show", help="Show a receipt envelope")
     show_parser.add_argument("receipt_id", help="Receipt id")
+    show_parser.add_argument("--json", action="store_true", help="Emit raw JSON")
     show_parser.set_defaults(func=cmd_inbox_wedge_show)
 
     list_parser = sub.add_parser("list", help="List recent wedge receipts")
@@ -113,6 +115,7 @@ def add_inbox_wedge_parser(subparsers: Any) -> None:
         help="Optional state filter",
     )
     list_parser.add_argument("--limit", type=int, default=20, help="Maximum results")
+    list_parser.add_argument("--json", action="store_true", help="Emit raw JSON")
     list_parser.set_defaults(func=cmd_inbox_wedge_list)
 
     execute_parser = sub.add_parser("execute", help="Execute an approved wedge receipt")
@@ -126,6 +129,7 @@ def add_inbox_wedge_parser(subparsers: Any) -> None:
         help="Optional state filter",
     )
     report_parser.add_argument("--limit", type=int, default=200, help="Maximum results")
+    report_parser.add_argument("--json", action="store_true", help="Emit raw JSON")
     report_parser.set_defaults(func=cmd_inbox_wedge_report)
 
     export_parser = sub.add_parser("export", help="Export recent wedge receipts for labeling")
@@ -165,6 +169,124 @@ def _load_content_hash(args: argparse.Namespace) -> str:
 def _prompt(prompt: str) -> str:
     print(prompt, end="", file=sys.stderr, flush=True)
     return input().strip()
+
+
+def _format_timestamp(value: Any) -> str:
+    if value in (None, ""):
+        return "N/A"
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            return value
+    return str(value)
+
+
+def _short(value: str | None, width: int = 14) -> str:
+    text = value or ""
+    return text[: width - 2] + ".." if len(text) > width else text
+
+
+def _yes_no(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def _print_envelope_summary(envelope: Any) -> None:
+    receipt = envelope.receipt
+    decision = envelope.decision
+    intent = envelope.intent
+
+    print("Inbox Trust Wedge Receipt")
+    print("=" * 60)
+    print(f"Receipt ID:    {receipt.receipt_id}")
+    print(f"Debate ID:     {envelope.debate_id or 'N/A'}")
+    print(f"State:         {receipt.state.value}")
+    print(f"Review:        {envelope.review_choice or 'pending'}")
+    print(f"Created:       {_format_timestamp(receipt.created_at)}")
+    print(f"Expires:       {_format_timestamp(receipt.expires_at)}")
+    print(f"Provider:      {intent.provider}")
+    print(f"User:          {intent.user_id or 'N/A'}")
+    print(f"Message ID:    {intent.message_id}")
+    print(f"Route:         {envelope.provider_route}")
+    print("")
+    print("--- Decision ---")
+    print(f"Action:        {intent.action.value}")
+    print(f"Confidence:    {float(decision.confidence):.0%}")
+    print(f"Blocked:       {_yes_no(bool(decision.blocked_by_policy))}")
+    print(f"Auto-Eligible: {_yes_no(bool(decision.auto_approval_eligible))}")
+    print(f"Tier:          {decision.execution_tier}")
+    if decision.label_id:
+        print(f"Label ID:      {decision.label_id}")
+    if intent.synthesized_rationale:
+        print(f"Rationale:     {intent.synthesized_rationale}")
+    if decision.dissent_summary:
+        print(f"Dissent:       {decision.dissent_summary}")
+    if decision.escalation_reasons:
+        print(f"Escalations:   {', '.join(decision.escalation_reasons)}")
+    if decision.suppressed_diagnostics_count:
+        print(f"Suppressed:    {decision.suppressed_diagnostics_count}")
+    print("")
+    print("--- Execution ---")
+    print(f"Execution Cnt: {receipt.execution_count}")
+    print(f"Executed At:   {_format_timestamp(receipt.executed_at)}")
+    if receipt.last_error:
+        print(f"Last Error:    {receipt.last_error}")
+    execution_result = getattr(envelope, "execution_result", None)
+    if execution_result:
+        success = execution_result.get("success")
+        print(f"Result:        {'success' if success else 'failure'}")
+
+
+def _print_receipt_list(receipts: list[Any]) -> None:
+    if not receipts:
+        print("No inbox trust wedge receipts found.")
+        return
+    print(
+        f"{'ID':<14} {'STATE':<9} {'ACTION':<8} {'CONF':>6} "
+        f"{'BLOCK':<6} {'ROUTE':<10} {'MSG':<14} {'CREATED':<16}"
+    )
+    print("-" * 92)
+    for envelope in receipts:
+        receipt = envelope.receipt
+        decision = envelope.decision
+        intent = envelope.intent
+        print(
+            f"{_short(receipt.receipt_id, 14):<14} "
+            f"{receipt.state.value:<9} "
+            f"{intent.action.value:<8} "
+            f"{float(decision.confidence):>5.0%} "
+            f"{_yes_no(bool(decision.blocked_by_policy)):<6} "
+            f"{_short(envelope.provider_route, 10):<10} "
+            f"{_short(intent.message_id, 14):<14} "
+            f"{_format_timestamp(receipt.created_at):<16}"
+        )
+    print(f"\n{len(receipts)} receipt(s) shown.")
+
+
+def _print_report_summary(summary: dict[str, Any]) -> None:
+    print("Inbox Trust Wedge Report")
+    print("=" * 60)
+    print(f"Total Receipts:           {summary['total_receipts']}")
+    print(f"Executed:                 {summary['executed_count']}")
+    print(f"Eligible Auto-Approve:    {summary['eligible_auto_approve_count']}")
+    print(f"Auto-Approved:            {summary['auto_approved_count']}")
+
+    avg_conf = summary["average_confidence"]
+    avg_lat = summary["average_latency_seconds"]
+    avg_cost = summary["average_cost_usd"]
+    print(
+        f"Average Confidence:       {f'{float(avg_conf):.0%}' if avg_conf is not None else 'N/A'}"
+    )
+    print(f"Average Latency Seconds:  {avg_lat if avg_lat is not None else 'N/A'}")
+    print(f"Average Cost USD:         {avg_cost if avg_cost is not None else 'N/A'}")
+    print("")
+    print(f"States:                   {summary['states']}")
+    print(f"Actions:                  {summary['actions']}")
+    print(f"Review Choices:           {summary['review_choices']}")
+    print(f"Provider Routes:          {summary['provider_routes']}")
 
 
 def cmd_inbox_wedge(args: argparse.Namespace) -> None:
@@ -231,14 +353,20 @@ def cmd_inbox_wedge_show(args: argparse.Namespace) -> None:
     envelope = store.get_receipt(args.receipt_id)
     if envelope is None:
         raise SystemExit(f"Receipt not found: {args.receipt_id}")
-    _dump(envelope.to_dict())
+    if getattr(args, "json", False):
+        _dump(envelope.to_dict())
+    else:
+        _print_envelope_summary(envelope)
 
 
 def cmd_inbox_wedge_list(args: argparse.Namespace) -> None:
     store = get_inbox_trust_wedge_store()
     state = ReceiptState(args.state) if args.state else None
     receipts = store.list_receipts(state=state, limit=args.limit)
-    _dump({"receipts": [receipt.to_dict() for receipt in receipts]})
+    if getattr(args, "json", False):
+        _dump({"receipts": [receipt.to_dict() for receipt in receipts]})
+    else:
+        _print_receipt_list(receipts)
 
 
 def cmd_inbox_wedge_execute(args: argparse.Namespace) -> None:
@@ -291,21 +419,23 @@ def cmd_inbox_wedge_report(args: argparse.Namespace) -> None:
         1 for receipt in receipts if receipt.decision.auto_approval_eligible
     )
 
-    _dump(
-        {
-            "total_receipts": len(receipts),
-            "states": dict(state_counts),
-            "actions": dict(action_counts),
-            "review_choices": dict(review_counts),
-            "provider_routes": dict(route_counts),
-            "executed_count": executed_count,
-            "auto_approved_count": auto_approved_count,
-            "eligible_auto_approve_count": eligible_auto_approve_count,
-            "average_confidence": _rounded_average(confidences),
-            "average_latency_seconds": _rounded_average(latencies),
-            "average_cost_usd": _rounded_average(costs),
-        }
-    )
+    summary = {
+        "total_receipts": len(receipts),
+        "states": dict(state_counts),
+        "actions": dict(action_counts),
+        "review_choices": dict(review_counts),
+        "provider_routes": dict(route_counts),
+        "executed_count": executed_count,
+        "auto_approved_count": auto_approved_count,
+        "eligible_auto_approve_count": eligible_auto_approve_count,
+        "average_confidence": _rounded_average(confidences),
+        "average_latency_seconds": _rounded_average(latencies),
+        "average_cost_usd": _rounded_average(costs),
+    }
+    if getattr(args, "json", False):
+        _dump(summary)
+    else:
+        _print_report_summary(summary)
 
 
 def cmd_inbox_wedge_export(args: argparse.Namespace) -> None:
