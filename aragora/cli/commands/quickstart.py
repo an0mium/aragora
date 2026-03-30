@@ -390,14 +390,20 @@ def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[
             "approved",
         }
 
+    agent_votes = payload.get("agent_votes")
+    if not isinstance(agent_votes, (list, dict)):
+        agent_votes = payload.get("votes")
+    if not isinstance(agent_votes, (list, dict)):
+        agent_votes = []
+
     votes = payload.get("votes")
     if not isinstance(votes, list):
-        votes = []
+        votes = agent_votes if isinstance(agent_votes, list) else []
 
     payload["receipt_id"] = receipt_id
     payload["consensus"] = bool(consensus)
     payload["consensus_reached"] = bool(consensus)
-    payload["agent_votes"] = votes
+    payload["agent_votes"] = agent_votes
     payload["votes"] = votes
     payload["artifact_path"] = str(artifact_path)
     return payload

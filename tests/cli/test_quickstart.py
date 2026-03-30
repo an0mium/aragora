@@ -24,6 +24,7 @@ from aragora.cli.commands.quickstart import (
     _get_question,
     _load_dotenv,
     _normalize_provider,
+    _normalize_json_result,
     _open_receipt_in_browser,
     _resolve_rounds,
     _run_demo_debate,
@@ -314,6 +315,25 @@ class TestReceiptFormatting:
 
         with patch("builtins.__import__", side_effect=fake_import):
             assert _open_receipt_in_browser(self.SAMPLE) is None
+
+    def test_normalize_json_result_preserves_existing_agent_votes(self, tmp_path):
+        artifact_path = tmp_path / "quickstart.json"
+        payload = _normalize_json_result(
+            {
+                "question": "Should quickstart emit JSON?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 1,
+                "mode": "live",
+                "agent_votes": {"alpha": "approve", "beta": "wait"},
+            },
+            artifact_path,
+        )
+
+        assert payload["agent_votes"] == {"alpha": "approve", "beta": "wait"}
+        assert payload["votes"] == []
+        assert payload["receipt_id"].startswith("quickstart-live-")
+        assert payload["artifact_path"] == str(artifact_path)
 
 
 class TestInlineApiKeys:
