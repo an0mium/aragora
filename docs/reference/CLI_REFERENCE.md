@@ -115,7 +115,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `templates` | - | List available debate templates | - |
 | `tenant` | - | Manage multi-tenant deployments | `activate`, `create`, `delete`, `export`, `list`, `quota-get`, `quota-set`, `suspend` |
 | `testfixer` | - | Run automated test-fix loop | - |
-| `triage` | - | Inbox triage via adversarial debate with receipt-gated actions | `auth`, `audit`, `calibrate`, `digest`, `label`, `queue`, `run`, `status` |
+| `triage` | - | Inbox triage via adversarial debate with receipt-gated actions | `audit`, `auth`, `calibrate`, `digest`, `label`, `queue`, `run`, `status` |
 | `validate` | - | Validate API keys by making test calls | - |
 | `validate-env` | - | Validate environment configuration and backend connectivity | - |
 | `verify` | - | Verify a decision receipt's integrity | - |
