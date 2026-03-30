@@ -525,6 +525,7 @@ def _choose_reusable_session(
     agent: str,
     session_id: str | None,
     active_paths: set[str],
+    active_branches_by_path: dict[str, str | None] | None = None,
 ) -> dict[str, Any] | None:
     sessions = state.get("sessions", [])
     candidates: list[dict[str, Any]] = []
@@ -536,6 +537,10 @@ def _choose_reusable_session(
         path = str(s.get("path", ""))
         if not path or path not in active_paths:
             continue
+        expected_branch = str(s.get("branch", "")).strip() or None
+        actual_branch = (active_branches_by_path or {}).get(path)
+        if expected_branch and actual_branch and actual_branch != expected_branch:
+            continue
         candidates.append(s)
 
     if not candidates:
@@ -546,6 +551,51 @@ def _choose_reusable_session(
 
     candidates.sort(key=sort_key, reverse=True)
     return candidates[0]
+
+
+def _evict_branch_mismatched_session(
+    repo_root: Path,
+    state: dict[str, Any],
+    *,
+    agent: str,
+    session_id: str | None,
+    active_branches_by_path: dict[str, str | None],
+) -> bool:
+    if not session_id:
+        return False
+
+    sessions = state.get("sessions", [])
+    if not isinstance(sessions, list):
+        return False
+
+    kept: list[dict[str, Any]] = []
+    evicted = False
+    for session in sessions:
+        if session.get("agent") != agent or session.get("session_id") != session_id:
+            kept.append(session)
+            continue
+
+        path = str(session.get("path", "")).strip()
+        expected_branch = str(session.get("branch", "")).strip() or None
+        actual_branch = active_branches_by_path.get(path)
+        if not path or not expected_branch or not actual_branch or actual_branch == expected_branch:
+            kept.append(session)
+            continue
+
+        worktree_path = Path(path)
+        if _has_active_session(worktree_path) or _has_active_lease(repo_root, worktree_path):
+            kept.append(session)
+            continue
+
+        removed = _remove_worktree(repo_root, worktree_path)
+        if not removed and worktree_path.exists():
+            kept.append(session)
+            continue
+        evicted = True
+
+    if evicted:
+        state["sessions"] = kept
+    return evicted
 
 
 def _create_managed_worktree(
@@ -617,6 +667,7 @@ def cmd_ensure(args: argparse.Namespace) -> int:
 
     entries = _get_worktree_entries(repo_root)
     active_paths = _active_path_set(entries)
+    active_branches_by_path = {str(entry.path): entry.branch for entry in entries}
     state = _load_state(state_file)
     state, _ = _prune_stale_state(state, active_paths)
 
@@ -627,7 +678,18 @@ def cmd_ensure(args: argparse.Namespace) -> int:
             agent=args.agent,
             session_id=args.session_id,
             active_paths=active_paths,
+            active_branches_by_path=active_branches_by_path,
         )
+        if session is None and _evict_branch_mismatched_session(
+            repo_root,
+            state,
+            agent=args.agent,
+            session_id=args.session_id,
+            active_branches_by_path=active_branches_by_path,
+        ):
+            entries = _get_worktree_entries(repo_root)
+            active_paths = _active_path_set(entries)
+            active_branches_by_path = {str(entry.path): entry.branch for entry in entries}
 
     ttl = timedelta(hours=DEFAULT_TTL_HOURS)
     created = False
