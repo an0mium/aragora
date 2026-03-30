@@ -392,7 +392,7 @@ class GauntletOrchestrator:
             agents: Agents to participate in stress-testing (default: empty list)
             run_agent_fn: Optional function to run agents (async callable)
             on_progress: Optional callback for progress updates
-            nomic_dir: Directory for nomic state (default: .nomic)
+            nomic_dir: Directory for nomic state (default: resolved runtime data dir)
             on_phase_complete: Callback invoked when a phase completes
             on_finding: Callback invoked when a finding is discovered
         """
