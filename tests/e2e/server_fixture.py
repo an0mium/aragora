@@ -43,6 +43,7 @@ class LiveServerInfo:
     ws_port: int
     control_plane_port: int
     nomic_loop_port: int
+    canvas_port: int
     host: str = "127.0.0.1"
 
     @property
@@ -161,6 +162,7 @@ async def live_server(
     ws_port = find_free_port()
     control_plane_port = find_free_port()
     nomic_loop_port = find_free_port()
+    canvas_port = find_free_port()
 
     # Create isolated nomic directory
     nomic_dir = tmp_path / ".nomic"
@@ -171,6 +173,7 @@ async def live_server(
         ws_port=ws_port,
         control_plane_port=control_plane_port,
         nomic_loop_port=nomic_loop_port,
+        canvas_port=canvas_port,
     )
 
     # Import server module
@@ -182,6 +185,7 @@ async def live_server(
         ws_port=ws_port,
         control_plane_port=control_plane_port,
         nomic_loop_port=nomic_loop_port,
+        canvas_port=canvas_port,
         http_host="127.0.0.1",
         ws_host="127.0.0.1",
         nomic_dir=nomic_dir,
