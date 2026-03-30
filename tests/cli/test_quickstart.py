@@ -96,6 +96,20 @@ class TestQuickstartParser:
             args = parser.parse_args(["quickstart", "--format", fmt])
             assert args.format == fmt
 
+    def test_parser_json_flag(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--json"])
+        assert args.json is True
+
+    def test_parser_json_flag_default_false(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--demo"])
+        assert args.json is False
+
 
 # =============================================================================
 # Agent detection
@@ -1146,3 +1160,114 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Live debate failed: Live debate timed out after 120s" in output
         assert "Mode:       Demo" in output
+
+    def test_json_flag_outputs_structured_json(self, capsys):
+        """Test --json flag prints structured JSON to stdout and exits early."""
+        args = argparse.Namespace(
+            question="Should we use JSON?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=2,
+            no_browser=True,
+            json=True,
+        )
+        with patch(
+            "aragora.cli.commands.quickstart._run_demo_debate",
+            return_value={
+                "question": "Should we use JSON?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 2,
+                "agents": ["analyst", "critic", "synthesizer"],
+                "summary": "Use JSON for structured output.",
+                "dissent": [],
+                "mode": "demo",
+            },
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr().out
+        data = json.loads(output)
+        assert "receipt_id" in data
+        assert data["consensus"] is False  # demo has no consensus_proof
+        assert data["confidence"] == 0.85
+        assert data["verdict"] == "consensus"
+        assert data["agents"] == ["analyst", "critic", "synthesizer"]
+        assert data["mode"] == "demo"
+        assert data["question"] == "Should we use JSON?"
+        assert data["rounds"] == 2
+        assert "elapsed_seconds" in data
+        assert "summary" in data
+        # Should NOT contain human-readable banner
+        assert "QUICKSTART" not in output.split("\n")[-2]  # last non-empty line is JSON
+
+    def test_json_flag_includes_receipt_id(self, capsys):
+        """Test --json includes receipt_id from live debate results."""
+        args = argparse.Namespace(
+            question="Should we ship receipts?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=1,
+            no_browser=True,
+            json=True,
+        )
+        with patch(
+            "aragora.cli.commands.quickstart._run_demo_debate",
+            return_value={
+                "question": "Should we ship receipts?",
+                "verdict": "PASS",
+                "confidence": 0.93,
+                "rounds": 1,
+                "agents": ["analyst", "critic"],
+                "summary": "Ship it.",
+                "dissent": [],
+                "mode": "demo",
+                "receipt_id": "quickstart-abc123",
+                "consensus_proof": {"reached": True},
+            },
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr().out
+        data = json.loads(output)
+        assert data["receipt_id"] == "quickstart-abc123"
+        assert data["consensus"] is True
+
+    def test_json_flag_skips_file_save_and_browser(self, tmp_path, capsys):
+        """Test --json does not save receipt files or open browser."""
+        args = argparse.Namespace(
+            question="JSON only?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=1,
+            no_browser=True,
+            json=True,
+        )
+        with patch(
+            "aragora.cli.commands.quickstart._run_demo_debate",
+            return_value={
+                "question": "JSON only?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 1,
+                "agents": ["analyst"],
+                "summary": "JSON only.",
+                "dissent": [],
+                "mode": "demo",
+            },
+        ):
+            with patch("aragora.cli.commands.quickstart._save_receipt") as mock_save:
+                cmd_quickstart(args)
+                mock_save.assert_not_called()

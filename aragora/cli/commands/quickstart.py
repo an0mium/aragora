@@ -143,6 +143,7 @@ Examples:
     qs_parser.add_argument(
         "--question",
         "-q",
+        "--topic",
         help="The question to debate (uses a default if omitted with --demo)",
     )
     qs_parser.add_argument(
@@ -189,6 +190,12 @@ Examples:
         "--no-browser",
         action="store_true",
         help="Don't open receipt in browser (for CI/headless environments)",
+    )
+    qs_parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Print structured JSON result to stdout instead of human-readable text",
     )
     qs_parser.set_defaults(func=cmd_quickstart)
 
@@ -861,23 +868,31 @@ async def _filter_reachable_live_agents(
 
 def cmd_quickstart(args: argparse.Namespace) -> None:
     """Handle the 'quickstart' command."""
-    print("\n" + "=" * 60)
-    print("  ARAGORA QUICKSTART")
-    print("  Zero-to-receipt adversarial debate")
-    print("=" * 60)
+    json_mode = getattr(args, "json", False)
+
+    def _print(*a: Any, **kw: Any) -> None:
+        """Print helper that sends output to stderr in --json mode."""
+        if json_mode:
+            kw.setdefault("file", sys.stderr)
+        print(*a, **kw)
+
+    _print("\n" + "=" * 60)
+    _print("  ARAGORA QUICKSTART")
+    _print("  Zero-to-receipt adversarial debate")
+    _print("=" * 60)
 
     # Step 1: Load .env
     loaded = _load_dotenv()
     if loaded:
-        print("\n[+] Loaded .env configuration")
+        _print("\n[+] Loaded .env configuration")
 
     # Step 2: Get question
     question = _get_question(args)
     if not question:
-        print("\nNo question provided. Exiting.")
+        _print("\nNo question provided. Exiting.")
         sys.exit(1)
 
-    print(f"\nQuestion: {question}")
+    _print(f"\nQuestion: {question}")
 
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)
@@ -891,29 +906,29 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             save_key=getattr(args, "save_key", False),
         )
     except (RuntimeError, ValueError) as exc:
-        print(f"\n[!] Quickstart configuration failed: {exc}")
+        _print(f"\n[!] Quickstart configuration failed: {exc}")
         sys.exit(1)
 
     if saved_key:
-        print(
+        _print(
             "\n[+] Saved "
             f"{saved_key['env_var']} to secure store ({saved_key['backend']}) as {saved_key['masked_value']}"
         )
 
     if use_demo:
-        print("\n[*] Run mode: demo (requested with --demo)")
-        print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+        _print("\n[*] Run mode: demo (requested with --demo)")
+        _print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
         try:
             detected = _detect_agents(normalized_provider)
         except ValueError as exc:
-            print(f"\n[!] Quickstart configuration failed: {exc}")
+            _print(f"\n[!] Quickstart configuration failed: {exc}")
             sys.exit(1)
         if not detected:
-            print("\n[!] No supported API keys detected. Falling back to demo mode.")
-            print("    This run will use local mock agents, not live model calls.")
-            print("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
-            print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+            _print("\n[!] No supported API keys detected. Falling back to demo mode.")
+            _print("    This run will use local mock agents, not live model calls.")
+            _print("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
+            _print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
         else:
             preview_team = _build_live_team(
@@ -922,10 +937,10 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 api_key=inline_api_key,
             )
             providers = list(dict.fromkeys(str(member["provider"]) for member in preview_team))
-            print("\n[+] Run mode: live")
-            print(f"    Agents: {', '.join(providers)}")
+            _print("\n[+] Run mode: live")
+            _print(f"    Agents: {', '.join(providers)}")
 
-    print(f"[*] Running {rounds}-round debate...\n")
+    _print(f"[*] Running {rounds}-round debate...\n")
 
     # Step 4: Run debate
     start_time = time.monotonic()
@@ -945,23 +960,47 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
         if _is_tls_verification_failure(e):
-            print("\n[!] Provider TLS check failed. Falling back to demo mode.")
-            print("    Check the local CA trust store for live debates.")
+            _print("\n[!] Provider TLS check failed. Falling back to demo mode.")
+            _print("    Check the local CA trust store for live debates.")
         elif "No live" in str(e) or "no live" in str(e):
-            print("\n[!] No live providers available. Falling back to demo mode.")
+            _print("\n[!] No live providers available. Falling back to demo mode.")
         else:
-            print(f"\n[!] Live debate failed: {e}")
-            print("    Falling back to demo mode.")
+            _print(f"\n[!] Live debate failed: {e}")
+            _print("    Falling back to demo mode.")
         # Fall back to demo — the user should always get a result
         try:
             result = _run_sync(_run_demo_debate(question, rounds))
         except (OSError, RuntimeError, ValueError) as demo_err:
             logger.debug("Demo debate also failed: %s", demo_err)
-            print(f"\n[!] Demo debate also failed: {demo_err}")
+            _print(f"\n[!] Demo debate also failed: {demo_err}")
             sys.exit(1)
 
     elapsed = time.monotonic() - start_time
     result["elapsed_seconds"] = elapsed
+
+    # --json: emit structured JSON to stdout and exit early
+    if getattr(args, "json", False):
+        consensus_reached = False
+        if "consensus_proof" in result:
+            consensus_reached = bool(result["consensus_proof"].get("reached"))
+        json_output: dict[str, Any] = {
+            "receipt_id": result.get("receipt_id", ""),
+            "consensus": consensus_reached,
+            "confidence": result.get("confidence", 0.0),
+            "verdict": result.get("verdict", ""),
+            "agents": result.get("agents", []),
+            "agent_votes": result.get("votes", []),
+            "rounds": result.get("rounds", 0),
+            "mode": result.get("mode", "demo"),
+            "question": result.get("question", ""),
+            "elapsed_seconds": elapsed,
+        }
+        if result.get("summary"):
+            json_output["summary"] = result["summary"]
+        if result.get("dissent"):
+            json_output["dissent"] = result["dissent"]
+        print(json.dumps(json_output, default=str))
+        return
 
     # Step 5: Display results
     print("=" * 60)
