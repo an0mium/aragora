@@ -944,6 +944,18 @@ class TestLocalRunnerRegistry:
         assert decision.is_blocked is False
         assert decision.selected_runner_ids == ["claude-runner-1"]
 
+    def test_save_ignores_preexisting_fixed_temp_file(self, tmp_path: Path) -> None:
+        registry_path = tmp_path / "swarm-runners.json"
+        registry = LocalRunnerRegistry(path=registry_path)
+        stale_temp = registry_path.with_suffix(registry_path.suffix + ".tmp")
+        stale_temp.write_text("stale-temp", encoding="utf-8")
+
+        registry._save({"registrations": [{"runner_id": "claude-runner-1"}]})
+
+        payload = json.loads(registry_path.read_text(encoding="utf-8"))
+        assert payload["registrations"][0]["runner_id"] == "claude-runner-1"
+        assert stale_temp.read_text(encoding="utf-8") == "stale-temp"
+
     def test_requested_runner_capacity_is_not_masked_by_other_type_staleness(
         self, tmp_path: Path
     ) -> None:

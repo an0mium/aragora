@@ -11,6 +11,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import tempfile
 from typing import Any
 
 from aragora.rbac.models import AuthorizationContext
@@ -1780,9 +1781,23 @@ class LocalRunnerRegistry:
 
     def _save(self, data: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
-        temp_path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-        temp_path.replace(self.path)
+        payload = json.dumps(data, indent=2, sort_keys=True)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=f"{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(payload)
+                temp_path = Path(handle.name)
+            temp_path.replace(self.path)
+        finally:
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
 
 
 def authorization_context_from_env(
