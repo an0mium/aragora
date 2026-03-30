@@ -88,6 +88,11 @@ Examples:
     list_p.add_argument(
         "--verdict", choices=["pass", "fail", "conditional"], help="Filter by verdict"
     )
+    list_p.add_argument(
+        "--kind",
+        choices=["inbox", "decision", "other"],
+        help="Filter by receipt kind",
+    )
     list_p.add_argument("--org-id", help="Filter by organization ID")
     list_p.set_defaults(func=cmd_receipt_list)
 
@@ -278,6 +283,24 @@ def _normalize_receipt_payload_for_display(data: dict[str, Any]) -> dict[str, An
     normalized["verdict"] = verdict
     normalized["confidence"] = confidence
     return normalized
+
+
+def _receipt_kind(meta: Any) -> str:
+    """Classify receipts for operator-facing list output."""
+    data = _receipt_payload_dict(meta)
+    if "action_intent" in data or "triage_decision" in data:
+        return "inbox"
+    if any(
+        key in data
+        for key in (
+            "consensus_proof",
+            "risk_summary",
+            "agent_responses",
+            "verdict_reasoning",
+        )
+    ):
+        return "decision"
+    return "other"
 
 
 def _load_storage_receipt_list(limit: int, verdict: str | None) -> list[Any]:
@@ -698,6 +721,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     """List recent decision receipts from the database."""
     limit = getattr(args, "limit", 20)
     verdict = getattr(args, "verdict", None)
+    kind = getattr(args, "kind", None)
     org_id = getattr(args, "org_id", None)
 
     results: list[Any] = []
@@ -729,16 +753,20 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
             print(f"Error: Could not access receipt database: {storage_error}", file=sys.stderr)
             sys.exit(1)
 
+    if kind:
+        results = [meta for meta in results if _receipt_kind(meta) == kind]
+
     if not results:
         print("No receipts found.")
         return
 
-    print(f"{'ID':<14} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
-    print("-" * 64)
+    print(f"{'ID':<14} {'TYPE':<10} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
+    print("-" * 75)
     for meta in results:
         payload = _receipt_payload_dict(meta)
         row_id = _receipt_row_id(meta)
         short_id = row_id[:12] + ".." if len(row_id) > 14 else row_id
+        receipt_kind = _receipt_kind(meta)
         created = _format_receipt_created_at(getattr(meta, "created_at", None))
         findings = _receipt_findings_count(meta)
         verdict_value, confidence = _normalize_receipt_verdict_and_confidence(
@@ -746,7 +774,9 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
             verdict=getattr(meta, "verdict", None),
             confidence=getattr(meta, "confidence", None),
         )
-        print(f"{short_id:<14} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}")
+        print(
+            f"{short_id:<14} {receipt_kind:<10} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}"
+        )
     print(f"\n{len(results)} receipt(s) shown.")
 
 

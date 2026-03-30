@@ -46,10 +46,11 @@ def test_receipt_list_reads_durable_store_by_default(capsys: pytest.CaptureFixtu
 
     with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
         with patch("aragora.cli.commands.receipt._load_legacy_receipt_list") as legacy_loader:
-            cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, org_id=None))
+            cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, kind=None, org_id=None))
 
     output = capsys.readouterr().out
     assert "rcpt-quickst.." in output
+    assert "decision" in output
     assert "PASS" in output
     assert "2" in output
     legacy_loader.assert_not_called()
@@ -71,10 +72,11 @@ def test_receipt_list_falls_back_to_legacy_when_durable_empty(
             "aragora.cli.commands.receipt._load_legacy_receipt_list",
             return_value=[legacy_row],
         ):
-            cmd_receipt_list(argparse.Namespace(limit=5, verdict="fail", org_id=None))
+            cmd_receipt_list(argparse.Namespace(limit=5, verdict="fail", kind=None, org_id=None))
 
     output = capsys.readouterr().out
     assert "gauntlet-leg.." in output
+    assert "other" in output
     assert "FAIL" in output
     assert "4" in output
 
@@ -98,11 +100,42 @@ def test_receipt_list_normalizes_trust_wedge_receipts(
     )
 
     with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
-        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, org_id=None))
+        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, kind=None, org_id=None))
 
     output = capsys.readouterr().out
+    assert "inbox" in output
     assert "BLOCKED" in output
     assert "73%" in output
+
+
+def test_receipt_list_filters_by_kind(capsys: pytest.CaptureFixture[str]) -> None:
+    inbox = _StoredReceiptStub(
+        receipt_id="rcpt-inbox-123",
+        gauntlet_id="rcpt-inbox-123",
+        verdict="CONDITIONAL",
+        confidence=0.95,
+        created_at=1711300000.0,
+        data={"action_intent": {}, "triage_decision": {}},
+    )
+    decision = _StoredReceiptStub(
+        receipt_id="rcpt-decision-456",
+        gauntlet_id="rcpt-decision-456",
+        verdict="PASS",
+        confidence=0.85,
+        created_at=1711300001.0,
+        data={"consensus_proof": {}, "agent_responses": []},
+    )
+
+    with patch(
+        "aragora.cli.commands.receipt._load_storage_receipt_list",
+        return_value=[inbox, decision],
+    ):
+        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, kind="inbox", org_id=None))
+
+    output = capsys.readouterr().out
+    assert "rcpt-inbox-123" in output
+    assert "inbox" in output
+    assert "rcpt-decisio.." not in output
 
 
 def test_receipt_show_reads_durable_store_by_receipt_id(
