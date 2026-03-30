@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sqlite3
 import tempfile
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -447,10 +449,8 @@ class TestDebateAnalyticsInit:
         assert os.path.exists(analytics.db_path)
 
     def test_creates_tables(self, tmp_db_path):
-        import sqlite3
-
         analytics = DebateAnalytics(db_path=tmp_db_path)
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = [row[0] for row in cursor.fetchall()]
         assert "debate_records" in tables
@@ -459,8 +459,6 @@ class TestDebateAnalyticsInit:
 
     @pytest.mark.asyncio
     async def test_sqlite_connections_are_closed(self, tmp_db_path, monkeypatch):
-        import sqlite3
-
         connect_calls: list[sqlite3.Connection] = []
         close_calls: list[sqlite3.Connection] = []
         original_connect = sqlite3.connect
@@ -513,9 +511,7 @@ class TestDebateAnalyticsRecordDebate:
             total_cost=Decimal("0.50"),
         )
 
-        import sqlite3
-
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM debate_records").fetchone()
         assert row["debate_id"] == "d1"
@@ -536,9 +532,7 @@ class TestDebateAnalyticsRecordDebate:
             status="failed",
         )
 
-        import sqlite3
-
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             row = conn.execute("SELECT * FROM debate_records").fetchone()
         assert row[4] == "failed"  # status column
         assert row[14] is None  # completed_at is None for failed
@@ -563,9 +557,7 @@ class TestDebateAnalyticsRecordAgentActivity:
             model="claude-3",
         )
 
-        import sqlite3
-
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM agent_records").fetchone()
         assert row["agent_id"] == "claude"
@@ -583,9 +575,7 @@ class TestDebateAnalyticsRecordAgentActivity:
             error=True,
         )
 
-        import sqlite3
-
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM agent_records").fetchone()
         assert row["error"] == 1
@@ -597,9 +587,7 @@ class TestDebateAnalyticsRecordElo:
         analytics = DebateAnalytics(db_path=tmp_db_path)
         await analytics.record_elo_update("claude", 1650.0, debate_id="d1")
 
-        import sqlite3
-
-        with sqlite3.connect(analytics.db_path) as conn:
+        with closing(sqlite3.connect(analytics.db_path)) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM elo_records").fetchone()
         assert row["agent_id"] == "claude"
