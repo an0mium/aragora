@@ -9,7 +9,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
+
+# Ensure the local checkout wins over any globally installed Aragora package.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# OpenAPI export is an offline docs task; do not reach out to Secrets Manager.
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 from aragora.server.openapi import generate_openapi_schema
 
