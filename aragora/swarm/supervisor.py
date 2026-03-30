@@ -517,7 +517,7 @@ class SwarmSupervisor:
                 )
 
         if changed:
-            self.store.update_supervisor_run(run_id, record)
+            self.store.update_supervisor_run(run_id, work_orders=record.get("work_orders"))
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""

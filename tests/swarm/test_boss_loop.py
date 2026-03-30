@@ -2144,3 +2144,95 @@ class TestDiscoverFocusedTests:
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
         assert len(paths) == 2
+
+
+# ---------------------------------------------------------------------------
+# Runner heartbeat refresh tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunnerHeartbeatRefresh:
+    """Verify that the boss loop refreshes runner heartbeats each iteration."""
+
+    def test_heartbeats_refreshed_each_iteration(self, tmp_path):
+        """_refresh_runner_heartbeats updates updated_at so runners stay fresh."""
+        import json as _json
+
+        registry_path = str(tmp_path / "runners.json")
+        old_ts = "2025-01-01T00:00:00+00:00"
+        _json.dump(
+            {
+                "registrations": [
+                    {
+                        "runner_id": "codex-runner-1",
+                        "runner_type": "codex",
+                        "availability": "ready",
+                        "available": True,
+                        "auth_mode": "api_key",
+                        "registered": True,
+                        "registered_at": old_ts,
+                        "updated_at": old_ts,
+                        "heartbeat_at": old_ts,
+                        "owner_binding": {
+                            "user_id": "u1",
+                            "workspace_id": "w1",
+                        },
+                    }
+                ]
+            },
+            open(registry_path, "w"),
+        )
+
+        config = _boss_config(registry_path=registry_path)
+        loop = BossLoop(
+            config=config,
+            env={"ARAGORA_USER_ID": "u1", "ARAGORA_WORKSPACE_ID": "w1"},
+        )
+
+        loop._refresh_runner_heartbeats()
+
+        with open(registry_path) as f:
+            data = _json.load(f)
+
+        reg = data["registrations"][0]
+        assert reg["updated_at"] != old_ts, "updated_at should be refreshed"
+        assert reg["heartbeat_at"] != old_ts, "heartbeat_at should be refreshed"
+
+    def test_heartbeat_refresh_called_during_run(self, tmp_path):
+        """The main run() loop calls _refresh_runner_heartbeats each iteration."""
+        feed = MagicMock()
+        feed.fetch.return_value = [_make_issue()]
+
+        config = _boss_config(max_iterations=2)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        refresh_calls: list[int] = []
+        original_refresh = loop._refresh_runner_heartbeats
+
+        def _tracking_refresh():
+            refresh_calls.append(1)
+
+        loop._refresh_runner_heartbeats = _tracking_refresh
+
+        async def _complete_dispatch(issue, freshness):
+            return {"status": "completed", "deliverable": "done"}
+
+        loop._dispatch_issue = _complete_dispatch
+
+        asyncio.run(loop.run())
+
+        assert len(refresh_calls) == 2, (
+            f"Expected 2 heartbeat refreshes (one per iteration), got {len(refresh_calls)}"
+        )
+
+    def test_heartbeat_refresh_skipped_without_owner_context(self, tmp_path):
+        """Without ARAGORA_USER_ID, heartbeat refresh is a no-op (no crash)."""
+        config = _boss_config(registry_path=str(tmp_path / "runners.json"))
+        loop = BossLoop(config=config, env={})
+
+        # Should not raise
+        loop._refresh_runner_heartbeats()
