@@ -70,6 +70,146 @@ class ReceiptVerification:
     proof_hash: str | None = None
 
 
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    """Best-effort float coercion for legacy receipt fields."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    """Best-effort int coercion for legacy receipt fields."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _render_cost_summary_markdown(cost_summary: dict[str, Any] | None) -> list[str]:
+    """Render a legacy cost summary section for Markdown exports."""
+    if not cost_summary:
+        return []
+
+    lines = [
+        "---",
+        "",
+        "## Cost Breakdown",
+        "",
+        f"- **Total Cost:** ${cost_summary.get('total_cost_usd', '0')}",
+        f"- **Tokens In:** {cost_summary.get('total_tokens_in', 0)}",
+        f"- **Tokens Out:** {cost_summary.get('total_tokens_out', 0)}",
+        f"- **Total Calls:** {cost_summary.get('total_calls', 0)}",
+        "",
+    ]
+
+    per_agent = cost_summary.get("per_agent") or {}
+    if per_agent:
+        lines.extend(
+            [
+                "### Per-Agent Costs",
+                "",
+                "| Agent | Cost (USD) | Tokens In | Tokens Out | Calls |",
+                "|-------|------------|-----------|------------|-------|",
+            ]
+        )
+        for agent_name, payload in per_agent.items():
+            if not isinstance(payload, dict):
+                continue
+            lines.append(
+                f"| {agent_name} | ${payload.get('total_cost_usd', '0')} | "
+                f"{payload.get('total_tokens_in', 0)} | {payload.get('total_tokens_out', 0)} | "
+                f"{payload.get('call_count', 0)} |"
+            )
+        lines.append("")
+
+    model_usage = cost_summary.get("model_usage") or {}
+    if model_usage:
+        lines.extend(
+            [
+                "### Model Usage",
+                "",
+                "| Model | Cost (USD) | Calls |",
+                "|-------|------------|-------|",
+            ]
+        )
+        for model_name, payload in model_usage.items():
+            if not isinstance(payload, dict):
+                continue
+            lines.append(
+                f"| {model_name} | ${payload.get('total_cost_usd', '0')} | "
+                f"{payload.get('call_count', 0)} |"
+            )
+        lines.append("")
+
+    return lines
+
+
+def _render_cost_summary_html(cost_summary: dict[str, Any] | None) -> str:
+    """Render a legacy cost summary section for HTML exports."""
+    if not cost_summary:
+        return ""
+
+    esc = html_mod.escape
+    per_agent_rows = ""
+    for agent_name, payload in (cost_summary.get("per_agent") or {}).items():
+        if not isinstance(payload, dict):
+            continue
+        per_agent_rows += (
+            "<tr>"
+            f"<td>{esc(str(agent_name))}</td>"
+            f"<td>${esc(str(payload.get('total_cost_usd', '0')))}</td>"
+            f"<td>{esc(str(payload.get('total_tokens_in', 0)))}</td>"
+            f"<td>{esc(str(payload.get('total_tokens_out', 0)))}</td>"
+            f"<td>{esc(str(payload.get('call_count', 0)))}</td>"
+            "</tr>"
+        )
+
+    model_usage_rows = ""
+    for model_name, payload in (cost_summary.get("model_usage") or {}).items():
+        if not isinstance(payload, dict):
+            continue
+        model_usage_rows += (
+            "<tr>"
+            f"<td>{esc(str(model_name))}</td>"
+            f"<td>${esc(str(payload.get('total_cost_usd', '0')))}</td>"
+            f"<td>{esc(str(payload.get('call_count', 0)))}</td>"
+            "</tr>"
+        )
+
+    per_agent_html = ""
+    if per_agent_rows:
+        per_agent_html = f"""
+        <h3>Per-Agent Costs</h3>
+        <table>
+            <tr><th>Agent</th><th>Cost (USD)</th><th>Tokens In</th><th>Tokens Out</th><th>Calls</th></tr>
+            {per_agent_rows}
+        </table>
+        """
+
+    model_usage_html = ""
+    if model_usage_rows:
+        model_usage_html = f"""
+        <h3>Model Usage</h3>
+        <table>
+            <tr><th>Model</th><th>Cost (USD)</th><th>Calls</th></tr>
+            {model_usage_rows}
+        </table>
+        """
+
+    return f"""
+    <div class="section">
+        <h2>Cost Breakdown</h2>
+        <p><strong>Total Cost:</strong> ${esc(str(cost_summary.get("total_cost_usd", "0")))}</p>
+        <p><strong>Tokens In:</strong> {esc(str(cost_summary.get("total_tokens_in", 0)))}</p>
+        <p><strong>Tokens Out:</strong> {esc(str(cost_summary.get("total_tokens_out", 0)))}</p>
+        <p><strong>Total Calls:</strong> {esc(str(cost_summary.get("total_calls", 0)))}</p>
+        {per_agent_html}
+        {model_usage_html}
+    </div>
+    """
+
+
 @dataclass
 class DecisionReceipt:
     """
@@ -156,6 +296,7 @@ class DecisionReceipt:
     cost_usd: float = 0.0
     tokens_used: int = 0
     budget_limit_usd: float | None = None
+    cost_summary: dict[str, Any] | None = None
 
     def __post_init__(self):
         if not self.checksum:
@@ -215,6 +356,7 @@ class DecisionReceipt:
             "cost_usd": self.cost_usd,
             "tokens_used": self.tokens_used,
             "budget_limit_usd": self.budget_limit_usd,
+            "cost_summary": self.cost_summary,
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -328,6 +470,8 @@ class DecisionReceipt:
             for m in self.mitigations:
                 lines.append(f"- {m}")
             lines.append("")
+
+        lines.extend(_render_cost_summary_markdown(self.cost_summary))
 
         # Dissenting views
         if self.dissenting_views:
@@ -451,6 +595,7 @@ class DecisionReceipt:
             </div>
             """
 
+        cost_summary_html = _render_cost_summary_html(self.cost_summary)
         esc = html_mod.escape
         return f"""<!DOCTYPE html>
 <html>
@@ -519,6 +664,8 @@ class DecisionReceipt:
         <h2>All Findings</h2>
         {findings_html if findings_html else "<p>No findings.</p>"}
     </div>
+
+    {cost_summary_html}
 
     <div class="section">
         <h2>Audit Trail</h2>
@@ -955,6 +1102,7 @@ class DecisionReceipt:
         result: DebateResult,
         include_cost: bool = True,
         cost_data: dict[str, Any] | None = None,
+        cost_summary: dict[str, Any] | None = None,
     ) -> DecisionReceipt:
         """
         Generate a DecisionReceipt from a standard DebateResult.
@@ -966,6 +1114,7 @@ class DecisionReceipt:
             result: The DebateResult from a completed debate
             include_cost: Whether to include cost data in the receipt
             cost_data: Optional dict with cost_usd, tokens_used, budget_limit_usd
+            cost_summary: Optional rich breakdown dict with per-agent/model totals
 
         Returns:
             DecisionReceipt suitable for audit trail
@@ -1005,16 +1154,34 @@ class DecisionReceipt:
         cost_usd = 0.0
         tokens_used = 0
         budget_limit_usd = None
+        normalized_cost_summary: dict[str, Any] | None = None
 
         if include_cost:
-            if cost_data:
-                cost_usd = cost_data.get("cost_usd", 0.0)
-                tokens_used = cost_data.get("tokens_used", 0)
+            if isinstance(cost_summary, dict):
+                normalized_cost_summary = cost_summary
+            elif isinstance(cost_data, dict) and (
+                "per_agent" in cost_data
+                or "per_round" in cost_data
+                or "model_usage" in cost_data
+                or "total_cost_usd" in cost_data
+            ):
+                normalized_cost_summary = cost_data
+            elif isinstance(getattr(result, "cost_summary", None), dict):
+                normalized_cost_summary = result.cost_summary
+
+            if normalized_cost_summary:
+                cost_usd = _coerce_float(normalized_cost_summary.get("total_cost_usd"), 0.0)
+                tokens_used = _coerce_int(
+                    normalized_cost_summary.get("total_tokens_in")
+                ) + _coerce_int(normalized_cost_summary.get("total_tokens_out"))
+            elif cost_data:
+                cost_usd = _coerce_float(cost_data.get("cost_usd"), 0.0)
+                tokens_used = _coerce_int(cost_data.get("tokens_used"), 0)
                 budget_limit_usd = cost_data.get("budget_limit_usd")
             elif hasattr(result, "total_cost_usd"):
-                cost_usd = result.total_cost_usd
-                tokens_used = result.total_tokens
-                budget_limit_usd = result.budget_limit_usd
+                cost_usd = _coerce_float(getattr(result, "total_cost_usd", 0.0), 0.0)
+                tokens_used = _coerce_int(getattr(result, "total_tokens", 0), 0)
+                budget_limit_usd = getattr(result, "budget_limit_usd", None)
 
         # Convert critiques to findings (high severity by default)
         findings = []
@@ -1089,6 +1256,7 @@ class DecisionReceipt:
             cost_usd=cost_usd,
             tokens_used=tokens_used,
             budget_limit_usd=budget_limit_usd,
+            cost_summary=normalized_cost_summary,
         )
 
 

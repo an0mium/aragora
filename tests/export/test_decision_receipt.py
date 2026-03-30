@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -260,6 +261,21 @@ class TestDecisionReceipt:
         assert len(result["dissenting_views"]) == 1
         assert len(result["verified_claims"]) == 1
 
+    def test_to_dict_includes_cost_summary(self, basic_receipt: DecisionReceipt):
+        """Legacy receipts preserve rich cost breakdowns in JSON payloads."""
+        basic_receipt.cost_summary = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+            "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
+        }
+
+        result = basic_receipt.to_dict()
+
+        assert result["cost_summary"] is not None
+        assert result["cost_summary"]["total_cost_usd"] == "0.0234"
+
     def test_to_json(self, basic_receipt: DecisionReceipt):
         """Test JSON serialization."""
         json_str = basic_receipt.to_json()
@@ -288,6 +304,26 @@ class TestDecisionReceipt:
         assert "SQL Injection" in md  # Critical finding
         assert "N+1 Query" in md  # High finding
 
+    def test_to_markdown_includes_cost_summary(self, basic_receipt: DecisionReceipt):
+        """Markdown export renders the cost breakdown section when present."""
+        basic_receipt.cost_summary = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+            "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
+            "model_usage": {
+                "anthropic/claude-sonnet-4": {"total_cost_usd": "0.015", "call_count": 3}
+            },
+        }
+
+        md = basic_receipt.to_markdown()
+
+        assert "## Cost Breakdown" in md
+        assert "$0.0234" in md
+        assert "### Per-Agent Costs" in md
+        assert "### Model Usage" in md
+
     def test_to_markdown_with_dissent(self, detailed_receipt: DecisionReceipt):
         """Test Markdown includes dissenting views."""
         md = detailed_receipt.to_markdown()
@@ -312,6 +348,22 @@ class TestDecisionReceipt:
         assert "<title>Decision Receipt" in html
         assert "test-receipt-123" in html
         assert "APPROVED" in html
+
+    def test_to_html_includes_cost_summary(self, basic_receipt: DecisionReceipt):
+        """HTML export renders the cost breakdown section when present."""
+        basic_receipt.cost_summary = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+            "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
+        }
+
+        html = basic_receipt.to_html()
+
+        assert "Cost Breakdown" in html
+        assert "$0.0234" in html
+        assert "Per-Agent Costs" in html
 
     def test_to_html_verdict_colors(self):
         """Test HTML uses correct colors for different verdicts."""
@@ -381,6 +433,51 @@ class TestDecisionReceipt:
         assert loaded.verdict == detailed_receipt.verdict
         assert len(loaded.findings) == len(detailed_receipt.findings)
         assert len(loaded.dissenting_views) == len(detailed_receipt.dissenting_views)
+
+    def test_from_dict_preserves_cost_summary(self, basic_receipt: DecisionReceipt):
+        """Legacy receipts round-trip stored cost summaries without crashing."""
+        basic_receipt.cost_summary = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+            "per_agent": {"claude": {"total_cost_usd": "0.015", "call_count": 3}},
+        }
+
+        loaded = DecisionReceipt.from_dict(basic_receipt.to_dict())
+
+        assert loaded.cost_summary is not None
+        assert loaded.cost_summary["total_cost_usd"] == "0.0234"
+
+    def test_from_debate_result_accepts_cost_summary(self):
+        """from_debate_result stays compatible with rich cost_summary callers."""
+        result = SimpleNamespace(
+            confidence=0.8,
+            critiques=[],
+            dissenting_views=[],
+            debate_id="d-1",
+            id="d-1",
+            task="Design a rate limiter",
+            consensus_reached=True,
+            participants=["claude", "codex"],
+            rounds_completed=2,
+            duration_seconds=12.5,
+        )
+
+        receipt = DecisionReceipt.from_debate_result(
+            result,
+            cost_summary={
+                "total_cost_usd": "0.0234",
+                "total_tokens_in": 3000,
+                "total_tokens_out": 1000,
+                "total_calls": 6,
+            },
+        )
+
+        assert receipt.cost_summary is not None
+        assert receipt.cost_summary["total_cost_usd"] == "0.0234"
+        assert receipt.cost_usd == pytest.approx(0.0234)
+        assert receipt.tokens_used == 4000
 
     def test_load_from_file(self, basic_receipt: DecisionReceipt):
         """Test loading from saved file."""
