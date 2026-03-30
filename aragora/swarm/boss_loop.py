@@ -2341,6 +2341,18 @@ class BossLoop:
             user_expertise="developer",
         )
         validation_contract = extract_issue_validation_contract(issue.body)
+        if not self.config.dispatch_enabled:
+            return {
+                "status": "needs_human",
+                "outcome": "preview_only",
+                "reasons": [
+                    f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
+                ],
+                "next_actions": [
+                    "Review the selected issue and derived validation contract.",
+                    "Rerun without --no-dispatch to execute the bounded Boss loop lane.",
+                ],
+            }
         if self.config.enable_pre_dispatch_satisfaction_check:
             pre_dispatch_commands = extract_pre_dispatch_validation_commands(issue.body)
             if pre_dispatch_commands:
@@ -2404,19 +2416,6 @@ class BossLoop:
                 ],
                 "next_actions": [
                     "Add file-scope hints, constraints, acceptance criteria, or explicit work orders before dispatch.",
-                ],
-            }
-
-        if not self.config.dispatch_enabled:
-            return {
-                "status": "needs_human",
-                "outcome": "preview_only",
-                "reasons": [
-                    f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
-                ],
-                "next_actions": [
-                    "Review the selected issue and derived validation contract.",
-                    "Rerun without --no-dispatch to execute the bounded Boss loop lane.",
                 ],
             }
 

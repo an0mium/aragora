@@ -896,6 +896,7 @@ class TestBossLoop:
                 auto_continue_on_needs_human=True,
                 default_target_agent="claude",
                 model_rotation=["claude", "codex"],
+                enable_pre_dispatch_satisfaction_check=False,
             ),
             issue_feed=feed,
             freshness_checker=_freshness_checker,
@@ -1726,7 +1727,9 @@ async def test_dispatch_issue_refine_exports_worker_env_to_commander() -> None:
             "- pytest -q tests/swarm/test_boss_loop.py -k refine\n"
         ),
     )
-    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, enable_pre_dispatch_satisfaction_check=False)
+    )
     loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
     loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
         "runner_id": "codex-runner-1",

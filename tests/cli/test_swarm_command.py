@@ -1861,6 +1861,7 @@ class TestSwarmCommand:
                                 "title": "Write operator guide",
                                 "status": "completed",
                                 "branch": "codex/docs-lane",
+                                "commit_shas": ["abc123"],
                                 "worktree_path": "/tmp/repo/.worktrees/a",
                                 "target_agent": "codex",
                                 "last_progress_at": "2026-03-07T00:00:00+00:00",
@@ -1880,7 +1881,7 @@ class TestSwarmCommand:
 
         out = capsys.readouterr().out
         assert "runs=1 queued=0 leased=0 completed=1" in out
-        assert "integrator ready=0 review=0 blocked=1" in out
+        assert "integrator ready=0 review=1 blocked=0" in out
         assert (
             "next: Write operator guide: Review the validated lane and decide whether it should merge."
             in out
