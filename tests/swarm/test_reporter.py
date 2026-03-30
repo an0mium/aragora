@@ -624,6 +624,145 @@ class TestIntegratorView:
         assert "attach_receipt" in lane["available_actions"]
         assert "supersede" in lane["available_actions"]
 
+    def test_build_integrator_view_excludes_superseded_collision_from_summary(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+        payload = build_integrator_view(
+            worktrees=[
+                {
+                    "session_id": "sess-1",
+                    "path": "/tmp/repo/.worktrees/conflict-a",
+                    "branch": "codex/collision",
+                    "has_lock": False,
+                    "pid_alive": False,
+                    "agent": "codex",
+                    "last_activity": (now - timedelta(hours=2)).isoformat(),
+                },
+                {
+                    "session_id": "sess-2",
+                    "path": "/tmp/repo/.worktrees/conflict-b",
+                    "branch": "codex/collision",
+                    "has_lock": True,
+                    "pid_alive": True,
+                    "agent": "claude",
+                    "last_activity": (now - timedelta(minutes=1)).isoformat(),
+                },
+            ],
+            claims=[
+                {"session_id": "sess-1", "path": "aragora/swarm/reporter.py"},
+                {"session_id": "sess-2", "path": "aragora/swarm/reporter.py"},
+            ],
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-collision",
+                            "task_id": "wo-collision",
+                            "run_id": "run-1",
+                            "title": "Archived colliding lane",
+                            "status": "discarded",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-1",
+                            "branch": "codex/collision",
+                            "worktree_path": "/tmp/repo/.worktrees/conflict-a",
+                            "updated_at": (now - timedelta(hours=2)).isoformat(),
+                        }
+                    ],
+                    "leases": [],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["superseded"] is True
+        assert lane["merge_readiness"] == "superseded"
+        collision_lane_ids = {item["lane_id"] for item in payload["alerts"]["collisions"]}
+        assert lane["lane_id"] not in collision_lane_ids
+
+    def test_build_integrator_view_treats_retired_lane_as_superseded(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-retired",
+                            "task_id": "wo-retired",
+                            "run_id": "run-1",
+                            "title": "Retired dogfood lane",
+                            "status": "failed",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-retired",
+                            "branch": "codex/retired-lane",
+                            "worktree_path": "/tmp/repo/.worktrees/retired",
+                            "blockers": [
+                                "Retired after first dogfood attempt exposed launcher/reconcile bugs fixed in later commits."
+                            ],
+                            "updated_at": (now - timedelta(hours=2)).isoformat(),
+                        }
+                    ],
+                    "leases": [],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["superseded"] is True
+        assert lane["merge_readiness"] == "superseded"
+        assert lane["lane_health"] == "superseded"
+        assert lane["next_action"] == "Archive the superseded lane and keep the canonical lane."
+        assert payload["summary"]["stalled_lanes"] == 0
+        assert payload["summary"]["superseded_lanes"] == 1
+
+    def test_build_integrator_view_ignores_discarded_duplicate_work_order_in_branch_counts(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+        payload = build_integrator_view(
+            runs=[
+                {
+                    "run_id": "run-1",
+                    "status": "completed",
+                    "goal": "Collapse duplicate branch family",
+                    "work_orders": [
+                        {
+                            "work_order_id": "wo-active",
+                            "title": "Active branch lane",
+                            "status": "completed",
+                            "branch": "codex/shared-branch",
+                            "commit_shas": ["abc123"],
+                            "head_sha": "abc123",
+                        },
+                        {
+                            "work_order_id": "wo-archived",
+                            "title": "Archived branch sibling",
+                            "status": "discarded",
+                            "branch": "codex/shared-branch",
+                            "commit_shas": ["abc123"],
+                            "head_sha": "abc123",
+                        },
+                    ],
+                }
+            ],
+            now=now,
+        )
+
+        active_lane = next(
+            item for item in payload["lanes"] if item.get("work_order_id") == "wo-active"
+        )
+        archived_lane = next(
+            item for item in payload["lanes"] if item.get("work_order_id") == "wo-archived"
+        )
+
+        assert active_lane["collisions"] == []
+        assert archived_lane["merge_readiness"] == "superseded"
+        assert payload["summary"]["collision_lanes"] == 0
+
     def test_build_integrator_view_extracts_adopted_pr_reference(self):
         payload = build_integrator_view(
             runs=[
@@ -1387,6 +1526,83 @@ class TestIntegratorView:
             == "Fix the merge gate or verification failure before rerunning the lane."
         )
 
+    def test_build_integrator_view_ignores_stale_reap_for_merge_gate_deliverable_lane(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-merge-gate-stale",
+                            "task_id": "wo-merge-gate-stale",
+                            "run_id": "run-1",
+                            "status": "needs_human",
+                            "title": "Stale merge-gate deliverable lane",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-merge-gate-stale",
+                            "branch": "codex/merge-gate-stale",
+                            "worktree_path": "/tmp/repo/.worktrees/merge-gate-stale",
+                            "lease_id": "lease-merge-gate-stale",
+                            "blockers": [
+                                "merge gate blocked: verification failed: pytest tests/swarm -q",
+                                "merge_gate_failed",
+                                "stale_lease_reaped",
+                            ],
+                            "updated_at": now.isoformat(),
+                        }
+                    ],
+                    "leases": [
+                        {
+                            "lease_id": "lease-merge-gate-stale",
+                            "task_id": "wo-merge-gate-stale",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-merge-gate-stale",
+                            "branch": "codex/merge-gate-stale",
+                            "worktree_path": "/tmp/repo/.worktrees/merge-gate-stale",
+                            "status": "expired",
+                            "updated_at": (now - timedelta(hours=2)).isoformat(),
+                            "expires_at": (now - timedelta(hours=1)).isoformat(),
+                        }
+                    ],
+                    "completion_receipts": [
+                        {
+                            "receipt_id": "receipt-merge-gate-stale",
+                            "lease_id": "lease-merge-gate-stale",
+                            "task_id": "wo-merge-gate-stale",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-merge-gate-stale",
+                            "branch": "codex/merge-gate-stale",
+                            "worktree_path": "/tmp/repo/.worktrees/merge-gate-stale",
+                            "commit_shas": ["abc123"],
+                            "changed_paths": ["aragora/swarm/reporter.py"],
+                            "created_at": now.isoformat(),
+                        }
+                    ],
+                    "integration_decisions": [
+                        {
+                            "decision_id": "decision-merge-gate-stale",
+                            "lease_id": "lease-merge-gate-stale",
+                            "receipt_id": "receipt-merge-gate-stale",
+                            "decision": "pending_review",
+                            "created_at": now.isoformat(),
+                        }
+                    ],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["merge_readiness"] == "blocked"
+        assert lane["lane_health"] == "blocked"
+        assert "stale_lease_reaped" not in lane["blockers"]
+        assert (
+            lane["next_action"]
+            == "Fix the merge gate or verification failure before rerunning the lane."
+        )
+
     def test_build_integrator_view_keeps_scope_violation_receipt_lane_blocked(self):
         now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
 
@@ -1455,6 +1671,79 @@ class TestIntegratorView:
         assert lane["scope_violation_detected"] is True
         assert lane["merge_readiness"] == "blocked"
         assert lane["lane_health"] == "blocked"
+        assert (
+            lane["next_action"]
+            == "Narrow the lane scope or split ownership before it can re-enter merge review."
+        )
+
+    def test_build_integrator_view_ignores_stale_reap_for_scope_deliverable_lane(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-scope-stale",
+                            "task_id": "wo-scope-stale",
+                            "run_id": "run-1",
+                            "status": "completed",
+                            "title": "Stale scope deliverable lane",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-scope-stale",
+                            "branch": "codex/scope-stale",
+                            "worktree_path": "/tmp/repo/.worktrees/scope-stale",
+                            "lease_id": "lease-scope-stale",
+                            "commit_shas": ["abc123"],
+                            "changed_paths": ["tests/swarm/test_reporter.py"],
+                            "blockers": ["stale_lease_reaped"],
+                            "updated_at": now.isoformat(),
+                            "metadata": {
+                                "last_scope_violation": {
+                                    "detected_at": now.isoformat(),
+                                    "changed_paths": ["tests/swarm/test_reporter.py"],
+                                    "violations": [
+                                        {
+                                            "type": "undeclared_scope",
+                                            "path": "tests/swarm/test_reporter.py",
+                                        }
+                                    ],
+                                }
+                            },
+                        }
+                    ],
+                    "leases": [
+                        {
+                            "lease_id": "lease-scope-stale",
+                            "task_id": "wo-scope-stale",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-scope-stale",
+                            "branch": "codex/scope-stale",
+                            "worktree_path": "/tmp/repo/.worktrees/scope-stale",
+                            "status": "expired",
+                            "updated_at": (now - timedelta(hours=2)).isoformat(),
+                            "expires_at": (now - timedelta(hours=1)).isoformat(),
+                        }
+                    ],
+                    "completion_receipts": [],
+                    "integration_decisions": [
+                        {
+                            "decision_id": "decision-scope-stale",
+                            "decision": "pending_review",
+                            "created_at": now.isoformat(),
+                        }
+                    ],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["scope_violation_detected"] is True
+        assert lane["merge_readiness"] == "blocked"
+        assert lane["lane_health"] == "blocked"
+        assert "stale_lease_reaped" not in lane["blockers"]
         assert (
             lane["next_action"]
             == "Narrow the lane scope or split ownership before it can re-enter merge review."
@@ -1814,3 +2103,39 @@ class TestIntegratorView:
             == "Narrow the lane scope or split ownership before it can re-enter merge review."
         )
         assert payload["summary"]["scope_violation_lanes"] == 1
+
+    def test_build_integrator_view_excludes_superseded_scope_violation_from_summary(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-scope",
+                            "task_id": "wo-scope",
+                            "run_id": "run-1",
+                            "status": "discarded",
+                            "title": "Archived scope violation lane",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-scope",
+                            "branch": "codex/scope-lane",
+                            "worktree_path": "/tmp/repo/.worktrees/scope",
+                            "blockers": ["scope_violation"],
+                            "updated_at": now.isoformat(),
+                        }
+                    ],
+                    "leases": [],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["scope_violation_detected"] is True
+        assert lane["merge_readiness"] == "superseded"
+        assert lane["lane_health"] == "superseded"
+        assert payload["summary"]["scope_violation_lanes"] == 0

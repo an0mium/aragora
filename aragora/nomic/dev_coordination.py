@@ -41,6 +41,8 @@ _ACTIVE_LEASE_STATUSES = {"active"}
 _PENDING_INTEGRATION_DECISIONS = {"pending_review"}
 _OPEN_SALVAGE_STATUSES = {"detected", "claimed"}
 _OPEN_SUPERVISOR_RUN_STATUSES = {"planned", "active", "needs_human"}
+_DUPLICATE_BRANCH_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
+_FAILED_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _OPEN_DEVELOPER_TASK_STATUSES = {
     "queued",
     "leased",
@@ -914,6 +916,203 @@ class DevCoordinationStore:
             conn.close()
         return archived
 
+    def archive_scope_violation_no_deliverable_work_orders(
+        self,
+        *,
+        grace_period_hours: float = _REAPED_NO_RECEIPT_ARCHIVE_GRACE_HOURS,
+    ) -> int:
+        """Archive old scope-violation work orders that never produced a deliverable."""
+        now = _utcnow()
+        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
+        cutoff = now - grace_period
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            lease_status_by_id = {
+                str(row["lease_id"]).strip(): str(row["status"]).strip()
+                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
+                if str(row["lease_id"]).strip()
+            }
+            archived = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_should_archive_scope_violation_no_deliverable(
+                        item,
+                        run=record,
+                        cutoff=cutoff,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "scope_violation_no_deliverable",
+                            "archived_at": now.isoformat(),
+                            "archive_reason": "scope_violation",
+                            "previous_status": _optional_text(item.get("status")) or "blocked",
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    if not _optional_text(item.get("failure_reason")):
+                        item["failure_reason"] = "scope_violation"
+                    changed = True
+                    archived += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return archived
+
+    def archive_failed_no_deliverable_work_orders(
+        self,
+        *,
+        grace_period_hours: float = _FAILED_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS,
+    ) -> int:
+        """Archive old failed lanes that never produced a receipt or deliverable."""
+        now = _utcnow()
+        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
+        cutoff = now - grace_period
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            lease_status_by_id = {
+                str(row["lease_id"]).strip(): str(row["status"]).strip()
+                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
+                if str(row["lease_id"]).strip()
+            }
+            archived = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_should_archive_failed_no_deliverable(
+                        item,
+                        run=record,
+                        cutoff=cutoff,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    archive_reason = _work_order_failed_no_deliverable_reason(item)
+                    metadata.update(
+                        {
+                            "archived_due_to": "failed_no_deliverable",
+                            "archived_at": now.isoformat(),
+                            "archive_reason": archive_reason,
+                            "previous_status": _optional_text(item.get("status")) or "failed",
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    if not _optional_text(item.get("failure_reason")):
+                        item["failure_reason"] = archive_reason
+                    changed = True
+                    archived += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return archived
+
+    def archive_duplicate_branch_deliverable_work_orders(
+        self,
+        *,
+        grace_period_hours: float = _DUPLICATE_BRANCH_DELIVERABLE_ARCHIVE_GRACE_HOURS,
+    ) -> int:
+        """Collapse same-run duplicate deliverable siblings that point at the same branch."""
+        now = _utcnow()
+        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
+        cutoff = now - grace_period
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            lease_status_by_id = {
+                str(row["lease_id"]).strip(): str(row["status"]).strip()
+                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
+                if str(row["lease_id"]).strip()
+            }
+            archived = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                grouped: dict[str, list[dict[str, Any]]] = {}
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    branch = _optional_text(item.get("branch"))
+                    if branch:
+                        grouped.setdefault(branch, []).append(item)
+                changed = False
+                for branch, items in grouped.items():
+                    eligible = [
+                        item
+                        for item in items
+                        if _work_order_should_archive_duplicate_branch_deliverable(
+                            item,
+                            run=record,
+                            cutoff=cutoff,
+                            lease_status=lease_status_by_id.get(
+                                _optional_text(item.get("lease_id"))
+                            ),
+                        )
+                    ]
+                    if len(eligible) < 2:
+                        continue
+                    keeper = max(
+                        eligible,
+                        key=lambda item: _duplicate_branch_deliverable_priority(item, run=record),
+                    )
+                    keeper_id = _optional_text(
+                        keeper.get("work_order_id"),
+                        keeper.get("task_id"),
+                    )
+                    for item in eligible:
+                        if item is keeper:
+                            continue
+                        metadata = dict(item.get("metadata") or {})
+                        metadata.update(
+                            {
+                                "archived_due_to": "duplicate_branch_deliverable",
+                                "archived_at": now.isoformat(),
+                                "archive_reason": f"duplicate_branch:{branch}",
+                                "duplicate_branch": branch,
+                                "canonical_work_order_id": keeper_id or None,
+                                "previous_status": _optional_text(item.get("status"))
+                                or "completed",
+                            }
+                        )
+                        item["metadata"] = metadata
+                        item["status"] = "discarded"
+                        if not _optional_text(item.get("failure_reason")):
+                            item["failure_reason"] = "duplicate_branch_deliverable"
+                        changed = True
+                        archived += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return archived
+
     def backfill_missing_completion_receipts(self) -> int:
         """Attach or synthesize missing receipts for stored deliverable work orders."""
         conn = self._connect()
@@ -1108,6 +1307,9 @@ class DevCoordinationStore:
             )
         self.backfill_missing_completion_receipts()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_scope_violation_no_deliverable_work_orders()
+        self.archive_failed_no_deliverable_work_orders()
+        self.archive_duplicate_branch_deliverable_work_orders()
         return expired
 
     def reap_stale_leases(
@@ -1192,6 +1394,9 @@ class DevCoordinationStore:
 
         self.backfill_missing_completion_receipts()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_scope_violation_no_deliverable_work_orders()
+        self.archive_failed_no_deliverable_work_orders()
+        self.archive_duplicate_branch_deliverable_work_orders()
         return stale
 
     def list_completion_receipts(
@@ -2177,6 +2382,9 @@ class DevCoordinationStore:
         """Project open developer tasks into the global work queue."""
         self.backfill_missing_completion_receipts()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_scope_violation_no_deliverable_work_orders()
+        self.archive_failed_no_deliverable_work_orders()
+        self.archive_duplicate_branch_deliverable_work_orders()
         work_queue = queue or GlobalWorkQueue(storage_dir=self.repo_root / ".work_queue")
         await work_queue.initialize()
 
@@ -2956,6 +3164,114 @@ def _work_order_should_archive_reaped_no_receipt(
     return updated_at <= cutoff
 
 
+def _work_order_has_scope_violation(work_order: dict[str, Any]) -> bool:
+    if _optional_text(work_order.get("status")).lower() == "scope_violation":
+        return True
+    if isinstance(work_order.get("scope_violation"), dict):
+        return True
+    lowered_blockers = {
+        blocker.strip().lower()
+        for blocker in _developer_task_blockers(work_order)
+        if blocker.strip()
+    }
+    return "scope_violation" in lowered_blockers
+
+
+def _work_order_should_archive_scope_violation_no_deliverable(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    cutoff: datetime,
+    lease_status: str | None,
+) -> bool:
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in (_OPEN_DEVELOPER_TASK_STATUSES | {"scope_violation"}):
+        return False
+    if _optional_text(lease_status).lower() == LeaseStatus.ACTIVE.value:
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return False
+    if _optional_text(work_order.get("receipt_id")) or _work_order_has_concrete_deliverable(
+        work_order
+    ):
+        return False
+    if not _work_order_has_scope_violation(work_order):
+        return False
+    updated_at = _parse_dt(_developer_task_updated_at(work_order, run))
+    return updated_at <= cutoff
+
+
+def _work_order_failed_no_deliverable_reason(work_order: dict[str, Any]) -> str:
+    for blocker in _developer_task_blockers(work_order):
+        text = blocker.strip()
+        if text:
+            return text
+    return _optional_text(work_order.get("failure_reason")) or "failed_no_deliverable"
+
+
+def _work_order_should_archive_failed_no_deliverable(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    cutoff: datetime,
+    lease_status: str | None,
+) -> bool:
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"failed", "dispatch_failed", "timed_out"}:
+        return False
+    if _optional_text(lease_status).lower() == LeaseStatus.ACTIVE.value:
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return False
+    if _optional_text(work_order.get("receipt_id")) or _work_order_has_concrete_deliverable(
+        work_order
+    ):
+        return False
+    updated_at = _parse_dt(_developer_task_updated_at(work_order, run))
+    return updated_at <= cutoff
+
+
+def _work_order_should_archive_duplicate_branch_deliverable(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    cutoff: datetime,
+    lease_status: str | None,
+) -> bool:
+    status = _optional_text(work_order.get("status")).lower()
+    if status in {"discarded", "superseded", "merged"}:
+        return False
+    if _optional_text(lease_status).lower() == LeaseStatus.ACTIVE.value:
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return False
+    if not _optional_text(work_order.get("branch")):
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+    updated_at = _parse_dt(_developer_task_updated_at(work_order, run))
+    return updated_at <= cutoff
+
+
+def _duplicate_branch_deliverable_priority(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> tuple[int, int, int, str]:
+    commit_shas = [
+        str(item).strip() for item in work_order.get("commit_shas", []) if str(item).strip()
+    ]
+    return (
+        1 if _optional_text(work_order.get("receipt_id")) else 0,
+        len(commit_shas),
+        1 if _optional_text(work_order.get("head_sha")) else 0,
+        _developer_task_updated_at(work_order, run),
+    )
+
+
 def _work_order_receipt_outcome(work_order: dict[str, Any]) -> str:
     if _optional_text(work_order.get("adopted_pr")):
         return "pr_adopted"
@@ -3012,18 +3328,25 @@ def _developer_task_priority(work_order: dict[str, Any]) -> int:
 
 
 def _developer_task_updated_at(work_order: dict[str, Any], run: dict[str, Any]) -> str:
-    for key in (
-        "last_observed_at",
-        "last_progress_at",
-        "completed_at",
-        "dispatched_at",
-        "leased_at",
-        "started_at",
+    for value in (
+        *(
+            work_order.get(key)
+            for key in (
+                "last_observed_at",
+                "last_progress_at",
+                "completed_at",
+                "dispatched_at",
+                "leased_at",
+                "started_at",
+            )
+        ),
+        run.get("updated_at"),
+        _utcnow().isoformat(),
     ):
-        text = str(work_order.get(key, "")).strip()
-        if text:
+        text = str(value or "").strip()
+        if text and text.lower() != "none":
             return text
-    return str(run.get("updated_at", _utcnow().isoformat()))
+    return _utcnow().isoformat()
 
 
 def _developer_task_work_status(status: str) -> WorkStatus:

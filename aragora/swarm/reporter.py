@@ -271,6 +271,23 @@ def _is_superseded(*sources: dict[str, Any] | None) -> bool:
         meta = _metadata(source)
         if _text(meta.get("superseded_by")) or _text(meta.get("supersedes")):
             return True
+        if _has_retired_marker(source):
+            return True
+    return False
+
+
+def _has_retired_marker(source: dict[str, Any]) -> bool:
+    for key in ("failure_reason", "dispatch_error"):
+        text = _text(source.get(key)).lower()
+        if text.startswith("retired after "):
+            return True
+    for key in ("blockers", "blocked_by"):
+        values = source.get(key)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if _text(value).lower().startswith("retired after "):
+                return True
     return False
 
 
@@ -649,10 +666,14 @@ def build_integrator_view(
         for work_order in run.get("work_orders", []):
             if not isinstance(work_order, dict):
                 continue
+            if _text(work_order.get("status")).lower() in {"discarded", "superseded"}:
+                continue
             branch = _text(work_order.get("branch"))
             if branch:
                 work_order_branch_counts[branch] += 1
     for task in tasks:
+        if _text(task.get("status")).lower() in {"discarded", "superseded"}:
+            continue
         branch = _text(task.get("branch"))
         if branch:
             task_branch_counts[branch] += 1
@@ -1139,22 +1160,26 @@ def build_integrator_view(
                 for reason in qualification_reasons
             )
         )
+        non_reaped_qualification_reasons = [
+            reason
+            for reason in qualification_reasons
+            if _text(reason).lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+        ]
+        substantive_deliverable_blocked_lane = qualification.deliverable is not None and bool(
+            non_reaped_qualification_reasons
+        )
         if reaped_receipt_backed_lane:
             terminal_outcome = (
                 "pr_adopted"
                 if qualification.deliverable_type == "adopted_pr"
                 else "deliverable_created"
             )
-        if (
+        if substantive_deliverable_blocked_lane or (
             receipt_id
             and qualification.deliverable is not None
             and terminal_outcome in {"deliverable_created", "pr_adopted"}
         ):
-            qualification_reasons = [
-                reason
-                for reason in qualification_reasons
-                if _text(reason).lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
-            ]
+            qualification_reasons = non_reaped_qualification_reasons
             if _text(blocked_reason).lower() in {"stale_lease_reaped", "expired_lease_reaped"}:
                 blocked_reason = None
         scope_violation_record = (
@@ -1291,6 +1316,20 @@ def build_integrator_view(
             or "clean_exit_no_deliverable" in lowered_reasons
             or any(reason.startswith("merge gate blocked:") for reason in lowered_reasons)
         )
+        deliverable_review_blocked_lane = qualification.deliverable is not None and (
+            substantive_deliverable_blocked_lane or hard_review_blocker
+        )
+        if deliverable_review_blocked_lane:
+            qualification_reasons = [
+                reason
+                for reason in qualification_reasons
+                if _text(reason).lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+            ]
+        if deliverable_review_blocked_lane and _text(blocked_reason).lower() in {
+            "stale_lease_reaped",
+            "expired_lease_reaped",
+        }:
+            blocked_reason = None
 
         terminal_blocked = terminal_outcome in {
             "blocked",
@@ -1360,7 +1399,10 @@ def build_integrator_view(
             )
 
         effective_lease_status = lease_status
-        if reaped_receipt_backed_lane and lease_status in {"expired", "released"}:
+        if (
+            reaped_receipt_backed_lane
+            or (deliverable_review_blocked_lane and lease_status in {"expired", "released"})
+        ) and lease_status in {"expired", "released"}:
             effective_lease_status = ""
         elif reaped_lane and not lease_status:
             effective_lease_status = "expired"
@@ -1474,7 +1516,7 @@ def build_integrator_view(
             blockers.append("superseded")
         if decision_type in {"request_changes", "salvage"}:
             blockers.append(f"decision:{decision_type}")
-        if reaped_receipt_backed_lane:
+        if reaped_receipt_backed_lane or deliverable_review_blocked_lane:
             blockers = [
                 blocker
                 for blocker in blockers
@@ -1929,7 +1971,7 @@ def build_integrator_view(
             "owner_session_id": lane["owner_session_id"],
             "title": lane["title"],
         }
-        if lane["collisions"]:
+        if lane["collisions"] and not lane["superseded"]:
             alerts["collisions"].append({**ref, "reasons": lane["collisions"]})
         if lane.get("lane_health") == "stalled":
             alerts["stalled_lanes"].append(ref)
@@ -1945,7 +1987,7 @@ def build_integrator_view(
             alerts["needs_decision"].append(ref)
         if lane["missing_receipt"]:
             alerts["missing_receipts"].append(ref)
-        if lane.get("scope_violation_detected"):
+        if lane.get("scope_violation_detected") and lane.get("merge_readiness") == "blocked":
             alerts["scope_violations"].append(ref)
         if lane["merge_readiness"] == "ready":
             alerts["merge_ready"].append(ref)
