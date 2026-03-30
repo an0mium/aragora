@@ -260,3 +260,28 @@ def test_store_can_find_latest_receipt_for_message(wedge):
     assert found is not None
     assert found.receipt.receipt_id == newest.receipt.receipt_id
     assert found.intent.action == InboxWedgeAction.STAR
+
+
+def test_get_receipt_preserves_execution_metadata(wedge):
+    store, service, _ = wedge
+    envelope = service.create_receipt(
+        _build_intent(action="ignore"),
+        TriageDecision.create(
+            final_action="ignore",
+            confidence=0.0,
+            dissent_summary="manual review required",
+            blocked_by_policy=True,
+            execution_tier="escalated",
+            escalation_reasons=["low_confidence", "high_risk_action"],
+            suppressed_diagnostics_count=3,
+            provider_route="direct",
+        ),
+    )
+
+    stored = store.get_receipt(envelope.receipt.receipt_id)
+
+    assert stored is not None
+    assert stored.decision.execution_tier == "escalated"
+    assert stored.decision.escalation_reasons == ["low_confidence", "high_risk_action"]
+    assert stored.decision.suppressed_diagnostics_count == 3
+    assert stored.decision.blocked_by_policy is True

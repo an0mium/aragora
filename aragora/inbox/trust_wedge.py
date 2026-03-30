@@ -658,10 +658,16 @@ class InboxTrustWedgeStore:
             dissent_summary=decision_dict.get("dissent_summary", ""),
             receipt_id=decision_dict.get("receipt_id"),
             auto_approval_eligible=bool(decision_dict.get("auto_approval_eligible")),
+            receipt_state=decision_dict.get("receipt_state", "created"),
+            intent=intent if decision_dict.get("intent") else None,
+            provider_route=decision_dict.get("provider_route", row["provider_route"]),
             label_id=decision_dict.get("label_id"),
             blocked_by_policy=bool(decision_dict.get("blocked_by_policy")),
             cost_usd=decision_dict.get("cost_usd"),
             latency_seconds=decision_dict.get("latency_seconds"),
+            execution_tier=decision_dict.get("execution_tier", "baseline"),
+            escalation_reasons=decision_dict.get("escalation_reasons", []),
+            suppressed_diagnostics_count=int(decision_dict.get("suppressed_diagnostics_count", 0)),
         )
         receipt = PersistedReceipt(
             receipt_id=row["receipt_id"],
