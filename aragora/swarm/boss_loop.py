@@ -319,6 +319,17 @@ _VALIDATION_INLINE_PREFIXES = (
 )
 _VALIDATION_BULLET_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(?:\[(?: |x|X)\]\s*)?(?P<text>.+?)\s*$")
 _MARKDOWN_BOLD_RE = re.compile(r"\*\*(?P<text>.+?)\*\*")
+_PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
+    "pytest ",
+    "python -m pytest",
+    "python3 -m pytest",
+    "uv run pytest",
+    "uv run python -m pytest",
+    "aragora ",
+    "python -m aragora",
+    "python3 -m aragora",
+)
+_BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -398,6 +409,83 @@ def extract_issue_validation_contract(issue_body: str) -> list[str]:
         criteria.append(stripped)
 
     return _ordered_unique_strings(criteria)
+
+
+def _normalize_pre_dispatch_command(text: str) -> str:
+    normalized = str(text).strip()
+    if not normalized:
+        return ""
+    backtick_match = _BACKTICK_COMMAND_RE.search(normalized)
+    if backtick_match:
+        normalized = backtick_match.group("command").strip()
+    if normalized.endswith(" passes."):
+        normalized = normalized[: -len(" passes.")].strip()
+    if normalized.startswith("aragora "):
+        normalized = f"python3 -m aragora.cli.main {normalized[len('aragora ') :].strip()}"
+    return normalized
+
+
+def extract_pre_dispatch_validation_commands(issue_body: str) -> list[str]:
+    """Return explicit validation commands that are safe to probe before dispatch."""
+    commands: list[str] = []
+    for item in extract_issue_validation_contract(issue_body):
+        normalized = _normalize_pre_dispatch_command(item)
+        if not normalized:
+            continue
+        if any(normalized.startswith(prefix) for prefix in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES):
+            commands.append(normalized)
+    return _ordered_unique_strings(commands)
+
+
+def run_pre_dispatch_validation_commands(
+    commands: list[str],
+    *,
+    cwd: Path,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    """Execute bounded validation commands locally before spawning a worker lane."""
+    results: list[dict[str, Any]] = []
+    timeout = max(1, int(timeout_seconds))
+    for command in commands:
+        try:
+            proc = subprocess.run(
+                command,
+                shell=True,
+                executable="/bin/bash",
+                cwd=str(cwd),
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            results.append(
+                {
+                    "command": command,
+                    "status": "timeout",
+                }
+            )
+            return {"satisfied": False, "results": results}
+        except (FileNotFoundError, OSError) as exc:
+            results.append(
+                {
+                    "command": command,
+                    "status": "error",
+                    "detail": str(exc),
+                }
+            )
+            return {"satisfied": False, "results": results}
+
+        results.append(
+            {
+                "command": command,
+                "status": "passed" if proc.returncode == 0 else "failed",
+                "returncode": proc.returncode,
+            }
+        )
+        if proc.returncode != 0:
+            return {"satisfied": False, "results": results}
+    return {"satisfied": True, "results": results}
 
 
 # ---------------------------------------------------------------------------
