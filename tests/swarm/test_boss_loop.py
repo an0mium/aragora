@@ -1519,6 +1519,22 @@ class TestBossLoopCLI:
         assert parsed["stop_reason"] == "no_suitable_issue"
         assert parsed["iterations_completed"] == 1
 
+    def test_boss_loop_no_issue_skips_runner_freshness_check(self, capsys):
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        args = self._swarm_args(json=True, max_ticks=1)
+
+        with patch.object(GitHubIssueFeed, "fetch", return_value=[]):
+            with patch(
+                "aragora.swarm.boss_loop.check_runner_freshness",
+                side_effect=AssertionError("freshness should not be checked for an empty queue"),
+            ):
+                cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert parsed["stop_reason"] == "no_suitable_issue"
+
     def test_boss_loop_text_output(self, capsys):
         from aragora.cli.commands.swarm import cmd_swarm
 
@@ -1893,6 +1909,23 @@ class TestBossLoopFixtureInvocation:
         assert "run_id" in payload2
         assert isinstance(payload2["next_actions"], list)
         assert len(payload2["next_actions"]) > 0
+
+
+def test_boss_loop_batch_no_issue_skips_runner_freshness_check() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = []
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=2),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: (_ for _ in ()).throw(
+            AssertionError("freshness should not be checked for an empty queue")
+        ),
+    )
+
+    result = asyncio.run(loop.run())
+
+    assert result.stop_reason == "no_suitable_issue"
+    assert result.iterations_completed == 1
 
 
 # ---------------------------------------------------------------------------

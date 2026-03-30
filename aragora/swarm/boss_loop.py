@@ -1672,41 +1672,8 @@ class BossLoop:
         """Execute a single Boss loop iteration."""
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
-
-        # Step 1: Check runner freshness
-        freshness = self._freshness_checker(
-            freshness_ttl_seconds=self.config.freshness_ttl_seconds,
-            registry_path=self.config.registry_path,
-            env=self._env,
-            requested_runner_type=self._requested_runner_type_for_freshness(),
-            allowed_profiles=self.config.allowed_runner_profiles,
-            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
-        )
-        freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
-
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
-            blocked_reason = (
-                freshness.blocked_reason
-                if hasattr(freshness, "blocked_reason")
-                else freshness_dict.get("blocked_reason", "runner_not_fresh")
-            )
-            return BossIterationStatus(
-                iteration=iteration,
-                run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
-                selected_issue=None,
-                worker_status="blocked",
-                stop_reason=BossStopReason.NO_FRESH_RUNNER.value,
-                needs_human_reasons=[f"No fresh runner: {blocked_reason}"],
-                next_actions=[
-                    "Re-register or refresh the Codex runner before resuming the Boss loop.",
-                    f"Blocked reason: {blocked_reason}",
-                ],
-                elapsed_seconds=time.monotonic() - iter_start,
-            )
-
-        # Step 2: Fetch issues from GitHub
+        freshness_dict: dict[str, Any] = {}
+        # Step 1: Fetch issues from GitHub
         try:
             issues = self._feed.fetch()
         except Exception as exc:
@@ -1725,7 +1692,7 @@ class BossLoop:
                 error="issue_feed_error",
             )
 
-        # Step 3: Select eligible issue
+        # Step 2: Select eligible issue
         # Skip issues that have exceeded retry limits
         already_maxed = {
             num
@@ -1779,6 +1746,39 @@ class BossLoop:
                 elapsed_seconds=time.monotonic() - iter_start,
             )
 
+        # Step 3: Check runner freshness only when there is eligible work to dispatch
+        freshness = self._freshness_checker(
+            freshness_ttl_seconds=self.config.freshness_ttl_seconds,
+            registry_path=self.config.registry_path,
+            env=self._env,
+            requested_runner_type=self._requested_runner_type_for_freshness(),
+            allowed_profiles=self.config.allowed_runner_profiles,
+            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
+        )
+        freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
+
+        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+            blocked_reason = (
+                freshness.blocked_reason
+                if hasattr(freshness, "blocked_reason")
+                else freshness_dict.get("blocked_reason", "runner_not_fresh")
+            )
+            return BossIterationStatus(
+                iteration=iteration,
+                run_id=self.run_id,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                selected_issue=None,
+                worker_status="blocked",
+                stop_reason=BossStopReason.NO_FRESH_RUNNER.value,
+                needs_human_reasons=[f"No fresh runner: {blocked_reason}"],
+                next_actions=[
+                    "Re-register or refresh the Codex runner before resuming the Boss loop.",
+                    f"Blocked reason: {blocked_reason}",
+                ],
+                elapsed_seconds=time.monotonic() - iter_start,
+            )
+
         # Step 4: Dispatch supervised work for this issue
         issue_dict = selected.to_dict()
         self._attempted_issues.append(issue_dict)
@@ -1802,6 +1802,64 @@ class BossLoop:
 
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
+        freshness_dict: dict[str, Any] = {}
+
+        try:
+            issues = self._feed.fetch()
+        except Exception as exc:
+            logger.warning("Issue feed error: %s", exc)
+            return [
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=None,
+                    worker_status="blocked",
+                    stop_reason=BossStopReason.ISSUE_FEED_ERROR.value,
+                    needs_human_reasons=["GitHub issue feed is unreachable."],
+                    next_actions=["Check GitHub CLI authentication and network."],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                    error="issue_feed_error",
+                )
+            ]
+
+        already_maxed = {
+            num
+            for num, count in self._issue_attempt_counts.items()
+            if count >= self.config.max_retries_per_issue
+        }
+        candidate_issues = [i for i in issues if i.number not in already_maxed]
+        selected_issues = self._select_issues_for_iteration(
+            candidate_issues,
+            limit=None,
+        )
+
+        if not selected_issues:
+            if self.config.issue_number is not None:
+                needs_human_reasons, next_actions = self._target_issue_miss_guidance(
+                    self.config.issue_number
+                )
+            else:
+                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
+                next_actions = [
+                    "Create a new issue with actionable scope, or adjust label filters.",
+                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
+                ]
+            return [
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=None,
+                    worker_status="idle",
+                    stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
+                    needs_human_reasons=needs_human_reasons,
+                    next_actions=next_actions,
+                    elapsed_seconds=time.monotonic() - iter_start,
+                )
+            ]
 
         freshness = self._freshness_checker(
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
@@ -1837,64 +1895,7 @@ class BossLoop:
                 )
             ]
 
-        try:
-            issues = self._feed.fetch()
-        except Exception as exc:
-            logger.warning("Issue feed error: %s", exc)
-            return [
-                BossIterationStatus(
-                    iteration=iteration,
-                    run_id=self.run_id,
-                    timestamp=now,
-                    runner_freshness=freshness_dict,
-                    selected_issue=None,
-                    worker_status="blocked",
-                    stop_reason=BossStopReason.ISSUE_FEED_ERROR.value,
-                    needs_human_reasons=["GitHub issue feed is unreachable."],
-                    next_actions=["Check GitHub CLI authentication and network."],
-                    elapsed_seconds=time.monotonic() - iter_start,
-                    error="issue_feed_error",
-                )
-            ]
-
-        already_maxed = {
-            num
-            for num, count in self._issue_attempt_counts.items()
-            if count >= self.config.max_retries_per_issue
-        }
-        candidate_issues = [i for i in issues if i.number not in already_maxed]
         parallel_limit = self._parallel_dispatch_limit(freshness)
-        selected_issues = self._select_issues_for_iteration(
-            candidate_issues,
-            limit=None,
-        )
-
-        if not selected_issues:
-            if self.config.issue_number is not None:
-                needs_human_reasons, next_actions = self._target_issue_miss_guidance(
-                    self.config.issue_number
-                )
-            else:
-                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
-                next_actions = [
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ]
-            return [
-                BossIterationStatus(
-                    iteration=iteration,
-                    run_id=self.run_id,
-                    timestamp=now,
-                    runner_freshness=freshness_dict,
-                    selected_issue=None,
-                    worker_status="idle",
-                    stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
-                    needs_human_reasons=needs_human_reasons,
-                    next_actions=next_actions,
-                    elapsed_seconds=time.monotonic() - iter_start,
-                )
-            ]
-
         pending_issues = list(selected_issues)
         active_tasks: dict[
             asyncio.Task[dict[str, Any]], tuple[GitHubIssue, dict[str, Any], float]
