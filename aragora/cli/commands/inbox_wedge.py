@@ -29,6 +29,21 @@ from aragora.inbox.trust_wedge import (
 )
 
 
+def _coerce_local_datetime(value: Any) -> datetime | None:
+    """Convert stored wedge timestamps into the operator's local time."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone() if value.tzinfo is not None else value
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed.astimezone() if parsed.tzinfo is not None else parsed
+    return None
+
+
 def add_inbox_wedge_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "inbox-wedge",
@@ -173,16 +188,11 @@ def _prompt(prompt: str) -> str:
 
 
 def _format_timestamp(value: Any) -> str:
+    parsed = _coerce_local_datetime(value)
+    if parsed is not None:
+        return parsed.strftime("%Y-%m-%d %H:%M")
     if value in (None, ""):
         return "N/A"
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
-    if isinstance(value, str):
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            return parsed.strftime("%Y-%m-%d %H:%M")
-        except ValueError:
-            return value
     return str(value)
 
 

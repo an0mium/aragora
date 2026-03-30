@@ -24,6 +24,26 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _coerce_local_datetime(value: Any) -> datetime | None:
+    """Convert storage and ISO timestamps into the operator's local time."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone() if value.tzinfo is not None else value
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value))
+        except (OverflowError, OSError, TypeError, ValueError):
+            return None
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed.astimezone() if parsed.tzinfo is not None else parsed
+    return None
+
+
 def add_receipt_parser(subparsers: Any) -> None:
     """Register the 'receipt' subcommand with view/verify/inspect/export actions."""
     receipt_parser = subparsers.add_parser(
@@ -166,21 +186,11 @@ def _load_receipt_json(path: Path) -> dict[str, Any] | None:
 
 def _format_receipt_created_at(value: Any) -> str:
     """Format storage/legacy receipt timestamps for CLI display."""
-    if value is None:
-        return "N/A"
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
-    if isinstance(value, (int, float)):
-        try:
-            return datetime.fromtimestamp(float(value)).strftime("%Y-%m-%d %H:%M")
-        except (OverflowError, OSError, TypeError, ValueError):
-            return "N/A"
+    parsed = _coerce_local_datetime(value)
+    if parsed is not None:
+        return parsed.strftime("%Y-%m-%d %H:%M")
     if isinstance(value, str):
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            return parsed.strftime("%Y-%m-%d %H:%M")
-        except ValueError:
-            return value[:16]
+        return value[:16]
     return "N/A"
 
 
