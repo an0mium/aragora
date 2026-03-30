@@ -18,6 +18,7 @@ import asyncio
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
@@ -37,6 +38,8 @@ from aragora.swarm.boss_loop import (
     discover_focused_tests,
     dispatch_bounded_spec,
     extract_issue_validation_contract,
+    extract_pre_dispatch_validation_commands,
+    run_pre_dispatch_validation_commands,
     select_eligible_issue,
 )
 
@@ -221,6 +224,44 @@ class TestSelectEligibleIssue:
         assert selected is not None
         assert selected.number == 2
 
+    def test_requires_labels_when_specified(self):
+        issues = [
+            _make_issue(1, "No label"),
+            _make_issue(2, "Has label", labels=["boss-ready"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels={"boss-ready"})
+        assert selected is not None
+        assert selected.number == 2
+
+    def test_require_labels_all_match(self):
+        """When multiple labels are required, ALL must be present on the issue."""
+        issues = [
+            _make_issue(1, "Only one label", labels=["P0"]),
+            _make_issue(2, "Both labels", labels=["P0", "queue-eligible"]),
+            _make_issue(3, "Extra labels too", labels=["P0", "queue-eligible", "enhancement"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
+        assert selected is not None
+        assert selected.number == 2
+
+    def test_require_labels_rejects_partial_match(self):
+        """An issue with only some of the required labels is rejected."""
+        issues = [
+            _make_issue(1, "Partial", labels=["P0"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
+        assert selected is None
+
+    def test_no_require_labels_means_no_filtering(self):
+        """When require_labels is None, all issues are eligible (label-wise)."""
+        issues = [
+            _make_issue(1, "No labels"),
+            _make_issue(2, "Has labels", labels=["P0"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels=None)
+        assert selected is not None
+        assert selected.number == 1
+
 
 class TestPreDispatchValidationCommands:
     def test_extract_pre_dispatch_validation_commands_filters_non_commands(self, monkeypatch):
@@ -271,44 +312,6 @@ Acceptance Criteria:
         assert calls == ["python -m pytest tests/swarm/test_boss_loop.py -q"]
         assert result["satisfied"] is False
         assert result["results"][0]["status"] == "failed"
-
-    def test_requires_labels_when_specified(self):
-        issues = [
-            _make_issue(1, "No label"),
-            _make_issue(2, "Has label", labels=["boss-ready"]),
-        ]
-        selected = select_eligible_issue(issues, require_labels={"boss-ready"})
-        assert selected is not None
-        assert selected.number == 2
-
-    def test_require_labels_all_match(self):
-        """When multiple labels are required, ALL must be present on the issue."""
-        issues = [
-            _make_issue(1, "Only one label", labels=["P0"]),
-            _make_issue(2, "Both labels", labels=["P0", "queue-eligible"]),
-            _make_issue(3, "Extra labels too", labels=["P0", "queue-eligible", "enhancement"]),
-        ]
-        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
-        assert selected is not None
-        assert selected.number == 2
-
-    def test_require_labels_rejects_partial_match(self):
-        """An issue with only some of the required labels is rejected."""
-        issues = [
-            _make_issue(1, "Partial", labels=["P0"]),
-        ]
-        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
-        assert selected is None
-
-    def test_no_require_labels_means_no_filtering(self):
-        """When require_labels is None, all issues are eligible (label-wise)."""
-        issues = [
-            _make_issue(1, "No labels"),
-            _make_issue(2, "Has labels", labels=["P0"]),
-        ]
-        selected = select_eligible_issue(issues, require_labels=None)
-        assert selected is not None
-        assert selected.number == 1
 
 
 class TestValidationContractExtraction:
@@ -1124,6 +1127,37 @@ class TestBossLoop:
         assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
         assert result.iterations_completed == 1
         assert result.issues_completed[0]["number"] == 1639
+        assert result.iteration_statuses[0]["worker_outcome"] == "deliverable_created"
+
+    def test_completed_iteration_preserves_worker_next_actions(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(1641, "Already fixed queue item")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _already_satisfied_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "outcome": "already_satisfied",
+                "next_actions": [
+                    "Close or relabel the stale boss-ready issue before dispatching again."
+                ],
+            }
+
+        loop._dispatch_issue = _already_satisfied_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert (
+            result.iteration_statuses[0]["next_actions"][0]
+            == "Close or relabel the stale boss-ready issue before dispatching again."
+        )
+        assert result.iteration_statuses[0]["worker_outcome"] == "already_satisfied"
 
     def test_no_dispatch_preview_stops_truthfully(self):
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -1720,6 +1754,64 @@ async def test_dispatch_issue_refine_exports_worker_env_to_commander() -> None:
         "ARAGORA_RELEVANT_FILES": os.pathsep.join(refinement["files_to_change"]),
         "ARAGORA_TEST_PATTERNS": os.pathsep.join(refinement["test_patterns"]),
     }
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_completes_when_validation_already_passes(monkeypatch) -> None:
+    issue = _make_issue(
+        1639,
+        "Add --json output flag to aragora quickstart CLI",
+        body=("Acceptance Criteria:\n- python -m pytest tests/cli/test_quickstart.py -q\n"),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = "ok"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+
+    with patch(
+        "aragora.swarm.boss_loop.dispatch_bounded_spec",
+        new=AsyncMock(return_value={"status": "running"}),
+    ) as dispatch_mock:
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    assert result["outcome"] == "already_satisfied"
+    assert result["validations_run"] == ["python -m pytest tests/cli/test_quickstart.py -q"]
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_continues_when_pre_dispatch_validation_fails(monkeypatch) -> None:
+    issue = _make_issue(
+        1640,
+        "Tighten quickstart JSON output",
+        body=("Acceptance Criteria:\n- python -m pytest tests/cli/test_quickstart.py -q\n"),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 1
+        result.stdout = ""
+        result.stderr = "failing validation"
+        return result
+
+    monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+
+    with patch(
+        "aragora.swarm.boss_loop.dispatch_bounded_spec",
+        new=AsyncMock(return_value={"status": "running", "outcome": "dispatched"}),
+    ) as dispatch_mock:
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "running"
+    dispatch_mock.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

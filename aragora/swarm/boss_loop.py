@@ -893,6 +893,8 @@ class BossLoopConfig:
     skip_labels: set[str] = field(default_factory=lambda: {"wontfix", "duplicate", "invalid"})
     require_labels: set[str] | None = None
     require_validation_contract: bool = True
+    enable_pre_dispatch_satisfaction_check: bool = True
+    pre_dispatch_validation_timeout_seconds: float = 45.0
 
     # Retry / self-correction
     max_consecutive_failures: int = 3
@@ -2071,6 +2073,11 @@ class BossLoop:
                 worker_result=worker_result,
                 elapsed_seconds=elapsed_seconds,
             )
+            next_actions = [
+                str(item).strip()
+                for item in worker_result.get("next_actions", [])
+                if str(item).strip()
+            ] or ["Proceeding to next issue."]
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -2080,8 +2087,9 @@ class BossLoop:
                 worker_status="completed",
                 stop_reason=None,
                 needs_human_reasons=[],
-                next_actions=["Proceeding to next issue."],
+                next_actions=next_actions,
                 elapsed_seconds=elapsed_seconds,
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
 
         if worker_result.get("status") == "needs_human":
@@ -2332,6 +2340,27 @@ class BossLoop:
             user_expertise="developer",
         )
         validation_contract = extract_issue_validation_contract(issue.body)
+        if self.config.enable_pre_dispatch_satisfaction_check:
+            pre_dispatch_commands = extract_pre_dispatch_validation_commands(issue.body)
+            if pre_dispatch_commands:
+                probe = run_pre_dispatch_validation_commands(
+                    pre_dispatch_commands,
+                    cwd=Path.cwd(),
+                    timeout_seconds=self.config.pre_dispatch_validation_timeout_seconds,
+                )
+                if probe.get("satisfied"):
+                    return {
+                        "status": "completed",
+                        "outcome": "already_satisfied",
+                        "validations_run": pre_dispatch_commands,
+                        "next_actions": [
+                            (
+                                f"Issue #{issue.number} already satisfies its explicit validation "
+                                "contract on the current branch."
+                            ),
+                            "Close, relabel, or remove the stale boss-ready issue before the next tick.",
+                        ],
+                    }
         if validation_contract and self.config.use_focused_verification:
             # Replace broad test suite commands with focused verification
             # that only tests files related to the worker's changes
