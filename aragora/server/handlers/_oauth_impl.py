@@ -102,6 +102,7 @@ import sys as _sys
 from urllib.parse import urlparse as _urlparse
 
 _logger = _logging.getLogger(__name__)
+_DEFAULT_GET_ALLOWED_REDIRECT_HOSTS = _get_allowed_redirect_hosts
 
 
 def _validate_redirect_url(redirect_url: str) -> bool:
@@ -109,7 +110,9 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
     Collects allowed hosts from both the internal ``_oauth_impl`` module and
     the public ``oauth`` module so that tests patching either location have
-    the patch visible.  Treats an empty allowlist as a security failure.
+    the patch visible. A patched getter is treated as authoritative instead
+    of being merged with an unpatched alias. Treats an empty allowlist as a
+    security failure.
     """
     try:
         parsed = _urlparse(redirect_url)
@@ -120,27 +123,36 @@ def _validate_redirect_url(redirect_url: str) -> bool:
         if not host:
             return False
         host = host.lower()
+        if host in {"localhost", "127.0.0.1", "::1"} and parsed.scheme == "http":
+            return True
 
-        # Collect allowed hosts from multiple sources for test patchability
-        allowed_hosts: set[str] = set()
         _self = _sys.modules[__name__]
-        getters = [getattr(_self, "_get_allowed_redirect_hosts", None)]
+        self_getter = getattr(_self, "_get_allowed_redirect_hosts", None)
+        pub_getter = None
         try:
             _oauth_pub = _sys.modules.get("aragora.server.handlers.oauth")
             if _oauth_pub is not None:
                 pub_getter = getattr(_oauth_pub, "_get_allowed_redirect_hosts", None)
-                if pub_getter is not None and pub_getter is not getters[0]:
-                    getters.append(pub_getter)
         except (AttributeError, KeyError):
             pass
 
-        for getter in getters:
-            if getter is None:
-                continue
+        # Prefer whichever alias has been patched away from the original config
+        # getter. Falling back to a union lets an unpatched alias override
+        # explicit tests that patch the other import path.
+        getter = None
+        if self_getter is not None and self_getter is not _DEFAULT_GET_ALLOWED_REDIRECT_HOSTS:
+            getter = self_getter
+        elif pub_getter is not None and pub_getter is not _DEFAULT_GET_ALLOWED_REDIRECT_HOSTS:
+            getter = pub_getter
+        else:
+            getter = self_getter or pub_getter
+
+        allowed_hosts: set[str] = set()
+        if getter is not None:
             try:
                 allowed_hosts.update(getter())
             except (TypeError, RuntimeError, OSError):
-                continue
+                return False
 
         if not allowed_hosts:
             _logger.warning("oauth_redirect_blocked: empty allowlist")
