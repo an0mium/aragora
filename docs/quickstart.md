@@ -1,123 +1,123 @@
 # Quickstart
 
-Get from zero to a working adversarial debate in under a minute.
+Get from zero to a working Aragora debate in under a minute.
 
----
+This guide is aligned with the current product surface:
 
-## 1. Install
+- `aragora quickstart` is the fastest CLI path from a question to a saved receipt.
+- `aragora-debate` is the standalone Python package for embedding the debate engine directly.
+- `deploy/demo/docker-compose.yml` brings up the offline demo stack with the web UI and API.
+
+## 1. Fastest Path: CLI Quickstart
+
+Install the CLI package:
+
+```bash
+pip install aragora
+```
+
+Run the zero-config demo path:
+
+```bash
+aragora quickstart --demo --no-browser
+```
+
+What happens:
+
+- Aragora runs a short demo debate with local mock agents
+- It saves a receipt artifact under `.aragora/receipts/`
+- It reports whether the run was `demo` or `live`
+
+If you want structured stdout for scripting or CI:
+
+```bash
+aragora quickstart --demo --no-browser --json
+```
+
+For the full CLI walkthrough, saved artifact behavior, and flags, see [QUICKSTART_CLI.md](QUICKSTART_CLI.md).
+
+## 2. Live Quickstart With a Real Provider
+
+Export a supported API key, then run a one-question debate:
+
+```bash
+export OPENAI_API_KEY=sk-...
+aragora quickstart --question "Should we adopt GraphQL for our mobile API?" --no-browser
+```
+
+Quickstart auto-detects supported providers from your environment and falls back to demo mode if none are available.
+
+You can also provide a key inline for a first run:
+
+```bash
+aragora quickstart \
+  --provider openai \
+  --api-key sk-... \
+  --save-key \
+  --question "Should we ship this change?" \
+  --no-browser
+```
+
+## 3. Standalone Python Package
+
+If you want the debate engine without the broader CLI or server surface, use `aragora-debate`:
 
 ```bash
 pip install aragora-debate
 ```
 
-## 2. Zero-Key Demo
-
-No API keys needed — runs with styled mock agents locally:
-
-```bash
-python -c "
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
-import asyncio
-
-agents = [
-    StyledMockAgent('analyst', style='supportive'),
-    StyledMockAgent('critic', style='critical'),
-    StyledMockAgent('pm', style='balanced'),
-]
-arena = Arena(question='Should we migrate to microservices?', agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())
-"
-```
-
-You'll see three agents debate, critique each other, vote, and produce an audit-ready decision receipt.
-
-## 3. Three-Line Debate (Python)
-
-```python
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
-
-agents = [
-    StyledMockAgent("analyst", style="supportive"),
-    StyledMockAgent("critic", style="critical"),
-    StyledMockAgent("pm", style="balanced"),
-]
-arena = Arena(question="Should we adopt GraphQL?", agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())
-```
-
-## 4. Add Real AI Models
-
-Set at least one API key:
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
-# or
-export OPENAI_API_KEY="sk-..."          # GPT
-```
-
-Then run a real debate:
+Offline example with styled mock agents:
 
 ```python
 import asyncio
-from aragora import Arena, Environment, DebateProtocol
+from aragora_debate import Arena, DebateConfig, StyledMockAgent
 
-env = Environment(task="Design a rate limiter for our API")
-protocol = DebateProtocol(rounds=3, consensus="majority")
 
-# Arena auto-discovers available agents from your API keys
-arena = Arena(env, protocol=protocol)
-result = asyncio.run(arena.run())
-print(result.summary)
+async def main() -> None:
+    agents = [
+        StyledMockAgent("analyst", style="supportive"),
+        StyledMockAgent("critic", style="critical"),
+        StyledMockAgent("pm", style="balanced"),
+    ]
+
+    result = await Arena(
+        question="Should we migrate to microservices?",
+        agents=agents,
+        config=DebateConfig(rounds=2),
+    ).run()
+
+    print(result.receipt.to_markdown())
+
+
+asyncio.run(main())
 ```
 
-## 5. TypeScript SDK
+For more standalone package examples, see [`aragora-debate/README.md`](../aragora-debate/README.md).
+
+## 4. Self-Host the Full Demo Stack
+
+Bring up the offline demo stack with the backend, WebSocket server, and frontend UI:
 
 ```bash
-npm install @aragora/sdk
-```
-
-```typescript
-import { AragoraClient } from "@aragora/sdk";
-
-const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
-const result = await client.debates.create({
-  task: "Should we use microservices or a monolith?",
-  agents: ["claude", "openai"],
-  rounds: 3,
-});
-console.log(result.summary);
-```
-
-## 6. Self-Host the Full Platform
-
-```bash
-docker compose -f deploy/demo/docker-compose.yml up
+docker compose -f deploy/demo/docker-compose.yml up --build
 ```
 
 Then visit:
-- **Landing page:** http://localhost:3000
-- **API docs (Swagger):** http://localhost:8080/api/v2/docs
-- **API docs (Redoc):** http://localhost:8080/api/v2/redoc
-- **Interactive playground:** http://localhost:3000/playground
 
-## 7. CLI
+- Landing page: http://localhost:3000
+- Public proof demo: http://localhost:3000/demo
+- Question-entry flow: http://localhost:3000/try
+- Standalone playground: http://localhost:3000/playground
+- API docs (Swagger): http://localhost:8080/api/v1/docs
+- API docs (ReDoc): http://localhost:8080/api/v1/redoc
 
-```bash
-pip install aragora
-aragora debate "Should we build or buy our auth system?"
-aragora serve --api-port 8080 --ws-port 8765
-```
+The demo stack runs in offline mode with mock agents and SQLite, so it does not require external provider credentials.
 
-## Next Steps
+## 5. Next Steps
 
 | Guide | What you'll learn |
 |-------|-------------------|
-| [CLI Reference](CLI_REFERENCE.md) | All CLI commands and flags |
-| [SDK Guide](SDK_GUIDE.md) | Python & TypeScript SDK reference |
-| [API Reference](api/API_REFERENCE.md) | REST API endpoints |
-| [Self-Hosting](guides/SELF_HOSTED_COMPLETE_GUIDE.md) | Production deployment |
-| [Start Here](START_HERE.md) | Deeper architectural overview |
+| [Quickstart CLI](QUICKSTART_CLI.md) | Current CLI-first onboarding path and flags |
+| [Developer Quickstart](QUICKSTART_DEVELOPER.md) | Local development workflow |
+| [API Reference](api/API_REFERENCE.md) | REST API endpoints and models |
+| [Start Here](START_HERE.md) | Product overview and architecture |
