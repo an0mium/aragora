@@ -60,7 +60,7 @@ export function QuickDebatePanel() {
       updateProgress({ firstDebateStarted: true });
 
       // Poll for completion
-      pollForResult(data.id || data.debate_id);
+      void pollForResult(data.id || data.debate_id);
     } catch (e) {
       logger.error('Failed to start debate:', e);
       setDebateStatus('error');
@@ -73,18 +73,23 @@ export function QuickDebatePanel() {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {
-        const res = await fetch(
-          `${apiBase}/api/v1/debates/${debateId}/status`
-        );
+        const res = await fetch(`${apiBase}/api/v1/debates/${debateId}`);
         if (!res.ok) continue;
         const data = await res.json();
-        if (data.status === 'completed') {
-          setResult(data.verdict || data.final_answer || 'Debate completed.');
+        const status = typeof data.status === 'string' ? data.status.toLowerCase() : '';
+        if (status === 'completed') {
+          setResult(
+            data.verdict ||
+              data.final_answer ||
+              data.winning_proposal ||
+              data.conclusion ||
+              'Debate completed.'
+          );
           setDebateStatus('completed');
           updateProgress({ firstDebateCompleted: true, receiptViewed: true });
           return;
         }
-        if (data.status === 'failed') {
+        if (status === 'failed' || status === 'cancelled') {
           setDebateStatus('error');
           setDebateError('Debate failed. You can skip this step.');
           return;
