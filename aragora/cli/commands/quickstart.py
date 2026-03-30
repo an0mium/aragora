@@ -29,6 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO, cast
 
+from aragora.receipt_verdicts import canonicalize_receipt_verdict
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
@@ -427,6 +429,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     participants = _coerce_string_list(payload.get("agents") or receipt_info.get("participants"))
     summary = str(payload.get("summary") or payload.get("verdict_reasoning") or "")
     confidence = _clamp_confidence(payload.get("confidence", 0.0))
+    canonical_verdict = canonicalize_receipt_verdict(payload.get("verdict"))
     receipt_id = _derive_receipt_id(
         mode=mode,
         question=question,
@@ -443,12 +446,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     if consensus is None and isinstance(payload.get("consensus_proof"), dict):
         consensus = bool(payload["consensus_proof"].get("reached"))
     if consensus is None:
-        consensus = str(payload.get("verdict", "")).strip().lower() in {
-            "consensus",
-            "pass",
-            "approve",
-            "approved",
-        }
+        consensus = canonical_verdict == "PASS"
 
     votes = payload.get("votes")
     if not isinstance(votes, list):
@@ -520,7 +518,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             vulnerabilities_found=int(
                 payload.get("vulnerabilities_found", 0) or len(dissenting_views)
             ),
-            verdict=str(payload.get("verdict", "")),
+            verdict=canonical_verdict,
             confidence=confidence,
             robustness_score=_clamp_confidence(payload.get("robustness_score", confidence)),
             verdict_reasoning=str(payload.get("verdict_reasoning") or summary),
@@ -573,6 +571,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         canonical = dict(payload)
         canonical.update(receipt.to_dict())
 
+    canonical["verdict"] = canonical_verdict
     canonical["question"] = question
     canonical["rounds"] = rounds
     canonical["agents"] = participants

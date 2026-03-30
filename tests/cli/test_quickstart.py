@@ -17,6 +17,7 @@ from aragora.agents.base import create_agent as create_real_agent
 from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
     _build_live_receipt,
+    _build_quickstart_receipt_payload,
     _build_live_team,
     _can_reach_provider_tls,
     _configure_inline_api_key,
@@ -870,7 +871,7 @@ class TestCmdQuickstart:
 
         assert Path(output_path).exists()
         data = json.loads(Path(output_path).read_text())
-        assert data["verdict"] == "yes"
+        assert data["verdict"] == "PASS"
 
     def test_demo_mode_saves_receipt_that_verifies(self, tmp_path, monkeypatch, capsys):
         monkeypatch.chdir(tmp_path)
@@ -903,6 +904,22 @@ class TestCmdQuickstart:
         assert excinfo.value.code == 0
         output = capsys.readouterr().out
         assert "Result: VALID" in output
+
+    def test_build_quickstart_receipt_payload_canonicalizes_demo_verdict(self):
+        payload = _build_quickstart_receipt_payload(
+            {
+                "question": "Should we verify the saved quickstart receipt?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 2,
+                "agents": ["analyst", "critic", "synthesizer"],
+                "summary": "Proceed with a phased rollout.",
+                "dissent": [],
+                "mode": "demo",
+            }
+        )
+
+        assert payload["verdict"] == "PASS"
 
     def test_live_mode_saves_default_receipt_artifact(self, tmp_path, monkeypatch, capsys):
         """Test live quickstart saves a deterministic default artifact."""

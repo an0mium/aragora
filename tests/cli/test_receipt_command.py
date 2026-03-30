@@ -125,3 +125,24 @@ def test_receipt_show_falls_back_to_legacy_when_durable_missing(
     payload = json.loads(output)
     assert payload["receipt_id"] == "legacy-rcpt-456"
     assert payload["gauntlet_id"] == "gauntlet-live-456"
+
+
+def test_receipt_list_normalizes_displayed_verdicts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = _StoredReceiptStub(
+        receipt_id="rcpt-quickstart-123",
+        gauntlet_id="rcpt-quickstart-123",
+        verdict="consensus",
+        confidence=0.85,
+        created_at=1711300000.0,
+        data={},
+    )
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
+        with patch("aragora.cli.commands.receipt._load_legacy_receipt_list", return_value=[]):
+            cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, org_id=None))
+
+    output = capsys.readouterr().out
+    assert "PASS" in output
+    assert "consensus" not in output

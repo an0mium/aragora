@@ -34,6 +34,7 @@ import builtins
 from typing import Any
 
 from aragora.config import resolve_db_path
+from aragora.receipt_verdicts import canonicalize_receipt_verdict, receipt_verdict_aliases
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -474,7 +475,7 @@ class ReceiptStore:
             created_at = source_path.stat().st_mtime
 
         # Verdict normalization
-        verdict = str(data.get("verdict") or "UNKNOWN").upper()
+        verdict = canonicalize_receipt_verdict(data.get("verdict"))
 
         # Confidence
         try:
@@ -572,7 +573,6 @@ class ReceiptStore:
         receipt_id = receipt_dict.get("receipt_id", "")
         gauntlet_id = receipt_dict.get("gauntlet_id", "")
         debate_id = receipt_dict.get("debate_id")
-
         # Parse timestamp
         created_at = receipt_dict.get("timestamp", time.time())
         if isinstance(created_at, str):
@@ -753,7 +753,9 @@ class ReceiptStore:
         signed_only: bool = False,
     ) -> bool:
         """Return True if a file-based StoredReceipt passes the given filters."""
-        if verdict and sr.verdict != verdict:
+        if verdict and canonicalize_receipt_verdict(sr.verdict) != canonicalize_receipt_verdict(
+            verdict
+        ):
             return False
         if risk_level and sr.risk_level != risk_level:
             return False
@@ -852,8 +854,13 @@ class ReceiptStore:
             params: list[Any] = []
 
             if verdict:
-                conditions.append("verdict = ?")
-                params.append(verdict)
+                aliases = receipt_verdict_aliases(verdict)
+                placeholders = ", ".join("?" for _ in aliases)
+                conditions.append(
+                    "UPPER(REPLACE(REPLACE(TRIM(verdict), '-', '_'), ' ', '_')) "
+                    f"IN ({placeholders})"
+                )
+                params.extend(aliases)
             if risk_level:
                 conditions.append("risk_level = ?")
                 params.append(risk_level)
@@ -931,8 +938,13 @@ class ReceiptStore:
             params: list[Any] = []
 
             if verdict:
-                conditions.append("verdict = ?")
-                params.append(verdict)
+                aliases = receipt_verdict_aliases(verdict)
+                placeholders = ", ".join("?" for _ in aliases)
+                conditions.append(
+                    "UPPER(REPLACE(REPLACE(TRIM(verdict), '-', '_'), ' ', '_')) "
+                    f"IN ({placeholders})"
+                )
+                params.extend(aliases)
             if risk_level:
                 conditions.append("risk_level = ?")
                 params.append(risk_level)

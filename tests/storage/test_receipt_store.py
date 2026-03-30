@@ -442,6 +442,23 @@ class TestReceiptStoreList:
         assert all(r.verdict == "APPROVED" for r in approved)
         assert all(r.verdict == "REJECTED" for r in rejected)
 
+    def test_list_filter_by_canonical_verdict_alias(self, receipt_store, sample_receipt_dict):
+        """PASS filters should match stored success aliases."""
+        sample_receipt_dict["receipt_id"] = "approved-1"
+        sample_receipt_dict["gauntlet_id"] = "gauntlet-approved-1"
+        sample_receipt_dict["verdict"] = "APPROVED"
+        receipt_store.save(sample_receipt_dict)
+
+        sample_receipt_dict["receipt_id"] = "yes-1"
+        sample_receipt_dict["gauntlet_id"] = "gauntlet-yes-1"
+        sample_receipt_dict["verdict"] = "yes"
+        receipt_store.save(sample_receipt_dict)
+
+        passed = receipt_store.list(verdict="PASS")
+
+        assert len(passed) == 2
+        assert {r.verdict for r in passed} == {"APPROVED", "yes"}
+
     def test_list_filter_by_risk_level(self, receipt_store, sample_receipt_dict):
         """Test list filters by risk level."""
         risk_levels = ["LOW", "MEDIUM", "HIGH"]
@@ -1036,6 +1053,16 @@ class TestFileReceiptFallback:
         assert sr.risk_level == "LOW"
         assert sr.checksum == "sha256:deadbeef"
         assert sr.data == sample_file_receipt
+
+    def test_parse_file_receipt_canonicalizes_success_aliases(self, tmp_path, sample_file_receipt):
+        """Quickstart file receipts should normalize success verdicts to PASS."""
+        fake_path = tmp_path / "receipt.json"
+        fake_path.write_text("{}")
+        sample_file_receipt["verdict"] = "consensus"
+
+        sr = ReceiptStore._parse_file_receipt(sample_file_receipt, fake_path)
+
+        assert sr.verdict == "PASS"
 
     def test_parse_file_receipt_missing_receipt_id_uses_nested(self, tmp_path):
         """Test _parse_file_receipt falls back to receipt.id."""

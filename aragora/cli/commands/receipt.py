@@ -21,6 +21,8 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
+from aragora.receipt_verdicts import canonicalize_receipt_verdict
+
 logger = logging.getLogger(__name__)
 
 
@@ -678,7 +680,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
         created = _format_receipt_created_at(getattr(meta, "created_at", None))
         findings = _receipt_findings_count(meta)
         confidence = float(getattr(meta, "confidence", 0.0) or 0.0)
-        verdict_value = str(getattr(meta, "verdict", "UNKNOWN") or "UNKNOWN")
+        verdict_value = canonicalize_receipt_verdict(getattr(meta, "verdict", "UNKNOWN"))
         print(f"{short_id:<14} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}")
     print(f"\n{len(results)} receipt(s) shown.")
 
@@ -754,7 +756,7 @@ def _inspect_receipt_data(data: dict[str, Any]) -> None:
     print("=" * 60)
     print(f"\nReceipt ID:    {data.get('receipt_id', 'N/A')}")
     print(f"Gauntlet ID:   {data.get('gauntlet_id', 'N/A')}")
-    print(f"Verdict:       {data.get('verdict', 'UNKNOWN')}")
+    print(f"Verdict:       {canonicalize_receipt_verdict(data.get('verdict', 'UNKNOWN'))}")
     confidence = data.get("confidence", 0)
     print(f"Confidence:    {confidence:.1%}")
     risk_summary = data.get("risk_summary", {})
