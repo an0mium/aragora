@@ -81,6 +81,15 @@ def mock_http():
     return h
 
 
+@pytest.fixture(autouse=True)
+def _patch_metered_agents():
+    with patch(
+        "aragora.server.handlers.spend_analytics_dashboard._get_metered_agents",
+        return_value=("0.00", []),
+    ):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Routing tests
 # ---------------------------------------------------------------------------
@@ -377,7 +386,39 @@ class TestByAgentEndpoint:
         result = handler.handle("/api/v1/analytics/spend/by-agent", {}, mock_http)
         body = _parse_body(result)
         assert body["agents"] == []
-        assert body["total_usd"] == "0"
+        assert body["total_usd"] == "0.00"
+
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_agent_falls_back_to_usage_meter(self, mock_tracker_fn, handler, mock_http):
+        tracker = MagicMock()
+        tracker.get_workspace_stats.return_value = _make_workspace_stats(
+            total_cost="0.00",
+            agent_costs={},
+        )
+        mock_tracker_fn.return_value = tracker
+
+        with patch(
+            "aragora.server.handlers.spend_analytics_dashboard._get_metered_agents",
+            return_value=(
+                "9.75",
+                [
+                    {"agent_name": "claude", "cost_usd": "6.50", "percentage": 66.7},
+                    {"agent_name": "codex", "cost_usd": "3.25", "percentage": 33.3},
+                ],
+            ),
+        ) as mock_metered:
+            result = handler.handle(
+                "/api/v1/analytics/spend/by-agent",
+                {"workspace_id": "ws_123"},
+                mock_http,
+            )
+
+        body = _parse_body(result)
+        assert body["total_usd"] == "9.75"
+        assert body["agents"][0]["agent_name"] == "claude"
+        assert body["agents"][0]["cost_usd"] == "6.50"
+        assert body["agents"][1]["agent_name"] == "codex"
+        mock_metered.assert_called_once_with("ws_123")
 
 
 # ---------------------------------------------------------------------------
