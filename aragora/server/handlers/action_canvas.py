@@ -230,6 +230,86 @@ class ActionCanvasHandler(SecureHandler):
         except RuntimeError:
             return asyncio.run(coro)
 
+    @staticmethod
+    def _snapshot_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
+        snapshot = dict(metadata or {})
+        snapshot.setdefault("stage", "actions")
+        snapshot["state_snapshot_version"] = 1
+        return snapshot
+
+    @staticmethod
+    def _has_persisted_state(canvas_meta: dict[str, Any] | None) -> bool:
+        if not canvas_meta:
+            return False
+        metadata = canvas_meta.get("metadata", {}) or {}
+        return bool(
+            canvas_meta.get("nodes")
+            or canvas_meta.get("edges")
+            or metadata.get("state_snapshot_version")
+        )
+
+    def _persist_canvas_state(self, canvas) -> dict[str, Any] | None:
+        store = self._get_store()
+        return store.update_canvas(
+            canvas_id=canvas.id,
+            name=canvas.name,
+            metadata=self._snapshot_metadata(getattr(canvas, "metadata", {})),
+            nodes=[n.to_dict() for n in canvas.nodes.values()],
+            edges=[e.to_dict() for e in canvas.edges.values()],
+        )
+
+    def _restore_canvas_state(self, canvas_meta: dict[str, Any]):
+        if not self._has_persisted_state(canvas_meta):
+            return None
+
+        from aragora.canvas import Canvas
+
+        snapshot = Canvas.from_dict(
+            {
+                "id": canvas_meta.get("id"),
+                "name": canvas_meta.get("name", "Untitled Actions"),
+                "metadata": self._snapshot_metadata(canvas_meta.get("metadata", {})),
+                "owner_id": canvas_meta.get("owner_id"),
+                "workspace_id": canvas_meta.get("workspace_id"),
+                "nodes": canvas_meta.get("nodes", []),
+                "edges": canvas_meta.get("edges", []),
+            }
+        )
+        manager = self._get_canvas_manager()
+
+        async def _restore():
+            live_canvas = await manager.get_or_create_canvas(
+                snapshot.id,
+                name=snapshot.name,
+                owner_id=snapshot.owner_id,
+                workspace_id=snapshot.workspace_id,
+                **snapshot.metadata,
+            )
+            live_canvas.name = snapshot.name
+            live_canvas.owner_id = snapshot.owner_id
+            live_canvas.workspace_id = snapshot.workspace_id
+            live_canvas.metadata = dict(snapshot.metadata)
+            live_canvas.nodes = dict(snapshot.nodes)
+            live_canvas.edges = dict(snapshot.edges)
+            return live_canvas
+
+        return self._run_async(_restore())
+
+    def _get_or_restore_canvas(
+        self,
+        canvas_id: str,
+        canvas_meta: dict[str, Any] | None = None,
+    ):
+        manager = self._get_canvas_manager()
+        canvas = self._run_async(manager.get_canvas(canvas_id))
+        if canvas is not None:
+            return canvas
+        if canvas_meta is None:
+            canvas_meta = self._get_store().load_canvas(canvas_id)
+        if not canvas_meta:
+            return None
+        return self._restore_canvas_state(canvas_meta)
+
     # ------------------------------------------------------------------
     # Canvas CRUD
     # ------------------------------------------------------------------
@@ -267,6 +347,7 @@ class ActionCanvasHandler(SecureHandler):
         try:
             store = self._get_store()
             canvas_id = body.get("id") or f"actions-{uuid.uuid4().hex[:8]}"
+            metadata = self._snapshot_metadata(body.get("metadata", {"stage": "actions"}))
             result = store.save_canvas(
                 canvas_id=canvas_id,
                 name=body.get("name", "Untitled Actions"),
@@ -274,7 +355,9 @@ class ActionCanvasHandler(SecureHandler):
                 workspace_id=workspace_id,
                 description=body.get("description", ""),
                 source_canvas_id=body.get("source_canvas_id"),
-                metadata=body.get("metadata", {"stage": "actions"}),
+                metadata=metadata,
+                nodes=body.get("nodes", []),
+                edges=body.get("edges", []),
             )
             return json_response(result, status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
@@ -294,15 +377,17 @@ class ActionCanvasHandler(SecureHandler):
             if not canvas_meta:
                 return error_response("Action canvas not found", 404)
 
-            # Get live canvas state from manager
-            manager = self._get_canvas_manager()
-            canvas = self._run_async(manager.get_canvas(canvas_id))
+            canvas = self._get_or_restore_canvas(canvas_id, canvas_meta)
             if canvas:
+                self._persist_canvas_state(canvas)
+                canvas_meta["metadata"] = self._snapshot_metadata(
+                    getattr(canvas, "metadata", canvas_meta.get("metadata", {}))
+                )
                 canvas_meta["nodes"] = [n.to_dict() for n in canvas.nodes.values()]
                 canvas_meta["edges"] = [e.to_dict() for e in canvas.edges.values()]
             else:
-                canvas_meta.setdefault("nodes", [])
-                canvas_meta.setdefault("edges", [])
+                canvas_meta["nodes"] = list(canvas_meta.get("nodes") or [])
+                canvas_meta["edges"] = list(canvas_meta.get("edges") or [])
 
             return json_response(canvas_meta)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
@@ -319,14 +404,31 @@ class ActionCanvasHandler(SecureHandler):
     ) -> HandlerResult:
         try:
             store = self._get_store()
+            metadata = body.get("metadata")
+            if metadata is not None:
+                metadata = self._snapshot_metadata(metadata)
             result = store.update_canvas(
                 canvas_id=canvas_id,
                 name=body.get("name"),
                 description=body.get("description"),
-                metadata=body.get("metadata"),
+                metadata=metadata,
             )
             if not result:
                 return error_response("Action canvas not found", 404)
+            if body.get("name") is not None or metadata is not None:
+                manager = self._get_canvas_manager()
+                canvas = self._get_or_restore_canvas(canvas_id, result)
+                if canvas is not None:
+                    updated_canvas = self._run_async(
+                        manager.update_canvas(
+                            canvas_id=canvas_id,
+                            name=body.get("name"),
+                            metadata=metadata,
+                            user_id=user_id,
+                        )
+                    )
+                    if updated_canvas is not None:
+                        result = self._persist_canvas_state(updated_canvas) or result
             return json_response(result)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to update action canvas: %s", e)
@@ -344,6 +446,8 @@ class ActionCanvasHandler(SecureHandler):
             deleted = store.delete_canvas(canvas_id)
             if not deleted:
                 return error_response("Action canvas not found", 404)
+            manager = self._get_canvas_manager()
+            self._run_async(manager.delete_canvas(canvas_id))
             return json_response({"deleted": True, "canvas_id": canvas_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to delete action canvas: %s", e)
@@ -365,14 +469,21 @@ class ActionCanvasHandler(SecureHandler):
             from aragora.canvas import CanvasNodeType, Position
             from aragora.canvas.stages import ActionNodeType
 
-            manager = self._get_canvas_manager()
-
             action_type = body.get("action_type", "task")
             try:
                 ActionNodeType(action_type)
             except ValueError:
                 return error_response(f"Invalid action type: {action_type}", 400)
 
+            store = self._get_store()
+            canvas_meta = store.load_canvas(canvas_id)
+            if not canvas_meta:
+                return error_response("Canvas not found", 404)
+
+            if self._get_or_restore_canvas(canvas_id, canvas_meta) is None:
+                return error_response("Action canvas state unavailable", 409)
+
+            manager = self._get_canvas_manager()
             pos_data = body.get("position", {})
             position = Position(
                 x=float(pos_data.get("x", 0)),
@@ -398,6 +509,9 @@ class ActionCanvasHandler(SecureHandler):
             )
             if not node:
                 return error_response("Canvas not found", 404)
+            canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is not None:
+                self._persist_canvas_state(canvas)
             return json_response(node.to_dict(), status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to add action node: %s", e)
@@ -414,6 +528,14 @@ class ActionCanvasHandler(SecureHandler):
     ) -> HandlerResult:
         try:
             from aragora.canvas import Position
+
+            store = self._get_store()
+            canvas_meta = store.load_canvas(canvas_id)
+            if not canvas_meta:
+                return error_response("Node or canvas not found", 404)
+
+            if self._get_or_restore_canvas(canvas_id, canvas_meta) is None:
+                return error_response("Action canvas state unavailable", 409)
 
             manager = self._get_canvas_manager()
             updates: dict[str, Any] = {}
@@ -435,6 +557,9 @@ class ActionCanvasHandler(SecureHandler):
             )
             if not node:
                 return error_response("Node or canvas not found", 404)
+            canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is not None:
+                self._persist_canvas_state(canvas)
             return json_response(node.to_dict())
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to update action node: %s", e)
@@ -449,10 +574,21 @@ class ActionCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            store = self._get_store()
+            canvas_meta = store.load_canvas(canvas_id)
+            if not canvas_meta:
+                return error_response("Node or canvas not found", 404)
+
+            if self._get_or_restore_canvas(canvas_id, canvas_meta) is None:
+                return error_response("Action canvas state unavailable", 409)
+
             manager = self._get_canvas_manager()
             deleted = self._run_async(manager.remove_node(canvas_id, node_id, user_id=user_id))
             if not deleted:
                 return error_response("Node or canvas not found", 404)
+            canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is not None:
+                self._persist_canvas_state(canvas)
             return json_response({"deleted": True, "node_id": node_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to delete action node: %s", e)
@@ -473,12 +609,20 @@ class ActionCanvasHandler(SecureHandler):
         try:
             from aragora.canvas import EdgeType
 
-            manager = self._get_canvas_manager()
             source_id = body.get("source_id") or body.get("source")
             target_id = body.get("target_id") or body.get("target")
             if not source_id or not target_id:
                 return error_response("source_id and target_id are required", 400)
 
+            store = self._get_store()
+            canvas_meta = store.load_canvas(canvas_id)
+            if not canvas_meta:
+                return error_response("Canvas or nodes not found", 404)
+
+            if self._get_or_restore_canvas(canvas_id, canvas_meta) is None:
+                return error_response("Action canvas state unavailable", 409)
+
+            manager = self._get_canvas_manager()
             edge_type_str = body.get("type", "default")
             try:
                 edge_type = EdgeType(edge_type_str)
@@ -498,6 +642,9 @@ class ActionCanvasHandler(SecureHandler):
             )
             if not edge:
                 return error_response("Canvas or nodes not found", 404)
+            canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is not None:
+                self._persist_canvas_state(canvas)
             return json_response(edge.to_dict(), status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to add action edge: %s", e)
@@ -512,10 +659,21 @@ class ActionCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            store = self._get_store()
+            canvas_meta = store.load_canvas(canvas_id)
+            if not canvas_meta:
+                return error_response("Edge or canvas not found", 404)
+
+            if self._get_or_restore_canvas(canvas_id, canvas_meta) is None:
+                return error_response("Action canvas state unavailable", 409)
+
             manager = self._get_canvas_manager()
             deleted = self._run_async(manager.remove_edge(canvas_id, edge_id, user_id=user_id))
             if not deleted:
                 return error_response("Edge or canvas not found", 404)
+            canvas = self._run_async(manager.get_canvas(canvas_id))
+            if canvas is not None:
+                self._persist_canvas_state(canvas)
             return json_response({"deleted": True, "edge_id": edge_id})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to delete action edge: %s", e)
@@ -559,10 +717,11 @@ class ActionCanvasHandler(SecureHandler):
         try:
             from aragora.canvas.converters import to_react_flow
 
-            manager = self._get_canvas_manager()
-            canvas = self._run_async(manager.get_canvas(canvas_id))
+            canvas_meta = self._get_store().load_canvas(canvas_id)
+            canvas = self._get_or_restore_canvas(canvas_id, canvas_meta)
             if not canvas:
                 return error_response("Canvas not found", 404)
+            self._persist_canvas_state(canvas)
             return json_response(to_react_flow(canvas))
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to export action canvas: %s", e)
@@ -583,10 +742,10 @@ class ActionCanvasHandler(SecureHandler):
             if not canvas_meta:
                 return error_response("Canvas not found", 404)
 
-            manager = self._get_canvas_manager()
-            canvas = self._run_async(manager.get_canvas(canvas_id))
+            canvas = self._get_or_restore_canvas(canvas_id, canvas_meta)
             if canvas is None:
                 return error_response("Action canvas state unavailable", 409)
+            self._persist_canvas_state(canvas)
 
             orchestration_canvas = self._build_orchestration_canvas(canvas, canvas_id, canvas_meta)
             orchestration_store = self._get_orchestration_store()
@@ -600,13 +759,14 @@ class ActionCanvasHandler(SecureHandler):
                 metadata=orchestration_canvas.metadata,
             )
 
+            manager = self._get_canvas_manager()
             live_orchestration = self._run_async(
                 manager.get_or_create_canvas(
                     orchestration_canvas.id,
                     name=orchestration_canvas.name,
                     owner_id=user_id,
                     workspace_id=canvas_meta.get("workspace_id"),
-                    metadata=orchestration_canvas.metadata,
+                    **orchestration_canvas.metadata,
                 )
             )
             live_orchestration.name = orchestration_canvas.name

@@ -1,9 +1,8 @@
 """
-SQLite store for Action Canvas metadata.
+SQLite store for Action Canvas metadata and restart-safe graph snapshots.
 
-Stores canvas-level metadata (id, name, owner, workspace, source_canvas_id, description).
-Node and edge data is delegated to the CanvasStateManager for in-memory
-persistence, keeping this store thin.
+Stores canvas-level metadata plus serialized nodes/edges so Stage 3 canvases
+can be rehydrated after the in-memory CanvasStateManager is reset.
 """
 
 from __future__ import annotations
@@ -13,6 +12,7 @@ import logging
 from typing import Any
 
 from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import SchemaManager, safe_add_column
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class ActionCanvasStore(SQLiteStore):
     """SQLite-backed store for action canvas metadata."""
 
     SCHEMA_NAME = "action_canvas"
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     INITIAL_SCHEMA = """
         CREATE TABLE IF NOT EXISTS action_canvases (
@@ -32,6 +32,8 @@ class ActionCanvasStore(SQLiteStore):
             description TEXT DEFAULT '',
             source_canvas_id TEXT,
             metadata TEXT DEFAULT '{}',
+            nodes TEXT DEFAULT '[]',
+            edges TEXT DEFAULT '[]',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
@@ -43,6 +45,19 @@ class ActionCanvasStore(SQLiteStore):
             ON action_canvases(source_canvas_id);
     """
 
+    def register_migrations(self, manager: SchemaManager) -> None:
+        manager.register_migration(
+            from_version=1,
+            to_version=2,
+            function=self._migrate_v1_to_v2,
+            description="Persist action canvas graph snapshots",
+        )
+
+    @staticmethod
+    def _migrate_v1_to_v2(conn) -> None:
+        safe_add_column(conn, "action_canvases", "nodes", "TEXT", default="'[]'")
+        safe_add_column(conn, "action_canvases", "edges", "TEXT", default="'[]'")
+
     def save_canvas(
         self,
         canvas_id: str,
@@ -52,14 +67,18 @@ class ActionCanvasStore(SQLiteStore):
         description: str = "",
         source_canvas_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        nodes: list[dict[str, Any]] | None = None,
+        edges: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Save or update an action canvas."""
         meta_json = json.dumps(metadata or {})
+        nodes_json = json.dumps(nodes or [])
+        edges_json = json.dumps(edges or [])
         with self.connection() as conn:
             conn.execute(
                 """INSERT INTO action_canvases
-                   (id, name, owner_id, workspace_id, description, source_canvas_id, metadata)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                   (id, name, owner_id, workspace_id, description, source_canvas_id, metadata, nodes, edges)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(id) DO UPDATE SET
                        name = excluded.name,
                        owner_id = excluded.owner_id,
@@ -67,8 +86,20 @@ class ActionCanvasStore(SQLiteStore):
                        description = excluded.description,
                        source_canvas_id = excluded.source_canvas_id,
                        metadata = excluded.metadata,
+                       nodes = excluded.nodes,
+                       edges = excluded.edges,
                        updated_at = CURRENT_TIMESTAMP""",
-                (canvas_id, name, owner_id, workspace_id, description, source_canvas_id, meta_json),
+                (
+                    canvas_id,
+                    name,
+                    owner_id,
+                    workspace_id,
+                    description,
+                    source_canvas_id,
+                    meta_json,
+                    nodes_json,
+                    edges_json,
+                ),
             )
         return self.load_canvas(canvas_id) or {}
 
@@ -81,7 +112,7 @@ class ActionCanvasStore(SQLiteStore):
             ).fetchone()
         if not row:
             return None
-        return self._row_to_dict(row)
+        return self._row_to_dict(row, include_state=True)
 
     def list_canvases(
         self,
@@ -114,7 +145,7 @@ class ActionCanvasStore(SQLiteStore):
                 " ORDER BY updated_at DESC LIMIT ? OFFSET ?",
                 params,
             ).fetchall()
-        return [self._row_to_dict(r) for r in rows]
+        return [self._row_to_dict(r, include_state=False) for r in rows]
 
     def delete_canvas(self, canvas_id: str) -> bool:
         """Delete an action canvas. Returns True if deleted."""
@@ -131,6 +162,8 @@ class ActionCanvasStore(SQLiteStore):
         name: str | None = None,
         description: str | None = None,
         metadata: dict[str, Any] | None = None,
+        nodes: list[dict[str, Any]] | None = None,
+        edges: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Update specific fields of an action canvas."""
         updates: list[str] = []
@@ -145,6 +178,12 @@ class ActionCanvasStore(SQLiteStore):
         if metadata is not None:
             updates.append("metadata = ?")
             params.append(json.dumps(metadata))
+        if nodes is not None:
+            updates.append("nodes = ?")
+            params.append(json.dumps(nodes))
+        if edges is not None:
+            updates.append("edges = ?")
+            params.append(json.dumps(edges))
 
         if not updates:
             return self.load_canvas(canvas_id)
@@ -160,7 +199,7 @@ class ActionCanvasStore(SQLiteStore):
         return self.load_canvas(canvas_id)
 
     @staticmethod
-    def _row_to_dict(row: Any) -> dict[str, Any]:
+    def _row_to_dict(row: Any, include_state: bool = True) -> dict[str, Any]:
         """Convert a sqlite3.Row to dict."""
         d = dict(row)
         if "metadata" in d and isinstance(d["metadata"], str):
@@ -168,6 +207,18 @@ class ActionCanvasStore(SQLiteStore):
                 d["metadata"] = json.loads(d["metadata"])
             except (json.JSONDecodeError, TypeError):
                 d["metadata"] = {}
+        for key in ("nodes", "edges"):
+            if key in d and include_state:
+                if isinstance(d[key], str):
+                    try:
+                        value = json.loads(d[key])
+                    except (json.JSONDecodeError, TypeError):
+                        value = []
+                else:
+                    value = d[key] or []
+                d[key] = value if isinstance(value, list) else []
+            elif key in d:
+                d.pop(key, None)
         return d
 
 

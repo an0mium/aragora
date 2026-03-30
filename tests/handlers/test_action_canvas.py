@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from aragora.canvas.manager import CanvasStateManager
 from aragora.server.handlers.action_canvas import ActionCanvasHandler
 
 
@@ -195,6 +196,38 @@ class TestGetCanvas:
             if status:
                 assert status == 404
 
+    @patch("aragora.canvas.action_store.get_action_canvas_store")
+    def test_rehydrates_persisted_snapshot(self, mock_get_store, handler):
+        mock_store = MagicMock()
+        mock_store.load_canvas.return_value = {
+            "id": "ac-1",
+            "name": "Sprint 1",
+            "owner_id": "u1",
+            "workspace_id": "ws-1",
+            "metadata": {"stage": "actions", "state_snapshot_version": 1},
+            "nodes": [
+                {
+                    "id": "node-1",
+                    "type": "workflow",
+                    "position": {"x": 12, "y": 34},
+                    "label": "Ship receipts",
+                    "data": {"stage": "actions"},
+                }
+            ],
+            "edges": [],
+        }
+        mock_store.update_canvas.return_value = None
+        mock_get_store.return_value = mock_store
+
+        with patch.object(handler, "_get_canvas_manager", return_value=CanvasStateManager()):
+            ctx = MagicMock()
+            result = handler._get_canvas(ctx, "ac-1", "u1")
+            assert result is not None
+
+        body = json.loads(result.body.decode("utf-8"))
+        assert body["nodes"][0]["id"] == "node-1"
+        assert body["edges"] == []
+
 
 class TestDeleteCanvas:
     """_delete_canvas tests."""
@@ -256,26 +289,36 @@ class TestAddNode:
             if status:
                 assert status == 400
 
-    def test_valid_action_types(self, handler):
+    @patch("aragora.canvas.action_store.get_action_canvas_store")
+    def test_valid_action_types(self, mock_get_store, handler):
         """All ActionNodeType values should be accepted."""
         from aragora.canvas.stages import ActionNodeType
+
+        mock_store = MagicMock()
+        mock_store.load_canvas.return_value = {
+            "id": "c1",
+            "metadata": {"stage": "actions", "state_snapshot_version": 1},
+        }
+        mock_get_store.return_value = mock_store
 
         for action_type in ActionNodeType:
             with patch.object(handler, "_get_canvas_manager") as mock_mgr:
                 manager = MagicMock()
                 mock_mgr.return_value = manager
-                with patch.object(handler, "_run_async") as mock_run:
-                    node_mock = MagicMock()
-                    node_mock.to_dict.return_value = {"id": "n1"}
-                    mock_run.return_value = node_mock
-                    ctx = MagicMock()
-                    result = handler._add_node(
-                        ctx,
-                        "c1",
-                        {"action_type": action_type.value, "label": "test"},
-                        "u1",
-                    )
-                    assert result is not None
+                with patch.object(handler, "_get_or_restore_canvas", return_value=MagicMock()):
+                    with patch.object(handler, "_persist_canvas_state"):
+                        with patch.object(handler, "_run_async") as mock_run:
+                            node_mock = MagicMock()
+                            node_mock.to_dict.return_value = {"id": "n1"}
+                            mock_run.return_value = node_mock
+                            ctx = MagicMock()
+                            result = handler._add_node(
+                                ctx,
+                                "c1",
+                                {"action_type": action_type.value, "label": "test"},
+                                "u1",
+                            )
+                            assert result is not None
 
 
 class TestUpdateNode:
