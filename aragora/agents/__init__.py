@@ -12,6 +12,23 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
+_OPTIONAL_MODULE_EXPORTS = {
+    "aragora.agents.api_agents": {
+        "AnthropicAPIAgent",
+        "DeepSeekAgent",
+        "DeepSeekReasonerAgent",
+        "DeepSeekV3Agent",
+        "GeminiAgent",
+        "GrokAgent",
+        "LlamaAgent",
+        "LMStudioAgent",
+        "MistralAgent",
+        "OllamaAgent",
+        "OpenAIAPIAgent",
+        "OpenRouterAgent",
+    },
+}
+
 _EXPORT_MAP = {
     "AirlockConfig": ("aragora.agents.airlock", "AirlockConfig"),
     "AirlockMetrics": ("aragora.agents.airlock", "AirlockMetrics"),
@@ -138,7 +155,15 @@ def __getattr__(name: str) -> Any:
     except KeyError as exc:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
 
-    module = importlib.import_module(module_name)
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        if attr_name not in _OPTIONAL_MODULE_EXPORTS.get(module_name, set()):
+            raise
+        value = None
+        globals()[name] = value
+        return value
+
     value = getattr(module, attr_name)
     globals()[name] = value
     return value
