@@ -1759,7 +1759,7 @@ class TestSwarmCommand:
         assert "runs=1 queued=0 leased=0 completed=1" in out
         assert "integrator ready=0 review=0 blocked=1" in out
         assert (
-            "next: Write operator guide: Review the validated lane and decide whether it should merge."
+            "next: Write operator guide: Inspect why the lane produced no concrete deliverable before rerunning it."
             in out
         )
 
