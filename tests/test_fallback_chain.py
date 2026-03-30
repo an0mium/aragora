@@ -524,6 +524,50 @@ class TestQuotaFallbackMixin:
                 # Both should be the same instance
                 assert result1 is result2
 
+    def test_configured_fallback_chain_reorders_available_providers(self):
+        """Configured fallback_chain should be preferred before default providers."""
+        from aragora.agents.config_loader import AgentConfig
+        from aragora.agents.fallback import QuotaFallbackMixin
+        from unittest.mock import patch
+
+        class TestAgent(QuotaFallbackMixin):
+            name = "primary"
+            role = "proposer"
+            timeout = 60
+
+            def __init__(self):
+                self._config = AgentConfig(
+                    name="configured-agent",
+                    model_type="anthropic-api",
+                    fallback_chain=["gemini", "openai-api"],
+                )
+
+        agent = TestAgent()
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "OPENROUTER_API_KEY": "router-key",
+                    "OPENAI_API_KEY": "openai-key",
+                    "GEMINI_API_KEY": "gemini-key",
+                },
+                clear=True,
+            ),
+            patch.object(
+                TestAgent,
+                "_create_fallback_agent",
+                side_effect=lambda provider_key, *args: provider_key,
+            ),
+        ):
+            providers = agent._get_available_fallback_providers()
+
+        assert [provider_name for provider_name, _ in providers] == [
+            "gemini",
+            "openai",
+            "openrouter",
+        ]
+
 
 class TestBuildFallbackChainWithLocal:
     """Tests for build_fallback_chain_with_local function."""

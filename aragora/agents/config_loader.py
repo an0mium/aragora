@@ -373,9 +373,10 @@ class AgentConfigLoader:
         if hasattr(agent, "stance"):
             agent.stance = config.stance
 
-        # Store config reference for later access
-        if hasattr(agent, "_config"):
-            agent._config = config
+        # Store config reference for later access. Some registry-created agents do
+        # not predefine ``_config``, but they still need access to YAML fallback
+        # metadata at runtime.
+        agent._config = config
 
         logger.debug("Created agent from config: %s", config.name)
         return agent

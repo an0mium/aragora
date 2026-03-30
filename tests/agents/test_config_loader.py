@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -882,6 +883,24 @@ class TestAgentConfigLoaderAgentCreation:
         agent = loader.create_agent(config)
 
         agent.set_system_prompt.assert_called_once_with("You are helpful.")
+
+    def test_create_agent_attaches_config_even_without_existing_attr(self, mock_registry):
+        """create_agent preserves YAML config metadata on plain agent objects."""
+        from aragora.agents.config_loader import AgentConfig, AgentConfigLoader
+
+        bare_agent = SimpleNamespace(name="test")
+        mock_registry.create.return_value = bare_agent
+
+        loader = AgentConfigLoader(registry=mock_registry)
+        config = AgentConfig(
+            name="test",
+            model_type="anthropic-api",
+            fallback_chain=["openai-api", "gemini"],
+        )
+
+        agent = loader.create_agent(config)
+
+        assert agent._config is config
 
     def test_create_agents_all(self, temp_config_dir, mock_registry):
         """create_agents creates all loaded agents when no list provided."""

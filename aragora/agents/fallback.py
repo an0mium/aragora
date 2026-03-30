@@ -380,13 +380,53 @@ class QuotaFallbackMixin:
         ("MISTRAL_API_KEY", "mistral"),
         ("XAI_API_KEY", "grok"),
     ]
+    _PROVIDER_ENV_BY_KEY = {provider_key: env_var for env_var, provider_key in _PROVIDER_ENV_KEYS}
+    _PROVIDER_ALIASES = {
+        "anthropic": "anthropic",
+        "anthropic-api": "anthropic",
+        "claude": "anthropic",
+        "gemini": "gemini",
+        "gemini-cli": "gemini",
+        "grok": "grok",
+        "grok-cli": "grok",
+        "mistral": "mistral",
+        "mistral-api": "mistral",
+        "codestral": "mistral",
+        "openai": "openai",
+        "openai-api": "openai",
+        "openrouter": "openrouter",
+        "xai": "grok",
+    }
+
+    def _normalize_fallback_provider_key(self, provider_name: str) -> str | None:
+        """Map config/provider aliases onto the runtime fallback provider keys."""
+        normalized = provider_name.strip().lower()
+        if not normalized:
+            return None
+        return self._PROVIDER_ALIASES.get(normalized, normalized)
+
+    def _get_configured_fallback_order(self) -> list[str]:
+        """Return normalized providers requested by agent config, preserving order."""
+        configured_chain = getattr(getattr(self, "_config", None), "fallback_chain", None)
+        if configured_chain is None:
+            configured_chain = getattr(self, "fallback_chain", None)
+
+        ordered: list[str] = []
+        for provider_name in configured_chain or []:
+            provider_key = self._normalize_fallback_provider_key(str(provider_name))
+            if provider_key not in self._PROVIDER_ENV_BY_KEY or provider_key in ordered:
+                continue
+            ordered.append(provider_key)
+        return ordered
 
     def _get_available_fallback_providers(self) -> list[tuple[str, Any]]:
         """Build an ordered list of ``(provider_name, agent)`` pairs for fallback.
 
         Skips the provider that ``self`` belongs to (no point falling back to
-        itself). OpenRouter is always tried first when available.
-        Returns only providers whose API keys are set in the environment.
+        itself). When the agent was created from YAML config, its declared
+        ``fallback_chain`` is preferred first and any remaining default providers
+        are appended afterwards. Returns only providers whose API keys are set in
+        the environment.
         """
         own_provider = self._derive_provider_name()
         name = getattr(self, "name", "fallback")
@@ -395,12 +435,19 @@ class QuotaFallbackMixin:
         system_prompt = getattr(self, "system_prompt", None)
 
         providers: list[tuple[str, Any]] = []
+        configured_order = self._get_configured_fallback_order()
+        ordered_provider_keys = configured_order + [
+            provider_key
+            for _, provider_key in self._PROVIDER_ENV_KEYS
+            if provider_key not in configured_order
+        ]
 
-        for env_var, provider_key in self._PROVIDER_ENV_KEYS:
+        for provider_key in ordered_provider_keys:
             # Skip self
             if provider_key == own_provider:
                 continue
 
+            env_var = self._PROVIDER_ENV_BY_KEY[provider_key]
             api_key = os.environ.get(env_var)
             if not api_key:
                 continue
