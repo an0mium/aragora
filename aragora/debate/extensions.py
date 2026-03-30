@@ -33,6 +33,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def get_budget_manager() -> Any:
+    """Return the shared budget manager.
+
+    Kept as a module-level accessor so tests and callers can patch the
+    budget manager dependency at the extension boundary.
+    """
+    from aragora.billing.budget_manager import get_budget_manager as _get_budget_manager
+
+    return _get_budget_manager()
+
+
+def get_cost_tracker() -> Any:
+    """Return the shared cost tracker.
+
+    Kept as a module-level accessor so tests and callers can patch the
+    cost tracker dependency at the extension boundary.
+    """
+    from aragora.billing.cost_tracker import get_cost_tracker as _get_cost_tracker
+
+    return _get_cost_tracker()
+
+
 @dataclass
 class ArenaExtensions:
     """Extension hooks for Arena that handle non-core concerns.
@@ -164,8 +186,6 @@ class ArenaExtensions:
         org_id = getattr(self, "org_id", None)
         if org_id:
             try:
-                from aragora.billing.budget_manager import get_budget_manager
-
                 mgr = get_budget_manager()
                 if mgr.is_budget_suspended(org_id):
                     raise RuntimeError("Budget suspended")
@@ -181,8 +201,6 @@ class ArenaExtensions:
             from decimal import Decimal
 
             if self.cost_tracker is None:
-                from aragora.billing.cost_tracker import get_cost_tracker
-
                 self.cost_tracker = get_cost_tracker()
 
             limit = Decimal(str(self.debate_budget_limit_usd))
@@ -370,8 +388,6 @@ class ArenaExtensions:
         # Get or create cost tracker
         if self.cost_tracker is None:
             try:
-                from aragora.billing.cost_tracker import get_cost_tracker
-
                 self.cost_tracker = get_cost_tracker()
             except (ImportError, RuntimeError) as e:
                 logger.debug("cost_tracker_init_skipped: %s", e)
