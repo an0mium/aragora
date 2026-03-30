@@ -32,6 +32,7 @@ from aragora.cli.commands.quickstart import (
     add_quickstart_parser,
     cmd_quickstart,
 )
+from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
@@ -41,6 +42,15 @@ from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
 class TestQuickstartParser:
+    def test_main_parser_exposes_quickstart_json_flags(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["quickstart", "--topic", "Test question", "--rounds", "1", "--json"]
+        )
+        assert args.question == "Test question"
+        assert args.rounds == 1
+        assert args.json is True
+
     def test_parser_registered(self):
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
