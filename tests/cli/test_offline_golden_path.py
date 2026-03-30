@@ -454,6 +454,8 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     assert len(selected_result.metadata["model_comparison"]["candidates"]) == 3
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup(monkeypatch):
     """Compare mode should keep all candidates and cleanup on one event loop."""
     from aragora.cli.commands import debate as debate_cmd
@@ -834,6 +836,8 @@ def test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output(monkeypatch, ca
     assert "Debate failed grounding gate" in capsys.readouterr().err
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_grounding_fail_closed_accepts_grounded_output(monkeypatch, capsys):
     """Grounding fail-closed should pass when existing repo path ratio meets threshold."""
     from aragora.cli.commands import debate as debate_cmd
