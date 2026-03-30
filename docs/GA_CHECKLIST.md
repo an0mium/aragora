@@ -19,7 +19,7 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 - [x] **SSRF protection** - Built-in URL validation
 - [x] **Skill scanner** - AST-based malware detection for marketplace skills
 - [ ] **External penetration test** - Third-party security assessment
-  - Blocker: Vendor outreach in progress; kickoff target March 3, 2026 (may have occurred)
+  - Blocker: Vendor selection is still pending; `security/pentest/VENDOR_OUTREACH_LOG.md` records no outreach as of March 30, 2026.
 - [x] **Dependency audit** - Trivy scans in CI (CRITICAL/HIGH severity gate)
 
 ## Authentication & Authorization
@@ -102,7 +102,7 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 
 | Blocker | Owner | Status | ETA |
 |---------|-------|--------|-----|
-| External pen test | Security | Vendor outreach in progress | Kickoff target: March 3, 2026 (may have occurred) |
+| External pen test | Security | Vendor selection pending | No outreach recorded as of March 30, 2026 |
 
 ## GA Criteria Summary
 
