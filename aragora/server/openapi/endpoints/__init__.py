@@ -92,6 +92,9 @@ def _get_decorator_endpoints() -> dict[str, Any]:
     Returns empty dict if decorator module not available or no endpoints registered.
     """
     try:
+        # Import handler modules that register decorator-only metadata at import time.
+        import aragora.server.handlers.persona  # noqa: F401
+
         from aragora.server.handlers.openapi_decorator import get_registered_endpoints_dict
 
         return get_registered_endpoints_dict()

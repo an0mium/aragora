@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 from aragora.utils.optional_imports import try_import_class
 from aragora.server.versioning.compat import strip_version_prefix
 from .utils.decorators import require_permission
+from .openapi_decorator import api_endpoint
 
 from .base import (
     SAFE_AGENT_PATTERN,
@@ -346,6 +347,14 @@ class PersonaHandler(BaseHandler):
             logger.error("Error getting accuracy for %s: %s", agent, e, exc_info=True)
             return error_response("Failed to get accuracy", 500)
 
+    @api_endpoint(
+        path="/api/personas/options",
+        method="GET",
+        summary="Get available persona options",
+        description="Return supported personality traits and expertise domains for persona creation.",
+        tags=["Agents"],
+        operation_id="getPersonaOptions",
+    )
     def _get_persona_options(self) -> HandlerResult:
         """Get available traits and expertise domains for persona creation."""
         try:
@@ -364,6 +373,14 @@ class PersonaHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @api_endpoint(
+        path="/api/personas",
+        method="POST",
+        summary="Create a new persona",
+        description="Create a new agent persona with traits and expertise settings.",
+        tags=["Agents"],
+        operation_id="createPersona",
+    )
     @handle_errors("persona creation")
     @require_permission("persona:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
