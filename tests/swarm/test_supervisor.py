@@ -1145,7 +1145,7 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
 
 
 @pytest.mark.asyncio
-async def test_collect_results_blocks_merge_gate_without_verification_plan(
+async def test_collect_results_records_missing_verification_plan_without_blocking_completion(
     repo: Path, store: DevCoordinationStore
 ) -> None:
     lease = store.claim_lease(
@@ -1213,16 +1213,16 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     updated = store.get_supervisor_run(run_id)
     assert updated is not None
     wo = updated["work_orders"][0]
-    assert wo["status"] == "needs_human"
-    assert wo["review_status"] == "changes_requested"
-    assert wo["receipt_id"] is None
-    assert wo["worker_outcome"] == "merge_gate_failed"
-    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["status"] == "completed"
+    assert wo["review_status"] == "pending_heterogeneous_review"
+    assert wo["receipt_id"] is not None
+    assert wo["worker_outcome"] == "completed"
+    assert wo["merge_gate"]["checks_passed"] is True
     assert wo["merge_gate"]["verification_missing_reason"] == "missing_verification_plan"
     assert wo["verification_missing_reason"] == "missing_verification_plan"
-    assert wo["failure_reason"] == "missing_verification_plan"
-    assert "verification command" in wo["blocking_question"]
-    assert "missing verification plan" in wo["dispatch_error"]
+    assert wo.get("failure_reason") is None
+    assert wo.get("blocking_question") is None
+    assert wo.get("dispatch_error") is None
 
 
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
@@ -2728,7 +2728,7 @@ def test_refresh_run_salvages_dead_detached_worker_before_stale_lease_reap(
                 "pid": 424242,
                 "initial_head": initial_head,
                 "review_status": "pending",
-                "file_scope": ["README.md"],
+                "file_scope": ["**"],
             }
         ],
         status="active",
@@ -2740,7 +2740,7 @@ def test_refresh_run_salvages_dead_detached_worker_before_stale_lease_reap(
         owner_session_id="detached-refresh-session",
         branch="codex/detached-refresh",
         worktree_path=str(repo),
-        claimed_paths=["README.md"],
+        allowed_globs=["**"],
         metadata={
             "supervisor_run_id": run_record["run_id"],
             "work_order_id": "wo-detached-refresh",

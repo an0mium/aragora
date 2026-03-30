@@ -345,7 +345,7 @@ class SwarmSupervisor:
             raise KeyError(f"Unknown supervisor run: {run_id}")
 
         if any(
-            str(item.get("status", "")).strip() == "dispatched"
+            str(item.get("status", "")).strip() == "dispatched" and item.get("pid") is not None
             for item in record.get("work_orders", [])
         ):
             try:
