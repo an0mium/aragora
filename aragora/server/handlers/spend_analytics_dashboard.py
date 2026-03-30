@@ -69,6 +69,7 @@ def _has_positive_cost(value: Any) -> bool:
     except (InvalidOperation, TypeError, ValueError):
         return False
 
+
 def _format_cost(value: Any) -> str:
     """Format costs with at least cents and up to 4 decimals."""
     try:
