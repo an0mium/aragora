@@ -2803,3 +2803,179 @@ def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordin
     assert work_order["status"] == "needs_human"
     assert work_order["failure_reason"] == "stale_lease_reaped"
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+
+
+# ---------------------------------------------------------------------------
+# Pre-reap salvage path regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_pre_reap_salvage_backfills_commit_shas_from_dead_worker(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    """When a dispatched worker's PID is dead but it committed, salvage the SHAs."""
+    import subprocess
+
+    lifecycle = MagicMock()
+    session_path = repo / "wt-salvage"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-salvage",
+        agent="codex",
+        branch="codex/swarm-salvage",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="salvage test",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[
+            SubTask(
+                id="wo-1",
+                title="Test salvage",
+                description="Test pre-reap salvage",
+                file_scope=["test.py"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+    spec = SwarmSpec(raw_goal="salvage test", file_scope_hints=["test.py"])
+    run = supervisor.start_run(spec=spec)
+
+    # Simulate a dispatched work order with a dead PID
+    work_orders = run.work_orders
+    assert len(work_orders) >= 1
+    wo = work_orders[0]
+
+    # Create a real git worktree with a commit
+    wt_path = repo / "salvage-wt"
+    subprocess.run(
+        ["git", "worktree", "add", str(wt_path), "-b", "salvage-branch"],
+        cwd=repo,
+        capture_output=True,
+    )
+    test_file = wt_path / "salvage_test.py"
+    test_file.write_text("# salvage test\n")
+    subprocess.run(["git", "add", "salvage_test.py"], cwd=wt_path, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "salvage commit"], cwd=wt_path, capture_output=True)
+
+    initial_head = subprocess.run(
+        ["git", "rev-parse", "HEAD~1"], cwd=wt_path, capture_output=True, text=True
+    ).stdout.strip()
+
+    # Update work order to look dispatched with a dead PID
+    record = store.get_supervisor_run(run.run_id)
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = 99999  # dead PID
+    record["work_orders"][0]["worktree_path"] = str(wt_path)
+    record["work_orders"][0]["initial_head"] = initial_head
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    # Run pre-reap salvage
+    supervisor._collect_finished_workers_sync(run.run_id)
+
+    # Verify commit SHAs were salvaged
+    updated = store.get_supervisor_run(run.run_id)
+    wo_updated = updated["work_orders"][0]
+    assert wo_updated.get("commit_shas"), "Expected commit SHAs to be salvaged"
+    assert len(wo_updated["commit_shas"]) >= 1
+    assert wo_updated.get("head_sha"), "Expected head SHA to be set"
+
+    # Cleanup
+    subprocess.run(
+        ["git", "worktree", "remove", str(wt_path), "--force"], cwd=repo, capture_output=True
+    )
+
+
+def test_pre_reap_salvage_skips_live_workers(repo: Path, store: DevCoordinationStore) -> None:
+    """Pre-reap salvage should NOT touch workers with live PIDs."""
+    import os
+
+    session_path = repo / "wt-live-test"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-live",
+        agent="codex",
+        branch="codex/swarm-live",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="live test",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[SubTask(id="wo-1", title="T", description="D", file_scope=["t.py"])],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+
+    # Create a fake run with dispatched work order using OUR PID (definitely alive)
+    spec = SwarmSpec(raw_goal="live test", file_scope_hints=["t.py"])
+    run = supervisor.start_run(spec=spec)
+    record = store.get_supervisor_run(run.run_id)
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = os.getpid()  # THIS process — alive
+    record["work_orders"][0]["worktree_path"] = str(repo)
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    # Run pre-reap — should skip because PID is alive
+    supervisor._collect_finished_workers_sync(run.run_id)
+
+    # Verify no commit SHAs were added
+    updated = store.get_supervisor_run(run.run_id)
+    assert not updated["work_orders"][0].get("commit_shas")
+
+
+def test_pre_reap_salvage_handles_missing_worktree(repo: Path, store: DevCoordinationStore) -> None:
+    """Pre-reap salvage should handle missing worktree paths gracefully."""
+    session_path = repo / "wt-missing-test"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-missing",
+        agent="codex",
+        branch="codex/swarm-missing",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="missing wt",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[SubTask(id="wo-1", title="T", description="D", file_scope=["t.py"])],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+
+    spec = SwarmSpec(raw_goal="missing wt", file_scope_hints=["t.py"])
+    run = supervisor.start_run(spec=spec)
+    record = store.get_supervisor_run(run.run_id)
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = 99999  # dead PID
+    record["work_orders"][0]["worktree_path"] = "/nonexistent/path"
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    # Should not crash
+    supervisor._collect_finished_workers_sync(run.run_id)
+
+    # No SHAs salvaged from nonexistent path
+    updated = store.get_supervisor_run(run.run_id)
+    assert not updated["work_orders"][0].get("commit_shas")

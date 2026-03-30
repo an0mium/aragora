@@ -925,6 +925,11 @@ class BossLoopConfig:
     # instead of stopping the loop. Only stop when there's genuinely no output.
     auto_continue_on_needs_human: bool = False
 
+    # Ping-pong: when a worker hits needs_human with no deliverable but a
+    # non-trivial transcript, retry with the OTHER agent type using a
+    # structured handoff prompt from the failed agent's output.
+    enable_ping_pong_retry: bool = False
+
     # Fix-forward: max repair attempts when verification fails.
     # Each repair dispatches a targeted fix task using only the failing test output.
     max_repair_attempts: int = 2
@@ -1452,6 +1457,40 @@ class BossLoop:
             )
         except Exception as exc:
             logger.debug("Boss loop operational receipt skipped: %s", exc)
+
+    @staticmethod
+    def _extract_worker_transcript(worker_result: dict[str, Any]) -> str:
+        """Extract the worker's stdout transcript from the run dict."""
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return ""
+        work_orders = run.get("work_orders", [])
+        if not isinstance(work_orders, list):
+            return ""
+        parts = []
+        for wo in work_orders:
+            if isinstance(wo, dict):
+                for key in ("stdout_tail", "transcript", "log_tail"):
+                    tail = str(wo.get(key, "")).strip()
+                    if tail:
+                        parts.append(tail)
+                        break
+        return "\n---\n".join(parts)
+
+    @staticmethod
+    def _extract_worker_files_changed(worker_result: dict[str, Any]) -> list[str]:
+        """Extract changed file paths from the run dict."""
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return []
+        work_orders = run.get("work_orders", [])
+        files: list[str] = []
+        for wo in work_orders:
+            if isinstance(wo, dict):
+                paths = wo.get("changed_paths", [])
+                if isinstance(paths, list):
+                    files.extend(str(p) for p in paths if str(p).strip())
+        return files
 
     def _log_value_outcome(
         self,
@@ -2227,6 +2266,65 @@ class BossLoop:
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
+
+            # Ping-pong retry: dispatch to the OTHER agent with transcript context
+            if self.config.enable_ping_pong_retry and not has_verification_failure:
+                pp_key = f"pingpong_{issue_num}"
+                pp_count = self._issue_attempt_counts.get(pp_key, 0)
+                transcript = self._extract_worker_transcript(worker_result)
+                if pp_count < 1 and len(transcript.strip()) > 50:
+                    self._issue_attempt_counts[pp_key] = pp_count + 1
+                    previous_agent = str(
+                        worker_result.get("runner_type")
+                        or worker_result.get("target_agent")
+                        or "unknown"
+                    )
+                    rotation = list(self.config.model_rotation or ["claude", "codex"])
+                    next_agent = rotation[0] if previous_agent == rotation[-1] else rotation[-1]
+
+                    from aragora.swarm.ping_pong import build_handoff_prompt
+
+                    handoff = build_handoff_prompt(
+                        goal=f"[Issue #{issue_num}] {issue_dict.get('title', '')}",
+                        previous_transcript=transcript,
+                        previous_agent=previous_agent,
+                        next_agent=next_agent,
+                        round_number=1,
+                        files_changed=self._extract_worker_files_changed(worker_result),
+                        remaining_issues=[str(r) for r in reasons[:5]],
+                    )
+                    if not hasattr(self, "_pending_handoff_prompts"):
+                        self._pending_handoff_prompts = {}
+                    self._pending_handoff_prompts[issue_num] = (handoff, next_agent)
+                    logger.info(
+                        "boss_loop_ping_pong issue=#%s from=%s to=%s transcript_len=%d",
+                        issue_num,
+                        previous_agent,
+                        next_agent,
+                        len(transcript),
+                    )
+                    self._append_iteration_metrics(
+                        iteration=iteration,
+                        issue_number=issue_number,
+                        worker_result=worker_result,
+                        elapsed_seconds=elapsed_seconds,
+                    )
+                    return BossIterationStatus(
+                        iteration=iteration,
+                        run_id=self.run_id,
+                        timestamp=timestamp,
+                        runner_freshness=runner_freshness,
+                        selected_issue=issue_dict,
+                        worker_status="ping_pong_retry",
+                        stop_reason=None,
+                        needs_human_reasons=[],
+                        next_actions=[
+                            f"Ping-pong handoff: {previous_agent} → {next_agent} "
+                            f"for issue #{issue_num}"
+                        ],
+                        elapsed_seconds=elapsed_seconds,
+                        worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                    )
 
             if self.config.auto_continue_on_needs_human:
                 self._consecutive_failures += 1
