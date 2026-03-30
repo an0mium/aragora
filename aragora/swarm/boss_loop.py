@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import time
 import uuid
@@ -420,7 +419,7 @@ def _normalize_pre_dispatch_command(text: str) -> str:
         normalized = backtick_match.group("command").strip()
     if normalized.endswith(" passes."):
         normalized = normalized[: -len(" passes.")].strip()
-    if normalized.startswith("aragora ") and shutil.which("aragora") is None:
+    if normalized.startswith("aragora "):
         normalized = f"python3 -m aragora.cli.main {normalized[len('aragora ') :].strip()}"
     return normalized
 
