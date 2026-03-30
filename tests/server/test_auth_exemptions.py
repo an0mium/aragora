@@ -77,6 +77,20 @@ class TestAuthExemptPaths:
         for endpoint in public_endpoints:
             assert endpoint in exempt_paths, f"Public endpoint {endpoint} should be exempt"
 
+    def test_slack_webhook_endpoints_exempt(self, exempt_paths):
+        """Slack webhook endpoints should bypass API/JWT auth and rely on signatures."""
+        slack_webhook_endpoints = [
+            "/api/v1/integrations/slack/commands",
+            "/api/v1/integrations/slack/events",
+            "/api/v1/integrations/slack/interactive",
+            "/api/v1/bots/slack/commands",
+            "/api/v1/bots/slack/events",
+            "/api/v1/bots/slack/interactions",
+            "/api/v1/bots/slack/interactive",
+        ]
+        for endpoint in slack_webhook_endpoints:
+            assert endpoint in exempt_paths, f"Slack webhook endpoint {endpoint} should be exempt"
+
 
 class TestAuthExemptPrefixes:
     """Tests for AUTH_EXEMPT_PREFIXES configuration."""

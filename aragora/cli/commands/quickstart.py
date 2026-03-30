@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -26,7 +27,7 @@ import uuid
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TextIO, cast
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,20 @@ _TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
 )
 
 
+def _quickstart_loop_factory() -> asyncio.AbstractEventLoop:
+    """Create a private loop for sync CLI entrypoints without inheriting test policy."""
+    selector_loop = getattr(asyncio, "SelectorEventLoop", None)
+    if selector_loop is not None:
+        return selector_loop()
+    return asyncio.new_event_loop()
+
+
+def _run_sync(coro: Any) -> Any:
+    """Run quickstart coroutines on an isolated event loop."""
+    with asyncio.Runner(loop_factory=_quickstart_loop_factory) as runner:
+        return runner.run(coro)
+
+
 def add_quickstart_parser(subparsers: Any) -> None:
     """Register the 'quickstart' subcommand."""
     qs_parser = subparsers.add_parser(
@@ -119,6 +134,7 @@ No configuration needed.
 Examples:
   aragora quickstart --demo                              # Zero-config demo
   aragora quickstart --question "Should we use Kubernetes?"
+  aragora quickstart --topic "Migrate to TypeScript?" --rounds 1 --json
   aragora quickstart --provider openai --api-key sk-... --save-key
   aragora quickstart --question "Migrate to TypeScript?" --output receipt.json
   aragora quickstart --demo --no-browser                 # CI/headless mode
@@ -127,6 +143,7 @@ Examples:
     )
     qs_parser.add_argument(
         "--question",
+        "--topic",
         "-q",
         help="The question to debate (uses a default if omitted with --demo)",
     )
@@ -169,6 +186,11 @@ Examples:
         choices=["json", "md", "html"],
         default="json",
         help="Receipt output format (default: json)",
+    )
+    qs_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print structured debate result JSON to stdout",
     )
     qs_parser.add_argument(
         "--no-browser",
@@ -278,7 +300,7 @@ def _configure_inline_api_key(
     }
 
 
-def _get_question(args: argparse.Namespace) -> str | None:
+def _get_question(args: argparse.Namespace, *, stream: TextIO | None = None) -> str | None:
     """Get the debate question from args, default, or interactive prompt."""
     if args.question:
         return args.question
@@ -289,9 +311,11 @@ def _get_question(args: argparse.Namespace) -> str | None:
 
     # Interactive prompt
     try:
-        print("\nWhat question should the agents debate?")
-        print("(Example: 'Should we migrate from REST to GraphQL?')\n")
-        question = input("> ").strip()
+        console = stream or sys.stdout
+        print("\nWhat question should the agents debate?", file=console)
+        print("(Example: 'Should we migrate from REST to GraphQL?')\n", file=console)
+        print("> ", end="", file=console, flush=True)
+        question = input().strip()
         return question if question else None
     except (EOFError, KeyboardInterrupt):
         return None
@@ -323,6 +347,250 @@ def _clamp_confidence(raw_confidence: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return max(0.0, min(1.0, confidence))
+
+
+def _derive_receipt_id(
+    *,
+    mode: str,
+    question: str,
+    rounds: int,
+    existing: str | None = None,
+) -> str:
+    """Provide a stable receipt id when the debate engine does not supply one."""
+    if existing:
+        return existing
+    basis = f"{mode}:{question}:{rounds}"
+    return f"quickstart-{mode}-{hashlib.sha256(basis.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[str, Any]:
+    """Return a stdout-safe JSON payload with stable top-level quickstart fields."""
+    payload = _build_quickstart_receipt_payload(result)
+    payload["artifact_path"] = str(artifact_path)
+    return payload
+
+
+def _coerce_string_list(values: Any) -> list[str]:
+    """Return a clean string list from optional mixed values."""
+    if not isinstance(values, (list, tuple, set)):
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _normalize_dissent_records(
+    payload: dict[str, Any], participants: list[str]
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Normalize dissent entries into receipt-friendly records and reasons."""
+    dissent = payload.get("dissent")
+    if isinstance(dissent, list) and dissent:
+        records: list[dict[str, str]] = []
+        reasons: list[str] = []
+        for index, entry in enumerate(dissent):
+            if isinstance(entry, dict):
+                agent = (
+                    str(
+                        entry.get("agent")
+                        or (participants[index % len(participants)] if participants else "agent")
+                    ).strip()
+                    or "agent"
+                )
+                reason = str(entry.get("reason") or entry.get("description") or "").strip()
+            else:
+                agent = participants[index % len(participants)] if participants else "agent"
+                reason = str(entry).strip()
+            if reason:
+                reasons.append(reason)
+            records.append({"agent": agent, "reason": reason or "N/A"})
+        return records, reasons
+
+    reasons = _coerce_string_list(payload.get("dissenting_views"))
+    return _summarize_dissenting_views(reasons, participants), reasons
+
+
+def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
+    """Normalize quickstart debate results into a receipt-compatible artifact payload."""
+    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+
+    payload = dict(result)
+    receipt_info = payload.get("receipt", {})
+    if not isinstance(receipt_info, dict):
+        receipt_info = {}
+
+    rounds = int(payload.get("rounds", 0) or 0)
+    question = str(payload.get("question") or payload.get("input_summary") or "")
+    mode = str(payload.get("mode", "demo") or "demo").strip().lower() or "demo"
+    participants = _coerce_string_list(payload.get("agents") or receipt_info.get("participants"))
+    summary = str(payload.get("summary") or payload.get("verdict_reasoning") or "")
+    confidence = _clamp_confidence(payload.get("confidence", 0.0))
+    receipt_id = _derive_receipt_id(
+        mode=mode,
+        question=question,
+        rounds=rounds,
+        existing=str(payload.get("receipt_id") or receipt_info.get("id") or ""),
+    )
+    timestamp = str(payload.get("timestamp") or datetime.now(timezone.utc).isoformat())
+    input_hash = str(
+        payload.get("input_hash") or hashlib.sha256(question.encode("utf-8")).hexdigest()
+    )
+
+    dissent_records, dissenting_views = _normalize_dissent_records(payload, participants)
+    consensus = payload.get("consensus_reached")
+    if consensus is None and isinstance(payload.get("consensus_proof"), dict):
+        consensus = bool(payload["consensus_proof"].get("reached"))
+    if consensus is None:
+        consensus = str(payload.get("verdict", "")).strip().lower() in {
+            "consensus",
+            "pass",
+            "approve",
+            "approved",
+        }
+
+    votes = payload.get("votes")
+    if not isinstance(votes, list):
+        votes = payload.get("agent_votes")
+    if not isinstance(votes, list):
+        votes = []
+
+    has_receipt_contract = bool(
+        str(payload.get("receipt_id") or "").strip()
+        and str(payload.get("timestamp") or "").strip()
+        and str(payload.get("artifact_hash") or "").strip()
+        and str(payload.get("input_hash") or "").strip()
+        and isinstance(payload.get("risk_summary"), dict)
+    )
+
+    existing_consensus = payload.get("consensus_proof")
+    supporting_agents = (
+        _coerce_string_list(existing_consensus.get("supporting_agents"))
+        if isinstance(existing_consensus, dict)
+        else []
+    )
+    dissenting_agents = (
+        _coerce_string_list(existing_consensus.get("dissenting_agents"))
+        if isinstance(existing_consensus, dict)
+        else []
+    )
+    if not supporting_agents and consensus:
+        supporting_agents = participants[:]
+    if not dissenting_agents and dissent_records:
+        dissenting_agents = _coerce_string_list([record["agent"] for record in dissent_records])
+
+    risk_summary = payload.get("risk_summary")
+    if not isinstance(risk_summary, dict):
+        risk_summary = {}
+    if not risk_summary:
+        risk_summary = {
+            "critical": 0 if consensus else int(bool(dissenting_views)),
+            "high": len(dissenting_agents) if not consensus else 0,
+            "medium": len(dissenting_views) if not consensus else 0,
+            "low": 0,
+        }
+    risk_summary = dict(risk_summary)
+    risk_summary.setdefault(
+        "total",
+        sum(
+            int(risk_summary.get(bucket, 0) or 0)
+            for bucket in ("critical", "high", "medium", "low")
+        ),
+    )
+
+    if has_receipt_contract:
+        canonical = dict(payload)
+    else:
+        receipt = DecisionReceipt(
+            receipt_id=receipt_id,
+            gauntlet_id=str(payload.get("gauntlet_id") or receipt_id),
+            timestamp=timestamp,
+            input_summary=str(payload.get("input_summary") or question),
+            input_hash=input_hash,
+            risk_summary=risk_summary,
+            attacks_attempted=int(
+                payload.get("attacks_attempted", 0) or rounds * max(1, len(participants))
+            ),
+            attacks_successful=int(
+                payload.get("attacks_successful", 0)
+                or (0 if consensus else max(1, len(dissenting_views)) if dissenting_views else 0)
+            ),
+            probes_run=int(payload.get("probes_run", 0) or len(votes)),
+            vulnerabilities_found=int(
+                payload.get("vulnerabilities_found", 0) or len(dissenting_views)
+            ),
+            verdict=str(payload.get("verdict", "")),
+            confidence=confidence,
+            robustness_score=_clamp_confidence(payload.get("robustness_score", confidence)),
+            verdict_reasoning=str(payload.get("verdict_reasoning") or summary),
+            dissenting_views=dissenting_views,
+            consensus_proof=ConsensusProof(
+                reached=bool(consensus),
+                confidence=confidence,
+                supporting_agents=supporting_agents,
+                dissenting_agents=dissenting_agents,
+                method=(
+                    str(existing_consensus.get("method") or "majority")
+                    if isinstance(existing_consensus, dict)
+                    else "majority"
+                ),
+                evidence_hash=input_hash,
+                tainted_proposals=(
+                    _coerce_string_list(existing_consensus.get("tainted_proposals"))
+                    if isinstance(existing_consensus, dict)
+                    else []
+                ),
+                trust_score=(
+                    float(existing_consensus.get("trust_score", 1.0))
+                    if isinstance(existing_consensus, dict)
+                    else 1.0
+                ),
+            ),
+            provenance_chain=[
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="task",
+                    description=question,
+                ),
+                ProvenanceRecord(
+                    timestamp=timestamp,
+                    event_type="verdict",
+                    description=str(
+                        payload.get("verdict_reasoning") or summary or payload.get("verdict", "")
+                    ),
+                ),
+            ],
+            cost_summary=payload.get("cost_summary"),
+            thinking_traces=payload.get("thinking_traces"),
+            config_used=(
+                payload.get("config_used", {})
+                if isinstance(payload.get("config_used"), dict)
+                else {}
+            ),
+            artifact_hash=str(payload.get("artifact_hash") or ""),
+        )
+        canonical = dict(payload)
+        canonical.update(receipt.to_dict())
+
+    canonical["question"] = question
+    canonical["rounds"] = rounds
+    canonical["agents"] = participants
+    canonical["summary"] = summary
+    canonical["dissent"] = dissent_records
+    canonical["mode"] = mode
+    canonical["votes"] = votes
+    canonical["agent_votes"] = votes
+    canonical["consensus"] = bool(consensus)
+    canonical["consensus_reached"] = bool(consensus)
+    canonical["receipt"] = {
+        "id": str(canonical.get("receipt_id") or receipt_id),
+        "artifact_hash": str(canonical.get("artifact_hash") or ""),
+        "consensus_reached": bool(consensus),
+        "confidence": confidence,
+        "participants": participants,
+    }
+    return canonical
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -385,23 +653,34 @@ def _open_receipt_in_browser(
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
-    from aragora.agents.demo_agent import DemoAgent
-
-    agents = [
-        DemoAgent("analyst", role="proposer"),
-        DemoAgent("critic", role="critic"),
-        DemoAgent("synthesizer", role="synthesizer"),
-    ]
-    summary = await agents[-1].generate(f"Task: {question}")
+    agent_names = ["analyst", "critic", "synthesizer"]
+    receipt_id = _derive_receipt_id(mode="demo", question=question, rounds=rounds)
+    summary = (
+        f"Demo synthesis for: {question}\n\n"
+        "- Combine a minimal baseline with explicit risk guardrails.\n"
+        "- Make metrics and rollback criteria first-class requirements.\n"
+        "- Ship in phases and revisit assumptions after initial data.\n\n"
+        "Decision: Proceed with a phased rollout and explicit success metrics."
+    )
 
     return {
         "question": question,
+        "receipt_id": receipt_id,
         "verdict": "consensus",
         "confidence": 0.85,
         "rounds": rounds,
-        "agents": [a.name for a in agents],
+        "agents": agent_names,
         "summary": summary,
         "dissent": [],
+        "votes": [],
+        "consensus": True,
+        "consensus_reached": True,
+        "receipt": {
+            "id": receipt_id,
+            "confidence": 0.85,
+            "participants": agent_names,
+            "consensus_reached": True,
+        },
         "mode": "demo",
     }
 
@@ -415,6 +694,17 @@ async def _run_live_debate(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Run a debate with live API agents."""
+    # Quickstart is a bounded onboarding lane that relies on already-detected
+    # env vars or inline keys. Avoid boot-time AWS Secrets Manager hydration
+    # when importing the full debate stack for this path.
+    os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
+    try:
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+    except ImportError:
+        pass
+
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -488,9 +778,13 @@ async def _run_live_debate(
         **_LIVE_ARENA_KWARGS,
     )
     arena.enable_introspection = False
+    run_task = asyncio.create_task(arena.run())
     try:
-        result = await asyncio.wait_for(arena.run(), timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
+        result = await asyncio.wait_for(run_task, timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
     except TimeoutError as exc:
+        run_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, RuntimeError):
+            await run_task
         raise RuntimeError(
             f"Live debate timed out after {_LIVE_DEBATE_TIMEOUT_SECONDS:.0f}s"
         ) from exc
@@ -831,23 +1125,29 @@ async def _filter_reachable_live_agents(
 
 def cmd_quickstart(args: argparse.Namespace) -> None:
     """Handle the 'quickstart' command."""
-    print("\n" + "=" * 60)
-    print("  ARAGORA QUICKSTART")
-    print("  Zero-to-receipt adversarial debate")
-    print("=" * 60)
+    output_json = bool(getattr(args, "json", False))
+    console: TextIO = sys.stderr if output_json else sys.stdout
+
+    def emit(message: str = "") -> None:
+        print(message, file=console)
+
+    emit("\n" + "=" * 60)
+    emit("  ARAGORA QUICKSTART")
+    emit("  Zero-to-receipt adversarial debate")
+    emit("=" * 60)
 
     # Step 1: Load .env
     loaded = _load_dotenv()
     if loaded:
-        print("\n[+] Loaded .env configuration")
+        emit("\n[+] Loaded .env configuration")
 
     # Step 2: Get question
-    question = _get_question(args)
+    question = _get_question(args, stream=console)
     if not question:
-        print("\nNo question provided. Exiting.")
+        emit("\nNo question provided. Exiting.")
         sys.exit(1)
 
-    print(f"\nQuestion: {question}")
+    emit(f"\nQuestion: {question}")
 
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)
@@ -861,29 +1161,29 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             save_key=getattr(args, "save_key", False),
         )
     except (RuntimeError, ValueError) as exc:
-        print(f"\n[!] Quickstart configuration failed: {exc}")
+        emit(f"\n[!] Quickstart configuration failed: {exc}")
         sys.exit(1)
 
     if saved_key:
-        print(
+        emit(
             "\n[+] Saved "
             f"{saved_key['env_var']} to secure store ({saved_key['backend']}) as {saved_key['masked_value']}"
         )
 
     if use_demo:
-        print("\n[*] Run mode: demo (requested with --demo)")
-        print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+        emit("\n[*] Run mode: demo (requested with --demo)")
+        emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
         try:
             detected = _detect_agents(normalized_provider)
         except ValueError as exc:
-            print(f"\n[!] Quickstart configuration failed: {exc}")
+            emit(f"\n[!] Quickstart configuration failed: {exc}")
             sys.exit(1)
         if not detected:
-            print("\n[!] No supported API keys detected. Falling back to demo mode.")
-            print("    This run will use local mock agents, not live model calls.")
-            print("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
-            print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+            emit("\n[!] No supported API keys detected. Falling back to demo mode.")
+            emit("    This run will use local mock agents, not live model calls.")
+            emit("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
+            emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
         else:
             preview_team = _build_live_team(
@@ -892,18 +1192,18 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 api_key=inline_api_key,
             )
             providers = list(dict.fromkeys(str(member["provider"]) for member in preview_team))
-            print("\n[+] Run mode: live")
-            print(f"    Agents: {', '.join(providers)}")
+            emit("\n[+] Run mode: live")
+            emit(f"    Agents: {', '.join(providers)}")
 
-    print(f"[*] Running {rounds}-round debate...\n")
+    emit(f"[*] Running {rounds}-round debate...\n")
 
     # Step 4: Run debate
     start_time = time.monotonic()
     try:
         if use_demo:
-            result = asyncio.run(_run_demo_debate(question, rounds))
+            result = _run_sync(_run_demo_debate(question, rounds))
         else:
-            result = asyncio.run(
+            result = _run_sync(
                 _run_live_debate(
                     question,
                     detected[:4],
@@ -915,42 +1215,42 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
         if _is_tls_verification_failure(e):
-            print("\n[!] Provider TLS check failed. Falling back to demo mode.")
-            print("    Check the local CA trust store for live debates.")
+            emit("\n[!] Provider TLS check failed. Falling back to demo mode.")
+            emit("    Check the local CA trust store for live debates.")
         elif "No live" in str(e) or "no live" in str(e):
-            print("\n[!] No live providers available. Falling back to demo mode.")
+            emit("\n[!] No live providers available. Falling back to demo mode.")
         else:
-            print(f"\n[!] Live debate failed: {e}")
-            print("    Falling back to demo mode.")
+            emit(f"\n[!] Live debate failed: {e}")
+            emit("    Falling back to demo mode.")
         # Fall back to demo — the user should always get a result
         try:
-            result = asyncio.run(_run_demo_debate(question, rounds))
+            result = _run_sync(_run_demo_debate(question, rounds))
         except (OSError, RuntimeError, ValueError) as demo_err:
             logger.debug("Demo debate also failed: %s", demo_err)
-            print(f"\n[!] Demo debate also failed: {demo_err}")
+            emit(f"\n[!] Demo debate also failed: {demo_err}")
             sys.exit(1)
 
     elapsed = time.monotonic() - start_time
     result["elapsed_seconds"] = elapsed
 
     # Step 5: Display results
-    print("=" * 60)
-    print("  RESULT")
-    print("=" * 60)
+    emit("=" * 60)
+    emit("  RESULT")
+    emit("=" * 60)
     verdict_display = str(result["verdict"]).replace("_", " ").title()
-    print(f"\n  Verdict:    {verdict_display}")
-    print(f"  Confidence: {result['confidence']:.0%}")
-    print(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
-    print(f"  Agents:     {', '.join(result['agents'])}")
-    print(f"  Rounds:     {result['rounds']}")
-    print(f"  Elapsed:    {elapsed:.1f}s")
+    emit(f"\n  Verdict:    {verdict_display}")
+    emit(f"  Confidence: {result['confidence']:.0%}")
+    emit(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
+    emit(f"  Agents:     {', '.join(result['agents'])}")
+    emit(f"  Rounds:     {result['rounds']}")
+    emit(f"  Elapsed:    {elapsed:.1f}s")
     if "consensus_proof" in result:
         consensus_text = "Reached" if result["consensus_proof"].get("reached") else "Not reached"
-        print(f"  Consensus:  {consensus_text}")
+        emit(f"  Consensus:  {consensus_text}")
     if result.get("receipt_id"):
-        print(f"  Receipt:    {result['receipt_id']}")
+        emit(f"  Receipt:    {result['receipt_id']}")
     if result.get("artifact_hash"):
-        print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
+        emit(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
         summary_text = _clean_summary(result["summary"])
@@ -960,41 +1260,45 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 summary_text = summary_text[: cutoff + 1] + "\n  [... truncated]"
             else:
                 summary_text = summary_text[:800] + "..."
-        print(f"\n  Summary:\n  {summary_text}")
+        emit(f"\n  Summary:\n  {summary_text}")
 
     if result.get("dissent"):
-        print("\n  Dissent:")
+        emit("\n  Dissent:")
         for d in result["dissent"]:
-            print(f"    - {d.get('agent', '?')}: {d.get('reason', 'N/A')}")
+            emit(f"    - {d.get('agent', '?')}: {d.get('reason', 'N/A')}")
 
     thinking = result.get("thinking_traces")
     if thinking:
-        print(f"\n  Thinking: {len(thinking)} agent(s) provided extended reasoning traces")
+        emit(f"\n  Thinking: {len(thinking)} agent(s) provided extended reasoning traces")
 
-    print("\n" + "=" * 60)
+    emit("\n" + "=" * 60)
 
     # Step 6: Save receipt
     output_path = getattr(args, "output", None)
     fmt = getattr(args, "format", "json")
+    canonical_result = _build_quickstart_receipt_payload(result)
     saved_artifact = _save_receipt(
-        result,
+        canonical_result,
         output_path or _default_receipt_path(str(result.get("mode", "demo")), fmt),
         fmt,
     )
     artifact_format = saved_artifact.suffix.lstrip(".") or fmt
-    print(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
+    emit(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
 
     # Persist to receipt store so API/dashboard/CLI-list can serve it
     try:
         from aragora.storage.receipt_store import get_receipt_store
 
         store = get_receipt_store()
-        receipt_nested = result.get("receipt", {}) or {}
-        store_payload = dict(result)
+        receipt_nested = canonical_result.get("receipt", {}) or {}
+        store_payload = dict(canonical_result)
         store_payload.setdefault("receipt_id", receipt_nested.get("id", ""))
-        store_payload.setdefault("debate_id", result.get("receipt_id", ""))
-        store_payload.setdefault("verdict", result.get("verdict", ""))
-        store_payload.setdefault("checksum", result.get("artifact_hash", ""))
+        store_payload.setdefault(
+            "debate_id",
+            str(canonical_result.get("debate_id") or canonical_result.get("receipt_id") or ""),
+        )
+        store_payload.setdefault("verdict", canonical_result.get("verdict", ""))
+        store_payload.setdefault("checksum", canonical_result.get("artifact_hash", ""))
         store.save(store_payload)
         logger.info("receipt_persisted id=%s", store_payload.get("receipt_id", ""))
     except Exception:  # noqa: BLE001 - best-effort, local file is primary
@@ -1004,13 +1308,13 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     if result.get("mode") == "live":
         km_ingested = result.get("km_ingested", False)
         if km_ingested:
-            print("[+] Knowledge Mound: outcome ingested")
+            emit("[+] Knowledge Mound: outcome ingested")
         else:
-            print("[*] Knowledge Mound: ingestion skipped (quickstart uses lightweight KM)")
-            print("    Use 'aragora ask' or 'aragora decide' for full KM writeback.")
+            emit("[*] Knowledge Mound: ingestion skipped (quickstart uses lightweight KM)")
+            emit("    Use 'aragora ask' or 'aragora decide' for full KM writeback.")
 
     # Step 7: Open receipt in browser
-    no_browser = getattr(args, "no_browser", False)
+    no_browser = getattr(args, "no_browser", False) or output_json
     if not no_browser:
         browser_path = _open_receipt_in_browser(
             result,
@@ -1018,13 +1322,23 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         )
         if browser_path:
             if Path(browser_path) == saved_artifact:
-                print("\nOpened saved artifact in browser.")
+                emit("\nOpened saved artifact in browser.")
             else:
-                print(f"\nOpened HTML preview in browser: {browser_path}")
+                emit(f"\nOpened HTML preview in browser: {browser_path}")
         else:
-            print("\nCould not open browser. View the saved artifact directly.")
+            emit("\nCould not open browser. View the saved artifact directly.")
 
-    print("\nNext steps:")
-    print("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
-    print("  aragora decide 'Your question'                                  # Full pipeline")
-    print("  aragora doctor                                                  # System health")
+    if output_json:
+        json.dump(
+            _normalize_json_result(canonical_result, saved_artifact),
+            sys.stdout,
+            indent=2,
+            default=str,
+        )
+        sys.stdout.write("\n")
+        return
+
+    emit("\nNext steps:")
+    emit("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
+    emit("  aragora decide 'Your question'                                  # Full pipeline")
+    emit("  aragora doctor                                                  # System health")

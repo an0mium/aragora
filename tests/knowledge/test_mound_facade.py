@@ -6,6 +6,7 @@ import pytest
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.knowledge.mound import (
@@ -97,6 +98,19 @@ class TestKnowledgeMoundFacade:
 
         assert mound._initialized is True
         await mound.close()
+
+    @pytest.mark.asyncio
+    async def test_close_handles_sync_meta_store(self, config):
+        """Test close tolerates synchronous metastore shutdown."""
+        mound = KnowledgeMound(config=config, workspace_id="test")
+        await mound.initialize()
+
+        close_mock = MagicMock(return_value=None)
+        mound._meta_store = SimpleNamespace(close=close_mock)
+
+        await mound.close()
+
+        close_mock.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_store_knowledge(self, mound):

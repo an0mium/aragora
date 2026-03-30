@@ -324,6 +324,14 @@ class AuthChecksMixin:
             "/api/integrations/zoom/callback",
             "/api/v1/bots/slack/oauth/callback",
             "/api/v1/bots/slack/oauth/start",
+            # Slack webhooks are authenticated by Slack signatures, not API/JWT auth.
+            "/api/v1/integrations/slack/commands",
+            "/api/v1/integrations/slack/events",
+            "/api/v1/integrations/slack/interactive",
+            "/api/v1/bots/slack/commands",
+            "/api/v1/bots/slack/events",
+            "/api/v1/bots/slack/interactions",
+            "/api/v1/bots/slack/interactive",
         ]
     )
 

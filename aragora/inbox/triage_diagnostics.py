@@ -370,6 +370,8 @@ class TriageRunDiagnostics:
         }
         for event in self._events:
             severity_counts[event.severity] += 1
+        message_suppressed_count = sum(1 for event in self._events if event.message_id)
+        global_suppressed_count = sum(1 for event in self._events if not event.message_id)
 
         meta = {
             "run_id": self.run_id,
@@ -393,6 +395,8 @@ class TriageRunDiagnostics:
                 1 for decision in decisions if getattr(decision, "blocked_by_policy", False)
             ),
             "suppressed_diagnostics_count": self._suppressed_count,
+            "message_suppressed_diagnostics_count": message_suppressed_count,
+            "global_suppressed_diagnostics_count": global_suppressed_count,
             "severity_counts": severity_counts,
             "artifact_dir": str(self.artifact_dir),
             "events_path": str(self.events_path),

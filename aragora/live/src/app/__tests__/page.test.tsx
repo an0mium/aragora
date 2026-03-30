@@ -1,6 +1,6 @@
 import { renderWithProviders, screen, act, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
-import Home from '../(app)/page';
+import Home from '../(app)/HomePage';
 
 // Mock next/navigation
 const mockPush = jest.fn();
@@ -354,7 +354,7 @@ const sessionStorageMock = (() => {
 })();
 Object.defineProperty(window, 'sessionStorage', { value: sessionStorageMock });
 
-// TODO: Page component was restructured from src/app/page.tsx to src/app/(app)/page.tsx
+// TODO: HomePage was de-routed from src/app/(app)/page.tsx and kept as a test-only component.
 // These tests need a complete rewrite to match the new component structure
 describe.skip('Home Page', () => {
   beforeEach(() => {

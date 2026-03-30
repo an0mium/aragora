@@ -31,6 +31,7 @@ import pytest
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.orchestrator import Arena, _compute_domain_from_task
 from aragora.debate.protocol import DebateProtocol
+from aragora.storage.schema import DatabaseManager
 
 # Many tests in this file run full Arena.run() debates (~10-30s each).
 # Under load from 9000+ prior tests, these can exceed the global 30s timeout.
@@ -1907,6 +1908,21 @@ class TestLifecycleManagement:
             pass
 
         assert cleanup_called
+
+    @pytest.mark.asyncio
+    async def test_cleanup_debate_persistence_closes_manager_delta(
+        self, environment, agents, tmp_path
+    ):
+        """Arena cleanup closes only manager-backed databases created after init."""
+        arena = Arena(environment, agents)
+        baseline = set(arena._db_manager_snapshot)
+        created_path = tmp_path / "arena-run-cleanup.db"
+
+        DatabaseManager.get_instance(created_path)
+
+        await arena._cleanup_debate_persistence()
+
+        assert DatabaseManager.instance_paths() == baseline
 
 
 # =============================================================================

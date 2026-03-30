@@ -181,6 +181,10 @@ class EpistemicOutcomeStore:
         self.record_outcome(current)
         return True
 
+    def close(self) -> None:
+        """Close the underlying database resources."""
+        self._db.close()
+
 
 _STORE_LOCK = threading.Lock()
 _STORE_SINGLETON: EpistemicOutcomeStore | None = None

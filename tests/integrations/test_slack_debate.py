@@ -854,6 +854,31 @@ class TestPostReceipt:
             )
             assert result is False
 
+    @pytest.mark.asyncio
+    async def test_builds_default_receipt_url_when_missing(self, lifecycle):
+        receipt = _make_receipt(receipt_id="rcpt-slack-123")
+
+        with patch.dict(
+            "os.environ", {"ARAGORA_PUBLIC_URL": "https://app.aragora.ai"}, clear=False
+        ):
+            with patch.object(
+                lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
+            ) as mock_post:
+                result = await lifecycle.post_receipt(
+                    channel_id="C01ABC",
+                    thread_ts="123.456",
+                    receipt=receipt,
+                    debate_id="debate-slack-1",
+                )
+
+        assert result is True
+        mock_post.assert_called_once()
+        _, _, _, blocks = mock_post.call_args.args
+        assert any("View Full Receipt" in str(block) for block in blocks)
+        assert any(
+            "https://app.aragora.ai/receipts/rcpt-slack-123" in str(block) for block in blocks
+        )
+
 
 # =============================================================================
 # SlackDebateLifecycle.post_error Tests

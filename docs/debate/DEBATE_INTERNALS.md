@@ -190,7 +190,7 @@ When enabled in the debate protocol, agents can send peer‑to‑peer messages
 alongside the standard debate loop. This is useful for proposals, critiques,
 and direct questions between agents.
 
-**Integration helper:** `aragora/debate/channel_integration.py`  
+**Integration helper:** `aragora/debate/channel_integration.py`
 **Protocol flags:** `enable_agent_channels` (default: true), `agent_channel_max_history` (default: 100)
 
 ```python

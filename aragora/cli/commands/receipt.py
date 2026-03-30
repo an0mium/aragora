@@ -88,6 +88,11 @@ Examples:
     list_p.add_argument(
         "--verdict", choices=["pass", "fail", "conditional"], help="Filter by verdict"
     )
+    list_p.add_argument(
+        "--kind",
+        choices=["inbox", "decision", "other"],
+        help="Filter by receipt kind",
+    )
     list_p.add_argument("--org-id", help="Filter by organization ID")
     list_p.set_defaults(func=cmd_receipt_list)
 
@@ -215,6 +220,87 @@ def _receipt_findings_count(meta: Any) -> int:
         return int(vulnerabilities_found)
 
     return 0
+
+
+def _receipt_payload_dict(meta: Any) -> dict[str, Any]:
+    """Return the richest receipt payload available for display normalization."""
+    data = getattr(meta, "data", None)
+    if isinstance(data, dict):
+        return data
+    if isinstance(meta, dict):
+        return meta
+    return {}
+
+
+def _normalize_receipt_verdict_and_confidence(
+    data: dict[str, Any],
+    *,
+    verdict: str | None,
+    confidence: float | None,
+) -> tuple[str, float]:
+    """Fill missing verdict/confidence for trust-wedge receipts from nested metadata."""
+    normalized_verdict = str(verdict or "").strip()
+    normalized_confidence = float(confidence or 0.0)
+
+    triage = data.get("triage_decision")
+    if not isinstance(triage, dict):
+        return normalized_verdict or "UNKNOWN", normalized_confidence
+
+    triage_confidence = triage.get("confidence")
+    if triage_confidence is not None:
+        try:
+            triage_confidence_value = float(triage_confidence)
+        except (TypeError, ValueError):
+            triage_confidence_value = None
+        else:
+            if normalized_confidence == 0.0 and triage_confidence_value != 0.0:
+                normalized_confidence = triage_confidence_value
+
+    verdict_missing = not normalized_verdict or normalized_verdict.upper() == "UNKNOWN"
+    if verdict_missing:
+        if bool(triage.get("blocked_by_policy")):
+            normalized_verdict = "BLOCKED"
+        else:
+            state = str(data.get("state") or triage.get("receipt_state") or "").strip().lower()
+            if state in {"approved", "executed"}:
+                normalized_verdict = "PASS"
+            elif state == "expired":
+                normalized_verdict = "FAIL"
+            elif state:
+                normalized_verdict = "CONDITIONAL"
+
+    return normalized_verdict or "UNKNOWN", normalized_confidence
+
+
+def _normalize_receipt_payload_for_display(data: dict[str, Any]) -> dict[str, Any]:
+    """Overlay inferred verdict/confidence for legacy trust-wedge receipts."""
+    normalized = dict(data)
+    verdict, confidence = _normalize_receipt_verdict_and_confidence(
+        normalized,
+        verdict=normalized.get("verdict"),
+        confidence=normalized.get("confidence"),
+    )
+    normalized["verdict"] = verdict
+    normalized["confidence"] = confidence
+    return normalized
+
+
+def _receipt_kind(meta: Any) -> str:
+    """Classify receipts for operator-facing list output."""
+    data = _receipt_payload_dict(meta)
+    if "action_intent" in data or "triage_decision" in data:
+        return "inbox"
+    if any(
+        key in data
+        for key in (
+            "consensus_proof",
+            "risk_summary",
+            "agent_responses",
+            "verdict_reasoning",
+        )
+    ):
+        return "decision"
+    return "other"
 
 
 def _load_storage_receipt_list(limit: int, verdict: str | None) -> list[Any]:
@@ -635,6 +721,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     """List recent decision receipts from the database."""
     limit = getattr(args, "limit", 20)
     verdict = getattr(args, "verdict", None)
+    kind = getattr(args, "kind", None)
     org_id = getattr(args, "org_id", None)
 
     results: list[Any] = []
@@ -666,20 +753,30 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
             print(f"Error: Could not access receipt database: {storage_error}", file=sys.stderr)
             sys.exit(1)
 
+    if kind:
+        results = [meta for meta in results if _receipt_kind(meta) == kind]
+
     if not results:
         print("No receipts found.")
         return
 
-    print(f"{'ID':<14} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
-    print("-" * 64)
+    print(f"{'ID':<14} {'TYPE':<10} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
+    print("-" * 75)
     for meta in results:
+        payload = _receipt_payload_dict(meta)
         row_id = _receipt_row_id(meta)
         short_id = row_id[:12] + ".." if len(row_id) > 14 else row_id
+        receipt_kind = _receipt_kind(meta)
         created = _format_receipt_created_at(getattr(meta, "created_at", None))
         findings = _receipt_findings_count(meta)
-        confidence = float(getattr(meta, "confidence", 0.0) or 0.0)
-        verdict_value = str(getattr(meta, "verdict", "UNKNOWN") or "UNKNOWN")
-        print(f"{short_id:<14} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}")
+        verdict_value, confidence = _normalize_receipt_verdict_and_confidence(
+            payload,
+            verdict=getattr(meta, "verdict", None),
+            confidence=getattr(meta, "confidence", None),
+        )
+        print(
+            f"{short_id:<14} {receipt_kind:<10} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}"
+        )
     print(f"\n{len(results)} receipt(s) shown.")
 
 
@@ -724,6 +821,7 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     if data is None:
         print(f"Error: Receipt not found: {receipt_id}", file=sys.stderr)
         sys.exit(1)
+    data = _normalize_receipt_payload_for_display(data)
     if output_format == "json":
         print(json.dumps(data, indent=2, default=str))
     elif output_format == "md":
@@ -754,9 +852,40 @@ def _inspect_receipt_data(data: dict[str, Any]) -> None:
     print("=" * 60)
     print(f"\nReceipt ID:    {data.get('receipt_id', 'N/A')}")
     print(f"Gauntlet ID:   {data.get('gauntlet_id', 'N/A')}")
+    print(f"Type:          {_receipt_kind(data)}")
     print(f"Verdict:       {data.get('verdict', 'UNKNOWN')}")
     confidence = data.get("confidence", 0)
     print(f"Confidence:    {confidence:.1%}")
+    state = data.get("state")
+    if state:
+        print(f"State:         {state}")
+
+    action_intent = data.get("action_intent")
+    triage_decision = data.get("triage_decision")
+    if isinstance(action_intent, dict) or isinstance(triage_decision, dict):
+        action_intent = action_intent if isinstance(action_intent, dict) else {}
+        triage_decision = triage_decision if isinstance(triage_decision, dict) else {}
+        print("\n--- Inbox Trust Wedge ---")
+        print(
+            f"Action:        {triage_decision.get('final_action') or action_intent.get('action') or 'N/A'}"
+        )
+        print(f"Provider:      {action_intent.get('provider', 'N/A')}")
+        print(f"Message ID:    {action_intent.get('message_id', 'N/A')}")
+        print(
+            f"Route:         {triage_decision.get('provider_route') or action_intent.get('provider_route') or 'N/A'}"
+        )
+        print(
+            f"Receipt State: {triage_decision.get('receipt_state') or data.get('state') or 'N/A'}"
+        )
+        print(f"Blocked:       {'yes' if triage_decision.get('blocked_by_policy') else 'no'}")
+        if action_intent.get("label_id") or triage_decision.get("label_id"):
+            print(
+                f"Label ID:      {triage_decision.get('label_id') or action_intent.get('label_id')}"
+            )
+        rationale = str(action_intent.get("synthesized_rationale") or "").strip()
+        if rationale:
+            print(f"Rationale:     {rationale[:280]}")
+
     risk_summary = data.get("risk_summary", {})
     if risk_summary:
         print(

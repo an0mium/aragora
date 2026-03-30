@@ -120,6 +120,9 @@ class TestOutcomeCompleted:
         new_head = _head(repo)
 
         item = _make_dispatched_item(repo, initial_head=head)
+        item["expected_tests"] = [
+            "python -m pytest tests/swarm/test_worker_outcome_classification.py -q"
+        ]
         run_id = _create_run(store, item)
 
         result = WorkerProcess(
@@ -131,6 +134,7 @@ class TestOutcomeCompleted:
             changed_paths=["README.md"],
             commit_shas=[new_head],
             head_sha=new_head,
+            tests_run=["python -m pytest tests/swarm/test_worker_outcome_classification.py -q"],
         )
 
         with patch.object(

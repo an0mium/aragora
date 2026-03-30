@@ -20,6 +20,7 @@ WORKFLOW_PATH = Path(".github/workflows/required-check-priority.yml")
 REQUIRED_KEEP_WORKFLOW_PATHS = {
     ".github/workflows/aragora-review-gate.yml",
     ".github/workflows/autopilot-worktree-e2e.yml",
+    ".github/workflows/contract-drift-governance.yml",
     ".github/workflows/core-suites.yml",
     ".github/workflows/lint.yml",
     ".github/workflows/live-deploy-mode-gate.yml",
@@ -40,6 +41,7 @@ REQUIRED_KEEP_WORKFLOW_PATHS = {
 REQUIRED_KEEP_WORKFLOW_NAMES = {
     "Aragora Code Review",
     "Autopilot Worktree E2E",
+    "Contract Drift Governance",
     "Core Suites (Decision Integrity)",
     "Offline Golden Path",
     "Required Check Priority",

@@ -721,6 +721,15 @@ def check_auth(
                 )
                 return False, -1
 
+    # Direct API token comparison (simple hex tokens used for internal self-calls)
+    if token and auth_config.api_token and token == auth_config.api_token:
+        allowed, remaining = auth_config.check_rate_limit(token)
+        if not allowed:
+            return False, 0
+        if ip_address:
+            return True, min(remaining, ip_remaining)
+        return True, remaining
+
     # Only legacy HMAC tokens reach this point
     if not auth_config.validate_token(token or "", loop_id):
         return False, -1

@@ -457,6 +457,15 @@ def _branch_exists(repo_root: Path, branch: str) -> bool:
     return proc.returncode == 0
 
 
+def _branch_collision_error(stderr: str, branch: str) -> bool:
+    message = str(stderr or "").lower()
+    return (
+        "a branch named" in message
+        and "already exists" in message
+        and str(branch or "").lower() in message
+    )
+
+
 def _ensure_fetched(repo_root: Path, base: str) -> None:
     _run_git(repo_root, "fetch", "origin", base)
 
@@ -525,6 +534,7 @@ def _choose_reusable_session(
     agent: str,
     session_id: str | None,
     active_paths: set[str],
+    active_branches_by_path: dict[str, str | None] | None = None,
 ) -> dict[str, Any] | None:
     sessions = state.get("sessions", [])
     candidates: list[dict[str, Any]] = []
@@ -536,6 +546,10 @@ def _choose_reusable_session(
         path = str(s.get("path", ""))
         if not path or path not in active_paths:
             continue
+        expected_branch = str(s.get("branch", "")).strip() or None
+        actual_branch = (active_branches_by_path or {}).get(path)
+        if expected_branch and actual_branch and actual_branch != expected_branch:
+            continue
         candidates.append(s)
 
     if not candidates:
@@ -546,6 +560,51 @@ def _choose_reusable_session(
 
     candidates.sort(key=sort_key, reverse=True)
     return candidates[0]
+
+
+def _evict_branch_mismatched_session(
+    repo_root: Path,
+    state: dict[str, Any],
+    *,
+    agent: str,
+    session_id: str | None,
+    active_branches_by_path: dict[str, str | None],
+) -> bool:
+    if not session_id:
+        return False
+
+    sessions = state.get("sessions", [])
+    if not isinstance(sessions, list):
+        return False
+
+    kept: list[dict[str, Any]] = []
+    evicted = False
+    for session in sessions:
+        if session.get("agent") != agent or session.get("session_id") != session_id:
+            kept.append(session)
+            continue
+
+        path = str(session.get("path", "")).strip()
+        expected_branch = str(session.get("branch", "")).strip() or None
+        actual_branch = active_branches_by_path.get(path)
+        if not path or not expected_branch or not actual_branch or actual_branch == expected_branch:
+            kept.append(session)
+            continue
+
+        worktree_path = Path(path)
+        if _has_active_session(worktree_path) or _has_active_lease(repo_root, worktree_path):
+            kept.append(session)
+            continue
+
+        removed = _remove_worktree(repo_root, worktree_path)
+        if not removed and worktree_path.exists():
+            kept.append(session)
+            continue
+        evicted = True
+
+    if evicted:
+        state["sessions"] = kept
+    return evicted
 
 
 def _create_managed_worktree(
@@ -560,26 +619,58 @@ def _create_managed_worktree(
     now = _utc_now()
     token = uuid4().hex[:8]
     sid = session_id or f"{agent}-{now.strftime('%Y%m%d-%H%M%S')}-{token}"
-    branch = f"codex/{sid}"
-    while _branch_exists(repo_root, branch):
-        branch = f"{branch}-{uuid4().hex[:4]}"
+    base_branch_name = f"codex/{sid}"
     worktree_path = (managed_root / sid).resolve()
 
     if worktree_path.exists():
         shutil.rmtree(worktree_path, ignore_errors=True)
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
+    attached_branches = {
+        entry.branch
+        for entry in _get_worktree_entries(repo_root)
+        if str(entry.branch or "").strip()
+    }
+    if (
+        session_id
+        and _branch_exists(repo_root, base_branch_name)
+        and base_branch_name not in attached_branches
+    ):
+        add_proc = _run_git(
+            repo_root,
+            "worktree",
+            "add",
+            str(worktree_path),
+            base_branch_name,
+        )
+        if add_proc.returncode == 0:
+            return {
+                "session_id": sid,
+                "agent": agent,
+                "branch": base_branch_name,
+                "path": str(worktree_path),
+                "base_branch": base,
+                "base_sha": _resolve_ref_sha(repo_root, _base_ref(base)),
+                "created_at": now.isoformat(),
+                "last_seen_at": now.isoformat(),
+                "cleanup_lock": False,
+                "cleanup_lock_reason": None,
+                "last_heartbeat_at": None,
+                "lease_status": None,
+                "lease_expires_at": None,
+                "lifecycle_state": "grace",
+            }
+        if worktree_path.exists():
+            shutil.rmtree(worktree_path, ignore_errors=True)
+
     source = f"origin/{base}"
-    add_proc = _run_git(
-        repo_root,
-        "worktree",
-        "add",
-        "-b",
-        branch,
-        str(worktree_path),
-        source,
-    )
-    if add_proc.returncode != 0:
+    attempted_branches: set[str] = set()
+    branch = base_branch_name
+    add_proc: subprocess.CompletedProcess[str] | None = None
+    for _ in range(8):
+        while branch in attempted_branches or _branch_exists(repo_root, branch):
+            branch = f"{base_branch_name}-{uuid4().hex[:4]}"
+        attempted_branches.add(branch)
         add_proc = _run_git(
             repo_root,
             "worktree",
@@ -587,10 +678,28 @@ def _create_managed_worktree(
             "-b",
             branch,
             str(worktree_path),
-            base,
+            source,
         )
-    if add_proc.returncode != 0:
-        raise RuntimeError(add_proc.stderr.strip() or "git worktree add failed")
+        if add_proc.returncode == 0:
+            break
+        if not _branch_collision_error(add_proc.stderr, branch):
+            add_proc = _run_git(
+                repo_root,
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                str(worktree_path),
+                base,
+            )
+            if add_proc.returncode == 0:
+                break
+            if not _branch_collision_error(add_proc.stderr, branch):
+                raise RuntimeError(add_proc.stderr.strip() or "git worktree add failed")
+        if worktree_path.exists():
+            shutil.rmtree(worktree_path, ignore_errors=True)
+    else:
+        raise RuntimeError(add_proc.stderr.strip() if add_proc else "git worktree add failed")
 
     return {
         "session_id": sid,
@@ -617,6 +726,7 @@ def cmd_ensure(args: argparse.Namespace) -> int:
 
     entries = _get_worktree_entries(repo_root)
     active_paths = _active_path_set(entries)
+    active_branches_by_path = {str(entry.path): entry.branch for entry in entries}
     state = _load_state(state_file)
     state, _ = _prune_stale_state(state, active_paths)
 
@@ -627,7 +737,18 @@ def cmd_ensure(args: argparse.Namespace) -> int:
             agent=args.agent,
             session_id=args.session_id,
             active_paths=active_paths,
+            active_branches_by_path=active_branches_by_path,
         )
+        if session is None and _evict_branch_mismatched_session(
+            repo_root,
+            state,
+            agent=args.agent,
+            session_id=args.session_id,
+            active_branches_by_path=active_branches_by_path,
+        ):
+            entries = _get_worktree_entries(repo_root)
+            active_paths = _active_path_set(entries)
+            active_branches_by_path = {str(entry.path): entry.branch for entry in entries}
 
     ttl = timedelta(hours=DEFAULT_TTL_HOURS)
     created = False
@@ -764,7 +885,6 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
             skipped_grace += 1
         else:
             ok, status = _integrate_worktree(repo_root, path, args.base, args.strategy)
-        session["last_seen_at"] = _utc_now().isoformat()
         session["reconcile_status"] = status
         results.append(
             {
@@ -1094,9 +1214,13 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     repo_root = _repo_root_from(Path(args.repo))
     managed_root = (repo_root / args.managed_dir).resolve()
-    state = _load_state(_state_path(managed_root))
+    state_file = _state_path(managed_root)
+    state = _load_state(state_file)
     entries = _get_worktree_entries(repo_root)
     active_paths = _active_path_set(entries)
+    state, removed = _prune_stale_state(state, active_paths)
+    if removed:
+        _save_state(state_file, state)
 
     ttl = timedelta(hours=args.ttl_hours)
     rows: list[dict[str, Any]] = []

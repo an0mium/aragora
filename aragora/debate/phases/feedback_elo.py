@@ -71,7 +71,7 @@ class EloFeedback:
         event_emitter = self.event_emitter
         elo_system = self.elo_system
         result = ctx.result
-        loop_id = self.loop_id or getattr(ctx, "loop_id", "")
+        loop_id = self._resolve_loop_id(ctx)
         if event_emitter is None or elo_system is None or result is None:
             return
 
@@ -119,6 +119,13 @@ class EloFeedback:
                     )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning("ELO event emission error: %s", e)
+
+    def _resolve_loop_id(self, ctx: DebateContext) -> str:
+        """Return a string loop id for stream events."""
+        if self.loop_id:
+            return self.loop_id
+        context_loop_id = getattr(ctx, "loop_id", None)
+        return context_loop_id if isinstance(context_loop_id, str) else ""
 
     def record_voting_accuracy(self, ctx: DebateContext) -> None:
         """

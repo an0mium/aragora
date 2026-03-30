@@ -474,7 +474,7 @@ def is_pdf_export_available() -> bool:
         import weasyprint  # noqa: F401
 
         return True
-    except ImportError:
+    except (ImportError, OSError):
         return False
 
 

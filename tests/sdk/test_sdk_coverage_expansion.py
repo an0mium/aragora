@@ -56,7 +56,7 @@ class TestReceiptsNamespace:
         mock_sync_client.request.assert_called_once()
         args = mock_sync_client.request.call_args
         assert args[0][0] == "GET"
-        assert args[0][1] == "/api/v2/gauntlet/results"
+        assert args[0][1] == "/api/v1/gauntlet/results"
 
     def test_receipts_verify_gauntlet(self, mock_sync_client):
         from aragora_sdk.namespaces.receipts import ReceiptsAPI

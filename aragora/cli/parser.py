@@ -1519,7 +1519,7 @@ Examples:
     decide_parser.add_argument("task", help="The task/question to decide on")
     decide_parser.add_argument(
         "--spec",
-        help="Specification file (JSON from 'aragora spec') to use as debate context",
+        help="Spec JSON file (from 'aragora spec --output'). Skips debate; creates plan directly from spec.",
     )
     decide_parser.add_argument(
         "--agents",
@@ -2515,13 +2515,13 @@ def _add_swarm_parser(subparsers) -> None:
     )
     swarm_parser.add_argument(
         "--worker-model",
-        default="codex",
-        help="Worker model for campaign or boss-loop execution (default: codex)",
+        default="claude",
+        help="Worker model for campaign or boss-loop execution (default: claude)",
     )
     swarm_parser.add_argument(
         "--review-model",
-        default="claude",
-        help="Review model for campaign or boss-loop cross-check/review (default: claude)",
+        default="codex",
+        help="Review model for campaign or boss-loop cross-check/review (default: codex)",
     )
     swarm_parser.add_argument(
         "--runner-type",

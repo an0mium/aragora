@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from aragora.knowledge.mound.validation import ValidationError
 from aragora.memory.triggers import (
     MemoryTrigger,
     MemoryTriggerEngine,
@@ -292,6 +293,22 @@ class TestErrorIsolation:
         assert len(log) == 1
         assert log[0].success is False
         assert "bad type" in log[0].error
+
+    @pytest.mark.asyncio
+    async def test_custom_action_error_doesnt_escape(
+        self, bare_engine: MemoryTriggerEngine
+    ) -> None:
+        failing = AsyncMock(
+            side_effect=ValidationError("Query cannot be empty", field="query", code="EMPTY_QUERY")
+        )
+        working = AsyncMock()
+        bare_engine.register(MemoryTrigger(name="fail", event="e", action=failing))
+        bare_engine.register(MemoryTrigger(name="ok", event="e", action=working))
+
+        triggered = await bare_engine.fire("e", {})
+        assert "fail" in triggered
+        assert "ok" in triggered
+        working.assert_called_once()
 
 
 # -----------------------------------------------------------------------

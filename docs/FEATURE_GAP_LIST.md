@@ -48,7 +48,7 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| External penetration test | Vendor outreach in progress | Kickoff stays warm, but certification is intentionally sequenced after the product loop is usable. Tracked in [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509). |
+| External penetration test | Scope and outreach artifacts ready; vendor selection pending | Kickoff stays warm, but certification is intentionally sequenced after the product loop is usable. Operational status is tracked in `security/pentest/VENDOR_OUTREACH_LOG.md`; work remains tracked in [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509). |
 | Semantic convergence (full embedding) | **VALIDATED — moved to Completed** | PR #723 migrated 5 similarity modules from difflib to embedding-based. Remaining difflib usage is exclusively for text diff display, not similarity. |
 | ERC-8004 on-chain deployment | Contracts written | Solidity contracts exist; not deployed to any mainnet. Needs chain endpoint config + gas management. Tracked in [#816](https://github.com/synaptent/aragora/issues/816). |
 | Decision-Integrity UI Workbench | Partial frontend | Existing workbench pages render, but they do not replace the PMF need for five truthful user-facing paths. Remaining canvas and data wiring work stays secondary to `#1047`. |

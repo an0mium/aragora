@@ -307,6 +307,57 @@ def _cleanup_cli_subprocesses_for_timeout() -> dict[str, int]:
         return {"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0}
 
 
+async def _shutdown_cmd_ask_resources() -> None:
+    """Best-effort cleanup for CLI ask shared resources on the active loop."""
+    try:
+        from aragora.server.startup.database import close_postgres_pool
+
+        await close_postgres_pool()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask postgres shutdown skipped: %s", exc)
+
+    try:
+        from aragora.server.http_client_pool import close_http_pool
+
+        await close_http_pool()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask HTTP client pool shutdown skipped: %s", exc)
+
+    try:
+        from aragora.agents.api_agents.common import close_shared_connector
+
+        await close_shared_connector()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask API connector shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.connection_factory import close_all_pools
+
+        await close_all_pools()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask connection-factory shutdown skipped: %s", exc)
+
+    try:
+        from aragora.events.dispatcher import shutdown_dispatcher
+
+        shutdown_dispatcher(wait=True)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask dispatcher shutdown skipped: %s", exc)
+
+    # Give async transport/connector close callbacks one loop turn before
+    # asyncio.run() tears the loop down. This avoids intermittent unclosed
+    # socket warnings in CLI proof-path tests.
+    await asyncio.sleep(0)
+
+
+async def _run_coro_with_cmd_ask_cleanup(coro: Any) -> Any:
+    """Await a CLI ask coroutine and close shared resources on the same loop."""
+    try:
+        return await coro
+    finally:
+        await _shutdown_cmd_ask_resources()
+
+
 def _emit_timeout_failure_payload(
     *,
     error_type: str,
@@ -2388,54 +2439,58 @@ def cmd_ask(args: argparse.Namespace) -> None:
             enforce_fail_closed=enforce_quality_fail_closed,
         )
 
+    async def _run_model_comparison() -> tuple[Any, list[dict[str, Any]], list[dict[str, str]]]:
+        ranked_candidates: list[tuple[dict[str, Any], Any]] = []
+        comparison_failures_local: list[dict[str, str]] = []
+        total_candidates = len(comparison_agent_sets)
+
+        for idx, combo_agents in enumerate(comparison_agent_sets, start=1):
+            print(f"[compare] running {idx}/{total_candidates} agents={combo_agents}")
+            try:
+                combo_result = await _run_with_timeout(
+                    agents_override=combo_agents,
+                    enforce_quality_fail_closed=False,
+                )
+            except asyncio.TimeoutError:
+                comparison_failures_local.append(
+                    {
+                        "agents": combo_agents,
+                        "error": f"timed out after {debate_timeout}s",
+                    }
+                )
+                print(
+                    f"[compare] failed agents={combo_agents} error=timed out after {debate_timeout}s",
+                    file=sys.stderr,
+                )
+                continue
+            except Exception as e:  # noqa: BLE001 - comparison should continue when a combo fails
+                comparison_failures_local.append({"agents": combo_agents, "error": str(e)})
+                print(
+                    f"[compare] failed agents={combo_agents} error={e}",
+                    file=sys.stderr,
+                )
+                continue
+
+            summary = _build_comparison_summary(combo_result, combo_agents)
+            ranked_candidates.append((summary, combo_result))
+
+        if not ranked_candidates:
+            raise RuntimeError("All compared agent combinations failed.")
+
+        ranked_candidates.sort(key=lambda item: _comparison_rank(item[0]), reverse=True)
+        comparison_summaries_local = [summary for summary, _ in ranked_candidates]
+        selected_result = ranked_candidates[0][1]
+        return selected_result, comparison_summaries_local, comparison_failures_local
+
     result = None
     comparison_summaries: list[dict[str, Any]] = []
     comparison_failures: list[dict[str, str]] = []
-    run_coro = None
     try:
         with _strict_wall_clock_timeout(overall_timeout_seconds):
             if comparison_mode:
-                ranked_candidates: list[tuple[dict[str, Any], Any]] = []
-                total_candidates = len(comparison_agent_sets)
-                for idx, combo_agents in enumerate(comparison_agent_sets, start=1):
-                    print(f"[compare] running {idx}/{total_candidates} agents={combo_agents}")
-                    combo_coro = _run_with_timeout(
-                        agents_override=combo_agents,
-                        enforce_quality_fail_closed=False,
-                    )
-                    try:
-                        combo_result = asyncio.run(combo_coro)
-                    except asyncio.TimeoutError:
-                        comparison_failures.append(
-                            {
-                                "agents": combo_agents,
-                                "error": f"timed out after {debate_timeout}s",
-                            }
-                        )
-                        print(
-                            f"[compare] failed agents={combo_agents} error=timed out after {debate_timeout}s",
-                            file=sys.stderr,
-                        )
-                        continue
-                    except Exception as e:  # noqa: BLE001 - comparison should continue when a combo fails
-                        comparison_failures.append({"agents": combo_agents, "error": str(e)})
-                        print(
-                            f"[compare] failed agents={combo_agents} error={e}",
-                            file=sys.stderr,
-                        )
-                        continue
-                    finally:
-                        combo_coro.close()
-
-                    summary = _build_comparison_summary(combo_result, combo_agents)
-                    ranked_candidates.append((summary, combo_result))
-
-                if not ranked_candidates:
-                    raise RuntimeError("All compared agent combinations failed.")
-
-                ranked_candidates.sort(key=lambda item: _comparison_rank(item[0]), reverse=True)
-                comparison_summaries = [summary for summary, _ in ranked_candidates]
-                result = ranked_candidates[0][1]
+                result, comparison_summaries, comparison_failures = asyncio.run(
+                    _run_coro_with_cmd_ask_cleanup(_run_model_comparison())
+                )
                 metadata = getattr(result, "metadata", None)
                 if not isinstance(metadata, dict):
                     metadata = {}
@@ -2464,8 +2519,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         f"practicality={comparison_summaries[0]['practicality_score_10']}"
                     )
             else:
-                run_coro = _run_with_timeout()
-                result = asyncio.run(run_coro)
+                result = asyncio.run(_run_coro_with_cmd_ask_cleanup(_run_with_timeout()))
     except _StrictWallClockTimeout:
         elapsed = time.monotonic() - start_time
         cleanup = _cleanup_cli_subprocesses_for_timeout()
@@ -2505,9 +2559,6 @@ def cmd_ask(args: argparse.Namespace) -> None:
     except RuntimeError as e:
         print(f"Debate failed quality gate: {e}", file=sys.stderr)
         raise SystemExit(1)
-    finally:
-        if run_coro is not None:
-            run_coro.close()
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")

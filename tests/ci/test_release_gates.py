@@ -227,6 +227,152 @@ class TestReleaseReadinessBootstrapWorkflow:
         assert "scripts/ci_install_project.sh --extras dev,test" in command
 
 
+class TestAutopilotWorktreeE2EWorkflow:
+    """Validate autopilot-worktree-e2e workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "autopilot-worktree-e2e.yml"
+
+    def test_workflow_file_exists(self):
+        assert self.path.exists(), "autopilot-worktree-e2e.yml does not exist"
+
+    def test_autopilot_api_e2e_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["autopilot-api-e2e"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
+class TestDocsBuildWorkflow:
+    """Validate docs-build workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "docs-build.yml"
+
+    def test_docs_build_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["build"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install Python dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev" in command
+
+
+class TestFrontendE2EWorkflow:
+    """Validate frontend E2E workflow backend bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "test.yml"
+
+    def test_frontend_e2e_job_uses_shared_python_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["frontend"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install Python dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+    def test_frontend_e2e_job_bootstraps_backend_and_redis(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["frontend"]
+        redis = workflow["services"]["redis"]
+        assert redis["image"] == "redis:7-alpine"
+
+        backend_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Start Aragora backend"
+        )
+        backend_command = backend_step["run"]
+        assert "python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1" in (
+            backend_command
+        )
+        env = backend_step["env"]
+        assert env["ARAGORA_REDIS_URL"] == "redis://localhost:6379/0"
+        assert env["ARAGORA_DATA_DIR"] == ".nomic"
+
+
+class TestCoverageWorkflow:
+    """Validate coverage workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "coverage.yml"
+
+    def test_coverage_workflow_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["coverage"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+
+class TestIntegrationWorkflow:
+    """Validate integration workflow bootstrap and self-host env policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "integration.yml"
+
+    def test_integration_jobs_use_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        jobs = data["jobs"]
+
+        for job_name in ("e2e-harness", "integration-tests", "control-plane-tests"):
+            workflow = jobs[job_name]
+            install_step = next(
+                step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+            )
+            command = install_step["run"]
+            assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+    def test_integration_self_host_env_sets_sentinel_redis_password(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["self-host-readiness"]
+        prepare_step = next(
+            step
+            for step in workflow["steps"]
+            if step.get("name") == "Prepare CI production env file"
+        )
+        command = prepare_step["run"]
+        assert "ARAGORA_REDIS_MODE=sentinel" in command
+        assert "REDIS_PASSWORD=aragora-ci-redis-password-0123456789" in command
+
+
+class TestMigrationWorkflow:
+    """Validate migration workflow bootstrap policy."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "migration-tests.yml"
+
+    def test_migration_workflow_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["migration-tests"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+    def test_migration_workflow_uses_python_module_pytest(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["migration-tests"]
+        runner_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Run migration runner tests"
+        )
+        command = runner_step["run"]
+        assert "python -m pytest tests/test_migrations.py" in command
+
+
 class TestReleaseWorkflow:
     """Validate release.yml integrates all gates."""
 

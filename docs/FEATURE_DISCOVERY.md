@@ -24,7 +24,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 230+ features | 3,800+ Python modules | 210,000+ tests | 3,100+ API operations across 2,600+ paths
+**Total**: 230+ features | 3,000+ Python modules | 212,000+ tests | 3,000+ API operations across 2,600+ paths
 
 ---
 
@@ -129,7 +129,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Streams** | Stable | Event-based memory updates | `aragora/memory/streams.py` | |
 | **Embeddings** | Stable | Semantic embedding for retrieval (OpenAI, Gemini, Ollama) | `aragora/memory/embeddings.py` | |
 | **Critique Store** | Stable | Critique pattern storage | `aragora/memory/store.py` | |
-| **Progressive Memory Search** | Partial | Staged retrieval (index → timeline → entries); some timeline and batch flows remain backend-conditional and can return `501` | `aragora/server/handlers/memory/memory.py`, `aragora/server/handlers/memory/memory_progressive.py` | |
+| **Progressive Memory Search** | Stable | Staged retrieval (index → timeline → entries) across both continuum backends | `aragora/server/handlers/memory/memory.py`, `aragora/server/handlers/memory/memory_progressive.py` | |
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 | **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory`; handler availability still depends on optional unified-memory backends | `aragora/memory/gateway.py`, `aragora/memory/retention_gate.py`, `aragora/memory/dedup.py` | |
@@ -495,7 +495,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 60+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
 ### Prompt Engine & Interrogation

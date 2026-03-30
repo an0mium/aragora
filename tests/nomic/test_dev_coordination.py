@@ -6,6 +6,7 @@ import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +19,7 @@ from aragora.nomic.dev_coordination import (
     SalvageStatus,
 )
 from aragora.nomic.global_work_queue import GlobalWorkQueue, WorkStatus
+from aragora.swarm.lane_telemetry import LaneTelemetryCollector
 
 
 @pytest.fixture()
@@ -258,9 +260,13 @@ def test_record_completion_persists_extended_receipt_provenance(
     assert stored.risks == ["merge-risk:review"]
     assert stored.pr_url == "https://github.com/synaptent/aragora/pull/1044"
     assert stored.pr_number == 1044
+    assert stored.metadata["pr_created_at"] == stored.created_at
     assert stored.metadata["task_key"] == "run-123:wo-extended"
     assert stored.metadata["verification_results"][0]["command"] == "ruff check"
     assert store.list_completion_receipts(task_id="wo-extended")[0].receipt_id == receipt.receipt_id
+    merge_queue = store.fleet_store.list_merge_queue()
+    assert len(merge_queue) == 1
+    assert merge_queue[0]["metadata"]["pr_created_at"] == stored.created_at
 
 
 def test_record_completion_rejects_out_of_scope_changes(store: DevCoordinationStore) -> None:
@@ -295,6 +301,50 @@ def test_record_completion_rejects_out_of_scope_changes(store: DevCoordinationSt
     assert summary["counts"]["scope_violations"] == 1
     assert summary["scope_violations"][0]["owner_session_id"] == "sess-scope"
     assert summary["scope_violations"][0]["violations"][0]["type"] in violation_types
+
+
+def test_record_completion_can_skip_live_session_ownership_for_historical_backfill(
+    store: DevCoordinationStore,
+) -> None:
+    lease = store.claim_lease(
+        task_id="clb-backfill",
+        title="Historical backfill lane",
+        owner_agent="codex",
+        owner_session_id="sess-backfill",
+        branch="codex/backfill",
+        worktree_path="/tmp/wt-backfill",
+        claimed_paths=["aragora/server/auth_checks.py"],
+    )
+    store.fleet_store.release_paths(session_id="sess-backfill")
+
+    with pytest.raises(FileScopeViolationError) as exc_info:
+        store.record_completion(
+            lease_id=lease.lease_id,
+            owner_agent="codex",
+            owner_session_id="sess-backfill",
+            branch="codex/backfill",
+            worktree_path="/tmp/wt-backfill",
+            commit_shas=["abc12345"],
+            changed_paths=["aragora/server/auth_checks.py"],
+        )
+
+    assert any(item["type"] == "unowned_path" for item in exc_info.value.violations)
+
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-backfill",
+        branch="codex/backfill",
+        worktree_path="/tmp/wt-backfill",
+        commit_shas=["abc12345"],
+        changed_paths=["aragora/server/auth_checks.py"],
+        metadata={"backfilled_receipt": True},
+        require_session_ownership=False,
+    )
+
+    assert receipt.receipt_id
+    assert receipt.metadata["backfilled_receipt"] is True
+    assert receipt.outcome == "deliverable_created"
 
 
 def test_record_completion_rejects_protected_hot_paths(store: DevCoordinationStore) -> None:
@@ -387,6 +437,86 @@ def test_supervisor_run_tracks_lease_completion_and_decision(store: DevCoordinat
     assert refreshed is not None
     assert refreshed["work_orders"][0]["status"] == "changes_requested"
     assert refreshed["status"] == "needs_human"
+
+
+def test_mark_supervisor_run_merged_records_canonical_lane_telemetry(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Ship merged swarm lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={"raw_goal": "Ship merged swarm lane", "refined_goal": "Ship merged swarm lane"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge",
+                "title": "Integrate lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    lease = store.claim_lease(
+        task_id="wo-merge",
+        title="Integrate lane",
+        owner_agent="codex",
+        owner_session_id="sess-merge",
+        branch="codex/merge-lane",
+        worktree_path="/tmp/wt-merge",
+        claimed_paths=["aragora/swarm/reporter.py"],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-merge",
+            "task_key": f"{run['run_id']}:wo-merge",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-merge",
+        branch="codex/merge-lane",
+        worktree_path="/tmp/wt-merge",
+        commit_shas=["deadbeef"],
+        changed_paths=["aragora/swarm/reporter.py"],
+        tests_run=["python -m pytest tests/swarm/test_reporter.py -q"],
+        pr_url="https://github.com/synaptent/aragora/pull/9999",
+        pr_number=9999,
+        confidence=0.93,
+    )
+    merged_at = (datetime.fromisoformat(receipt.created_at) + timedelta(minutes=5)).isoformat()
+    collector = LaneTelemetryCollector(db_path=":memory:")
+
+    with patch("aragora.nomic.dev_coordination._LANE_TELEMETRY", collector):
+        store.mark_supervisor_run_merged(
+            receipt_id=receipt.receipt_id,
+            merge_commit_sha="mergeabc123",
+            merged_at=merged_at,
+        )
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "merged"
+    assert refreshed["work_orders"][0]["merge_commit_sha"] == "mergeabc123"
+    assert refreshed["work_orders"][0]["merged_at"] == merged_at
+    record = collector.get_lane("supervisor_work_order", f"{run['run_id']}:wo-merge")
+    assert record is not None
+    assert record.terminal_outcome == "deliverable_created"
+    assert record.deliverable_type == "pr"
+    assert record.receipt_id == receipt.receipt_id
+    assert record.pr_url == "https://github.com/synaptent/aragora/pull/9999"
+    assert record.pr_number == 9999
+    assert record.merge_ref == "mergeabc123"
+    assert record.merged_at == merged_at
+    assert record.time_to_pr_seconds == 0.0
+    assert record.time_to_merge_seconds == 300.0
+    assert record.human_intervention_required is False
 
 
 def test_list_developer_tasks_flattens_supervisor_runs(store: DevCoordinationStore) -> None:
@@ -550,6 +680,148 @@ def test_reap_expired_leases_releases_fleet_claims(store: DevCoordinationStore) 
     assert [item.lease_id for item in expired] == [lease.lease_id]
     assert store.list_active_leases() == []
     assert store.fleet_store.list_claims() == []
+
+
+def test_reap_expired_leases_preserves_receipt_backed_work_order(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Preserve completed lane on expiry reap",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Preserve completed lane on expiry reap",
+            "refined_goal": "Preserve completed lane on expiry reap",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-expired-reap",
+                "title": "Deliverable lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    lease = store.claim_lease(
+        task_id="wo-expired-reap",
+        title="Deliverable lane",
+        owner_agent="codex",
+        owner_session_id="sess-expired-reap",
+        branch="codex/expired-reap",
+        worktree_path="/tmp/wt-expired-reap",
+        claimed_paths=["aragora/swarm/reporter.py"],
+        metadata={"supervisor_run_id": run["run_id"], "work_order_id": "wo-expired-reap"},
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-expired-reap",
+        branch="codex/expired-reap",
+        worktree_path="/tmp/wt-expired-reap",
+        commit_shas=["abc12345"],
+        changed_paths=["aragora/swarm/reporter.py"],
+    )
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE leases SET status = ?, expires_at = ?, updated_at = ? WHERE lease_id = ?",
+            (
+                "active",
+                "2000-01-01T00:00:00+00:00",
+                "2000-01-01T00:00:00+00:00",
+                lease.lease_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    expired = store.reap_expired_leases()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert [item.lease_id for item in expired] == [lease.lease_id]
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "completed"
+    assert refreshed["work_orders"][0]["receipt_id"] == receipt.receipt_id
+    assert "failure_reason" not in refreshed["work_orders"][0]
+
+
+def test_reap_stale_leases_preserves_receipt_backed_work_order(store: DevCoordinationStore) -> None:
+    run = store.create_supervisor_run(
+        goal="Preserve completed lane on stale reap",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Preserve completed lane on stale reap",
+            "refined_goal": "Preserve completed lane on stale reap",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-stale-reap",
+                "title": "Deliverable lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    lease = store.claim_lease(
+        task_id="wo-stale-reap",
+        title="Deliverable lane",
+        owner_agent="codex",
+        owner_session_id="sess-stale-reap",
+        branch="codex/stale-reap",
+        worktree_path="/tmp/wt-stale-reap",
+        claimed_paths=["aragora/swarm/reporter.py"],
+        metadata={"supervisor_run_id": run["run_id"], "work_order_id": "wo-stale-reap"},
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-stale-reap",
+        branch="codex/stale-reap",
+        worktree_path="/tmp/wt-stale-reap",
+        commit_shas=["abc12345"],
+        changed_paths=["aragora/swarm/reporter.py"],
+    )
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE leases SET status = ?, expires_at = ?, updated_at = ? WHERE lease_id = ?",
+            (
+                "active",
+                "2999-01-01T00:00:00+00:00",
+                "2000-01-01T00:00:00+00:00",
+                lease.lease_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    stale = store.reap_stale_leases(stale_threshold_seconds=1.0)
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert [item.lease_id for item in stale] == [lease.lease_id]
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "completed"
+    assert refreshed["work_orders"][0]["receipt_id"] == receipt.receipt_id
+    assert "failure_reason" not in refreshed["work_orders"][0]
 
 
 def test_status_summary_does_not_reap_expired_leases(store: DevCoordinationStore) -> None:

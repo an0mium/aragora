@@ -187,6 +187,24 @@ class TestEmitMatchRecordedEvent:
         ctx = _make_ctx()
         ef._emit_match_recorded_event(ctx, ["alice"])  # Should not raise
 
+    def test_non_string_ctx_loop_id_falls_back_to_empty_string(self):
+        elo = MagicMock()
+        rating_alice = MagicMock()
+        rating_alice.elo = 1600
+        elo.get_ratings_batch.return_value = {"alice": rating_alice}
+        emitter = MagicMock()
+        ef = EloFeedback(elo_system=elo, event_emitter=emitter)
+        ctx = _make_ctx()
+        ctx.loop_id = 123
+
+        with (
+            patch("aragora.events.types.StreamEvent") as mock_stream_event,
+            patch("aragora.events.types.StreamEventType"),
+        ):
+            ef._emit_match_recorded_event(ctx, ["alice"])
+
+        assert mock_stream_event.call_args_list[0].kwargs["loop_id"] == ""
+
 
 # ---------------------------------------------------------------------------
 # record_voting_accuracy

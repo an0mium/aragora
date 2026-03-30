@@ -28,6 +28,7 @@ from aragora.gauntlet.orchestrator import (
     run_gauntlet,
 )
 from aragora.gauntlet.templates import GauntletTemplate
+from aragora.persistence.db_config import get_nomic_dir
 
 
 # =============================================================================
@@ -43,7 +44,7 @@ class TestGauntletOrchestratorInit:
         orchestrator = GauntletOrchestrator()
 
         assert orchestrator.agents == []
-        assert orchestrator.nomic_dir == Path(".nomic")
+        assert orchestrator.nomic_dir == get_nomic_dir()
         assert orchestrator.on_phase_complete is None
         assert orchestrator.on_finding is None
 

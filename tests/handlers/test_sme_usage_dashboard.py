@@ -152,6 +152,11 @@ class MockUsageSummary:
     """Mock usage summary returned by UsageTracker.get_summary()."""
 
     total_debates: int = 45
+    total_api_calls: int = 150
+    total_agent_calls: int = 0
+    total_tokens_in: int = 500000
+    total_tokens_out: int = 250000
+    total_cost_usd: Decimal = Decimal("12.50")
     cost_by_provider: dict | None = None
 
     def __post_init__(self):
@@ -639,6 +644,95 @@ class TestGetSummary:
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
     )
+    @patch("aragora.memory.debate_store.get_debate_store")
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_exposes_dashboard_metric_contract(
+        self, mock_ct, mock_ut, mock_store, mock_consensus, handler
+    ):
+        class StorageWithConfidence:
+            @contextmanager
+            def connection(self):
+                conn = sqlite3.connect(":memory:")
+                conn.execute(
+                    """
+                    CREATE TABLE debates (
+                        confidence REAL,
+                        created_at TEXT,
+                        org_id TEXT
+                    )
+                    """
+                )
+                conn.executemany(
+                    "INSERT INTO debates (confidence, created_at, org_id) VALUES (?, ?, ?)",
+                    [
+                        (0.8, "2026-03-10T00:00:00+00:00", "test-org-001"),
+                        (0.9, "2026-03-11T00:00:00+00:00", "test-org-001"),
+                        (0.2, "2026-03-12T00:00:00+00:00", "other-org"),
+                    ],
+                )
+                try:
+                    yield conn
+                finally:
+                    conn.close()
+
+        debate_store = MagicMock()
+        debate_store.get_consensus_stats.return_value = {
+            "by_agent": [
+                {
+                    "agent_id": "gemini",
+                    "agent_name": "Gemini",
+                    "participations": 8,
+                    "consensus_contributions": 6,
+                    "consensus_rate": "75%",
+                    "avg_agreement_score": 0.75,
+                },
+                {
+                    "agent_id": "claude",
+                    "agent_name": "Claude",
+                    "participations": 12,
+                    "consensus_contributions": 11,
+                    "consensus_rate": "92%",
+                    "avg_agreement_score": 0.92,
+                },
+                {
+                    "agent_id": "gpt-4",
+                    "agent_name": "GPT-4",
+                    "participations": 10,
+                    "consensus_contributions": 8,
+                    "consensus_rate": "80%",
+                    "avg_agreement_score": 0.8,
+                },
+            ]
+        }
+
+        handler.ctx["storage"] = StorageWithConfidence()
+        mock_store.return_value = debate_store
+        mock_ct.return_value = _make_mock_cost_tracker(
+            workspace_stats=_make_workspace_stats(total_cost="123.45")
+        )
+        mock_ut.return_value = _make_mock_usage_tracker(summary=MockUsageSummary(total_debates=42))
+
+        h = _make_handler(
+            query_params={"start": "2026-03-01T00:00:00Z", "end": "2026-03-31T00:00:00Z"}
+        )
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        assert body["debates"]["total"] == 42
+        assert body["quality"]["avg_confidence"] == 0.85
+        assert body["costs"]["total_usd"] == "123.45"
+        assert [agent["agent_name"] for agent in body["agents"]["top_agents"]] == [
+            "Claude",
+            "GPT-4",
+            "Gemini",
+        ]
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
     @patch(
         "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
     )
@@ -672,6 +766,41 @@ class TestGetSummary:
         assert costs["total_usd"] == "12.50"
         assert "avg_per_debate_usd" in costs
         assert "by_provider" in costs
+
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0
+    )
+    @patch(
+        "aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_usage_tracker"
+    )
+    @patch("aragora.server.handlers.sme_usage_dashboard.SMEUsageDashboardHandler._get_cost_tracker")
+    def test_summary_uses_period_scoped_usage_totals(
+        self, mock_ct, mock_ut, mock_consensus, handler
+    ):
+        stats = _make_workspace_stats(
+            total_cost="999.99",
+            tokens_in=999999,
+            tokens_out=111111,
+            api_calls=999,
+        )
+        mock_ct.return_value = _make_mock_cost_tracker(workspace_stats=stats)
+        mock_ut.return_value = _make_mock_usage_tracker(
+            summary=MockUsageSummary(
+                total_debates=5,
+                total_api_calls=7,
+                total_tokens_in=1200,
+                total_tokens_out=800,
+                total_cost_usd=Decimal("5.00"),
+            )
+        )
+        h = _make_handler(query_params={"period": "week"})
+        result = handler.handle("/api/v1/usage/summary", {}, h)
+        body = _body(result)
+
+        assert body["costs"]["total_usd"] == "5.00"
+        assert body["costs"]["avg_per_debate_usd"] == "1.00"
+        assert body["tokens"] == {"total": 2000, "input": 1200, "output": 800}
+        assert body["activity"]["api_calls"] == 7
 
     @patch(
         "aragora.server.handlers.sme_usage_dashboard._get_real_consensus_rate", return_value=85.0

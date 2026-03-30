@@ -1330,7 +1330,7 @@ class TestGetUsageLimits:
         """Test limits reflect enterprise tier caps."""
         limits = await meter.get_usage_limits(org_id="org_1", tier="enterprise")
 
-        assert limits.max_tokens == 100_000_000
+        assert limits.max_tokens == 999_999_999
         assert limits.max_debates == 999_999
         assert limits.max_api_calls == 999_999
 

@@ -14,10 +14,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def build_refinement_worker_env(refinement: dict[str, Any] | None) -> dict[str, str]:
+    """Serialize prompt-refinement hints for worker subprocesses."""
+    payload = dict(refinement or {})
+    relevant_files = [
+        str(item).strip() for item in payload.get("files_to_change", []) if str(item).strip()
+    ]
+    test_patterns = [
+        str(item).strip() for item in payload.get("test_patterns", []) if str(item).strip()
+    ]
+
+    env: dict[str, str] = {}
+    if relevant_files:
+        env["ARAGORA_RELEVANT_FILES"] = os.pathsep.join(relevant_files)
+    if test_patterns:
+        env["ARAGORA_TEST_PATTERNS"] = os.pathsep.join(test_patterns)
+    return env
 
 
 async def refine_worker_prompt(
@@ -181,9 +200,16 @@ def _build_refined_prompt(
     sections.append("## Implementation Rules")
     sections.append("- Read the existing code in the relevant files BEFORE making changes")
     sections.append("- Follow the existing patterns in the test files")
-    sections.append("- Run `python -m pytest <test_file> -x -q` after each change")
+    if test_files:
+        for tf in test_files[:3]:
+            sections.append(f"- Run `python -m pytest {tf} -x -q` after each change")
+    else:
+        sections.append("- Run `python -m pytest -x -q` on relevant tests after each change")
     sections.append("- Keep changes minimal and focused")
     sections.append("- Do not modify files outside the relevant scope")
-    sections.append("- Commit with a clear message describing what changed")
+    sections.append(
+        "- **IMPORTANT: Commit your changes with `git add -A && git commit -m 'description'`**"
+    )
+    sections.append("- Each commit message should clearly describe what changed")
 
     return "\n".join(sections)

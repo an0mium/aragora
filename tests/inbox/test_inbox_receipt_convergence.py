@@ -152,6 +152,8 @@ class TestReceiptCreationPersistsToFacade:
             mock_facade.persist_and_save.assert_called_once()
             call_args = mock_facade.persist_and_save.call_args
             assert call_args[0][0] == envelope.receipt.receipt_id
+            assert call_args[0][1]["verdict"] == "CONDITIONAL"
+            assert call_args[0][1]["confidence"] == pytest.approx(0.9)
             assert call_args[1]["signature"] == "test-sig"
             assert call_args[1]["state"] == "CREATED"
 

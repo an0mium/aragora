@@ -71,7 +71,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - OpenAPI drift remains: `9` handler routes are missing from the spec and `11` OpenAPI routes have no handler according to `scripts/validate_openapi_routes.py`.
 - OpenAPI and SDK parity claims are still inflated by spec-only endpoints defined in `aragora/server/openapi/endpoints/sdk_missing.py`.
 - `aragora/server/handlers/agent_evolution_dashboard.py` still raises `NotImplementedError("No real pending changes store yet")` for pending-change retrieval.
-- `aragora/server/handlers/goal_canvas.py` still returns placeholder data for advancing a canvas into the actions stage.
+- `aragora/server/handlers/goal_canvas.py` now materializes a persisted Stage 3 action canvas from live goal-canvas state; metadata-only goal canvases still fail closed once the in-memory graph is gone.
 - `aragora/server/handlers/spectate_ws.py` now serves `/api/v1/spectate/stream` as a finite buffered SSE snapshot with JSON preview fallback; full real-time streaming on that endpoint still has not shipped.
 - `aragora/server/handlers/sme/slack_workspace.py` now uses the live Slack connector for channel listing, and the SME OAuth helper endpoints delegate into the canonical Slack install/callback flow.
 - `aragora/server/handlers/sme/teams_workspace.py` now uses the live Teams connector for channel listing when `team_id` is supplied, and the SME OAuth helper endpoints delegate into the canonical Teams install/callback flow.

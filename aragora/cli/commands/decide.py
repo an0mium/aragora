@@ -118,40 +118,72 @@ async def run_decide(
             if verbose:
                 print(f"[decide] Mode system not available, ignoring --mode {mode}")
 
-    # Step 1: Run the debate
-    if verbose:
-        print(f"[decide] Running debate with {agents_str}...")
-
-    debate_result = await run_debate(
-        task=task,
-        agents_str=agents_str,
-        rounds=rounds,
-        context=context,
-        documents=documents,
-        auto_select=auto_select,
-        auto_select_config=auto_select_config,
-        **kwargs,
-    )
-    result["debate_result"] = debate_result
-
-    if verbose:
-        print(f"[decide] Debate complete. Consensus: {debate_result.consensus_reached}")
-        print(f"[decide] Confidence: {debate_result.confidence:.1%}")
-
-    # Step 2: Create decision plan
-    if verbose:
-        print("[decide] Creating decision plan...")
-
     approval_mode = ApprovalMode.NEVER if auto_approve else ApprovalMode.RISK_BASED
 
-    plan = DecisionPlanFactory.from_debate_result(
-        debate_result,
-        budget_limit_usd=budget_limit,
-        approval_mode=approval_mode,
-        implementation_profile=implementation_profile,
-    )
-    store_plan(plan)
-    result["plan"] = plan
+    # Spec-first path: skip debate and create plan from spec file
+    spec_file = kwargs.pop("spec_file", None)
+    if spec_file:
+        import json as json_mod
+        from pathlib import Path
+
+        spec_path = Path(spec_file)
+        if not spec_path.exists():
+            raise FileNotFoundError(f"Spec file not found: {spec_file}")
+        with open(spec_path) as f:
+            spec_data = json_mod.load(f)
+
+        # Extract the specification dict (handle both raw and wrapped formats)
+        spec_dict = spec_data.get("specification", spec_data)
+
+        if verbose:
+            title = spec_dict.get("title", task)
+            print(f"[decide] Using spec: {title}")
+
+        plan = DecisionPlanFactory.from_specification(
+            spec_dict,
+            task=task,
+            budget_limit_usd=budget_limit,
+            approval_mode=approval_mode,
+        )
+        store_plan(plan)
+        result["plan"] = plan
+        result["spec_file"] = str(spec_path)
+
+        if verbose:
+            print(f"[decide] Plan created from spec: {plan.id[:12]}...")
+    else:
+        # Step 1: Run the debate
+        if verbose:
+            print(f"[decide] Running debate with {agents_str}...")
+
+        debate_result = await run_debate(
+            task=task,
+            agents_str=agents_str,
+            rounds=rounds,
+            context=context,
+            documents=documents,
+            auto_select=auto_select,
+            auto_select_config=auto_select_config,
+            **kwargs,
+        )
+        result["debate_result"] = debate_result
+
+        if verbose:
+            print(f"[decide] Debate complete. Consensus: {debate_result.consensus_reached}")
+            print(f"[decide] Confidence: {debate_result.confidence:.1%}")
+
+        # Step 2: Create decision plan
+        if verbose:
+            print("[decide] Creating decision plan...")
+
+        plan = DecisionPlanFactory.from_debate_result(
+            debate_result,
+            budget_limit_usd=budget_limit,
+            approval_mode=approval_mode,
+            implementation_profile=implementation_profile,
+        )
+        store_plan(plan)
+        result["plan"] = plan
 
     if verbose:
         print(f"[decide] Plan created: {plan.id[:12]}...")
@@ -506,6 +538,10 @@ def cmd_decide(args: argparse.Namespace) -> None:
         extra_kwargs["spectator"] = SpectatorStream(enabled=True, format=spectate_fmt)
 
     extra_kwargs["auto_explain"] = True
+
+    spec_file = getattr(args, "spec", None)
+    if spec_file:
+        extra_kwargs["spec_file"] = spec_file
 
     result = asyncio.run(
         run_decide(

@@ -28,6 +28,7 @@ def _make_state(domain: str = "healthcare"):
     state = MagicMock()
     state.debate_id = "test-compliance"
     state.debate_status = "completed"
+    state.debate_start_time = 0.0
     state.gupp_bead_id = None
     state.gupp_hook_entries = []
 

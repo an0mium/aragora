@@ -347,6 +347,7 @@ class ReceiptStore:
         backend: str | None = None,
         database_url: str | None = None,
         retention_days: int = DEFAULT_RETENTION_DAYS,
+        file_receipt_dirs: builtins.list[Path] | None = None,
     ):
         """
         Initialize receipt store.
@@ -356,9 +357,13 @@ class ReceiptStore:
             backend: Database backend ("sqlite" or "postgresql")
             database_url: PostgreSQL connection URL
             retention_days: Days to retain receipts (default: 2555 = ~7 years)
+            file_receipt_dirs: Explicit directories to scan for JSON receipt files.
+                If None (default), auto-detects CWD/.aragora/receipts/ and
+                ~/.aragora/receipts/.  Pass an empty list to disable file scanning.
         """
         self.db_path = db_path or DEFAULT_DB_PATH
         self.retention_days = retention_days
+        self._file_receipt_dirs_override = file_receipt_dirs
 
         # Determine backend type
         env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
@@ -423,6 +428,124 @@ class ReceiptStore:
             backend.close()
         except builtins.Exception as exc:
             logger.debug("ReceiptStore backend close failed: %s", exc)
+
+    # =========================================================================
+    # File-based receipt fallback (.aragora/receipts/*.json)
+    # =========================================================================
+
+    def _file_receipt_dirs(self) -> builtins.list[Path]:
+        """Return candidate directories where quickstart/CLI write JSON receipts.
+
+        If ``file_receipt_dirs`` was provided at construction time, returns
+        that list directly.  Otherwise auto-detects:
+        1. CWD/.aragora/receipts/
+        2. ~/.aragora/receipts/
+        """
+        if self._file_receipt_dirs_override is not None:
+            return [d for d in self._file_receipt_dirs_override if d.is_dir()]
+        candidates: builtins.list[Path] = []
+        cwd_dir = Path.cwd() / ".aragora" / "receipts"
+        if cwd_dir.is_dir():
+            candidates.append(cwd_dir)
+        home_dir = Path.home() / ".aragora" / "receipts"
+        if home_dir.is_dir() and home_dir != cwd_dir:
+            candidates.append(home_dir)
+        return candidates
+
+    @staticmethod
+    def _parse_file_receipt(data: dict[str, Any], source_path: Path) -> StoredReceipt:
+        """Convert a JSON receipt dict (as written by quickstart) to a StoredReceipt."""
+        # Receipt ID: prefer receipt_id, then nested receipt.id, then filename stem
+        receipt_nested = data.get("receipt", {}) or {}
+        receipt_id = data.get("receipt_id") or receipt_nested.get("id") or source_path.stem
+        gauntlet_id = data.get("gauntlet_id") or receipt_id
+
+        # Timestamp
+        created_at: float
+        raw_ts = data.get("timestamp")
+        if isinstance(raw_ts, str):
+            try:
+                created_at = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).timestamp()
+            except (ValueError, AttributeError):
+                created_at = source_path.stat().st_mtime
+        elif isinstance(raw_ts, (int, float)):
+            created_at = float(raw_ts)
+        else:
+            created_at = source_path.stat().st_mtime
+
+        # Verdict normalization
+        verdict = str(data.get("verdict") or "UNKNOWN").upper()
+
+        # Confidence
+        try:
+            confidence = float(data.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        # Risk
+        risk_level = str(data.get("risk_level") or "MEDIUM").upper()
+        try:
+            risk_score = float(data.get("risk_score") or 0.0)
+        except (TypeError, ValueError):
+            risk_score = 0.0
+
+        checksum = str(
+            data.get("checksum")
+            or data.get("artifact_hash")
+            or receipt_nested.get("artifact_hash")
+            or ""
+        )
+
+        return StoredReceipt(
+            receipt_id=receipt_id,
+            gauntlet_id=gauntlet_id,
+            debate_id=data.get("debate_id"),
+            created_at=created_at,
+            expires_at=None,
+            verdict=verdict,
+            confidence=confidence,
+            risk_level=risk_level,
+            risk_score=risk_score,
+            checksum=checksum,
+            signature=data.get("signature"),
+            signature_algorithm=data.get("signature_algorithm"),
+            signature_key_id=data.get("signature_key_id"),
+            signed_at=None,
+            audit_trail_id=data.get("audit_trail_id"),
+            data=data,
+        )
+
+    def _load_file_receipts(self) -> builtins.list[StoredReceipt]:
+        """Scan .aragora/receipts/ directories and return StoredReceipt objects."""
+        results: builtins.list[StoredReceipt] = []
+        seen_ids: set[str] = set()
+        for receipts_dir in self._file_receipt_dirs():
+            for json_file in sorted(receipts_dir.glob("*.json"), reverse=True):
+                try:
+                    data = json.loads(json_file.read_text(encoding="utf-8"))
+                    if not isinstance(data, dict):
+                        continue
+                    sr = self._parse_file_receipt(data, json_file)
+                    if sr.receipt_id not in seen_ids:
+                        seen_ids.add(sr.receipt_id)
+                        results.append(sr)
+                except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                    logger.debug("Skipping malformed receipt file %s: %s", json_file, exc)
+        return results
+
+    def _get_file_receipt(self, receipt_id: str) -> StoredReceipt | None:
+        """Look up a single receipt by ID from the file-based store."""
+        for sr in self._load_file_receipts():
+            if sr.receipt_id == receipt_id:
+                return sr
+        return None
+
+    def _get_file_receipt_by_gauntlet(self, gauntlet_id: str) -> StoredReceipt | None:
+        """Look up a single receipt by gauntlet_id from the file-based store."""
+        for sr in self._load_file_receipts():
+            if sr.gauntlet_id == gauntlet_id:
+                return sr
+        return None
 
     # =========================================================================
     # Core CRUD Operations
@@ -549,47 +672,53 @@ class ReceiptStore:
         """
         Get a receipt by ID.
 
+        Falls back to scanning .aragora/receipts/ JSON files when the
+        receipt is not found in the database.
+
         Args:
             receipt_id: Receipt ID to retrieve
 
         Returns:
             StoredReceipt or None if not found
         """
-        if self._backend is None:
-            return None
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                """
+                SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                       verdict, confidence, risk_level, risk_score, checksum,
+                       signature, signature_algorithm, signature_key_id, signed_at,
+                       audit_trail_id, data_json
+                FROM receipts WHERE receipt_id = ?
+                """,
+                (receipt_id,),
+            )
+            if row:
+                return self._row_to_stored_receipt(row)
 
-        row = self._backend.fetch_one(
-            """
-            SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
-                   verdict, confidence, risk_level, risk_score, checksum,
-                   signature, signature_algorithm, signature_key_id, signed_at,
-                   audit_trail_id, data_json
-            FROM receipts WHERE receipt_id = ?
-            """,
-            (receipt_id,),
-        )
-        if row:
-            return self._row_to_stored_receipt(row)
-        return None
+        # Fallback: file-based receipts
+        return self._get_file_receipt(receipt_id)
 
     def get_by_gauntlet(self, gauntlet_id: str) -> StoredReceipt | None:
-        """Get receipt by gauntlet ID."""
-        if self._backend is None:
-            return None
+        """Get receipt by gauntlet ID.
 
-        row = self._backend.fetch_one(
-            """
-            SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
-                   verdict, confidence, risk_level, risk_score, checksum,
-                   signature, signature_algorithm, signature_key_id, signed_at,
-                   audit_trail_id, data_json
-            FROM receipts WHERE gauntlet_id = ?
-            """,
-            (gauntlet_id,),
-        )
-        if row:
-            return self._row_to_stored_receipt(row)
-        return None
+        Falls back to scanning .aragora/receipts/ JSON files.
+        """
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                """
+                SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                       verdict, confidence, risk_level, risk_score, checksum,
+                       signature, signature_algorithm, signature_key_id, signed_at,
+                       audit_trail_id, data_json
+                FROM receipts WHERE gauntlet_id = ?
+                """,
+                (gauntlet_id,),
+            )
+            if row:
+                return self._row_to_stored_receipt(row)
+
+        # Fallback: file-based receipts
+        return self._get_file_receipt_by_gauntlet(gauntlet_id)
 
     def _row_to_stored_receipt(self, row: tuple) -> StoredReceipt:
         """Convert database row to StoredReceipt."""
@@ -612,6 +741,78 @@ class ReceiptStore:
             data=json.loads(row[15]) if row[15] else {},
         )
 
+    @staticmethod
+    def _filter_file_receipt(
+        sr: StoredReceipt,
+        *,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        debate_id: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
+        signed_only: bool = False,
+    ) -> bool:
+        """Return True if a file-based StoredReceipt passes the given filters."""
+        if verdict and sr.verdict != verdict:
+            return False
+        if risk_level and sr.risk_level != risk_level:
+            return False
+        if debate_id and sr.debate_id != debate_id:
+            return False
+        if date_from and sr.created_at < date_from:
+            return False
+        if date_to and sr.created_at > date_to:
+            return False
+        if signed_only and sr.signature is None:
+            return False
+        return True
+
+    def _merge_file_receipts(
+        self,
+        db_results: builtins.list[StoredReceipt],
+        *,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        debate_id: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
+        signed_only: bool = False,
+        sort_by: str = "created_at",
+        order: str = "desc",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> builtins.list[StoredReceipt]:
+        """Merge file-based receipts with DB results, de-duplicate, filter, sort, paginate."""
+        db_ids = {r.receipt_id for r in db_results}
+        file_receipts = [
+            sr
+            for sr in self._load_file_receipts()
+            if sr.receipt_id not in db_ids
+            and self._filter_file_receipt(
+                sr,
+                verdict=verdict,
+                risk_level=risk_level,
+                debate_id=debate_id,
+                date_from=date_from,
+                date_to=date_to,
+                signed_only=signed_only,
+            )
+        ]
+        if not file_receipts:
+            return db_results
+
+        merged = db_results + file_receipts
+        sort_key = (
+            sort_by
+            if sort_by in {"created_at", "confidence", "risk_score", "signed_at"}
+            else "created_at"
+        )
+        merged.sort(
+            key=lambda r: getattr(r, sort_key, 0) or 0,
+            reverse=(order.lower() == "desc"),
+        )
+        return merged[offset : offset + limit] if offset else merged[:limit]
+
     def list(
         self,
         limit: int = 20,
@@ -628,6 +829,9 @@ class ReceiptStore:
         """
         List receipts with filtering and pagination.
 
+        Merges results from the database with any JSON receipt files
+        found in .aragora/receipts/ directories (written by quickstart/CLI).
+
         Args:
             limit: Maximum receipts to return
             offset: Pagination offset
@@ -642,55 +846,68 @@ class ReceiptStore:
         Returns:
             List of StoredReceipt objects
         """
-        if self._backend is None:
-            return []
+        db_results: builtins.list[StoredReceipt] = []
+        if self._backend is not None:
+            conditions = []
+            params: list[Any] = []
 
-        conditions = []
-        params: list[Any] = []
+            if verdict:
+                conditions.append("verdict = ?")
+                params.append(verdict)
+            if risk_level:
+                conditions.append("risk_level = ?")
+                params.append(risk_level)
+            if debate_id:
+                conditions.append("debate_id = ?")
+                params.append(debate_id)
+            if date_from:
+                conditions.append("created_at >= ?")
+                params.append(date_from)
+            if date_to:
+                conditions.append("created_at <= ?")
+                params.append(date_to)
+            if signed_only:
+                conditions.append("signature IS NOT NULL")
 
-        if verdict:
-            conditions.append("verdict = ?")
-            params.append(verdict)
-        if risk_level:
-            conditions.append("risk_level = ?")
-            params.append(risk_level)
-        if debate_id:
-            conditions.append("debate_id = ?")
-            params.append(debate_id)
-        if date_from:
-            conditions.append("created_at >= ?")
-            params.append(date_from)
-        if date_to:
-            conditions.append("created_at <= ?")
-            params.append(date_to)
-        if signed_only:
-            conditions.append("signature IS NOT NULL")
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
+            # Validate sort field
+            valid_sort_fields = {"created_at", "confidence", "risk_score", "signed_at"}
+            if sort_by not in valid_sort_fields:
+                sort_by = "created_at"
+            order_clause = "DESC" if order.lower() == "desc" else "ASC"
 
-        # Validate sort field
-        valid_sort_fields = {"created_at", "confidence", "risk_score", "signed_at"}
-        if sort_by not in valid_sort_fields:
-            sort_by = "created_at"
-        order_clause = "DESC" if order.lower() == "desc" else "ASC"
+            params.extend([limit, offset])
 
-        params.extend([limit, offset])
+            rows = self._backend.fetch_all(
+                f"""
+                SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                       verdict, confidence, risk_level, risk_score, checksum,
+                       signature, signature_algorithm, signature_key_id, signed_at,
+                       audit_trail_id, data_json
+                FROM receipts
+                WHERE {where_clause}
+                ORDER BY {sort_by} {order_clause}
+                LIMIT ? OFFSET ?
+                """,  # nosec B608 - where_clause built from hardcoded conditions  # noqa: S608
+                tuple(params),
+            )
 
-        rows = self._backend.fetch_all(
-            f"""
-            SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
-                   verdict, confidence, risk_level, risk_score, checksum,
-                   signature, signature_algorithm, signature_key_id, signed_at,
-                   audit_trail_id, data_json
-            FROM receipts
-            WHERE {where_clause}
-            ORDER BY {sort_by} {order_clause}
-            LIMIT ? OFFSET ?
-            """,  # nosec B608 - where_clause built from hardcoded conditions  # noqa: S608
-            tuple(params),
+            db_results = [self._row_to_stored_receipt(row) for row in rows]
+
+        return self._merge_file_receipts(
+            db_results,
+            verdict=verdict,
+            risk_level=risk_level,
+            debate_id=debate_id,
+            date_from=date_from,
+            date_to=date_to,
+            signed_only=signed_only,
+            sort_by=sort_by,
+            order=order,
+            limit=limit,
+            offset=offset,
         )
-
-        return [self._row_to_stored_receipt(row) for row in rows]
 
     def count(
         self,
@@ -701,38 +918,68 @@ class ReceiptStore:
         signed_only: bool = False,
         debate_id: str | None = None,
     ) -> int:
-        """Get total count of receipts matching filters."""
-        if self._backend is None:
-            return 0
+        """Get total count of receipts matching filters.
 
-        conditions = []
-        params: list[Any] = []
+        Includes file-based receipts from .aragora/receipts/ that are not
+        already present in the database.
+        """
+        db_count = 0
+        db_ids: set[str] = set()
 
-        if verdict:
-            conditions.append("verdict = ?")
-            params.append(verdict)
-        if risk_level:
-            conditions.append("risk_level = ?")
-            params.append(risk_level)
-        if debate_id:
-            conditions.append("debate_id = ?")
-            params.append(debate_id)
-        if date_from:
-            conditions.append("created_at >= ?")
-            params.append(date_from)
-        if date_to:
-            conditions.append("created_at <= ?")
-            params.append(date_to)
-        if signed_only:
-            conditions.append("signature IS NOT NULL")
+        if self._backend is not None:
+            conditions = []
+            params: list[Any] = []
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
+            if verdict:
+                conditions.append("verdict = ?")
+                params.append(verdict)
+            if risk_level:
+                conditions.append("risk_level = ?")
+                params.append(risk_level)
+            if debate_id:
+                conditions.append("debate_id = ?")
+                params.append(debate_id)
+            if date_from:
+                conditions.append("created_at >= ?")
+                params.append(date_from)
+            if date_to:
+                conditions.append("created_at <= ?")
+                params.append(date_to)
+            if signed_only:
+                conditions.append("signature IS NOT NULL")
 
-        row = self._backend.fetch_one(
-            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608  # noqa: S608
-            tuple(params),
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+            row = self._backend.fetch_one(
+                f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608  # noqa: S608
+                tuple(params),
+            )
+            db_count = row[0] if row else 0
+
+            # Collect DB receipt IDs to de-duplicate against file receipts
+            id_rows = self._backend.fetch_all(
+                f"SELECT receipt_id FROM receipts WHERE {where_clause}",  # nosec B608  # noqa: S608
+                tuple(params),
+            )
+            db_ids = {r[0] for r in id_rows}
+
+        # Count file-based receipts not already in DB
+        file_extra = sum(
+            1
+            for sr in self._load_file_receipts()
+            if sr.receipt_id not in db_ids
+            and self._filter_file_receipt(
+                sr,
+                verdict=verdict,
+                risk_level=risk_level,
+                debate_id=debate_id,
+                date_from=date_from,
+                date_to=date_to,
+                signed_only=signed_only,
+            )
         )
-        return row[0] if row else 0
+
+        return db_count + file_extra
 
     # =========================================================================
     # Full-Text Search

@@ -467,6 +467,13 @@ class MatrixConclusion(BaseModel):
     contradictions: list[str] = Field(default_factory=list)  # Conflicting conclusions
 
 
+class MatrixModelCombination(BaseModel):
+    """A model combination to evaluate against the same debate question."""
+
+    agents: list[Any] = Field(default_factory=list)
+    name: str | None = None
+
+
 class MatrixDebateCreateRequest(BaseModel):
     """Request to create a matrix debate."""
 
@@ -476,6 +483,7 @@ class MatrixDebateCreateRequest(BaseModel):
     agent_combinations: list[dict[str, Any]] = Field(default_factory=list)
     model_combinations: list[dict[str, Any]] = Field(default_factory=list)
     max_rounds: int = Field(default=3, ge=1, le=10)
+    select_best_result: bool = True
 
 
 class MatrixDebateCreateResponse(BaseModel):
