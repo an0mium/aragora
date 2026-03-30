@@ -895,6 +895,68 @@ class TestBossLoop:
         assert len(result.issues_completed) == 2
         assert len(result.issues_failed) == 1
 
+    def test_finalize_worker_result_appends_jsonl_metrics(self, tmp_path, monkeypatch):
+        loop = BossLoop(config=_boss_config())
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(loop, "_emit_lane_receipt", lambda *args, **kwargs: None)
+        monkeypatch.setattr(loop, "_log_value_outcome", lambda *args, **kwargs: None)
+
+        issue = _make_issue(1644, "Add JSONL metrics logging per boss loop iteration")
+        worker_result = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run": {
+                "work_orders": [
+                    {
+                        "changed_paths": [
+                            "aragora/swarm/boss_loop.py",
+                            "tests/swarm/test_boss_loop.py",
+                        ],
+                        "tests_run": [
+                            "python -m pytest tests/swarm/test_boss_loop.py -q",
+                            "python -m ruff check aragora/swarm/boss_loop.py",
+                        ],
+                        "verification_results": [
+                            {
+                                "command": "python -m pytest tests/swarm/test_boss_loop.py -q",
+                                "passed": True,
+                            },
+                            {
+                                "command": "python -m ruff check aragora/swarm/boss_loop.py",
+                                "passed": False,
+                            },
+                        ],
+                    }
+                ]
+            },
+        }
+
+        status = loop._finalize_worker_result(
+            iteration=3,
+            timestamp="2026-03-30T12:00:00+00:00",
+            runner_freshness={"fresh": True},
+            issue=issue,
+            issue_dict=issue.to_dict(),
+            worker_result=worker_result,
+            elapsed_seconds=4.5,
+        )
+
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        payloads = [json.loads(line) for line in metrics_path.read_text().splitlines()]
+
+        assert status.worker_status == "completed"
+        assert payloads == [
+            {
+                "elapsed_seconds": 4.5,
+                "files_changed": 2,
+                "issue_number": 1644,
+                "iteration": 3,
+                "tests_passed": 1,
+                "tests_run": 2,
+                "worker_status": "completed",
+            }
+        ]
+
     def test_missing_validation_contract_stops_with_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [

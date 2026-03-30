@@ -1260,6 +1260,156 @@ class BossLoop:
             self._record_lane_telemetry(worker_result, issue_dict, elapsed, None)
             return None
 
+    @staticmethod
+    def _boss_metrics_path() -> Path:
+        return Path.cwd() / ".aragora" / "overnight" / "boss_metrics.jsonl"
+
+    @staticmethod
+    def _changed_files_for_metrics(worker_result: dict[str, Any]) -> list[str]:
+        changed_files: list[str] = []
+
+        def _extend(value: Any) -> None:
+            if not isinstance(value, list):
+                return
+            for item in value:
+                text = str(item).strip()
+                if text and text not in changed_files:
+                    changed_files.append(text)
+
+        _extend(worker_result.get("changed_files"))
+        _extend(worker_result.get("changed_paths"))
+        deliverable = worker_result.get("deliverable")
+        if isinstance(deliverable, dict):
+            _extend(deliverable.get("changed_files"))
+            _extend(deliverable.get("changed_paths"))
+            metadata = deliverable.get("metadata")
+            if isinstance(metadata, dict):
+                _extend(metadata.get("changed_files"))
+                _extend(metadata.get("changed_paths"))
+        run = worker_result.get("run")
+        if isinstance(run, dict):
+            work_orders = run.get("work_orders", [])
+            if isinstance(work_orders, list):
+                for work_order in work_orders:
+                    if not isinstance(work_order, dict):
+                        continue
+                    _extend(work_order.get("changed_files"))
+                    _extend(work_order.get("changed_paths"))
+                    metadata = work_order.get("metadata")
+                    if isinstance(metadata, dict):
+                        _extend(metadata.get("changed_files"))
+                        _extend(metadata.get("changed_paths"))
+        return changed_files
+
+    @staticmethod
+    def _tests_run_for_metrics(worker_result: dict[str, Any]) -> list[str]:
+        tests_run: list[str] = []
+
+        def _extend(value: Any) -> None:
+            if not isinstance(value, list):
+                return
+            for item in value:
+                if isinstance(item, dict):
+                    text = str(item.get("command") or item.get("name") or "").strip()
+                else:
+                    text = str(item).strip()
+                if text and text not in tests_run:
+                    tests_run.append(text)
+
+        _extend(worker_result.get("tests_run"))
+        _extend(worker_result.get("validations_run"))
+        deliverable = worker_result.get("deliverable")
+        if isinstance(deliverable, dict):
+            _extend(deliverable.get("tests_run"))
+            _extend(deliverable.get("validations_run"))
+            metadata = deliverable.get("metadata")
+            if isinstance(metadata, dict):
+                _extend(metadata.get("tests_run"))
+                _extend(metadata.get("validations_run"))
+                _extend(metadata.get("verification_results"))
+        run = worker_result.get("run")
+        if isinstance(run, dict):
+            work_orders = run.get("work_orders", [])
+            if isinstance(work_orders, list):
+                for work_order in work_orders:
+                    if not isinstance(work_order, dict):
+                        continue
+                    _extend(work_order.get("tests_run"))
+                    _extend(work_order.get("validations_run"))
+                    _extend(work_order.get("verification_results"))
+                    metadata = work_order.get("metadata")
+                    if isinstance(metadata, dict):
+                        _extend(metadata.get("tests_run"))
+                        _extend(metadata.get("validations_run"))
+                        _extend(metadata.get("verification_results"))
+        return tests_run
+
+    @staticmethod
+    def _verification_results_for_metrics(worker_result: dict[str, Any]) -> list[dict[str, Any]]:
+        verification_results: list[dict[str, Any]] = []
+
+        def _extend(value: Any) -> None:
+            if not isinstance(value, list):
+                return
+            for item in value:
+                if isinstance(item, dict):
+                    verification_results.append(dict(item))
+
+        _extend(worker_result.get("verification_results"))
+        deliverable = worker_result.get("deliverable")
+        if isinstance(deliverable, dict):
+            _extend(deliverable.get("verification_results"))
+            metadata = deliverable.get("metadata")
+            if isinstance(metadata, dict):
+                _extend(metadata.get("verification_results"))
+        run = worker_result.get("run")
+        if isinstance(run, dict):
+            work_orders = run.get("work_orders", [])
+            if isinstance(work_orders, list):
+                for work_order in work_orders:
+                    if not isinstance(work_order, dict):
+                        continue
+                    _extend(work_order.get("verification_results"))
+                    metadata = work_order.get("metadata")
+                    if isinstance(metadata, dict):
+                        _extend(metadata.get("verification_results"))
+        return verification_results
+
+    def _append_boss_metrics(
+        self,
+        *,
+        iteration: int,
+        issue_number: int,
+        worker_status: str,
+        elapsed_seconds: float,
+        worker_result: dict[str, Any],
+    ) -> None:
+        changed_files = self._changed_files_for_metrics(worker_result)
+        tests_run = self._tests_run_for_metrics(worker_result)
+        verification_results = self._verification_results_for_metrics(worker_result)
+        if verification_results:
+            tests_passed = sum(1 for item in verification_results if bool(item.get("passed")))
+        elif worker_status == "completed":
+            tests_passed = len(tests_run)
+        else:
+            tests_passed = 0
+
+        payload = {
+            "iteration": iteration,
+            "issue_number": issue_number,
+            "worker_status": worker_status,
+            "elapsed_seconds": elapsed_seconds,
+            "files_changed": len(changed_files),
+            "tests_run": len(tests_run),
+            "tests_passed": tests_passed,
+        }
+
+        path = self._boss_metrics_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True))
+            handle.write("\n")
+
     def _record_lane_telemetry(
         self,
         worker_result: dict[str, Any],
@@ -1796,7 +1946,7 @@ class BossLoop:
                 ),
                 "Inspect the active supervisor run before starting another live boss-loop tick.",
             ]
-            return BossIterationStatus(
+            status = BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
                 timestamp=timestamp,
@@ -1809,13 +1959,21 @@ class BossLoop:
                 elapsed_seconds=elapsed_seconds,
                 worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
+            self._append_boss_metrics(
+                iteration=iteration,
+                issue_number=issue.number,
+                worker_status=status.worker_status,
+                elapsed_seconds=elapsed_seconds,
+                worker_result=worker_result,
+            )
+            return status
 
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
-            return BossIterationStatus(
+            status = BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
                 timestamp=timestamp,
@@ -1827,6 +1985,14 @@ class BossLoop:
                 next_actions=["Proceeding to next issue."],
                 elapsed_seconds=elapsed_seconds,
             )
+            self._append_boss_metrics(
+                iteration=iteration,
+                issue_number=issue.number,
+                worker_status=status.worker_status,
+                elapsed_seconds=elapsed_seconds,
+                worker_result=worker_result,
+            )
+            return status
 
         if worker_result.get("status") == "needs_human":
             has_deliverable = bool(worker_result.get("deliverable"))
@@ -1838,7 +2004,7 @@ class BossLoop:
                     "boss_loop_auto_continue issue=#%s (recoverable deliverable still blocked)",
                     issue_dict.get("number", "?"),
                 )
-                return BossIterationStatus(
+                status = BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
                     timestamp=timestamp,
@@ -1856,6 +2022,14 @@ class BossLoop:
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
+                self._append_boss_metrics(
+                    iteration=iteration,
+                    issue_number=issue.number,
+                    worker_status=status.worker_status,
+                    elapsed_seconds=elapsed_seconds,
+                    worker_result=worker_result,
+                )
+                return status
             self._failed_issues.append(issue_dict)
             self._log_value_outcome(issue_dict, "needs_human", elapsed_seconds)
 
@@ -1885,7 +2059,7 @@ class BossLoop:
                     self.config.max_repair_attempts,
                 )
                 # Don't count as consecutive failure — we're actively repairing
-                return BossIterationStatus(
+                status = BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
                     timestamp=timestamp,
@@ -1901,6 +2075,14 @@ class BossLoop:
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
+                self._append_boss_metrics(
+                    iteration=iteration,
+                    issue_number=issue.number,
+                    worker_status=status.worker_status,
+                    elapsed_seconds=elapsed_seconds,
+                    worker_result=worker_result,
+                )
+                return status
 
             if self.config.auto_continue_on_needs_human:
                 self._consecutive_failures += 1
@@ -1908,7 +2090,7 @@ class BossLoop:
                     "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
                     issue_dict.get("number", "?"),
                 )
-                return BossIterationStatus(
+                status = BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
                     timestamp=timestamp,
@@ -1923,12 +2105,20 @@ class BossLoop:
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
+                self._append_boss_metrics(
+                    iteration=iteration,
+                    issue_number=issue.number,
+                    worker_status=status.worker_status,
+                    elapsed_seconds=elapsed_seconds,
+                    worker_result=worker_result,
+                )
+                return status
             next_actions = [
                 str(item).strip()
                 for item in worker_result.get("next_actions", [])
                 if str(item).strip()
             ] or ["Review the worker output and decide next steps."]
-            return BossIterationStatus(
+            status = BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
                 timestamp=timestamp,
@@ -1941,12 +2131,20 @@ class BossLoop:
                 elapsed_seconds=elapsed_seconds,
                 worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
+            self._append_boss_metrics(
+                iteration=iteration,
+                issue_number=issue.number,
+                worker_status=status.worker_status,
+                elapsed_seconds=elapsed_seconds,
+                worker_result=worker_result,
+            )
+            return status
 
         self._failed_issues.append(issue_dict)
         self._consecutive_failures += 1
         self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
         if self._consecutive_failures >= self.config.max_consecutive_failures:
-            return BossIterationStatus(
+            status = BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
                 timestamp=timestamp,
@@ -1965,8 +2163,16 @@ class BossLoop:
                 error=worker_result.get("error"),
                 worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
             )
+            self._append_boss_metrics(
+                iteration=iteration,
+                issue_number=issue.number,
+                worker_status=status.worker_status,
+                elapsed_seconds=elapsed_seconds,
+                worker_result=worker_result,
+            )
+            return status
 
-        return BossIterationStatus(
+        status = BossIterationStatus(
             iteration=iteration,
             run_id=self.run_id,
             timestamp=timestamp,
@@ -1984,6 +2190,14 @@ class BossLoop:
             error=worker_result.get("error"),
             worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
         )
+        self._append_boss_metrics(
+            iteration=iteration,
+            issue_number=issue.number,
+            worker_status=status.worker_status,
+            elapsed_seconds=elapsed_seconds,
+            worker_result=worker_result,
+        )
+        return status
 
     async def _dispatch_issue(
         self,
