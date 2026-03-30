@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -1540,6 +1541,63 @@ async def test_dispatch_bounded_spec_wait_false_returns_running_after_launch() -
     assert result["status"] == "running"
     assert result["outcome"] == "dispatched"
     assert result["run_id"] == "run-873"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_refine_exports_worker_env_to_commander() -> None:
+    issue = _make_issue(
+        1641,
+        "Wire prompt refiner env",
+        body=(
+            "Pass prompt-refiner file and test hints as worker env vars.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py -k refine\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-1641",
+        "work_orders": [
+            {
+                "status": "completed",
+                "branch": "codex/refine-env",
+                "commit_shas": ["abc123"],
+            }
+        ],
+    }
+
+    refinement = {
+        "refined_prompt": "Refined goal",
+        "files_to_change": ["aragora/swarm/boss_loop.py", "aragora/swarm/prompt_refiner.py"],
+        "test_patterns": ["tests/swarm/test_boss_loop.py"],
+        "constraints": [],
+        "context_gathered": True,
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(return_value=refinement),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    kwargs = mock_commander_cls.return_value.run_supervised_from_spec.await_args.kwargs
+    assert result["status"] == "completed"
+    assert kwargs["worker_env"] == {
+        "ARAGORA_RELEVANT_FILES": os.pathsep.join(refinement["files_to_change"]),
+        "ARAGORA_TEST_PATTERNS": os.pathsep.join(refinement["test_patterns"]),
+    }
 
 
 # ---------------------------------------------------------------------------

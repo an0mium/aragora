@@ -241,6 +241,7 @@ class SwarmCommander:
         default_reviewer_agent: str | None = None,
         use_managed_session_script: bool = True,
         default_target_runner: dict[str, Any] | None = None,
+        worker_env: dict[str, str] | None = None,
     ) -> SupervisorRun:
         """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
 
@@ -284,6 +285,7 @@ class SwarmCommander:
             approval_policy=approval_policy,
             default_target_agent=default_target_agent,
             default_reviewer_agent=default_reviewer_agent,
+            worker_env=worker_env,
         )
         if dispatch:
             launched = await supervisor.dispatch_workers(run.run_id)

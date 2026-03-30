@@ -284,6 +284,7 @@ class SwarmSupervisor:
         refresh_scaling: bool = True,
         default_target_agent: str | None = None,
         default_reviewer_agent: str | None = None,
+        worker_env: dict[str, str] | None = None,
     ) -> SupervisorRun:
         goal = spec.refined_goal or spec.raw_goal
         policy = approval_policy or SwarmApprovalPolicy()
@@ -299,11 +300,20 @@ class SwarmSupervisor:
         if default_reviewer_agent:
             for item in work_orders:
                 item["reviewer_agent"] = default_reviewer_agent
+        normalized_worker_env = {
+            str(key).strip(): str(value)
+            for key, value in dict(worker_env or {}).items()
+            if str(key).strip()
+        }
         for item in work_orders:
             item.setdefault("status", "queued")
             item.setdefault("lease_id", None)
             item.setdefault("receipt_id", None)
             item.setdefault("review_status", "pending")
+            if normalized_worker_env:
+                metadata = dict(item.get("metadata") or {})
+                metadata["worker_env"] = normalized_worker_env
+                item["metadata"] = metadata
 
         record = self.store.create_supervisor_run(
             goal=goal,

@@ -14,10 +14,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def build_refinement_worker_env(refinement: dict[str, Any] | None) -> dict[str, str]:
+    """Serialize prompt-refinement hints for worker subprocesses."""
+    payload = dict(refinement or {})
+    relevant_files = [
+        str(item).strip() for item in payload.get("files_to_change", []) if str(item).strip()
+    ]
+    test_patterns = [
+        str(item).strip() for item in payload.get("test_patterns", []) if str(item).strip()
+    ]
+
+    env: dict[str, str] = {}
+    if relevant_files:
+        env["ARAGORA_RELEVANT_FILES"] = os.pathsep.join(relevant_files)
+    if test_patterns:
+        env["ARAGORA_TEST_PATTERNS"] = os.pathsep.join(test_patterns)
+    return env
 
 
 async def refine_worker_prompt(

@@ -167,6 +167,14 @@ class WorkerLauncher:
             worktree_path,
         )
 
+        metadata = work_order.get("metadata", {})
+        raw_worker_env = metadata.get("worker_env", {}) if isinstance(metadata, dict) else {}
+        worker_env_overrides = {
+            str(key).strip(): str(value)
+            for key, value in dict(raw_worker_env or {}).items()
+            if str(key).strip()
+        }
+
         # Codex CLI multi-agent mode creates isolated config dirs that lack
         # auth credentials.  Pin CODEX_HOME to the user's main config so
         # workers can authenticate.  Claude Code doesn't use this var.
@@ -175,6 +183,8 @@ class WorkerLauncher:
             codex_home = Path.home() / ".codex"
             if (codex_home / "auth.json").exists():
                 worker_env = {**os.environ, "CODEX_HOME": str(codex_home)}
+        if worker_env_overrides:
+            worker_env = {**(worker_env or dict(os.environ)), **worker_env_overrides}
 
         # Codex uses "-" as prompt arg and reads from stdin to avoid OS
         # ARG_MAX limits on long prompts with issue bodies + file lists.

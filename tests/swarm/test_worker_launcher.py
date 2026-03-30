@@ -402,6 +402,41 @@ class TestLaunch:
             with pytest.raises(FileNotFoundError, match="CLI not found"):
                 await launcher.launch(wo, worktree_path="/tmp/wt")
 
+    @pytest.mark.asyncio
+    async def test_launch_merges_metadata_worker_env(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(detach=False))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 103
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-env",
+            "target_agent": "claude",
+            "title": "Env propagation test",
+            "metadata": {
+                "worker_env": {
+                    "ARAGORA_RELEVANT_FILES": "aragora/swarm/boss_loop.py",
+                    "ARAGORA_TEST_PATTERNS": "tests/swarm/test_boss_loop.py",
+                }
+            },
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        env = mock_exec.call_args.kwargs.get("env")
+        assert isinstance(env, dict)
+        assert env["ARAGORA_RELEVANT_FILES"] == "aragora/swarm/boss_loop.py"
+        assert env["ARAGORA_TEST_PATTERNS"] == "tests/swarm/test_boss_loop.py"
+
 
 class TestWait:
     @pytest.mark.asyncio
