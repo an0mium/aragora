@@ -1620,6 +1620,27 @@ class TestSwarmCommand:
         assert status == "no_matching_tests_collected"
         assert "collects no tests on the current branch" in next_action
 
+    def test_classify_issue_validation_status_detects_unsafe_validation_contract(self):
+        status, next_action = _classify_issue_validation_status(
+            validation_contract=[
+                'aragora quickstart --topic test --rounds 1 --json | python3 -c "import json"'
+            ],
+            commands=[
+                "python3 -m aragora.cli.main quickstart --topic test --rounds 1 --json | "
+                'python3 -c "import json"'
+            ],
+            probe_results=[
+                {
+                    "command": "python3 -m aragora.cli.main quickstart --topic test --rounds 1 --json | "
+                    'python3 -c "import json"',
+                    "status": "unsafe",
+                    "detail": "shell operators are not allowed",
+                }
+            ],
+        )
+        assert status == "unsafe_validation_contract"
+        assert "single direct command" in next_action
+
     def test_cmd_swarm_requires_goal_or_spec(self, capsys):
         args = argparse.Namespace(
             swarm_action_or_goal="run",

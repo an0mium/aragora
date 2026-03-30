@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -103,6 +104,89 @@ def _trim_command_output(text: str, *, limit: int = 240) -> str | None:
     return normalized[: limit - 3] + "..."
 
 
+_UNSAFE_VALIDATION_SHELL_FRAGMENTS = (
+    "|",
+    "&&",
+    "||",
+    ";",
+    "<",
+    ">",
+    "$(",
+    "`",
+    "\n",
+    "\r",
+)
+
+
+def _probe_validation_command(
+    command: str,
+    *,
+    repo_root: Path,
+    timeout_seconds: float,
+) -> dict[str, object]:
+    normalized = str(command or "").strip()
+    if not normalized:
+        return {
+            "command": command,
+            "status": "unsafe",
+            "detail": "empty validation command",
+        }
+    for fragment in _UNSAFE_VALIDATION_SHELL_FRAGMENTS:
+        if fragment in normalized:
+            return {
+                "command": command,
+                "status": "unsafe",
+                "detail": (
+                    "shell operators are not allowed in auto-probed validation commands; "
+                    "use a single direct command instead"
+                ),
+            }
+    try:
+        argv = shlex.split(normalized, posix=True)
+    except ValueError as exc:
+        return {
+            "command": command,
+            "status": "unsafe",
+            "detail": f"invalid shell quoting: {exc}",
+        }
+    if not argv:
+        return {
+            "command": command,
+            "status": "unsafe",
+            "detail": "empty validation command",
+        }
+    try:
+        proc = subprocess.run(
+            argv,
+            cwd=str(repo_root),
+            text=True,
+            capture_output=True,
+            timeout=max(1, int(timeout_seconds)),
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "command": command,
+            "status": "timeout",
+            "stdout": _trim_command_output(getattr(exc, "stdout", "") or ""),
+            "stderr": _trim_command_output(getattr(exc, "stderr", "") or ""),
+        }
+    except (FileNotFoundError, OSError) as exc:
+        return {
+            "command": command,
+            "status": "error",
+            "stderr": _trim_command_output(str(exc)),
+        }
+
+    return {
+        "command": command,
+        "status": "passed" if proc.returncode == 0 else "failed",
+        "returncode": proc.returncode,
+        "stdout": _trim_command_output(proc.stdout),
+        "stderr": _trim_command_output(proc.stderr),
+    }
+
+
 def _classify_issue_validation_status(
     *,
     validation_contract: list[str],
@@ -137,6 +221,11 @@ def _classify_issue_validation_status(
     stdout_text = str(first_failure.get("stdout") if isinstance(first_failure, dict) else "" or "")
     stderr_text = str(first_failure.get("stderr") if isinstance(first_failure, dict) else "" or "")
     combined_output = f"{stdout_text}\n{stderr_text}".lower()
+    if isinstance(first_failure, dict) and str(first_failure.get("status")) == "unsafe":
+        return (
+            "unsafe_validation_contract",
+            "Rewrite the validation contract as a single direct command without shell pipelines, redirects, or chaining.",
+        )
     if command.startswith("python3 -m aragora.cli.main ") and (
         returncode in {1, 2}
         and ("unrecognized arguments" in combined_output or "usage: main.py" in combined_output)
@@ -190,37 +279,11 @@ def _audit_issue_validation_contract(
     probe_results: list[dict[str, object]] = []
 
     for command in commands:
-        try:
-            proc = subprocess.run(
-                command,
-                shell=True,
-                executable="/bin/bash",
-                cwd=str(repo_root),
-                text=True,
-                capture_output=True,
-                timeout=max(1, int(timeout_seconds)),
-                check=False,
-            )
-            result = {
-                "command": command,
-                "status": "passed" if proc.returncode == 0 else "failed",
-                "returncode": proc.returncode,
-                "stdout": _trim_command_output(proc.stdout),
-                "stderr": _trim_command_output(proc.stderr),
-            }
-        except subprocess.TimeoutExpired as exc:
-            result = {
-                "command": command,
-                "status": "timeout",
-                "stdout": _trim_command_output(getattr(exc, "stdout", "") or ""),
-                "stderr": _trim_command_output(getattr(exc, "stderr", "") or ""),
-            }
-        except (FileNotFoundError, OSError) as exc:
-            result = {
-                "command": command,
-                "status": "error",
-                "stderr": _trim_command_output(str(exc)),
-            }
+        result = _probe_validation_command(
+            command,
+            repo_root=repo_root,
+            timeout_seconds=timeout_seconds,
+        )
         probe_results.append(result)
         if result["status"] != "passed":
             break
