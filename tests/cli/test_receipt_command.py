@@ -79,6 +79,32 @@ def test_receipt_list_falls_back_to_legacy_when_durable_empty(
     assert "4" in output
 
 
+def test_receipt_list_normalizes_trust_wedge_receipts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = _StoredReceiptStub(
+        receipt_id="rcpt-triage-123",
+        gauntlet_id="rcpt-triage-123",
+        verdict="UNKNOWN",
+        confidence=0.0,
+        created_at=1711300000.0,
+        data={
+            "state": "CREATED",
+            "triage_decision": {
+                "confidence": 0.73,
+                "blocked_by_policy": True,
+            },
+        },
+    )
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
+        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, org_id=None))
+
+    output = capsys.readouterr().out
+    assert "BLOCKED" in output
+    assert "73%" in output
+
+
 def test_receipt_show_reads_durable_store_by_receipt_id(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -102,6 +128,29 @@ def test_receipt_show_reads_durable_store_by_receipt_id(
     assert payload["receipt_id"] == "rcpt-live-123"
     assert payload["summary"] == "Stored in durable receipt store"
     legacy_loader.assert_not_called()
+
+
+def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-triage-456",
+        "gauntlet_id": "rcpt-triage-456",
+        "verdict": "UNKNOWN",
+        "confidence": 0.0,
+        "state": "CREATED",
+        "triage_decision": {
+            "confidence": 0.61,
+            "blocked_by_policy": True,
+        },
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-triage-456", format="json", org_id=None))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "BLOCKED"
+    assert payload["confidence"] == pytest.approx(0.61)
 
 
 def test_receipt_show_falls_back_to_legacy_when_durable_missing(

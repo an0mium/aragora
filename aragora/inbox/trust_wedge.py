@@ -511,11 +511,23 @@ class InboxTrustWedgeStore:
         created_at: datetime,
         expires_at: datetime | None,
     ) -> dict[str, Any]:
+        if decision.blocked_by_policy:
+            verdict = "BLOCKED"
+        elif state in {ReceiptState.APPROVED, ReceiptState.EXECUTED}:
+            verdict = "PASS"
+        elif state == ReceiptState.EXPIRED:
+            verdict = "FAIL"
+        else:
+            verdict = "CONDITIONAL"
         return {
             "receipt_id": receipt_id,
+            "gauntlet_id": receipt_id,
             "intent_hash": intent.intent_hash(),
             "action_intent": intent.to_dict(),
             "triage_decision": decision.to_dict(),
+            "timestamp": created_at.isoformat(),
+            "verdict": verdict,
+            "confidence": float(decision.confidence),
             "state": state.value,
             "created_at": created_at.isoformat(),
             "expires_at": _isoformat(expires_at),

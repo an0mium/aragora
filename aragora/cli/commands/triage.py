@@ -518,6 +518,15 @@ def _print_decisions(decisions: list) -> None:
 
     print(f"{'─' * 60}")
     print(f"Total: {len(decisions)} decisions")
+    receipt_ids = []
+    for decision in decisions:
+        receipt_id = getattr(decision, "receipt_id", None)
+        if receipt_id and receipt_id not in receipt_ids:
+            receipt_ids.append(receipt_id)
+    if receipt_ids:
+        print("Inspect receipts:")
+        for receipt_id in receipt_ids:
+            print(f"  aragora receipt show {receipt_id}")
 
     from aragora.inbox.trust_wedge import ReceiptState
 

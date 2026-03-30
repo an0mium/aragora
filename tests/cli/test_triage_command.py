@@ -275,6 +275,7 @@ def test_print_decisions_formats_enum_values(capsys):
     assert "ignore" in out
     assert "InboxWedgeAction" not in out
     assert "created" in out
+    assert "aragora receipt show receipt-1" in out
 
 
 def test_print_decisions_shows_blocked_status_for_truthful_stop(capsys):
