@@ -15,17 +15,22 @@ import pytest
 @pytest.fixture(autouse=True)
 def _stub_cmd_ask_global_side_effects(request):
     """Keep cmd_ask tests hermetic unless a test explicitly exercises cleanup semantics."""
-    if request.node.name in {
-        "test_cmd_ask_cleans_shared_resources_on_debate_loop",
-        "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
-    }:
-        yield
-        return
-
     from aragora.cli.commands import debate as debate_cmd
 
     async def _fake_shutdown() -> None:
         await asyncio.sleep(0)
+
+    cleanup_sensitive_tests = {
+        "test_cmd_ask_demo_forces_local_offline",
+        "test_cmd_ask_cleans_shared_resources_on_debate_loop",
+        "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
+    }
+
+    receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
+    if request.node.name in cleanup_sensitive_tests:
+        with receipt_patch:
+            yield
+        return
 
     with (
         patch.object(
@@ -33,7 +38,7 @@ def _stub_cmd_ask_global_side_effects(request):
             "_shutdown_cmd_ask_resources",
             new=AsyncMock(side_effect=_fake_shutdown),
         ),
-        patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
+        receipt_patch,
     ):
         yield
 
@@ -109,9 +114,12 @@ def test_build_parser_parses_compare_against() -> None:
     assert args.compare_against == ["openai-api,gemini", "anthropic-api,gemini"]
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     """Demo mode should always execute locally with offline-safe settings."""
     from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
 
     monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
 
@@ -151,9 +159,7 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     )
 
     with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
-        mock_result = MagicMock()
-        mock_result.final_answer = "demo answer"
-        mock_result.dissenting_views = []
+        mock_result = DebateResult(task=args.task, final_answer="demo answer", metadata={})
         mock_run_debate.return_value = mock_result
 
         debate_cmd.cmd_ask(args)
