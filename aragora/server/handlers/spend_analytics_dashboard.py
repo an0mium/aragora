@@ -158,6 +158,38 @@ def _get_metered_agents(org_id: str) -> tuple[str, list[dict[str, Any]]]:
     return rendered_total, agents
 
 
+def _get_metered_decisions(org_id: str, limit: int) -> list[dict[str, str]]:
+    """Load per-debate costs from durable usage metering."""
+    from aragora.services.usage_metering import get_usage_meter
+
+    meter = get_usage_meter()
+    run_async(meter.initialize())
+    if meter._conn is None:
+        return []
+
+    cursor = meter._conn.cursor()
+    rows = cursor.execute(
+        """
+        SELECT debate_id, SUM(CAST(total_cost AS REAL)) AS cost
+        FROM debate_usage
+        WHERE org_id = ?
+        GROUP BY debate_id
+        ORDER BY cost DESC
+        LIMIT ?
+        """,
+        (org_id, limit),
+    ).fetchall()
+
+    return [
+        {
+            "debate_id": row["debate_id"],
+            "cost_usd": _format_cost(row["cost"]),
+        }
+        for row in rows
+        if row["debate_id"]
+    ]
+
+
 class SpendAnalyticsDashboardHandler(SecureHandler):
     """Handler for the spend analytics dashboard endpoints.
 
@@ -483,6 +515,12 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                         "cost_usd": str(cost),
                     }
                 )
+
+        if not decisions:
+            try:
+                decisions = _get_metered_decisions(workspace_id, limit)
+            except Exception as e:  # noqa: BLE001 - metering fallback must stay best-effort
+                logger.debug("Metered decision spend unavailable: %s", e)
 
         return json_response(
             {
