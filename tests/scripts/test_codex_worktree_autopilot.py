@@ -121,6 +121,29 @@ def test_choose_reusable_session_honors_session_id_filter():
     assert chosen["session_id"] == "a"
 
 
+def test_choose_reusable_session_skips_branch_mismatches():
+    import codex_worktree_autopilot as mod
+
+    state = {
+        "sessions": [
+            {
+                "agent": "codex",
+                "session_id": "s1",
+                "branch": "codex/s1",
+                "path": "/repo/.worktrees/codex-auto/s1",
+            }
+        ]
+    }
+    chosen = mod._choose_reusable_session(
+        state,
+        agent="codex",
+        session_id="s1",
+        active_paths={"/repo/.worktrees/codex-auto/s1"},
+        active_branches_by_path={"/repo/.worktrees/codex-auto/s1": "codex/unrelated"},
+    )
+    assert chosen is None
+
+
 def test_cleanup_parser_defaults_to_delete_branches():
     import codex_worktree_autopilot as mod
 
@@ -574,6 +597,113 @@ def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
     assert payload["session"]["lifecycle_state"] == "grace"
     assert saved_state["sessions"][0]["tracked_worktree"] is True
     assert saved_state["sessions"][0]["lifecycle_state"] == "grace"
+
+
+def test_cmd_ensure_evicts_branch_mismatch_before_recreate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    now = datetime(2026, 3, 30, 7, 50, tzinfo=timezone.utc)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    mismatched_path = tmp_path / "stale-session"
+    mismatched_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "swarm-run-subtask_1",
+                "agent": "codex",
+                "branch": "codex/swarm-run-subtask_1",
+                "path": str(mismatched_path),
+                "created_at": now.isoformat(),
+                "last_seen_at": now.isoformat(),
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+    removed_paths: list[str] = []
+    create_calls: list[dict[str, object]] = []
+
+    entries_iter = iter(
+        [
+            [mod.WorktreeEntry(path=mismatched_path, branch="codex/unrelated")],
+            [],
+            [],
+        ]
+    )
+
+    def _create(*_args: object, **kwargs: object) -> dict[str, object]:
+        create_calls.append(dict(kwargs))
+        return {
+            "session_id": "swarm-run-subtask_1",
+            "agent": "codex",
+            "branch": "codex/swarm-run-subtask_1",
+            "path": str(mismatched_path),
+            "base_branch": "main",
+            "created_at": now.isoformat(),
+            "last_seen_at": now.isoformat(),
+        }
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: next(entries_iter))
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_create_managed_worktree", _create)
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_has_active_lease", lambda _repo, _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_remove_worktree",
+        lambda _repo, path: removed_paths.append(str(path)) or True,
+    )
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda _repo_root, _path: {
+            "lease_id": None,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_expires_at": None,
+            "owner_agent": None,
+            "owner_session_id": None,
+            "branch": None,
+            "title": None,
+            "has_live_lease": False,
+            "lookup_failed": False,
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_worktree_status",
+        lambda *_args, **_kwargs: {"dirty": False, "ahead": 0, "behind": 0},
+    )
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        agent="codex",
+        base="main",
+        session_id="swarm-run-subtask_1",
+        force_new=False,
+        reconcile=True,
+        strategy="ff-only",
+        print_path=False,
+        json=True,
+    )
+    rc = mod.cmd_ensure(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["created"] is True
+    assert removed_paths == [str(mismatched_path)]
+    assert create_calls and create_calls[0]["session_id"] == "swarm-run-subtask_1"
+    assert saved_state["sessions"][0]["branch"] == "codex/swarm-run-subtask_1"
 
 
 def test_cmd_cleanup_skips_worktree_with_active_lease(
