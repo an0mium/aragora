@@ -697,17 +697,32 @@ class TestDecisionReceiptPDF:
             pdf_bytes = receipt.to_pdf()
             assert pdf_bytes[:4] == b"%PDF", f"Failed for verdict: {verdict}"
 
-    def test_to_pdf_import_error_without_weasyprint(self, receipt_for_pdf: DecisionReceipt):
-        """Test that ImportError is raised when weasyprint is not available."""
-        import sys
+    def test_to_pdf_falls_back_without_weasyprint(self, receipt_for_pdf: DecisionReceipt):
+        """Test PDF fallback when WeasyPrint is not importable."""
         from unittest.mock import patch
 
-        # Mock weasyprint as unavailable
-        with patch.dict(sys.modules, {"weasyprint": None}):
-            # Force reimport to trigger ImportError
-            try:
-                # This test validates the error handling path
-                # In real scenarios without weasyprint, to_pdf() raises ImportError
-                pass  # The actual test is implicit - if weasyprint is missing, test_to_pdf_basic is skipped
-            except ImportError:
-                pass  # Expected when weasyprint is truly missing
+        with patch(
+            "aragora.export.decision_receipt._load_weasyprint",
+            side_effect=ImportError("No module named 'weasyprint'"),
+        ):
+            pdf_bytes = receipt_for_pdf.to_pdf()
+
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 1000
+        assert pdf_bytes[:4] == b"%PDF"
+
+    def test_to_pdf_falls_back_without_weasyprint_native_libs(
+        self, receipt_for_pdf: DecisionReceipt
+    ):
+        """Test PDF fallback when WeasyPrint is installed without native libs."""
+        from unittest.mock import patch
+
+        with patch(
+            "aragora.export.decision_receipt._load_weasyprint",
+            side_effect=OSError("libgobject-2.0-0 not found"),
+        ):
+            pdf_bytes = receipt_for_pdf.to_pdf()
+
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 1000
+        assert pdf_bytes[:4] == b"%PDF"
