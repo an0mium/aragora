@@ -255,6 +255,76 @@ class TestActionsToOrchestration:
                 assert body.get("target_stage") == "orchestration"
                 assert body.get("source_canvas_id") == "actions-1"
 
+    def test_advance_restores_persisted_snapshot_after_restart(self, tmp_path):
+        from aragora.canvas.action_store import ActionCanvasStore
+        from aragora.canvas.manager import CanvasStateManager
+        from aragora.canvas.orchestration_store import OrchestrationCanvasStore
+
+        handler = ActionCanvasHandler(ctx={})
+        action_store = ActionCanvasStore(str(tmp_path / "test_actions.db"))
+        orchestration_store = OrchestrationCanvasStore(str(tmp_path / "test_orch.db"))
+        manager = CanvasStateManager()
+
+        action_canvas = Canvas(
+            id="actions-restore",
+            name="Restart-safe plan",
+            owner_id="u1",
+            workspace_id="ws-1",
+            metadata={"stage": "actions", "state_snapshot_version": 1},
+        )
+        action_canvas.nodes["step-1"] = CanvasNode(
+            id="step-1",
+            node_type=CanvasNodeType.WORKFLOW,
+            position=Position(10, 20),
+            label="Implement persistence",
+            data={"stage": "actions", "step_type": "task"},
+        )
+        action_store.save_canvas(
+            canvas_id=action_canvas.id,
+            name=action_canvas.name,
+            owner_id=action_canvas.owner_id,
+            workspace_id=action_canvas.workspace_id,
+            description="Restart repro",
+            source_canvas_id="goals-1",
+            metadata=action_canvas.metadata,
+            nodes=[n.to_dict() for n in action_canvas.nodes.values()],
+            edges=[],
+        )
+
+        orchestration_canvas = Canvas(
+            id="orch-restore",
+            name="Restart-safe plan Orchestration",
+            metadata={"stage": "orchestration", "source_canvas_id": action_canvas.id},
+        )
+
+        with patch.object(handler, "_get_store", return_value=action_store):
+            with patch.object(
+                handler, "_get_orchestration_store", return_value=orchestration_store
+            ):
+                with patch.object(handler, "_get_canvas_manager", return_value=manager):
+                    with patch.object(
+                        handler,
+                        "_build_orchestration_canvas",
+                        return_value=orchestration_canvas,
+                    ):
+                        result = handler._advance_to_orchestration(
+                            MagicMock(),
+                            action_canvas.id,
+                            {},
+                            "u1",
+                        )
+                        assert result is not None
+
+        body = _parse_result(result)
+        assert result["status"] == 201
+        assert body.get("source_stage") == "actions"
+        assert body.get("target_stage") == "orchestration"
+        assert body.get("source_canvas_id") == action_canvas.id
+
+        restored = handler._run_async(manager.get_canvas(action_canvas.id))
+        assert restored is not None
+        assert "step-1" in restored.nodes
+
 
 class TestOrchestrationExecution:
     """Stage 4 execution via OrchestrationCanvasHandler.execute."""
@@ -350,6 +420,43 @@ class TestStoreRoundTrip:
         assert deleted is True
 
         assert store.load_canvas("ac-1") is None
+
+    def test_action_store_persists_graph_state(self, tmp_path):
+        from aragora.canvas.action_store import ActionCanvasStore
+
+        store = ActionCanvasStore(str(tmp_path / "test_actions.db"))
+        saved = store.save_canvas(
+            "ac-graph",
+            "Sprint graph",
+            "u1",
+            "ws1",
+            "Test",
+            "goals-1",
+            {"stage": "actions", "state_snapshot_version": 1},
+            nodes=[
+                {
+                    "id": "step-1",
+                    "type": "workflow",
+                    "position": {"x": 1, "y": 2},
+                    "label": "Persist graph",
+                    "data": {"stage": "actions"},
+                }
+            ],
+            edges=[
+                {
+                    "id": "edge-1",
+                    "source": "step-1",
+                    "target": "step-2",
+                    "type": "control_flow",
+                }
+            ],
+        )
+        assert saved["nodes"][0]["id"] == "step-1"
+        assert saved["edges"][0]["id"] == "edge-1"
+
+        listed = store.list_canvases(workspace_id="ws1")
+        assert "nodes" not in listed[0]
+        assert "edges" not in listed[0]
 
     def test_orchestration_store_crud(self, tmp_path):
         from aragora.canvas.orchestration_store import OrchestrationCanvasStore

@@ -340,6 +340,7 @@ class GoalCanvasHandler(SecureHandler):
                 "stage": "actions",
                 "source_canvas_id": canvas.id,
                 "source_stage": "goals",
+                "state_snapshot_version": 1,
                 "workflow_step_count": len(workflow_data.get("steps", [])),
             }
         )
@@ -710,6 +711,8 @@ class GoalCanvasHandler(SecureHandler):
                 description=body.get("description", canvas_meta.get("description", "")),
                 source_canvas_id=canvas_id,
                 metadata=action_canvas.metadata,
+                nodes=[n.to_dict() for n in action_canvas.nodes.values()],
+                edges=[e.to_dict() for e in action_canvas.edges.values()],
             )
             self._persist_canvas_state(action_canvas)
 
