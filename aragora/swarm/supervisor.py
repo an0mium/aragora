@@ -7,13 +7,15 @@ SupervisorRun in the existing development coordination store.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.nomic.approval import ApprovalLevel, ApprovalPolicy
 from aragora.nomic.dev_coordination import (
@@ -339,6 +341,19 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
+        try:
+            collected = self._collect_finished_detached_workers_before_lease_reap(run_id)
+            if collected:
+                logger.info(
+                    "collected %d finished detached workers during refresh_run",
+                    len(collected),
+                )
+        except Exception:
+            logger.debug(
+                "collect_finished_detached_workers_before_lease_reap failed during refresh_run",
+                exc_info=True,
+            )
+
         # Reap dead-session active leases before deriving run status so
         # orphaned leased work orders do not remain "active" indefinitely.
         try:
@@ -431,6 +446,115 @@ class SwarmSupervisor:
             ),
         )
         return SupervisorRun.from_record(refreshed)
+
+    def _collect_finished_detached_workers_before_lease_reap(
+        self,
+        run_id: str,
+    ) -> list[WorkerProcess]:
+        """Synchronously salvage detached workers that have definitively finished.
+
+        refresh_run() is often called from sync CLI/status paths. Probe only
+        workers with terminal session metadata or a dead recorded PID so a real
+        detached deliverable is persisted before lease reapers can downgrade it
+        to stale/expired.
+        """
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
+
+        finished: list[WorkerProcess] = []
+        for item in work_orders:
+            if not self._should_collect_detached_before_lease_reap(item):
+                continue
+            result = self._run_async_blocking(
+                lambda item=item: WorkerLauncher.collect_detached_result(
+                    work_order_id=str(item.get("work_order_id", "")).strip(),
+                    agent=str(item.get("target_agent", "codex")),
+                    worktree_path=str(item.get("worktree_path", "")).strip(),
+                    branch=str(item.get("branch", "main")),
+                    pid=item.get("pid"),
+                    initial_head=str(item.get("initial_head", "")),
+                    auto_commit=self.launcher.config.auto_commit,
+                    expected_tests=[
+                        str(test).strip()
+                        for test in item.get("expected_tests", [])
+                        if str(test).strip()
+                    ],
+                )
+            )
+            if result is not None:
+                finished.append(result)
+
+        if not finished:
+            return []
+
+        finished_by_id = {worker.work_order_id: worker for worker in finished}
+        for item in work_orders:
+            worker = finished_by_id.get(str(item.get("work_order_id", "")).strip())
+            if worker is None:
+                continue
+            self._apply_worker_result(
+                item,
+                worker,
+                worker_type_circuit_breakers=worker_type_circuit_breakers,
+                worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+            )
+
+        self._record_terminal_work_order_telemetry(run_id, work_orders)
+        self.store.update_supervisor_run(
+            run_id,
+            status=self._derive_status(work_orders),
+            work_orders=work_orders,
+            metadata=self._campaign_metadata(
+                self._worker_type_circuit_breaker_metadata(
+                    metadata,
+                    worker_type_circuit_breakers,
+                ),
+                work_orders,
+            ),
+        )
+        return finished
+
+    @staticmethod
+    def _should_collect_detached_before_lease_reap(item: dict[str, Any]) -> bool:
+        if str(item.get("status", "")).strip() != "dispatched":
+            return False
+
+        worktree_path = str(item.get("worktree_path", "")).strip()
+        if not worktree_path or not Path(worktree_path).exists():
+            return False
+
+        session_meta = WorkerLauncher._read_session_meta(worktree_path)
+        session_exit_code, _session_completed_at = WorkerLauncher._terminal_session_result(
+            session_meta
+        )
+        if session_exit_code is not None:
+            return True
+
+        raw_pid = item.get("pid")
+        if raw_pid is None:
+            raw_pid = session_meta.get("pid")
+        try:
+            pid = int(raw_pid) if raw_pid is not None else None
+        except (TypeError, ValueError):
+            pid = None
+        return pid is not None and not WorkerLauncher._is_pid_running(pid)
+
+    @staticmethod
+    def _run_async_blocking(awaitable_factory: Callable[[], Any]) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(awaitable_factory())
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(lambda: asyncio.run(awaitable_factory())).result()
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""

@@ -2700,3 +2700,83 @@ def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordin
     assert work_order["status"] == "needs_human"
     assert work_order["failure_reason"] == "stale_lease_reaped"
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+
+
+def test_refresh_run_salvages_dead_pid_detached_worker_before_stale_reap(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    run_record = store.create_supervisor_run(
+        goal="salvage detached worker",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "salvage detached worker"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-salvage",
+                "status": "queued",
+                "title": "Salvage detached worker",
+                "description": "Preserve finished detached work during refresh.",
+                "review_status": "pending",
+                "file_scope": ["README.md"],
+            }
+        ],
+        status="active",
+    )
+    lease = store.claim_lease(
+        task_id="detached-salvage",
+        title="Detached salvage lane",
+        owner_agent="codex",
+        owner_session_id="detached-salvage-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+        metadata={
+            "supervisor_run_id": run_record["run_id"],
+            "work_order_id": "wo-detached-salvage",
+        },
+    )
+    store.update_lease_metadata(lease.lease_id, {"worker_pid": 999999})
+
+    (repo / "README.md").write_text("salvaged detached work\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "salvaged detached work")
+    head_sha = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    store.update_supervisor_run(
+        run_record["run_id"],
+        status="active",
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-salvage",
+                "status": "dispatched",
+                "title": "Salvage detached worker",
+                "description": "Preserve finished detached work during refresh.",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "detached-salvage-session",
+                "lease_id": lease.lease_id,
+                "pid": 999999,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["README.md"],
+                "expected_tests": [],
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    assert refreshed.status == "completed"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order.get("failure_reason") is None
+    assert work_order["receipt_id"] is not None
+    assert work_order["worker_outcome"] == "completed"
+    assert work_order["commit_shas"] == [head_sha]
+    assert work_order["changed_paths"] == ["README.md"]
+    assert lease.lease_id not in {item.lease_id for item in store.list_active_leases()}

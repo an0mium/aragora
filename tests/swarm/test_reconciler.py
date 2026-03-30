@@ -47,44 +47,55 @@ async def test_tick_run_dispatches_collects_and_syncs_queue() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tick_run_reaps_stale_then_expired_leases_before_dispatch() -> None:
-    store = MagicMock()
-    store.reap_stale_leases = MagicMock(return_value=[MagicMock(lease_id="stale-1")])
-    store.reap_expired_leases = MagicMock(return_value=[MagicMock(lease_id="expired-1")])
-    store.sync_pending_work_queue = AsyncMock(return_value={"created": 0})
-    store.get_supervisor_run.return_value = _run("active", ["dispatched"]).to_dict()
-    store.attach_mock(store.reap_stale_leases, "reap_stale_leases")
-    store.attach_mock(store.reap_expired_leases, "reap_expired_leases")
-    store.attach_mock(store.sync_pending_work_queue, "sync_pending_work_queue")
-    store.attach_mock(store.get_supervisor_run, "get_supervisor_run")
-
+async def test_tick_run_collects_finished_workers_before_refresh_and_dispatch() -> None:
     supervisor = MagicMock()
-    supervisor.store = store
-    supervisor.refresh_run.side_effect = [_run("active", ["leased"])]
-    supervisor.dispatch_workers = AsyncMock(return_value=[MagicMock(work_order_id="wo-1")])
-    supervisor.collect_finished_results = AsyncMock(return_value=[])
+    order: list[str] = []
+
+    async def _collect(run_id: str) -> list[MagicMock]:
+        order.append(f"collect:{run_id}")
+        return [MagicMock(work_order_id="wo-1")]
+
+    def _refresh(run_id: str) -> SupervisorRun:
+        order.append(f"refresh:{run_id}")
+        return _run("active", ["completed", "leased"])
+
+    async def _dispatch(run_id: str) -> list[MagicMock]:
+        order.append(f"dispatch:{run_id}")
+        return [MagicMock(work_order_id="wo-2")]
+
+    async def _sync_pending() -> dict[str, int]:
+        order.append("sync_pending")
+        return {"created": 0}
+
+    def _get_run(run_id: str) -> dict[str, object]:
+        order.append(f"get:{run_id}")
+        return _run("active", ["completed", "dispatched"]).to_dict()
+
+    supervisor.collect_finished_results = AsyncMock(side_effect=_collect)
+    supervisor.refresh_run = MagicMock(side_effect=_refresh)
+    supervisor.dispatch_workers = AsyncMock(side_effect=_dispatch)
+    supervisor.store.sync_pending_work_queue = AsyncMock(side_effect=_sync_pending)
+    supervisor.store.get_supervisor_run.side_effect = _get_run
 
     reconciler = SwarmReconciler(supervisor=supervisor)
     result = await reconciler.tick_run("run-123")
 
     assert result.run_id == "run-123"
     supervisor.dispatch_workers.assert_awaited_once_with("run-123")
-    assert store.mock_calls[:4] == [
-        call.reap_stale_leases(),
-        call.reap_expired_leases(),
-        call.sync_pending_work_queue(),
-        call.get_supervisor_run("run-123"),
+    assert order == [
+        "collect:run-123",
+        "refresh:run-123",
+        "dispatch:run-123",
+        "sync_pending",
+        "get:run-123",
     ]
 
 
 @pytest.mark.asyncio
-async def test_tick_run_redispatches_after_finished_workers_free_capacity() -> None:
+async def test_tick_run_dispatches_once_after_finished_workers_free_capacity() -> None:
     supervisor = MagicMock()
-    supervisor.refresh_run.side_effect = [
-        _run("active", ["leased"]),
-        _run("active", ["completed", "leased"]),
-    ]
-    supervisor.dispatch_workers = AsyncMock(side_effect=[[], []])
+    supervisor.refresh_run.side_effect = [_run("active", ["completed", "leased"])]
+    supervisor.dispatch_workers = AsyncMock(return_value=[])
     supervisor.collect_finished_results = AsyncMock(return_value=[MagicMock(work_order_id="wo-1")])
     supervisor.store.sync_pending_work_queue = AsyncMock(return_value={"created": 1})
     supervisor.store.get_supervisor_run.return_value = _run(
@@ -95,8 +106,8 @@ async def test_tick_run_redispatches_after_finished_workers_free_capacity() -> N
     result = await reconciler.tick_run("run-123")
 
     assert result.run_id == "run-123"
-    assert supervisor.refresh_run.call_args_list == [call("run-123"), call("run-123")]
-    assert supervisor.dispatch_workers.await_args_list == [call("run-123"), call("run-123")]
+    supervisor.refresh_run.assert_called_once_with("run-123")
+    supervisor.dispatch_workers.assert_awaited_once_with("run-123")
     supervisor.collect_finished_results.assert_awaited_once_with("run-123")
 
 
