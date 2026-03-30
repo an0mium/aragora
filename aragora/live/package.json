@@ -60,7 +60,7 @@
     "recharts": "^3.8.0",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
