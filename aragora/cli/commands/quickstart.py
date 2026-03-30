@@ -390,15 +390,43 @@ def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[
             "approved",
         }
 
+    confidence = payload.get("confidence")
+    if confidence is None:
+        confidence = receipt_info.get("confidence")
+    try:
+        confidence = _clamp_confidence(float(confidence))
+    except (TypeError, ValueError):
+        confidence = 0.0
+
     votes = payload.get("votes")
     if not isinstance(votes, list):
         votes = []
+    normalized_votes: list[dict[str, Any]] = []
+    for vote in votes:
+        if isinstance(vote, dict):
+            normalized_votes.append(
+                {
+                    "agent": str(vote.get("agent", "") or ""),
+                    "choice": str(vote.get("choice", "") or ""),
+                    "reasoning": str(vote.get("reasoning", "") or ""),
+                }
+            )
+            continue
+
+        normalized_votes.append(
+            {
+                "agent": str(getattr(vote, "agent", "") or ""),
+                "choice": str(getattr(vote, "choice", "") or ""),
+                "reasoning": str(getattr(vote, "reasoning", "") or ""),
+            }
+        )
 
     payload["receipt_id"] = receipt_id
     payload["consensus"] = bool(consensus)
     payload["consensus_reached"] = bool(consensus)
-    payload["agent_votes"] = votes
-    payload["votes"] = votes
+    payload["confidence"] = confidence
+    payload["agent_votes"] = normalized_votes
+    payload["votes"] = normalized_votes
     payload["artifact_path"] = str(artifact_path)
     return payload
 

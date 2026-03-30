@@ -1174,6 +1174,11 @@ class TestCmdQuickstart:
 
     def test_json_mode_prints_structured_result_to_stdout(self, tmp_path, monkeypatch, capsys):
         monkeypatch.chdir(tmp_path)
+        vote = argparse.Namespace(
+            agent="analyst",
+            choice="Ship it",
+            reasoning="Low-risk onboarding improvement",
+        )
         args = argparse.Namespace(
             question="Should quickstart emit JSON?",
             demo=True,
@@ -1192,12 +1197,14 @@ class TestCmdQuickstart:
                 "aragora.cli.commands.quickstart._run_demo_debate",
                 return_value={
                     "question": "Should quickstart emit JSON?",
+                    "receipt_id": "demo-receipt-123",
                     "verdict": "consensus",
                     "confidence": 0.85,
                     "rounds": 1,
                     "agents": ["analyst", "critic", "synthesizer"],
                     "summary": "Emit structured output.",
                     "dissent": [],
+                    "votes": [vote],
                     "mode": "demo",
                 },
             ),
@@ -1207,10 +1214,18 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr()
         payload = json.loads(output.out)
-        assert payload["receipt_id"].startswith("quickstart-demo-")
+        assert payload["receipt_id"] == "demo-receipt-123"
         assert payload["consensus"] is True
         assert payload["consensus_reached"] is True
-        assert payload["agent_votes"] == []
+        assert payload["confidence"] == pytest.approx(0.85)
+        assert payload["agent_votes"] == [
+            {
+                "agent": "analyst",
+                "choice": "Ship it",
+                "reasoning": "Low-risk onboarding improvement",
+            }
+        ]
+        assert payload["votes"] == payload["agent_votes"]
         assert Path(payload["artifact_path"]).exists()
         assert "ARAGORA QUICKSTART" in output.err
         open_browser.assert_not_called()
