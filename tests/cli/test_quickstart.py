@@ -33,6 +33,7 @@ from aragora.cli.commands.quickstart import (
     add_quickstart_parser,
     cmd_quickstart,
 )
+from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
@@ -109,6 +110,13 @@ class TestQuickstartParser:
         subparsers = parser.add_subparsers()
         add_quickstart_parser(subparsers)
         args = parser.parse_args(["quickstart", "--json"])
+        assert args.json is True
+
+    def test_build_parser_registers_quickstart_json_flag(self):
+        parser = build_parser()
+        args = parser.parse_args(["quickstart", "--topic", "Topic question", "--json"])
+        assert args.command == "quickstart"
+        assert args.question == "Topic question"
         assert args.json is True
 
 
@@ -217,12 +225,12 @@ class TestGetQuestion:
         assert "microservices" in result.lower() or "monolith" in result.lower()
 
     def test_interactive_prompt(self, monkeypatch):
-        monkeypatch.setattr("builtins.input", lambda _: "Interactive Q")
+        monkeypatch.setattr("builtins.input", lambda: "Interactive Q")
         args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) == "Interactive Q"
 
     def test_empty_input_returns_none(self, monkeypatch):
-        monkeypatch.setattr("builtins.input", lambda _: "")
+        monkeypatch.setattr("builtins.input", lambda: "")
         args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) is None
 
@@ -1247,3 +1255,45 @@ class TestCmdQuickstart:
         assert Path(payload["artifact_path"]).exists()
         assert "ARAGORA QUICKSTART" in output.err
         open_browser.assert_not_called()
+
+    def test_json_mode_interactive_prompt_keeps_stdout_clean(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("builtins.input", lambda: "Should JSON prompts stay off stdout?")
+        args = argparse.Namespace(
+            question=None,
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=True,
+            rounds=1,
+            no_browser=True,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value={
+                    "question": "Should JSON prompts stay off stdout?",
+                    "verdict": "consensus",
+                    "confidence": 0.85,
+                    "rounds": 1,
+                    "agents": ["analyst", "critic", "synthesizer"],
+                    "summary": "Keep stdout reserved for machine-readable JSON.",
+                    "dissent": [],
+                    "mode": "demo",
+                },
+            ),
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr()
+        payload = json.loads(output.out)
+        assert payload["question"] == "Should JSON prompts stay off stdout?"
+        assert "> " in output.err

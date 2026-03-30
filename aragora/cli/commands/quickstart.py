@@ -314,7 +314,8 @@ def _get_question(args: argparse.Namespace, *, stream: TextIO | None = None) -> 
         console = stream or sys.stdout
         print("\nWhat question should the agents debate?", file=console)
         print("(Example: 'Should we migrate from REST to GraphQL?')\n", file=console)
-        question = input("> ").strip()
+        print("> ", end="", file=console, flush=True)
+        question = input().strip()
         return question if question else None
     except (EOFError, KeyboardInterrupt):
         return None
