@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 
 from aragora.cli.commands.inbox_wedge import (
+    _format_timestamp,
     cmd_inbox_wedge_create,
     cmd_inbox_wedge_list,
     cmd_inbox_wedge_export,
@@ -11,6 +13,7 @@ from aragora.cli.commands.inbox_wedge import (
     cmd_inbox_wedge_review,
     cmd_inbox_wedge_show,
 )
+from aragora.cli.commands.receipt import _format_receipt_created_at
 from aragora.cli.parser import build_parser
 from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
 from aragora.inbox.trust_wedge import (
@@ -213,6 +216,13 @@ def test_list_command_renders_terminal_summary_by_default(monkeypatch, tmp_path,
     assert "archive" in output
     assert "direct" in output
     assert "1 receipt(s) shown." in output
+
+
+def test_inbox_wedge_timestamp_matches_receipt_list_localization() -> None:
+    iso_timestamp = "2026-03-30T18:47:29.647269+00:00"
+    epoch_timestamp = datetime.fromisoformat(iso_timestamp).timestamp()
+
+    assert _format_timestamp(iso_timestamp) == _format_receipt_created_at(epoch_timestamp)
 
 
 def test_show_command_renders_terminal_summary_by_default(monkeypatch, tmp_path, capsys):

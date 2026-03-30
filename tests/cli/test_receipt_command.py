@@ -11,7 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.cli.commands.receipt import cmd_receipt_list, cmd_receipt_show
+from aragora.cli.commands.receipt import (
+    _format_receipt_created_at,
+    cmd_receipt_list,
+    cmd_receipt_show,
+)
 
 
 @dataclass
@@ -136,6 +140,13 @@ def test_receipt_list_filters_by_kind(capsys: pytest.CaptureFixture[str]) -> Non
     assert "rcpt-inbox-123" in output
     assert "inbox" in output
     assert "rcpt-decisio.." not in output
+
+
+def test_receipt_created_at_formats_epoch_and_iso_consistently() -> None:
+    iso_timestamp = "2026-03-30T18:47:29.647269+00:00"
+    epoch_timestamp = datetime.fromisoformat(iso_timestamp).timestamp()
+
+    assert _format_receipt_created_at(epoch_timestamp) == _format_receipt_created_at(iso_timestamp)
 
 
 def test_receipt_show_reads_durable_store_by_receipt_id(
