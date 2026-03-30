@@ -64,41 +64,41 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          bash scripts/ci_install_project.sh --extras dev,test
 
       - name: Run migration runner tests
         run: |
-          pytest tests/test_migrations.py -v --timeout=60 --tb=short
+          python -m pytest tests/test_migrations.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
       - name: Run migration pattern tests
         run: |
-          pytest tests/test_migration_patterns.py -v --timeout=60 --tb=short
+          python -m pytest tests/test_migration_patterns.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
       - name: Run new migration forward/rollback tests
         run: |
-          pytest tests/migrations/test_new_migrations.py -v --timeout=60 --tb=short
+          python -m pytest tests/migrations/test_new_migrations.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
       - name: Run concurrent migration tests
         run: |
-          pytest tests/migrations/test_concurrent_migrations.py -v --timeout=60 --tb=short
+          python -m pytest tests/migrations/test_concurrent_migrations.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
       - name: Run persistence migration runner tests
         run: |
-          pytest tests/persistence/test_migration_runner.py -v --timeout=60 --tb=short
+          python -m pytest tests/persistence/test_migration_runner.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
       - name: Run persistence consolidation tests
         run: |
-          pytest tests/persistence/test_migrations.py -v --timeout=60 --tb=short
+          python -m pytest tests/persistence/test_migrations.py -v --timeout=60 --tb=short
         env:
           PYTHONPATH: .
 
