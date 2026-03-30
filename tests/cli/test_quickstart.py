@@ -56,6 +56,13 @@ class TestQuickstartParser:
         args = parser.parse_args(["quickstart", "-q", "Test question"])
         assert args.question == "Test question"
 
+    def test_parser_topic_alias(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--topic", "Topic question"])
+        assert args.question == "Topic question"
+
     def test_parser_output_flag(self):
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
@@ -95,6 +102,13 @@ class TestQuickstartParser:
         for fmt in ["json", "md", "html"]:
             args = parser.parse_args(["quickstart", "--format", fmt])
             assert args.format == fmt
+
+    def test_parser_json_flag(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--json"])
+        assert args.json is True
 
 
 # =============================================================================
@@ -705,6 +719,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -737,6 +752,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=None,
             no_browser=True,
         )
@@ -773,6 +789,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=None,
             no_browser=True,
         )
@@ -804,6 +821,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -822,6 +840,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=output_path,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -855,6 +874,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -914,6 +934,7 @@ class TestCmdQuickstart:
             save_key=True,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -969,6 +990,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1027,6 +1049,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1071,6 +1094,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1118,6 +1142,7 @@ class TestCmdQuickstart:
             save_key=False,
             output=None,
             format="json",
+            json=False,
             rounds=2,
             no_browser=True,
         )
@@ -1146,3 +1171,46 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Live debate failed: Live debate timed out after 120s" in output
         assert "Mode:       Demo" in output
+
+    def test_json_mode_prints_structured_result_to_stdout(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should quickstart emit JSON?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=True,
+            rounds=1,
+            no_browser=False,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value={
+                    "question": "Should quickstart emit JSON?",
+                    "verdict": "consensus",
+                    "confidence": 0.85,
+                    "rounds": 1,
+                    "agents": ["analyst", "critic", "synthesizer"],
+                    "summary": "Emit structured output.",
+                    "dissent": [],
+                    "mode": "demo",
+                },
+            ),
+            patch("aragora.cli.commands.quickstart._open_receipt_in_browser") as open_browser,
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr()
+        payload = json.loads(output.out)
+        assert payload["receipt_id"].startswith("quickstart-demo-")
+        assert payload["consensus"] is True
+        assert payload["consensus_reached"] is True
+        assert payload["agent_votes"] == []
+        assert Path(payload["artifact_path"]).exists()
+        assert "ARAGORA QUICKSTART" in output.err
+        open_browser.assert_not_called()

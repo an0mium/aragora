@@ -27,7 +27,7 @@ import uuid
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TextIO, cast
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,7 @@ No configuration needed.
 Examples:
   aragora quickstart --demo                              # Zero-config demo
   aragora quickstart --question "Should we use Kubernetes?"
+  aragora quickstart --topic "Migrate to TypeScript?" --rounds 1 --json
   aragora quickstart --provider openai --api-key sk-... --save-key
   aragora quickstart --question "Migrate to TypeScript?" --output receipt.json
   aragora quickstart --demo --no-browser                 # CI/headless mode
@@ -142,6 +143,7 @@ Examples:
     )
     qs_parser.add_argument(
         "--question",
+        "--topic",
         "-q",
         help="The question to debate (uses a default if omitted with --demo)",
     )
@@ -184,6 +186,11 @@ Examples:
         choices=["json", "md", "html"],
         default="json",
         help="Receipt output format (default: json)",
+    )
+    qs_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print structured debate result JSON to stdout",
     )
     qs_parser.add_argument(
         "--no-browser",
@@ -293,7 +300,7 @@ def _configure_inline_api_key(
     }
 
 
-def _get_question(args: argparse.Namespace) -> str | None:
+def _get_question(args: argparse.Namespace, *, stream: TextIO | None = None) -> str | None:
     """Get the debate question from args, default, or interactive prompt."""
     if args.question:
         return args.question
@@ -304,8 +311,9 @@ def _get_question(args: argparse.Namespace) -> str | None:
 
     # Interactive prompt
     try:
-        print("\nWhat question should the agents debate?")
-        print("(Example: 'Should we migrate from REST to GraphQL?')\n")
+        console = stream or sys.stdout
+        print("\nWhat question should the agents debate?", file=console)
+        print("(Example: 'Should we migrate from REST to GraphQL?')\n", file=console)
         question = input("> ").strip()
         return question if question else None
     except (EOFError, KeyboardInterrupt):
@@ -338,6 +346,61 @@ def _clamp_confidence(raw_confidence: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return max(0.0, min(1.0, confidence))
+
+
+def _derive_receipt_id(
+    *,
+    mode: str,
+    question: str,
+    rounds: int,
+    existing: str | None = None,
+) -> str:
+    """Provide a stable receipt id when the debate engine does not supply one."""
+    if existing:
+        return existing
+    basis = f"{mode}:{question}:{rounds}"
+    return f"quickstart-{mode}-{hashlib.sha256(basis.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[str, Any]:
+    """Return a stdout-safe JSON payload with stable top-level quickstart fields."""
+    payload = dict(result)
+    receipt_info = payload.get("receipt", {})
+    if not isinstance(receipt_info, dict):
+        receipt_info = {}
+
+    rounds = int(payload.get("rounds", 0) or 0)
+    question = str(payload.get("question", "") or "")
+    mode = str(payload.get("mode", "demo") or "demo")
+    receipt_id = _derive_receipt_id(
+        mode=mode,
+        question=question,
+        rounds=rounds,
+        existing=str(payload.get("receipt_id") or receipt_info.get("id") or ""),
+    )
+
+    consensus = payload.get("consensus_reached")
+    if consensus is None and isinstance(payload.get("consensus_proof"), dict):
+        consensus = bool(payload["consensus_proof"].get("reached"))
+    if consensus is None:
+        consensus = str(payload.get("verdict", "")).strip().lower() in {
+            "consensus",
+            "pass",
+            "approve",
+            "approved",
+        }
+
+    votes = payload.get("votes")
+    if not isinstance(votes, list):
+        votes = []
+
+    payload["receipt_id"] = receipt_id
+    payload["consensus"] = bool(consensus)
+    payload["consensus_reached"] = bool(consensus)
+    payload["agent_votes"] = votes
+    payload["votes"] = votes
+    payload["artifact_path"] = str(artifact_path)
+    return payload
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -401,6 +464,7 @@ def _open_receipt_in_browser(
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
     agent_names = ["analyst", "critic", "synthesizer"]
+    receipt_id = _derive_receipt_id(mode="demo", question=question, rounds=rounds)
     summary = (
         f"Demo synthesis for: {question}\n\n"
         "- Combine a minimal baseline with explicit risk guardrails.\n"
@@ -411,12 +475,22 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
 
     return {
         "question": question,
+        "receipt_id": receipt_id,
         "verdict": "consensus",
         "confidence": 0.85,
         "rounds": rounds,
         "agents": agent_names,
         "summary": summary,
         "dissent": [],
+        "votes": [],
+        "consensus": True,
+        "consensus_reached": True,
+        "receipt": {
+            "id": receipt_id,
+            "confidence": 0.85,
+            "participants": agent_names,
+            "consensus_reached": True,
+        },
         "mode": "demo",
     }
 
@@ -861,23 +935,29 @@ async def _filter_reachable_live_agents(
 
 def cmd_quickstart(args: argparse.Namespace) -> None:
     """Handle the 'quickstart' command."""
-    print("\n" + "=" * 60)
-    print("  ARAGORA QUICKSTART")
-    print("  Zero-to-receipt adversarial debate")
-    print("=" * 60)
+    output_json = bool(getattr(args, "json", False))
+    console: TextIO = sys.stderr if output_json else sys.stdout
+
+    def emit(message: str = "") -> None:
+        print(message, file=console)
+
+    emit("\n" + "=" * 60)
+    emit("  ARAGORA QUICKSTART")
+    emit("  Zero-to-receipt adversarial debate")
+    emit("=" * 60)
 
     # Step 1: Load .env
     loaded = _load_dotenv()
     if loaded:
-        print("\n[+] Loaded .env configuration")
+        emit("\n[+] Loaded .env configuration")
 
     # Step 2: Get question
-    question = _get_question(args)
+    question = _get_question(args, stream=console)
     if not question:
-        print("\nNo question provided. Exiting.")
+        emit("\nNo question provided. Exiting.")
         sys.exit(1)
 
-    print(f"\nQuestion: {question}")
+    emit(f"\nQuestion: {question}")
 
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)
@@ -891,29 +971,29 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             save_key=getattr(args, "save_key", False),
         )
     except (RuntimeError, ValueError) as exc:
-        print(f"\n[!] Quickstart configuration failed: {exc}")
+        emit(f"\n[!] Quickstart configuration failed: {exc}")
         sys.exit(1)
 
     if saved_key:
-        print(
+        emit(
             "\n[+] Saved "
             f"{saved_key['env_var']} to secure store ({saved_key['backend']}) as {saved_key['masked_value']}"
         )
 
     if use_demo:
-        print("\n[*] Run mode: demo (requested with --demo)")
-        print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+        emit("\n[*] Run mode: demo (requested with --demo)")
+        emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
         try:
             detected = _detect_agents(normalized_provider)
         except ValueError as exc:
-            print(f"\n[!] Quickstart configuration failed: {exc}")
+            emit(f"\n[!] Quickstart configuration failed: {exc}")
             sys.exit(1)
         if not detected:
-            print("\n[!] No supported API keys detected. Falling back to demo mode.")
-            print("    This run will use local mock agents, not live model calls.")
-            print("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
-            print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+            emit("\n[!] No supported API keys detected. Falling back to demo mode.")
+            emit("    This run will use local mock agents, not live model calls.")
+            emit("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
+            emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
         else:
             preview_team = _build_live_team(
@@ -922,10 +1002,10 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 api_key=inline_api_key,
             )
             providers = list(dict.fromkeys(str(member["provider"]) for member in preview_team))
-            print("\n[+] Run mode: live")
-            print(f"    Agents: {', '.join(providers)}")
+            emit("\n[+] Run mode: live")
+            emit(f"    Agents: {', '.join(providers)}")
 
-    print(f"[*] Running {rounds}-round debate...\n")
+    emit(f"[*] Running {rounds}-round debate...\n")
 
     # Step 4: Run debate
     start_time = time.monotonic()
@@ -945,42 +1025,42 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
         if _is_tls_verification_failure(e):
-            print("\n[!] Provider TLS check failed. Falling back to demo mode.")
-            print("    Check the local CA trust store for live debates.")
+            emit("\n[!] Provider TLS check failed. Falling back to demo mode.")
+            emit("    Check the local CA trust store for live debates.")
         elif "No live" in str(e) or "no live" in str(e):
-            print("\n[!] No live providers available. Falling back to demo mode.")
+            emit("\n[!] No live providers available. Falling back to demo mode.")
         else:
-            print(f"\n[!] Live debate failed: {e}")
-            print("    Falling back to demo mode.")
+            emit(f"\n[!] Live debate failed: {e}")
+            emit("    Falling back to demo mode.")
         # Fall back to demo — the user should always get a result
         try:
             result = _run_sync(_run_demo_debate(question, rounds))
         except (OSError, RuntimeError, ValueError) as demo_err:
             logger.debug("Demo debate also failed: %s", demo_err)
-            print(f"\n[!] Demo debate also failed: {demo_err}")
+            emit(f"\n[!] Demo debate also failed: {demo_err}")
             sys.exit(1)
 
     elapsed = time.monotonic() - start_time
     result["elapsed_seconds"] = elapsed
 
     # Step 5: Display results
-    print("=" * 60)
-    print("  RESULT")
-    print("=" * 60)
+    emit("=" * 60)
+    emit("  RESULT")
+    emit("=" * 60)
     verdict_display = str(result["verdict"]).replace("_", " ").title()
-    print(f"\n  Verdict:    {verdict_display}")
-    print(f"  Confidence: {result['confidence']:.0%}")
-    print(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
-    print(f"  Agents:     {', '.join(result['agents'])}")
-    print(f"  Rounds:     {result['rounds']}")
-    print(f"  Elapsed:    {elapsed:.1f}s")
+    emit(f"\n  Verdict:    {verdict_display}")
+    emit(f"  Confidence: {result['confidence']:.0%}")
+    emit(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
+    emit(f"  Agents:     {', '.join(result['agents'])}")
+    emit(f"  Rounds:     {result['rounds']}")
+    emit(f"  Elapsed:    {elapsed:.1f}s")
     if "consensus_proof" in result:
         consensus_text = "Reached" if result["consensus_proof"].get("reached") else "Not reached"
-        print(f"  Consensus:  {consensus_text}")
+        emit(f"  Consensus:  {consensus_text}")
     if result.get("receipt_id"):
-        print(f"  Receipt:    {result['receipt_id']}")
+        emit(f"  Receipt:    {result['receipt_id']}")
     if result.get("artifact_hash"):
-        print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
+        emit(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
         summary_text = _clean_summary(result["summary"])
@@ -990,18 +1070,18 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 summary_text = summary_text[: cutoff + 1] + "\n  [... truncated]"
             else:
                 summary_text = summary_text[:800] + "..."
-        print(f"\n  Summary:\n  {summary_text}")
+        emit(f"\n  Summary:\n  {summary_text}")
 
     if result.get("dissent"):
-        print("\n  Dissent:")
+        emit("\n  Dissent:")
         for d in result["dissent"]:
-            print(f"    - {d.get('agent', '?')}: {d.get('reason', 'N/A')}")
+            emit(f"    - {d.get('agent', '?')}: {d.get('reason', 'N/A')}")
 
     thinking = result.get("thinking_traces")
     if thinking:
-        print(f"\n  Thinking: {len(thinking)} agent(s) provided extended reasoning traces")
+        emit(f"\n  Thinking: {len(thinking)} agent(s) provided extended reasoning traces")
 
-    print("\n" + "=" * 60)
+    emit("\n" + "=" * 60)
 
     # Step 6: Save receipt
     output_path = getattr(args, "output", None)
@@ -1012,7 +1092,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         fmt,
     )
     artifact_format = saved_artifact.suffix.lstrip(".") or fmt
-    print(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
+    emit(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
 
     # Persist to receipt store so API/dashboard/CLI-list can serve it
     try:
@@ -1034,13 +1114,13 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     if result.get("mode") == "live":
         km_ingested = result.get("km_ingested", False)
         if km_ingested:
-            print("[+] Knowledge Mound: outcome ingested")
+            emit("[+] Knowledge Mound: outcome ingested")
         else:
-            print("[*] Knowledge Mound: ingestion skipped (quickstart uses lightweight KM)")
-            print("    Use 'aragora ask' or 'aragora decide' for full KM writeback.")
+            emit("[*] Knowledge Mound: ingestion skipped (quickstart uses lightweight KM)")
+            emit("    Use 'aragora ask' or 'aragora decide' for full KM writeback.")
 
     # Step 7: Open receipt in browser
-    no_browser = getattr(args, "no_browser", False)
+    no_browser = getattr(args, "no_browser", False) or output_json
     if not no_browser:
         browser_path = _open_receipt_in_browser(
             result,
@@ -1048,13 +1128,18 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         )
         if browser_path:
             if Path(browser_path) == saved_artifact:
-                print("\nOpened saved artifact in browser.")
+                emit("\nOpened saved artifact in browser.")
             else:
-                print(f"\nOpened HTML preview in browser: {browser_path}")
+                emit(f"\nOpened HTML preview in browser: {browser_path}")
         else:
-            print("\nCould not open browser. View the saved artifact directly.")
+            emit("\nCould not open browser. View the saved artifact directly.")
 
-    print("\nNext steps:")
-    print("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
-    print("  aragora decide 'Your question'                                  # Full pipeline")
-    print("  aragora doctor                                                  # System health")
+    if output_json:
+        json.dump(_normalize_json_result(result, saved_artifact), sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return
+
+    emit("\nNext steps:")
+    emit("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
+    emit("  aragora decide 'Your question'                                  # Full pipeline")
+    emit("  aragora doctor                                                  # System health")
