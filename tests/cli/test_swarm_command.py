@@ -81,6 +81,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "owner_session_id": None,
         "skip_review": False,
         "output": None,
+        "audit_ref": None,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -198,6 +199,8 @@ class TestSwarmParser:
                 "synaptent/aragora",
                 "--label",
                 "boss-ready",
+                "--audit-ref",
+                "origin/main",
                 "--json",
             ]
         )
@@ -205,6 +208,7 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "audit-issues"
         assert args.boss_repo == "synaptent/aragora"
         assert args.labels == ["boss-ready"]
+        assert args.audit_ref == "origin/main"
         assert args.json is True
 
     def test_swarm_boss_parser_accepts_issue_list(self):
@@ -1519,6 +1523,7 @@ class TestSwarmCommand:
             boss_label_filter=None,
             boss_issue_number=None,
             boss_issue_list=None,
+            audit_ref="origin/main",
             json=True,
         )
         issue = SimpleNamespace(
@@ -1531,6 +1536,13 @@ class TestSwarmCommand:
 
         with (
             patch("aragora.swarm.boss_loop.GitHubIssueFeed") as feed_cls,
+            patch(
+                "aragora.cli.commands.swarm._open_audit_checkout",
+                return_value=MagicMock(
+                    __enter__=MagicMock(return_value=Path("/tmp/audit-main")),
+                    __exit__=MagicMock(return_value=False),
+                ),
+            ) as open_checkout,
             patch(
                 "aragora.cli.commands.swarm._audit_issue_validation_contract",
                 return_value={
@@ -1558,9 +1570,15 @@ class TestSwarmCommand:
         out = capsys.readouterr().out
         assert '"mode": "swarm-issue-audit"' in out
         assert '"action": "audit-issues"' in out
+        assert '"audit_ref": "origin/main"' in out
         assert '"issue_count": 1' in out
         assert '"validation_fails_now": 1' in out
+        open_checkout.assert_called_once()
+        _, kwargs = open_checkout.call_args
+        assert kwargs["git_ref"] == "origin/main"
         audit_issue.assert_called_once()
+        _, kwargs = audit_issue.call_args
+        assert kwargs["repo_root"] == Path("/tmp/audit-main")
 
     def test_classify_issue_validation_status_detects_cli_usage_failure(self):
         status, next_action = _classify_issue_validation_status(

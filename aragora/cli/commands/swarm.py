@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 from uuid import uuid4
 
 
@@ -239,6 +241,51 @@ def _audit_issue_validation_contract(
         "status": status,
         "next_action": next_action,
     }
+
+
+@contextmanager
+def _open_audit_checkout(repo_root: Path, *, git_ref: str | None):
+    if not git_ref:
+        yield repo_root
+        return
+
+    with tempfile.TemporaryDirectory(prefix="aragora-audit-") as temp_dir:
+        checkout_root = Path(temp_dir) / "checkout"
+        add_proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "worktree",
+                "add",
+                "--detach",
+                str(checkout_root),
+                git_ref,
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if add_proc.returncode != 0:
+            stderr = _trim_command_output(add_proc.stderr or "") or "git worktree add failed"
+            raise RuntimeError(f"Failed to open audit checkout for {git_ref}: {stderr}")
+        try:
+            yield checkout_root
+        finally:
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "worktree",
+                    "remove",
+                    "--force",
+                    str(checkout_root),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
 
 def _build_runner_report_payload(
@@ -1151,6 +1198,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.boss_loop import GitHubIssueFeed
 
         cli_labels: list[str] = list(getattr(args, "labels", None) or [])
+        audit_ref = _optional_text(getattr(args, "audit_ref", None))
         legacy_label = getattr(args, "boss_label_filter", None)
         if legacy_label and legacy_label not in cli_labels:
             cli_labels.insert(0, legacy_label)
@@ -1180,7 +1228,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
             ]
 
-        audits = [_audit_issue_validation_contract(issue, repo_root=Path.cwd()) for issue in issues]
+        with _open_audit_checkout(Path.cwd(), git_ref=audit_ref) as audit_root:
+            audits = [
+                _audit_issue_validation_contract(issue, repo_root=audit_root) for issue in issues
+            ]
         summary: dict[str, int] = {}
         for item in audits:
             status = str(item.get("status", "unknown") or "unknown")
@@ -1189,6 +1240,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             "mode": "swarm-issue-audit",
             "action": "audit-issues",
             "repo": getattr(args, "boss_repo", None),
+            "audit_ref": audit_ref,
             "labels": cli_labels,
             "issue_count": len(audits),
             "summary": summary,
@@ -1199,6 +1251,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             print(
                 f"audited={len(audits)} "
+                + (f"ref={audit_ref} " if audit_ref else "")
                 + " ".join(f"{key}={value}" for key, value in sorted(summary.items()))
             )
             rows = [

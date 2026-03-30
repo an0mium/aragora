@@ -2474,6 +2474,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="Comma-separated GitHub issue numbers for boss-loop scoped dispatch",
     )
     swarm_parser.add_argument(
+        "--audit-ref",
+        default=None,
+        help="For 'swarm audit-issues', run validations from a temporary detached worktree at this git ref (for example: origin/main)",
+    )
+    swarm_parser.add_argument(
         "--max-consecutive-failures",
         type=int,
         default=3,
