@@ -267,7 +267,7 @@ Acceptance Criteria:
             timeout_seconds=15,
         )
 
-        assert calls == ["python -m pytest tests/swarm/test_boss_loop.py -q"]
+        assert calls == [["/bin/bash", "-lc", "python -m pytest tests/swarm/test_boss_loop.py -q"]]
         assert result["satisfied"] is False
         assert result["results"][0]["status"] == "failed"
 

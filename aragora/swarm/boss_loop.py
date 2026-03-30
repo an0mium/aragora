@@ -449,9 +449,7 @@ def run_pre_dispatch_validation_commands(
     for command in commands:
         try:
             proc = subprocess.run(
-                command,
-                shell=True,
-                executable="/bin/bash",
+                ["/bin/bash", "-lc", command],
                 cwd=str(cwd),
                 text=True,
                 capture_output=True,
