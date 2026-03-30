@@ -663,7 +663,6 @@ def _create_managed_worktree(
         if worktree_path.exists():
             shutil.rmtree(worktree_path, ignore_errors=True)
 
-    source = f"origin/{base}"
     attempted_branches: set[str] = set()
     branch = base_branch_name
     add_proc: subprocess.CompletedProcess[str] | None = None
@@ -671,18 +670,8 @@ def _create_managed_worktree(
         while branch in attempted_branches or _branch_exists(repo_root, branch):
             branch = f"{base_branch_name}-{uuid4().hex[:4]}"
         attempted_branches.add(branch)
-        add_proc = _run_git(
-            repo_root,
-            "worktree",
-            "add",
-            "-b",
-            branch,
-            str(worktree_path),
-            source,
-        )
-        if add_proc.returncode == 0:
-            break
-        if not _branch_collision_error(add_proc.stderr, branch):
+        retry_branch = False
+        for source in (f"origin/{base}", base):
             add_proc = _run_git(
                 repo_root,
                 "worktree",
@@ -690,14 +679,20 @@ def _create_managed_worktree(
                 "-b",
                 branch,
                 str(worktree_path),
-                base,
+                source,
             )
             if add_proc.returncode == 0:
                 break
-            if not _branch_collision_error(add_proc.stderr, branch):
-                raise RuntimeError(add_proc.stderr.strip() or "git worktree add failed")
+            if _branch_collision_error(add_proc.stderr, branch):
+                branch = f"{base_branch_name}-{uuid4().hex[:4]}"
+                retry_branch = True
+                break
+        if add_proc is not None and add_proc.returncode == 0:
+            break
         if worktree_path.exists():
             shutil.rmtree(worktree_path, ignore_errors=True)
+        if retry_branch:
+            continue
     else:
         raise RuntimeError(add_proc.stderr.strip() if add_proc else "git worktree add failed")
 
