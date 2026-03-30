@@ -356,13 +356,48 @@ _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 10.0  # seconds — tight timeout to keep playground responsive
 
 
+def _skip_managed_secret_lookup() -> bool:
+    """Return True when playground key checks should avoid AWS-backed secret loading."""
+    env = os.environ.get("ARAGORA_ENV", "").strip().lower()
+    if env in {"test", "testing"}:
+        return True
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+
+    use_flag = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").strip().lower()
+    return use_flag in {"false", "0", "no"}
+
+
+def _force_mock_public_playground(source: str) -> bool:
+    """Return True when the public playground route must stay deterministic."""
+    env = os.environ.get("ARAGORA_ENV", "").strip().lower()
+    return env in {"test", "testing"} and source != "oracle"
+
+
+def _skip_playground_cache() -> bool:
+    """Return True when cache reuse would make playground tests nondeterministic."""
+    env = os.environ.get("ARAGORA_ENV", "").strip().lower()
+    return env in {"test", "testing"}
+
+
 def _get_api_key(name: str) -> str | None:
-    """Get an API key from AWS Secrets Manager (production) or env vars (dev)."""
+    """Get an API key for optional playground providers without crashing local/test flows."""
+    env_value = os.environ.get(name)
+    if env_value:
+        return env_value
+
+    if _skip_managed_secret_lookup():
+        return None
+
     try:
         from aragora.config.secrets import get_secret
 
         return get_secret(name)
     except ImportError:
+        return None
+    except Exception:
+        logger.debug("Playground managed secret lookup failed for %s", name, exc_info=True)
         return os.environ.get(name)
 
 
@@ -1765,43 +1800,45 @@ class PlaygroundHandler(BaseHandler):
         # --- Content-addressed cache lookup (before rate limiting) ---
         cache_key: str | None = None
         model_ids: list[str] = []
-        try:
-            from aragora.storage.debate_store import get_debate_store, normalize_cache_key
+        if not _skip_playground_cache():
+            try:
+                from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
-            agent_tags = _get_available_live_agents(agent_count)
-            model_ids = [
-                tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag for tag in agent_tags
-            ]
-            effective_topic = question or topic
-            cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
+                agent_tags = _get_available_live_agents(agent_count)
+                model_ids = [
+                    tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag
+                    for tag in agent_tags
+                ]
+                effective_topic = question or topic
+                cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
 
-            store = get_debate_store()
-            cached = store.get_by_cache_key(cache_key)
-            if cached is not None:
-                cached = _normalize_public_debate_payload(cached)
-                cached.setdefault("source", source)
+                store = get_debate_store()
+                cached = store.get_by_cache_key(cache_key)
+                if cached is not None:
+                    cached = _normalize_public_debate_payload(cached)
+                    cached.setdefault("source", source)
 
-                # /demo is a truthful proof surface: it may replay persisted live runs,
-                # but it must not surface unlabeled fallback debates as if they were live.
-                if source == "demo" and not _is_live_public_result(cached):
-                    logger.info(
-                        "Skipping cached debate %.12s… for demo: no live provenance",
-                        cache_key,
-                    )
-                else:
-                    if not _is_live_public_result(cached) and not cached.get("mock_fallback"):
-                        cached = _annotate_mock_fallback(
-                            cached,
-                            reason="Served from a persisted fallback result.",
+                    # /demo is a truthful proof surface: it may replay persisted live runs,
+                    # but it must not surface unlabeled fallback debates as if they were live.
+                    if source == "demo" and not _is_live_public_result(cached):
+                        logger.info(
+                            "Skipping cached debate %.12s… for demo: no live provenance",
+                            cache_key,
                         )
-                    cached["cached"] = True
-                    cached["cached_at"] = time.time()
-                    logger.info("Cache hit for debate key %.12s…", cache_key)
-                    return json_response(cached)
-        except (ImportError, RuntimeError, OSError, ValueError):
-            logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
-        except Exception:  # noqa: BLE001
-            logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
+                    else:
+                        if not _is_live_public_result(cached) and not cached.get("mock_fallback"):
+                            cached = _annotate_mock_fallback(
+                                cached,
+                                reason="Served from a persisted fallback result.",
+                            )
+                        cached["cached"] = True
+                        cached["cached_at"] = time.time()
+                        logger.info("Cache hit for debate key %.12s…", cache_key)
+                        return json_response(cached)
+            except (ImportError, RuntimeError, OSError, ValueError):
+                logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
+            except Exception:  # noqa: BLE001
+                logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
 
         # Rate limiting (skipped on cache hit above)
         client_ip = "unknown"
@@ -1848,6 +1885,13 @@ class PlaygroundHandler(BaseHandler):
         _cache_kw: dict[str, Any] = {}
         if cache_key is not None:
             _cache_kw = {"cache_key": cache_key, "model_ids": model_ids or [], "rounds": rounds}
+
+        if _force_mock_public_playground(source):
+            mock_data = _annotate_mock_fallback(
+                _run_inline_mock_debate(topic, rounds, agent_count, question=question),
+                reason="ARAGORA_ENV=test forces deterministic public playground debates.",
+            )
+            return self._persist_and_respond(json_response(mock_data), topic, source, **_cache_kw)
 
         if question:
             if source == "oracle":

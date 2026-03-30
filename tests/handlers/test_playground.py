@@ -25,6 +25,7 @@ import pytest
 
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
+    _get_api_key,
     _check_rate_limit,
     _check_live_rate_limit,
     _reset_rate_limits,
@@ -207,6 +208,37 @@ class TestStatus:
 # ============================================================================
 # POST /api/v1/playground/debate (mock debate)
 # ============================================================================
+
+
+class TestApiKeyLookup:
+    """Tests for optional playground API-key resolution."""
+
+    def test_prefers_environment_without_managed_secret_lookup(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "env-openai-key")
+
+        with patch(
+            "aragora.config.secrets.get_secret",
+            side_effect=AssertionError("managed secrets should not be consulted"),
+        ):
+            assert _get_api_key("OPENAI_API_KEY") == "env-openai-key"
+
+    def test_question_path_skips_managed_secrets_in_test_mode(self, handler, monkeypatch):
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={"question": "Should we standardize on GraphQL?", "source": "landing"},
+        )
+
+        with patch(
+            "aragora.config.secrets.get_secret",
+            side_effect=AssertionError("managed secrets should not be consulted"),
+        ):
+            result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["mock_fallback"] is True
+        assert body["source"] == "landing"
 
 
 class TestMockDebate:
@@ -1079,8 +1111,8 @@ class TestGetAvailableLiveAgents:
             "aragora.server.handlers.playground._get_api_key",
             return_value=None,
         ):
-            agents = _get_available_live_agents(3)
-            assert agents == []
+            with pytest.raises(ValueError, match="No API keys configured"):
+                _get_available_live_agents(3)
 
     def test_anthropic_key_returns_anthropic(self):
         def fake_key(name):
