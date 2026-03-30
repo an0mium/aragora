@@ -22,8 +22,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from aragora.billing.jwt_auth import extract_user_from_request
-
 __all__ = [
     # Main handler and roles
     "ADMIN_ROLES",
@@ -111,6 +109,8 @@ def __getattr__(name: str) -> Any:
 
         return BillingHandler
     if name == "extract_user_from_request":
+        from aragora.billing.jwt_auth import extract_user_from_request
+
         return extract_user_from_request
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

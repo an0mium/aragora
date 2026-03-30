@@ -52,7 +52,6 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeAlias, TypedDict, cast
 from collections.abc import Awaitable
 
-from aragora.billing.auth.context import UserAuthContext
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.protocols import AgentRating, HTTPRequestHandler
 
@@ -75,6 +74,9 @@ if TYPE_CHECKING:
     from aragora.storage.webhooks import WebhookStore
     from aragora.users.store import UserStore
     from aragora.billing.usage import UsageTracker
+    from aragora.billing.auth.context import UserAuthContext
+else:
+    UserAuthContext = Any
 
 
 class ServerContext(TypedDict, total=False):
