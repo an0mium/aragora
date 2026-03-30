@@ -42,14 +42,11 @@ class SwarmReconciler:
 
     async def tick_run(self, run_id: str) -> SupervisorRun:
         """Advance one run by one reconciliation tick."""
+        await self.supervisor.collect_finished_results(run_id)
         self.supervisor.store.reap_stale_leases()
         self.supervisor.store.reap_expired_leases()
         self.supervisor.refresh_run(run_id)
         await self.supervisor.dispatch_workers(run_id)
-        completed = await self.supervisor.collect_finished_results(run_id)
-        if completed:
-            self.supervisor.refresh_run(run_id)
-            await self.supervisor.dispatch_workers(run_id)
 
         if self.config.sync_pending_queue:
             await self.supervisor.store.sync_pending_work_queue()

@@ -2700,3 +2700,81 @@ def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordin
     assert work_order["status"] == "needs_human"
     assert work_order["failure_reason"] == "stale_lease_reaped"
     assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+
+
+def test_refresh_run_salvages_dead_detached_worker_before_stale_lease_reap(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "checkout", "-b", "codex/detached-refresh")
+    (repo / "README.md").write_text("salvaged detached refresh work\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "salvaged detached refresh work")
+
+    run_record = store.create_supervisor_run(
+        goal="salvage detached refresh work",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "salvage detached refresh work"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-refresh",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "codex/detached-refresh",
+                "target_agent": "codex",
+                "owner_session_id": "detached-refresh-session",
+                "pid": 424242,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["README.md"],
+            }
+        ],
+        status="active",
+    )
+    lease = store.claim_lease(
+        task_id="detached-refresh",
+        title="Detached refresh lane",
+        owner_agent="codex",
+        owner_session_id="detached-refresh-session",
+        branch="codex/detached-refresh",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+        metadata={
+            "supervisor_run_id": run_record["run_id"],
+            "work_order_id": "wo-detached-refresh",
+            "worker_pid": 424242,
+        },
+    )
+    store.update_supervisor_run(
+        run_record["run_id"],
+        work_orders=[
+            {
+                **run_record["work_orders"][0],
+                "lease_id": lease.lease_id,
+            }
+        ],
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock()
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with (
+        patch("aragora.nomic.dev_coordination._safe_kill_probe", return_value=ProcessLookupError()),
+        patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+        patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+    ):
+        refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    assert refreshed.status == "completed"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["commit_shas"]
+    assert work_order.get("failure_reason") != "stale_lease_reaped"
+    assert work_order.get("receipt_id")
+    mock_launcher.snapshot_progress.assert_not_awaited()

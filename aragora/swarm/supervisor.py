@@ -7,6 +7,7 @@ SupervisorRun in the existing development coordination store.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -339,6 +340,29 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        if any(
+            str(item.get("status", "")).strip() == "dispatched"
+            for item in record.get("work_orders", [])
+        ):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                try:
+                    collected = asyncio.run(self.collect_finished_results(run_id))
+                    if collected:
+                        logger.info(
+                            "collected %d finished workers during refresh_run",
+                            len(collected),
+                        )
+                except Exception:
+                    logger.debug(
+                        "collect_finished_results failed during refresh_run", exc_info=True
+                    )
+
         # Reap dead-session active leases before deriving run status so
         # orphaned leased work orders do not remain "active" indefinitely.
         try:
