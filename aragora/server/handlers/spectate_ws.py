@@ -160,6 +160,7 @@ class SpectateStreamHandler(BaseHandler):
         "/api/v1/spectate/recent",
         "/api/v1/spectate/status",
         "/api/v1/spectate/stream",
+        "/api/v1/spectate/*/stream",
     ]
 
     STREAM_MODE = "snapshot"
@@ -182,6 +183,9 @@ class SpectateStreamHandler(BaseHandler):
         if not path.startswith("/api/v1/spectate"):
             return None
 
+        debate_id = self._extract_debate_stream_debate_id(path)
+        if debate_id is not None:
+            return self._handle_debate_stream_info(debate_id, handler)
         if path.endswith("/recent"):
             return self._handle_recent(query_params)
         if path.endswith("/status"):
@@ -195,6 +199,43 @@ class SpectateStreamHandler(BaseHandler):
         """GET /api/v1/spectate/recent -- get recent events from the buffer."""
         events = self._get_recent_events(query_params)
         return json_response(self._recent_payload(events))
+
+    def _extract_debate_stream_debate_id(self, path: str) -> str | None:
+        """Extract debate_id from /api/v1/spectate/{debate_id}/stream compatibility paths."""
+        parts = path.split("/")
+        if len(parts) != 6:
+            return None
+        if parts[1:4] != ["api", "v1", "spectate"] or parts[5] != "stream":
+            return None
+        debate_id = parts[4]
+        return debate_id or None
+
+    def _handle_debate_stream_info(self, debate_id: str, handler: Any) -> HandlerResult:
+        """GET /api/v1/spectate/{debate_id}/stream -- compatibility JSON with SSE URL."""
+        _, err = self.require_permission_or_error(handler, "debates:read")
+        if err:
+            return err
+
+        from .debates.spectate import _debate_bridge_activity, get_active_collectors
+
+        n_clients = len(get_active_collectors().get(debate_id, set()))
+        activity = _debate_bridge_activity(debate_id)
+        observed_live = activity["observed_live"] or n_clients > 0
+        availability_state = "live" if observed_live else activity["availability_state"]
+        stream_url = f"/api/v1/debates/{debate_id}/spectate"
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "spectate_available": True,
+                "active_viewers": n_clients,
+                **activity,
+                "availability_state": availability_state,
+                "observed_live": observed_live,
+                "sse_url": stream_url,
+                "stream_url": stream_url,
+                "message": "Connect to stream_url with an SSE client to receive live debate events.",
+            }
+        )
 
     def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
