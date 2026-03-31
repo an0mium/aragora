@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import json
 from collections import Counter, defaultdict
+from dataclasses import replace
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -540,6 +541,7 @@ async def _run_interrogate_stage(
     top_files: int,
     max_file_chars: int,
     dry_run: bool,
+    disable_research: bool,
 ) -> dict[str, Any]:
     from aragora.modes.deep_audit import CODE_ARCHITECTURE_AUDIT, run_deep_audit
 
@@ -561,11 +563,17 @@ async def _run_interrogate_stage(
         result["errors"] = errors
         return result
 
+    audit_config = (
+        replace(CODE_ARCHITECTURE_AUDIT, enable_research=False)
+        if disable_research
+        else CODE_ARCHITECTURE_AUDIT
+    )
+
     verdict = await run_deep_audit(
         task=task,
         agents=agents,
         context=context,
-        config=CODE_ARCHITECTURE_AUDIT,
+        config=audit_config,
     )
     result["status"] = "completed"
     result["errors"] = errors
@@ -609,6 +617,7 @@ def cmd_codebase_audit(args: argparse.Namespace) -> int:
                 top_files=getattr(args, "top_files", 12),
                 max_file_chars=getattr(args, "max_file_chars", 12000),
                 dry_run=getattr(args, "dry_run", False),
+                disable_research=bool(getattr(args, "disable_research", False)),
             )
         )
     except Exception as exc:  # noqa: BLE001

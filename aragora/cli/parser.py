@@ -1321,6 +1321,11 @@ def _add_codebase_audit_parser(subparsers) -> None:
         help="Skip the LLM deep-audit stage and only emit staged artifacts",
     )
     parser.add_argument(
+        "--disable-research",
+        action="store_true",
+        help="Disable Deep Audit web research and use only the selected audit agents",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Print the final run summary as JSON",

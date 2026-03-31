@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 from aragora.cli.commands import codebase_audit
 from aragora.cli.parser import build_parser
 
@@ -20,6 +22,7 @@ def test_codebase_audit_parser_accepts_flags() -> None:
             "codebase-audit",
             "/tmp/repo",
             "--dry-run",
+            "--disable-research",
             "--json",
             "--top-files",
             "5",
@@ -31,6 +34,7 @@ def test_codebase_audit_parser_accepts_flags() -> None:
     assert args.command == "codebase-audit"
     assert args.repo == "/tmp/repo"
     assert args.dry_run is True
+    assert args.disable_research is True
     assert args.json is True
     assert args.top_files == 5
     assert args.artifact_dir == "/tmp/artifacts"
@@ -176,3 +180,51 @@ def test_cmd_codebase_audit_persists_partial_artifacts_when_interrogate_fails(
     interrogate = json.loads((artifact_dir / "interrogate.json").read_text())
     assert interrogate["status"] == "failed"
     assert interrogate["errors"] == ["interrogate exploded"]
+
+
+@pytest.mark.asyncio
+async def test_run_interrogate_stage_can_disable_research(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write(
+        tmp_path / "aragora" / "swarm" / "boss_loop.py",
+        "create_agent('codex')\nworker = 'dispatch worker'\n",
+    )
+    triage = codebase_audit.collect_repo_triage(tmp_path)
+    surface = codebase_audit.identify_threat_surface(tmp_path, top_files=4)
+
+    monkeypatch.setattr(codebase_audit, "_build_agents", lambda _: ([object()], []))
+    observed: dict[str, object] = {}
+
+    async def _fake_run_deep_audit(*, task, agents, context, config):
+        observed["task"] = task
+        observed["agents"] = agents
+        observed["context"] = context
+        observed["enable_research"] = config.enable_research
+        return SimpleNamespace(
+            recommendation="focus supervisor and webhook paths",
+            confidence=0.72,
+            findings=[],
+            unanimous_issues=[],
+            split_opinions=[],
+            risk_areas=[],
+            citations=[],
+            cross_examination_notes="",
+        )
+
+    monkeypatch.setattr("aragora.modes.deep_audit.run_deep_audit", _fake_run_deep_audit)
+
+    result = await codebase_audit._run_interrogate_stage(
+        repo_root=tmp_path,
+        triage=triage,
+        surface=surface,
+        agents_str="openai-api,gemini",
+        top_files=4,
+        max_file_chars=1000,
+        dry_run=False,
+        disable_research=True,
+    )
+
+    assert result["status"] == "completed"
+    assert observed["enable_research"] is False
