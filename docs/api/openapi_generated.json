@@ -213489,14 +213489,24 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "total_receipts": {
+                    "total": {
                       "type": "integer"
                     },
-                    "verified_count": {
+                    "verified": {
                       "type": "integer"
                     },
-                    "by_status": {
+                    "by_verdict": {
                       "type": "object"
+                    },
+                    "by_risk_level": {
+                      "type": "object"
+                    },
+                    "by_framework": {
+                      "type": "object"
+                    },
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
                     }
                   }
                 }
