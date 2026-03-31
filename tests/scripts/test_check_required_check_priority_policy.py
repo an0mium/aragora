@@ -20,11 +20,13 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/build.yml',
               '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
               '.github/workflows/sdk-parity.yml',
+              '.github/workflows/sdk-generate.yml',
               '.github/workflows/sdk-test.yml',
               '.github/workflows/test.yml',
               '.github/workflows/openapi.yml',
@@ -40,8 +42,10 @@ jobs:
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Build Documentation (PR Check)',
               'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
+              'Generate SDK Types',
               'Offline Golden Path',
               'Live Deploy Mode Gate',
               'PR Admission Controller',
@@ -124,6 +128,10 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
         "name: Autopilot Worktree E2E\njobs:\n  scope:\n    name: Autopilot Scope\n",
         encoding="utf-8",
     )
+    (wf_dir / "build.yml").write_text(
+        "name: Build Documentation (PR Check)\njobs:\n  build:\n    name: build\n",
+        encoding="utf-8",
+    )
     (wf_dir / "contract-drift-governance.yml").write_text(
         "name: Contract Drift Governance\njobs:\n  governance:\n    name: governance\n",
         encoding="utf-8",
@@ -134,6 +142,10 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
     )
     (wf_dir / "sdk-parity.yml").write_text(
         "name: SDK Parity Check\njobs:\n  sdk-parity:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    (wf_dir / "sdk-generate.yml").write_text(
+        "name: Generate SDK Types\njobs:\n  generate:\n    name: generate-typescript-types\n",
         encoding="utf-8",
     )
     (wf_dir / "sdk-test.yml").write_text(
@@ -195,11 +207,13 @@ jobs:
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/build.yml',
               '.github/workflows/contract-drift-governance.yml',
               '.github/workflows/core-suites.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/live-deploy-mode-gate.yml',
               '.github/workflows/sdk-parity.yml',
+              '.github/workflows/sdk-generate.yml',
               '.github/workflows/sdk-test.yml',
               '.github/workflows/test.yml',
               '.github/workflows/openapi.yml',
@@ -215,8 +229,10 @@ jobs:
             const alwaysKeepWorkflowNames = new Set([
               'Aragora Code Review',
               'Autopilot Worktree E2E',
+              'Build Documentation (PR Check)',
               'Contract Drift Governance',
               'Core Suites (Decision Integrity)',
+              'Generate SDK Types',
               'Offline Golden Path',
               'Live Deploy Mode Gate',
               'PR Admission Controller',
