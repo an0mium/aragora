@@ -14,11 +14,80 @@ interface HealthStatus {
   version: string;
   components: {
     database: { status: string; latency_ms?: number };
-    agents: { status: string; available: number; total: number };
+    agents: { status: string; available?: number; total?: number };
     memory: { status: string; usage_mb?: number };
-    websocket: { status: string; connections: number };
+    websocket: { status: string; connections?: number };
   };
   timestamp: string;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function readStatus(primary: unknown, fallbackHealthy: unknown): string {
+  if (typeof primary === 'string' && primary) return primary;
+  if (fallbackHealthy === true) return 'healthy';
+  if (fallbackHealthy === false) return 'unhealthy';
+  return 'unknown';
+}
+
+function readVersion(value: unknown): string {
+  if (typeof value === 'string' && value) return value;
+  const version = asRecord(value);
+  const api = typeof version.api === 'string' ? version.api : '';
+  const server = typeof version.server === 'string' ? version.server : '';
+  return [api, server].filter(Boolean).join(' / ') || 'restricted';
+}
+
+function normalizeHealthStatus(value: unknown): HealthStatus {
+  const raw = asRecord(value);
+  const components = asRecord(raw.components);
+  const checks = asRecord(raw.checks);
+  const database = asRecord(components.database);
+  const agents = asRecord(components.agents);
+  const memory = asRecord(components.memory);
+  const websocket = asRecord(components.websocket);
+  const databaseCheck = asRecord(checks.database);
+  const websocketCheck = asRecord(checks.websocket);
+
+  return {
+    status: raw.status === 'healthy' || raw.status === 'degraded' || raw.status === 'unhealthy'
+      ? raw.status
+      : 'degraded',
+    uptime_seconds: readNumber(raw.uptime_seconds) ?? 0,
+    version: readVersion(raw.version),
+    components: {
+      database: {
+        status: readStatus(database.status, databaseCheck.healthy),
+        latency_ms: readNumber(database.latency_ms) ?? readNumber(databaseCheck.latency_ms),
+      },
+      agents: {
+        status: readStatus(agents.status, undefined),
+        available: readNumber(agents.available),
+        total: readNumber(agents.total),
+      },
+      memory: {
+        status: readStatus(memory.status, undefined),
+        usage_mb: readNumber(memory.usage_mb),
+      },
+      websocket: {
+        status: readStatus(websocket.status, websocketCheck.healthy),
+        connections: readNumber(websocket.connections) ?? readNumber(websocketCheck.active_clients),
+      },
+    },
+    timestamp: typeof raw.timestamp === 'string' ? raw.timestamp : new Date().toISOString(),
+  };
+}
+
+function formatAgentSummary(agents: HealthStatus['components']['agents']): string {
+  if (typeof agents.available !== 'number') return '--';
+  if (typeof agents.total !== 'number') return `${agents.available}/--`;
+  return `${agents.available}/${agents.total}`;
 }
 
 interface AdminStats {
@@ -109,7 +178,7 @@ export default function AdminOverviewPage() {
       const healthRes = await fetch(buildHealthCheckUrl(backendConfig.api));
       if (healthRes.ok) {
         const healthData = await healthRes.json();
-        setHealth(healthData);
+        setHealth(normalizeHealthStatus(healthData));
         // Detect demo mode from health response or environment flag
         if (healthData.demo_mode || healthData.mode === 'demo') {
           setIsDemoMode(true);
@@ -319,12 +388,16 @@ export default function AdminOverviewPage() {
               <div className="flex justify-between items-center">
                 <span className="font-mono text-sm text-text-muted">Agents</span>
                 <span className="font-mono text-sm text-acid-green">
-                  {health.components.agents.available}/{health.components.agents.total}
+                  {formatAgentSummary(health.components.agents)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-mono text-sm text-text-muted">WebSocket</span>
-                <span className="font-mono text-sm text-text">{health.components.websocket.connections} conn</span>
+                <span className="font-mono text-sm text-text">
+                  {typeof health.components.websocket.connections === 'number'
+                    ? `${health.components.websocket.connections} conn`
+                    : '--'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-mono text-sm text-text-muted">Database</span>
