@@ -241,6 +241,34 @@ class TestStoredReceipt:
         assert result["timestamp"] == "2023-11-15T00:00:00Z"
         assert result["input_summary"] == "Original question"
 
+    def test_to_full_dict_clamps_stale_confidence_fields(self):
+        """Out-of-range confidence from stale rows is normalized on read."""
+        receipt = StoredReceipt(
+            receipt_id="receipt-003",
+            gauntlet_id="gauntlet-003",
+            debate_id="debate-003",
+            created_at=1700000000.0,
+            expires_at=None,
+            verdict="PASS",
+            confidence=1.2,
+            risk_level="LOW",
+            risk_score=0.05,
+            checksum="sha256:stale",
+            data={
+                "confidence": 1.2,
+                "consensus_proof": {
+                    "reached": True,
+                    "confidence": 1.4,
+                },
+            },
+        )
+
+        result = receipt.to_full_dict()
+
+        assert receipt.confidence == pytest.approx(1.0)
+        assert result["confidence"] == pytest.approx(1.0)
+        assert result["consensus_proof"]["confidence"] == pytest.approx(1.0)
+
 
 class TestSignatureVerificationResult:
     """Tests for SignatureVerificationResult dataclass."""
@@ -337,6 +365,23 @@ class TestReceiptStoreCRUD:
         receipt = receipt_store.get("receipt-001")
         assert receipt.verdict == "REJECTED"
         assert receipt.confidence == 0.95
+
+    def test_save_clamps_out_of_range_confidence(self, receipt_store, sample_receipt_dict):
+        """Persisted receipts should normalize confidence into the canonical range."""
+        sample_receipt_dict["confidence"] = 1.2
+        sample_receipt_dict["consensus_proof"] = {
+            "reached": True,
+            "confidence": 1.4,
+        }
+
+        receipt_store.save(sample_receipt_dict)
+
+        receipt = receipt_store.get("receipt-001")
+        assert receipt is not None
+        payload = receipt.to_full_dict()
+        assert receipt.confidence == pytest.approx(1.0)
+        assert payload["confidence"] == pytest.approx(1.0)
+        assert payload["consensus_proof"]["confidence"] == pytest.approx(1.0)
 
 
 def test_default_receipt_db_path_uses_repo_shared_nomic_for_linked_worktree(
@@ -1036,6 +1081,22 @@ class TestFileReceiptFallback:
         assert sr.risk_level == "LOW"
         assert sr.checksum == "sha256:deadbeef"
         assert sr.data == sample_file_receipt
+
+    def test_parse_file_receipt_clamps_out_of_range_confidence(self, tmp_path, sample_file_receipt):
+        """File-backed receipts should normalize stale confidence values on read."""
+        fake_path = tmp_path / "receipt.json"
+        fake_path.write_text("{}")
+        sample_file_receipt["confidence"] = 1.3
+        sample_file_receipt["consensus_proof"] = {
+            "reached": True,
+            "confidence": 1.5,
+        }
+
+        sr = ReceiptStore._parse_file_receipt(sample_file_receipt, fake_path)
+
+        assert sr.confidence == pytest.approx(1.0)
+        assert sr.data["confidence"] == pytest.approx(1.0)
+        assert sr.data["consensus_proof"]["confidence"] == pytest.approx(1.0)
 
     def test_parse_file_receipt_missing_receipt_id_uses_nested(self, tmp_path):
         """Test _parse_file_receipt falls back to receipt.id."""

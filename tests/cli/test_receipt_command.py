@@ -198,6 +198,28 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     assert payload["confidence"] == pytest.approx(0.61)
 
 
+def test_receipt_show_clamps_out_of_range_decision_confidence_for_json(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-decision-999",
+        "gauntlet_id": "rcpt-decision-999",
+        "verdict": "PASS",
+        "confidence": 1.2,
+        "consensus_proof": {
+            "reached": True,
+            "confidence": 1.4,
+        },
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-decision-999", format="json", org_id=None))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["confidence"] == pytest.approx(1.0)
+    assert payload["consensus_proof"]["confidence"] == pytest.approx(1.0)
+
+
 def test_receipt_show_renders_inbox_receipt_details(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

@@ -24,6 +24,19 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _clamp_confidence(value: Any, *, default: float = 0.0) -> float:
+    """Clamp confidence-like values into the canonical 0.0-1.0 range for display."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if numeric < 0.0:
+        return 0.0
+    if numeric > 1.0:
+        return 1.0
+    return numeric
+
+
 def _coerce_local_datetime(value: Any) -> datetime | None:
     """Convert storage and ISO timestamps into the operator's local time."""
     if value is None:
@@ -250,7 +263,7 @@ def _normalize_receipt_verdict_and_confidence(
 ) -> tuple[str, float]:
     """Fill missing verdict/confidence for trust-wedge receipts from nested metadata."""
     normalized_verdict = str(verdict or "").strip()
-    normalized_confidence = float(confidence or 0.0)
+    normalized_confidence = _clamp_confidence(confidence, default=0.0)
 
     triage = data.get("triage_decision")
     if not isinstance(triage, dict):
@@ -258,13 +271,9 @@ def _normalize_receipt_verdict_and_confidence(
 
     triage_confidence = triage.get("confidence")
     if triage_confidence is not None:
-        try:
-            triage_confidence_value = float(triage_confidence)
-        except (TypeError, ValueError):
-            triage_confidence_value = None
-        else:
-            if normalized_confidence == 0.0 and triage_confidence_value != 0.0:
-                normalized_confidence = triage_confidence_value
+        triage_confidence_value = _clamp_confidence(triage_confidence, default=0.0)
+        if normalized_confidence == 0.0 and triage_confidence_value != 0.0:
+            normalized_confidence = triage_confidence_value
 
     verdict_missing = not normalized_verdict or normalized_verdict.upper() == "UNKNOWN"
     if verdict_missing:
@@ -292,6 +301,14 @@ def _normalize_receipt_payload_for_display(data: dict[str, Any]) -> dict[str, An
     )
     normalized["verdict"] = verdict
     normalized["confidence"] = confidence
+    consensus = normalized.get("consensus_proof")
+    if isinstance(consensus, dict):
+        normalized_consensus = dict(consensus)
+        normalized_consensus["confidence"] = _clamp_confidence(
+            normalized_consensus.get("confidence"),
+            default=confidence,
+        )
+        normalized["consensus_proof"] = normalized_consensus
     return normalized
 
 

@@ -113,6 +113,46 @@ def _receipt_json_default(value: Any) -> Any:
     return str(value)
 
 
+def _clamp_confidence(value: Any, *, default: float = 0.0) -> float:
+    """Clamp receipt confidence-like values into the canonical 0.0-1.0 range."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if numeric < 0.0:
+        return 0.0
+    if numeric > 1.0:
+        return 1.0
+    return numeric
+
+
+def _normalize_receipt_payload(
+    payload: dict[str, Any],
+    *,
+    default_confidence: float = 0.0,
+) -> dict[str, Any]:
+    """Normalize receipt confidence fields without mutating caller-owned data."""
+    normalized = dict(payload)
+    consensus = normalized.get("consensus_proof")
+    fallback_confidence = (
+        consensus.get("confidence") if isinstance(consensus, dict) else default_confidence
+    )
+    normalized_confidence = _clamp_confidence(
+        normalized.get("confidence"),
+        default=_clamp_confidence(fallback_confidence, default=default_confidence),
+    )
+    if "confidence" in normalized or isinstance(consensus, dict):
+        normalized["confidence"] = normalized_confidence
+    if isinstance(consensus, dict):
+        normalized_consensus = dict(consensus)
+        normalized_consensus["confidence"] = _clamp_confidence(
+            normalized_consensus.get("confidence"),
+            default=normalized_confidence,
+        )
+        normalized["consensus_proof"] = normalized_consensus
+    return normalized
+
+
 @dataclass
 class StoredReceipt:
     """A stored decision receipt with signature metadata."""
@@ -146,6 +186,11 @@ class StoredReceipt:
     audit_trail_id: str | None = None
     # Full data
     data: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Normalize stale confidence values when receipts are materialized."""
+        self.confidence = _clamp_confidence(self.confidence)
+        self.data = _normalize_receipt_payload(self.data or {}, default_confidence=self.confidence)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
@@ -192,7 +237,7 @@ class StoredReceipt:
         authoritative structured DB column values from to_dict() are
         layered on top so they always win if the blob is stale.
         """
-        result = dict(self.data)
+        result = _normalize_receipt_payload(self.data, default_confidence=self.confidence)
         result.update(self.to_dict())
         return result
 
@@ -455,14 +500,18 @@ class ReceiptStore:
     @staticmethod
     def _parse_file_receipt(data: dict[str, Any], source_path: Path) -> StoredReceipt:
         """Convert a JSON receipt dict (as written by quickstart) to a StoredReceipt."""
+        normalized_data = _normalize_receipt_payload(data)
+
         # Receipt ID: prefer receipt_id, then nested receipt.id, then filename stem
-        receipt_nested = data.get("receipt", {}) or {}
-        receipt_id = data.get("receipt_id") or receipt_nested.get("id") or source_path.stem
-        gauntlet_id = data.get("gauntlet_id") or receipt_id
+        receipt_nested = normalized_data.get("receipt", {}) or {}
+        receipt_id = (
+            normalized_data.get("receipt_id") or receipt_nested.get("id") or source_path.stem
+        )
+        gauntlet_id = normalized_data.get("gauntlet_id") or receipt_id
 
         # Timestamp
         created_at: float
-        raw_ts = data.get("timestamp")
+        raw_ts = normalized_data.get("timestamp")
         if isinstance(raw_ts, str):
             try:
                 created_at = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).timestamp()
@@ -474,24 +523,21 @@ class ReceiptStore:
             created_at = source_path.stat().st_mtime
 
         # Verdict normalization
-        verdict = str(data.get("verdict") or "UNKNOWN").upper()
+        verdict = str(normalized_data.get("verdict") or "UNKNOWN").upper()
 
         # Confidence
-        try:
-            confidence = float(data.get("confidence") or 0.0)
-        except (TypeError, ValueError):
-            confidence = 0.0
+        confidence = _clamp_confidence(normalized_data.get("confidence"), default=0.0)
 
         # Risk
-        risk_level = str(data.get("risk_level") or "MEDIUM").upper()
+        risk_level = str(normalized_data.get("risk_level") or "MEDIUM").upper()
         try:
-            risk_score = float(data.get("risk_score") or 0.0)
+            risk_score = float(normalized_data.get("risk_score") or 0.0)
         except (TypeError, ValueError):
             risk_score = 0.0
 
         checksum = str(
-            data.get("checksum")
-            or data.get("artifact_hash")
+            normalized_data.get("checksum")
+            or normalized_data.get("artifact_hash")
             or receipt_nested.get("artifact_hash")
             or ""
         )
@@ -499,7 +545,7 @@ class ReceiptStore:
         return StoredReceipt(
             receipt_id=receipt_id,
             gauntlet_id=gauntlet_id,
-            debate_id=data.get("debate_id"),
+            debate_id=normalized_data.get("debate_id"),
             created_at=created_at,
             expires_at=None,
             verdict=verdict,
@@ -507,12 +553,12 @@ class ReceiptStore:
             risk_level=risk_level,
             risk_score=risk_score,
             checksum=checksum,
-            signature=data.get("signature"),
-            signature_algorithm=data.get("signature_algorithm"),
-            signature_key_id=data.get("signature_key_id"),
+            signature=normalized_data.get("signature"),
+            signature_algorithm=normalized_data.get("signature_algorithm"),
+            signature_key_id=normalized_data.get("signature_key_id"),
             signed_at=None,
-            audit_trail_id=data.get("audit_trail_id"),
-            data=data,
+            audit_trail_id=normalized_data.get("audit_trail_id"),
+            data=normalized_data,
         )
 
     def _load_file_receipts(self) -> builtins.list[StoredReceipt]:
@@ -569,12 +615,14 @@ class ReceiptStore:
         if self._backend is None:
             raise RuntimeError("ReceiptStore not initialized")
 
-        receipt_id = receipt_dict.get("receipt_id", "")
-        gauntlet_id = receipt_dict.get("gauntlet_id", "")
-        debate_id = receipt_dict.get("debate_id")
+        normalized_receipt = _normalize_receipt_payload(receipt_dict)
+
+        receipt_id = normalized_receipt.get("receipt_id", "")
+        gauntlet_id = normalized_receipt.get("gauntlet_id", "")
+        debate_id = normalized_receipt.get("debate_id")
 
         # Parse timestamp
-        created_at = receipt_dict.get("timestamp", time.time())
+        created_at = normalized_receipt.get("timestamp", time.time())
         if isinstance(created_at, str):
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
@@ -610,17 +658,17 @@ class ReceiptStore:
             debate_id,
             created_at,
             expires_at,
-            receipt_dict.get("verdict", ""),
-            receipt_dict.get("confidence", 0.0),
-            receipt_dict.get("risk_level", "MEDIUM"),
-            receipt_dict.get("risk_score", 0.0),
-            receipt_dict.get("checksum", ""),
+            normalized_receipt.get("verdict", ""),
+            normalized_receipt.get("confidence", 0.0),
+            normalized_receipt.get("risk_level", "MEDIUM"),
+            normalized_receipt.get("risk_score", 0.0),
+            normalized_receipt.get("checksum", ""),
             signature,
             signature_algorithm,
             signature_key_id,
             signed_at,
-            receipt_dict.get("audit_trail_id"),
-            json.dumps(receipt_dict, default=_receipt_json_default),
+            normalized_receipt.get("audit_trail_id"),
+            json.dumps(normalized_receipt, default=_receipt_json_default),
         )
 
         # Use backend-specific upsert syntax
