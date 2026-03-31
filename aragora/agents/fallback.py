@@ -425,8 +425,9 @@ class QuotaFallbackMixin:
         Skips the provider that ``self`` belongs to (no point falling back to
         itself). When the agent was created from YAML config, its declared
         ``fallback_chain`` is preferred first and any remaining default providers
-        are appended afterwards. Returns only providers whose API keys are set in
-        the environment.
+        are appended afterwards. The OpenRouter slot prefers an already-cached
+        fallback agent when present so explicit fallback injection and reuse stay
+        stable across retries and tests.
         """
         own_provider = self._derive_provider_name()
         name = getattr(self, "name", "fallback")
@@ -447,14 +448,19 @@ class QuotaFallbackMixin:
             if provider_key == own_provider:
                 continue
 
-            env_var = self._PROVIDER_ENV_BY_KEY[provider_key]
-            api_key = os.environ.get(env_var)
-            if not api_key:
-                continue
+            agent = None
+            if provider_key == "openrouter":
+                agent = self._get_cached_fallback_agent()
 
-            agent = self._create_fallback_agent(
-                provider_key, api_key, name, role, timeout, system_prompt
-            )
+            if agent is None:
+                env_var = self._PROVIDER_ENV_BY_KEY[provider_key]
+                api_key = os.environ.get(env_var)
+                if not api_key:
+                    continue
+
+                agent = self._create_fallback_agent(
+                    provider_key, api_key, name, role, timeout, system_prompt
+                )
             if agent is not None:
                 providers.append((provider_key, agent))
 
