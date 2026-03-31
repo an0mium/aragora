@@ -16,6 +16,7 @@ from aragora.server.handler_registry import (
     get_route_index,
     HANDLER_REGISTRY,
 )
+from aragora.server.handlers.spectate_ws import SpectateStreamHandler
 
 
 @pytest.fixture(autouse=True)
@@ -124,6 +125,17 @@ class TestRouteIndex:
 
         # Cache should be empty after rebuild
         assert cache_info_2.currsize == 0
+
+    def test_dynamic_spectate_stream_route_resolves(self, route_index):
+        """Debate-scoped spectate streams should resolve via RouteIndex prefix matching."""
+        handler = SpectateStreamHandler({})
+        mixin = Mock()
+        mixin._spectate_stream_handler = handler
+
+        route_index.build(mixin, [("_spectate_stream_handler", type(handler))])
+
+        result = route_index.get_handler("/api/v1/spectate/debate-42/stream")
+        assert result == ("_spectate_stream_handler", handler)
 
 
 class TestRouteIndexIntegration:

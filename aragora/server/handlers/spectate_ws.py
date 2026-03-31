@@ -14,8 +14,10 @@ __all__ = [
 
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import unquote
 
 from .base import (
     BaseHandler,
@@ -28,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _RECENT_ACTIVITY_WINDOW_SECONDS = 120
 _STATUS_ACTIVITY_SCAN_LIMIT = 200
+_DYNAMIC_SPECTATE_STREAM_RE = re.compile(r"^/api/v1/spectate/(?P<debate_id>[^/]+)/stream/?$")
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -160,7 +163,9 @@ class SpectateStreamHandler(BaseHandler):
         "/api/v1/spectate/recent",
         "/api/v1/spectate/status",
         "/api/v1/spectate/stream",
+        "/api/v1/spectate/{debate_id}/stream",
     ]
+    ROUTE_PREFIXES = ["/api/v1/spectate/"]
 
     STREAM_MODE = "snapshot"
     STREAM_READINESS = "partial"
@@ -176,11 +181,16 @@ class SpectateStreamHandler(BaseHandler):
         "endpoint; full live SSE delivery has not shipped yet."
     )
 
+    def can_handle(self, path: str) -> bool:
+        """Support exact spectate endpoints plus debate-scoped stream routes."""
+        return path in self.ROUTES[:3] or _DYNAMIC_SPECTATE_STREAM_RE.fullmatch(path) is not None
+
     @handle_errors("spectate")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to the appropriate sub-handler."""
-        if not path.startswith("/api/v1/spectate"):
+        if not self.can_handle(path):
             return None
+        query_params = self._augment_query_params_from_path(path, query_params)
 
         if path.endswith("/recent"):
             return self._handle_recent(query_params)
@@ -239,6 +249,16 @@ class SpectateStreamHandler(BaseHandler):
                 "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
             },
         )
+
+    def _augment_query_params_from_path(
+        self, path: str, query_params: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        """Project debate-scoped stream paths onto existing query-param filtering."""
+        merged = dict(query_params or {})
+        match = _DYNAMIC_SPECTATE_STREAM_RE.fullmatch(path)
+        if match is not None:
+            merged["debate_id"] = unquote(match.group("debate_id"))
+        return merged
 
     def _get_recent_events(self, query_params: dict[str, Any]) -> list[Any]:
         """Return filtered recent spectate events from the bridge buffer."""

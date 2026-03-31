@@ -243,3 +243,10 @@ class TestAuthExemptionIntegration:
                 assert path.rstrip("/") in UnifiedHandler.AUTH_EXEMPT_PATHS, (
                     f"Trailing slash path {path} should have non-slash variant"
                 )
+
+    def test_debate_scoped_spectate_stream_is_exempt(self):
+        """Debate-scoped spectate streams should stay public like the base stream endpoint."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        handler = object.__new__(UnifiedHandler)
+        assert handler._is_path_exempt("/api/v1/spectate/debate-123/stream")

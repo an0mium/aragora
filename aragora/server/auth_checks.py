@@ -13,6 +13,7 @@ and allow easier testing of authentication logic.
 """
 
 import logging
+import re
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
     from aragora.storage import UserStore
 
 logger = logging.getLogger(__name__)
+
+_PUBLIC_SPECTATE_STREAM_PATH_RE = re.compile(r"^/api/v1/spectate/[^/]+/stream/?$")
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +426,8 @@ class AuthChecksMixin:
             True if the path is exempt from auth, False otherwise
         """
         if path in self.AUTH_EXEMPT_PATHS:
+            return True
+        if _PUBLIC_SPECTATE_STREAM_PATH_RE.fullmatch(path):
             return True
         if any(path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
             return True

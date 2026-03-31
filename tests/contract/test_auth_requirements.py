@@ -341,6 +341,15 @@ class TestAuthConsistency:
         assert get_req.level == AuthLevel.PUBLIC
         assert not requires_auth("/api/v2/receipts/share/share-token", "get")
 
+    def test_spectate_stream_path_uses_template_matching(self) -> None:
+        """Concrete debate-scoped spectate paths should remain public."""
+        from aragora.server.auth_requirements import AuthLevel, get_requirement, requires_auth
+
+        req = get_requirement("/api/v1/spectate/debate-42/stream", "get")
+        assert req is not None
+        assert req.level == AuthLevel.PUBLIC
+        assert not requires_auth("/api/v1/spectate/debate-42/stream", "get")
+
     def test_get_required_permission_helper(self) -> None:
         """The get_required_permission helper should work correctly."""
         from aragora.server.auth_requirements import get_required_permission

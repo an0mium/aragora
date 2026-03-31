@@ -140,6 +140,12 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="Spectate SSE snapshot / JSON preview",
     ),
+    EndpointAuth(
+        "/api/v1/spectate/{debate_id}/stream",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Debate-scoped spectate SSE snapshot / JSON preview",
+    ),
     # Onboarding - public for first-time users
     EndpointAuth(
         "/api/v1/onboarding/templates",

@@ -79,6 +79,10 @@ class TestRouteMatching:
         assert "/api/v1/spectate/recent" in handler.ROUTES
         assert "/api/v1/spectate/status" in handler.ROUTES
         assert "/api/v1/spectate/stream" in handler.ROUTES
+        assert "/api/v1/spectate/{debate_id}/stream" in handler.ROUTES
+
+    def test_can_handle_debate_stream_path(self, handler: SpectateStreamHandler):
+        assert handler.can_handle("/api/v1/spectate/debate-123/stream") is True
 
     def test_handle_non_spectate_path_returns_none(
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
@@ -160,6 +164,37 @@ class TestRouteMatching:
         assert result.content_type == "text/event-stream"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
+
+    def test_handle_debate_stream_path_filters_by_path_debate_id(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:00+00:00",
+                debate_id="d-111",
+                agent_name="claude",
+            )
+        )
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="vote",
+                timestamp="2026-02-18T10:00:01+00:00",
+                debate_id="d-222",
+                agent_name="gpt4",
+            )
+        )
+
+        result = handler.handle("/api/v1/spectate/d-111/stream", {}, mock_handler)
+
+        assert result is not None
+        body = result[0]
+        assert body["count"] == 1
+        assert body["debate_id"] == "d-111"
+        assert body["events"][0]["debate_id"] == "d-111"
 
 
 # ---------------------------------------------------------------------------
