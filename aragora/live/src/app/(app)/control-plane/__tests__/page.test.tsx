@@ -89,15 +89,21 @@ jest.mock('@/components/control-plane', () => ({
   SystemHealthDashboard: () => <div data-testid="system-health-dashboard">System Health</div>,
 }));
 
-// Mock verticals components
-jest.mock('@/components/verticals', () => ({
-  VerticalSelector: ({ selectedVertical: _selectedVertical, onSelect: _onSelect, verticals: _verticals }: { selectedVertical?: string; onSelect: () => void; verticals: unknown[] }) => (
+// Mock vertical selector
+jest.mock('@/components/VerticalSelector', () => ({
+  VerticalSelector: ({
+    apiBase: _apiBase,
+    selectedVertical: _selectedVertical,
+    onVerticalChange: _onVerticalChange,
+    compact: _compact,
+  }: {
+    apiBase: string;
+    selectedVertical: string;
+    onVerticalChange: (verticalId: string) => void;
+    compact?: boolean;
+  }) => (
     <div data-testid="vertical-selector">Vertical Selector</div>
   ),
-  KnowledgeExplorer: ({ selectedVertical: _selectedVertical }: { selectedVertical?: string }) => (
-    <div data-testid="vertical-knowledge-explorer">Vertical Knowledge Explorer</div>
-  ),
-  ExecutionMonitor: () => <div data-testid="vertical-execution-monitor">Vertical Execution Monitor</div>,
 }));
 
 // Mock fetch globally
@@ -482,6 +488,10 @@ describe('ControlPlanePage', () => {
       });
 
       expect(screen.getByTestId('vertical-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('knowledge-explorer')).toBeInTheDocument();
+      expect(screen.getByTestId('execution-monitor')).toBeInTheDocument();
+      expect(screen.queryByTestId('vertical-knowledge-explorer')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('vertical-execution-monitor')).not.toBeInTheDocument();
     });
 
     it('switches to policy tab', async () => {

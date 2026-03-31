@@ -41,12 +41,7 @@ import {
   type Deliberation,
 } from '@/components/control-plane';
 
-// Verticals Components
-import {
-  VerticalSelector,
-  KnowledgeExplorer as VerticalKnowledgeExplorer,
-  ExecutionMonitor as VerticalExecutionMonitor,
-} from '@/components/verticals';
+import { VerticalSelector } from '@/components/VerticalSelector';
 
 export default function ControlPlanePage() {
   const { config: backendConfig } = useBackend();
@@ -885,28 +880,42 @@ export default function ControlPlanePage() {
                 {activeTab === 'verticals' && (
                   <div className="space-y-6">
                     <VerticalSelector
-                      selectedVertical={selectedVertical || undefined}
-                      onSelect={(vertical) => setSelectedVertical(vertical.id)}
-                      verticals={verticalsData.map(v => ({
-                        id: v.vertical_id,
-                        displayName: v.display_name,
-                        description: v.description,
-                        expertiseAreas: v.expertise_areas || [],
-                        complianceFrameworks: v.compliance_frameworks || [],
-                        defaultModel: v.default_model || 'claude-sonnet-4',
-                        icon: v.vertical_id === 'software' ? '💻' :
-                              v.vertical_id === 'legal' ? '⚖️' :
-                              v.vertical_id === 'healthcare' ? '🏥' :
-                              v.vertical_id === 'accounting' ? '📊' :
-                              v.vertical_id === 'research' ? '🔬' : '📋',
-                      }))}
+                      apiBase={backendConfig.api}
+                      selectedVertical={selectedVertical || 'general'}
+                      onVerticalChange={setSelectedVertical}
+                      compact
                     />
+                    <div className="card p-3 flex flex-col gap-2 text-xs font-mono text-text-muted lg:flex-row lg:items-center lg:justify-between">
+                      <span>
+                        {verticalsData.length > 0
+                          ? `${verticalsData.length} live vertical profiles available from /api/verticals`
+                          : 'Using built-in vertical presets while backend vertical metadata is unavailable'}
+                      </span>
+                      <span>
+                        Focus:{' '}
+                        <span className="text-acid-green">
+                          {(selectedVertical || 'general').toUpperCase()}
+                        </span>
+                      </span>
+                    </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="h-[400px]">
-                        <VerticalKnowledgeExplorer selectedVertical={selectedVertical || undefined} />
+                      <div className="h-[500px]">
+                        <KnowledgeExplorer
+                          onSelectNode={(_node) => {
+                            // Vertical knowledge selection handler
+                          }}
+                          height={500}
+                          showStats={false}
+                          className="h-full"
+                        />
                       </div>
-                      <div className="h-[400px]">
-                        <VerticalExecutionMonitor />
+                      <div className="h-[500px]">
+                        <ExecutionMonitor
+                          onSelectExecution={(_execution) => {
+                            // Vertical execution selection handler
+                          }}
+                          className="h-full"
+                        />
                       </div>
                     </div>
                   </div>
