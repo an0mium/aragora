@@ -22,6 +22,7 @@ def _stub_cmd_ask_global_side_effects(request):
 
     cleanup_sensitive_tests = {
         "test_cmd_ask_demo_forces_local_offline",
+        "test_shutdown_cmd_ask_resources_drains_transport_callbacks",
         "test_cmd_ask_cleans_shared_resources_on_debate_loop",
         "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
     }
@@ -243,6 +244,36 @@ def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
         ),
     ):
         debate_cmd.cmd_ask(args)
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cmd_ask_resources_drains_transport_callbacks() -> None:
+    """CLI ask shutdown should leave a small drain window for async closes."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    with (
+        patch(
+            "aragora.server.startup.database.close_postgres_pool",
+            new=AsyncMock(),
+        ),
+        patch(
+            "aragora.server.http_client_pool.close_http_pool",
+            new=AsyncMock(),
+        ),
+        patch(
+            "aragora.agents.api_agents.common.close_shared_connector",
+            new=AsyncMock(),
+        ),
+        patch(
+            "aragora.storage.connection_factory.close_all_pools",
+            new=AsyncMock(),
+        ),
+        patch("aragora.events.dispatcher.shutdown_dispatcher"),
+        patch("aragora.cli.commands.debate.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+    ):
+        await debate_cmd._shutdown_cmd_ask_resources()
+
+    mock_sleep.assert_awaited_once_with(0.05)
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
