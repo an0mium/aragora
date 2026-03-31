@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, renderWithProviders, screen, waitFor } from '@/test-utils';
 
 import PublicDemoPage from '../(standalone)/demo/page';
 import TryPage from '../try/page';
@@ -72,7 +72,7 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<TryPage />);
+    renderWithProviders(<TryPage />);
     fireEvent.change(screen.getByPlaceholderText('Enter your decision question...'), {
       target: {
         value: 'Should we use the production backend for public try flows?',
@@ -106,7 +106,7 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<PublicDemoPage />);
+    renderWithProviders(<PublicDemoPage />);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
