@@ -485,14 +485,15 @@ export function LiveDemoSection() {
                     data-testid="live-debate-event"
                     data-event-source={event.source}
                     style={{
-                      border: '1px solid var(--border)',
+                      border: `1px solid ${event.accent}28`,
                       borderRadius: '18px',
-                      backgroundColor: event.background,
+                      backgroundColor: 'var(--surface)',
                       padding: '14px 16px',
+                      paddingLeft: '20px',
                       boxShadow:
                         hasLiveTranscript && index === transcriptEvents.length - 1
-                          ? `0 0 0 1px ${event.accent}22`
-                          : 'none',
+                          ? `inset 4px 0 0 ${event.accent}, 0 0 0 1px ${event.accent}22`
+                          : `inset 4px 0 0 ${event.accent}`,
                     }}
                   >
                     <div

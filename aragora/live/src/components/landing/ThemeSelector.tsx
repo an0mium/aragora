@@ -40,7 +40,7 @@ export function ThemeSelector() {
   if (!isInitialized) {
     return (
       <div
-        className="flex items-center gap-0.5 p-1"
+        className="flex items-center gap-1 p-1.5"
         style={{
           backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-card)',
@@ -54,7 +54,7 @@ export function ThemeSelector() {
 
   return (
     <div
-      className="flex items-center gap-0.5 p-1"
+      className="flex items-center gap-1 p-1.5"
       role="radiogroup"
       aria-label="Theme selection"
       style={{
@@ -72,7 +72,7 @@ export function ThemeSelector() {
             aria-checked={isActive}
             aria-label={`${option.label} theme`}
             onClick={() => setTheme(option.value)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs transition-colors cursor-pointer"
             style={{
               fontFamily: 'var(--font-landing)',
               borderRadius: 'var(--radius-card)',
