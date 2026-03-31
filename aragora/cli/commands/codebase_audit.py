@@ -593,18 +593,31 @@ def cmd_codebase_audit(args: argparse.Namespace) -> int:
         top_files=getattr(args, "top_files", 12),
         max_preview_chars=getattr(args, "max_preview_chars", 4000),
     )
-    deep_audit_result = asyncio.run(
-        _run_interrogate_stage(
-            repo_root=repo_root,
-            triage=triage,
-            surface=surface,
-            agents_str=getattr(args, "agents", ""),
-            top_files=getattr(args, "top_files", 12),
-            max_file_chars=getattr(args, "max_file_chars", 12000),
-            dry_run=getattr(args, "dry_run", False),
-        )
-    )
     blast_radius = build_blast_radius(surface)
+
+    _write_json(artifact_dir / "triage.json", triage)
+    _write_json(artifact_dir / "surface.json", surface)
+    _write_json(artifact_dir / "blast_radius.json", blast_radius)
+
+    try:
+        deep_audit_result = asyncio.run(
+            _run_interrogate_stage(
+                repo_root=repo_root,
+                triage=triage,
+                surface=surface,
+                agents_str=getattr(args, "agents", ""),
+                top_files=getattr(args, "top_files", 12),
+                max_file_chars=getattr(args, "max_file_chars", 12000),
+                dry_run=getattr(args, "dry_run", False),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        deep_audit_result = {
+            "status": "failed",
+            "errors": [str(exc)],
+            "task": None,
+            "context_preview": None,
+        }
 
     summary = {
         "repo_root": str(repo_root),
@@ -624,10 +637,7 @@ def cmd_codebase_audit(args: argparse.Namespace) -> int:
         },
     }
 
-    _write_json(artifact_dir / "triage.json", triage)
-    _write_json(artifact_dir / "surface.json", surface)
     _write_json(artifact_dir / "interrogate.json", deep_audit_result)
-    _write_json(artifact_dir / "blast_radius.json", blast_radius)
     _write_json(artifact_dir / "run.json", summary)
     (artifact_dir / "summary.md").write_text(
         _summary_markdown(
@@ -654,4 +664,4 @@ def cmd_codebase_audit(args: argparse.Namespace) -> int:
             print(
                 f"- {item['path']} [{item['dominant_boundary']}] score={item['score']} loc={item['loc']}"
             )
-    return 0
+    return 0 if deep_audit_result.get("status") != "failed" else 1

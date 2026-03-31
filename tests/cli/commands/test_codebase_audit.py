@@ -131,3 +131,48 @@ def test_cmd_codebase_audit_dry_run_writes_staged_artifacts(
     interrogate = json.loads((artifact_dir / "interrogate.json").read_text())
     assert interrogate["status"] == "skipped_dry_run"
     assert "Highest-risk files:" in interrogate["task"]
+
+
+def test_cmd_codebase_audit_persists_partial_artifacts_when_interrogate_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write(
+        tmp_path / "aragora" / "swarm" / "boss_loop.py",
+        "create_agent('codex')\nworker = 'dispatch worker'\n",
+    )
+    artifact_dir = tmp_path / "artifacts"
+
+    async def _boom(**_: object) -> dict[str, object]:
+        raise RuntimeError("interrogate exploded")
+
+    monkeypatch.setattr(codebase_audit, "_run_interrogate_stage", _boom)
+
+    args = argparse.Namespace(
+        repo=str(tmp_path),
+        agents="claude,codex,openai",
+        top_files=4,
+        max_dirs=25,
+        max_preview_chars=500,
+        max_file_chars=1000,
+        artifact_dir=str(artifact_dir),
+        dry_run=False,
+        json=False,
+    )
+
+    exit_code = codebase_audit.cmd_codebase_audit(args)
+
+    assert exit_code == 1
+    for name in [
+        "triage.json",
+        "surface.json",
+        "blast_radius.json",
+        "interrogate.json",
+        "run.json",
+        "summary.md",
+    ]:
+        assert (artifact_dir / name).exists()
+
+    interrogate = json.loads((artifact_dir / "interrogate.json").read_text())
+    assert interrogate["status"] == "failed"
+    assert interrogate["errors"] == ["interrogate exploded"]
