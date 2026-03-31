@@ -201,6 +201,95 @@ DEBATE_ENDPOINTS = {
             },
         },
     },
+    "/api/debates/{id}/spectate": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Open live debate spectate stream",
+            "operationId": "openDebateSpectateStream",
+            "description": """Open the live Server-Sent Events stream for a debate.
+
+**Transport:** Callers that support SSE should connect directly to this endpoint and
+consume `text/event-stream` frames. JSON-oriented clients should use
+`GET /api/spectate/{debate_id}/stream` first to retrieve the connection details.""",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": {
+                    "description": "Live debate SSE stream or connection details",
+                    "content": {
+                        "text/event-stream": {
+                            "schema": {
+                                "type": "string",
+                                "description": "Server-Sent Events frame stream for live debate updates.",
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "debate_id": {"type": "string"},
+                                    "spectate_available": {"type": "boolean"},
+                                    "sse_url": {
+                                        "type": "string",
+                                        "description": "URL to connect to with an SSE-capable client.",
+                                    },
+                                    "message": {"type": "string"},
+                                },
+                                "required": ["debate_id", "spectate_available", "sse_url"],
+                            }
+                        },
+                    },
+                },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/spectate/{debate_id}/stream": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get debate spectate connection details",
+            "operationId": "getDebateSpectateConnection",
+            "description": """Return JSON connection details for a debate's live SSE spectate stream.
+
+Use this compatibility endpoint when you need the live stream URL in a JSON response
+before opening an SSE connection to the debate-specific spectate endpoint.""",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Debate spectate connection details",
+                    {
+                        "debate_id": {"type": "string"},
+                        "spectate_available": {"type": "boolean"},
+                        "active_viewers": {"type": "integer"},
+                        "bridge_active": {"type": "boolean"},
+                        "availability_state": {"type": "string"},
+                        "observed_live": {"type": "boolean"},
+                        "recent_event_count": {"type": "integer"},
+                        "last_event_at": {"type": ["string", "null"], "format": "date-time"},
+                        "recent_activity_window_seconds": {"type": "integer"},
+                        "sse_url": {"type": "string"},
+                        "stream_url": {"type": "string"},
+                        "message": {"type": "string"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/debates/{id}/convergence": {
         "get": {
             "tags": ["Debates"],

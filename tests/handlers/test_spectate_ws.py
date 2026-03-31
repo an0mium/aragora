@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.server.handlers.base import error_response
 from aragora.server.handlers.spectate_ws import SpectateStreamHandler
 from aragora.spectate.ws_bridge import (
     SpectateEvent,
@@ -79,6 +80,7 @@ class TestRouteMatching:
         assert "/api/v1/spectate/recent" in handler.ROUTES
         assert "/api/v1/spectate/status" in handler.ROUTES
         assert "/api/v1/spectate/stream" in handler.ROUTES
+        assert "/api/v1/spectate/*/stream" in handler.ROUTES
 
     def test_handle_non_spectate_path_returns_none(
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
@@ -160,6 +162,36 @@ class TestRouteMatching:
         assert result.content_type == "text/event-stream"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
+
+    def test_handle_debate_stream_connection_path(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        with patch.object(
+            handler,
+            "require_permission_or_error",
+            return_value=(SimpleNamespace(user_id="reader"), None),
+        ):
+            result = handler.handle("/api/v1/spectate/debate-42/stream", {}, mock_handler)
+
+        assert result is not None
+        body = result[0]
+        assert body["debate_id"] == "debate-42"
+        assert body["spectate_available"] is True
+        assert body["sse_url"] == "/api/v1/debates/debate-42/spectate"
+        assert body["stream_url"] == "/api/v1/debates/debate-42/spectate"
+        assert "SSE client" in body["message"]
+
+    def test_handle_debate_stream_requires_permission(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        with patch.object(
+            handler,
+            "require_permission_or_error",
+            return_value=(None, error_response("Authentication required", 401)),
+        ):
+            result = handler.handle("/api/v1/spectate/debate-42/stream", {}, mock_handler)
+        assert result is not None
+        assert result.status_code == 401
 
 
 # ---------------------------------------------------------------------------

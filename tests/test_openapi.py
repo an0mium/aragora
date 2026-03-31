@@ -98,6 +98,11 @@ class TestEndpoints:
         assert "/api/debates/{id}" in ALL_ENDPOINTS
         assert "/api/debates/{id}/messages" in ALL_ENDPOINTS
 
+    def test_spectate_endpoints_defined(self):
+        """Debate spectate endpoints are defined."""
+        assert "/api/debates/{id}/spectate" in ALL_ENDPOINTS
+        assert "/api/spectate/{debate_id}/stream" in ALL_ENDPOINTS
+
     def test_leaderboard_endpoint_defined(self):
         """Leaderboard endpoint is defined."""
         assert "/api/leaderboard" in ALL_ENDPOINTS
@@ -182,6 +187,12 @@ class TestGenerateOpenAPISchema:
         schema = generate_openapi_schema()
         assert "paths" in schema
         assert len(schema["paths"]) > 0
+
+    def test_spectate_paths_in_schema(self):
+        """Generated schema includes the live and compatibility spectate routes."""
+        schema = generate_openapi_schema()
+        assert "/api/v1/debates/{id}/spectate" in schema["paths"]
+        assert "/api/v1/spectate/{debate_id}/stream" in schema["paths"]
 
     def test_components_section(self):
         """Has components section with schemas."""
