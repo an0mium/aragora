@@ -22,6 +22,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -981,12 +982,60 @@ def _parse_lock_pids(lock_file: Path) -> list[int]:
     return pids
 
 
+@lru_cache(maxsize=1)
+def _live_cwd_paths() -> tuple[Path, ...]:
+    """Snapshot live process working directories via lsof, if available."""
+    try:
+        proc = subprocess.run(
+            ["lsof", "-a", "-d", "cwd", "-Fpn"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return ()
+
+    if proc.returncode not in {0, 1}:
+        return ()
+
+    paths: list[Path] = []
+    for raw in proc.stdout.splitlines():
+        if not raw.startswith("n"):
+            continue
+        candidate = raw[1:].strip()
+        if not candidate:
+            continue
+        try:
+            paths.append(Path(candidate).resolve())
+        except OSError:
+            continue
+    return tuple(paths)
+
+
+def _has_live_cwd_process(worktree_path: Path) -> bool:
+    """Return True when a live process still has its cwd inside the worktree."""
+    try:
+        target = worktree_path.resolve()
+    except OSError:
+        return False
+
+    for cwd_path in _live_cwd_paths():
+        try:
+            cwd_path.relative_to(target)
+        except ValueError:
+            continue
+        return True
+    return False
+
+
 def _has_active_session(worktree_path: Path) -> bool:
-    """Check if a worktree has an active Claude/Codex session via lock files.
+    """Check if a worktree has an active session via locks or live cwd usage.
 
     If any known session lock exists and has a live PID, the worktree is active.
     Conservative behavior: unreadable or unparseable lock files are treated as
-    active to avoid destructive cleanup/reconcile on in-progress sessions.
+    active to avoid destructive cleanup/reconcile on in-progress sessions. When
+    locks are missing, fall back to detecting live processes whose cwd is still
+    inside the worktree so cleanup doesn't reap an in-use checkout.
     """
     lock_names = (".claude-session-active", ".codex_session_active", ".nomic-session-active")
     for lock_name in lock_names:
@@ -1002,8 +1051,7 @@ def _has_active_session(worktree_path: Path) -> bool:
         for pid in pids:
             if _pid_alive(pid):
                 return True
-    # Locks missing or all recorded PIDs dead — safe to proceed.
-    return False
+    return _has_live_cwd_process(worktree_path)
 
 
 def _has_active_lease(repo_root: Path, worktree_path: Path) -> bool:

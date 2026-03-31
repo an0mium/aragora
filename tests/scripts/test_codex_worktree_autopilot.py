@@ -1011,6 +1011,7 @@ def test_has_active_session_detects_codex_lock_file(
 ) -> None:
     import codex_worktree_autopilot as mod
 
+    mod._live_cwd_paths.cache_clear()
     worktree = tmp_path / "wt"
     worktree.mkdir()
     (worktree / ".codex_session_active").write_text("pid=1234\n", encoding="utf-8")
@@ -1022,6 +1023,30 @@ def test_has_active_session_detects_codex_lock_file(
 
     monkeypatch.setattr(mod.os, "kill", _fake_kill)
     assert mod._has_active_session(worktree) is True
+    mod._live_cwd_paths.cache_clear()
+
+
+def test_has_active_session_detects_live_cwd_process_without_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    mod._live_cwd_paths.cache_clear()
+    worktree = tmp_path / "wt"
+    nested = worktree / "nested"
+    nested.mkdir(parents=True)
+
+    def _fake_run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=["lsof", "-a", "-d", "cwd", "-Fpn"],
+            returncode=0,
+            stdout=f"p4242\nn{nested}\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    assert mod._has_active_session(worktree) is True
+    mod._live_cwd_paths.cache_clear()
 
 
 def test_cmd_reconcile_skips_active_session_lock(
@@ -1250,6 +1275,82 @@ def test_cmd_cleanup_archives_before_removal(
     assert payload["results"][0]["archive_path"] == "/tmp/archive/stale-1"
     assert removed_paths == [stale_path]
     assert saved_state["sessions"] == []
+
+
+def test_cmd_cleanup_skips_live_cwd_process_without_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    mod._live_cwd_paths.cache_clear()
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    active_path = tmp_path / "active-wt"
+    active_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "active-1",
+                "agent": "codex",
+                "branch": "codex/active-1",
+                "path": str(active_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=active_path, branch="codex/active-1")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_has_live_cwd_process", lambda _path: True)
+    monkeypatch.setattr(
+        mod,
+        "_archive_session",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not archive")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_remove_worktree",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not remove")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git", "worktree", "prune"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        ttl_hours=0,
+        force_unmerged=False,
+        delete_branches=True,
+        json=True,
+    )
+    rc = mod.cmd_cleanup(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removed"] == 0
+    assert payload["kept"] == 1
+    assert payload["skipped_active_session"] == 1
+    assert payload["results"][0]["status"] == "skipped_active_session"
+    assert len(saved_state["sessions"]) == 1
+    mod._live_cwd_paths.cache_clear()
 
 
 def test_cmd_cleanup_archives_orphaned_existing_directory_before_delete(
