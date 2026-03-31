@@ -27,6 +27,7 @@ from typing import Any
 from collections.abc import Callable, Coroutine
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.utils.public_urls import public_receipt_url
 
 logger = logging.getLogger(__name__)
 
@@ -1372,8 +1373,7 @@ class TeamsIntegrationHandler(BaseHandler):
     @staticmethod
     def _public_receipt_url(receipt_id: str) -> str:
         """Build an absolute receipt URL for external chat clients."""
-        base_url = os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai").rstrip("/")
-        return f"{base_url}/api/v1/receipts/{receipt_id}"
+        return public_receipt_url(receipt_id)
 
     def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
         """Read and parse JSON body from request."""

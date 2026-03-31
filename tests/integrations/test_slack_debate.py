@@ -876,7 +876,10 @@ class TestPostReceipt:
         _, _, _, blocks = mock_post.call_args.args
         assert any("View Full Receipt" in str(block) for block in blocks)
         assert any(
-            "https://app.aragora.ai/receipts/rcpt-slack-123" in str(block) for block in blocks
+            "https://app.aragora.ai/receipts?id=rcpt-slack-123" in str(block) for block in blocks
+        )
+        assert SlackDebateLifecycle._build_receipt_url(receipt) == (
+            "https://aragora.ai/receipts?id=rcpt-slack-123"
         )
 
 

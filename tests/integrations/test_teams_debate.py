@@ -2022,7 +2022,7 @@ class TestDeliverReceiptToThread:
                 )
                 card = mock_send.call_args[0][2]
                 card_text = str(card)
-                assert "https://my.app/receipts/rcpt-xyz" in card_text
+                assert "https://my.app/receipts?id=rcpt-xyz" in card_text
 
 
 # =============================================================================

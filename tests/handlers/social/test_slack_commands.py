@@ -1635,7 +1635,7 @@ class TestCreateDebateAsync:
 
         assert any(
             action.get("text", {}).get("text") == "View Receipt"
-            and action.get("url") == "https://app.example.ai/receipts/rcpt-slack-123"
+            and action.get("url") == "https://app.example.ai/receipts?id=rcpt-slack-123"
             for action in final_actions
         )
         fake_receipt_store.save.assert_called_once_with({"receipt_id": "rcpt-slack-123"})
