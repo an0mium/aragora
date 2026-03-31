@@ -52,6 +52,12 @@ class TestOutcomeSignal:
         # Should be JSON-serializable
         json.dumps(d)
 
+    def test_to_dict_includes_default_debate_id(self):
+        s = _make_signal()
+        d = s.to_dict()
+        assert "debate_id" in d
+        assert d["debate_id"] == ""
+
     def test_to_dict_includes_elapsed_seconds(self):
         s = _make_signal(elapsed_seconds=12.5)
         d = s.to_dict()
@@ -101,6 +107,21 @@ class TestOutcomeSignalBus:
 
         recent = bus.recent(minutes=5)
         assert len(recent) == 5
+        path.unlink()
+
+    def test_custom_debate_id_survives_jsonl_roundtrip(self):
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+            path = Path(f.name)
+
+        bus = OutcomeSignalBus(log_path=path)
+        bus.emit(_make_signal(entity_id="42", debate_id="debate-123"))
+
+        data = json.loads(path.read_text().strip())
+        assert data["debate_id"] == "debate-123"
+
+        recent = bus.recent(minutes=5)
+        assert len(recent) == 1
+        assert recent[0].debate_id == "debate-123"
         path.unlink()
 
 

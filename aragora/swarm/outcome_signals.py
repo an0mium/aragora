@@ -68,6 +68,7 @@ class OutcomeSignal:
     # Provenance
     timestamp: str = ""
     correlation_id: str = ""
+    debate_id: str = ""
 
     def __post_init__(self) -> None:
         if not self.timestamp:
