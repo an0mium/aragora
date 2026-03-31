@@ -489,21 +489,21 @@ Reply in thread to add suggestions to ongoing debates
 
             env = Environment(task=question)
             protocol = DebateProtocol(
-                rounds=1,
+                rounds=2,
                 consensus="majority",
-                convergence_detection=False,
+                convergence_detection=True,
                 enable_research=False,
                 enable_trending_injection=False,
             )
 
-            # Detect available agents from env API keys
+            # Detect available agents from env API keys — use up to 3 for better consensus
             detected = _detect_agents()
             if not detected:
                 raise RuntimeError("No API keys configured for debate agents")
 
             agents = []
-            roles = ["proposer", "critic"]
-            for i, (agent_type, model) in enumerate(detected[:2]):
+            roles = ["proposer", "critic", "synthesizer"]
+            for i, (agent_type, model) in enumerate(detected[:3]):
                 agents.append(
                     create_agent(
                         agent_type,
@@ -514,12 +514,20 @@ Reply in thread to add suggestions to ongoing debates
                 )
 
             arena = Arena(env, agents, protocol)
-            result = await asyncio.wait_for(arena.run(), timeout=90)
+            result = await asyncio.wait_for(arena.run(), timeout=120)
+
+            # Extract answer with confidence check
             answer = str(
-                getattr(result, "final_answer", None)
-                or getattr(result, "summary", None)
-                or "Debate completed but no clear answer emerged."
+                getattr(result, "final_answer", None) or getattr(result, "summary", None) or ""
             )
+            confidence = float(getattr(result, "confidence", 0.0) or 0.0)
+
+            # Fail closed: don't post confidently wrong answers
+            if not answer or (confidence > 0 and confidence < 0.3):
+                answer = (
+                    "I wasn't able to reach a confident answer on this question. "
+                    "Try rephrasing or using `/aragora debate` for a deeper analysis."
+                )
 
             # Build response blocks
             blocks = [
