@@ -299,6 +299,7 @@ class SlackOAuthHandler(SecureHandler):
             body = (
                 args[2] if len(args) > 2 and isinstance(args[2], dict) else kwargs.get("body", {})
             )
+            raw_body = kwargs.get("raw_body")
             qp = (
                 args[3]
                 if len(args) > 3 and isinstance(args[3], dict)
@@ -315,6 +316,7 @@ class SlackOAuthHandler(SecureHandler):
             path = str(args[0]) if args else kwargs.get("path", "")
             raw_qp = args[1] if len(args) > 1 else kwargs.get("query_params", {})
             hndlr = args[2] if len(args) > 2 else kwargs.get("handler")
+            raw_body = b""
 
             # Extract method from handler's command attribute (HTTP method)
             method = getattr(hndlr, "command", "GET") if hndlr else "GET"
@@ -343,7 +345,7 @@ class SlackOAuthHandler(SecureHandler):
             # Extract headers from handler if available
             hdrs = dict(hndlr.headers) if hndlr and hasattr(hndlr, "headers") else {}
 
-        return await self._handle_oauth(method, path, body, qp, hdrs, hndlr)
+        return await self._handle_oauth(method, path, body, qp, hdrs, hndlr, raw_body)
 
     async def _handle_oauth(
         self,
@@ -353,6 +355,7 @@ class SlackOAuthHandler(SecureHandler):
         query_params: dict[str, str],
         headers: dict[str, str],
         handler: Any | None = None,
+        raw_body: bytes | str | None = None,
     ) -> HandlerResult:
         """Internal OAuth request handler.
 
@@ -388,7 +391,7 @@ class SlackOAuthHandler(SecureHandler):
         # Security: Request is verified using Slack signing secret (HMAC-SHA256)
         if path == "/api/integrations/slack/uninstall":
             if method == "POST":
-                return await self._handle_uninstall(body, headers or {})
+                return await self._handle_uninstall(body, headers or {}, raw_body=raw_body)
             return error_response("Method not allowed", 405)
 
         # Allow unauthenticated install flow in non-production for developer convenience
@@ -1110,7 +1113,11 @@ class SlackOAuthHandler(SecureHandler):
         )
 
     async def _handle_uninstall(
-        self, body: dict[str, Any], headers: dict[str, str]
+        self,
+        body: dict[str, Any],
+        headers: dict[str, str],
+        *,
+        raw_body: bytes | str | None = None,
     ) -> HandlerResult:
         """
         Handle app uninstallation webhook from Slack.
@@ -1156,12 +1163,22 @@ class SlackOAuthHandler(SecureHandler):
             import hmac
             import hashlib
 
-            sig_basestring = f"v0:{timestamp}:{json.dumps(body, separators=(',', ':'))}"
+            if isinstance(raw_body, str):
+                raw_body_bytes = raw_body.encode("utf-8")
+            elif isinstance(raw_body, bytes):
+                raw_body_bytes = raw_body
+            else:
+                # Compatibility fallback for tests/direct calls that only pass a
+                # parsed dict. Real webhook verification must prefer the exact
+                # raw body Slack signed, not a reserialized approximation.
+                raw_body_bytes = json.dumps(body, separators=(",", ":")).encode("utf-8")
+
+            sig_basestring = b"v0:" + timestamp.encode("utf-8") + b":" + raw_body_bytes
             computed_sig = (
                 "v0="
                 + hmac.new(
                     signing_secret.encode(),
-                    sig_basestring.encode(),
+                    sig_basestring,
                     hashlib.sha256,
                 ).hexdigest()
             )

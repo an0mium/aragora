@@ -554,6 +554,59 @@ class TestSlackOAuthUninstall:
         mock_store.deactivate.assert_called_once_with("T12345678")
 
     @pytest.mark.asyncio
+    async def test_uninstall_verifies_signature_against_raw_body(self, oauth_handler):
+        """Signature verification must use the exact raw Slack payload, not reserialized JSON."""
+        body = {
+            "type": "event_callback",
+            "team_id": "T12345678",
+            "event": {"type": "app_uninstalled", "team_id": "T12345678"},
+        }
+        raw_body = json.dumps(body, indent=2, sort_keys=True)
+        timestamp = str(int(time.time()))
+        signing_secret = "secret-signing-key"
+        signature = (
+            "v0="
+            + hmac.new(
+                signing_secret.encode(),
+                f"v0:{timestamp}:{raw_body}".encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
+
+        def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+            values = {
+                "SLACK_SIGNING_SECRET": signing_secret,
+                "ARAGORA_ENV": "production",
+            }
+            return values.get(name, default)
+
+        mock_store = MagicMock()
+
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_SIGNING_SECRET", ""),
+            patch(
+                "aragora.server.handlers.social.slack_oauth.get_secret", side_effect=fake_get_secret
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_store,
+            ),
+        ):
+            result = await oauth_handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body=body,
+                headers={
+                    "x-slack-request-timestamp": timestamp,
+                    "x-slack-signature": signature,
+                },
+                raw_body=raw_body.encode("utf-8"),
+            )
+
+        assert result.status_code == 200
+        mock_store.deactivate.assert_called_once_with("T12345678")
+
+    @pytest.mark.asyncio
     async def test_uninstall_unknown_event(self, oauth_handler):
         """Test uninstall handles unknown event type."""
         result = await oauth_handler.handle(
