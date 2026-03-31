@@ -200,6 +200,7 @@ Examples:
     _add_spec_parser(subparsers)
     _add_idea_parser(subparsers)
     _add_build_parser(subparsers)
+    _add_essay_parser(subparsers)
 
     return parser
 
@@ -3097,3 +3098,99 @@ def _add_idea_parser(subparsers) -> None:
     review_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     idea_parser.set_defaults(func=_lazy("aragora.cli.commands.idea", "cmd_idea"))
+
+
+def _add_essay_parser(subparsers) -> None:
+    """Add the 'essay' subcommand with 'refine' and 'score' sub-subcommands."""
+    essay_parser = subparsers.add_parser(
+        "essay",
+        help="Refine raw ideas into a polished essay or score an existing draft",
+        description=(
+            "Essay Refinement Pipeline: extract -> draft -> evaluate -> synthesize -> polish.\n\n"
+            "Subcommands:\n"
+            "  refine  Run the full multi-model refinement pipeline on raw ideas\n"
+            "  score   Evaluate an existing draft across 7 quality dimensions"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    essay_parser.set_defaults(func=_lazy("aragora.cli.commands.essay", "essay_command"))
+
+    essay_sub = essay_parser.add_subparsers(dest="essay_subcommand")
+
+    # ── refine subcommand ──────────────────────────────────────────────────
+    refine_parser = essay_sub.add_parser(
+        "refine",
+        help="Run the essay refinement pipeline on raw ideas",
+    )
+    refine_parser.add_argument(
+        "--input",
+        "-i",
+        required=True,
+        help="Path to a file containing raw ideas / brainstorm notes",
+    )
+    refine_parser.add_argument(
+        "--output",
+        "-o",
+        help="Write the final essay to this file",
+    )
+    refine_parser.add_argument(
+        "--rounds",
+        "-r",
+        type=int,
+        default=3,
+        help="Maximum refinement iterations (default: 3)",
+    )
+    refine_parser.add_argument(
+        "--models",
+        "-m",
+        help="Comma-separated list of model identifiers for parallel drafting",
+    )
+    refine_parser.add_argument(
+        "--target-words",
+        type=int,
+        default=1200,
+        dest="target_words",
+        help="Approximate word count for the final essay (default: 1200)",
+    )
+    refine_parser.add_argument(
+        "--voice-notes",
+        dest="voice_notes",
+        help="Stylistic guidance forwarded to drafting and synthesis prompts",
+    )
+    refine_parser.add_argument(
+        "--rubric",
+        help="Path to a YAML rubric file (uses built-in rubric if omitted)",
+    )
+    refine_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Extract thesis and outline only; skip drafting and scoring",
+    )
+    refine_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume a previously interrupted pipeline run",
+    )
+    refine_parser.set_defaults(func=_lazy("aragora.cli.commands.essay", "essay_command"))
+
+    # ── score subcommand ───────────────────────────────────────────────────
+    score_parser = essay_sub.add_parser(
+        "score",
+        help="Evaluate an existing draft across 7 quality dimensions",
+    )
+    score_parser.add_argument(
+        "--input",
+        "-i",
+        required=True,
+        help="Path to an existing essay draft file",
+    )
+    score_parser.add_argument(
+        "--rubric",
+        help="Path to a YAML rubric file (uses built-in rubric if omitted)",
+    )
+    score_parser.add_argument(
+        "--models",
+        "-m",
+        help="Comma-separated model identifiers; first model is used as judge",
+    )
+    score_parser.set_defaults(func=_lazy("aragora.cli.commands.essay", "essay_command"))
