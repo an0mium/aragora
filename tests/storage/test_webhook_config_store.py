@@ -24,6 +24,7 @@ from aragora.storage.webhook_config_store import (
     WebhookConfig,
     WebhookConfigStoreBackend,
     InMemoryWebhookConfigStore,
+    PostgresWebhookConfigStore,
     SQLiteWebhookConfigStore,
     RedisWebhookConfigStore,
     get_webhook_config_store,
@@ -1390,6 +1391,70 @@ class TestRedisWebhookConfigStore:
 
         store.close()
         mock_redis.close.assert_called_once()
+
+
+# =============================================================================
+# PostgresWebhookConfigStore Sync Wrapper Tests
+# =============================================================================
+
+
+class TestPostgresWebhookConfigStoreSyncWrappers:
+    """Tests for Postgres sync wrappers bridging through run_async()."""
+
+    @pytest.fixture
+    def postgres_store(self):
+        """Create a Postgres store with a mocked pool."""
+        return PostgresWebhookConfigStore(MagicMock())
+
+    @pytest.mark.parametrize(
+        ("method_name", "args", "kwargs"),
+        [
+            ("register", ("https://example.com/hook", ["debate_end"]), {}),
+            ("get", ("webhook-123",), {}),
+            ("list", (), {"user_id": "user-123", "workspace_id": "ws-123", "active_only": True}),
+            ("delete", ("webhook-123",), {}),
+            ("update", ("webhook-123",), {"url": "https://example.com/new"}),
+            ("get_for_event", ("debate_end",), {}),
+        ],
+    )
+    def test_sync_wrappers_delegate_via_run_async(
+        self,
+        postgres_store,
+        method_name: str,
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> None:
+        """Sync wrappers should use the shared async bridge instead of run_until_complete()."""
+        sentinel = object()
+
+        def _capture(coro, timeout: float = 30.0):
+            assert timeout == 30.0
+            coro.close()
+            return sentinel
+
+        with patch(
+            "aragora.storage.webhook_config_store.run_async", side_effect=_capture
+        ) as mock_run:
+            result = getattr(postgres_store, method_name)(*args, **kwargs)
+
+        assert result is sentinel
+        mock_run.assert_called_once()
+
+    def test_record_delivery_delegates_via_run_async(self, postgres_store) -> None:
+        """record_delivery should also bridge via run_async()."""
+
+        def _capture(coro, timeout: float = 30.0):
+            assert timeout == 30.0
+            coro.close()
+            return object()
+
+        with patch(
+            "aragora.storage.webhook_config_store.run_async", side_effect=_capture
+        ) as mock_run:
+            result = postgres_store.record_delivery("webhook-123", 200, success=True)
+
+        assert result is None
+        mock_run.assert_called_once()
 
 
 # =============================================================================

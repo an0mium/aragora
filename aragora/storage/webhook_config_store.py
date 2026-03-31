@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from asyncpg import Pool
 
 from aragora.config import resolve_db_path
-from aragora.utils.async_utils import get_event_loop_safe
+from aragora.utils.async_utils import run_async
 
 # Pre-declare encryption names for optional import fallback
 EncryptionError: type[Exception]
@@ -985,9 +985,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(
-            self.register_async(url, events, name, description, user_id, workspace_id)
-        )
+        return run_async(self.register_async(url, events, name, description, user_id, workspace_id))
 
     async def register_async(
         self,
@@ -1046,7 +1044,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def get(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(self.get_async(webhook_id))
+        return run_async(self.get_async(webhook_id))
 
     async def get_async(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID asynchronously."""
@@ -1093,9 +1091,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         active_only: bool = False,
     ) -> _list[WebhookConfig]:
         """List webhooks (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(
-            self.list_async(user_id, workspace_id, active_only)
-        )
+        return run_async(self.list_async(user_id, workspace_id, active_only))
 
     async def list_async(
         self,
@@ -1134,7 +1130,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def delete(self, webhook_id: str) -> bool:
         """Delete webhook (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(self.delete_async(webhook_id))
+        return run_async(self.delete_async(webhook_id))
 
     async def delete_async(self, webhook_id: str) -> bool:
         """Delete webhook asynchronously."""
@@ -1155,9 +1151,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         description: str | None = None,
     ) -> WebhookConfig | None:
         """Update webhook (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(
-            self.update_async(webhook_id, url, events, active, name, description)
-        )
+        return run_async(self.update_async(webhook_id, url, events, active, name, description))
 
     async def update_async(
         self,
@@ -1225,9 +1219,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         success: bool = True,
     ) -> None:
         """Record delivery (sync wrapper for async)."""
-        get_event_loop_safe().run_until_complete(
-            self.record_delivery_async(webhook_id, status_code, success)
-        )
+        run_async(self.record_delivery_async(webhook_id, status_code, success))
 
     async def record_delivery_async(
         self,
@@ -1258,7 +1250,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def get_for_event(self, event_type: str) -> _list[WebhookConfig]:
         """Get webhooks for event (sync wrapper for async)."""
-        return get_event_loop_safe().run_until_complete(self.get_for_event_async(event_type))
+        return run_async(self.get_for_event_async(event_type))
 
     async def get_for_event_async(self, event_type: str) -> _list[WebhookConfig]:
         """Get webhooks for event asynchronously."""
