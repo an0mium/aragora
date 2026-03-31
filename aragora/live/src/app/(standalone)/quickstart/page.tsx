@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { ConnectOpenRouterButton } from '@/components/openrouter/ConnectOpenRouterButton';
 
 export const metadata: Metadata = {
   title: 'Quickstart | ARAGORA',
@@ -126,8 +127,9 @@ print(result.receipt.to_markdown())`}</CodeBlock>
 
         {/* Step 3 */}
         <Step number={3} title="Add Real AI Models">
-          <p className="text-sm font-mono text-[var(--text-muted)]">
-            Set at least one API key:
+          <ConnectOpenRouterButton />
+          <p className="text-sm font-mono text-[var(--text-muted)] mt-4">
+            Or set API keys manually:
           </p>
           <CodeBlock lang="bash">{`export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 # or
