@@ -14,6 +14,7 @@ import argparse
 from datetime import datetime
 import json
 import logging
+import math
 import os
 import sys
 import tempfile
@@ -242,6 +243,17 @@ def _receipt_payload_dict(meta: Any) -> dict[str, Any]:
     return {}
 
 
+def _clamp_probability(value: Any) -> float:
+    """Clamp percentage-style confidence values into the unit interval."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(numeric):
+        return 0.0
+    return min(1.0, max(0.0, numeric))
+
+
 def _normalize_receipt_verdict_and_confidence(
     data: dict[str, Any],
     *,
@@ -250,7 +262,7 @@ def _normalize_receipt_verdict_and_confidence(
 ) -> tuple[str, float]:
     """Fill missing verdict/confidence for trust-wedge receipts from nested metadata."""
     normalized_verdict = str(verdict or "").strip()
-    normalized_confidence = float(confidence or 0.0)
+    normalized_confidence = _clamp_probability(confidence)
 
     triage = data.get("triage_decision")
     if not isinstance(triage, dict):
@@ -258,13 +270,9 @@ def _normalize_receipt_verdict_and_confidence(
 
     triage_confidence = triage.get("confidence")
     if triage_confidence is not None:
-        try:
-            triage_confidence_value = float(triage_confidence)
-        except (TypeError, ValueError):
-            triage_confidence_value = None
-        else:
-            if normalized_confidence == 0.0 and triage_confidence_value != 0.0:
-                normalized_confidence = triage_confidence_value
+        triage_confidence_value = _clamp_probability(triage_confidence)
+        if normalized_confidence == 0.0 and triage_confidence_value != 0.0:
+            normalized_confidence = triage_confidence_value
 
     verdict_missing = not normalized_verdict or normalized_verdict.upper() == "UNKNOWN"
     if verdict_missing:
@@ -292,6 +300,21 @@ def _normalize_receipt_payload_for_display(data: dict[str, Any]) -> dict[str, An
     )
     normalized["verdict"] = verdict
     normalized["confidence"] = confidence
+
+    receipt_meta = normalized.get("receipt")
+    if isinstance(receipt_meta, dict):
+        receipt_meta = dict(receipt_meta)
+        receipt_meta["confidence"] = _clamp_probability(receipt_meta.get("confidence", confidence))
+        normalized["receipt"] = receipt_meta
+
+    consensus_proof = normalized.get("consensus_proof")
+    if isinstance(consensus_proof, dict):
+        consensus_proof = dict(consensus_proof)
+        consensus_proof["confidence"] = _clamp_probability(
+            consensus_proof.get("confidence", confidence)
+        )
+        normalized["consensus_proof"] = consensus_proof
+
     return normalized
 
 
@@ -564,8 +587,8 @@ def cmd_receipt_inspect(args: argparse.Namespace) -> None:
     # Verdict
     print("\n--- Verdict ---")
     verdict = data.get("verdict", "UNKNOWN")
-    confidence = data.get("confidence", 0)
-    robustness = data.get("robustness_score", 0)
+    confidence = _clamp_probability(data.get("confidence", 0))
+    robustness = _clamp_probability(data.get("robustness_score", 0))
 
     verdict_icon = {"PASS": "\u2713", "FAIL": "\u2717", "CONDITIONAL": "\u26a0"}.get(
         verdict.upper(), "?"
@@ -864,7 +887,7 @@ def _inspect_receipt_data(data: dict[str, Any]) -> None:
     print(f"Gauntlet ID:   {data.get('gauntlet_id', 'N/A')}")
     print(f"Type:          {_receipt_kind(data)}")
     print(f"Verdict:       {data.get('verdict', 'UNKNOWN')}")
-    confidence = data.get("confidence", 0)
+    confidence = _clamp_probability(data.get("confidence", 0))
     print(f"Confidence:    {confidence:.1%}")
     state = data.get("state")
     if state:

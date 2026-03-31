@@ -112,6 +112,26 @@ def test_receipt_list_normalizes_trust_wedge_receipts(
     assert "73%" in output
 
 
+def test_receipt_list_clamps_out_of_range_confidence(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = _StoredReceiptStub(
+        receipt_id="rcpt-overconfident-123",
+        gauntlet_id="rcpt-overconfident-123",
+        verdict="PASS",
+        confidence=1.2,
+        created_at=1711300000.0,
+        data={"risk_summary": {"total": 1}},
+    )
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt_list", return_value=[stored]):
+        cmd_receipt_list(argparse.Namespace(limit=5, verdict=None, kind=None, org_id=None))
+
+    output = capsys.readouterr().out
+    assert "100%" in output
+    assert "120%" not in output
+
+
 def test_receipt_list_filters_by_kind(capsys: pytest.CaptureFixture[str]) -> None:
     inbox = _StoredReceiptStub(
         receipt_id="rcpt-inbox-123",
@@ -195,6 +215,35 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "BLOCKED"
     assert payload["confidence"] == pytest.approx(0.61)
+
+
+def test_receipt_show_clamps_out_of_range_confidence_for_json(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-overconfident-456",
+        "gauntlet_id": "rcpt-overconfident-456",
+        "verdict": "PASS",
+        "confidence": 1.2,
+        "receipt": {
+            "id": "rcpt-overconfident-456",
+            "confidence": 1.2,
+        },
+        "consensus_proof": {
+            "reached": True,
+            "confidence": 1.2,
+        },
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(
+            argparse.Namespace(id="rcpt-overconfident-456", format="json", org_id=None)
+        )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["confidence"] == pytest.approx(1.0)
+    assert payload["receipt"]["confidence"] == pytest.approx(1.0)
+    assert payload["consensus_proof"]["confidence"] == pytest.approx(1.0)
 
 
 def test_receipt_show_renders_inbox_receipt_details(
