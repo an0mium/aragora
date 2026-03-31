@@ -1946,6 +1946,14 @@ class TrancheQueueExecutor:
                 return payload
             supervisor = self._supervisor_store()
             try:
+                await supervisor.collect_finished_results(run_id)
+            except Exception as exc:
+                logger.warning(
+                    "tranche queue review failed collecting finished results for run %s: %s",
+                    run_id,
+                    exc,
+                )
+            try:
                 run_dict = supervisor.refresh_run(run_id).to_dict()
             except Exception:
                 record = supervisor.store.get_supervisor_run(run_id)

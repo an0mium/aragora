@@ -20,6 +20,7 @@ import asyncio
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 import shlex
@@ -27,6 +28,8 @@ import subprocess
 import sys
 import tempfile
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | None]:
@@ -2051,6 +2054,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     }
                 if supervisor is None:
                     supervisor = SwarmSupervisor(repo_root=repo_root)
+                try:
+                    await supervisor.collect_finished_results(run_id)
+                except Exception as exc:
+                    logger.warning(
+                        "tranche watch review failed collecting finished results for run %s: %s",
+                        run_id,
+                        exc,
+                    )
                 try:
                     run_dict = supervisor.refresh_run(run_id).to_dict()
                 except Exception:

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
@@ -1576,3 +1577,95 @@ async def test_drive_manifest_dispatches_all_ready_lanes_only_when_parallel_cap_
     )
 
     assert seen["all_ready"] is expected_all_ready
+
+
+@pytest.mark.asyncio
+async def test_drive_manifest_review_collects_finished_results_before_refresh(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    _write_queue(queue_path)
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    item = TrancheQueueItem(
+        item_id="issue-1046",
+        kind="issue",
+        source="1046",
+        merge_class="manual",
+    )
+    item_state = TrancheQueueItemRunState(
+        item_id=item.item_id,
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        effective_autonomy_mode="adaptive",
+    )
+    current = TrancheRunState(
+        manifest_id="tranche-test",
+        status="planned",
+        autonomy_mode="adaptive",
+        lane_states={"lane-a": LaneRunState(lane_id="lane-a", status="running", run_id="run-123")},
+    )
+    artifact = TrancheLaneArtifact(
+        lane_id="lane-a",
+        source_ref="issue-1046",
+        status="completed",
+        run_id="run-123",
+    )
+    parent = MagicMock()
+    supervisor = MagicMock()
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+    supervisor.refresh_run = MagicMock(
+        return_value=SimpleNamespace(
+            to_dict=lambda: {
+                "run_id": "run-123",
+                "status": "completed",
+                "work_orders": [],
+            }
+        )
+    )
+    parent.attach_mock(supervisor.collect_finished_results, "collect_finished_results")
+    parent.attach_mock(supervisor.refresh_run, "refresh_run")
+    review_lane_mock = AsyncMock(return_value={"status": "passed", "findings": []})
+
+    async def fake_watch_loop(state, *, review_fn, manifest, **kwargs):
+        await review_fn(manifest=manifest, lane_id="lane-a", artifact=artifact)
+        state.status = TRANCHE_STATUS_NEEDS_HUMAN
+        return state
+
+    async def fake_publish_terminal_lane_deliverables(**kwargs):
+        return None
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.load_tranche_run_state", lambda _: current)
+    monkeypatch.setattr("aragora.swarm.tranche_queue.claim_driver", lambda state, **kwargs: state)
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.release_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr("aragora.swarm.tranche_queue.watch_loop", fake_watch_loop)
+    monkeypatch.setattr("aragora.swarm.tranche_queue.review_lane", review_lane_mock)
+    monkeypatch.setattr(executor, "_supervisor_store", lambda: supervisor)
+    monkeypatch.setattr(executor, "_github_client", lambda: object())
+    monkeypatch.setattr(executor, "_registry_client", lambda: object())
+    monkeypatch.setattr(
+        executor,
+        "_publish_terminal_lane_deliverables",
+        fake_publish_terminal_lane_deliverables,
+    )
+
+    await executor._drive_manifest(
+        item=item,
+        item_state=item_state,
+        manifest_path=manifest_path,
+        tranche_manifest=SimpleNamespace(
+            manifest_id="tranche-test",
+            lane=lambda _lane_id: SimpleNamespace(allowed_write_scope=["aragora/swarm/**"]),
+        ),
+        deadline=datetime.now(timezone.utc) + timedelta(minutes=5),
+    )
+
+    assert parent.mock_calls[:2] == [
+        call.collect_finished_results("run-123"),
+        call.refresh_run("run-123"),
+    ]
+    review_lane_mock.assert_awaited_once()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from aragora.cli.commands.swarm import _classify_issue_validation_status, cmd_swarm
 from aragora.swarm.spec import SwarmSpec
@@ -957,6 +957,105 @@ class TestSwarmCommand:
         mock_watch_loop.assert_awaited_once()
         assert mock_watch_loop.await_args.kwargs["driver_session_id"] == "sess-1"
         assert callable(mock_watch_loop.await_args.kwargs["run_fn"])
+
+    def test_cmd_swarm_tranche_watch_collects_finished_results_before_refresh(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="watch",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            driver=True,
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            lane=lambda _lane_id: SimpleNamespace(allowed_write_scope=["aragora/swarm/**"]),
+        )
+        fake_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="running",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "running",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+            save=lambda _path: None,
+        )
+        watched_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="completed",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "completed",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+        )
+        released_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="completed",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "completed",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+            save=lambda _path: None,
+        )
+        fake_artifact = SimpleNamespace(
+            lane_id="lane-a", status="completed", run_id="run-1", metadata={}
+        )
+        parent = MagicMock()
+        fake_supervisor = MagicMock()
+        fake_supervisor.collect_finished_results = AsyncMock(return_value=[])
+        fake_supervisor.refresh_run = MagicMock(
+            return_value=SimpleNamespace(
+                to_dict=lambda: {
+                    "run_id": "run-1",
+                    "status": "completed",
+                    "work_orders": [],
+                }
+            )
+        )
+        fake_supervisor.store = SimpleNamespace(get_supervisor_run=lambda _run_id: None)
+        parent.attach_mock(fake_supervisor.collect_finished_results, "collect_finished_results")
+        parent.attach_mock(fake_supervisor.refresh_run, "refresh_run")
+
+        async def fake_watch_loop(state, **kwargs):
+            await kwargs["review_fn"](
+                manifest=fake_manifest, lane_id="lane-a", artifact=fake_artifact
+            )
+            return watched_state
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche_watch.load_tranche_run_state", return_value=fake_state),
+            patch("aragora.swarm.tranche_watch.claim_driver", return_value=fake_state),
+            patch("aragora.swarm.tranche_watch.release_driver", return_value=released_state),
+            patch("aragora.swarm.tranche_watch.watch_loop", side_effect=fake_watch_loop),
+            patch("aragora.swarm.supervisor.SwarmSupervisor", return_value=fake_supervisor),
+            patch(
+                "aragora.swarm.tranche_review.review_lane",
+                new=AsyncMock(return_value={"status": "passed", "findings": []}),
+            ),
+        ):
+            cmd_swarm(args)
+
+        assert parent.mock_calls[:2] == [
+            call.collect_finished_results("run-1"),
+            call.refresh_run("run-1"),
+        ]
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-watch"' in out
+        assert '"status": "completed"' in out
 
     def test_cmd_swarm_tranche_list_json(self, capsys):
         args = _swarm_args(
