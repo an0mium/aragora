@@ -19,7 +19,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from collections.abc import Callable
 
 from aragora.types.protocols import EventEmitterProtocol
@@ -469,40 +469,39 @@ class MemoryManager:
         """Update tenant ID for subsequent memory operations."""
         self._tenant_id = tenant_id
 
-    def _resolve_event_emit_fn(self) -> Any | None:
-        """Resolve the best available event emitter method."""
+    def _resolve_event_emit_fn(self, *, prefer_sync: bool = True) -> Callable[..., Any] | None:
+        """Resolve the best available event emitter method.
+
+        Prefer explicitly assigned mock methods before dynamic MagicMock attribute
+        creation so tests and real emitters both take the intended path.
+        """
         if self.event_emitter is None:
             return None
-        emitter_type = type(self.event_emitter)
-        instance_attrs = getattr(self.event_emitter, "__dict__", {})
 
-        emit_sync = instance_attrs.get("emit_sync")
-        if callable(emit_sync):
-            return emit_sync
+        emitter_dict = getattr(self.event_emitter, "__dict__", {})
+        explicit_emit_sync = emitter_dict.get("emit_sync")
+        explicit_emit = emitter_dict.get("emit")
+        runtime_emit_sync = getattr(self.event_emitter, "emit_sync", None)
+        runtime_emit = getattr(self.event_emitter, "emit", None)
 
-        emit = instance_attrs.get("emit")
-        if callable(emit):
-            return emit
+        if prefer_sync:
+            candidates = (
+                explicit_emit_sync,
+                explicit_emit,
+                runtime_emit_sync,
+                runtime_emit,
+            )
+        else:
+            candidates = (
+                explicit_emit,
+                explicit_emit_sync,
+                runtime_emit,
+                runtime_emit_sync,
+            )
 
-        class_emit_sync = getattr(emitter_type, "emit_sync", None)
-        if callable(class_emit_sync):
-            emit_sync = getattr(self.event_emitter, "emit_sync", None)
-            if callable(emit_sync):
-                return emit_sync
-
-        class_emit = getattr(emitter_type, "emit", None)
-        if callable(class_emit):
-            emit = getattr(self.event_emitter, "emit", None)
-            if callable(emit):
-                return emit
-
-        emit = getattr(self.event_emitter, "emit", None)
-        if callable(emit):
-            return emit
-
-        emit_sync = getattr(self.event_emitter, "emit_sync", None)
-        if callable(emit_sync):
-            return emit_sync
+        for candidate in candidates:
+            if callable(candidate):
+                return candidate
         return None
 
     def _emit_event(self, event_type: str, **data: Any) -> None:
@@ -515,7 +514,7 @@ class MemoryManager:
         if self.event_emitter is None:
             return
         try:
-            emit_fn = self._resolve_event_emit_fn()
+            emit_fn = self._resolve_event_emit_fn(prefer_sync=True)
             if emit_fn is not None:
                 emit_fn(event_type, loop_id=self.loop_id, **data)
         except (AttributeError, TypeError) as e:
@@ -606,8 +605,14 @@ class MemoryManager:
                 debate_id=result.id,
             )
 
-        except (AttributeError, TypeError, ValueError, Exception) as e:
+        except (AttributeError, TypeError, ValueError) as e:
             # Expected: memory system configuration or data format issues
+            logger.warning("  [continuum] Failed to store outcome: %s", e)
+        except (OSError, RuntimeError, KeyError) as e:
+            # Unexpected error - log with full context
+            _, msg, exc_info = _build_error_action(e, "continuum")
+            logger.exception("  [continuum] Unexpected error storing outcome: %s", msg)
+        except Exception as e:
             logger.warning("  [continuum] Failed to store outcome: %s", e)
 
     def store_consensus_record(
@@ -896,13 +901,14 @@ class MemoryManager:
                     }
                 )
 
-            emit_fn = self._resolve_event_emit_fn()
+            emit_fn = self._resolve_event_emit_fn(prefer_sync=False)
             if emit_fn is None:
                 return
+
             emit_fn(
                 "evidence_found",
-                loop_id=self.loop_id,
                 debate_id="",
+                loop_id=self.loop_id,
                 count=count,
                 domain=domain,
                 task=task[:100],

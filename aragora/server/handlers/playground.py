@@ -2413,7 +2413,9 @@ def _get_available_live_agents(count: int) -> list[str]:
     """Pick agent providers for playground debates.
 
     Prefers primary API keys when available. Falls back to OpenRouter
-    with diverse models when primary keys are missing.
+    with diverse models when primary keys are missing. Returns an empty
+    list when no live providers are configured so callers can decide
+    whether to fall back or raise.
     """
     has_openrouter = bool(_get_api_key("OPENROUTER_API_KEY"))
 

@@ -55,6 +55,25 @@ _SALVAGEABLE_EXIT_CODES: frozenset[int] = frozenset(
 
 DEFAULT_VERIFICATION_TIMEOUT_SECONDS = 900.0
 
+# Merge-gate verification should be deterministic and must not inherit the
+# operator shell's live provider credentials. Tests that need keys can still
+# set them explicitly inside the verification process.
+_SCRUBBED_VERIFICATION_ENV_VARS: frozenset[str] = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "XAI_API_KEY",
+        "GROK_API_KEY",
+        "MISTRAL_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "KIMI_API_KEY",
+        "TINKER_API_KEY",
+    }
+)
+
 
 @dataclass(slots=True)
 class WorkerProcess:
@@ -1288,6 +1307,9 @@ class WorkerLauncher:
 
     @classmethod
     def _ensure_live_node_modules(cls, worktree_root: Path) -> Path | None:
+        runtime_node_modules = cls._runtime_repo_root() / "aragora" / "live" / "node_modules"
+        if runtime_node_modules.is_dir():
+            return runtime_node_modules
         return None
 
     @staticmethod
@@ -1310,6 +1332,8 @@ class WorkerLauncher:
     def _verification_environment(cls, worktree_path: str) -> dict[str, str]:
         worktree_root = Path(worktree_path).resolve()
         env = dict(os.environ)
+        for key in _SCRUBBED_VERIFICATION_ENV_VARS:
+            env.pop(key, None)
 
         python_entries = [worktree_root]
         debate_src = worktree_root / "aragora-debate" / "src"

@@ -1766,6 +1766,65 @@ def test_backfill_missing_blocker_metadata_preserves_blocked_deliverable_lane(
     assert work_order["commit_shas"] == ["abc12345"]
 
 
+def test_backfill_missing_blocker_metadata_reclassifies_missing_verification_target(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Backfill missing verification target metadata",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Backfill missing verification target metadata",
+            "refined_goal": "Backfill missing verification target metadata",
+        },
+        work_orders=[
+            {
+                "work_order_id": "subtask_1",
+                "title": "Historical missing target lane",
+                "status": "needs_human",
+                "worker_outcome": "merge_gate_failed",
+                "failure_reason": "merge_gate_failed",
+                "dispatch_error": (
+                    "merge gate blocked: verification failed: python -m pytest "
+                    "tests/orchestrator/test_budget_gate.py -q (exit 4) - "
+                    "ERROR: file or directory not found: tests/orchestrator/test_budget_gate.py"
+                ),
+                "verification_results": [
+                    {
+                        "command": "python -m pytest tests/orchestrator/test_budget_gate.py -q",
+                        "exit_code": 4,
+                        "passed": False,
+                        "stdout": "\\nno tests ran in 0.00s\\n",
+                        "stderr": (
+                            "ERROR: file or directory not found: "
+                            "tests/orchestrator/test_budget_gate.py\\n\\n"
+                        ),
+                        "duration_seconds": 0.123,
+                    }
+                ],
+                "branch": "codex/historical-budget-gate",
+                "commit_shas": ["deadbeef"],
+            }
+        ],
+    )
+
+    updated = store.backfill_missing_blocker_metadata()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["failure_reason"] == "verification_target_missing"
+    assert "replace the missing path" in work_order["blocking_question"]
+    assert work_order["blocker"]["reason"] == "verification_target_missing"
+    assert work_order["branch"] == "codex/historical-budget-gate"
+    assert work_order["commit_shas"] == ["deadbeef"]
+
+
 def test_backfill_missing_verification_plans_infers_test_from_scope(
     store: DevCoordinationStore,
 ) -> None:
@@ -2526,6 +2585,743 @@ def test_replay_missing_verification_for_merge_gate_failures_uses_temp_worktree_
     assert not fallback_parent.exists() or not any(fallback_parent.iterdir())
 
 
+def test_replay_docs_only_merge_gate_failures_prepends_capability_matrix_generation(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    changed_path = "docs/status/ACTIVE_EXECUTION_ISSUES.md"
+    reconcile_command = "python3 scripts/reconcile_status_docs.py --strict --output /tmp/report.md"
+    version_command = "python3 scripts/check_version_alignment.py"
+    expected_commands = [
+        "python3 scripts/generate_capability_matrix.py",
+        "python3 scripts/generate_capability_matrix.py --out docs-site/docs/contributing/capability-matrix.md",
+        reconcile_command,
+        version_command,
+    ]
+
+    run = store.create_supervisor_run(
+        goal="Replay docs-only merge gate after capability matrix drift",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-docs-replay-pass",
+                "title": "Docs-only capability matrix drift",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/docs-replay-pass",
+                "worktree_path": str(repo),
+                "head_sha": "abc12345",
+                "commit_shas": ["abc12345"],
+                "changed_paths": [changed_path],
+                "expected_tests": [reconcile_command, version_command],
+                "tests_run": [reconcile_command],
+                "verification_results": [
+                    {
+                        "command": reconcile_command,
+                        "passed": False,
+                        "exit_code": 1,
+                        "stdout": "Matrix is out of sync with YAML. Run: python scripts/generate_capability_matrix.py",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    f"merge gate blocked: verification failed: {reconcile_command} (exit 1)"
+                ),
+            }
+        ],
+    )
+    lease = store.claim_lease(
+        task_id="wo-docs-replay-pass",
+        title="Docs-only capability matrix drift",
+        owner_agent="codex",
+        owner_session_id="sess-docs-replay-pass",
+        branch="codex/docs-replay-pass",
+        worktree_path=str(repo),
+        claimed_paths=[changed_path],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-docs-replay-pass",
+            "task_key": f"{run['run_id']}:wo-docs-replay-pass",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-docs-replay-pass",
+        branch="codex/docs-replay-pass",
+        worktree_path=str(repo),
+        head_sha="abc12345",
+        commit_shas=["abc12345"],
+        changed_paths=[changed_path],
+        tests_run=[reconcile_command],
+        validations_run=[reconcile_command],
+        assumptions=[],
+        blockers=[],
+        outcome="deliverable_created",
+        risks=[],
+        confidence=0.79,
+        metadata={"backfilled_receipt": True},
+        require_session_ownership=False,
+    )
+
+    updated = store.get_supervisor_run(run["run_id"])
+    assert updated is not None
+    updated["work_orders"][0]["lease_id"] = lease.lease_id
+    updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
+    updated["work_orders"][0]["status"] = "needs_human"
+    updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
+    updated["work_orders"][0]["expected_tests"] = [reconcile_command, version_command]
+    store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
+
+    captured: dict[str, list[str]] = {}
+
+    def _run_commands(
+        worktree_path: str, commands: list[str], *, timeout: float
+    ) -> list[dict[str, object]]:
+        captured["commands"] = list(commands)
+        assert worktree_path == str(repo)
+        assert timeout == 900.0
+        return [
+            {
+                "command": command,
+                "passed": True,
+                "exit_code": 0,
+                "stdout": "",
+                "stderr": "",
+                "duration_seconds": 1.0,
+            }
+            for command in commands
+        ]
+
+    with (
+        patch.object(
+            DevCoordinationStore,
+            "_resolve_verification_worktree",
+            return_value=(str(repo), None),
+        ),
+        patch.object(
+            DevCoordinationStore,
+            "_run_verification_commands_sync",
+            side_effect=_run_commands,
+        ),
+    ):
+        replayed = store.replay_docs_only_merge_gate_failures()
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert replayed == 1
+    assert captured["commands"] == expected_commands
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "completed"
+    assert item["review_status"] == "pending_heterogeneous_review"
+    assert item["worker_outcome"] == "completed"
+    assert item["tests_run"] == expected_commands
+    assert item["metadata"]["verification_docs_replayed"] is True
+    assert "failure_reason" not in item
+    assert "dispatch_error" not in item
+
+    refreshed_receipt = store.get_completion_receipt(receipt.receipt_id)
+    assert refreshed_receipt is not None
+    assert refreshed_receipt.tests_run == expected_commands
+    assert refreshed_receipt.metadata["verification_replayed"] is True
+
+
+def test_replay_docs_only_merge_gate_failures_uses_capability_sync_command_when_present(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    changed_path = "docs/status/NEXT_STEPS_CANONICAL.md"
+    reconcile_command = "python3 scripts/reconcile_status_docs.py --strict --output /tmp/report.md"
+    capability_command = "python3 scripts/check_capability_matrix_sync.py"
+    expected_commands = [
+        "python3 scripts/generate_capability_matrix.py",
+        "python3 scripts/generate_capability_matrix.py --out docs-site/docs/contributing/capability-matrix.md",
+        reconcile_command,
+        capability_command,
+    ]
+
+    run = store.create_supervisor_run(
+        goal="Replay docs-only merge gate with explicit capability sync check",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-docs-replay-capability",
+                "title": "Docs-only explicit capability sync",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/docs-replay-capability",
+                "worktree_path": str(repo),
+                "head_sha": "def67890",
+                "commit_shas": ["def67890"],
+                "changed_paths": [changed_path],
+                "expected_tests": [reconcile_command, capability_command],
+                "tests_run": [capability_command],
+                "verification_results": [
+                    {
+                        "command": capability_command,
+                        "passed": False,
+                        "exit_code": 1,
+                        "stdout": "Capability matrix files are out of date.",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    f"merge gate blocked: verification failed: {capability_command} (exit 1)"
+                ),
+            }
+        ],
+    )
+    lease = store.claim_lease(
+        task_id="wo-docs-replay-capability",
+        title="Docs-only explicit capability sync",
+        owner_agent="codex",
+        owner_session_id="sess-docs-replay-capability",
+        branch="codex/docs-replay-capability",
+        worktree_path=str(repo),
+        claimed_paths=[changed_path],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-docs-replay-capability",
+            "task_key": f"{run['run_id']}:wo-docs-replay-capability",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-docs-replay-capability",
+        branch="codex/docs-replay-capability",
+        worktree_path=str(repo),
+        head_sha="def67890",
+        commit_shas=["def67890"],
+        changed_paths=[changed_path],
+        tests_run=[capability_command],
+        validations_run=[capability_command],
+        assumptions=[],
+        blockers=[],
+        outcome="deliverable_created",
+        risks=[],
+        confidence=0.72,
+        metadata={"backfilled_receipt": True},
+        require_session_ownership=False,
+    )
+
+    updated = store.get_supervisor_run(run["run_id"])
+    assert updated is not None
+    updated["work_orders"][0]["lease_id"] = lease.lease_id
+    updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
+    updated["work_orders"][0]["status"] = "needs_human"
+    updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
+    updated["work_orders"][0]["expected_tests"] = [reconcile_command, capability_command]
+    store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
+
+    captured: dict[str, list[str]] = {}
+
+    def _run_commands(
+        worktree_path: str, commands: list[str], *, timeout: float
+    ) -> list[dict[str, object]]:
+        captured["commands"] = list(commands)
+        assert worktree_path == str(repo)
+        assert timeout == 900.0
+        return [
+            {
+                "command": command,
+                "passed": True,
+                "exit_code": 0,
+                "stdout": "",
+                "stderr": "",
+                "duration_seconds": 1.0,
+            }
+            for command in commands
+        ]
+
+    with (
+        patch.object(
+            DevCoordinationStore,
+            "_resolve_verification_worktree",
+            return_value=(str(repo), None),
+        ),
+        patch.object(
+            DevCoordinationStore,
+            "_run_verification_commands_sync",
+            side_effect=_run_commands,
+        ),
+    ):
+        replayed = store.replay_docs_only_merge_gate_failures()
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert replayed == 1
+    assert captured["commands"] == expected_commands
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "completed"
+    assert item["metadata"]["verification_docs_replayed"] is True
+
+
+def test_replay_missing_required_merge_gate_failures_runs_only_missing_checks(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    existing_test = repo / "tests" / "test_partial_existing.py"
+    existing_test.parent.mkdir(parents=True, exist_ok=True)
+    existing_test.write_text("def test_partial_existing():\n    assert True\n", encoding="utf-8")
+    missing_test = repo / "tests" / "test_partial_missing.py"
+    missing_test.write_text("def test_partial_missing():\n    assert True\n", encoding="utf-8")
+
+    existing_command = "python -m pytest tests/test_partial_existing.py -q"
+    missing_command = "python -m pytest tests/test_partial_missing.py -q"
+
+    run = store.create_supervisor_run(
+        goal="Replay only missing required verification commands",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-missing-required",
+                "title": "Replay missing required verification",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "receipt_id": "receipt-missing-required",
+                "branch": "codex/missing-required",
+                "worktree_path": str(repo),
+                "head_sha": "abc12345",
+                "commit_shas": ["abc12345"],
+                "changed_paths": [
+                    "tests/test_partial_existing.py",
+                    "tests/test_partial_missing.py",
+                ],
+                "expected_tests": [existing_command, missing_command],
+                "tests_run": [existing_command],
+                "verification_results": [
+                    {
+                        "command": existing_command,
+                        "passed": True,
+                        "exit_code": 0,
+                        "stdout": "",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    f"merge gate blocked: required verification did not run: {missing_command}"
+                ),
+            }
+        ],
+    )
+    lease = store.claim_lease(
+        task_id="wo-missing-required",
+        title="Replay missing required verification",
+        owner_agent="codex",
+        owner_session_id="sess-missing-required",
+        branch="codex/missing-required",
+        worktree_path=str(repo),
+        claimed_paths=[
+            "tests/test_partial_existing.py",
+            "tests/test_partial_missing.py",
+        ],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-missing-required",
+            "task_key": f"{run['run_id']}:wo-missing-required",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-missing-required",
+        branch="codex/missing-required",
+        worktree_path=str(repo),
+        head_sha="abc12345",
+        commit_shas=["abc12345"],
+        changed_paths=[
+            "tests/test_partial_existing.py",
+            "tests/test_partial_missing.py",
+        ],
+        tests_run=[existing_command],
+        validations_run=[existing_command],
+        assumptions=[],
+        blockers=[],
+        outcome="deliverable_created",
+        risks=[],
+        confidence=0.75,
+        metadata={"backfilled_receipt": True},
+        require_session_ownership=False,
+    )
+
+    updated = store.get_supervisor_run(run["run_id"])
+    assert updated is not None
+    updated["work_orders"][0]["lease_id"] = lease.lease_id
+    updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
+    updated["work_orders"][0]["status"] = "needs_human"
+    updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
+    store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
+
+    with patch.object(
+        DevCoordinationStore,
+        "_resolve_verification_worktree",
+        return_value=(str(repo), None),
+    ):
+        replayed = store.replay_missing_required_merge_gate_failures()
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert replayed == 1
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "completed"
+    assert item["review_status"] == "pending_heterogeneous_review"
+    assert item["worker_outcome"] == "completed"
+    assert item["tests_run"] == [missing_command, existing_command]
+    assert [entry["command"] for entry in item["verification_results"]] == [
+        missing_command,
+        existing_command,
+    ]
+    assert item["verification_results"][0]["passed"] is True
+    assert item["verification_results"][1]["passed"] is True
+    assert item["metadata"]["verification_missing_required_replayed"] is True
+    assert "failure_reason" not in item
+    assert "dispatch_error" not in item
+
+
+def test_replay_narrow_pytest_merge_gate_failures_marks_lane_completed(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    test_path = repo / "tests" / "test_narrow_replay_pass.py"
+    test_path.parent.mkdir(parents=True, exist_ok=True)
+    test_path.write_text("def test_narrow_replay_pass():\n    assert True\n", encoding="utf-8")
+    changed_path = "tests/test_narrow_replay_pass.py"
+    test_command = f"python -m pytest {changed_path} -q"
+
+    run = store.create_supervisor_run(
+        goal="Replay narrow pytest merge gate",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-narrow-pytest-replay",
+                "title": "Receipt-backed narrow pytest lane",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/narrow-pytest-replay",
+                "worktree_path": str(repo),
+                "head_sha": "abc12345",
+                "commit_shas": ["abc12345"],
+                "changed_paths": [changed_path],
+                "expected_tests": [test_command],
+                "tests_run": [test_command],
+                "verification_results": [
+                    {
+                        "command": test_command,
+                        "passed": False,
+                        "exit_code": 1,
+                        "stdout": "AssertionError: old branch state",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    f"merge gate blocked: verification failed: {test_command} (exit 1)"
+                ),
+            }
+        ],
+    )
+    lease = store.claim_lease(
+        task_id="wo-narrow-pytest-replay",
+        title="Receipt-backed narrow pytest lane",
+        owner_agent="codex",
+        owner_session_id="sess-narrow-pytest-replay",
+        branch="codex/narrow-pytest-replay",
+        worktree_path=str(repo),
+        claimed_paths=[changed_path],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-narrow-pytest-replay",
+            "task_key": f"{run['run_id']}:wo-narrow-pytest-replay",
+        },
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-narrow-pytest-replay",
+        branch="codex/narrow-pytest-replay",
+        worktree_path=str(repo),
+        head_sha="abc12345",
+        commit_shas=["abc12345"],
+        changed_paths=[changed_path],
+        tests_run=[test_command],
+        validations_run=[test_command],
+        assumptions=[],
+        blockers=[],
+        outcome="deliverable_created",
+        risks=[],
+        confidence=0.77,
+        metadata={"backfilled_receipt": True},
+        require_session_ownership=False,
+    )
+
+    updated = store.get_supervisor_run(run["run_id"])
+    assert updated is not None
+    updated["work_orders"][0]["lease_id"] = lease.lease_id
+    updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
+    updated["work_orders"][0]["status"] = "needs_human"
+    updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
+    updated["work_orders"][0]["expected_tests"] = [test_command]
+    store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
+
+    with patch.object(
+        DevCoordinationStore,
+        "_resolve_verification_worktree",
+        return_value=(str(repo), None),
+    ):
+        replayed = store.replay_narrow_pytest_merge_gate_failures()
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert replayed == 1
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "completed"
+    assert item["review_status"] == "pending_heterogeneous_review"
+    assert item["worker_outcome"] == "completed"
+    assert item["tests_run"] == [test_command]
+    assert item["metadata"]["verification_narrow_pytest_replayed"] is True
+
+
+def test_replay_narrow_pytest_merge_gate_failures_skips_overbroad_commands(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    broad_command = "python -m pytest tests/ -q -k 'not benchmark and not load' --timeout=60 -x"
+
+    run = store.create_supervisor_run(
+        goal="Do not replay overbroad pytest merge gates here",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-narrow-pytest-skip",
+                "title": "Overbroad pytest lane",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "receipt_id": "receipt-narrow-pytest-skip",
+                "branch": "codex/narrow-pytest-skip",
+                "worktree_path": str(repo),
+                "head_sha": "fedcba98",
+                "commit_shas": ["fedcba98"],
+                "changed_paths": ["aragora/debate/memory_manager.py"],
+                "expected_tests": [broad_command],
+                "tests_run": [broad_command],
+                "verification_results": [
+                    {
+                        "command": broad_command,
+                        "passed": False,
+                        "exit_code": -1,
+                        "stdout": "",
+                        "stderr": "Timed out after 90s",
+                        "duration_seconds": 90.0,
+                    }
+                ],
+                "dispatch_error": (
+                    f"merge gate blocked: verification failed: {broad_command} (exit -1)"
+                ),
+            }
+        ],
+    )
+
+    with patch.object(
+        DevCoordinationStore,
+        "_run_verification_commands_sync",
+        side_effect=AssertionError("should not replay overbroad pytest lane"),
+    ):
+        replayed = store.replay_narrow_pytest_merge_gate_failures()
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert replayed == 0
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "needs_human"
+    assert item["expected_tests"] == [broad_command]
+
+
+def test_replay_narrow_pytest_merge_gate_failures_can_target_specific_task_keys(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    first_path = repo / "tests" / "test_narrow_targeted_first.py"
+    second_path = repo / "tests" / "test_narrow_targeted_second.py"
+    first_path.parent.mkdir(parents=True, exist_ok=True)
+    first_path.write_text("def test_narrow_targeted_first():\n    assert True\n", encoding="utf-8")
+    second_path.write_text(
+        "def test_narrow_targeted_second():\n    assert True\n", encoding="utf-8"
+    )
+    first_changed = "tests/test_narrow_targeted_first.py"
+    second_changed = "tests/test_narrow_targeted_second.py"
+    first_command = f"python -m pytest {first_changed} -q"
+    second_command = f"python -m pytest {second_changed} -q"
+
+    run = store.create_supervisor_run(
+        goal="Replay one narrow pytest lane by task key",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-targeted-first",
+                "title": "First targeted narrow lane",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/targeted-first",
+                "worktree_path": str(repo),
+                "head_sha": "abc12345",
+                "commit_shas": ["abc12345"],
+                "changed_paths": [first_changed],
+                "expected_tests": [first_command],
+                "tests_run": [first_command],
+                "verification_results": [
+                    {
+                        "command": first_command,
+                        "passed": False,
+                        "exit_code": 1,
+                        "stdout": "AssertionError: stale failure",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": f"merge gate blocked: verification failed: {first_command} (exit 1)",
+            },
+            {
+                "work_order_id": "wo-targeted-second",
+                "title": "Second targeted narrow lane",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "failure_reason": "merge_gate_failed",
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/targeted-second",
+                "worktree_path": str(repo),
+                "head_sha": "def67890",
+                "commit_shas": ["def67890"],
+                "changed_paths": [second_changed],
+                "expected_tests": [second_command],
+                "tests_run": [second_command],
+                "verification_results": [
+                    {
+                        "command": second_command,
+                        "passed": False,
+                        "exit_code": 1,
+                        "stdout": "AssertionError: stale failure",
+                        "stderr": "",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": f"merge gate blocked: verification failed: {second_command} (exit 1)",
+            },
+        ],
+    )
+
+    for work_order_id, branch, changed, command in (
+        ("wo-targeted-first", "codex/targeted-first", first_changed, first_command),
+        ("wo-targeted-second", "codex/targeted-second", second_changed, second_command),
+    ):
+        lease = store.claim_lease(
+            task_id=work_order_id,
+            title=work_order_id,
+            owner_agent="codex",
+            owner_session_id=f"sess-{work_order_id}",
+            branch=branch,
+            worktree_path=str(repo),
+            claimed_paths=[changed],
+            metadata={
+                "supervisor_run_id": run["run_id"],
+                "work_order_id": work_order_id,
+                "task_key": f"{run['run_id']}:{work_order_id}",
+            },
+        )
+        receipt = store.record_completion(
+            lease_id=lease.lease_id,
+            owner_agent="codex",
+            owner_session_id=f"sess-{work_order_id}",
+            branch=branch,
+            worktree_path=str(repo),
+            head_sha="abc12345",
+            commit_shas=["abc12345"],
+            changed_paths=[changed],
+            tests_run=[command],
+            validations_run=[command],
+            assumptions=[],
+            blockers=[],
+            outcome="deliverable_created",
+            risks=[],
+            confidence=0.7,
+            metadata={"backfilled_receipt": True},
+            require_session_ownership=False,
+        )
+        updated = store.get_supervisor_run(run["run_id"])
+        assert updated is not None
+        for item in updated["work_orders"]:
+            if item["work_order_id"] != work_order_id:
+                continue
+            item["lease_id"] = lease.lease_id
+            item["receipt_id"] = receipt.receipt_id
+            item["status"] = "needs_human"
+            item["review_status"] = "changes_requested"
+            item["failure_reason"] = "merge_gate_failed"
+            item["worker_outcome"] = "merge_gate_failed"
+            item["expected_tests"] = [command]
+        store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
+
+    target_task_key = f"{run['run_id']}:wo-targeted-first"
+    with patch.object(
+        DevCoordinationStore,
+        "_resolve_verification_worktree",
+        return_value=(str(repo), None),
+    ):
+        replayed = store.replay_narrow_pytest_merge_gate_failures(task_keys=[target_task_key])
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert replayed == 1
+    assert refreshed is not None
+    first_item = next(
+        item for item in refreshed["work_orders"] if item["work_order_id"] == "wo-targeted-first"
+    )
+    second_item = next(
+        item for item in refreshed["work_orders"] if item["work_order_id"] == "wo-targeted-second"
+    )
+    assert first_item["status"] == "completed"
+    assert first_item["metadata"]["verification_narrow_pytest_replayed"] is True
+    assert second_item["status"] == "needs_human"
+    assert "verification_narrow_pytest_replayed" not in (second_item.get("metadata") or {})
+
+
 def test_replay_environment_blocked_merge_gate_failures_marks_lane_completed(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -3083,6 +3879,26 @@ def test_targeted_replay_expected_tests_for_work_order_uses_existing_narrow_hist
     ]
 
 
+def test_targeted_replay_expected_tests_for_work_order_skips_directory_targets() -> None:
+    work_order = {
+        "expected_tests": [
+            "python3 -m pytest tests/canvas/ tests/pipeline/ -q --tb=short",
+        ],
+        "changed_paths": [
+            "aragora/pipeline/adapters.py",
+            "tests/pipeline/test_adapters.py",
+            "tests/pipeline/test_graph_store.py",
+        ],
+    }
+
+    targeted = _targeted_replay_expected_tests_for_work_order(work_order)
+
+    assert targeted == [
+        "python -m pytest tests/pipeline/test_adapters.py -q",
+        "python -m pytest tests/pipeline/test_graph_store.py -q",
+    ]
+
+
 def test_verification_timeout_for_command_extends_single_file_pytest() -> None:
     assert (
         _verification_timeout_for_command(
@@ -3273,8 +4089,6 @@ def test_reclassify_branch_stale_merge_gate_failures_when_mainline_passes(
     assert item["blocking_question"] == (
         "Should this deliverable be rebased, regenerated, or otherwise refreshed on current main before review?"
     )
-
-
 def test_reconcile_merge_gate_failed_work_orders_normalizes_existing_results(
     store: DevCoordinationStore,
 ) -> None:

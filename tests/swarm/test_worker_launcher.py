@@ -736,10 +736,24 @@ class TestVerificationCommands:
         assert str((worktree / "aragora-debate" / "src").resolve()) in pythonpath
         assert "/existing/pythonpath" in pythonpath
 
+    def test_verification_environment_scrubs_ambient_provider_credentials(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        worktree = tmp_path / "wt"
+        monkeypatch.setenv("MISTRAL_API_KEY", "mistral-secret")
+        monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+        monkeypatch.setenv("PATH", "/usr/bin")
+
+        env = WorkerLauncher._verification_environment(str(worktree))
+
+        assert "MISTRAL_API_KEY" not in env
+        assert "OPENAI_API_KEY" not in env
+        assert env["PATH"].split(os.pathsep)[-1] == "/usr/bin"
+
     def test_verification_environment_does_not_link_live_node_modules(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """_ensure_live_node_modules is disabled -- no cross-worktree symlinks."""
+        """Verification may reuse runtime node_modules without linking into the worktree."""
         runtime_root = tmp_path / "runtime"
         source_node_modules = runtime_root / "aragora" / "live" / "node_modules"
         (source_node_modules / ".bin").mkdir(parents=True)
@@ -758,6 +772,8 @@ class TestVerificationCommands:
         assert not linked_node_modules.exists()
         assert not linked_node_modules.is_symlink()
         assert "NODE_PATH" not in env or str(linked_node_modules) not in env["NODE_PATH"]
+        assert env["NODE_PATH"].split(os.pathsep)[0] == str(source_node_modules)
+        assert env["PATH"].split(os.pathsep)[0] == str(source_node_modules / ".bin")
 
     @pytest.mark.asyncio
     async def test_run_verification_commands_uses_shared_verification_environment(self) -> None:
@@ -1179,10 +1195,20 @@ class TestActiveWorkers:
 
 
 class TestEnsureLiveNodeModulesDisabled:
-    def test_always_returns_none(self, tmp_path: Path) -> None:
-        """_ensure_live_node_modules must never create cross-worktree symlinks."""
+    def test_returns_runtime_node_modules_without_linking_worktree(self, tmp_path: Path) -> None:
+        """_ensure_live_node_modules may reuse runtime deps without mutating the worktree."""
+        runtime_root = tmp_path / "runtime"
+        source_node_modules = runtime_root / "aragora" / "live" / "node_modules"
+        source_node_modules.mkdir(parents=True)
         worktree = tmp_path / "wt"
         (worktree / "aragora" / "live").mkdir(parents=True)
-        result = WorkerLauncher._ensure_live_node_modules(worktree)
-        assert result is None
+
+        original = WorkerLauncher._runtime_repo_root
+        WorkerLauncher._runtime_repo_root = staticmethod(lambda: runtime_root)  # type: ignore[assignment]
+        try:
+            result = WorkerLauncher._ensure_live_node_modules(worktree)
+        finally:
+            WorkerLauncher._runtime_repo_root = original  # type: ignore[assignment]
+
+        assert result == source_node_modules
         assert not (worktree / "aragora" / "live" / "node_modules").exists()

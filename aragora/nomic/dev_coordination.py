@@ -78,6 +78,10 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
 _REAPED_NO_RECEIPT_ARCHIVE_GRACE_HOURS = 6.0
 _REAPED_NO_RECEIPT_BLOCKERS = {"stale_lease_reaped", "expired_lease_reaped"}
 _TEST_FILE_PATTERN = re.compile(r"(tests/[\w./-]+\.py)")
+_DOCS_ONLY_GENERATE_CAPABILITY_MATRIX_COMMANDS = (
+    "python3 scripts/generate_capability_matrix.py",
+    "python3 scripts/generate_capability_matrix.py --out docs-site/docs/contributing/capability-matrix.md",
+)
 
 
 def _is_docs_only_path(path: Any) -> bool:
@@ -1810,25 +1814,14 @@ class DevCoordinationStore:
         should_replay: Any,
         metadata_flag: str,
         prepare_commands: Any | None = None,
+        merge_existing_results: bool = False,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
-        task_keys: list[str] | None = None,
     ) -> int:
-        requested_task_keys = {str(item).strip() for item in (task_keys or []) if str(item).strip()}
-
-        def _task_key_for(record: dict[str, Any], item: dict[str, Any], work_order_id: str) -> str:
-            metadata = item.get("metadata")
-            if isinstance(metadata, dict):
-                task_key = _optional_text(metadata.get("task_key"))
-                if task_key:
-                    return task_key
-            task_key = _optional_text(item.get("task_key"))
-            if task_key:
-                return task_key
-            if record.get("run_id") and work_order_id:
-                return f"{record['run_id']}:{work_order_id}"
-            return ""
-
+        normalized_task_keys = {
+            str(task_key).strip() for task_key in (task_keys or []) if str(task_key).strip()
+        }
         conn = self._connect()
         try:
             rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
@@ -1843,13 +1836,14 @@ class DevCoordinationStore:
                         continue
                     if isinstance(limit, int) and limit > 0 and attempted >= limit:
                         break
+                    if not _merge_gate_replay_matches_task_keys(
+                        record["run_id"], item, normalized_task_keys
+                    ):
+                        continue
                     if not should_replay(item):
                         continue
                     work_order_id = _work_order_identifier(item)
                     if not work_order_id:
-                        continue
-                    task_key = _task_key_for(record, item, work_order_id)
-                    if requested_task_keys and task_key not in requested_task_keys:
                         continue
                     candidate_ids.append((record["run_id"], work_order_id))
                     attempted += 1
@@ -1862,10 +1856,11 @@ class DevCoordinationStore:
             if not record:
                 continue
             item = _find_work_order(record, work_order_id)
-            if item is None or not should_replay(item):
+            if item is None or not _merge_gate_replay_matches_task_keys(
+                run_id, item, normalized_task_keys
+            ):
                 continue
-            task_key = _task_key_for(record, item, work_order_id)
-            if requested_task_keys and task_key not in requested_task_keys:
+            if not should_replay(item):
                 continue
 
             commands = [
@@ -1907,18 +1902,55 @@ class DevCoordinationStore:
                     continue
                 record = self._supervisor_run_from_row(row)
                 item = _find_work_order(record, work_order_id)
-                if item is None or not should_replay(item):
+                if item is None or not _merge_gate_replay_matches_task_keys(
+                    run_id, item, normalized_task_keys
+                ):
+                    continue
+                if not should_replay(item):
                     continue
                 if prepare_commands is not None and prepare_commands(item) is None:
                     continue
 
-                tests_run = [
+                existing_results = [
+                    dict(entry)
+                    for entry in item.get("verification_results", [])
+                    if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+                ]
+                existing_tests_run = [
+                    str(command).strip()
+                    for command in item.get("tests_run", [])
+                    if str(command).strip()
+                ]
+                effective_results = [dict(entry) for entry in verification_results]
+                effective_tests_run = [
                     str(entry.get("command", "")).strip()
-                    for entry in verification_results
+                    for entry in effective_results
                     if str(entry.get("command", "")).strip()
                 ]
-                item["tests_run"] = tests_run
-                item["verification_results"] = [dict(entry) for entry in verification_results]
+                if merge_existing_results:
+                    seen_commands = {
+                        _canonical_verification_command(entry.get("command", ""))
+                        for entry in effective_results
+                        if _canonical_verification_command(entry.get("command", ""))
+                    }
+                    for entry in existing_results:
+                        canonical = _canonical_verification_command(entry.get("command", ""))
+                        if canonical and canonical not in seen_commands:
+                            effective_results.append(dict(entry))
+                            seen_commands.add(canonical)
+                    seen_tests = {
+                        _canonical_verification_command(command)
+                        for command in effective_tests_run
+                        if _canonical_verification_command(command)
+                    }
+                    for command in existing_tests_run:
+                        canonical = _canonical_verification_command(command)
+                        if canonical and canonical not in seen_tests:
+                            effective_tests_run.append(command)
+                            seen_tests.add(canonical)
+
+                item["tests_run"] = effective_tests_run
+                item["verification_results"] = [dict(entry) for entry in effective_results]
                 item["merge_gate"] = _merge_gate_state_for_work_order(item)
                 metadata = dict(item.get("metadata") or {})
                 metadata[metadata_flag] = True
@@ -1929,7 +1961,7 @@ class DevCoordinationStore:
                     self._update_completion_receipt_verification_locked(
                         conn,
                         receipt_id=receipt_id,
-                        verification_results=verification_results,
+                        verification_results=effective_results,
                         replayed_at=metadata[f"{metadata_flag}_at"],
                     )
                 if item["merge_gate"]["checks_passed"]:
@@ -1969,39 +2001,88 @@ class DevCoordinationStore:
     def replay_missing_verification_for_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
-        task_keys: list[str] | None = None,
     ) -> int:
         return self._replay_merge_gate_failures(
             should_replay=_work_order_should_replay_missing_verification,
             metadata_flag="verification_replayed",
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
-            task_keys=task_keys,
         )
 
     def replay_environment_blocked_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
-        task_keys: list[str] | None = None,
     ) -> int:
         return self._replay_merge_gate_failures(
             should_replay=_work_order_should_replay_environment_blocked_verification,
             metadata_flag="verification_environment_replayed",
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
+        )
+
+    def replay_docs_only_merge_gate_failures(
+        self,
+        *,
+        task_keys: list[str] | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_docs_only_merge_gate_failure,
+            metadata_flag="verification_docs_replayed",
+            prepare_commands=_docs_only_replay_commands_for_work_order,
             task_keys=task_keys,
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_missing_required_merge_gate_failures(
+        self,
+        *,
+        task_keys: list[str] | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_missing_required_merge_gate_failure,
+            metadata_flag="verification_missing_required_replayed",
+            prepare_commands=_missing_required_replay_commands_for_work_order,
+            merge_existing_results=True,
+            task_keys=task_keys,
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_narrow_pytest_merge_gate_failures(
+        self,
+        *,
+        task_keys: list[str] | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_narrow_pytest_merge_gate_failure,
+            metadata_flag="verification_narrow_pytest_replayed",
+            prepare_commands=_narrow_pytest_replay_commands_for_work_order,
+            task_keys=task_keys,
+            limit=limit,
+            timeout=timeout,
         )
 
     def replay_targeted_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
-        task_keys: list[str] | None = None,
     ) -> int:
         def _prepare(item: dict[str, Any]) -> list[str] | None:
             targeted_commands = _targeted_replay_expected_tests_for_work_order(item)
@@ -2032,9 +2113,9 @@ class DevCoordinationStore:
             should_replay=_work_order_should_replay_targeted_merge_gate_failure,
             metadata_flag="verification_targeted_replayed",
             prepare_commands=_prepare,
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
-            task_keys=task_keys,
         )
 
     def reclassify_branch_stale_merge_gate_failures(
@@ -4399,7 +4480,7 @@ def _is_overbroad_pytest_command(command: Any) -> bool:
     targets = _pytest_command_targets(command)
     if not targets:
         return False
-    return len(targets) == 1 and targets[0] == "tests"
+    return any(not target.endswith(".py") for target in targets)
 
 
 def _verification_command_covers_expected(recorded_command: Any, expected_command: Any) -> bool:
@@ -4462,6 +4543,9 @@ def _default_blocking_question_for_reason(reason_code: str) -> str:
         "missing_verification_plan": (
             "Which verification command or acceptance check should be added before rerunning?"
         ),
+        "verification_target_missing": (
+            "Which current verification target should replace the missing path before rerunning?"
+        ),
         "scope_violation": (
             "Which files should stay in scope, or should this lane be split before rerunning?"
         ),
@@ -4495,6 +4579,20 @@ def _default_blocking_question_for_reason(reason_code: str) -> str:
     return mapping.get(reason_code, "What human input is required before rerunning this lane?")
 
 
+def _merge_gate_verification_target_missing(work_order: dict[str, Any]) -> bool:
+    haystacks = [_optional_text(work_order.get("dispatch_error")).lower()]
+    for entry in work_order.get("verification_results", []):
+        if not isinstance(entry, dict):
+            continue
+        haystacks.extend(
+            _optional_text(entry.get(field)).lower()
+            for field in ("stdout", "stderr")
+            if _optional_text(entry.get(field))
+        )
+    combined = "\n".join(text for text in haystacks if text)
+    return "file or directory not found:" in combined
+
+
 def _infer_missing_failure_reason_for_work_order(work_order: dict[str, Any]) -> str:
     metadata = work_order.get("metadata")
     if isinstance(metadata, dict) and bool(metadata.get("mainline_verification_passed")):
@@ -4515,6 +4613,8 @@ def _infer_missing_failure_reason_for_work_order(work_order: dict[str, Any]) -> 
         dispatch_error = _optional_text(work_order.get("dispatch_error")).lower()
         if "missing verification plan" in dispatch_error:
             return "missing_verification_plan"
+        if _merge_gate_verification_target_missing(work_order):
+            return "verification_target_missing"
         return "merge_gate_failed"
     if worker_outcome == "scope_violation":
         return "scope_violation"
@@ -4530,6 +4630,8 @@ def _infer_missing_failure_reason_for_work_order(work_order: dict[str, Any]) -> 
         return "branch_snapshot_stale"
     if "missing verification plan" in lowered:
         return "missing_verification_plan"
+    if _merge_gate_verification_target_missing(work_order):
+        return "verification_target_missing"
     if "merge gate" in lowered:
         return "merge_gate_failed"
     if "scope" in lowered and "ownership" in lowered:
@@ -4573,8 +4675,8 @@ def _backfill_work_order_blocker_metadata(work_order: dict[str, Any]) -> bool:
     changed = False
     failure_reason = _optional_text(work_order.get("failure_reason"))
     inferred = _infer_missing_failure_reason_for_work_order(work_order)
-    if not failure_reason:
-        if inferred:
+    if inferred and (not failure_reason or failure_reason == "merge_gate_failed"):
+        if failure_reason != inferred:
             work_order["failure_reason"] = inferred
             failure_reason = inferred
             changed = True
@@ -4703,6 +4805,206 @@ def _verification_result_looks_environment_blocked(result: dict[str, Any]) -> bo
             "cannot execute binary file",
         )
     )
+
+
+def _docs_only_verification_script_path(command: Any) -> str:
+    normalized = _canonical_verification_command(command)
+    if not normalized:
+        return ""
+    try:
+        tokens = shlex.split(normalized)
+    except ValueError:
+        return ""
+    if not tokens:
+        return ""
+    if len(tokens) < 2 or Path(tokens[0]).name not in {"python", "python3"}:
+        return ""
+    return tokens[1]
+
+
+def _is_docs_only_verification_command(command: Any) -> bool:
+    script = _docs_only_verification_script_path(command)
+    return script in {
+        "scripts/reconcile_status_docs.py",
+        "scripts/check_capability_matrix_sync.py",
+        "scripts/check_version_alignment.py",
+        "scripts/generate_capability_matrix.py",
+    }
+
+
+def _docs_only_merge_gate_needs_capability_matrix_generation(
+    work_order: dict[str, Any],
+    commands: list[str],
+) -> bool:
+    if any(
+        _docs_only_verification_script_path(command)
+        in {
+            "scripts/reconcile_status_docs.py",
+            "scripts/check_capability_matrix_sync.py",
+        }
+        for command in commands
+        if str(command).strip()
+    ):
+        return True
+    haystacks = [str(work_order.get("dispatch_error", "")).lower()]
+    for entry in work_order.get("verification_results", []):
+        if not isinstance(entry, dict):
+            continue
+        haystacks.extend(
+            str(entry.get(field, "")).lower() for field in ("stdout", "stderr") if entry.get(field)
+        )
+    combined = "\n".join(haystacks)
+    return any(
+        marker in combined
+        for marker in (
+            "capability matrix files are out of date",
+            "capability_matrix.md",
+            "generate_capability_matrix.py",
+        )
+    )
+
+
+def _docs_only_replay_commands_for_work_order(work_order: dict[str, Any]) -> list[str] | None:
+    commands: list[str] = []
+    seen: set[str] = set()
+
+    def _append(command: Any) -> None:
+        text = str(command).strip()
+        canonical = _canonical_verification_command(text)
+        if not text or not canonical or canonical in seen:
+            return
+        seen.add(canonical)
+        commands.append(text)
+
+    for source in (
+        work_order.get("expected_tests", []),
+        work_order.get("tests_run", []),
+    ):
+        for entry in source:
+            if _is_docs_only_verification_command(entry):
+                _append(entry)
+    for entry in work_order.get("verification_results", []):
+        if not isinstance(entry, dict):
+            continue
+        command = entry.get("command", "")
+        if _is_docs_only_verification_command(command):
+            _append(command)
+
+    if not commands:
+        return None
+
+    if _docs_only_merge_gate_needs_capability_matrix_generation(work_order, commands):
+        generated: list[str] = []
+        for command in _DOCS_ONLY_GENERATE_CAPABILITY_MATRIX_COMMANDS:
+            canonical = _canonical_verification_command(command)
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            generated.append(command)
+        commands = generated + commands
+
+    return commands
+
+
+def _work_order_should_replay_docs_only_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    candidates = [
+        str(path).strip()
+        for path in work_order.get("changed_paths", []) or work_order.get("file_scope", [])
+        if str(path).strip()
+    ]
+    if not candidates or not all(_is_docs_only_path(path) for path in candidates):
+        return False
+    return _docs_only_replay_commands_for_work_order(work_order) is not None
+
+
+def _missing_required_replay_commands_for_work_order(
+    work_order: dict[str, Any],
+) -> list[str] | None:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return None
+    if not _optional_text(work_order.get("receipt_id")):
+        return None
+
+    merge_gate = _merge_gate_state_for_work_order(work_order)
+    expected_checks = [
+        str(command).strip()
+        for command in merge_gate.get("expected_checks", [])
+        if str(command).strip()
+    ]
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    if not expected_checks:
+        return None
+
+    missing_checks = [
+        command
+        for command in expected_checks
+        if not any(
+            _verification_command_covers_expected(entry.get("command", ""), command)
+            for entry in verification_results
+        )
+    ]
+    failed_checks = [
+        dict(entry)
+        for entry in verification_results
+        if any(
+            _verification_command_covers_expected(entry.get("command", ""), command)
+            for command in expected_checks
+        )
+        and not bool(entry.get("passed", False))
+    ]
+    if failed_checks or not missing_checks:
+        return None
+    return missing_checks
+
+
+def _work_order_should_replay_missing_required_merge_gate_failure(
+    work_order: dict[str, Any],
+) -> bool:
+    return _missing_required_replay_commands_for_work_order(work_order) is not None
+
+
+def _narrow_pytest_replay_commands_for_work_order(work_order: dict[str, Any]) -> list[str] | None:
+    commands: list[str] = []
+    seen: set[str] = set()
+
+    def _append(command: Any) -> None:
+        text = str(command).strip()
+        canonical = _canonical_verification_command(text)
+        if not text or not canonical or canonical in seen:
+            return
+        if not _pytest_command_targets(text) or _is_overbroad_pytest_command(text):
+            return
+        seen.add(canonical)
+        commands.append(text)
+
+    for source in (
+        work_order.get("expected_tests", []),
+        work_order.get("tests_run", []),
+    ):
+        for entry in source:
+            _append(entry)
+    for entry in work_order.get("verification_results", []):
+        if not isinstance(entry, dict):
+            continue
+        _append(entry.get("command", ""))
+
+    return commands or None
+
+
+def _work_order_should_replay_narrow_pytest_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    return _narrow_pytest_replay_commands_for_work_order(work_order) is not None
 
 
 def _work_order_should_replay_environment_blocked_verification(work_order: dict[str, Any]) -> bool:
@@ -4835,6 +5137,25 @@ def _work_order_should_reconcile_merge_gate_failure(work_order: dict[str, Any]) 
         if isinstance(entry, dict) and str(entry.get("command", "")).strip()
     ]
     return bool(verification_results)
+
+
+def _merge_gate_replay_matches_task_keys(
+    run_id: str,
+    work_order: dict[str, Any],
+    task_keys: set[str],
+) -> bool:
+    if not task_keys:
+        return True
+    metadata = work_order.get("metadata")
+    metadata_task_key = ""
+    if isinstance(metadata, dict):
+        metadata_task_key = _optional_text(metadata.get("task_key"))
+    explicit = _optional_text(work_order.get("task_key"))
+    derived = ""
+    work_order_id = _work_order_identifier(work_order)
+    if run_id and work_order_id:
+        derived = f"{run_id}:{work_order_id}"
+    return metadata_task_key in task_keys or explicit in task_keys or derived in task_keys
 
 
 def _work_order_reap_failure_reason(
