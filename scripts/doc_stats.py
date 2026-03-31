@@ -60,14 +60,9 @@ def _count_py_files(path: Path) -> int:
 
 
 def _count_tests() -> int:
-    count = _run_rg_count(
-        "def test_",
-        globs=["*.py"],
-        exclude_globs=["**/node_modules/**", "**/.nomic/**", "**/.venv/**"],
-    )
-    if count >= 0:
-        return count
-    # Fallback: scan tests/ directory only
+    # Keep documentation counts deterministic across local shells and CI runners.
+    # ripgrep availability changed this metric in practice, which made docs-build
+    # drift on GitHub even when local runs were clean.
     tests_dir = ROOT / "tests"
     if not tests_dir.exists():
         return 0
