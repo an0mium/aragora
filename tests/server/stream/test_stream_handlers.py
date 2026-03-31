@@ -778,6 +778,31 @@ class TestAudienceClustersHandler:
             call_args = mock_response.call_args[0][0]
             assert "error" in call_args or call_args.get("clusters") == []
 
+    @pytest.mark.asyncio
+    async def test_does_not_drain_suggestions_when_reading_clusters(self, request_factory):
+        """GET audience clusters should not consume pending suggestions."""
+        from aragora.server.stream.emitter import AudienceInbox
+        from aragora.server.stream.events import AudienceMessage
+
+        inbox = AudienceInbox()
+        inbox.put(
+            AudienceMessage(
+                type="suggestion",
+                loop_id="test-loop",
+                payload={"text": "Add more benchmarks", "user_id": "user-1"},
+            )
+        )
+        handler = ConcreteStreamAPIHandlers(audience_inbox=inbox)
+        request = request_factory(match_info={"loop_id": "test-loop"})
+
+        with patch("aiohttp.web.json_response") as mock_response:
+            mock_response.return_value = MagicMock()
+            await handler._handle_audience_clusters(request)
+
+        remaining = inbox.drain_suggestions(loop_id="test-loop")
+        assert len(remaining) == 1
+        assert remaining[0]["text"] == "Add more benchmarks"
+
 
 # ===========================================================================
 # Test Replay Handlers

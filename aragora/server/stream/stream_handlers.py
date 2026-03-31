@@ -807,8 +807,9 @@ class StreamAPIHandlersMixin:
                     headers=self._cors_headers(origin),
                 )
 
-            # Get suggestions from audience inbox for this loop
-            suggestions = self.audience_inbox.drain_suggestions(loop_id=loop_id)
+            # GET must be non-destructive so dashboard refreshes do not erase
+            # pending audience input before the debate loop can consume it.
+            suggestions = self.audience_inbox.peek_suggestions(loop_id=loop_id)
 
             if not suggestions:
                 return web.json_response(

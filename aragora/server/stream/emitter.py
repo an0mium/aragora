@@ -242,6 +242,27 @@ class AudienceInbox:
             self._messages.extend(remaining)
             return suggestions
 
+    def peek_suggestions(self, loop_id: str | None = None) -> list[dict]:
+        """
+        Return suggestion messages without removing them from the inbox.
+
+        Args:
+            loop_id: Optional loop ID to filter suggestions by
+
+        Returns:
+            List of suggestion payloads
+        """
+        with self._lock:
+            suggestions = []
+
+            for msg in self._messages:
+                if loop_id and msg.loop_id != loop_id:
+                    continue
+                if msg.type == "suggestion":
+                    suggestions.append(msg.payload)
+
+            return suggestions
+
 
 class SyncEventEmitter:
     """

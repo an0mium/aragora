@@ -481,6 +481,18 @@ class TestAudienceInbox:
         assert len(remaining) == 1
         assert remaining[0].loop_id == "loop-2"
 
+    def test_peek_suggestions_does_not_drain(self, audience_inbox, suggestion_message):
+        """peek_suggestions returns suggestions without removing them."""
+        audience_inbox.put(suggestion_message)
+
+        suggestions = audience_inbox.peek_suggestions()
+        assert len(suggestions) == 1
+        assert suggestions[0]["text"] == "Consider environmental impact"
+
+        remaining = audience_inbox.get_all()
+        assert len(remaining) == 1
+        assert remaining[0].type == "suggestion"
+
     def test_thread_safety_put(self, audience_inbox):
         """AudienceInbox.put() is thread-safe."""
 
