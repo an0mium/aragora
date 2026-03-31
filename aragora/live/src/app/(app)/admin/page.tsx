@@ -8,23 +8,47 @@ import { buildHealthCheckUrl, useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 
+type HealthStatusValue = 'healthy' | 'degraded' | 'unhealthy' | 'ok' | 'unknown';
+type HealthMode = 'demo' | 'development' | 'production' | 'unknown';
+
+interface DatabaseHealth {
+  status?: HealthStatusValue;
+  latency_ms?: number;
+}
+
+interface AgentsHealth {
+  status?: HealthStatusValue;
+  available?: number;
+  total?: number;
+}
+
+interface MemoryHealth {
+  status?: HealthStatusValue;
+  usage_mb?: number;
+}
+
+interface WebsocketHealth {
+  status?: HealthStatusValue;
+  connections?: number;
+}
+
 interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: HealthStatusValue;
   uptime_seconds: number;
   version: string;
   components?: {
-    database?: { status?: string; latency_ms?: number };
-    agents?: { status?: string; available?: number; total?: number };
-    memory?: { status?: string; usage_mb?: number };
-    websocket?: { status?: string; connections?: number };
+    database?: DatabaseHealth;
+    agents?: AgentsHealth;
+    memory?: MemoryHealth;
+    websocket?: WebsocketHealth;
   };
   agents_available?: number;
   agents_total?: number;
   websocket_connections?: number;
-  database_status?: string;
+  database_status?: HealthStatusValue;
   timestamp: string;
   demo_mode?: boolean;
-  mode?: string;
+  mode?: HealthMode;
 }
 
 interface AdminStats {
@@ -45,8 +69,21 @@ interface RecentActivity {
   org_name?: string;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
+function normalizeHealthStatus(status?: string): HealthStatusValue {
+  switch (status) {
+    case 'healthy':
+    case 'degraded':
+    case 'unhealthy':
+    case 'ok':
+    case 'unknown':
+      return status;
+    default:
+      return 'unknown';
+  }
+}
+
+function StatusBadge({ status }: { status: HealthStatusValue }) {
+  const colors: Record<HealthStatusValue, string> = {
     healthy: 'bg-acid-green/20 text-acid-green border-acid-green/40',
     degraded: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
     unhealthy: 'bg-acid-red/20 text-acid-red border-acid-red/40',
@@ -55,7 +92,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.degraded}`}>
+    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status]}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -235,7 +272,9 @@ export default function AdminOverviewPage() {
       : `${agentsAvailable ?? '-'}/${agentsTotal ?? '-'}`;
   const websocketConnections =
     health?.components?.websocket?.connections ?? health?.websocket_connections ?? null;
-  const databaseStatus = health?.components?.database?.status ?? health?.database_status ?? 'unknown';
+  const databaseStatus = normalizeHealthStatus(
+    health?.components?.database?.status ?? health?.database_status
+  );
 
   return (
     <AdminLayout

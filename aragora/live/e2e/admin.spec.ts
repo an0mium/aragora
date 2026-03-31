@@ -42,14 +42,42 @@ const adminOverviewFixtures = {
   },
 };
 
+function assertAdminOverviewFixtures() {
+  const { health, activity, debateTrends, usageTrends } = adminOverviewFixtures;
+
+  if (health.status !== 'healthy') {
+    throw new Error(`Expected healthy mock health status, got ${health.status}`);
+  }
+  if (typeof health.uptime_seconds !== 'number' || typeof health.version !== 'string') {
+    throw new Error('Mock health payload is missing required uptime/version fields');
+  }
+  if (
+    typeof health.components.agents.available !== 'number' ||
+    typeof health.components.agents.total !== 'number' ||
+    typeof health.components.websocket.connections !== 'number'
+  ) {
+    throw new Error('Mock health payload is missing numeric agent/websocket fields');
+  }
+  if (!activity.activities.every((item) => item.id && item.type && item.timestamp)) {
+    throw new Error('Mock activity payload contains an invalid activity item');
+  }
+  if (!debateTrends.data_points.every((item) => typeof item.total === 'number')) {
+    throw new Error('Mock debate trends payload contains a non-numeric total');
+  }
+  if (!usageTrends.data_points.every((item) => typeof item.requests === 'number' && typeof item.tokens === 'number')) {
+    throw new Error('Mock usage trends payload contains non-numeric request/token counts');
+  }
+}
+
 async function mockAdminOverviewData(page: import('@playwright/test').Page) {
+  assertAdminOverviewFixtures();
   await mockApiResponse(page, /\/api\/health\/?$/, adminOverviewFixtures.health);
   await mockApiResponse(page, '**/api/v1/dashboard/activity?limit=10', adminOverviewFixtures.activity);
   await mockApiResponse(page, '**/api/analytics/debates/trends?time_range=30d', adminOverviewFixtures.debateTrends);
   await mockApiResponse(page, '**/api/analytics/usage/tokens?time_range=30d', adminOverviewFixtures.usageTrends);
 }
 
-async function openAdminOverview(
+async function setupAdminOverviewTest(
   page: import('@playwright/test').Page,
   aragoraPage: { dismissAllOverlays: () => Promise<void> },
   viewport?: { width: number; height: number }
@@ -66,7 +94,7 @@ async function openAdminOverview(
 
 test.describe('Admin Overview', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
-    await openAdminOverview(page, aragoraPage);
+    await setupAdminOverviewTest(page, aragoraPage);
   });
 
   test('loads the admin overview shell and current layout', async ({ page }) => {
@@ -141,20 +169,36 @@ test.describe('Admin Overview', () => {
   });
 });
 
+const responsiveCases = [
+  {
+    name: 'renders on mobile',
+    viewport: { width: 375, height: 667 },
+    assertion: async (page: import('@playwright/test').Page) => {
+      await expect(page.locator('body')).toBeVisible();
+    },
+  },
+  {
+    name: 'renders on tablet',
+    viewport: { width: 768, height: 1024 },
+    assertion: async (page: import('@playwright/test').Page) => {
+      await expect(page.locator('body')).toBeVisible();
+    },
+  },
+  {
+    name: 'keeps the overview content visible on desktop',
+    viewport: { width: 1920, height: 1080 },
+    assertion: async (page: import('@playwright/test').Page) => {
+      await expect(page.getByRole('main', { name: 'Main content' })).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('heading', { name: 'System Health' })).toBeVisible();
+    },
+  },
+] as const;
+
 test.describe('Admin Overview responsive shell', () => {
-  test('renders on mobile', async ({ page, aragoraPage }) => {
-    await openAdminOverview(page, aragoraPage, { width: 375, height: 667 });
-    await expect(page.locator('body')).toBeVisible();
-  });
-
-  test('renders on tablet', async ({ page, aragoraPage }) => {
-    await openAdminOverview(page, aragoraPage, { width: 768, height: 1024 });
-    await expect(page.locator('body')).toBeVisible();
-  });
-
-  test('keeps the overview content visible on desktop', async ({ page, aragoraPage }) => {
-    await openAdminOverview(page, aragoraPage, { width: 1920, height: 1080 });
-    await expect(page.getByRole('main', { name: 'Main content' })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'System Health' })).toBeVisible();
-  });
+  for (const responsiveCase of responsiveCases) {
+    test(responsiveCase.name, async ({ page, aragoraPage }) => {
+      await setupAdminOverviewTest(page, aragoraPage, responsiveCase.viewport);
+      await responsiveCase.assertion(page);
+    });
+  }
 });

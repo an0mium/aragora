@@ -34,6 +34,17 @@ export const testData = {
 export class AragoraPage {
   constructor(private page: import('@playwright/test').Page) {}
 
+  private readonly sensitiveWarningPatterns = [
+    /Bearer\s+[A-Za-z0-9\-._~+/]+=*/i,
+    /sk-[A-Za-z0-9]{20,}/,
+    /ghp_[A-Za-z0-9]{20,}/,
+    /xox[baprs]-[A-Za-z0-9-]{10,}/,
+    /AKIA[0-9A-Z]{16}/,
+    /AIza[0-9A-Za-z\-_]{35}/,
+    /password\s*[:=]\s*\S+/i,
+    /token\s*[:=]\s*\S+/i,
+  ];
+
   private async isVisible(locator: import('@playwright/test').Locator, label: string, timeout = 1000) {
     if ((await locator.count()) === 0) {
       return false;
@@ -67,6 +78,23 @@ export class AragoraPage {
     }
   }
 
+  private async assertNoSensitiveWarningContent(
+    locator: import('@playwright/test').Locator,
+    label: string
+  ) {
+    if ((await locator.count()) === 0) {
+      return;
+    }
+    const warningText = (await locator.first().textContent())?.trim() ?? '';
+    if (!warningText) {
+      return;
+    }
+    const matchedPattern = this.sensitiveWarningPatterns.find((pattern) => pattern.test(warningText));
+    if (matchedPattern) {
+      throw new Error(`[e2e] Potential sensitive content exposed in ${label}: ${matchedPattern}`);
+    }
+  }
+
   /**
    * Dismiss the boot sequence animation if present.
    * The boot animation is a full-screen overlay that blocks all pointer events.
@@ -95,8 +123,11 @@ export class AragoraPage {
    */
   async dismissConnectivityWarning() {
     const dismissButton = this.page.locator('button[aria-label="Dismiss connectivity warning"]');
-    if (await this.clickIfVisible(dismissButton, 'connectivity warning dismiss button')) {
-      await this.waitForHidden(this.page.locator('[role="alert"]'), 'connectivity warning');
+    const connectivityWarning = this.page.locator('[role="alert"]');
+    if (await this.isVisible(dismissButton, 'connectivity warning dismiss button')) {
+      await this.assertNoSensitiveWarningContent(connectivityWarning, 'connectivity warning');
+      await this.clickIfVisible(dismissButton, 'connectivity warning dismiss button');
+      await this.waitForHidden(connectivityWarning, 'connectivity warning');
     }
   }
 
@@ -108,13 +139,13 @@ export class AragoraPage {
     const dismissButton = this.page.locator(
       'button[aria-label="Dismiss configuration warning"], button[aria-label="Dismiss warnings"]'
     );
-    if (await this.clickIfVisible(dismissButton, 'configuration warning dismiss button')) {
-      await this.waitForHidden(
-        this.page
-          .locator('[role="alert"]')
-          .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i }),
-        'configuration warning'
-      );
+    const configurationWarning = this.page
+      .locator('[role="alert"]')
+      .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i });
+    if (await this.isVisible(dismissButton, 'configuration warning dismiss button')) {
+      await this.assertNoSensitiveWarningContent(configurationWarning, 'configuration warning');
+      await this.clickIfVisible(dismissButton, 'configuration warning dismiss button');
+      await this.waitForHidden(configurationWarning, 'configuration warning');
     }
   }
 
