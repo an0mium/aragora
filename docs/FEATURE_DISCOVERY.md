@@ -525,7 +525,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
 | **Gauntlet Runner** | Stable | Compliance test execution | `aragora/gauntlet/runner.py` | [GAUNTLET.md](./debate/GAUNTLET.md) |
-| **Decision Receipts** | Integrated | SHA-256 cryptographic audit trails; anchor verification and export coverage still vary across handler surfaces | `aragora/gauntlet/receipts.py`, `aragora/server/handlers/gauntlet/receipts.py` | |
+| **Decision Receipts** | Integrated | SHA-256 cryptographic audit trails; the live receipts page now exposes share-link creation, while anchor verification and export coverage still vary across handler surfaces | `aragora/gauntlet/receipts.py`, `aragora/server/handlers/gauntlet/receipts.py` | |
 | **Findings** | Stable | Compliance findings management | `aragora/gauntlet/findings.py` | |
 | **Gauntlet Defense** | Stable | Attack/defend cycles via `proposer_agent` | `aragora/gauntlet/defense.py` | |
 | **Personas** | Stable | GDPR, SOC2, HIPAA, PCI-DSS, AI Act, NIST CSF | `aragora/gauntlet/personas/` | |

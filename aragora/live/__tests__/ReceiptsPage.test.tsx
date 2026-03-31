@@ -37,6 +37,7 @@ jest.mock('../src/components/ErrorWithRetry', () => ({
 
 jest.mock('../src/components/receipts', () => ({
   DeliveryModal: () => null,
+  ReceiptShareModal: () => null,
 }));
 
 jest.mock('../src/utils/logger', () => ({
@@ -274,6 +275,7 @@ describe('ReceiptsPage', () => {
         expect.any(Object)
       );
       expect(screen.getByText('Decision Receipt')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
       expect(screen.getByText('Sandbox escape')).toBeInTheDocument();
       expect(screen.getByText('PASS')).toBeInTheDocument();
       expect(screen.getByText('ingested')).toBeInTheDocument();

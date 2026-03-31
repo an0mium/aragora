@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
-import { DeliveryModal } from '@/components/receipts';
+import { DeliveryModal, ReceiptShareModal } from '@/components/receipts';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
@@ -729,6 +729,7 @@ export default function ReceiptsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | ReceiptVerdict>('all');
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const {
     data: gauntletReceiptsData,
@@ -890,6 +891,8 @@ export default function ReceiptsPage() {
     setActiveTab('list');
     setSelectedItem(null);
     setSelectedReceipt(null);
+    setShareModalOpen(false);
+    setDeliveryModalOpen(false);
     syncReceiptQuery(undefined);
   }, [syncReceiptQuery]);
 
@@ -1128,6 +1131,12 @@ export default function ReceiptsPage() {
               className="px-3 py-1 text-sm font-mono border border-border rounded hover:border-acid-green/50"
             >
               Back
+            </button>
+            <button
+              onClick={() => setShareModalOpen(true)}
+              className="px-3 py-1 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green rounded hover:bg-acid-green/20"
+            >
+              Share
             </button>
             <button
               onClick={() => setDeliveryModalOpen(true)}
@@ -1512,6 +1521,16 @@ export default function ReceiptsPage() {
           onDeliverySuccess={() => {
             // Delivery history remains server-backed; no local mutation needed here.
           }}
+        />
+      )}
+
+      {selectedReceipt && (
+        <ReceiptShareModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          receiptId={selectedReceipt.receipt_id}
+          receiptSummary={selectedReceipt.input_summary}
+          apiUrl={backendUrl}
         />
       )}
     </div>

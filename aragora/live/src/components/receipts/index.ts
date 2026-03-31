@@ -18,6 +18,11 @@ export {
 } from './DeliveryModal';
 
 export {
+  ReceiptShareModal,
+  type ReceiptShareModalProps,
+} from './ReceiptShareModal';
+
+export {
   DeliveryHistory,
   type DeliveryHistoryProps,
   type DeliveryRecord,
