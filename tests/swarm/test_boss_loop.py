@@ -317,6 +317,61 @@ Acceptance Criteria:
         assert result["results"][0]["status"] == "unsafe"
         assert "shell operators are not allowed" in result["results"][0]["detail"]
 
+    def test_run_pre_dispatch_validation_commands_accepts_quoted_multiword_args(
+        self, monkeypatch, tmp_path: Path
+    ):
+        calls: list[object] = []
+
+        def _run(cmd, **kwargs):
+            calls.append(cmd)
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "ok"
+            result.stderr = ""
+            return result
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        result = run_pre_dispatch_validation_commands(
+            ['python3 -m aragora.cli.main quickstart --topic "test topic" --rounds 1'],
+            cwd=tmp_path,
+            timeout_seconds=15,
+        )
+
+        assert calls == [
+            [
+                "python3",
+                "-m",
+                "aragora.cli.main",
+                "quickstart",
+                "--topic",
+                "test topic",
+                "--rounds",
+                "1",
+            ]
+        ]
+        assert result["satisfied"] is True
+
+    def test_run_pre_dispatch_validation_commands_rejects_non_ascii_chars(
+        self, monkeypatch, tmp_path: Path
+    ):
+        calls: list[object] = []
+
+        def _run(cmd, **kwargs):
+            calls.append(cmd)
+            raise AssertionError("unsafe command should not be executed")
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        result = run_pre_dispatch_validation_commands(
+            ['python3 -m aragora.cli.main quickstart --topic "café" --rounds 1'],
+            cwd=tmp_path,
+            timeout_seconds=15,
+        )
+
+        assert calls == []
+        assert result["satisfied"] is False
+        assert result["results"][0]["status"] == "unsafe"
+        assert "unsafe characters are not allowed" in result["results"][0]["detail"]
+
     def test_requires_labels_when_specified(self):
         issues = [
             _make_issue(1, "No label"),

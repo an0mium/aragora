@@ -363,6 +363,10 @@ _UNSAFE_PRE_DISPATCH_SHELL_FRAGMENTS = (
     "\n",
     "\r",
 )
+_SAFE_PRE_DISPATCH_ARGV_TOKEN_RE = re.compile(
+    r"^[A-Za-z0-9_./:=@,+%()\[\]\- ']+$",
+    re.ASCII,
+)
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -539,6 +543,12 @@ def split_pre_dispatch_validation_command(command: str) -> list[str]:
         raise ValueError(f"invalid shell quoting: {exc}") from exc
     if not argv:
         raise ValueError("empty validation command")
+    for token in argv:
+        if not _SAFE_PRE_DISPATCH_ARGV_TOKEN_RE.fullmatch(token):
+            raise ValueError(
+                "unsafe characters are not allowed in pre-dispatch validation commands; "
+                "use a single direct ASCII argv command instead"
+            )
     return argv
 
 
