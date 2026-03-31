@@ -37,6 +37,32 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
+
+def _should_disable_secrets_manager_for_bootstrap(argv: list[str] | None = None) -> bool:
+    """Return True when the invocation is explicitly demo/offline oriented."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
+        return False
+    if args[0] == "demo":
+        return True
+    return "--demo" in args or "--offline" in args
+
+
+def _prime_cli_environment(argv: list[str] | None = None) -> None:
+    """Avoid network-backed secret hydration for demo/offline CLI startup paths."""
+    if not _should_disable_secrets_manager_for_bootstrap(argv):
+        return
+    os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
+    try:
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+    except ImportError:
+        logger.debug("Secret manager reset unavailable during CLI bootstrap", exc_info=True)
+
+
+_prime_cli_environment()
+
 # ---------------------------------------------------------------------------
 # Re-exports for backwards compatibility
 #
@@ -119,6 +145,7 @@ def __getattr__(name: str) -> object:
 
 
 def main() -> None:
+    _prime_cli_environment()
     try:
         from aragora.cli.api_keys import hydrate_env_from_secure_store
 

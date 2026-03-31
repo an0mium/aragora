@@ -6,6 +6,7 @@ Covers argument parsing, command handlers, and utility functions.
 
 import argparse
 import asyncio
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, Mock
 import sys
@@ -17,6 +18,8 @@ from aragora.cli.main import (
     parse_agents,
     get_event_emitter_if_available,
     main,
+    _prime_cli_environment,
+    _should_disable_secrets_manager_for_bootstrap,
 )
 
 
@@ -456,6 +459,34 @@ class TestDemoTasks:
 
 class TestMain:
     """Tests for main entry point."""
+
+    def test_demo_bootstrap_disables_secrets_manager(self, monkeypatch: pytest.MonkeyPatch):
+        """Demo/offline invocations should skip AWS secrets-manager hydration."""
+        monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
+        reset_mock = Mock()
+        mock_secrets = Mock(reset_secret_manager=reset_mock)
+
+        with patch.dict(sys.modules, {"aragora.config.secrets": mock_secrets}):
+            _prime_cli_environment(["demo"])
+
+        assert os.environ["ARAGORA_USE_SECRETS_MANAGER"] == "false"
+        reset_mock.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        ("argv", "expected"),
+        [
+            (["demo"], True),
+            (["quickstart", "--demo"], True),
+            (["serve", "--offline"], True),
+            (["ask", "question"], False),
+        ],
+    )
+    def test_bootstrap_detection_matches_demo_and_offline_paths(
+        self,
+        argv: list[str],
+        expected: bool,
+    ):
+        assert _should_disable_secrets_manager_for_bootstrap(argv) is expected
 
     def test_main_no_command_shows_help(self, capsys):
         """Should show help when no command provided."""
