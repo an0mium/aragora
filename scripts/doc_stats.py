@@ -207,7 +207,8 @@ def _apply_patterns(
 
 def patch_docs(stats: Stats, write: bool) -> int:
     modules_approx = _approx(stats.python_modules, 1000)
-    tests_approx = _approx(stats.test_count, 1000)
+    # Keep the repo-wide headline coarse enough to avoid CI/local flapping.
+    tests_approx = _approx(stats.test_count, 10000)
     test_files_approx = _approx(stats.test_files, 1000)
     api_ops_approx = _approx(stats.api_operations, 1000)
     api_paths_approx = _approx(stats.api_paths, 100)
