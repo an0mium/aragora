@@ -61,6 +61,65 @@ USE_DOCK_ROUTING = os.environ.get("DEBATE_ORIGIN_USE_DOCKS", "1").lower() not in
 )
 
 
+def _get_slack_delivery_policy(origin: DebateOrigin) -> dict[str, Any]:
+    """Return Slack-specific delivery guardrails from origin metadata."""
+    policy = origin.metadata.get("slack_policy", {})
+    return policy if isinstance(policy, dict) else {}
+
+
+def _should_fail_closed_slack_result(
+    origin: DebateOrigin,
+    result: dict[str, Any],
+    *,
+    is_aux_event: bool,
+) -> bool:
+    """Return True when a Slack result should be held back instead of posted."""
+    if origin.platform.lower() != "slack" or is_aux_event:
+        return False
+
+    policy = _get_slack_delivery_policy(origin)
+    if not policy.get("fail_closed"):
+        return False
+
+    require_consensus = bool(policy.get("require_consensus", True))
+    consensus_reached = bool(result.get("consensus_reached", False))
+    raw_confidence = result.get("confidence", 0.0)
+    confidence = float(raw_confidence) if isinstance(raw_confidence, (int, float)) else 0.0
+    min_confidence = float(policy.get("min_confidence", 0.0) or 0.0)
+
+    if require_consensus and not consensus_reached:
+        return True
+    return confidence < min_confidence
+
+
+def _build_slack_fail_closed_message(
+    debate_id: str,
+    origin: DebateOrigin,
+    result: dict[str, Any],
+) -> str:
+    """Build a user-facing Slack holdback message for low-confidence results."""
+    policy = _get_slack_delivery_policy(origin)
+    reasons: list[str] = []
+    if policy.get("require_consensus", True) and not result.get("consensus_reached", False):
+        reasons.append("consensus was not reached")
+
+    raw_confidence = result.get("confidence", 0.0)
+    confidence = float(raw_confidence) if isinstance(raw_confidence, (int, float)) else 0.0
+    min_confidence = float(policy.get("min_confidence", 0.0) or 0.0)
+    if confidence < min_confidence:
+        reasons.append(f"confidence stayed below {min_confidence:.0%}")
+
+    reason_text = " and ".join(reasons) if reasons else "the answer was not reliable enough"
+    query_mode = str(policy.get("query_mode", "deliberative"))
+    return (
+        "I’m holding this answer back instead of posting a final response.\n\n"
+        f"Reason: {reason_text}.\n"
+        f"Question type: {query_mode}.\n"
+        "Please retry with more context or ask again after a stronger consensus path.\n\n"
+        f"_Debate ID: {debate_id}_"
+    )
+
+
 async def route_debate_result(
     debate_id: str,
     result: dict[str, Any],
@@ -117,6 +176,17 @@ async def route_debate_result(
 
     platform = origin.platform.lower()
     logger.info("Routing result for %s to %s:%s", debate_id, platform, origin.channel_id)
+
+    if _should_fail_closed_slack_result(origin, result, is_aux_event=is_aux_event):
+        message = _build_slack_fail_closed_message(debate_id, origin, result)
+        try:
+            success = await _send_slack_error(origin, message)
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.error("Failed to route Slack fail-closed message for %s: %s", debate_id, e)
+            return False
+        if success and not is_aux_event:
+            mark_result_sent(debate_id)
+        return success
 
     # Use dock-based routing if enabled
     if USE_DOCK_ROUTING:

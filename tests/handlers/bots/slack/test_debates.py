@@ -212,10 +212,12 @@ class TestStartSlackDebateHappyPath:
                 user_id="U789",
             )
 
-        mock_core.RequestContext.assert_called_once_with(
-            user_id="U789",
-            session_id="slack:CABC123",
-        )
+        mock_core.RequestContext.assert_called_once()
+        call_kwargs = mock_core.RequestContext.call_args.kwargs
+        assert call_kwargs["user_id"] == "U789"
+        assert call_kwargs["session_id"] == "slack:CABC123"
+        assert isinstance(call_kwargs["metadata"]["slack_policy"], dict)
+        assert call_kwargs["metadata"]["slack_policy"]["fail_closed"] is True
 
     @pytest.mark.asyncio
     async def test_creates_decision_request(self, debates_module):
@@ -427,6 +429,46 @@ class TestDecisionConfigConstruction:
         assert "config" in call_kwargs
 
     @pytest.mark.asyncio
+    async def test_non_trivial_queries_raise_min_rounds_when_default_is_low(self, debates_module):
+        """Analytical Slack asks force at least two rounds when deployment default is one."""
+        mock_core, mock_router, mock_req = _mock_core_module()
+
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.DEFAULT_ROUNDS", 1),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
+            await debates_module.start_slack_debate(
+                topic="Why did the Roman Empire fall?",
+                channel_id="C123",
+                user_id="U456",
+            )
+
+        mock_core.DecisionConfig.assert_called_once_with(rounds=2)
+        call_kwargs = mock_core.DecisionRequest.call_args[1]
+        assert "config" in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_factual_queries_do_not_force_round_override(self, debates_module):
+        """Simple factual Slack asks keep the deployment round default."""
+        mock_core, mock_router, mock_req = _mock_core_module()
+
+        with (
+            patch.dict("sys.modules", {"aragora.core": mock_core}),
+            patch(f"{MODULE}.DEFAULT_ROUNDS", 1),
+            patch(f"{MODULE}.register_debate_origin", create=True),
+        ):
+            await debates_module.start_slack_debate(
+                topic="What is the capital of France?",
+                channel_id="C123",
+                user_id="U456",
+            )
+
+        mock_core.DecisionConfig.assert_not_called()
+        call_kwargs = mock_core.DecisionRequest.call_args[1]
+        assert "config" not in call_kwargs
+
+    @pytest.mark.asyncio
     async def test_attachments_passed_through(self, debates_module):
         """Attachments are included in the DecisionRequest."""
         mock_core, mock_router, mock_req = _mock_core_module()
@@ -503,6 +545,8 @@ class TestOriginRegistration:
         assert call_kwargs["thread_id"] == "123.456"
         assert call_kwargs["metadata"]["topic"] == "Test topic"
         assert call_kwargs["metadata"]["response_url"] == "https://hooks.slack.com/resp"
+        assert call_kwargs["metadata"]["slack_policy"]["fail_closed"] is True
+        assert call_kwargs["metadata"]["slack_policy"]["require_consensus"] is True
 
     @pytest.mark.asyncio
     async def test_origin_registration_failure_caught(self, debates_module):

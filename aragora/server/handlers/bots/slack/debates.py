@@ -10,9 +10,51 @@ import logging
 import time
 from typing import Any
 
+from aragora.config import DEFAULT_ROUNDS
+
 from .state import _active_debates
 
 logger = logging.getLogger(__name__)
+
+_SLACK_FAIL_CLOSED_MIN_CONFIDENCE = 0.7
+_SLACK_NON_TRIVIAL_MIN_ROUNDS = 2
+
+
+def _build_slack_policy(topic: str) -> dict[str, Any]:
+    """Classify Slack asks for delivery guardrails."""
+    try:
+        from aragora.routing.lara_router import LaRARouter, RetrievalMode
+
+        decision = LaRARouter().route(query=topic, doc_tokens=0)
+        features = decision.query_features
+        is_non_trivial = (
+            decision.selected_mode != RetrievalMode.RAG
+            or features.is_analytical
+            or features.is_multi_hop
+            or features.requires_aggregation
+            or features.complexity_score >= 0.35
+        )
+        query_mode = "factual" if not is_non_trivial and features.is_factual else "deliberative"
+        min_rounds = 1 if query_mode == "factual" else _SLACK_NON_TRIVIAL_MIN_ROUNDS
+        return {
+            "query_mode": query_mode,
+            "selected_mode": decision.selected_mode.value,
+            "routing_confidence": float(decision.confidence),
+            "require_consensus": True,
+            "fail_closed": True,
+            "min_confidence": _SLACK_FAIL_CLOSED_MIN_CONFIDENCE,
+            "min_rounds": min_rounds,
+        }
+    except (ImportError, RuntimeError, AttributeError, ValueError):
+        return {
+            "query_mode": "deliberative",
+            "selected_mode": "debate",
+            "routing_confidence": 0.0,
+            "require_consensus": True,
+            "fail_closed": True,
+            "min_confidence": _SLACK_FAIL_CLOSED_MIN_CONFIDENCE,
+            "min_rounds": _SLACK_NON_TRIVIAL_MIN_ROUNDS,
+        }
 
 
 async def start_slack_debate(
@@ -55,18 +97,25 @@ async def start_slack_debate(
             webhook_url=response_url,
         )
 
+        slack_policy = _build_slack_policy(topic)
+
         # Create request context
         context = RequestContext(
             user_id=user_id,
             session_id=f"slack:{channel_id}",
+            metadata={"slack_policy": slack_policy},
         )
 
-        config = None
+        config_kwargs: dict[str, Any] = {}
         if decision_integrity is not None:
             if isinstance(decision_integrity, bool):
                 decision_integrity = {} if decision_integrity else None
             if isinstance(decision_integrity, dict):
-                config = DecisionConfig(decision_integrity=decision_integrity)
+                config_kwargs["decision_integrity"] = decision_integrity
+        min_rounds = int(slack_policy.get("min_rounds", 1) or 1)
+        if DEFAULT_ROUNDS < min_rounds:
+            config_kwargs["rounds"] = min_rounds
+        config = DecisionConfig(**config_kwargs) if config_kwargs else None
 
         request_kwargs = {
             "content": topic,
@@ -95,6 +144,7 @@ async def start_slack_debate(
                 metadata={
                     "topic": topic,
                     "response_url": response_url,
+                    "slack_policy": slack_policy,
                 },
             )
         except (RuntimeError, KeyError, AttributeError, OSError) as exc:
@@ -149,6 +199,7 @@ async def start_slack_debate(
                         metadata={
                             "topic": topic,
                             "response_url": response_url,
+                            "slack_policy": slack_policy,
                         },
                     )
                 except (RuntimeError, KeyError, AttributeError, OSError, ImportError) as exc:

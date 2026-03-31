@@ -185,6 +185,150 @@ class TestRouteDebateResult:
         mock_send.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_slack_fail_closed_when_consensus_missing(self, sample_result):
+        """Slack results fail closed when policy requires consensus and it is missing."""
+        origin = DebateOrigin(
+            debate_id="slack-policy-no-consensus",
+            platform="slack",
+            channel_id="C12345678",
+            user_id="U87654321",
+            thread_id="1234567890.123456",
+            metadata={
+                "slack_policy": {
+                    "fail_closed": True,
+                    "require_consensus": True,
+                    "min_confidence": 0.7,
+                    "query_mode": "deliberative",
+                }
+            },
+        )
+        sample_result["consensus_reached"] = False
+        sample_result["confidence"] = 0.92
+
+        with patch(
+            "aragora.server.debate_origin.registry.get_debate_origin",
+            return_value=origin,
+        ):
+            with patch(
+                "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+                False,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.router._send_slack_error",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ) as mock_error:
+                    with patch(
+                        "aragora.server.debate_origin.router._send_slack_result",
+                        new_callable=AsyncMock,
+                        return_value=True,
+                    ) as mock_result_send:
+                        with patch(
+                            "aragora.server.debate_origin.registry.mark_result_sent",
+                        ):
+                            result = await route_debate_result(origin.debate_id, sample_result)
+
+        assert result is True
+        mock_error.assert_called_once()
+        mock_result_send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_slack_fail_closed_when_confidence_too_low(self, sample_result):
+        """Slack results fail closed when confidence is below the origin policy threshold."""
+        origin = DebateOrigin(
+            debate_id="slack-policy-low-confidence",
+            platform="slack",
+            channel_id="C12345678",
+            user_id="U87654321",
+            thread_id="1234567890.123456",
+            metadata={
+                "slack_policy": {
+                    "fail_closed": True,
+                    "require_consensus": True,
+                    "min_confidence": 0.7,
+                    "query_mode": "factual",
+                }
+            },
+        )
+        sample_result["consensus_reached"] = True
+        sample_result["confidence"] = 0.41
+
+        with patch(
+            "aragora.server.debate_origin.registry.get_debate_origin",
+            return_value=origin,
+        ):
+            with patch(
+                "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+                False,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.router._send_slack_error",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ) as mock_error:
+                    with patch(
+                        "aragora.server.debate_origin.router._send_slack_result",
+                        new_callable=AsyncMock,
+                        return_value=True,
+                    ) as mock_result_send:
+                        with patch(
+                            "aragora.server.debate_origin.registry.mark_result_sent",
+                        ):
+                            result = await route_debate_result(origin.debate_id, sample_result)
+
+        assert result is True
+        mock_error.assert_called_once()
+        mock_result_send.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_slack_policy_allows_strong_result(self, sample_result):
+        """Slack results still route normally when they satisfy the policy."""
+        origin = DebateOrigin(
+            debate_id="slack-policy-strong-result",
+            platform="slack",
+            channel_id="C12345678",
+            user_id="U87654321",
+            thread_id="1234567890.123456",
+            metadata={
+                "slack_policy": {
+                    "fail_closed": True,
+                    "require_consensus": True,
+                    "min_confidence": 0.7,
+                    "query_mode": "factual",
+                }
+            },
+        )
+        sample_result["consensus_reached"] = True
+        sample_result["confidence"] = 0.92
+
+        with patch(
+            "aragora.server.debate_origin.registry.get_debate_origin",
+            return_value=origin,
+        ):
+            with patch(
+                "aragora.server.debate_origin.router.USE_DOCK_ROUTING",
+                False,
+            ):
+                with patch(
+                    "aragora.server.debate_origin.router._send_slack_error",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ) as mock_error:
+                    with patch(
+                        "aragora.server.debate_origin.router._send_slack_result",
+                        new_callable=AsyncMock,
+                        return_value=True,
+                    ) as mock_result_send:
+                        with patch(
+                            "aragora.server.debate_origin.registry.mark_result_sent",
+                        ):
+                            result = await route_debate_result(origin.debate_id, sample_result)
+
+        assert result is True
+        mock_error.assert_not_called()
+        mock_result_send.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_routes_to_discord(self, discord_origin, sample_result):
         """route_debate_result calls discord sender."""
         with patch(
