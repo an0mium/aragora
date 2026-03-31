@@ -13,8 +13,13 @@ from __future__ import annotations
 
 import html as html_mod
 import logging
+import os
 import time
 from typing import Any
+
+# Public share-view imports should not stall on Secrets Manager unless the
+# process explicitly opted in.
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 from aragora.server.handlers.base import (
     BaseHandler,

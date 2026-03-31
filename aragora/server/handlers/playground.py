@@ -1,20 +1,21 @@
 """
-Playground Handler - Public demo endpoint for the aragora-debate engine.
+Playground Handler - Public playground and demo debate endpoints.
 
 Stability: STABLE
 
-Allows anyone to run a mock debate without authentication or API keys.
-Uses StyledMockAgent from the aragora-debate standalone package for
-deterministic, zero-dependency debates.  The ``/live`` variant uses real
-API-backed agents with budget + timeout caps for a taste of the full
-platform.
+Allows anyone to create public playground debates without authentication.
+The base ``/api/v1/playground/debate`` route serves source-specific behavior:
+``source="demo"`` aims for a truthful live proof and fails closed when the
+backend cannot produce one, while ``source="try"`` and similar beta surfaces
+can return labeled deterministic fallbacks. The ``/live`` variant forces live
+API-backed debate execution with budget + timeout caps.
 
 Routes:
-    POST /api/v1/playground/debate              - Run a mock debate
-    POST /api/v1/playground/debate/live          - Run a live debate with real agents
+    POST /api/v1/playground/debate              - Create a public playground debate
+    POST /api/v1/playground/debate/live         - Run a live debate with real agents
     POST /api/v1/playground/debate/live/cost-estimate - Pre-flight cost estimate
-    GET  /api/v1/playground/debate/{id}          - Retrieve a saved debate (shareable link)
-    GET  /api/v1/playground/status               - Health check for the playground
+    GET  /api/v1/playground/debate/{id}         - Retrieve a saved debate (shareable link)
+    GET  /api/v1/playground/status              - Health check for the playground
 """
 
 from __future__ import annotations
@@ -30,6 +31,10 @@ import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
+
+# Public playground imports should stay offline-safe by default. The live demo
+# path can still opt into Secrets Manager explicitly via env.
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 from aragora.server.handlers.base import (
     BaseHandler,

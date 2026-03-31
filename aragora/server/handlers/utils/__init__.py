@@ -1,211 +1,239 @@
 """Handler utilities module.
 
-Provides reusable utilities for HTTP handlers including:
-- Rate limiting (token bucket algorithm)
-- Query parameter extraction and validation
-- URL routing and pattern matching
-- Database connection helpers
-- Safe data access utilities
-- Handler decorators (auth, validation, error handling)
-- Lazy store initialization (LazyStoreFactory)
-- Safe data fetching with error handling (safe_fetch_with_fallback)
-- Authentication mixins (SecureEndpointMixin)
+Keeps package import side effects minimal so callers can import specific utility
+submodules without eagerly loading auth, RBAC, or other heavyweight graphs.
+Public exports remain available via module-level lazy loading.
 """
 
-from .database import get_db_connection, table_exists
-from .lazy_stores import LazyStoreFactory, LazyStoreRegistry
-from .safe_fetch import (
-    safe_fetch as safe_fetch_with_fallback,
-    safe_fetch_async,
-    SafeFetchContext,
-    fetch_multiple,
-    fetch_multiple_async,
-)
-from .auth import (
-    ForbiddenError,
-    UnauthorizedError,
-    get_auth_context,
-    require_authenticated,
-)
-from .auth_mixins import (
-    SecureEndpointMixin,
-    AuthenticatedHandlerMixin,
-    require_permission as require_permission_mixin,
-    require_any_permission,
-    require_all_permissions,
-)
-from .decorators import (
-    PERMISSION_MATRIX,
-    auto_error_response,
-    generate_trace_id,
-    handle_errors,
-    has_permission,
-    log_request,
-    map_exception_to_status,
-    require_auth,
-    require_feature,
-    require_permission,
-    require_storage,
-    require_user_auth,
-    safe_fetch,
-    validate_params,
-    with_error_recovery,
-)
-from .params import (
-    get_bool_param,
-    get_bounded_float_param,
-    get_bounded_string_param,
-    get_clamped_int_param,
-    get_float_param,
-    get_int_param,
-    get_string_param,
-    parse_query_params,
-)
-from .rate_limit import RateLimiter, get_client_ip, rate_limit
-from .aiohttp_responses import web_error_response
-from .responses import (
-    HandlerResult,
-    error_response,
-    html_response,
-    json_response,
-    normalize_pagination_response,
-    paginated_response,
-    parse_pagination_params,
-    redirect_response,
-)
-from .routing import PathMatcher, RouteDispatcher
-from .safe_data import safe_get, safe_get_nested, safe_json_parse
-from .json_body import parse_json_body, parse_json_body_allow_array
-from .sanitization import (
-    RESPONSE_SENSITIVE_FIELDS,
-    sanitize_response,
-    sanitize_user_response,
-    sanitize_integration_response,
-    sanitize_payment_response,
-    sanitize_output,
-)
-from .rbac_guard import (
-    rbac_available,
-    rbac_fail_closed,
-    is_production_env,
-)
-from .file_validation import (
-    validate_file_upload,
-    validate_file_size,
-    validate_mime_type,
-    validate_extension,
-    validate_filename_security,
-    sanitize_filename,
-    get_max_file_size,
-    get_max_file_size_mb,
-    FileValidationResult,
-    FileValidationError,
-    FileValidationErrorCode,
-    ALLOWED_MIME_TYPES,
-    ALLOWED_EXTENSIONS,
-    MAX_FILE_SIZE,
-    MAX_FILENAME_LENGTH,
-)
+from __future__ import annotations
 
-__all__ = [
-    # Rate limiting
-    "RateLimiter",
-    "rate_limit",
-    "get_client_ip",
-    # Parameter extraction
-    "parse_query_params",
-    "get_int_param",
-    "get_float_param",
-    "get_bool_param",
-    "get_string_param",
-    "get_clamped_int_param",
-    "get_bounded_float_param",
-    "get_bounded_string_param",
-    # Routing
-    "PathMatcher",
-    "RouteDispatcher",
+import importlib
+from typing import Any
+
+
+_EXPORTS: dict[str, tuple[str, str]] = {
     # Database
-    "get_db_connection",
-    "table_exists",
-    # Safe data access
-    "safe_get",
-    "safe_get_nested",
-    "safe_json_parse",
-    # Response builders
-    "HandlerResult",
-    "json_response",
-    "error_response",
-    "html_response",
-    "redirect_response",
-    "web_error_response",
-    # Pagination helpers
-    "paginated_response",
-    "parse_pagination_params",
-    "normalize_pagination_response",
+    "get_db_connection": ("aragora.server.handlers.utils.database", "get_db_connection"),
+    "table_exists": ("aragora.server.handlers.utils.database", "table_exists"),
+    # Lazy stores
+    "LazyStoreFactory": ("aragora.server.handlers.utils.lazy_stores", "LazyStoreFactory"),
+    "LazyStoreRegistry": ("aragora.server.handlers.utils.lazy_stores", "LazyStoreRegistry"),
+    # Safe fetch
+    "safe_fetch_with_fallback": ("aragora.server.handlers.utils.safe_fetch", "safe_fetch"),
+    "safe_fetch_async": ("aragora.server.handlers.utils.safe_fetch", "safe_fetch_async"),
+    "SafeFetchContext": ("aragora.server.handlers.utils.safe_fetch", "SafeFetchContext"),
+    "fetch_multiple": ("aragora.server.handlers.utils.safe_fetch", "fetch_multiple"),
+    "fetch_multiple_async": ("aragora.server.handlers.utils.safe_fetch", "fetch_multiple_async"),
+    # Auth helpers
+    "ForbiddenError": ("aragora.server.handlers.utils.auth", "ForbiddenError"),
+    "UnauthorizedError": ("aragora.server.handlers.utils.auth", "UnauthorizedError"),
+    "get_auth_context": ("aragora.server.handlers.utils.auth", "get_auth_context"),
+    "require_authenticated": (
+        "aragora.server.handlers.utils.auth",
+        "require_authenticated",
+    ),
+    # Auth mixins
+    "SecureEndpointMixin": (
+        "aragora.server.handlers.utils.auth_mixins",
+        "SecureEndpointMixin",
+    ),
+    "AuthenticatedHandlerMixin": (
+        "aragora.server.handlers.utils.auth_mixins",
+        "AuthenticatedHandlerMixin",
+    ),
+    "require_permission_mixin": (
+        "aragora.server.handlers.utils.auth_mixins",
+        "require_permission",
+    ),
+    "require_any_permission": (
+        "aragora.server.handlers.utils.auth_mixins",
+        "require_any_permission",
+    ),
+    "require_all_permissions": (
+        "aragora.server.handlers.utils.auth_mixins",
+        "require_all_permissions",
+    ),
     # Decorators
-    "generate_trace_id",
-    "map_exception_to_status",
-    "validate_params",
-    "handle_errors",
-    "auto_error_response",
-    "log_request",
-    "PERMISSION_MATRIX",
-    "has_permission",
-    "require_permission",
-    "require_user_auth",
-    "require_auth",
-    "require_storage",
-    "require_feature",
-    "safe_fetch",
-    "with_error_recovery",
-    # Lazy store initialization (new)
-    "LazyStoreFactory",
-    "LazyStoreRegistry",
-    # Safe fetching with fallback (new)
-    "safe_fetch_with_fallback",
-    "safe_fetch_async",
-    "SafeFetchContext",
-    "fetch_multiple",
-    "fetch_multiple_async",
-    # Auth mixins (new)
-    "SecureEndpointMixin",
-    "AuthenticatedHandlerMixin",
-    "require_permission_mixin",
-    "require_any_permission",
-    "require_all_permissions",
-    # Response sanitization
-    "RESPONSE_SENSITIVE_FIELDS",
-    "sanitize_response",
-    "sanitize_user_response",
-    "sanitize_integration_response",
-    "sanitize_payment_response",
-    "sanitize_output",
-    # Auth exceptions and utilities (canonical exports)
-    "ForbiddenError",
-    "UnauthorizedError",
-    "get_auth_context",
-    "require_authenticated",
-    # JSON body parsing
-    "parse_json_body",
-    "parse_json_body_allow_array",
+    "PERMISSION_MATRIX": ("aragora.server.handlers.utils.decorators", "PERMISSION_MATRIX"),
+    "auto_error_response": (
+        "aragora.server.handlers.utils.decorators",
+        "auto_error_response",
+    ),
+    "generate_trace_id": ("aragora.server.handlers.utils.decorators", "generate_trace_id"),
+    "handle_errors": ("aragora.server.handlers.utils.decorators", "handle_errors"),
+    "has_permission": ("aragora.server.handlers.utils.decorators", "has_permission"),
+    "log_request": ("aragora.server.handlers.utils.decorators", "log_request"),
+    "map_exception_to_status": (
+        "aragora.server.handlers.utils.decorators",
+        "map_exception_to_status",
+    ),
+    "require_auth": ("aragora.server.handlers.utils.decorators", "require_auth"),
+    "require_feature": ("aragora.server.handlers.utils.decorators", "require_feature"),
+    "require_permission": (
+        "aragora.server.handlers.utils.decorators",
+        "require_permission",
+    ),
+    "require_storage": ("aragora.server.handlers.utils.decorators", "require_storage"),
+    "require_user_auth": (
+        "aragora.server.handlers.utils.decorators",
+        "require_user_auth",
+    ),
+    "safe_fetch": ("aragora.server.handlers.utils.decorators", "safe_fetch"),
+    "validate_params": ("aragora.server.handlers.utils.decorators", "validate_params"),
+    "with_error_recovery": (
+        "aragora.server.handlers.utils.decorators",
+        "with_error_recovery",
+    ),
+    # Params
+    "parse_query_params": ("aragora.server.handlers.utils.params", "parse_query_params"),
+    "get_int_param": ("aragora.server.handlers.utils.params", "get_int_param"),
+    "get_float_param": ("aragora.server.handlers.utils.params", "get_float_param"),
+    "get_bool_param": ("aragora.server.handlers.utils.params", "get_bool_param"),
+    "get_string_param": ("aragora.server.handlers.utils.params", "get_string_param"),
+    "get_clamped_int_param": (
+        "aragora.server.handlers.utils.params",
+        "get_clamped_int_param",
+    ),
+    "get_bounded_float_param": (
+        "aragora.server.handlers.utils.params",
+        "get_bounded_float_param",
+    ),
+    "get_bounded_string_param": (
+        "aragora.server.handlers.utils.params",
+        "get_bounded_string_param",
+    ),
+    # Rate limiting
+    "RateLimiter": ("aragora.server.handlers.utils.rate_limit", "RateLimiter"),
+    "rate_limit": ("aragora.server.handlers.utils.rate_limit", "rate_limit"),
+    "get_client_ip": ("aragora.server.handlers.utils.rate_limit", "get_client_ip"),
+    # Responses
+    "web_error_response": (
+        "aragora.server.handlers.utils.aiohttp_responses",
+        "web_error_response",
+    ),
+    "HandlerResult": ("aragora.server.handlers.utils.responses", "HandlerResult"),
+    "json_response": ("aragora.server.handlers.utils.responses", "json_response"),
+    "error_response": ("aragora.server.handlers.utils.responses", "error_response"),
+    "html_response": ("aragora.server.handlers.utils.responses", "html_response"),
+    "redirect_response": ("aragora.server.handlers.utils.responses", "redirect_response"),
+    "paginated_response": (
+        "aragora.server.handlers.utils.responses",
+        "paginated_response",
+    ),
+    "parse_pagination_params": (
+        "aragora.server.handlers.utils.responses",
+        "parse_pagination_params",
+    ),
+    "normalize_pagination_response": (
+        "aragora.server.handlers.utils.responses",
+        "normalize_pagination_response",
+    ),
+    # Routing and data helpers
+    "PathMatcher": ("aragora.server.handlers.utils.routing", "PathMatcher"),
+    "RouteDispatcher": ("aragora.server.handlers.utils.routing", "RouteDispatcher"),
+    "safe_get": ("aragora.server.handlers.utils.safe_data", "safe_get"),
+    "safe_get_nested": ("aragora.server.handlers.utils.safe_data", "safe_get_nested"),
+    "safe_json_parse": ("aragora.server.handlers.utils.safe_data", "safe_json_parse"),
+    "parse_json_body": ("aragora.server.handlers.utils.json_body", "parse_json_body"),
+    "parse_json_body_allow_array": (
+        "aragora.server.handlers.utils.json_body",
+        "parse_json_body_allow_array",
+    ),
+    # Sanitization
+    "RESPONSE_SENSITIVE_FIELDS": (
+        "aragora.server.handlers.utils.sanitization",
+        "RESPONSE_SENSITIVE_FIELDS",
+    ),
+    "sanitize_response": ("aragora.server.handlers.utils.sanitization", "sanitize_response"),
+    "sanitize_user_response": (
+        "aragora.server.handlers.utils.sanitization",
+        "sanitize_user_response",
+    ),
+    "sanitize_integration_response": (
+        "aragora.server.handlers.utils.sanitization",
+        "sanitize_integration_response",
+    ),
+    "sanitize_payment_response": (
+        "aragora.server.handlers.utils.sanitization",
+        "sanitize_payment_response",
+    ),
+    "sanitize_output": ("aragora.server.handlers.utils.sanitization", "sanitize_output"),
+    # RBAC guard
+    "rbac_available": ("aragora.server.handlers.utils.rbac_guard", "rbac_available"),
+    "rbac_fail_closed": ("aragora.server.handlers.utils.rbac_guard", "rbac_fail_closed"),
+    "is_production_env": (
+        "aragora.server.handlers.utils.rbac_guard",
+        "is_production_env",
+    ),
     # File validation
-    "validate_file_upload",
-    "validate_file_size",
-    "validate_mime_type",
-    "validate_extension",
-    "validate_filename_security",
-    "sanitize_filename",
-    "get_max_file_size",
-    "get_max_file_size_mb",
-    "FileValidationResult",
-    "FileValidationError",
-    "FileValidationErrorCode",
-    "ALLOWED_MIME_TYPES",
-    "ALLOWED_EXTENSIONS",
-    "MAX_FILE_SIZE",
-    "MAX_FILENAME_LENGTH",
-    # RBAC import guard (fail-closed in production)
-    "rbac_available",
-    "rbac_fail_closed",
-    "is_production_env",
-]
+    "validate_file_upload": (
+        "aragora.server.handlers.utils.file_validation",
+        "validate_file_upload",
+    ),
+    "validate_file_size": (
+        "aragora.server.handlers.utils.file_validation",
+        "validate_file_size",
+    ),
+    "validate_mime_type": (
+        "aragora.server.handlers.utils.file_validation",
+        "validate_mime_type",
+    ),
+    "validate_extension": (
+        "aragora.server.handlers.utils.file_validation",
+        "validate_extension",
+    ),
+    "validate_filename_security": (
+        "aragora.server.handlers.utils.file_validation",
+        "validate_filename_security",
+    ),
+    "sanitize_filename": (
+        "aragora.server.handlers.utils.file_validation",
+        "sanitize_filename",
+    ),
+    "get_max_file_size": (
+        "aragora.server.handlers.utils.file_validation",
+        "get_max_file_size",
+    ),
+    "get_max_file_size_mb": (
+        "aragora.server.handlers.utils.file_validation",
+        "get_max_file_size_mb",
+    ),
+    "FileValidationResult": (
+        "aragora.server.handlers.utils.file_validation",
+        "FileValidationResult",
+    ),
+    "FileValidationError": (
+        "aragora.server.handlers.utils.file_validation",
+        "FileValidationError",
+    ),
+    "FileValidationErrorCode": (
+        "aragora.server.handlers.utils.file_validation",
+        "FileValidationErrorCode",
+    ),
+    "ALLOWED_MIME_TYPES": (
+        "aragora.server.handlers.utils.file_validation",
+        "ALLOWED_MIME_TYPES",
+    ),
+    "ALLOWED_EXTENSIONS": (
+        "aragora.server.handlers.utils.file_validation",
+        "ALLOWED_EXTENSIONS",
+    ),
+    "MAX_FILE_SIZE": ("aragora.server.handlers.utils.file_validation", "MAX_FILE_SIZE"),
+    "MAX_FILENAME_LENGTH": (
+        "aragora.server.handlers.utils.file_validation",
+        "MAX_FILENAME_LENGTH",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_path, attr_name = _EXPORTS[name]
+    module = importlib.import_module(module_path)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)

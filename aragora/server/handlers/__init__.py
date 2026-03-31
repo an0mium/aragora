@@ -45,83 +45,110 @@ from ._lazy_imports import ALL_HANDLER_NAMES, HANDLER_MODULES
 # By pre-loading admin.cache, we break the circular dependency.
 from .admin import cache as cache  # noqa: F401, PLC0414  -- public for patch paths
 
-# Expose utils submodule for tests
-from . import utils as utils  # noqa: PLC0414
-
-# Base utilities - always loaded (small and frequently needed)
-from .base import BaseHandler, HandlerResult, error_response, json_response
-
-# Handler mixins (extracted to separate module)
-from .mixins import (
-    AuthenticatedHandlerMixin,
-    CachedHandlerMixin,
-    PaginatedHandlerMixin,
-)
-
-# API decorators (extracted to separate module)
-from .api_decorators import (
-    api_endpoint,
-    rate_limit,
-    require_quota,
-    validate_body,
-)
-
-# Typed handler base classes (extracted to separate module)
-from .typed_handlers import (
-    AdminHandler as TypedAdminHandler,
-    AsyncTypedHandler,
-    AuthenticatedHandler as TypedAuthenticatedHandler,
-    MaybeAsyncHandlerResult,
-    PermissionHandler,
-    ResourceHandler,
-    TypedHandler,
-)
-
-# Handler interfaces for type checking and contract definition
-from .interface import (
-    AuthenticatedHandlerInterface,
-    CachedHandlerInterface,
-    HandlerInterface,
-    HandlerRegistration,
-    MinimalServerContext,
-    PaginatedHandlerInterface,
-    RouteConfig,
-    StorageAccessInterface,
-    is_authenticated_handler,
-    is_handler,
-)
-
-# Shared types for handlers (protocols, type aliases, common parameters)
-from .types import (
-    AsyncHandlerFunction,
-    AsyncMiddlewareFunction,
-    FilterParams,
-    HandlerFunction,
-    HandlerProtocol,
-    MaybeAsyncHandlerFunction,
-    MaybeAsyncMiddlewareFunction,
-    MiddlewareFactory,
-    MiddlewareFunction,
-    PaginationParams,
-    QueryParams,
-    RequestContext,
-    ResponseType,
-    SortParams,
-)
-
-# Standalone utilities that don't require full server infrastructure
-from .utilities import (
-    agent_to_dict,
-    build_api_url,
-    extract_path_segment,
-    get_agent_name,
-    get_content_length,
-    get_host_header,
-    get_media_type,
-    get_request_id,
-    is_json_content_type,
-    normalize_agent_names,
-)
+_CORE_EXPORTS: dict[str, tuple[str, str]] = {
+    # Mixins
+    "AuthenticatedHandlerMixin": (
+        "aragora.server.handlers.mixins",
+        "AuthenticatedHandlerMixin",
+    ),
+    "CachedHandlerMixin": ("aragora.server.handlers.mixins", "CachedHandlerMixin"),
+    "PaginatedHandlerMixin": ("aragora.server.handlers.mixins", "PaginatedHandlerMixin"),
+    # API decorators
+    "api_endpoint": ("aragora.server.handlers.api_decorators", "api_endpoint"),
+    "rate_limit": ("aragora.server.handlers.api_decorators", "rate_limit"),
+    "require_quota": ("aragora.server.handlers.api_decorators", "require_quota"),
+    "validate_body": ("aragora.server.handlers.api_decorators", "validate_body"),
+    # Interfaces
+    "AuthenticatedHandlerInterface": (
+        "aragora.server.handlers.interface",
+        "AuthenticatedHandlerInterface",
+    ),
+    "CachedHandlerInterface": (
+        "aragora.server.handlers.interface",
+        "CachedHandlerInterface",
+    ),
+    "HandlerInterface": ("aragora.server.handlers.interface", "HandlerInterface"),
+    "HandlerRegistration": ("aragora.server.handlers.interface", "HandlerRegistration"),
+    "MinimalServerContext": ("aragora.server.handlers.interface", "MinimalServerContext"),
+    "PaginatedHandlerInterface": (
+        "aragora.server.handlers.interface",
+        "PaginatedHandlerInterface",
+    ),
+    "RouteConfig": ("aragora.server.handlers.interface", "RouteConfig"),
+    "StorageAccessInterface": (
+        "aragora.server.handlers.interface",
+        "StorageAccessInterface",
+    ),
+    "is_authenticated_handler": (
+        "aragora.server.handlers.interface",
+        "is_authenticated_handler",
+    ),
+    "is_handler": ("aragora.server.handlers.interface", "is_handler"),
+    # Shared types
+    "AsyncHandlerFunction": ("aragora.server.handlers.types", "AsyncHandlerFunction"),
+    "AsyncMiddlewareFunction": (
+        "aragora.server.handlers.types",
+        "AsyncMiddlewareFunction",
+    ),
+    "FilterParams": ("aragora.server.handlers.types", "FilterParams"),
+    "HandlerFunction": ("aragora.server.handlers.types", "HandlerFunction"),
+    "HandlerProtocol": ("aragora.server.handlers.types", "HandlerProtocol"),
+    "MaybeAsyncHandlerFunction": (
+        "aragora.server.handlers.types",
+        "MaybeAsyncHandlerFunction",
+    ),
+    "MaybeAsyncMiddlewareFunction": (
+        "aragora.server.handlers.types",
+        "MaybeAsyncMiddlewareFunction",
+    ),
+    "MiddlewareFactory": ("aragora.server.handlers.types", "MiddlewareFactory"),
+    "MiddlewareFunction": ("aragora.server.handlers.types", "MiddlewareFunction"),
+    "PaginationParams": ("aragora.server.handlers.types", "PaginationParams"),
+    "QueryParams": ("aragora.server.handlers.types", "QueryParams"),
+    "RequestContext": ("aragora.server.handlers.types", "RequestContext"),
+    "ResponseType": ("aragora.server.handlers.types", "ResponseType"),
+    "SortParams": ("aragora.server.handlers.types", "SortParams"),
+    # Standalone utilities
+    "agent_to_dict": ("aragora.server.handlers.utilities", "agent_to_dict"),
+    "build_api_url": ("aragora.server.handlers.utilities", "build_api_url"),
+    "extract_path_segment": (
+        "aragora.server.handlers.utilities",
+        "extract_path_segment",
+    ),
+    "get_agent_name": ("aragora.server.handlers.utilities", "get_agent_name"),
+    "get_content_length": (
+        "aragora.server.handlers.utilities",
+        "get_content_length",
+    ),
+    "get_host_header": ("aragora.server.handlers.utilities", "get_host_header"),
+    "get_media_type": ("aragora.server.handlers.utilities", "get_media_type"),
+    "get_request_id": ("aragora.server.handlers.utilities", "get_request_id"),
+    "is_json_content_type": (
+        "aragora.server.handlers.utilities",
+        "is_json_content_type",
+    ),
+    "normalize_agent_names": (
+        "aragora.server.handlers.utilities",
+        "normalize_agent_names",
+    ),
+    "BaseHandler": ("aragora.server.handlers.base", "BaseHandler"),
+    "HandlerResult": ("aragora.server.handlers.base", "HandlerResult"),
+    "json_response": ("aragora.server.handlers.base", "json_response"),
+    "error_response": ("aragora.server.handlers.base", "error_response"),
+    "TypedAdminHandler": ("aragora.server.handlers.typed_handlers", "AdminHandler"),
+    "AsyncTypedHandler": ("aragora.server.handlers.typed_handlers", "AsyncTypedHandler"),
+    "TypedAuthenticatedHandler": (
+        "aragora.server.handlers.typed_handlers",
+        "AuthenticatedHandler",
+    ),
+    "MaybeAsyncHandlerResult": (
+        "aragora.server.handlers.typed_handlers",
+        "MaybeAsyncHandlerResult",
+    ),
+    "PermissionHandler": ("aragora.server.handlers.typed_handlers", "PermissionHandler"),
+    "ResourceHandler": ("aragora.server.handlers.typed_handlers", "ResourceHandler"),
+    "TypedHandler": ("aragora.server.handlers.typed_handlers", "TypedHandler"),
+}
 
 # Type checking imports - these are not executed at runtime
 if TYPE_CHECKING:
@@ -479,9 +506,21 @@ def __getattr__(name: str) -> Any:
     if name == "ALL_HANDLERS":
         return _get_all_handlers()
 
+    if name == "utils":
+        module = importlib.import_module("aragora.server.handlers.utils")
+        globals()[name] = module
+        return module
+
     # Handle GAUNTLET_V1_HANDLERS specially
     if name == "GAUNTLET_V1_HANDLERS":
         return _lazy_import("GAUNTLET_V1_HANDLERS")
+
+    if name in _CORE_EXPORTS:
+        module_path, attr_name = _CORE_EXPORTS[name]
+        module = importlib.import_module(module_path)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
 
     # Check if this is a lazily-loaded handler
     if name in HANDLER_MODULES:

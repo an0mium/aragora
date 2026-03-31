@@ -34,13 +34,13 @@ import logging
 from typing import TYPE_CHECKING, Any, TypeAlias
 from collections.abc import Awaitable, Callable
 
-from aragora.billing.auth.context import UserAuthContext
 from aragora.protocols import HTTPRequestHandler
 from aragora.server.handlers.base import BaseHandler, handle_errors
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.responses import HandlerResult, error_response
 
 if TYPE_CHECKING:
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.server.handlers.base import ServerContext
     from aragora.server.storage import DebateStorage
     from aragora.users.store import UserStore

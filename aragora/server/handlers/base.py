@@ -52,13 +52,13 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeAlias, TypedDict, cast
 from collections.abc import Awaitable
 
-from aragora.billing.auth.context import UserAuthContext
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.protocols import AgentRating, HTTPRequestHandler
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from aragora.billing.auth.context import UserAuthContext
     from aragora.debate.calibration import CalibrationTracker
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.evidence.collector import EvidenceCollector
