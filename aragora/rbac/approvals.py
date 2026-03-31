@@ -249,6 +249,9 @@ class ApprovalWorkflow:
                 permission, resource_type, org_id, workspace_id
             )
 
+        # A requester must never be able to approve their own access request.
+        approvers = list(dict.fromkeys(a for a in approvers if a != requester_id))
+
         # Validate we have approvers
         if not approvers:
             raise ValueError("No approvers available for this request")
@@ -327,6 +330,9 @@ class ApprovalWorkflow:
         if not request:
             raise ValueError(f"Request not found: {request_id}")
 
+        if approver_id == request.requester_id:
+            raise ValueError("Requester cannot approve their own request")
+
         # Validate approver
         if approver_id not in request.approvers:
             raise ValueError(f"User {approver_id} is not an approver for this request")
@@ -397,6 +403,9 @@ class ApprovalWorkflow:
         request = self._requests.get(request_id)
         if not request:
             raise ValueError(f"Request not found: {request_id}")
+
+        if approver_id == request.requester_id:
+            raise ValueError("Requester cannot reject their own request")
 
         # Validate approver
         if approver_id not in request.approvers:

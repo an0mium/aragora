@@ -365,6 +365,33 @@ class TestApprovalWorkflowRequestAccess:
         # Should be capped to 1
         assert request.required_approvals == 1
 
+    @pytest.mark.asyncio
+    async def test_request_access_filters_requester_from_approvers(self, workflow):
+        """Requester should never remain in the approver set."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["user-1", "admin-1", "admin-1"],
+            required_approvals=2,
+        )
+
+        assert request.approvers == ["admin-1"]
+        assert request.required_approvals == 1
+
+    @pytest.mark.asyncio
+    async def test_request_access_rejects_when_only_requester_can_approve(self, workflow):
+        """A request should fail if self-approval is the only approver option."""
+        with pytest.raises(ValueError, match="No approvers available"):
+            await workflow.request_access(
+                requester_id="user-1",
+                permission="debates:delete",
+                resource_type="debates",
+                justification="Test",
+                approvers=["user-1"],
+            )
+
 
 class TestApprovalWorkflowApprove:
     """Tests for ApprovalWorkflow.approve()."""
@@ -462,6 +489,24 @@ class TestApprovalWorkflowApprove:
         with pytest.raises(ValueError, match="not an approver"):
             await workflow.approve(
                 approver_id="other-user",
+                request_id=request.id,
+            )
+
+    @pytest.mark.asyncio
+    async def test_approve_requester_self_approval_error(self, workflow):
+        """Requester cannot approve even if older data includes them as an approver."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+        request.approvers.append("user-1")
+
+        with pytest.raises(ValueError, match="cannot approve their own request"):
+            await workflow.approve(
+                approver_id="user-1",
                 request_id=request.id,
             )
 
@@ -587,6 +632,25 @@ class TestApprovalWorkflowReject:
         with pytest.raises(ValueError, match="not an approver"):
             await workflow.reject(
                 approver_id="other-user",
+                request_id=request.id,
+                reason="No",
+            )
+
+    @pytest.mark.asyncio
+    async def test_reject_requester_self_rejection_error(self, workflow):
+        """Requester cannot reject even if older data includes them as an approver."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            justification="Test",
+            approvers=["admin-1"],
+        )
+        request.approvers.append("user-1")
+
+        with pytest.raises(ValueError, match="cannot reject their own request"):
+            await workflow.reject(
+                approver_id="user-1",
                 request_id=request.id,
                 reason="No",
             )
