@@ -78,6 +78,10 @@ class TestConsensusHandlerCanHandle:
         """Test can_handle returns True for seed-demo endpoint."""
         assert consensus_handler.can_handle("/api/v1/consensus/seed-demo")
 
+    def test_can_handle_domain_list(self, consensus_handler):
+        """Test can_handle returns True for the exact domain listing endpoint."""
+        assert consensus_handler.can_handle("/api/v1/consensus/domain")
+
     def test_can_handle_domain(self, consensus_handler):
         """Test can_handle returns True for domain endpoint."""
         assert consensus_handler.can_handle("/api/v1/consensus/domain/software-engineering")
@@ -237,6 +241,13 @@ class TestConsensusHandlerRiskWarnings:
 
 class TestConsensusHandlerDomain:
     """Test GET /api/consensus/domain/:domain endpoint."""
+
+    def test_domain_list(self, consensus_handler, mock_http_handler):
+        """Test exact domain listing endpoint."""
+        result = consensus_handler.handle("/api/v1/consensus/domain", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code in [200, 400, 429, 500, 503]
 
     def test_domain_history(self, consensus_handler, mock_http_handler):
         """Test domain history endpoint."""

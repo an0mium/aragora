@@ -16870,6 +16870,156 @@
         "x-aragora-stability": "stable"
       }
     },
+    "/api/consensus": {
+      "get": {
+        "tags": [
+          "Consensus"
+        ],
+        "summary": "Consensus overview",
+        "description": "Get a summary of consensus memory coverage.\n\n**Response includes:**\n- total tracked topics\n- high-confidence consensus count\n- known consensus domains\n- average confidence and dissent totals",
+        "responses": {
+          "200": {
+            "description": "Consensus overview",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_topics": {
+                      "type": "integer"
+                    },
+                    "high_confidence_count": {
+                      "type": "integer"
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "avg_confidence": {
+                      "type": "number"
+                    },
+                    "total_dissents": {
+                      "type": "integer"
+                    },
+                    "by_strength": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    },
+                    "by_domain": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/v1/consensus": {
+      "get": {
+        "tags": [
+          "Consensus"
+        ],
+        "summary": "Consensus overview",
+        "description": "Get a summary of consensus memory coverage.\n\n**Response includes:**\n- total tracked topics\n- high-confidence consensus count\n- known consensus domains\n- average confidence and dissent totals",
+        "operationId": "getConsensusOverview",
+        "responses": {
+          "200": {
+            "description": "Consensus overview",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_topics": {
+                      "type": "integer"
+                    },
+                    "high_confidence_count": {
+                      "type": "integer"
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "avg_confidence": {
+                      "type": "number"
+                    },
+                    "total_dissents": {
+                      "type": "integer"
+                    },
+                    "by_strength": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    },
+                    "by_domain": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
     "/api/consensus/similar": {
       "get": {
         "tags": [
@@ -17491,6 +17641,114 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RiskWarningsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/consensus/domain": {
+      "get": {
+        "tags": [
+          "Consensus"
+        ],
+        "summary": "List consensus domains",
+        "description": "List domains that currently have consensus history records.\n\nUse this endpoint to discover available domain identifiers before requesting\n`/api/consensus/domain/{domain}` history.",
+        "responses": {
+          "200": {
+            "description": "Consensus domains",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/v1/consensus/domain": {
+      "get": {
+        "tags": [
+          "Consensus"
+        ],
+        "summary": "List consensus domains",
+        "description": "List domains that currently have consensus history records.\n\nUse this endpoint to discover available domain identifiers before requesting\n`/api/consensus/domain/{domain}` history.",
+        "operationId": "listConsensusDomains",
+        "responses": {
+          "200": {
+            "description": "Consensus domains",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
@@ -167285,71 +167543,6 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/consensus": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Consensus"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/consensus": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Consensus"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
     "/api/consensus/seed-demo": {
       "post": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -167384,71 +167577,6 @@
       }
     },
     "/api/v1/consensus/seed-demo": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Consensus"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/consensus/domain": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Consensus"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "deprecated": true,
-        "x-aragora-stability": "deprecated"
-      }
-    },
-    "/api/v1/consensus/domain": {
       "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [

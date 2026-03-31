@@ -3,6 +3,44 @@
 from aragora.server.openapi.helpers import _ok_response
 
 CONSENSUS_ENDPOINTS = {
+    "/api/consensus": {
+        "get": {
+            "tags": ["Consensus"],
+            "summary": "Consensus overview",
+            "description": """Get a summary of consensus memory coverage.
+
+**Response includes:**
+- total tracked topics
+- high-confidence consensus count
+- known consensus domains
+- average confidence and dissent totals""",
+            "operationId": "getConsensusOverview",
+            "responses": {
+                "200": _ok_response(
+                    "Consensus overview",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "total_topics": {"type": "integer"},
+                            "high_confidence_count": {"type": "integer"},
+                            "domains": {"type": "array", "items": {"type": "string"}},
+                            "avg_confidence": {"type": "number"},
+                            "total_dissents": {"type": "integer"},
+                            "by_strength": {
+                                "type": "object",
+                                "additionalProperties": {"type": "integer"},
+                            },
+                            "by_domain": {
+                                "type": "object",
+                                "additionalProperties": {"type": "integer"},
+                            },
+                        },
+                    },
+                )
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/consensus/similar": {
         "get": {
             "tags": ["Consensus"],
@@ -137,6 +175,30 @@ These views are preserved to:
 - Potential bias indicators""",
             "operationId": "getRiskWarnings",
             "responses": {"200": _ok_response("Risk warnings", "RiskWarningsResponse")},
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/consensus/domain": {
+        "get": {
+            "tags": ["Consensus"],
+            "summary": "List consensus domains",
+            "description": """List domains that currently have consensus history records.
+
+Use this endpoint to discover available domain identifiers before requesting
+`/api/consensus/domain/{domain}` history.""",
+            "operationId": "listConsensusDomains",
+            "responses": {
+                "200": _ok_response(
+                    "Consensus domains",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "domains": {"type": "array", "items": {"type": "string"}},
+                            "count": {"type": "integer"},
+                        },
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },

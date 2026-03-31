@@ -5,12 +5,14 @@ from aragora.server.handlers.memory.memory import MemoryHandler
 
 def test_consensus_v1_paths_supported() -> None:
     handler = ConsensusHandler({})
+    assert handler.can_handle("/api/v1/consensus")
     assert handler.can_handle("/api/v1/consensus/similar")
     assert handler.can_handle("/api/v1/consensus/settled")
     assert handler.can_handle("/api/v1/consensus/stats")
     assert handler.can_handle("/api/v1/consensus/dissents")
     assert handler.can_handle("/api/v1/consensus/contrarian-views")
     assert handler.can_handle("/api/v1/consensus/risk-warnings")
+    assert handler.can_handle("/api/v1/consensus/domain")
     assert handler.can_handle("/api/v1/consensus/domain/security")
 
 
