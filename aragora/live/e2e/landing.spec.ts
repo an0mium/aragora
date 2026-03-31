@@ -108,7 +108,7 @@ test.describe('Landing Page', () => {
         );
         await submitButton.click();
         await mockedErrorResponse;
-        // Error state is rendered inline with copy and retry action.
+        // The UI can surface either inline error copy or the retry CTA first, so the assertion accepts both.
         const errorState = page
           .getByText(/test error|something went wrong|could not connect to the server/i)
           .or(page.getByRole('button', { name: /try again/i }));

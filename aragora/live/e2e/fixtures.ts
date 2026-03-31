@@ -34,6 +34,9 @@ export const testData = {
 export class AragoraPage {
   constructor(private page: import('@playwright/test').Page) {}
 
+  /**
+   * Test-only logging for banner-dismiss timing noise during E2E retries.
+   */
   private logDismissWarning(context: string, error: unknown) {
     if (!(error instanceof Error)) {
       return;
@@ -75,6 +78,7 @@ export class AragoraPage {
   async dismissConnectivityWarning() {
     const backoffMs = [300, 600];
 
+    // The warning banner renders late in some test boots, so we allow a short settle window.
     await this.page.waitForLoadState('networkidle', { timeout: 300 }).catch(() => {});
 
     for (const [attempt, timeoutMs] of backoffMs.entries()) {
@@ -86,9 +90,11 @@ export class AragoraPage {
       }).first();
 
       if (await dismissButton.isVisible({ timeout: timeoutMs }).catch(() => false)) {
+        // Click failures are non-fatal here because the helper falls back to the next retry path.
         await dismissButton.click().catch(error => {
           this.logDismissWarning(`dismiss warning click attempt ${attempt + 1}`, error);
         });
+        // Hidden-state checks are advisory: the page may already be usable even if the alert lingers.
         await configAlert.waitFor({ state: 'hidden', timeout: 3000 }).catch(error => {
           this.logDismissWarning(`dismiss warning settle attempt ${attempt + 1}`, error);
         });
@@ -109,6 +115,7 @@ export class AragoraPage {
             }
           }
         });
+        // DOM-hide is a last-resort E2E escape hatch when the dismiss button is unavailable.
         await configAlert.waitFor({ state: 'hidden', timeout: 1000 }).catch(error => {
           this.logDismissWarning(`dismiss warning hide attempt ${attempt + 1}`, error);
         });
