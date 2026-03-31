@@ -7,6 +7,7 @@ import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateRes
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
+import { ConnectOpenRouterButton } from '../openrouter/ConnectOpenRouterButton';
 import type { HeroSectionProps } from './types';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
@@ -452,6 +453,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           >
             No account needed -- watch AI agents debate a real question
           </p>
+        )}
+        {!isRunning && !result && (
+          <div className="text-center mt-4">
+            <ConnectOpenRouterButton compact />
+          </div>
         )}
 
         {/* Loading state — phased progress */}
