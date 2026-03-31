@@ -6,6 +6,7 @@ Tests multi-agent code review CLI commands.
 
 from __future__ import annotations
 
+import asyncio
 import argparse
 import json
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ from aragora.cli.review import (
     get_available_agents,
     get_demo_findings,
     get_shareable_url,
+    run_review_debate,
     save_review_for_sharing,
 )
 
@@ -93,6 +95,39 @@ class TestGenerateReviewId:
 
         assert len(review_id) == 8
         assert review_id.isalnum()
+
+
+# ===========================================================================
+# Tests: run_review_debate
+# ===========================================================================
+
+
+class TestRunReviewDebate:
+    """Tests for the review debate execution helpers."""
+
+    def test_demo_agents_use_lightweight_runner(self, monkeypatch):
+        """Demo agents should not instantiate the heavyweight Arena stack."""
+        monkeypatch.setattr(
+            "aragora.cli.review.Arena",
+            MagicMock(side_effect=AssertionError("Arena should not be used for demo agents")),
+        )
+
+        result = asyncio.run(
+            run_review_debate(
+                diff="diff --git a/test.py b/test.py\n+print('hi')\n",
+                agents_str="demo,demo",
+                rounds=2,
+                focus_areas=["security"],
+            )
+        )
+
+        assert result.metadata["execution_mode"] == "lightweight_demo_review"
+        assert result.consensus_reached is True
+        assert result.winner in result.proposals
+        assert result.messages
+        assert result.critiques
+        assert result.votes
+        assert all(vote.choice == result.winner for vote in result.votes)
 
 
 # ===========================================================================
@@ -952,3 +987,23 @@ class TestCmdReview:
         captured = capsys.readouterr()
         assert "Shareable link:" in captured.err
         assert "aragora.ai/reviews" in captured.err
+
+    def test_demo_agents_run_real_review_flow(self, review_args, tmp_path, capsys, monkeypatch):
+        """Demo agents should execute a real review path without --demo."""
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("diff --git a/test.py b/test.py\n+print('hello')\n")
+        review_args.diff_file = str(diff_file)
+        review_args.agents = "demo,demo"
+        review_args.output_format = "json"
+
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+        with patch("aragora.cli.review._persist_review_to_km", return_value=False):
+            result = cmd_review(review_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["summary"]
+        assert output["unanimous_critiques"]
+        assert output["meta_issues"]

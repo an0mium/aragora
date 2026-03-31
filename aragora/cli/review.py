@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import Counter
 import hashlib
 import json
 import logging
@@ -26,7 +27,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from aragora.agents.base import AgentType, create_agent
-from aragora.core import Agent, DebateResult, Environment
+from aragora.core import Agent, DebateResult, Environment, Message
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.config.settings import DebateSettings, AgentSettings
@@ -82,6 +83,91 @@ _META_REVIEW_MARKERS = (
     "since the diff is truncated",
     "since the diff may be truncated",
 )
+
+
+def _parse_review_agent_specs(agents_str: str) -> list[str]:
+    """Parse a comma-separated agent list into normalized specs."""
+    return [spec.strip() for spec in agents_str.split(",") if spec.strip()]
+
+
+def _should_use_lightweight_review(agent_specs: list[str]) -> bool:
+    """Return True when the review can avoid the heavyweight Arena stack."""
+    return bool(agent_specs) and all(spec == "demo" for spec in agent_specs)
+
+
+async def _run_lightweight_review_debate(
+    task: str,
+    agents: list[Agent],
+) -> DebateResult:
+    """Run a minimal in-process debate for demo agents.
+
+    The full Arena boot path initializes optional subsystems that are not
+    needed for built-in demo agents and can fail in offline environments.
+    This runner preserves the DebateResult contract used by the CLI while
+    avoiding the heavyweight stack entirely.
+    """
+    proposals: dict[str, str] = {}
+    critiques: list[Any] = []
+    messages: list[Message] = []
+    votes: list[Any] = []
+
+    for agent in agents:
+        proposal = await agent.generate(task)
+        proposals[agent.name] = proposal
+        messages.append(Message(role="proposer", agent=agent.name, content=proposal, round=1))
+
+    for critic in agents:
+        for target_name, proposal in proposals.items():
+            if target_name == critic.name:
+                continue
+            critique = await critic.critique(
+                proposal,
+                task,
+                context=messages,
+                target_agent=target_name,
+            )
+            critiques.append(critique)
+            messages.append(
+                Message(
+                    role="critic",
+                    agent=critic.name,
+                    content=critique.to_prompt(),
+                    round=1,
+                )
+            )
+
+    for agent in agents:
+        vote = await agent.vote(proposals, task)
+        votes.append(vote)
+        messages.append(Message(role="vote", agent=agent.name, content=vote.reasoning, round=1))
+
+    if votes:
+        winner = Counter(vote.choice for vote in votes).most_common(1)[0][0]
+        confidence = sum(vote.confidence for vote in votes) / len(votes)
+        consensus_reached = len({vote.choice for vote in votes}) == 1
+    else:
+        winner = next(iter(proposals), None)
+        confidence = 0.0
+        consensus_reached = False
+
+    final_answer = proposals.get(winner, "") if winner else ""
+
+    return DebateResult(
+        task=task,
+        final_answer=final_answer,
+        confidence=confidence,
+        consensus_reached=consensus_reached,
+        rounds_used=1,
+        rounds_completed=1,
+        status="consensus_reached" if consensus_reached else "completed",
+        participants=[agent.name for agent in agents],
+        proposals=proposals,
+        messages=messages,
+        critiques=critiques,
+        votes=votes,
+        winner=winner,
+        metadata={"execution_mode": "lightweight_demo_review"},
+    )
 
 
 def generate_review_id(findings: dict, diff_hash: str) -> str:
@@ -309,14 +395,10 @@ async def run_review_debate(
     """Run a code review debate on the given diff."""
 
     # Parse and create agents
-    agent_specs = []
-    for spec in agents_str.split(","):
-        spec = spec.strip()
-        if spec:
-            agent_specs.append(spec)
+    agent_specs = _parse_review_agent_specs(agents_str)
 
     if len(agent_specs) < 2:
-        agent_specs = DEFAULT_REVIEW_AGENTS.split(",")
+        agent_specs = _parse_review_agent_specs(DEFAULT_REVIEW_AGENTS)
 
     # Create agents with reviewer roles
     agents: list[Agent] = []
@@ -332,6 +414,9 @@ async def run_review_debate(
 
     # Build review prompt
     task = build_review_prompt(diff, focus_areas)
+
+    if _should_use_lightweight_review(agent_specs):
+        return await _run_lightweight_review_debate(task, agents)
 
     # Create environment and protocol
     env = Environment(task=task, max_rounds=rounds)
