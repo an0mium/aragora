@@ -3,6 +3,7 @@
  *
  * LLM provider API keys are stored in localStorage under `aragora_provider_keys`
  * and passed to the backend per-request via `X-Provider-Key-{id}` headers.
+ * This keeps keys client-side, so XSS protections remain important.
  */
 
 export const PROVIDER_KEYS_STORAGE_KEY = 'aragora_provider_keys';
@@ -65,7 +66,8 @@ export function getStoredProviderKeys(): Record<string, string> {
   try {
     const stored = localStorage.getItem(PROVIDER_KEYS_STORAGE_KEY);
     return stored ? JSON.parse(stored) : {};
-  } catch {
+  } catch (error) {
+    console.warn('Failed to parse stored provider keys from localStorage.', error);
     return {};
   }
 }
