@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
@@ -77,20 +79,15 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-bg text-text">
-      {/* Minimal nav */}
-      <nav className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="font-mono text-acid-green font-bold text-sm tracking-wider">
-            ARAGORA
-          </Link>
-          <Link
-            href="/login"
-            className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-          >
-            Already have an account? LOG IN
-          </Link>
-        </div>
-      </nav>
+      <PublicNav>
+        <Link
+          href="/login"
+          className="text-xs text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        >
+          Already have an account? LOG IN
+        </Link>
+      </PublicNav>
 
       <div className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
@@ -217,6 +214,8 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
+
+      <PublicFooter />
     </main>
   );
 }

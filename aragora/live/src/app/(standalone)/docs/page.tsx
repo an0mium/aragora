@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
 
 type DocView = 'swagger' | 'redoc';
 
@@ -16,45 +18,23 @@ export default function DocsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col">
-      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="font-mono text-[var(--acid-green)] font-bold text-sm tracking-wider"
-          >
-            ARAGORA
-          </Link>
-          <div className="flex items-center gap-1">
-            {(['swagger', 'redoc'] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors ${
-                  view === v
-                    ? 'bg-[var(--acid-green)] text-[var(--bg)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
-                }`}
-              >
-                {v === 'swagger' ? 'SWAGGER' : 'REDOC'}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/playground"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+      <PublicNav>
+        <div className="flex items-center gap-1">
+          {(['swagger', 'redoc'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-3 py-1.5 text-xs font-mono font-bold rounded-full transition-colors ${
+                view === v
+                  ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+              }`}
             >
-              PLAYGROUND
-            </Link>
-            <Link
-              href="/signup"
-              className="text-xs font-mono px-3 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
-            >
-              SIGN UP FREE
-            </Link>
-          </div>
+              {v === 'swagger' ? 'SWAGGER' : 'REDOC'}
+            </button>
+          ))}
         </div>
-      </nav>
+      </PublicNav>
 
       <div className="flex-1 relative">
         {!apiUrl && (
