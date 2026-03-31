@@ -862,6 +862,63 @@ class TestWaitDetached:
         assert result.completed_at is not None
 
 
+class TestCollectFinishedSync:
+    def test_collects_already_finished_in_memory_worker(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
+        verification_results = [
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.1,
+            }
+        ]
+
+        worker = WorkerProcess(
+            work_order_id="wo-sync-finished",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=222,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers["wo-sync-finished"] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes["wo-sync-finished"] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands_sync",
+                return_value=verification_results,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=["wo-sync-finished"])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 0
+        assert result.head_sha == "abc123"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == [expected_test]
+        assert result.verification_results == verification_results
+        assert result.stdout == "some output"
+        mock_verify.assert_called_once_with("/tmp/wt", [expected_test])
+        assert "wo-sync-finished" not in launcher._processes
+
+
 class TestCollectDetachedResult:
     @pytest.mark.asyncio
     async def test_returns_none_if_pid_running(self):

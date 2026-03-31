@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 import time
 from typing import Any
@@ -395,6 +396,27 @@ class WorkerLauncher:
                 completed.append(await self.wait(work_order_id))
         return completed
 
+    def collect_finished_sync(
+        self,
+        *,
+        work_order_ids: list[str] | None = None,
+    ) -> list[WorkerProcess]:
+        """Collect workers that have already exited without awaiting the loop.
+
+        This is the sync counterpart used by ``SwarmSupervisor.refresh_run()``
+        when it is itself called from async code and cannot safely invoke
+        ``asyncio.run()``. Only workers whose subprocess already reports a
+        terminal ``returncode`` are eligible.
+        """
+        completed: list[WorkerProcess] = []
+        ids = work_order_ids or list(self._processes.keys())
+        for work_order_id in ids:
+            proc = self._processes.get(work_order_id)
+            if proc is None or proc.returncode is None:
+                continue
+            completed.append(self._wait_sync(work_order_id))
+        return completed
+
     async def snapshot_progress(self, work_order: dict[str, Any]) -> dict[str, Any]:
         """Capture lightweight progress state for a dispatched worker."""
         worktree_path = str(work_order.get("worktree_path", "")).strip()
@@ -712,6 +734,23 @@ class WorkerLauncher:
         except (asyncio.TimeoutError, FileNotFoundError, OSError):
             return ""
 
+    @staticmethod
+    def _git_output_sync(worktree_path: str, *args: str) -> str:
+        try:
+            proc = subprocess.run(
+                ["git", *args],
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return ""
+        if proc.returncode != 0:
+            return ""
+        return proc.stdout.rstrip()
+
     @classmethod
     async def _has_working_tree_changes(cls, worktree_path: str) -> bool:
         """Check for real (non-artifact) working-tree changes via git status.
@@ -738,8 +777,28 @@ class WorkerLauncher:
         return False
 
     @classmethod
+    def _has_working_tree_changes_sync(cls, worktree_path: str) -> bool:
+        status = cls._git_output_sync(
+            worktree_path,
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        )
+        for line in status.splitlines():
+            if len(line) < 4:
+                continue
+            path = line[3:].strip()
+            if path and path not in SESSION_ARTIFACTS:
+                return True
+        return False
+
+    @classmethod
     async def _collect_diff(cls, worktree_path: str) -> str:
         return await cls._git_output(worktree_path, "diff", "HEAD")
+
+    @classmethod
+    def _collect_diff_sync(cls, worktree_path: str) -> str:
+        return cls._git_output_sync(worktree_path, "diff", "HEAD")
 
     @classmethod
     async def _collect_commit_shas(
@@ -771,6 +830,39 @@ class WorkerLauncher:
         if shas:
             logger.info(
                 "commit_shas fallback: found %d commits ahead of origin/main "
+                "(initial_head=%r, head_sha=%r)",
+                len(shas),
+                initial_head[:12] if initial_head else "",
+                head_sha[:12] if head_sha else "",
+            )
+        return shas
+
+    @classmethod
+    def _collect_commit_shas_sync(
+        cls,
+        worktree_path: str,
+        *,
+        initial_head: str,
+        head_sha: str,
+    ) -> list[str]:
+        if not head_sha:
+            return []
+
+        if initial_head and initial_head != head_sha:
+            output = cls._git_output_sync(
+                worktree_path, "rev-list", "--reverse", f"{initial_head}..{head_sha}"
+            )
+            shas = [line.strip() for line in output.splitlines() if line.strip()]
+            if shas:
+                return shas
+
+        fallback_output = cls._git_output_sync(
+            worktree_path, "rev-list", "--reverse", "origin/main..HEAD"
+        )
+        shas = [line.strip() for line in fallback_output.splitlines() if line.strip()]
+        if shas:
+            logger.info(
+                "commit_shas sync fallback: found %d commits ahead of origin/main "
                 "(initial_head=%r, head_sha=%r)",
                 len(shas),
                 initial_head[:12] if initial_head else "",
@@ -833,6 +925,52 @@ class WorkerLauncher:
             if path:
                 changed.add(path)
         # Strip session artifacts — these are harness metadata, not deliverables
+        changed -= SESSION_ARTIFACTS
+        return sorted(changed)
+
+    @classmethod
+    def _collect_changed_paths_sync(
+        cls,
+        worktree_path: str,
+        *,
+        initial_head: str,
+        head_sha: str,
+    ) -> list[str]:
+        changed: set[str] = set()
+        diff_range = ""
+        if initial_head and head_sha and initial_head != head_sha:
+            diff_range = f"{initial_head}..{head_sha}"
+        elif head_sha and not initial_head:
+            diff_range = "origin/main..HEAD"
+        if diff_range:
+            diff_names = cls._git_output_sync(
+                worktree_path,
+                "diff",
+                "--name-only",
+                diff_range,
+            )
+            changed.update(line.strip() for line in diff_names.splitlines() if line.strip())
+
+        status_output = cls._git_output_sync(
+            worktree_path,
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        )
+        for line in status_output.splitlines():
+            if not line or len(line) < 2:
+                continue
+            if len(line) > 2 and line[2] == " ":
+                path = line[3:].strip()
+            else:
+                first_space = line.find(" ")
+                if first_space < 0:
+                    continue
+                path = line[first_space + 1 :].strip()
+            if " -> " in path:
+                path = path.split(" -> ")[-1].strip()
+            if path:
+                changed.add(path)
         changed -= SESSION_ARTIFACTS
         return sorted(changed)
 
@@ -1080,6 +1218,65 @@ class WorkerLauncher:
             )
         return results
 
+    @classmethod
+    def _run_verification_commands_sync(
+        cls,
+        worktree_path: str,
+        commands: list[str],
+        *,
+        timeout: float = DEFAULT_VERIFICATION_TIMEOUT_SECONDS,
+    ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        verification_env = cls._verification_environment(worktree_path)
+        for raw_command in commands:
+            command = str(raw_command).strip()
+            if not command:
+                continue
+            execution_command = cls._prepare_verification_command(command)
+
+            started = time.monotonic()
+            try:
+                proc = subprocess.run(
+                    ["/bin/bash", "-lc", execution_command],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True,
+                    env=verification_env,
+                    timeout=timeout,
+                    check=False,
+                )
+                exit_code = proc.returncode
+                stdout = proc.stdout
+                stderr = proc.stderr
+            except (FileNotFoundError, OSError) as exc:
+                results.append(
+                    {
+                        "command": command,
+                        "exit_code": -2,
+                        "passed": False,
+                        "stdout": "",
+                        "stderr": str(exc),
+                        "duration_seconds": round(time.monotonic() - started, 3),
+                    }
+                )
+                continue
+            except subprocess.TimeoutExpired:
+                exit_code = -1
+                stdout = ""
+                stderr = f"Timed out after {int(timeout)}s"
+
+            results.append(
+                {
+                    "command": command,
+                    "exit_code": exit_code,
+                    "passed": exit_code == 0,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "duration_seconds": round(time.monotonic() - started, 3),
+                }
+            )
+        return results
+
     @staticmethod
     def _runtime_repo_root() -> Path:
         return Path(__file__).resolve().parents[2]
@@ -1253,6 +1450,37 @@ class WorkerLauncher:
                     logger.debug("Failed to close live log handle", exc_info=True)
         return captured
 
+    def _finish_live_log_capture_sync(
+        self,
+        work_order_id: str,
+        worktree_path: str,
+    ) -> dict[str, str]:
+        tasks = self._live_log_tasks.pop(work_order_id, {})
+        handles = self._live_log_handles.pop(work_order_id, {})
+        captured: dict[str, str] = {}
+        try:
+            for stream_name in ("stdout", "stderr"):
+                task = tasks.get(stream_name)
+                if task is not None and task.done() and not task.cancelled():
+                    try:
+                        captured[stream_name] = task.result().decode(errors="replace")
+                        continue
+                    except Exception:
+                        logger.debug(
+                            "Sync attached %s capture failed for %s",
+                            stream_name,
+                            work_order_id,
+                            exc_info=True,
+                        )
+                captured[stream_name] = self._read_log_file(worktree_path, stream_name)
+        finally:
+            for handle in handles.values():
+                try:
+                    handle.close()
+                except OSError:
+                    logger.debug("Failed to close sync live log handle", exc_info=True)
+        return captured
+
     @staticmethod
     async def _tee_stream_to_log(
         stream: asyncio.StreamReader,
@@ -1371,6 +1599,80 @@ class WorkerLauncher:
             logger.warning("Auto-commit failed for %s: %s", worker.work_order_id, exc)
 
     @staticmethod
+    def _auto_commit_sync(worker: WorkerProcess) -> None:
+        """Sync auto-commit used by pre-reap refresh paths."""
+        try:
+            add_proc = subprocess.run(
+                ["git", "add", "-A"],
+                cwd=worker.worktree_path,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            if add_proc.returncode != 0:
+                logger.warning(
+                    "sync git add -A failed for %s (rc=%s): %s",
+                    worker.work_order_id,
+                    add_proc.returncode,
+                    add_proc.stderr.strip(),
+                )
+                return
+
+            for artifact in SESSION_ARTIFACTS:
+                subprocess.run(
+                    ["git", "reset", "HEAD", "--", artifact],
+                    cwd=worker.worktree_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+
+            diff_index_proc = subprocess.run(
+                ["git", "diff", "--cached", "--quiet"],
+                cwd=worker.worktree_path,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if diff_index_proc.returncode == 0:
+                logger.info(
+                    "No staged changes for %s after sync git add — skipping commit",
+                    worker.work_order_id,
+                )
+                return
+
+            if worker.exit_code is not None and worker.exit_code != 0:
+                msg = (
+                    f"fix(swarm): salvage {worker.agent} work for "
+                    f"{worker.work_order_id} (exit {worker.exit_code})"
+                )
+            else:
+                msg = f"feat(swarm): {worker.agent} completed {worker.work_order_id}"
+            commit_proc = subprocess.run(
+                ["git", "commit", "--no-verify", "-m", msg],
+                cwd=worker.worktree_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if commit_proc.returncode != 0:
+                logger.warning(
+                    "sync git commit failed for %s (rc=%s): %s",
+                    worker.work_order_id,
+                    commit_proc.returncode,
+                    commit_proc.stderr.strip(),
+                )
+                return
+
+            WorkerLauncher._auto_push_sync(worker)
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+            logger.warning("Sync auto-commit failed for %s: %s", worker.work_order_id, exc)
+
+    @staticmethod
     async def _auto_push(worker: WorkerProcess) -> None:
         """Best-effort push of the worker branch to origin.
 
@@ -1405,3 +1707,111 @@ class WorkerLauncher:
                 worker.work_order_id,
                 exc,
             )
+
+    @staticmethod
+    def _auto_push_sync(worker: WorkerProcess) -> None:
+        try:
+            push_proc = subprocess.run(
+                ["git", "push", "origin", "HEAD"],
+                cwd=worker.worktree_path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if push_proc.returncode != 0:
+                logger.info(
+                    "Sync auto-push failed for %s (rc=%s): %s — local commit preserved",
+                    worker.work_order_id,
+                    push_proc.returncode,
+                    push_proc.stderr.strip()[:200],
+                )
+            else:
+                logger.info("Sync auto-pushed branch for %s", worker.work_order_id)
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+            logger.info(
+                "Sync auto-push skipped for %s: %s — local commit preserved",
+                worker.work_order_id,
+                exc,
+            )
+
+    @classmethod
+    def _wait_for_pid_exit_sync(cls, pid: int, timeout: float = 5.0) -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if not cls._is_pid_running(pid):
+                return
+            time.sleep(0.1)
+        logger.debug("PID %d still alive after %.1fs sync wait", pid, timeout)
+
+    def _wait_sync(self, work_order_id: str) -> WorkerProcess:
+        """Synchronously finalize a worker whose subprocess already exited."""
+        worker = self._workers.get(work_order_id)
+        proc = self._processes.get(work_order_id)
+        if worker is None or proc is None or proc.returncode is None:
+            raise KeyError(f"No finished worker for {work_order_id}")
+
+        live_capture_enabled = work_order_id in self._live_log_tasks
+        worker.exit_code = proc.returncode
+        if live_capture_enabled:
+            live_logs = self._finish_live_log_capture_sync(
+                work_order_id,
+                worker.worktree_path,
+            )
+            worker.stdout = live_logs["stdout"]
+            worker.stderr = live_logs["stderr"]
+        else:
+            worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
+            worker.stderr = self._read_log_file(worker.worktree_path, "stderr")
+
+        worker.completed_at = datetime.now(UTC).isoformat()
+        try:
+            worker.diff = self._collect_diff_sync(worker.worktree_path)
+
+            can_query_dirty_tree = self._can_query_dirty_tree(worker)
+            has_changes = bool(worker.diff) or (
+                can_query_dirty_tree and self._has_working_tree_changes_sync(worker.worktree_path)
+            )
+            if self.config.auto_commit and self._should_attempt_auto_commit(
+                worker, has_changes=has_changes
+            ):
+                self._auto_commit_sync(worker)
+
+            worker.head_sha = self._git_output_sync(worker.worktree_path, "rev-parse", "HEAD")
+            worker.commit_shas = self._collect_commit_shas_sync(
+                worker.worktree_path,
+                initial_head=worker.initial_head,
+                head_sha=worker.head_sha,
+            )
+            worker.changed_paths = self._collect_changed_paths_sync(
+                worker.worktree_path,
+                initial_head=worker.initial_head,
+                head_sha=worker.head_sha,
+            )
+
+            if worker.commit_shas:
+                self._auto_push_sync(worker)
+
+            if self._should_run_verification(worker):
+                worker.verification_results = self._run_verification_commands_sync(
+                    worker.worktree_path,
+                    worker.expected_tests,
+                )
+                worker.tests_run = [
+                    str(item.get("command", "")).strip()
+                    for item in worker.verification_results
+                    if str(item.get("command", "")).strip()
+                ]
+        finally:
+            self._cleanup_session_artifacts(worker.worktree_path)
+
+        logger.info(
+            "Sync-collected worker %s completed: exit=%s commits=%d changed_paths=%d",
+            work_order_id,
+            worker.exit_code,
+            len(worker.commit_shas),
+            len(worker.changed_paths),
+        )
+
+        self._processes.pop(work_order_id, None)
+        return worker

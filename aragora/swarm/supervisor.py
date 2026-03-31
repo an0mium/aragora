@@ -475,8 +475,40 @@ class SwarmSupervisor:
         worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
         self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
         changed = False
+        dispatched_ids = [
+            str(item.get("work_order_id", "")).strip()
+            for item in work_orders
+            if str(item.get("status", "")) == "dispatched"
+        ]
+
+        try:
+            finished = self.launcher.collect_finished_sync(work_order_ids=dispatched_ids)
+        except Exception:
+            logger.debug(
+                "sync finished-worker collection failed for run %s",
+                run_id,
+                exc_info=True,
+            )
+            finished = []
+
+        finished_by_id = {worker.work_order_id: worker for worker in finished}
+        for item in work_orders:
+            worker = finished_by_id.get(str(item.get("work_order_id", "")).strip())
+            if worker is None:
+                continue
+            self._apply_worker_result(
+                item,
+                worker,
+                worker_type_circuit_breakers=worker_type_circuit_breakers,
+                worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+            )
+            self._backfill_missing_completion_receipt(item)
+            changed = True
+
         for item in work_orders:
             if str(item.get("status", "")) != "dispatched":
+                continue
+            if str(item.get("work_order_id", "")).strip() in finished_by_id:
                 continue
             pid = item.get("pid")
             if pid is None:

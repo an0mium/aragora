@@ -3574,6 +3574,78 @@ async def test_refresh_run_async_context_reconciles_dead_worker_salvage(
     )
 
 
+@pytest.mark.asyncio
+async def test_refresh_run_async_context_collects_finished_in_memory_worker(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="async-finished-lane",
+        title="Async finished lane",
+        owner_agent="codex",
+        owner_session_id="async-finished-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["docs/notes.md"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="async finished worker",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "async finished worker"},
+        work_orders=[
+            {
+                "work_order_id": "wo-async-finished",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "async-finished-session",
+                "lease_id": lease.lease_id,
+                "pid": 4242,
+                "initial_head": "base123",
+                "review_status": "pending",
+                "file_scope": ["docs/notes.md"],
+            }
+        ],
+        status="active",
+    )
+
+    finished_worker = WorkerProcess(
+        work_order_id="wo-async-finished",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        pid=4242,
+        exit_code=0,
+        completed_at="2026-03-31T12:00:00+00:00",
+        diff="diff --git a/docs/notes.md",
+        initial_head="base123",
+        head_sha="abc12345",
+        changed_paths=["docs/notes.md"],
+        commit_shas=["abc12345"],
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.get_worker.return_value = finished_worker
+    mock_launcher.collect_finished_sync.return_value = [finished_worker]
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    mock_launcher.collect_finished_sync.assert_called_once_with(
+        work_order_ids=["wo-async-finished"]
+    )
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["receipt_id"]
+    assert work_order["commit_shas"] == ["abc12345"]
+    assert work_order["head_sha"] == "abc12345"
+
+
 # --- Finding 1: Filtered pytest commands with selectors ---
 
 
