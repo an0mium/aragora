@@ -122,9 +122,9 @@ Examples:
     show_p.add_argument(
         "--format",
         "-f",
-        choices=["json", "md", "html"],
-        default=None,
-        help="Output format (default: terminal inspect view)",
+        choices=["json", "markdown"],
+        default="json",
+        help="Output format (default: json)",
     )
     show_p.add_argument("--org-id", help="Organization ID for ownership check")
     show_p.set_defaults(func=cmd_receipt_show)
@@ -790,6 +790,210 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     print(f"\n{len(results)} receipt(s) shown.")
 
 
+def _format_markdown_scalar(value: Any) -> str:
+    """Render a scalar value for inline markdown output."""
+    if value in (None, ""):
+        return "N/A"
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    return str(value)
+
+
+def _append_markdown_section(
+    lines: list[str],
+    title: str,
+    entries: list[tuple[str, str]],
+) -> None:
+    """Append a markdown section with bullet-style key/value pairs."""
+    if not entries:
+        return
+
+    lines.extend(["", f"## {title}", ""])
+    for label, value in entries:
+        lines.append(f"- **{label}:** {value}")
+
+
+def _receipt_to_markdown(data: dict[str, Any]) -> str:
+    """Render receipt data as readable markdown."""
+    confidence = data.get("confidence", 0)
+    try:
+        confidence_text = f"{float(confidence):.1%}"
+    except (TypeError, ValueError):
+        confidence_text = _format_markdown_scalar(confidence)
+
+    lines = ["# Decision Receipt"]
+    shown_keys: set[str] = {
+        "receipt_id",
+        "gauntlet_id",
+        "verdict",
+        "confidence",
+        "timestamp",
+        "created_at",
+        "state",
+        "summary",
+        "verdict_reasoning",
+        "action_intent",
+        "triage_decision",
+        "risk_summary",
+        "consensus_proof",
+        "agent_responses",
+        "cost_summary",
+        "config_used",
+        "dissenting_views",
+    }
+
+    overview = [
+        ("Receipt ID", f"`{_format_markdown_scalar(data.get('receipt_id'))}`"),
+        ("Gauntlet ID", f"`{_format_markdown_scalar(data.get('gauntlet_id'))}`"),
+        ("Type", f"`{_receipt_kind(data)}`"),
+        ("Verdict", f"**{_format_markdown_scalar(data.get('verdict', 'UNKNOWN'))}**"),
+        ("Confidence", f"**{confidence_text}**"),
+    ]
+    timestamp = data.get("timestamp") or data.get("created_at")
+    if timestamp not in (None, ""):
+        overview.append(("Timestamp", f"`{_format_markdown_scalar(timestamp)}`"))
+    state = data.get("state")
+    if state not in (None, ""):
+        overview.append(("State", f"`{_format_markdown_scalar(state)}`"))
+    _append_markdown_section(lines, "Overview", overview)
+
+    summary = data.get("summary") or data.get("verdict_reasoning")
+    if summary not in (None, ""):
+        lines.extend(["", "## Summary", "", str(summary).strip()])
+
+    action_intent = data.get("action_intent")
+    triage_decision = data.get("triage_decision")
+    if isinstance(action_intent, dict) or isinstance(triage_decision, dict):
+        action_intent = action_intent if isinstance(action_intent, dict) else {}
+        triage_decision = triage_decision if isinstance(triage_decision, dict) else {}
+        inbox_entries = [
+            (
+                "Action",
+                f"`{_format_markdown_scalar(triage_decision.get('final_action') or action_intent.get('action'))}`",
+            ),
+            ("Provider", f"`{_format_markdown_scalar(action_intent.get('provider'))}`"),
+            ("Message ID", f"`{_format_markdown_scalar(action_intent.get('message_id'))}`"),
+            (
+                "Route",
+                f"`{_format_markdown_scalar(triage_decision.get('provider_route') or action_intent.get('provider_route'))}`",
+            ),
+            (
+                "Receipt State",
+                f"`{_format_markdown_scalar(triage_decision.get('receipt_state') or data.get('state'))}`",
+            ),
+            (
+                "Blocked",
+                _format_markdown_scalar(triage_decision.get("blocked_by_policy")),
+            ),
+        ]
+        label_id = triage_decision.get("label_id") or action_intent.get("label_id")
+        if label_id not in (None, ""):
+            inbox_entries.append(("Label ID", f"`{_format_markdown_scalar(label_id)}`"))
+        _append_markdown_section(lines, "Inbox Trust Wedge", inbox_entries)
+
+        rationale = str(action_intent.get("synthesized_rationale") or "").strip()
+        if rationale:
+            lines.extend(["", "## Rationale", "", rationale])
+
+    risk_summary = data.get("risk_summary")
+    if isinstance(risk_summary, dict) and risk_summary:
+        risk_entries = [
+            ("Critical", _format_markdown_scalar(risk_summary.get("critical", 0))),
+            ("High", _format_markdown_scalar(risk_summary.get("high", 0))),
+            ("Medium", _format_markdown_scalar(risk_summary.get("medium", 0))),
+            ("Low", _format_markdown_scalar(risk_summary.get("low", 0))),
+            ("Total", _format_markdown_scalar(risk_summary.get("total", 0))),
+        ]
+        _append_markdown_section(lines, "Risk Summary", risk_entries)
+
+    consensus = data.get("consensus_proof")
+    if isinstance(consensus, dict) and consensus:
+        consensus_entries = [
+            ("Reached", _format_markdown_scalar(consensus.get("reached"))),
+            ("Method", f"`{_format_markdown_scalar(consensus.get('method'))}`"),
+            (
+                "Supporting",
+                ", ".join(str(agent) for agent in consensus.get("supporting_agents", [])) or "None",
+            ),
+            (
+                "Dissenting",
+                ", ".join(str(agent) for agent in consensus.get("dissenting_agents", [])) or "None",
+            ),
+        ]
+        _append_markdown_section(lines, "Consensus", consensus_entries)
+
+    agent_responses = data.get("agent_responses")
+    if isinstance(agent_responses, list) and agent_responses:
+        lines.extend(["", f"## Agent Responses ({len(agent_responses)})", ""])
+        for response in agent_responses[:10]:
+            if not isinstance(response, dict):
+                lines.append(f"- {response}")
+                continue
+            name = _format_markdown_scalar(response.get("agent_name", "unknown"))
+            model = _format_markdown_scalar(response.get("llm_label"))
+            role = _format_markdown_scalar(response.get("role"))
+            content = str(response.get("content", ""))
+            label = f"**{name}**"
+            details: list[str] = []
+            if model != "N/A":
+                details.append(model)
+            if role != "N/A":
+                details.append(role)
+            if details:
+                label += f" ({', '.join(details)})"
+            lines.append(f"- {label}: {len(content)} chars")
+
+    cost_summary = data.get("cost_summary")
+    if isinstance(cost_summary, dict) and cost_summary:
+        total_cost = cost_summary.get("total_cost", cost_summary.get("total"))
+        if total_cost not in (None, ""):
+            _append_markdown_section(
+                lines,
+                "Cost",
+                [("Total", f"${_format_markdown_scalar(total_cost)}")],
+            )
+
+    config_used = data.get("config_used")
+    critique_summaries = (
+        config_used.get("critique_summaries", []) if isinstance(config_used, dict) else []
+    )
+    if critique_summaries:
+        lines.extend(["", f"## Critique Summaries ({len(critique_summaries)})", ""])
+        for critique in critique_summaries[:5]:
+            if not isinstance(critique, dict):
+                lines.append(f"- {critique}")
+                continue
+            critic = _format_markdown_scalar(critique.get("critic", "unknown"))
+            target = _format_markdown_scalar(critique.get("target"))
+            severity = _format_markdown_scalar(critique.get("severity"))
+            lines.append(f"- **{critic} -> {target}** (severity: {severity})")
+            issues = critique.get("issues")
+            if isinstance(issues, list):
+                for issue in issues[:3]:
+                    lines.append(f"  - {issue}")
+
+    dissenting_views = data.get("dissenting_views")
+    if isinstance(dissenting_views, list) and dissenting_views:
+        lines.extend(["", f"## Dissenting Views ({len(dissenting_views)})", ""])
+        for view in dissenting_views[:5]:
+            lines.append(f"- {view}")
+
+    remaining = {key: value for key, value in data.items() if key not in shown_keys}
+    if remaining:
+        lines.extend(
+            [
+                "",
+                "## Additional Data",
+                "",
+                "```json",
+                json.dumps(remaining, indent=2, default=str),
+                "```",
+            ]
+        )
+
+    return "\n".join(lines).strip() + "\n"
+
+
 def cmd_receipt_show(args: argparse.Namespace) -> None:
     """Show a specific receipt by ID."""
     receipt_id = getattr(args, "id", None)
@@ -834,14 +1038,8 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     data = _normalize_receipt_payload_for_display(data)
     if output_format == "json":
         print(json.dumps(data, indent=2, default=str))
-    elif output_format == "md":
-        try:
-            from aragora.gauntlet.receipt_models import DecisionReceipt
-
-            receipt = DecisionReceipt.from_dict(data)
-            print(receipt.to_markdown())
-        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
-            print(json.dumps(data, indent=2, default=str))
+    elif output_format in {"markdown", "md"}:
+        print(_receipt_to_markdown(data))
     elif output_format == "html":
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt

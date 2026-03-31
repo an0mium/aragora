@@ -13,6 +13,7 @@ import pytest
 
 from aragora.cli.commands.receipt import (
     _format_receipt_created_at,
+    add_receipt_parser,
     cmd_receipt_list,
     cmd_receipt_show,
 )
@@ -195,6 +196,56 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "BLOCKED"
     assert payload["confidence"] == pytest.approx(0.61)
+
+
+def test_receipt_show_parser_defaults_to_json_format() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+
+    args = parser.parse_args(["receipt", "show", "rcpt-live-123"])
+
+    assert args.format == "json"
+
+
+def test_receipt_show_renders_markdown_output(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-md-123",
+        "gauntlet_id": "rcpt-md-123",
+        "verdict": "PASS",
+        "confidence": 0.92,
+        "summary": "Stored in durable receipt store",
+        "risk_summary": {
+            "critical": 0,
+            "high": 1,
+            "medium": 2,
+            "low": 0,
+            "total": 3,
+        },
+        "consensus_proof": {
+            "reached": True,
+            "method": "majority",
+            "supporting_agents": ["alpha", "beta"],
+            "dissenting_agents": ["gamma"],
+        },
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-md-123", format="markdown", org_id=None))
+
+    output = capsys.readouterr().out
+    assert "# Decision Receipt" in output
+    assert "## Overview" in output
+    assert "- **Receipt ID:** `rcpt-md-123`" in output
+    assert "- **Verdict:** **PASS**" in output
+    assert "## Summary" in output
+    assert "Stored in durable receipt store" in output
+    assert "## Risk Summary" in output
+    assert "- **Total:** 3" in output
+    assert "## Consensus" in output
+    assert "- **Supporting:** alpha, beta" in output
 
 
 def test_receipt_show_renders_inbox_receipt_details(
