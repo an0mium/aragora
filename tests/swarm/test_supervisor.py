@@ -1554,6 +1554,78 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert "missing verification plan" in wo["dispatch_error"]
 
 
+@pytest.mark.asyncio
+async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="salvage-direct-lane",
+        title="Salvage direct lane",
+        owner_agent="claude",
+        owner_session_id="salvage-direct-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="salvage direct",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "salvage direct"},
+        work_orders=[
+            {
+                "work_order_id": "wo-salvage-direct",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "salvage-direct-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "receipt_id": None,
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    salvaged_worker = WorkerProcess(
+        work_order_id="wo-salvage-direct",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="salvage-direct-session",
+        pid=100,
+        exit_code=143,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        head_sha="abc12345",
+    )
+    mock_launcher.get_worker = MagicMock(return_value=salvaged_worker)
+    mock_launcher.wait = AsyncMock(return_value=salvaged_worker)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "completed"
+    assert wo["review_status"] == "pending_heterogeneous_review"
+    assert wo["worker_outcome"] == "crash_with_salvage"
+    assert wo["receipt_id"] is not None
+    receipt = store.get_completion_receipt(wo["receipt_id"])
+    assert receipt is not None
+    assert receipt.outcome == "deliverable_created"
+
+
 def test_merge_gate_state_allows_docs_only_lane_without_verification_plan() -> None:
     state = SwarmSupervisor._merge_gate_state(
         {
@@ -2043,6 +2115,87 @@ async def test_collect_finished_results_passes_expected_tests_to_detached_collec
     assert work_order["merge_gate"]["checks_passed"] is True
     assert work_order["tests_run"] == [expected_test]
     assert work_order["verification_results"][0]["command"] == expected_test
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_backfills_receipt_for_salvaged_detached_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="detached-salvage-lane",
+        title="Detached salvage lane",
+        owner_agent="codex",
+        owner_session_id="detached-salvage-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    run_record = store.create_supervisor_run(
+        goal="detached salvage",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "detached salvage"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-salvage",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "detached-salvage-session",
+                "lease_id": lease.lease_id,
+                "pid": 424242,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "receipt_id": None,
+            }
+        ],
+        status="active",
+    )
+
+    detached_worker = WorkerProcess(
+        work_order_id="wo-detached-salvage",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="detached-salvage-session",
+        pid=424242,
+        initial_head=initial_head,
+        exit_code=143,
+        completed_at="2026-03-21T01:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        head_sha="abc12345",
+        stdout="worker stdout",
+        stderr="",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock()
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    collect_detached = AsyncMock(return_value=detached_worker)
+    with patch.object(WorkerLauncher, "collect_detached_result", new=collect_detached):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert len(completed) == 1
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["worker_outcome"] == "crash_with_salvage"
+    assert work_order["receipt_id"] is not None
+    receipt = store.get_completion_receipt(work_order["receipt_id"])
+    assert receipt is not None
+    assert receipt.outcome == "deliverable_created"
 
 
 @pytest.mark.asyncio

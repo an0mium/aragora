@@ -1205,6 +1205,7 @@ class SwarmSupervisor:
                 worker_type_circuit_breakers=worker_type_circuit_breakers,
                 worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
             )
+            self._backfill_missing_completion_receipt(item)
             completed.append(result)
 
         self.store.update_supervisor_run(
@@ -1446,6 +1447,7 @@ class SwarmSupervisor:
                 worker_type_circuit_breakers=worker_type_circuit_breakers,
                 worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
             )
+            self._backfill_missing_completion_receipt(item)
 
         self._record_terminal_work_order_telemetry(run_id, work_orders)
         self.store.update_supervisor_run(
