@@ -45,9 +45,10 @@ class TestOutcomeSignal:
         assert "T" in s.timestamp  # ISO format
 
     def test_to_dict_roundtrip(self):
-        s = _make_signal(entity_title="Fix bug", tokens_used=50000)
+        s = _make_signal(entity_title="Fix bug", debate_id="debate-123", tokens_used=50000)
         d = s.to_dict()
         assert d["entity_title"] == "Fix bug"
+        assert d["debate_id"] == "debate-123"
         assert d["tokens_used"] == 50000
         # Should be JSON-serializable
         json.dumps(d)
@@ -57,6 +58,10 @@ class TestOutcomeSignal:
         d = s.to_dict()
         assert "elapsed_seconds" in d
         assert d["elapsed_seconds"] == 12.5
+
+    def test_debate_id_defaults_to_empty_string(self):
+        s = _make_signal()
+        assert s.debate_id == ""
 
 
 class TestOutcomeSignalBus:
