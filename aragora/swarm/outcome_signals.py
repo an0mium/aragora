@@ -41,6 +41,7 @@ class OutcomeSignal:
     source_loop: str  # boss | nomic | ralph | pipeline
     signal_type: str  # completed | failed | escalated | repaired | blocked
     entity_id: str  # issue number, cycle ID, campaign ID, etc.
+    debate_id: str = ""
     entity_title: str = ""
 
     # Quality
