@@ -24,6 +24,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.auth import auth_config
 from aragora.server.handlers.onboarding import (
     OnboardingHandler,
     OnboardingState,
@@ -320,6 +322,35 @@ class TestOnboardingHandlerRouting:
             user_id="test-user",
         )
         assert result.status_code == 404
+
+    async def test_handle_get_uses_request_authorization_context(self, handler, monkeypatch):
+        from aragora.rbac import decorators as rbac_decorators
+
+        def _strict_context_lookup(args, kwargs, context_param):
+            context = kwargs.get(context_param)
+            if isinstance(context, AuthorizationContext):
+                return context
+            for arg in args:
+                if isinstance(arg, AuthorizationContext):
+                    return arg
+            return None
+
+        request = MagicMock()
+        request._auth_context = AuthorizationContext(  # type: ignore[attr-defined]
+            user_id="test-user",
+            org_id="test-org",
+            roles={"admin"},
+            permissions={"onboarding:read"},
+        )
+
+        monkeypatch.setattr(rbac_decorators, "_get_context_from_args", _strict_context_lookup)
+        monkeypatch.setattr(auth_config, "enabled", True)
+
+        result = await handler.handle_get("/api/v1/onboarding/templates", {}, request)
+        assert result.status_code == 200
+        body = _parse_response(result)
+        data = body.get("data", body)
+        assert data["total"] > 0
 
 
 # ===========================================================================

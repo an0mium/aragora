@@ -26,6 +26,7 @@ import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -38,6 +39,9 @@ from aragora.rbac.decorators import require_permission
 from aragora.storage.repositories.onboarding import get_onboarding_repository
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from aragora.rbac.models import AuthorizationContext
 
 # =============================================================================
 # Types and Constants
@@ -611,6 +615,7 @@ def _track_event(
 async def handle_get_flow(
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Get current onboarding flow state.
@@ -694,6 +699,7 @@ async def handle_init_flow(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Initialize a new onboarding flow.
@@ -799,6 +805,7 @@ async def handle_update_step(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Update onboarding step progress.
@@ -918,6 +925,7 @@ async def handle_get_templates(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Get recommended starter templates.
@@ -962,6 +970,7 @@ async def handle_first_debate(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Start a guided first debate.
@@ -1057,6 +1066,7 @@ async def handle_quick_debate(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     One-click quick debate creation for onboarding.
@@ -1194,6 +1204,7 @@ async def handle_quick_start(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Apply quick-start configuration for immediate value.
@@ -1310,6 +1321,7 @@ async def handle_analytics(
     data: dict[str, Any],
     user_id: str = "default",
     organization_id: str | None = None,
+    context: AuthorizationContext | None = None,
 ) -> HandlerResult:
     """
     Get onboarding funnel analytics.
@@ -1558,18 +1570,26 @@ class OnboardingHandler(BaseHandler):
 
         return "default", None
 
+    @staticmethod
+    def _get_authorization_context(handler: Any | None) -> AuthorizationContext | None:
+        """Extract the RBAC authorization context attached by upstream auth middleware."""
+        auth_ctx = getattr(handler, "_auth_context", None)
+        return auth_ctx if auth_ctx is not None else None
+
     async def handle_get(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Handle GET requests from the modular handler registry."""
         self.set_request_context(handler, query_params)
         user_id, organization_id = self._resolve_request_identity(handler)
+        auth_context = self._get_authorization_context(handler)
         return await self.handle(
             path,
             method="GET",
             query_params=query_params,
             user_id=user_id,
             organization_id=organization_id,
+            context=auth_context,
         )
 
     async def handle_post(
@@ -1581,6 +1601,7 @@ class OnboardingHandler(BaseHandler):
         if error is not None:
             return error
         user_id, organization_id = self._resolve_request_identity(handler)
+        auth_context = self._get_authorization_context(handler)
         return await self.handle(
             path,
             method="POST",
@@ -1588,6 +1609,7 @@ class OnboardingHandler(BaseHandler):
             query_params=query_params,
             user_id=user_id,
             organization_id=organization_id,
+            context=auth_context,
         )
 
     async def handle_put(
@@ -1599,6 +1621,7 @@ class OnboardingHandler(BaseHandler):
         if error is not None:
             return error
         user_id, organization_id = self._resolve_request_identity(handler)
+        auth_context = self._get_authorization_context(handler)
         return await self.handle(
             path,
             method="PUT",
@@ -1606,6 +1629,7 @@ class OnboardingHandler(BaseHandler):
             query_params=query_params,
             user_id=user_id,
             organization_id=organization_id,
+            context=auth_context,
         )
 
     def can_handle(self, path: str) -> bool:
@@ -1621,6 +1645,7 @@ class OnboardingHandler(BaseHandler):
         query_params: dict[str, Any] | None = None,
         user_id: str = "default",
         organization_id: str | None = None,
+        context: AuthorizationContext | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler function."""
         request_handler = None
@@ -1630,6 +1655,7 @@ class OnboardingHandler(BaseHandler):
             if request_handler is not None:
                 self.set_request_context(request_handler, query_params)
                 user_id, organization_id = self._resolve_request_identity(request_handler)
+                context = self._get_authorization_context(request_handler)
             method = "GET"
 
         normalized = self._normalize_path(path)
@@ -1641,27 +1667,37 @@ class OnboardingHandler(BaseHandler):
         # Route based on path and method
         if normalized == "/api/onboarding/flow":
             if method == "GET":
-                return await handle_get_flow(user_id, organization_id)
+                return await handle_get_flow(user_id, organization_id, context=context)
             elif method == "POST":
-                return await handle_init_flow(data, user_id, organization_id)
+                return await handle_init_flow(data, user_id, organization_id, context=context)
 
         if normalized == "/api/onboarding/flow/step" and method == "PUT":
-            return await handle_update_step(data, user_id, organization_id)
+            return await handle_update_step(data, user_id, organization_id, context=context)
 
         if normalized == "/api/onboarding/templates" and method == "GET":
-            return await handle_get_templates(query_params, user_id, organization_id)
+            return await handle_get_templates(
+                query_params,
+                user_id,
+                organization_id,
+                context=context,
+            )
 
         if normalized == "/api/onboarding/first-debate" and method == "POST":
-            return await handle_first_debate(data, user_id, organization_id)
+            return await handle_first_debate(data, user_id, organization_id, context=context)
 
         if normalized == "/api/onboarding/quick-start" and method == "POST":
-            return await handle_quick_start(data, user_id, organization_id)
+            return await handle_quick_start(data, user_id, organization_id, context=context)
 
         if normalized == "/api/onboarding/quick-debate" and method == "POST":
-            return await handle_quick_debate(data, user_id, organization_id)
+            return await handle_quick_debate(data, user_id, organization_id, context=context)
 
         if normalized == "/api/onboarding/analytics" and method == "GET":
-            return await handle_analytics(query_params, user_id, organization_id)
+            return await handle_analytics(
+                query_params,
+                user_id,
+                organization_id,
+                context=context,
+            )
 
         return error_response(f"Unknown onboarding endpoint: {path}", status=404)
 
