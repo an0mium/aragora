@@ -109,16 +109,16 @@ class TestGetAvailableLiveAgentsNoKeys:
     """When no API keys are set at all."""
 
     @patch("aragora.server.handlers.playground._get_api_key")
-    def test_raises_value_error(self, mock_key):
+    def test_returns_empty_list(self, mock_key):
         mock_key.return_value = None
-        with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
-            _get_available_live_agents(3)
+        assert _get_available_live_agents(3) == []
 
     @patch("aragora.server.handlers.playground._get_api_key")
-    def test_error_message_mentions_universal_access(self, mock_key):
+    def test_does_not_require_openrouter_when_no_live_providers(self, mock_key):
         mock_key.return_value = None
-        with pytest.raises(ValueError, match="universal access"):
-            _get_available_live_agents(3)
+        agents = _get_available_live_agents(3)
+
+        assert agents == []
 
 
 class TestGetAvailableLiveAgentsMixed:
