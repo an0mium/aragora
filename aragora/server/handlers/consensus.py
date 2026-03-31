@@ -81,8 +81,8 @@ class ConsensusHandler(BaseHandler):
         "/api/consensus/risk-warnings",
         "/api/consensus/seed-demo",
         "/api/consensus/detect",
+        "/api/consensus/domain",
         "/api/consensus/domain/*",
-        "/api/v1/consensus/domain",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -229,6 +229,9 @@ class ConsensusHandler(BaseHandler):
             domain = get_bounded_string_param(query_params, "domain", None, max_length=100)
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_risk_warnings(topic.strip() if topic else None, domain, limit)
+
+        if path == "/api/consensus/domain":
+            return self._list_domains()
 
         if path == "/api/consensus/seed-demo":
             # Require authentication for seed-demo (mutating operation)
@@ -635,6 +638,18 @@ class ConsensusHandler(BaseHandler):
         except (KeyError, ValueError, OSError) as e:
             logger.error("Failed to seed demo data: %s", e)
             return error_response(safe_error_message(e, "seeding"), 500)
+
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_CONSENSUS_STATS, key_prefix="consensus_domains", skip_first=True
+    )
+    @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")
+    @handle_errors("consensus domain listing")
+    def _list_domains(self) -> HandlerResult:
+        """List domains with recorded consensus history."""
+        memory = ConsensusMemory()
+        raw_stats = memory.get_statistics()
+        domains = sorted(str(domain) for domain in raw_stats.get("by_domain", {}).keys() if domain)
+        return json_response({"domains": domains, "count": len(domains)})
 
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_DISSENTS, key_prefix="recent_dissents", skip_first=True)
     @require_feature(lambda: CONSENSUS_MEMORY_AVAILABLE, "Consensus memory")

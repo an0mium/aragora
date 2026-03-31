@@ -120,6 +120,13 @@ class TestEndpoints:
         assert "/api/metrics" in ALL_ENDPOINTS
         assert "/metrics" in ALL_ENDPOINTS  # Prometheus format at /metrics
 
+    def test_consensus_overview_endpoints_defined(self):
+        """Consensus overview and domain listing endpoints are defined as GET routes."""
+        assert "/api/consensus" in ALL_ENDPOINTS
+        assert "get" in ALL_ENDPOINTS["/api/consensus"]
+        assert "/api/consensus/domain" in ALL_ENDPOINTS
+        assert "get" in ALL_ENDPOINTS["/api/consensus/domain"]
+
     def test_endpoint_has_tags(self):
         """All endpoints have tags."""
         for path, methods in ALL_ENDPOINTS.items():
@@ -182,6 +189,12 @@ class TestGenerateOpenAPISchema:
         schema = generate_openapi_schema()
         assert "paths" in schema
         assert len(schema["paths"]) > 0
+
+    def test_consensus_paths_in_schema(self):
+        """Generated schema includes GET operations for overview and domain listing."""
+        schema = generate_openapi_schema()
+        assert "get" in schema["paths"]["/api/consensus"]
+        assert "get" in schema["paths"]["/api/consensus/domain"]
 
     def test_components_section(self):
         """Has components section with schemas."""
