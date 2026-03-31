@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.cli.commands.receipt import (
+    add_receipt_parser,
     _format_receipt_created_at,
     cmd_receipt_list,
     cmd_receipt_show,
@@ -34,6 +35,45 @@ class _StoredReceiptStub:
         payload.setdefault("verdict", self.verdict)
         payload.setdefault("confidence", self.confidence)
         return payload
+
+
+def _build_receipt_cli_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+    return parser
+
+
+def _make_decision_receipt_payload() -> dict:
+    from aragora.gauntlet.receipt_models import DecisionReceipt
+
+    receipt = DecisionReceipt(
+        receipt_id="rcpt-format-123",
+        gauntlet_id="gauntlet-format-123",
+        timestamp="2026-03-30T18:47:29+00:00",
+        input_summary="Review PR #42",
+        input_hash="abc123def456",
+        risk_summary={"critical": 1, "high": 0, "medium": 0, "low": 0},
+        attacks_attempted=5,
+        attacks_successful=0,
+        probes_run=7,
+        vulnerabilities_found=1,
+        verdict="CONDITIONAL",
+        confidence=0.86,
+        robustness_score=0.74,
+        verdict_reasoning="Escalate for manual review.",
+        vulnerability_details=[
+            {
+                "id": "F-001",
+                "title": "SQL Injection",
+                "severity": "critical",
+                "category": "security",
+                "description": "User input reaches query builder unsanitized.",
+                "mitigation": "Use parameterized queries.",
+            }
+        ],
+    )
+    return receipt.to_dict()
 
 
 def test_receipt_list_reads_durable_store_by_default(capsys: pytest.CaptureFixture[str]) -> None:
@@ -195,6 +235,45 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "BLOCKED"
     assert payload["confidence"] == pytest.approx(0.61)
+
+
+def test_receipt_show_format_json_outputs_expected_receipt_payload(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = _make_decision_receipt_payload()
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-format-123", format="json", org_id=None))
+
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert output.lstrip().startswith("{")
+    assert payload["receipt_id"] == "rcpt-format-123"
+    assert payload["gauntlet_id"] == "gauntlet-format-123"
+    assert payload["verdict"] == "CONDITIONAL"
+    assert payload["vulnerability_details"][0]["title"] == "SQL Injection"
+
+
+def test_receipt_show_format_markdown_flag_renders_markdown_receipt(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = _make_decision_receipt_payload()
+    parser = _build_receipt_cli_parser()
+    args = parser.parse_args(["receipt", "show", "rcpt-format-123", "--format", "markdown"])
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        args.func(args)
+
+    output = capsys.readouterr().out
+    assert output.splitlines()[0] == "# Decision Receipt"
+    assert "**Receipt ID:** `rcpt-format-123`" in output
+    assert "**Gauntlet ID:** `gauntlet-format-123`" in output
+    assert "## Verdict: [~] CONDITIONAL" in output
+    assert "**Confidence:** 86.0%" in output
+    assert "## Critical Findings" in output
+    assert "### [F-001] SQL Injection" in output
+    assert "**Mitigation:** Use parameterized queries." in output
+    assert "## Integrity Verification" in output
 
 
 def test_receipt_show_renders_inbox_receipt_details(
