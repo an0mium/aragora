@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import { GauntletLiveWrapper } from './GauntletLiveWrapper';
 
-// For static export with optional catch-all
-export const dynamicParams = false;
+// Allow runtime gauntlet IDs while still providing a fallback static export path.
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
   // Only generate the base route - client handles specific IDs
