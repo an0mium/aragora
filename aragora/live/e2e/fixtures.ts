@@ -74,12 +74,31 @@ export class AragoraPage {
   }
 
   /**
+   * Dismiss the global config warning if present.
+   * This fixed-top banner can intercept header clicks during E2E runs.
+   */
+  async dismissConfigurationWarning() {
+    const dismissButton = this.page.locator(
+      'button[aria-label="Dismiss configuration warning"], button[aria-label="Dismiss warnings"]'
+    );
+    if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await dismissButton.click().catch(() => {});
+      await this.page
+        .locator('[role="alert"]')
+        .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i })
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
+    }
+  }
+
+  /**
    * Dismiss all overlays (boot animation, onboarding wizard).
    */
   async dismissAllOverlays() {
     await this.dismissBootAnimation();
     await this.dismissOnboarding();
     await this.dismissConnectivityWarning();
+    await this.dismissConfigurationWarning();
     await this.dismissToast();
   }
 
