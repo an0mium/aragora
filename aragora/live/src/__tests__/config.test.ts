@@ -53,3 +53,73 @@ describe('config local dev API fallback', () => {
     expect(config.isLocalDevHostname('preview.example.test')).toBe(false);
   });
 });
+
+describe('config apiFetch runtime backend selection', () => {
+  const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const originalWsUrl = process.env.NEXT_PUBLIC_WS_URL;
+  const mockFetch = jest.fn();
+
+  beforeEach(() => {
+    jest.resetModules();
+    delete process.env.NEXT_PUBLIC_API_URL;
+    delete process.env.NEXT_PUBLIC_WS_URL;
+    localStorage.clear();
+    mockFetch.mockReset();
+    global.fetch = mockFetch as typeof fetch;
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    if (originalApiUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
+    }
+    if (originalWsUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_WS_URL;
+    } else {
+      process.env.NEXT_PUBLIC_WS_URL = originalWsUrl;
+    }
+  });
+
+  it('uses the saved runtime backend for helper requests', async () => {
+    localStorage.setItem('aragora-backend', 'production');
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ jobs: [] }),
+    });
+
+    const config = await import('../config');
+    await config.apiFetch('/api/scheduler/jobs');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.aragora.ai/api/scheduler/jobs',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+  });
+
+  it('keeps absolute helper endpoints intact', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    });
+
+    const config = await import('../config');
+    await config.apiFetch('https://custom.example/api/health');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://custom.example/api/health',
+      expect.any(Object),
+    );
+  });
+});

@@ -4,9 +4,7 @@
 
 // Use centralized config for correct production URL resolution
 import { API_BASE_URL } from '@/config';
-
-// Default API base URL - resolved from config (handles production vs development)
-const DEFAULT_API_BASE = API_BASE_URL;
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 
 const TOKENS_KEY = 'aragora_tokens';
 
@@ -31,6 +29,25 @@ interface ApiFetchResult<T = unknown> {
   error?: string;
 }
 
+function resolveApiBaseUrl(baseUrl?: string): string {
+  if (baseUrl !== undefined) return baseUrl.replace(/\/$/, '');
+  if (typeof window !== 'undefined') {
+    return getRuntimeBackendConfig().config.api.replace(/\/$/, '');
+  }
+  return API_BASE_URL.replace(/\/$/, '');
+}
+
+function resolveRequestUrl(path: string, baseUrl?: string): string {
+  const resolvedBaseUrl = resolveApiBaseUrl(baseUrl);
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  if (!resolvedBaseUrl) {
+    return path.startsWith('/') ? path : `/${path}`;
+  }
+  return path.startsWith('/') ? `${resolvedBaseUrl}${path}` : `${resolvedBaseUrl}/${path}`;
+}
+
 /**
  * Fetch wrapper with standard configuration and error handling.
  *
@@ -43,22 +60,8 @@ export async function apiFetch<T = unknown>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  const { baseUrl = DEFAULT_API_BASE, ...fetchOptions } = options;
-
-  // Determine the full URL
-  let url: string;
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    url = path;
-  } else if (path.startsWith('/api/')) {
-    // Relative API path - prepend base URL
-    url = `${baseUrl}${path}`;
-  } else if (path.startsWith('/')) {
-    // Other relative path
-    url = `${baseUrl}${path}`;
-  } else {
-    // Bare path - prepend base URL with /
-    url = `${baseUrl}/${path}`;
-  }
+  const { baseUrl, ...fetchOptions } = options;
+  const url = resolveRequestUrl(path, baseUrl);
 
   // Set default headers and inject auth token when available
   const headers: Record<string, string> = {

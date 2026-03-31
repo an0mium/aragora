@@ -2,7 +2,7 @@
 
 import useSWR, { SWRConfiguration, mutate, useSWRConfig } from 'swr';
 import { API_BASE_URL } from '@/config';
-import { getRuntimeBackendConfig } from '@/components/BackendSelector';
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 
 const TOKENS_KEY = 'aragora_tokens';
 

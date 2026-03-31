@@ -55,6 +55,7 @@ describe('useAuthenticatedFetch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetch.mockReset();
+    localStorage.clear();
   });
 
   describe('when authenticated', () => {
@@ -102,12 +103,31 @@ describe('useAuthenticatedFetch', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/test',
+        '/api/test',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer test-access-token',
           }),
         })
+      );
+    });
+
+    it('uses the saved runtime backend for relative requests', async () => {
+      localStorage.setItem('aragora-backend', 'production');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+
+      renderHook(() => useAuthenticatedFetch('/api/test'));
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled();
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/test',
+        expect.any(Object)
       );
     });
 
@@ -364,6 +384,7 @@ describe('useAuthFetch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetch.mockReset();
+    localStorage.clear();
   });
 
   describe('when authenticated', () => {
@@ -396,12 +417,36 @@ describe('useAuthFetch', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/items',
+        '/api/items',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
             Authorization: 'Bearer test-access-token',
             'Content-Type': 'application/json',
+          }),
+        })
+      );
+    });
+
+    it('authFetch uses the saved runtime backend for relative requests', async () => {
+      localStorage.setItem('aragora-backend', 'production');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ created: true }),
+      });
+
+      const { result } = renderHook(() => useAuthFetch());
+
+      await act(async () => {
+        await result.current.authFetch('/api/items', { method: 'POST' });
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/items',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-access-token',
           }),
         })
       );

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 import { logger } from '@/utils/logger';
 import { createErrorFromResponse, isRetryableError } from '@/lib/api-error';
 
@@ -27,6 +28,24 @@ interface UseAuthenticatedFetchOptions<T> {
   onError?: (error: Error) => void;
   /** Disable automatic fetch on mount */
   manual?: boolean;
+}
+
+function resolveApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    return getRuntimeBackendConfig().config.api.replace(/\/$/, '');
+  }
+  return API_BASE_URL.replace(/\/$/, '');
+}
+
+function resolveRequestUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const baseUrl = resolveApiBaseUrl();
+  if (!baseUrl) {
+    return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  }
+  return endpoint.startsWith('/') ? `${baseUrl}${endpoint}` : `${baseUrl}/${endpoint}`;
 }
 
 /**
@@ -98,7 +117,7 @@ export function useAuthenticatedFetch<T>(
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
-      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      const url = resolveRequestUrl(endpoint);
       try {
         return await fetch(url, { headers, signal: controller.signal });
       } finally {
@@ -251,7 +270,7 @@ export function useAuthFetch() {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
-        const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+        const url = resolveRequestUrl(endpoint);
         try {
           return await fetch(url, { ...init, headers, signal: controller.signal });
         } finally {

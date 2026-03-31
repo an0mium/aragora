@@ -8,6 +8,8 @@
  * Without these, the app defaults to localhost which will fail in production.
  */
 
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
+
 // === API Configuration ===
 const _API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const _WS_URL = process.env.NEXT_PUBLIC_WS_URL;
@@ -320,6 +322,24 @@ function classifyHttpError(status: number): ApiFetchResult<never>['errorCode'] {
   return 'UNKNOWN';
 }
 
+function resolveApiFetchBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    return getRuntimeBackendConfig().config.api.replace(/\/$/, '');
+  }
+  return API_BASE_URL.replace(/\/$/, '');
+}
+
+function resolveApiFetchUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const baseUrl = resolveApiFetchBaseUrl();
+  if (!baseUrl) {
+    return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  }
+  return endpoint.startsWith('/') ? `${baseUrl}${endpoint}` : `${baseUrl}/${endpoint}`;
+}
+
 export async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit,
@@ -334,7 +354,7 @@ export async function apiFetch<T>(
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(resolveApiFetchUrl(endpoint), {
         ...options,
         signal: controller.signal,
         headers: {

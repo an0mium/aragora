@@ -18,6 +18,7 @@ global.fetch = mockFetch;
 describe('API Utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
   });
 
   describe('apiFetch', () => {
@@ -47,7 +48,7 @@ describe('API Utilities', () => {
         await apiFetch('/api/debates');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/debates',
+          '/api/debates',
           expect.any(Object)
         );
       });
@@ -62,7 +63,7 @@ describe('API Utilities', () => {
         await apiFetch('/health');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/health',
+          '/health',
           expect.any(Object)
         );
       });
@@ -77,7 +78,7 @@ describe('API Utilities', () => {
         await apiFetch('debates');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/debates',
+          '/debates',
           expect.any(Object)
         );
       });
@@ -93,6 +94,22 @@ describe('API Utilities', () => {
 
         expect(mockFetch).toHaveBeenCalledWith(
           'https://custom.api.com/api/debates',
+          expect.any(Object)
+        );
+      });
+
+      it('uses the saved runtime backend when one is selected', async () => {
+        localStorage.setItem('aragora-backend', 'production');
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ data: 'test' }),
+        });
+
+        await apiFetch('/api/debates');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://api.aragora.ai/api/debates',
           expect.any(Object)
         );
       });
