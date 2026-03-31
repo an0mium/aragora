@@ -89,6 +89,7 @@ def mock_user():
     """Create a mock user object."""
     user = Mock()
     user.user_id = "user-123"
+    user.org_id = None
     user.email = "user@example.com"
     user.name = "Test User"
     return user
@@ -99,6 +100,7 @@ def mock_other_user():
     """Create a mock user object for ownership tests."""
     user = Mock()
     user.user_id = "other-user-456"
+    user.org_id = None
     user.email = "other@example.com"
     user.name = "Other User"
     return user
@@ -640,6 +642,50 @@ class TestListWebhooks:
             assert len(data["webhooks"]) == 1
             assert data["webhooks"][0]["url"] == "https://example.com/active"
 
+    def test_list_webhooks_excludes_workspace_owned_webhooks_without_matching_org(
+        self, webhook_handler, mock_http_handler, mock_user, webhook_store
+    ):
+        """Test org-less callers cannot enumerate workspace-scoped webhooks."""
+        webhook_store.register(
+            url="https://example.com/personal",
+            events=["debate_start"],
+            user_id=mock_user.user_id,
+        )
+        webhook_store.register(
+            url="https://example.com/workspace",
+            events=["debate_end"],
+            user_id=mock_user.user_id,
+            workspace_id="org-locked",
+        )
+
+        with patch.object(webhook_handler, "get_current_user", return_value=mock_user):
+            result = webhook_handler._handle_list_webhooks({}, mock_http_handler)
+            data, status = parse_handler_result(result)
+
+            assert status == 200
+            assert len(data["webhooks"]) == 1
+            assert data["webhooks"][0]["url"] == "https://example.com/personal"
+
+    def test_list_webhooks_includes_workspace_owned_webhooks_for_matching_org(
+        self, webhook_handler, mock_http_handler, mock_user, webhook_store
+    ):
+        """Test callers still see workspace-scoped webhooks for their org."""
+        mock_user.org_id = "org-locked"
+        webhook_store.register(
+            url="https://example.com/workspace",
+            events=["debate_end"],
+            user_id=mock_user.user_id,
+            workspace_id="org-locked",
+        )
+
+        with patch.object(webhook_handler, "get_current_user", return_value=mock_user):
+            result = webhook_handler._handle_list_webhooks({}, mock_http_handler)
+            data, status = parse_handler_result(result)
+
+            assert status == 200
+            assert len(data["webhooks"]) == 1
+            assert data["webhooks"][0]["workspace_id"] == "org-locked"
+
 
 # ============================================================================
 # Handler Tests - GET /api/webhooks/:id
@@ -681,6 +727,44 @@ class TestGetWebhook:
 
             assert status == 403
             assert "access denied" in response_body.lower()
+
+    def test_get_webhook_access_denied_without_required_workspace_membership(
+        self, webhook_handler, mock_http_handler, mock_user, webhook_store
+    ):
+        """Test org-less callers cannot access workspace-scoped webhooks."""
+        scoped_webhook = webhook_store.register(
+            url="https://example.com/workspace",
+            events=["debate_start"],
+            user_id=mock_user.user_id,
+            workspace_id="org-locked",
+        )
+
+        with patch.object(webhook_handler, "get_current_user", return_value=mock_user):
+            result = webhook_handler._handle_get_webhook(scoped_webhook.id, mock_http_handler)
+            response_body = get_response_body(result)
+            status = result.status_code
+
+            assert status == 403
+            assert "access denied" in response_body.lower()
+
+    def test_get_webhook_allows_matching_workspace_membership(
+        self, webhook_handler, mock_http_handler, mock_user, webhook_store
+    ):
+        """Test callers can access workspace-scoped webhooks for their org."""
+        mock_user.org_id = "org-locked"
+        scoped_webhook = webhook_store.register(
+            url="https://example.com/workspace",
+            events=["debate_start"],
+            user_id=mock_user.user_id,
+            workspace_id="org-locked",
+        )
+
+        with patch.object(webhook_handler, "get_current_user", return_value=mock_user):
+            result = webhook_handler._handle_get_webhook(scoped_webhook.id, mock_http_handler)
+            data, status = parse_handler_result(result)
+
+            assert status == 200
+            assert data["webhook"]["id"] == scoped_webhook.id
 
 
 # ============================================================================
