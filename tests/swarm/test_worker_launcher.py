@@ -1149,6 +1149,27 @@ class TestCollectChangedPaths:
         assert changed == []
         assert ("diff", "--name-only", "origin/main..HEAD") not in calls
 
+    def test_collect_changed_paths_sync_strips_nested_session_artifacts(self):
+        calls: list[tuple[str, ...]] = []
+
+        def _git_output_sync(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            if args[:2] == ("diff", "--name-only"):
+                return "subdir/.codex_session_meta.json\nreal.py\n"
+            if args[:2] == ("status", "--porcelain"):
+                return "?? subdir/.swarm_worker_stdout.log\n"
+            return ""
+
+        with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
+            changed = WorkerLauncher._collect_changed_paths_sync(
+                "/tmp/wt",
+                initial_head="abc123",
+                head_sha="def456",
+            )
+
+        assert changed == ["real.py"]
+        assert ("diff", "--name-only", "abc123..def456") in calls
+
 
 class TestIsPidRunning:
     def test_current_process_is_running(self):

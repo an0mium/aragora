@@ -469,6 +469,26 @@ class TestCollectChangedPathsFiltering:
         assert ".swarm_worker_stdout.log" not in paths
         assert ".swarm_worker_stderr.log" not in paths
 
+    def test_collect_excludes_nested_session_artifacts(self, repo: Path) -> None:
+        """Nested harness artifacts must be stripped by basename, not exact path."""
+        initial = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        nested = repo / "subdir"
+        nested.mkdir()
+        (nested / ".codex_session_meta.json").write_text("{}", encoding="utf-8")
+        (nested / ".swarm_worker_stdout.log").write_text("worker stdout\n", encoding="utf-8")
+        (repo / "real.py").write_text("x = 1\n", encoding="utf-8")
+        _run(repo, "git", "add", "-A")
+        _run(repo, "git", "commit", "-m", "test nested artifacts")
+        head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        paths = asyncio.run(
+            WorkerLauncher._collect_changed_paths(str(repo), initial_head=initial, head_sha=head)
+        )
+        assert "real.py" in paths
+        assert "subdir/.codex_session_meta.json" not in paths
+        assert "subdir/.swarm_worker_stdout.log" not in paths
+
 
 # ---------------------------------------------------------------------------
 # End-to-end detached worker fail-closed path

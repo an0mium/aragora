@@ -156,6 +156,11 @@ class WorkerLauncher:
         self._live_log_tasks: dict[str, dict[str, asyncio.Task[bytes]]] = {}
         self._live_log_handles: dict[str, dict[str, Any]] = {}
 
+    @staticmethod
+    def _strip_session_artifacts(paths: set[str]) -> list[str]:
+        """Normalize changed paths by removing harness-owned artifacts by basename."""
+        return sorted(path for path in paths if Path(path).name not in SESSION_ARTIFACTS)
+
     async def launch(
         self,
         work_order: dict[str, Any],
@@ -951,8 +956,7 @@ class WorkerLauncher:
             if path:
                 changed.add(path)
         # Strip session artifacts — these are harness metadata, not deliverables
-        changed -= SESSION_ARTIFACTS
-        return sorted(changed)
+        return cls._strip_session_artifacts(changed)
 
     @classmethod
     def _collect_changed_paths_sync(
@@ -997,8 +1001,7 @@ class WorkerLauncher:
                 path = path.split(" -> ")[-1].strip()
             if path:
                 changed.add(path)
-        changed -= SESSION_ARTIFACTS
-        return sorted(changed)
+        return cls._strip_session_artifacts(changed)
 
     @classmethod
     async def collect_detached_result(
