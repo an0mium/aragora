@@ -28,6 +28,7 @@ import {
   getNodeTypeForStage,
   PIPELINE_STAGE_CONFIG,
 } from '../components/pipeline-canvas/types';
+import { buildRuntimeApiUrl } from '../components/BackendSelector';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -199,7 +200,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${id}`);
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/${id}`));
         if (!res.ok) {
           setError(`Failed to load pipeline: ${res.status}`);
           return;
@@ -222,7 +223,7 @@ export function usePipelineCanvas(
     async (stage: PipelineStageType) => {
       if (!pipelineId) return;
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/stage/${stage}`);
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/${pipelineId}/stage/${stage}`));
         if (!res.ok) return;
         const data = await res.json();
         const stageData = data.data ?? data;
@@ -465,7 +466,7 @@ export function usePipelineCanvas(
       }
       body.stages = stagesPayload;
 
-      const res = await fetch(`${API_PREFIX}/${pipelineId}`, {
+      const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/${pipelineId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -494,7 +495,7 @@ export function usePipelineCanvas(
         if (stage === 'goals') {
           // Extract goals from current ideas nodes
           const ideaNodes = stageNodesRef.current.ideas;
-          res = await fetch(`${API_PREFIX}/extract-goals`, {
+          res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/extract-goals`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -509,7 +510,7 @@ export function usePipelineCanvas(
           });
         } else {
           // Advance to 'actions' or 'orchestration'
-          res = await fetch(`${API_PREFIX}/advance`, {
+          res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/advance`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -572,7 +573,7 @@ export function usePipelineCanvas(
           return null;
         }
 
-        const res = await fetch(`${API_PREFIX}/from-ideas`, {
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/from-ideas`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -611,7 +612,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/run`, {
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/run`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -643,7 +644,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/${pipelineId}/approve-transition`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transition_id: transitionId, approved: true }),
@@ -667,7 +668,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+        const res = await fetch(buildRuntimeApiUrl(`${API_PREFIX}/${pipelineId}/approve-transition`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transition_id: transitionId, approved: false, reason: reason ?? '' }),
@@ -692,7 +693,9 @@ export function usePipelineCanvas(
       setSuggestionsLoading(true);
       try {
         const res = await fetch(
-          `${GRAPH_API_PREFIX}/${encodeURIComponent(pipelineId)}/suggestions?stage=${encodeURIComponent(stage)}`,
+          buildRuntimeApiUrl(
+            `${GRAPH_API_PREFIX}/${encodeURIComponent(pipelineId)}/suggestions?stage=${encodeURIComponent(stage)}`,
+          ),
         );
         if (!res.ok) {
           setSuggestions([]);

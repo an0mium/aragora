@@ -75,6 +75,8 @@ describe('usePipelineCanvas', () => {
     mockSetEdges.mockClear();
     mockOnNodesChange.mockClear();
     mockOnEdgesChange.mockClear();
+    localStorage.clear();
+    localStorage.setItem('aragora-backend', 'production');
   });
 
   it('returns default state when pipelineId is null', () => {
@@ -128,7 +130,7 @@ describe('usePipelineCanvas', () => {
       renderHook(() => usePipelineCanvas('test-1'));
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/canvas/pipeline/test-1');
+    expect(mockFetch).toHaveBeenCalledWith('https://api.aragora.ai/api/v1/canvas/pipeline/test-1');
     // After successful fetch, setNodes/setEdges are called to load ideas stage
     expect(mockSetNodes).toHaveBeenCalled();
     expect(mockSetEdges).toHaveBeenCalled();
@@ -313,7 +315,7 @@ describe('usePipelineCanvas', () => {
 
       expect(pipelineId).toBe('pipe-new');
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/canvas/pipeline/from-ideas',
+        'https://api.aragora.ai/api/v1/canvas/pipeline/from-ideas',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -394,7 +396,7 @@ describe('usePipelineCanvas', () => {
 
       expect(pipelineId).toBe('pipe-run-1');
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/canvas/pipeline/run',
+        'https://api.aragora.ai/api/v1/canvas/pipeline/run',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { buildRuntimeApiUrl } from '../BackendSelector';
 
 // =============================================================================
 // Types
@@ -54,7 +55,7 @@ export const TemplateSelector = memo(function TemplateSelector({
 
     async function fetchTemplates() {
       try {
-        const res = await fetch('/api/v1/canvas/pipeline/templates');
+        const res = await fetch(buildRuntimeApiUrl('/api/v1/canvas/pipeline/templates'));
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) {

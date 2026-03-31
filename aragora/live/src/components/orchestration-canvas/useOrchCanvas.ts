@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge, type Connection, addEdge } from '@xyflow/react';
 import type { OrchCanvasMeta, OrchNodeData, OrchNodeType, RemoteCursor } from './types';
 import { ORCH_NODE_CONFIGS } from './types';
+import { buildRuntimeApiUrl } from '../BackendSelector';
 
 const API_BASE = '/api/v1/orchestration';
 
@@ -22,7 +23,7 @@ export function useOrchCanvas(canvasId: string | null) {
     if (!canvasId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/${canvasId}`);
+      const res = await fetch(buildRuntimeApiUrl(`${API_BASE}/${canvasId}`));
       if (!res.ok) return;
       const data = await res.json();
       setCanvasMeta(data);
@@ -110,7 +111,11 @@ export function useOrchCanvas(canvasId: string | null) {
 
   const saveCanvas = useCallback(async () => {
     if (!canvasId) return;
-    await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
+    await fetch(buildRuntimeApiUrl(`${API_BASE}/${canvasId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: canvasMeta?.name }),
+    });
   }, [canvasId, canvasMeta]);
 
   const executePipeline = useCallback(async (): Promise<{ pipelineId: string; workflowId?: string } | null> => {
@@ -124,7 +129,7 @@ export function useOrchCanvas(canvasId: string | null) {
     })));
 
     try {
-      const executionRes = await fetch(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {
+      const executionRes = await fetch(buildRuntimeApiUrl(`/api/v1/canvas/pipeline/${pipelineId}/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dry_run: false, enable_receipts: true }),

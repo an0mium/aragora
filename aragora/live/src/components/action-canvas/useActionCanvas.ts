@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge, type Connection, addEdge } from '@xyflow/react';
 import type { ActionCanvasMeta, ActionNodeData, ActionNodeType, RemoteCursor } from './types';
 import { ACTION_NODE_CONFIGS } from './types';
+import { buildRuntimeApiUrl } from '../BackendSelector';
 
 const API_BASE = '/api/v1/actions';
 
@@ -22,7 +23,7 @@ export function useActionCanvas(canvasId: string | null) {
     if (!canvasId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/${canvasId}`);
+      const res = await fetch(buildRuntimeApiUrl(`${API_BASE}/${canvasId}`));
       if (!res.ok) return;
       const data = await res.json();
       setCanvasMeta(data);
@@ -107,14 +108,18 @@ export function useActionCanvas(canvasId: string | null) {
 
   const saveCanvas = useCallback(async () => {
     if (!canvasId) return;
-    await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
+    await fetch(buildRuntimeApiUrl(`${API_BASE}/${canvasId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: canvasMeta?.name }),
+    });
   }, [canvasId, canvasMeta]);
 
   const advanceToOrchestration = useCallback(async () => {
     if (!canvasId || !selectedNodeId) return;
     const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
     if (pipelineId) {
-      const res = await fetch('/api/v1/canvas/pipeline/advance', {
+      const res = await fetch(buildRuntimeApiUrl('/api/v1/canvas/pipeline/advance'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pipeline_id: pipelineId, target_stage: 'orchestration' }),
       });

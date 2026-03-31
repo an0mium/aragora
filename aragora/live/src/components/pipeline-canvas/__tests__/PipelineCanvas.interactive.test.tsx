@@ -5,8 +5,11 @@
  * property editor display, and provenance sidebar in readOnly mode.
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import type { PipelineResultResponse, PipelineStageType } from '../types';
+
+const mockFetch = jest.fn();
+global.fetch = mockFetch as typeof fetch;
 
 // ---------------------------------------------------------------------------
 // Mock @xyflow/react -- requires browser APIs unavailable in jsdom
@@ -56,7 +59,14 @@ jest.mock('../PipelinePalette', () => ({
 
 jest.mock('../PipelineToolbar', () => ({
   PipelineToolbar: (props: Record<string, unknown>) => (
-    <div data-testid="pipeline-toolbar">Toolbar: {props.stage as string}</div>
+    <div data-testid="pipeline-toolbar">
+      <span>Toolbar: {props.stage as string}</span>
+      {props.onExportReceipt && props.pipelineId && (
+        <button data-testid="export-receipt-btn" onClick={() => (props.onExportReceipt as () => void)()}>
+          export-receipt
+        </button>
+      )}
+    </div>
   ),
 }));
 
@@ -136,7 +146,18 @@ jest.mock('../ProvenanceNodeDetailPanel', () => ({
 }));
 
 jest.mock('../TemplateSelector', () => ({
-  TemplateSelector: () => <div data-testid="template-selector" />,
+  TemplateSelector: ({
+    onSelectTemplate,
+    onStartBlank,
+  }: {
+    onSelectTemplate: (templateName: string) => void;
+    onStartBlank: () => void;
+  }) => (
+    <div data-testid="template-selector">
+      <button onClick={() => onSelectTemplate('product_launch')}>mock-select-template</button>
+      <button onClick={onStartBlank}>mock-start-blank</button>
+    </div>
+  ),
 }));
 
 jest.mock('../ProgressIndicator', () => ({
@@ -232,11 +253,58 @@ describe('PipelineCanvas Interactive', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    mockFetch.mockReset();
+    localStorage.clear();
+    localStorage.setItem('aragora-backend', 'production');
+    URL.createObjectURL = jest.fn(() => 'blob:receipt');
+    URL.revokeObjectURL = jest.fn();
     mockedUsePipelineCanvas.mockReturnValue(makeMockCanvas());
   });
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('uses the selected backend for receipt export', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ receipt_id: 'receipt-1' }),
+    });
+
+    render(<PipelineCanvas pipelineId="test-pipe" />);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('stage-btn-ideas'));
+    });
+
+    fireEvent.click(screen.getByTestId('export-receipt-btn'));
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.aragora.ai/api/v1/canvas/pipeline/test-pipe/receipt',
+    );
+  });
+
+  it('uses the selected backend when creating a pipeline from a template', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ pipeline_id: 'pipe-2' }),
+    });
+
+    render(<PipelineCanvas />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /mock-select-template/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/v1/canvas/pipeline/from-template',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
   });
 
   it('renders "All Stages" button and StageNavigator in default view', () => {

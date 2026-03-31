@@ -47,6 +47,17 @@ export function buildHealthCheckUrl(apiBase: string): string {
   return `${normalizedBase}/api/health`;
 }
 
+export function buildBackendApiUrl(apiBase: string | undefined, path: string): string {
+  const normalizedBase = (apiBase ?? '').trim().replace(/\/$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  return normalizedBase ? `${normalizedBase}${normalizedPath}` : normalizedPath;
+}
+
+export function buildRuntimeApiUrl(path: string): string {
+  return buildBackendApiUrl(getRuntimeBackendConfig().config.api, path);
+}
+
 function isLocalHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
   return (

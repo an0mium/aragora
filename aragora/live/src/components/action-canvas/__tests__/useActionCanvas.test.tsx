@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { useOrchCanvas } from '../useOrchCanvas';
+import { useActionCanvas } from '../useActionCanvas';
 
 const mockSetNodes = jest.fn();
 const mockSetEdges = jest.fn();
@@ -25,7 +25,7 @@ class MockWebSocket {
   close = jest.fn();
 }
 
-describe('useOrchCanvas', () => {
+describe('useActionCanvas', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
@@ -33,29 +33,30 @@ describe('useOrchCanvas', () => {
     mockFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
 
-      if (url === 'https://api.aragora.ai/api/v1/orchestration/canvas-1') {
+      if (url === 'https://api.aragora.ai/api/v1/actions/canvas-1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
             id: 'canvas-1',
-            name: 'Test orchestration canvas',
-            owner_id: null,
-            workspace_id: null,
-            source_canvas_id: null,
-            description: '',
+            name: 'Test action canvas',
             metadata: { pipeline_id: 'pipe-123' },
-            created_at: '2026-03-25T00:00:00Z',
-            updated_at: '2026-03-25T00:00:00Z',
-            nodes: [],
+            nodes: [
+              {
+                id: 'action-1',
+                label: 'Ship the fix',
+                position: { x: 0, y: 0 },
+                data: { action_type: 'task', description: 'Ship the backend routing fix' },
+              },
+            ],
             edges: [],
           }),
         });
       }
 
-      if (url === 'https://api.aragora.ai/api/v1/canvas/pipeline/pipe-123/execute') {
+      if (url === 'https://api.aragora.ai/api/v1/canvas/pipeline/advance') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ pipeline_id: 'pipe-123', status: 'queued' }),
+          json: async () => ({ status: 'advanced' }),
         });
       }
 
@@ -66,33 +67,29 @@ describe('useOrchCanvas', () => {
       MockWebSocket as unknown as typeof WebSocket;
   });
 
-  it('executes the existing pipeline instead of starting a new run', async () => {
-    const { result } = renderHook(() => useOrchCanvas('canvas-1'));
+  it('uses the selected backend for load and advance requests', async () => {
+    const { result } = renderHook(() => useActionCanvas('canvas-1'));
 
     await waitFor(() => {
       expect(result.current.canvasMeta?.metadata?.pipeline_id).toBe('pipe-123');
     });
 
-    let executionResult: { pipelineId: string; workflowId?: string } | null = null;
-    await act(async () => {
-      executionResult = await result.current.executePipeline();
+    expect(mockFetch).toHaveBeenCalledWith('https://api.aragora.ai/api/v1/actions/canvas-1');
+
+    act(() => {
+      result.current.setSelectedNodeId('action-1');
     });
 
-    expect(executionResult).toEqual({ pipelineId: 'pipe-123' });
+    await act(async () => {
+      await result.current.advanceToOrchestration();
+    });
+
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.aragora.ai/api/v1/canvas/pipeline/pipe-123/execute',
+      'https://api.aragora.ai/api/v1/canvas/pipeline/advance',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }),
-    );
-    expect(mockFetch).not.toHaveBeenCalledWith(
-      '/api/v1/canvas/pipeline/run',
-      expect.anything(),
-    );
-    expect(mockFetch).not.toHaveBeenCalledWith(
-      expect.stringContaining('/api/v2/pipeline/runs/pipe-123/execute-workflow'),
-      expect.anything(),
     );
   });
 });
