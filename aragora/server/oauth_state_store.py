@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from aragora.config.secrets import get_secret
 from aragora.config import resolve_db_path
 from aragora.exceptions import REDIS_CONNECTION_ERRORS, RedisUnavailableError
 
@@ -537,8 +538,14 @@ class JWTOAuthStateStore(OAuthStateStore):
             secret_key: Secret for signing. If not provided, uses OAUTH_JWT_SECRET
                        or ARAGORA_SECRET_KEY environment variables.
         """
-        self._secret = secret_key or os.environ.get(
-            "OAUTH_JWT_SECRET", os.environ.get("ARAGORA_SECRET_KEY", "")
+        self._secret = secret_key or get_secret(
+            "OAUTH_JWT_SECRET",
+            get_secret(
+                "ARAGORA_SECRET_KEY",
+                os.environ.get("ARAGORA_SECRET_KEY", ""),
+                strict=False,
+            ),
+            strict=False,
         )
         if not self._secret:
             # Generate a random secret (will be different per instance, but that's OK

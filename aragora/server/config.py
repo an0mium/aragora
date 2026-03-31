@@ -38,6 +38,8 @@ import logging
 import os
 from dataclasses import dataclass, field
 
+from aragora.config.secrets import get_secret
+
 _config_logger = logging.getLogger(__name__)
 
 
@@ -113,9 +115,20 @@ class OAuthConfig:
     Controls allowed OAuth redirect hosts for CSRF protection.
     """
 
-    env: str = field(default_factory=lambda: os.getenv("ARAGORA_ENV", "development"))
+    env: str = field(
+        default_factory=lambda: get_secret(
+            "ARAGORA_ENV",
+            os.getenv("ARAGORA_ENV", "development"),
+            strict=False,
+        )
+        or "development"
+    )
     allowed_oauth_hosts: str | None = field(
-        default_factory=lambda: os.getenv("ARAGORA_ALLOWED_OAUTH_HOSTS")
+        default_factory=lambda: get_secret(
+            "ARAGORA_ALLOWED_OAUTH_HOSTS",
+            os.getenv("ARAGORA_ALLOWED_OAUTH_HOSTS"),
+            strict=False,
+        )
     )
 
     @property

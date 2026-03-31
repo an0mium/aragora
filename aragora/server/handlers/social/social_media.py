@@ -15,10 +15,11 @@ import logging
 import os
 import threading
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 from collections.abc import Awaitable
+from pathlib import Path
 
+from aragora.config.secrets import get_secret
 from aragora.rbac.decorators import require_permission
 from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
@@ -170,8 +171,31 @@ class DebateContentFormatterProtocol(Protocol):
 
 logger = logging.getLogger(__name__)
 
-# Check if we're in production mode
-_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "").lower() == "production"
+
+def _is_production_mode() -> bool:
+    env = get_secret("ARAGORA_ENV", os.environ.get("ARAGORA_ENV", ""), strict=False) or ""
+    return env.lower() == "production"
+
+
+def _load_allowed_oauth_hosts() -> frozenset[str]:
+    hosts = get_secret(
+        "ARAGORA_ALLOWED_OAUTH_HOSTS",
+        os.getenv("ARAGORA_ALLOWED_OAUTH_HOSTS"),
+        strict=False,
+    )
+    if hosts:
+        return frozenset(h.strip() for h in hosts.split(",") if h.strip())
+    if _is_production_mode():
+        logger.warning(
+            "[Social] ARAGORA_ALLOWED_OAUTH_HOSTS not set in production! "
+            "OAuth redirects may fail. Set this to your domain(s)."
+        )
+        return frozenset()
+    logger.debug("[Social] Using localhost for OAuth hosts (dev mode)")
+    return frozenset(["localhost:8080", "127.0.0.1:8080"])
+
+
+_IS_PRODUCTION = _is_production_mode()
 
 # OAuth state storage for CSRF protection (with TTL cleanup)
 _oauth_states: dict[str, float] = {}  # state -> expiry_time
@@ -179,22 +203,7 @@ _oauth_states_lock = threading.Lock()
 _OAUTH_STATE_TTL = 600  # 10 minutes
 MAX_OAUTH_STATES = 5000  # Prevent memory exhaustion from rapid state generation
 
-# Allowed hosts for OAuth redirect URI (prevent open redirect)
-_OAUTH_HOSTS_ENV = os.getenv("ARAGORA_ALLOWED_OAUTH_HOSTS")
-if _OAUTH_HOSTS_ENV:
-    ALLOWED_OAUTH_HOSTS = frozenset(h.strip() for h in _OAUTH_HOSTS_ENV.split(","))
-else:
-    if _IS_PRODUCTION:
-        logger.warning(
-            "[Social] ARAGORA_ALLOWED_OAUTH_HOSTS not set in production! "
-            "OAuth redirects may fail. Set this to your domain(s)."
-        )
-        # In production, use no localhost fallback
-        ALLOWED_OAUTH_HOSTS = frozenset()
-    else:
-        # Dev mode: use localhost fallbacks
-        ALLOWED_OAUTH_HOSTS = frozenset(["localhost:8080", "127.0.0.1:8080"])
-        logger.debug("[Social] Using localhost for OAuth hosts (dev mode)")
+ALLOWED_OAUTH_HOSTS = _load_allowed_oauth_hosts()
 
 
 def _store_oauth_state(state: str) -> None:

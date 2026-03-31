@@ -596,6 +596,18 @@ class TestJWTOAuthStateStore:
         assert result is not None
         assert result.user_id == "user123"
 
+    def test_jwt_loads_secret_from_secrets_manager_when_env_missing(self):
+        """Test JWT store falls back to Secrets Manager-backed secret lookup."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "aragora.server.oauth_state_store.get_secret",
+                side_effect=lambda name, default=None, strict=False: {
+                    "OAUTH_JWT_SECRET": "aws-shared-secret",
+                }.get(name, default),
+            ):
+                store = JWTOAuthStateStore()
+                assert store._secret == "aws-shared-secret"
+
     def test_jwt_cleanup_is_noop(self):
         """Test that cleanup returns 0 (JWT states are self-expiring)."""
         store = JWTOAuthStateStore(secret_key="test-secret")

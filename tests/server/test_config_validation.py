@@ -500,6 +500,20 @@ class TestEnvironmentVariableLoading:
             assert config.token_ttl == 7200
             assert config.cleanup_interval == 600
 
+    def test_oauth_config_reads_allowed_hosts_from_secrets_manager(self):
+        """Test OAuthConfig can source allowed hosts from Secrets Manager."""
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch(
+                "aragora.server.config.get_secret",
+                side_effect=lambda name, default=None, strict=False: {
+                    "ARAGORA_ENV": "production",
+                    "ARAGORA_ALLOWED_OAUTH_HOSTS": "aragora.ai,api.aragora.ai",
+                }.get(name, default),
+            ):
+                config = get_oauth_config()
+                assert config.is_production is True
+                assert config.allowed_hosts == frozenset({"aragora.ai", "api.aragora.ai"})
+
 
 # =============================================================================
 # Default Factory Function Tests

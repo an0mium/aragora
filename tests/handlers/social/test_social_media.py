@@ -16,6 +16,7 @@ Covers all routes and behavior of the SocialMediaHandler class:
 
 from __future__ import annotations
 
+import importlib
 import json
 import time
 from pathlib import Path
@@ -178,6 +179,27 @@ class TestCanHandle:
 
     def test_publish_twitter(self, handler):
         assert handler.can_handle("/api/v1/debates/my-debate/publish/twitter") is True
+
+
+def test_module_loads_allowed_oauth_hosts_from_secrets_manager(monkeypatch):
+    """Module-level OAuth host config should work when values only exist in Secrets Manager."""
+    monkeypatch.delenv("ARAGORA_ENV", raising=False)
+    monkeypatch.delenv("ARAGORA_ALLOWED_OAUTH_HOSTS", raising=False)
+    with patch(
+        "aragora.config.secrets.get_secret",
+        side_effect=lambda name, default=None, strict=False: {
+            "ARAGORA_ENV": "production",
+            "ARAGORA_ALLOWED_OAUTH_HOSTS": "aragora.ai,api.aragora.ai",
+        }.get(name, default),
+    ):
+        import aragora.server.handlers.social.social_media as mod
+
+        reloaded = importlib.reload(mod)
+        try:
+            assert reloaded._IS_PRODUCTION is True
+            assert reloaded.ALLOWED_OAUTH_HOSTS == frozenset({"aragora.ai", "api.aragora.ai"})
+        finally:
+            importlib.reload(reloaded)
 
     def test_publish_youtube(self, handler):
         assert handler.can_handle("/api/v1/debates/my-debate/publish/youtube") is True
