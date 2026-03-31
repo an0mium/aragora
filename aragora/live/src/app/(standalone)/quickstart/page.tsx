@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
 
 export const metadata: Metadata = {
   title: 'Quickstart | ARAGORA',
@@ -61,31 +63,7 @@ function Step({
 export default function QuickstartPage() {
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      {/* Header */}
-      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="font-mono text-[var(--acid-green)] font-bold text-sm tracking-wider"
-          >
-            ARAGORA
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/docs"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-            >
-              API DOCS
-            </Link>
-            <Link
-              href="/try"
-              className="text-xs font-mono text-[var(--acid-green)] hover:text-[var(--acid-green)]/80 transition-colors"
-            >
-              TRY IT
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNav maxWidth="48rem" />
 
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Title */}
@@ -235,6 +213,8 @@ console.log(result.summary);`}</CodeBlock>
           </Link>
         </div>
       </div>
+
+      <PublicFooter maxWidth="48rem" />
     </main>
   );
 }
