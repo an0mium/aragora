@@ -1004,7 +1004,7 @@ class TaskHandlerMixin:
 
                 priority_enum = TaskPriority[priority.upper()]
 
-                task_id = _run_async(
+                task_id = await _await_if_needed(
                     coordinator.submit_task(
                         task_type="deliberation",
                         payload=request.to_dict(),

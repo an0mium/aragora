@@ -1479,6 +1479,7 @@ class TestSubmitDeliberation:
         mock_request.request_id = "req-async-001"
         mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
         mock_request.to_dict.return_value = {"content": "Should we deploy?"}
+        mock_coordinator.submit_task = AsyncMock(return_value="task-delib-001")
 
         body = {"content": "Should we deploy?", "async": True, "priority": "normal"}
 
@@ -1491,16 +1492,39 @@ class TestSubmitDeliberation:
                     MockTaskPriority,
                     create=True,
                 ):
-                    with patch(
-                        "aragora.server.handlers.control_plane.tasks._run_async",
-                        return_value="task-delib-001",
-                    ):
-                        result = await handler._handle_submit_deliberation(body, mock_http_handler)
+                    result = await handler._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 202
         data = _body(result)
         assert data["status"] == "queued"
         assert data["request_id"] == "req-async-001"
         assert data["task_id"] == "task-delib-001"
+
+    @pytest.mark.asyncio
+    async def test_submit_deliberation_async_awaits_submit_task(
+        self, handler, mock_coordinator, mock_http_handler
+    ):
+        mock_request = MagicMock()
+        mock_request.request_id = "req-await"
+        mock_request.context = MagicMock(user_id="u1", workspace_id="ws1")
+        mock_request.to_dict.return_value = {"content": "Should we ship?"}
+
+        body = {"content": "Should we ship?", "async": True, "priority": "normal"}
+
+        with patch("aragora.core.decision.DecisionRequest") as MockDR:
+            MockDR.from_http.return_value = mock_request
+            with patch("aragora.billing.auth.extract_user_from_request") as mock_extract:
+                mock_extract.return_value = MagicMock(authenticated=False)
+                with patch(
+                    "aragora.server.handlers.control_plane.tasks.TaskPriority",
+                    MockTaskPriority,
+                    create=True,
+                ):
+                    with patch.object(handler, "_emit_event") as mock_emit:
+                        result = await handler._handle_submit_deliberation(body, mock_http_handler)
+        assert _status(result) == 202
+        assert _body(result)["task_id"] == "task-001"
+        mock_coordinator.submit_task.assert_awaited_once()
+        mock_emit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_submit_deliberation_async_mode_via_mode_field(
@@ -1510,6 +1534,7 @@ class TestSubmitDeliberation:
         mock_request.request_id = "req-mode"
         mock_request.context = MagicMock(user_id=None, workspace_id=None)
         mock_request.to_dict.return_value = {}
+        mock_coordinator.submit_task = AsyncMock(return_value="task-mode")
 
         body = {"content": "Is this viable?", "mode": "async", "priority": "high"}
 
@@ -1524,11 +1549,7 @@ class TestSubmitDeliberation:
                     MockTaskPriority,
                     create=True,
                 ):
-                    with patch(
-                        "aragora.server.handlers.control_plane.tasks._run_async",
-                        return_value="task-mode",
-                    ):
-                        result = await handler._handle_submit_deliberation(body, mock_http_handler)
+                    result = await handler._handle_submit_deliberation(body, mock_http_handler)
         assert _status(result) == 202
 
     @pytest.mark.asyncio
