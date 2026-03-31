@@ -77,6 +77,7 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
 }
 _REAPED_NO_RECEIPT_ARCHIVE_GRACE_HOURS = 6.0
 _REAPED_NO_RECEIPT_BLOCKERS = {"stale_lease_reaped", "expired_lease_reaped"}
+_INACTIVE_LEASE_RELEASED_ARCHIVE_GRACE_HOURS = 6.0
 _TEST_FILE_PATTERN = re.compile(r"(tests/[\w./-]+\.py)")
 
 
@@ -947,6 +948,33 @@ class DevCoordinationStore:
                     updated += 1
                 if not changed:
                     continue
+                record["updated_at"] = now
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return updated
+
+    def rehabilitate_reaped_deliverable_work_orders(self) -> int:
+        """Normalize historical reaped lanes that already have better terminal truth."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            updated = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    if not _rehabilitate_reaped_deliverable_work_order(item):
+                        continue
+                    changed = True
+                    updated += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
                 record["updated_at"] = now
                 self._persist_supervisor_run(conn, record)
             conn.commit()
@@ -2177,7 +2205,9 @@ class DevCoordinationStore:
             )
         self.backfill_missing_completion_receipts()
         self.backfill_missing_blocker_metadata()
+        self.rehabilitate_reaped_deliverable_work_orders()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_inactive_lease_released_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
         self.archive_clean_exit_no_deliverable_work_orders()
@@ -2267,7 +2297,9 @@ class DevCoordinationStore:
 
         self.backfill_missing_completion_receipts()
         self.backfill_missing_blocker_metadata()
+        self.rehabilitate_reaped_deliverable_work_orders()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_inactive_lease_released_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
         self.archive_clean_exit_no_deliverable_work_orders()
@@ -3260,7 +3292,9 @@ class DevCoordinationStore:
         self.backfill_missing_blocker_metadata()
         self.backfill_missing_verification_plans()
         self.rehabilitate_docs_only_missing_verification_plan_work_orders()
+        self.rehabilitate_reaped_deliverable_work_orders()
         self.archive_reaped_no_receipt_work_orders()
+        self.archive_inactive_lease_released_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
         self.archive_clean_exit_no_deliverable_work_orders()
@@ -4581,6 +4615,101 @@ def _work_order_should_reconcile_merge_gate_failure(work_order: dict[str, Any]) 
         if isinstance(entry, dict) and str(entry.get("command", "")).strip()
     ]
     return bool(verification_results)
+
+
+def _is_reaped_failure_reason(reason: str) -> bool:
+    return reason in {"stale_lease_reaped", "expired_lease_reaped"}
+
+
+def _clear_reaped_blocker_metadata(work_order: dict[str, Any]) -> None:
+    if _is_reaped_failure_reason(_optional_text(work_order.get("failure_reason"))):
+        work_order.pop("failure_reason", None)
+    if _is_reaped_failure_reason(_optional_text(work_order.get("dispatch_error"))):
+        work_order.pop("dispatch_error", None)
+    blocker = work_order.get("blocker")
+    if isinstance(blocker, dict) and _is_reaped_failure_reason(
+        _optional_text(blocker.get("reason"))
+    ):
+        work_order.pop("blocker", None)
+    blocking_question = _optional_text(work_order.get("blocking_question"))
+    if blocking_question in {
+        _default_blocking_question_for_reason("stale_lease_reaped"),
+        _default_blocking_question_for_reason("expired_lease_reaped"),
+    }:
+        work_order.pop("blocking_question", None)
+    blockers = [
+        text
+        for text in _text_list(work_order.get("blockers"))
+        if text.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+    ]
+    if blockers:
+        work_order["blockers"] = blockers
+    else:
+        work_order.pop("blockers", None)
+
+
+def _rehabilitate_reaped_deliverable_work_order(work_order: dict[str, Any]) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    failure_reason = _optional_text(work_order.get("failure_reason")).lower()
+    if status != "needs_human" or not _is_reaped_failure_reason(failure_reason):
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+
+    changed = False
+    worker_outcome = _optional_text(work_order.get("worker_outcome")).lower()
+    dispatch_error = _optional_text(work_order.get("dispatch_error")).lower()
+
+    if worker_outcome in {"", "completed"}:
+        work_order["status"] = "completed"
+        if _optional_text(work_order.get("review_status")).lower() in {
+            "",
+            "pending",
+            "changes_requested",
+        }:
+            work_order["review_status"] = "pending_heterogeneous_review"
+        _clear_reaped_blocker_metadata(work_order)
+        work_order.pop("blocking_question", None)
+        work_order.pop("blocker", None)
+        changed = True
+    elif worker_outcome == "merge_gate_failed":
+        normalized_reason = (
+            "missing_verification_plan"
+            if "missing verification plan" in dispatch_error
+            else "merge_gate_failed"
+        )
+        if _optional_text(work_order.get("failure_reason")) != normalized_reason:
+            work_order["failure_reason"] = normalized_reason
+            changed = True
+        blocking_question = _default_blocking_question_for_reason(normalized_reason)
+        if _optional_text(work_order.get("blocking_question")) != blocking_question:
+            work_order["blocking_question"] = blocking_question
+            changed = True
+        blocker = {
+            "reason": normalized_reason,
+            "question": blocking_question,
+        }
+        if work_order.get("blocker") != blocker:
+            work_order["blocker"] = blocker
+            changed = True
+        blockers = [
+            text
+            for text in _text_list(work_order.get("blockers"))
+            if text.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+        ]
+        if _optional_text(work_order.get("dispatch_error")):
+            if _optional_text(work_order.get("dispatch_error")) not in blockers:
+                blockers.append(_optional_text(work_order.get("dispatch_error")))
+        if blockers != work_order.get("blockers"):
+            if blockers:
+                work_order["blockers"] = blockers
+            else:
+                work_order.pop("blockers", None)
+            changed = True
+
+    return changed
 
 
 def _work_order_reap_failure_reason(

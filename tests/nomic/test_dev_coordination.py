@@ -2191,6 +2191,118 @@ def test_backfill_missing_completion_receipts_rehydrates_empty_lease_scope(
     assert "last_scope_violation" not in refreshed_lease.metadata
 
 
+def test_rehabilitate_reaped_deliverable_work_orders_recovers_completed_lane(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Rehabilitate stale deliverable lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Rehabilitate stale deliverable lane",
+            "refined_goal": "Rehabilitate stale deliverable lane",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-rehab-completed",
+                "title": "Historical stale deliverable lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dispatch_error": "stale_lease_reaped",
+                "blocking_question": (
+                    "Should this stalled lane be rerun, split, or investigated before retrying?"
+                ),
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": (
+                        "Should this stalled lane be rerun, split, or investigated before retrying?"
+                    ),
+                },
+                "blockers": ["stale_lease_reaped", "historical-note"],
+                "worker_outcome": "completed",
+                "review_status": "pending",
+                "receipt_id": "receipt-rehab-completed",
+                "branch": "codex/rehab-completed",
+                "commit_shas": ["abc12345"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_reaped_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert "failure_reason" not in work_order
+    assert "dispatch_error" not in work_order
+    assert "blocking_question" not in work_order
+    assert "blocker" not in work_order
+    assert work_order["blockers"] == ["historical-note"]
+
+
+def test_rehabilitate_reaped_deliverable_work_orders_rewrites_merge_gate_lane(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Rehabilitate stale merge gate lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Rehabilitate stale merge gate lane",
+            "refined_goal": "Rehabilitate stale merge gate lane",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-rehab-merge-gate",
+                "title": "Historical stale merge gate lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dispatch_error": (
+                    "merge gate blocked: missing verification plan for code-change lane"
+                ),
+                "blocking_question": (
+                    "Should this stalled lane be rerun, split, or investigated before retrying?"
+                ),
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": (
+                        "Should this stalled lane be rerun, split, or investigated before retrying?"
+                    ),
+                },
+                "blockers": ["stale_lease_reaped"],
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/rehab-merge-gate",
+                "commit_shas": ["def67890"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_reaped_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "missing_verification_plan"
+    assert "verification command" in work_order["blocking_question"]
+    assert work_order["blocker"]["reason"] == "missing_verification_plan"
+    assert work_order["blockers"] == [
+        "merge gate blocked: missing verification plan for code-change lane"
+    ]
+
+
 def test_replay_missing_verification_for_merge_gate_failures_marks_lane_completed(
     repo: Path, store: DevCoordinationStore
 ) -> None:

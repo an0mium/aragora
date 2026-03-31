@@ -1292,7 +1292,7 @@ class TaskDecomposer:
         """
         prompt = self._build_decomposition_prompt(
             task,
-            file_scope_hints,
+            file_scope_hints=file_scope_hints,
             acceptance_criteria=acceptance_criteria,
             constraints=constraints,
         )
