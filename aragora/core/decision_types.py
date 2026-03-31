@@ -6,20 +6,32 @@ Extracted from decision.py for modularity.
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 
-from aragora.config.settings import get_settings
+_FALLBACK_DEFAULT_AGENTS = "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi"
 
-# Resolve defaults once per import (environment-driven)
-_DEFAULT_SETTINGS = get_settings()
-_DEFAULT_DECISION_ROUNDS = _DEFAULT_SETTINGS.debate.default_rounds
-_DEFAULT_DECISION_CONSENSUS = _DEFAULT_SETTINGS.debate.default_consensus
-_DEFAULT_DECISION_MAX_AGENTS = _DEFAULT_SETTINGS.debate.max_agents_per_debate
+
+def _get_int_env(name: str, default: int) -> int:
+    """Read import-safe integer defaults without triggering settings hydration."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+_DEFAULT_DECISION_ROUNDS = _get_int_env("ARAGORA_DEFAULT_ROUNDS", 9)
+_DEFAULT_DECISION_CONSENSUS = os.environ.get("ARAGORA_DEFAULT_CONSENSUS", "judge").lower()
+_DEFAULT_DECISION_MAX_AGENTS = _get_int_env("ARAGORA_MAX_AGENTS_PER_DEBATE", 20)
 
 
 def _default_decision_agents() -> list[str]:
-    """Get default agents from settings or fallback."""
-    agents = _DEFAULT_SETTINGS.agent.default_agent_list
+    """Get default agents from env without hydrating the full settings stack."""
+    raw_agents = os.environ.get("ARAGORA_DEFAULT_AGENTS", _FALLBACK_DEFAULT_AGENTS)
+    agents = [agent.strip() for agent in raw_agents.split(",") if agent.strip()]
     return agents if agents else ["anthropic-api", "openai-api"]
 
 

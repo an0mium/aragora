@@ -92,7 +92,13 @@ def is_production() -> bool:
 def validate_security_config() -> None:
     """Validate security configuration at module load.
 
-    Enforces strict requirements in production and logs warnings in non-prod.
+    Keeps import-time validation side-effect free.
+
+    This function intentionally avoids Secrets Manager-backed lookups. Several
+    unrelated product paths import billing auth helpers transitively, and
+    hitting AWS during module import can stall handler imports by seconds when
+    the network is unavailable. Runtime secret enforcement still happens in
+    `get_secret()`, which is only called when JWT operations are actually used.
     """
     if "pytest" in sys.modules:
         return
@@ -114,7 +120,7 @@ def validate_security_config() -> None:
             MAX_REFRESH_TOKEN_DAYS,
         )
 
-    jwt_secret_prev = _get_jwt_secret_previous()
+    jwt_secret_prev = os.environ.get("ARAGORA_JWT_SECRET_PREVIOUS", "")
     if jwt_secret_prev and len(jwt_secret_prev) < MIN_SECRET_LENGTH:
         logger.warning(
             "jwt_previous_secret_too_short length=%s min=%s",
@@ -125,20 +131,19 @@ def validate_security_config() -> None:
     if jwt_secret_prev and not JWT_SECRET_ROTATED_AT:
         logger.warning("jwt_previous_secret_without_rotation_timestamp")
 
-    if is_production():
-        jwt_secret = _get_jwt_secret()
-        if not jwt_secret:
-            raise ConfigurationError(
-                component="JWT Authentication",
-                reason="ARAGORA_JWT_SECRET must be set in production. "
-                'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
-            )
-        if len(jwt_secret) < MIN_SECRET_LENGTH:
-            raise ConfigurationError(
-                component="JWT Authentication",
-                reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
-                f"Current length: {len(jwt_secret)}",
-            )
+    jwt_secret = os.environ.get("ARAGORA_JWT_SECRET", "")
+    if is_production() and jwt_secret and len(jwt_secret) < MIN_SECRET_LENGTH:
+        raise ConfigurationError(
+            component="JWT Authentication",
+            reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
+            f"Current length: {len(jwt_secret)}",
+        )
+    if not is_production() and jwt_secret and len(jwt_secret) < MIN_SECRET_LENGTH:
+        logger.warning(
+            "jwt_secret_too_short_non_production length=%s min=%s",
+            len(jwt_secret),
+            MIN_SECRET_LENGTH,
+        )
 
 
 def validate_secret_strength(secret: str) -> bool:
