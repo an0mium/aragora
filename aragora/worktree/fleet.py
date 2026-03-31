@@ -34,6 +34,7 @@ SUPPORTED_ORCHESTRATORS = {
     "nomic",
     "generic",
 }
+_COORDINATION_DB_BUSY_TIMEOUT_MS = 60_000
 
 
 def _has_wildcard(pattern: str) -> bool:
@@ -231,8 +232,12 @@ def _active_lease_session_ids(repo_root: Path) -> set[str]:
     now = datetime.now(timezone.utc)
     active_session_ids: set[str] = set()
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(
+            db_path,
+            timeout=_COORDINATION_DB_BUSY_TIMEOUT_MS / 1000.0,
+        )
         try:
+            conn.execute(f"PRAGMA busy_timeout={_COORDINATION_DB_BUSY_TIMEOUT_MS}")
             rows = conn.execute(
                 "SELECT owner_session_id, expires_at FROM leases WHERE status = ?",
                 ("active",),

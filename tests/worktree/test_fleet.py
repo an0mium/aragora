@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
@@ -338,6 +339,56 @@ def test_reap_stale_claims_keeps_sessions_with_active_leases(tmp_path: Path) -> 
     assert result["released"] == 0
     assert result["kept_sessions"][0]["reason"] == "active_lease"
     assert any(claim["session_id"] == "lease-backed" for claim in store.fleet_store.list_claims())
+    store.release_lease(lease.lease_id)
+
+
+def test_active_lease_session_ids_uses_coordination_db_busy_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _make_repo(tmp_path)
+    store = DevCoordinationStore(repo_root=repo)
+    lease = store.claim_lease(
+        task_id="lease-timeout-task",
+        title="Lease timeout lane",
+        owner_agent="codex",
+        owner_session_id="lease-timeout",
+        branch="codex/lease-timeout",
+        worktree_path="/tmp/wt-lease-timeout",
+        claimed_paths=["aragora/server/auth_checks.py"],
+    )
+
+    observed: dict[str, object] = {}
+    real_connect = sqlite3.connect
+
+    class _TrackingConnection:
+        def __init__(self, conn: sqlite3.Connection) -> None:
+            self._conn = conn
+
+        def execute(self, sql: str, params: tuple[object, ...] = ()) -> sqlite3.Cursor:
+            observed.setdefault("statements", []).append(sql)
+            return self._conn.execute(sql, params)
+
+        def commit(self) -> None:
+            self._conn.commit()
+
+        def close(self) -> None:
+            self._conn.close()
+
+    def _tracking_connect(*args, **kwargs):
+        observed["timeout"] = kwargs.get("timeout")
+        return _TrackingConnection(real_connect(*args, **kwargs))
+
+    monkeypatch.setattr(fleet.sqlite3, "connect", _tracking_connect)
+
+    session_ids = fleet._active_lease_session_ids(repo)
+
+    assert "lease-timeout" in session_ids
+    assert observed["timeout"] == 60.0
+    assert any(
+        str(sql).strip() == "PRAGMA busy_timeout=60000" for sql in observed.get("statements", [])
+    )
+    monkeypatch.undo()
     store.release_lease(lease.lease_id)
 
 
