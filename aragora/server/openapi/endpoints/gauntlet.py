@@ -3,6 +3,69 @@
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
 GAUNTLET_ENDPOINTS = {
+    "/api/v1/gauntlet/run": {
+        "post": {
+            "tags": ["Gauntlet"],
+            "summary": "Start gauntlet stress-test",
+            "operationId": "startGauntletRunV1",
+            "description": "Start a new v1 gauntlet adversarial validation run.",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "input_content": {
+                                    "type": "string",
+                                    "description": "Content to adversarially validate",
+                                },
+                                "input_type": {
+                                    "type": "string",
+                                    "description": "Input classification for the gauntlet run",
+                                },
+                                "persona": {
+                                    "type": "string",
+                                    "description": "Optional gauntlet persona profile",
+                                },
+                                "agents": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Agents to include in the gauntlet run",
+                                },
+                                "profile": {
+                                    "type": "string",
+                                    "description": "Named gauntlet execution profile",
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "202": {
+                    "description": "Gauntlet started successfully",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "gauntlet_id": {"type": "string"},
+                                    "status": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/gauntlet/receipts": {
         "get": {
             "tags": ["Gauntlet"],
@@ -276,6 +339,102 @@ GAUNTLET_ENDPOINTS = {
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
+        },
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/receipt": {
+        "get": {
+            "tags": ["Gauntlet", "Receipts"],
+            "summary": "Get gauntlet receipt",
+            "operationId": "getGauntletReceiptV1",
+            "description": "Get the signed decision receipt for a specific v1 gauntlet run.",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the gauntlet run",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "description": "Optional export format for the receipt payload",
+                    "required": False,
+                    "schema": {"type": "string", "enum": ["json", "md", "html", "pdf", "csv"]},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Gauntlet receipt", "DecisionReceipt"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/receipt/verify": {
+        "post": {
+            "tags": ["Gauntlet", "Receipts"],
+            "summary": "Verify gauntlet receipt",
+            "operationId": "verifyGauntletReceiptV1",
+            "description": "Verify the signed decision receipt for a v1 gauntlet run.",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the gauntlet run",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["receipt", "signature", "signature_metadata"],
+                            "properties": {
+                                "receipt": {
+                                    "type": "object",
+                                    "description": "Signed gauntlet receipt payload",
+                                },
+                                "signature": {
+                                    "type": "string",
+                                    "description": "Base64-encoded receipt signature",
+                                },
+                                "signature_metadata": {
+                                    "type": "object",
+                                    "description": "Signature metadata including algorithm and key ID",
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Gauntlet receipt verification result",
+                    {
+                        "gauntlet_id": {"type": "string"},
+                        "receipt_id": {"type": "string"},
+                        "verified": {"type": "boolean"},
+                        "signature_valid": {"type": "boolean"},
+                        "integrity_valid": {"type": "boolean"},
+                        "id_match": {"type": "boolean"},
+                        "errors": {"type": "array", "items": {"type": "string"}},
+                        "warnings": {"type": "array", "items": {"type": "string"}},
+                        "verified_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/gauntlet/heatmaps": {
