@@ -619,7 +619,7 @@ class ReceiptsHandler(BaseHandler):
         method="GET",
         path="/api/v2/receipts/search",
         summary="Search receipts",
-        description="Full-text search across receipt content with optional filtering by verdict and risk level.",
+        description="Full-text search across receipt content with optional filtering by verdict, risk level, debate ID, and date range.",
         tags=["Receipts", "Search"],
         parameters=[
             {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
@@ -627,6 +627,9 @@ class ReceiptsHandler(BaseHandler):
             {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
             {"name": "verdict", "in": "query", "schema": {"type": "string"}},
             {"name": "risk_level", "in": "query", "schema": {"type": "string"}},
+            {"name": "debate_id", "in": "query", "schema": {"type": "string"}},
+            {"name": "date_from", "in": "query", "schema": {"type": "string"}},
+            {"name": "date_to", "in": "query", "schema": {"type": "string"}},
         ],
         responses={
             "200": {"description": "Search results returned"},
@@ -645,6 +648,9 @@ class ReceiptsHandler(BaseHandler):
             offset: Pagination offset
             verdict: Optional filter by verdict (APPROVED, REJECTED, etc.)
             risk_level: Optional filter by risk (LOW, MEDIUM, HIGH, CRITICAL)
+            debate_id: Optional filter by originating debate ID
+            date_from: Optional ISO datetime or unix timestamp lower bound
+            date_to: Optional ISO datetime or unix timestamp upper bound
         """
         query = query_params.get("q", "").strip()
 
@@ -663,6 +669,14 @@ class ReceiptsHandler(BaseHandler):
         # Optional filters
         verdict = query_params.get("verdict")
         risk_level = query_params.get("risk_level")
+        debate_id = query_params.get("debate_id")
+        date_from = self._parse_timestamp(query_params.get("date_from"))
+        date_to = self._parse_timestamp(query_params.get("date_to"))
+
+        if query_params.get("date_from") and date_from is None:
+            return error_response("Invalid date_from; expected ISO date or unix timestamp", 400)
+        if query_params.get("date_to") and date_to is None:
+            return error_response("Invalid date_to; expected ISO date or unix timestamp", 400)
 
         # Perform search
         receipts = await _call_nonblocking(
@@ -673,6 +687,9 @@ class ReceiptsHandler(BaseHandler):
             offset=offset,
             verdict=verdict,
             risk_level=risk_level,
+            debate_id=debate_id,
+            date_from=date_from,
+            date_to=date_to,
         )
 
         total = await _call_nonblocking(
@@ -681,6 +698,9 @@ class ReceiptsHandler(BaseHandler):
             query=query,
             verdict=verdict,
             risk_level=risk_level,
+            debate_id=debate_id,
+            date_from=date_from,
+            date_to=date_to,
         )
 
         return json_response(
@@ -696,6 +716,9 @@ class ReceiptsHandler(BaseHandler):
                 "filters": {
                     "verdict": verdict,
                     "risk_level": risk_level,
+                    "debate_id": debate_id,
+                    "date_from": date_from,
+                    "date_to": date_to,
                 },
             }
         )

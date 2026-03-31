@@ -327,6 +327,45 @@ async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict
     return "ok", updated_share_info
 
 
+def _parse_receipt_timestamp(value: str | None, *, field_name: str) -> float | None:
+    """Parse a unix timestamp or ISO-8601 datetime for receipt filters."""
+    if value is None or value == "":
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid {field_name}; expected ISO-8601 datetime or unix timestamp",
+        ) from exc
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _coerce_receipt_timestamp(value: Any) -> str | None:
+    """Normalize stored timestamps to the string shape expected by response models."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime):
+        dt = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+    if isinstance(value, (int, float)):
+        return (
+            datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        )
+    return str(value)
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -339,7 +378,7 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
         return ReceiptSummary(
             receipt_id=data.get("receipt_id", ""),
             gauntlet_id=data.get("gauntlet_id", ""),
-            timestamp=data.get("timestamp"),
+            timestamp=_coerce_receipt_timestamp(data.get("timestamp")),
             input_summary=data.get("input_summary", ""),
             verdict=data.get("verdict", ""),
             confidence=data.get("confidence", 0.0),
@@ -352,7 +391,7 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
     return ReceiptSummary(
         receipt_id=getattr(r, "receipt_id", ""),
         gauntlet_id=getattr(r, "gauntlet_id", ""),
-        timestamp=str(getattr(r, "timestamp", "")) if hasattr(r, "timestamp") else None,
+        timestamp=_coerce_receipt_timestamp(getattr(r, "timestamp", None)),
         input_summary=getattr(r, "input_summary", ""),
         verdict=getattr(r, "verdict", ""),
         confidence=getattr(r, "confidence", 0.0),
@@ -573,16 +612,18 @@ async def search_receipts(
         total = 0
 
         search_kwargs: dict[str, Any] = {"limit": limit, "offset": offset}
+        parsed_date_from = _parse_receipt_timestamp(date_from, field_name="date_from")
+        parsed_date_to = _parse_receipt_timestamp(date_to, field_name="date_to")
         if verdict:
             search_kwargs["verdict"] = verdict
         if risk_level:
             search_kwargs["risk_level"] = risk_level
         if debate_id:
             search_kwargs["debate_id"] = debate_id
-        if date_from:
-            search_kwargs["date_from"] = date_from
-        if date_to:
-            search_kwargs["date_to"] = date_to
+        if parsed_date_from is not None:
+            search_kwargs["date_from"] = parsed_date_from
+        if parsed_date_to is not None:
+            search_kwargs["date_to"] = parsed_date_to
 
         if hasattr(store, "search"):
             raw_results = await _call_store_method(store, "search", query=q, **search_kwargs)
@@ -594,6 +635,9 @@ async def search_receipts(
                     query=q,
                     verdict=verdict,
                     risk_level=risk_level,
+                    debate_id=debate_id,
+                    date_from=parsed_date_from,
+                    date_to=parsed_date_to,
                 )
             else:
                 total = len(results)
@@ -884,7 +928,7 @@ async def get_receipt(
         return ReceiptDetail(
             receipt_id=data.get("receipt_id", receipt_id),
             gauntlet_id=data.get("gauntlet_id", ""),
-            timestamp=data.get("timestamp"),
+            timestamp=_coerce_receipt_timestamp(data.get("timestamp")),
             input_summary=data.get("input_summary", ""),
             input_type=data.get("input_type", "spec"),
             schema_version=data.get("schema_version", "1.0"),

@@ -12,6 +12,7 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,7 +21,7 @@ from fastapi.testclient import TestClient
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi import create_app
 from aragora.server.fastapi.dependencies.auth import require_authenticated
-from aragora.storage.receipt_store import StoredReceipt
+from aragora.storage.receipt_store import ReceiptStore, StoredReceipt
 
 
 @pytest.fixture
@@ -498,6 +499,130 @@ class TestSearchReceipts:
         data = response.json()
         assert data["limit"] == 10
         assert data["offset"] == 5
+
+    def test_search_with_real_store_debate_filter(self, app, tmp_path):
+        """debate_id filter should work against the real ReceiptStore implementation."""
+        store = ReceiptStore(
+            db_path=Path(tmp_path) / "receipts.db", backend="sqlite", file_receipt_dirs=[]
+        )
+        try:
+            store.save(
+                {
+                    "receipt_id": "rcpt_search_1",
+                    "gauntlet_id": "gauntlet_search_1",
+                    "debate_id": "debate-alpha",
+                    "timestamp": 1711929600.0,
+                    "input_summary": "security review result",
+                    "verdict": "APPROVED",
+                    "confidence": 0.9,
+                    "risk_level": "LOW",
+                    "risk_score": 0.1,
+                    "checksum": "abc123",
+                    "findings": [],
+                    "agents_involved": ["claude"],
+                }
+            )
+            store.save(
+                {
+                    "receipt_id": "rcpt_search_2",
+                    "gauntlet_id": "gauntlet_search_2",
+                    "debate_id": "debate-beta",
+                    "timestamp": 1712016000.0,
+                    "input_summary": "security review result",
+                    "verdict": "APPROVED",
+                    "confidence": 0.8,
+                    "risk_level": "LOW",
+                    "risk_score": 0.2,
+                    "checksum": "def456",
+                    "findings": [],
+                    "agents_involved": ["codex"],
+                }
+            )
+
+            app.state.context = {
+                "storage": MagicMock(),
+                "elo_system": MagicMock(),
+                "user_store": None,
+                "rbac_checker": MagicMock(),
+                "decision_service": MagicMock(),
+                "receipt_store": store,
+            }
+            client = TestClient(app, raise_server_exceptions=False)
+
+            response = client.get("/api/v2/receipts/search?q=security&debate_id=debate-alpha")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"] == 1
+            assert [item["receipt_id"] for item in data["receipts"]] == ["rcpt_search_1"]
+        finally:
+            store.close()
+
+    def test_search_with_real_store_date_filters(self, app, tmp_path):
+        """date_from/date_to filters should narrow the real store search and total count."""
+        store = ReceiptStore(
+            db_path=Path(tmp_path) / "receipts.db", backend="sqlite", file_receipt_dirs=[]
+        )
+        try:
+            store.save(
+                {
+                    "receipt_id": "rcpt_date_1",
+                    "gauntlet_id": "gauntlet_date_1",
+                    "debate_id": "debate-date",
+                    "timestamp": 1711929600.0,  # 2024-04-01T00:00:00Z
+                    "input_summary": "security incident follow-up",
+                    "verdict": "APPROVED",
+                    "confidence": 0.91,
+                    "risk_level": "LOW",
+                    "risk_score": 0.1,
+                    "checksum": "ghi789",
+                    "findings": [],
+                    "agents_involved": ["claude"],
+                }
+            )
+            store.save(
+                {
+                    "receipt_id": "rcpt_date_2",
+                    "gauntlet_id": "gauntlet_date_2",
+                    "debate_id": "debate-date",
+                    "timestamp": 1714608000.0,  # 2024-05-02T00:00:00Z
+                    "input_summary": "security incident follow-up",
+                    "verdict": "APPROVED",
+                    "confidence": 0.88,
+                    "risk_level": "LOW",
+                    "risk_score": 0.2,
+                    "checksum": "jkl012",
+                    "findings": [],
+                    "agents_involved": ["codex"],
+                }
+            )
+
+            app.state.context = {
+                "storage": MagicMock(),
+                "elo_system": MagicMock(),
+                "user_store": None,
+                "rbac_checker": MagicMock(),
+                "decision_service": MagicMock(),
+                "receipt_store": store,
+            }
+            client = TestClient(app, raise_server_exceptions=False)
+
+            response = client.get(
+                "/api/v2/receipts/search?"
+                "q=security&date_from=2024-04-01T00:00:00Z&date_to=2024-04-30T23:59:59Z"
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"] == 1
+            assert [item["receipt_id"] for item in data["receipts"]] == ["rcpt_date_1"]
+        finally:
+            store.close()
+
+    def test_search_rejects_invalid_date_filter(self, client):
+        """Invalid ISO date filters should fail fast instead of bubbling into store errors."""
+        response = client.get("/api/v2/receipts/search?q=security&date_from=not-a-date")
+        assert response.status_code == 422
 
 
 # =============================================================================

@@ -1091,6 +1091,33 @@ class TestReceiptsHandlerSearch:
         assert data["filters"]["risk_level"] == "HIGH"
 
     @pytest.mark.asyncio
+    async def test_search_with_debate_and_date_filters(self, receipts_handler, mock_receipt_store):
+        """Legacy handler should pass debate/date filters through to store search/count."""
+        mock_receipt_store.search = MagicMock(return_value=[])
+        mock_receipt_store.search_count = MagicMock(return_value=0)
+
+        result = await receipts_handler.handle(
+            "GET",
+            "/api/v2/receipts/search",
+            query_params={
+                "q": "test query",
+                "debate_id": "debate-123",
+                "date_from": "2026-03-01T00:00:00Z",
+                "date_to": "2026-03-31T23:59:59Z",
+            },
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["filters"]["debate_id"] == "debate-123"
+        assert isinstance(data["filters"]["date_from"], float)
+        assert isinstance(data["filters"]["date_to"], float)
+        assert mock_receipt_store.search.call_args.kwargs["debate_id"] == "debate-123"
+        assert isinstance(mock_receipt_store.search.call_args.kwargs["date_from"], float)
+        assert isinstance(mock_receipt_store.search.call_args.kwargs["date_to"], float)
+        assert mock_receipt_store.search_count.call_args.kwargs["debate_id"] == "debate-123"
+
+    @pytest.mark.asyncio
     async def test_search_limit_capped(self, receipts_handler, mock_receipt_store):
         """Test search limit is capped at 100."""
         mock_receipt_store.search = MagicMock(return_value=[])
