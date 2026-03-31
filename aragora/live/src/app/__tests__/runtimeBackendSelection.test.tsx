@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import PublicDemoPage from '../(standalone)/demo/page';
 import TryPage from '../try/page';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const mockFetch = jest.fn();
 
@@ -106,7 +107,11 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<PublicDemoPage />);
+    render(
+      <ThemeProvider>
+        <PublicDemoPage />
+      </ThemeProvider>,
+    );
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
