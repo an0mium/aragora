@@ -145,6 +145,28 @@ def add_triage_parser(subparsers: argparse._SubParsersAction) -> None:
     sub.add_parser("auth", help="Authenticate with Gmail via OAuth")
     sub.add_parser("status", help="Show triage session status")
 
+    queue_p = sub.add_parser("queue", help="Show prioritized review queue")
+    queue_p.add_argument("--limit", type=int, default=20, help="Max items (default: 20)")
+    queue_p.add_argument("--all", action="store_true", help="Include already-reviewed items")
+
+    label_p = sub.add_parser("label", help="Fast-label triage decisions (g/b/s)")
+    label_p.add_argument("--batch", type=int, default=20, help="Number of decisions to label")
+    label_p.add_argument("receipt_id", nargs="?", help="Label a single receipt by ID")
+
+    digest_p = sub.add_parser("digest", help="Show daily triage digest")
+    digest_p.add_argument("--hours", type=float, default=24.0, help="Lookback window in hours")
+    digest_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    audit_p = sub.add_parser("audit", help="Adversarial audit of recent triage decisions")
+    audit_p.add_argument("--batch", type=int, default=20, help="Number of decisions to audit")
+    audit_p.add_argument("--hours", type=float, default=24.0, help="Lookback window")
+    audit_p.add_argument(
+        "--dry-run", action="store_true", help="Show audit prompt without calling LLM"
+    )
+
+    cal_p = sub.add_parser("calibrate", help="Show calibration metrics from feedback")
+    cal_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     parser.set_defaults(func=cmd_triage)
 
 
@@ -168,8 +190,33 @@ def cmd_triage(args: argparse.Namespace) -> None:
         asyncio.run(_run_gmail_auth())
     elif command == "status":
         _show_status()
+    elif command == "queue":
+        _show_review_queue(
+            limit=getattr(args, "limit", 20),
+            include_reviewed=getattr(args, "all", False),
+        )
+    elif command == "label":
+        _run_fast_label(
+            batch=getattr(args, "batch", 20),
+            single_receipt_id=getattr(args, "receipt_id", None),
+        )
+    elif command == "digest":
+        _show_digest(
+            hours=getattr(args, "hours", 24.0),
+            as_json=getattr(args, "json", False),
+        )
+    elif command == "audit":
+        asyncio.run(
+            _run_audit(
+                batch=getattr(args, "batch", 20),
+                hours=getattr(args, "hours", 24.0),
+                dry_run=getattr(args, "dry_run", False),
+            )
+        )
+    elif command == "calibrate":
+        _show_calibration(as_json=getattr(args, "json", False))
     else:
-        print("Usage: aragora triage {run,auth,status}")
+        print("Usage: aragora triage {run,auth,status,queue,label,digest,audit,calibrate}")
         sys.exit(1)
 
 
@@ -737,3 +784,279 @@ def _show_dogfood_metrics() -> None:
         pass
     finally:
         conn.close()
+
+
+def _get_store():
+    """Get the InboxTrustWedgeStore singleton."""
+    from aragora.inbox.trust_wedge import InboxTrustWedgeStore
+
+    return InboxTrustWedgeStore()
+
+
+def _show_review_queue(*, limit: int = 20, include_reviewed: bool = False) -> None:
+    """Show prioritized review queue."""
+    store = _get_store()
+    items = store.list_review_queue(limit=limit, include_reviewed=include_reviewed)
+    if not items:
+        print("Review queue is empty.")
+        return
+
+    print(f"\nTriage Review Queue ({len(items)} items)")
+    print(f"{'─' * 75}")
+    print(f"{'#':<4} {'Conf':>5} {'Tier':<10} {'Action':<8} {'Subject':<30} {'Receipt ID':<10}")
+    print(f"{'─' * 75}")
+    for i, item in enumerate(items, 1):
+        conf = item.get("confidence", 0.0)
+        tier = item.get("execution_tier", "") or ""
+        action = item.get("action", "")
+        subject = (item.get("subject", "") or "")[:29]
+        rid = (item.get("receipt_id", "") or "")[:8]
+        blocked = " BLK" if item.get("blocked") else ""
+        print(f"{i:<4} {conf:>4.0%}{blocked} {tier:<10} {action:<8} {subject:<30} {rid}")
+    print(f"{'─' * 75}")
+    print(f"\nLabel these: aragora triage label --batch {len(items)}")
+
+
+def _run_fast_label(*, batch: int = 20, single_receipt_id: str | None = None) -> None:
+    """Fast g/b/s labeling loop."""
+    store = _get_store()
+
+    if single_receipt_id:
+        items = [{"receipt_id": single_receipt_id}]
+        envelope = store.get_receipt(single_receipt_id)
+        if envelope is None:
+            print(f"Receipt not found: {single_receipt_id}")
+            return
+        # Build display dict from envelope
+        intent = envelope.intent
+        decision = envelope.decision
+        items = [
+            {
+                "receipt_id": single_receipt_id,
+                "action": str(getattr(intent, "action", "")),
+                "confidence": getattr(decision, "confidence", 0.0),
+                "subject": getattr(intent, "_subject", ""),
+                "sender": getattr(intent, "_sender", ""),
+                "rationale": getattr(intent, "synthesized_rationale", ""),
+                "blocked": getattr(decision, "blocked_by_policy", False),
+            }
+        ]
+    else:
+        items = store.list_review_queue(limit=batch)
+
+    if not items:
+        print("No items to label. Run some triage first: aragora triage run --batch 20")
+        return
+
+    print(f"\nFast Label ({len(items)} items) — [g]ood / [b]ad / [s]kip / [q]uit")
+    print(f"{'─' * 70}")
+
+    labeled = {"good": 0, "bad": 0, "skip": 0}
+    for i, item in enumerate(items, 1):
+        conf = item.get("confidence", 0.0) or 0.0
+        action = item.get("action", "?")
+        subject = (item.get("subject", "") or "")[:40]
+        sender = (item.get("sender", "") or "")[:25]
+        rationale = (item.get("rationale", "") or "")[:60]
+        rid = item.get("receipt_id", "")
+
+        print(f"\n[{i}/{len(items)}] {action:<8} {conf:>4.0%}  {sender}")
+        print(f"         {subject}")
+        if rationale:
+            print(f"         {rationale}")
+
+        while True:
+            try:
+                choice = input("  [g]ood / [b]ad / [s]kip / [q]uit > ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                choice = "q"
+            if choice in ("g", "good"):
+                store.record_feedback(rid, label="good")
+                labeled["good"] += 1
+                break
+            elif choice in ("b", "bad"):
+                store.record_feedback(rid, label="bad")
+                labeled["bad"] += 1
+                break
+            elif choice in ("s", "skip"):
+                store.record_feedback(rid, label="skip")
+                labeled["skip"] += 1
+                break
+            elif choice in ("q", "quit"):
+                total = sum(labeled.values())
+                print(
+                    f"\nLabeled {total}/{len(items)}: {labeled['good']} good, {labeled['bad']} bad, {labeled['skip']} skip"
+                )
+                return
+            else:
+                print("  Enter g, b, s, or q")
+
+    total = sum(labeled.values())
+    print(f"\n{'─' * 70}")
+    print(
+        f"Labeled {total}/{len(items)}: {labeled['good']} good, {labeled['bad']} bad, {labeled['skip']} skip"
+    )
+
+    stats = store.get_feedback_stats()
+    if stats["total"] > 0:
+        print(
+            f"Overall accuracy: {stats['accuracy']:.1%} ({stats['good']} good / {stats['good'] + stats['bad']} judged)"
+        )
+
+
+def _show_digest(*, hours: float = 24.0, as_json: bool = False) -> None:
+    """Show daily triage digest."""
+    store = _get_store()
+    data = store.get_digest_data(since_hours=hours)
+
+    if as_json:
+        import json as json_mod
+
+        # Remove items list for compact JSON output
+        compact = {k: v for k, v in data.items() if k != "items"}
+        print(json_mod.dumps(compact, indent=2, default=str))
+        return
+
+    total = data["total"]
+    if total == 0:
+        print(f"No triage activity in the last {hours:.0f}h.")
+        return
+
+    print(f"\nTriage Digest (last {hours:.0f}h)")
+    print(f"{'═' * 50}")
+    print(f"Processed: {total}")
+
+    by_action = data.get("by_action", {})
+    if by_action:
+        parts = [f"{a}: {c}" for a, c in sorted(by_action.items(), key=lambda x: -x[1])]
+        print(f"Actions:   {', '.join(parts)}")
+
+    blocked = data.get("blocked_count", 0)
+    if blocked:
+        print(f"Blocked:   {blocked}")
+
+    avg_conf = data.get("avg_confidence", 0.0)
+    avg_lat = data.get("avg_latency_seconds", 0.0)
+    cost = data.get("total_cost_usd", 0.0)
+    print(f"\nAvg confidence: {avg_conf:.1%}")
+    if avg_lat > 0:
+        print(f"Avg latency:    {avg_lat:.1f}s")
+    if cost > 0:
+        print(f"Total cost:     ${cost:.4f}")
+
+    by_domain = data.get("by_domain", {})
+    if by_domain:
+        print("\nTop sender domains:")
+        for domain, count in list(by_domain.items())[:10]:
+            print(f"  {domain:<35} {count}")
+
+    # Show blocked items for review
+    blocked_items = [item for item in data.get("items", []) if item.get("blocked")]
+    if blocked_items:
+        print("\nBlocked (review needed):")
+        for item in blocked_items:
+            subject = (item.get("subject", "") or "")[:50]
+            sender = item.get("sender", "")
+            print(f"  - {subject} ({sender})")
+
+    feedback = data.get("feedback", {})
+    if any(feedback.values()):
+        print(
+            f"\nFeedback: {feedback.get('good', 0)} good, {feedback.get('bad', 0)} bad, {feedback.get('skip', 0)} skip"
+        )
+
+    print(f"{'═' * 50}")
+
+
+async def _run_audit(*, batch: int = 20, hours: float = 24.0, dry_run: bool = False) -> None:
+    """Run adversarial audit of recent triage decisions."""
+    store = _get_store()
+    data = store.get_digest_data(since_hours=hours)
+    items = data.get("items", [])[:batch]
+
+    if not items:
+        print(f"No triage activity in the last {hours:.0f}h to audit.")
+        return
+
+    from aragora.inbox.triage_instrumentation import build_audit_prompt, run_skeptical_audit
+
+    prompt = build_audit_prompt(items)
+
+    if dry_run:
+        print("[DRY RUN] Audit prompt:\n")
+        print(prompt)
+        print(f"\n({len(items)} decisions would be audited)")
+        return
+
+    print(f"Auditing {len(items)} triage decisions...")
+    verdicts = await run_skeptical_audit(items, store=store)
+
+    if not verdicts:
+        print("Audit produced no results (LLM call may have failed).")
+        return
+
+    print(f"\nAudit Results ({len(verdicts)} reviewed)")
+    print(f"{'─' * 70}")
+    good = sum(1 for v in verdicts if v.label == "good")
+    bad = sum(1 for v in verdicts if v.label == "bad")
+    shrug = sum(1 for v in verdicts if v.label == "skip")
+
+    for v in verdicts:
+        if v.label == "bad":
+            marker = "BAD "
+        elif v.label == "skip":
+            marker = " ?  "
+        else:
+            marker = " OK "
+        subject = (v.subject or "")[:35]
+        print(f"  [{marker}] {v.action:<8} {v.confidence:>4.0%}  {subject}")
+        if v.rationale and v.label != "good":
+            print(f"         {v.rationale[:65]}")
+
+    print(f"{'─' * 70}")
+    print(f"Results: {good} good, {bad} bad, {shrug} uncertain")
+
+
+def _show_calibration(*, as_json: bool = False) -> None:
+    """Show calibration metrics from feedback labels."""
+    store = _get_store()
+    stats = store.get_feedback_stats()
+
+    if stats["total"] < 5:
+        print(f"Need at least 5 labeled decisions for calibration (have {stats['total']}).")
+        print("Run: aragora triage label")
+        return
+
+    from aragora.inbox.triage_instrumentation import (
+        compute_triage_calibration,
+        suggest_threshold_adjustment,
+    )
+
+    cal = compute_triage_calibration(store)
+
+    if as_json:
+        import json as json_mod
+
+        print(json_mod.dumps(cal, indent=2, default=str))
+        return
+
+    print(f"\nTriage Calibration ({cal['total_labeled']} labeled decisions)")
+    print(f"{'═' * 55}")
+    print(f"Overall accuracy: {cal['overall_accuracy']:.1%}")
+    print(f"Brier score:      {cal['overall_brier']:.3f} (lower is better)")
+    print(f"ECE:              {cal['ece']:.3f}")
+
+    buckets = cal.get("buckets", [])
+    if buckets:
+        print(f"\n{'Bucket':<12} {'Count':>6} {'Accuracy':>9} {'Brier':>7} {'Good':>5} {'Bad':>5}")
+        print(f"{'─' * 55}")
+        for b in buckets:
+            print(
+                f"{b['bucket_key']:<12} {b['total']:>6} "
+                f"{b['accuracy']:>8.1%} {b['brier_score']:>7.3f} "
+                f"{b['good']:>5} {b['bad']:>5}"
+            )
+
+    suggestion = suggest_threshold_adjustment(cal)
+    if suggestion:
+        print(f"\n{suggestion}")

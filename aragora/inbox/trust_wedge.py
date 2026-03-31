@@ -546,6 +546,30 @@ class InboxTrustWedgeStore:
                     ON inbox_trust_receipts(provider, message_id, created_at DESC)
                     """
                 )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS triage_feedback (
+                        feedback_id TEXT PRIMARY KEY,
+                        receipt_id TEXT NOT NULL,
+                        label TEXT NOT NULL CHECK(label IN ('good', 'bad', 'skip')),
+                        source TEXT NOT NULL DEFAULT 'human',
+                        created_at TEXT NOT NULL,
+                        notes TEXT
+                    )
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_triage_feedback_receipt
+                    ON triage_feedback(receipt_id)
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_triage_feedback_created
+                    ON triage_feedback(created_at DESC)
+                    """
+                )
             self._initialized = True
 
     def close(self) -> None:
@@ -1008,6 +1032,224 @@ class InboxTrustWedgeStore:
                 (error, receipt_id, claim_token),
             )
         return row.rowcount == 1
+
+    # ------------------------------------------------------------------
+    # Feedback & instrumentation
+    # ------------------------------------------------------------------
+
+    def record_feedback(
+        self,
+        receipt_id: str,
+        *,
+        label: str,
+        source: str = "human",
+        notes: str | None = None,
+    ) -> str:
+        """Record g/b/s feedback for a triage receipt. Returns feedback_id."""
+        if label not in ("good", "bad", "skip"):
+            raise ValueError(f"Invalid label: {label!r} (expected good/bad/skip)")
+        import uuid
+
+        feedback_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        with self._cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO triage_feedback (feedback_id, receipt_id, label, source, created_at, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (feedback_id, receipt_id, label, source, now, notes),
+            )
+            # Also update review_choice on the receipt for dogfood metrics
+            cursor.execute(
+                """
+                UPDATE inbox_trust_receipts SET review_choice = ?
+                WHERE receipt_id = ? AND (review_choice IS NULL OR review_choice = '')
+                """,
+                (f"label_{label}", receipt_id),
+            )
+        return feedback_id
+
+    def list_review_queue(
+        self,
+        *,
+        limit: int = 20,
+        include_reviewed: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Return receipts prioritized for review: blocked > escalated > low confidence."""
+        with self._cursor() as cursor:
+            rows = cursor.execute(
+                """
+                SELECT
+                    receipt_id, action, state, review_choice, created_at,
+                    intent_json, decision_json
+                FROM inbox_trust_receipts
+                WHERE state IN ('created', 'approved', 'executed')
+                  AND (? OR review_choice IS NULL OR review_choice = ''
+                       OR review_choice = 'auto_approve')
+                ORDER BY
+                    CASE WHEN json_extract(decision_json, '$.blocked_by_policy') = 1
+                         THEN 0 ELSE 1 END,
+                    CASE WHEN json_extract(decision_json, '$.execution_tier') = 'escalated'
+                         THEN 0 ELSE 1 END,
+                    CAST(COALESCE(json_extract(decision_json, '$.confidence'), 1.0) AS REAL) ASC,
+                    created_at ASC
+                LIMIT ?
+                """,
+                (include_reviewed, limit),
+            ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            intent = {}
+            decision = {}
+            try:
+                intent = json.loads(row["intent_json"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+            try:
+                decision = json.loads(row["decision_json"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+            result.append(
+                {
+                    "receipt_id": row["receipt_id"],
+                    "action": row["action"],
+                    "state": row["state"],
+                    "review_choice": row["review_choice"],
+                    "created_at": row["created_at"],
+                    "confidence": decision.get("confidence", 0.0),
+                    "execution_tier": decision.get("execution_tier", ""),
+                    "blocked": bool(decision.get("blocked_by_policy")),
+                    "subject": intent.get("_subject", ""),
+                    "sender": intent.get("_sender", ""),
+                    "rationale": intent.get("synthesized_rationale", ""),
+                }
+            )
+        return result
+
+    def get_digest_data(self, *, since_hours: float = 24.0) -> dict[str, Any]:
+        """Aggregate triage data for digest output over a time window."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=since_hours)).isoformat()
+        with self._cursor() as cursor:
+            rows = cursor.execute(
+                """
+                SELECT receipt_id, action, state, review_choice, created_at,
+                       intent_json, decision_json
+                FROM inbox_trust_receipts
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+                """,
+                (cutoff,),
+            ).fetchall()
+
+        by_action: dict[str, int] = {}
+        by_state: dict[str, int] = {}
+        by_domain: dict[str, int] = {}
+        confidences: list[float] = []
+        latencies: list[float] = []
+        total_cost = 0.0
+        blocked_count = 0
+        items: list[dict[str, Any]] = []
+
+        for row in rows:
+            action = row["action"] or "unknown"
+            state = row["state"] or "unknown"
+            by_action[action] = by_action.get(action, 0) + 1
+            by_state[state] = by_state.get(state, 0) + 1
+
+            intent = {}
+            decision = {}
+            try:
+                intent = json.loads(row["intent_json"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+            try:
+                decision = json.loads(row["decision_json"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            sender = intent.get("_sender", "")
+            domain = sender.split("@")[-1] if "@" in sender else sender
+            if domain:
+                by_domain[domain] = by_domain.get(domain, 0) + 1
+
+            conf = decision.get("confidence")
+            if conf is not None:
+                confidences.append(float(conf))
+            lat = decision.get("latency_seconds")
+            if lat is not None:
+                latencies.append(float(lat))
+            cost = decision.get("cost_usd")
+            if cost is not None:
+                total_cost += float(cost)
+            if decision.get("blocked_by_policy"):
+                blocked_count += 1
+
+            items.append(
+                {
+                    "receipt_id": row["receipt_id"],
+                    "action": action,
+                    "subject": intent.get("_subject", ""),
+                    "sender": sender,
+                    "confidence": conf,
+                    "blocked": bool(decision.get("blocked_by_policy")),
+                }
+            )
+
+        # Feedback stats for the period
+        feedback_stats = self._feedback_stats_since(cutoff)
+
+        return {
+            "period_start": cutoff,
+            "period_end": datetime.now(timezone.utc).isoformat(),
+            "total": len(rows),
+            "by_action": by_action,
+            "by_state": by_state,
+            "by_domain": dict(sorted(by_domain.items(), key=lambda x: -x[1])[:15]),
+            "avg_confidence": sum(confidences) / len(confidences) if confidences else 0.0,
+            "avg_latency_seconds": sum(latencies) / len(latencies) if latencies else 0.0,
+            "total_cost_usd": total_cost,
+            "blocked_count": blocked_count,
+            "feedback": feedback_stats,
+            "items": items,
+        }
+
+    def _feedback_stats_since(self, cutoff: str) -> dict[str, int]:
+        """Count feedback labels since a cutoff timestamp."""
+        with self._cursor() as cursor:
+            rows = cursor.execute(
+                """
+                SELECT label, count(*) as cnt
+                FROM triage_feedback
+                WHERE created_at >= ?
+                GROUP BY label
+                """,
+                (cutoff,),
+            ).fetchall()
+        stats: dict[str, int] = {"good": 0, "bad": 0, "skip": 0}
+        for row in rows:
+            stats[row["label"]] = row["cnt"]
+        return stats
+
+    def get_feedback_stats(self) -> dict[str, Any]:
+        """Aggregate all feedback labels with accuracy computation."""
+        with self._cursor() as cursor:
+            rows = cursor.execute(
+                "SELECT label, count(*) as cnt FROM triage_feedback GROUP BY label"
+            ).fetchall()
+        stats: dict[str, int] = {"good": 0, "bad": 0, "skip": 0}
+        for row in rows:
+            stats[row["label"]] = row["cnt"]
+        total = stats["good"] + stats["bad"] + stats["skip"]
+        judged = stats["good"] + stats["bad"]
+        accuracy = stats["good"] / judged if judged > 0 else 0.0
+        return {
+            "total": total,
+            "good": stats["good"],
+            "bad": stats["bad"],
+            "skip": stats["skip"],
+            "accuracy": accuracy,
+        }
 
     def tamper_signed_receipt_for_tests(self, receipt_id: str, *, signature: str) -> None:
         """Test helper to mutate stored signature."""

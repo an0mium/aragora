@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { getRuntimeBackendConfig } from "@/components/BackendSelector";
+import { ThemeSelector } from "@/components/landing/ThemeSelector";
 
 interface RecordedEvent {
   type: "proposal" | "critique" | "vote" | "consensus";
@@ -1543,6 +1544,7 @@ export default function PublicDemoPage() {
             ARAGORA
           </Link>
           <div className="flex items-center gap-3.5">
+            <ThemeSelector />
             <Link
               href="/try"
               className="rounded-full border border-[var(--border)] text-[15px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--acid-green)]/50 hover:text-[var(--acid-green)]"
