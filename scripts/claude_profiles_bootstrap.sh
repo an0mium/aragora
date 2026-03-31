@@ -54,6 +54,57 @@ else
   profiles=("${default_profiles[@]}")
 fi
 
+run_with_timeout() {
+  local seconds="$1"
+  shift
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$seconds" "$@"
+    return $?
+  fi
+
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$seconds" "$@"
+    return $?
+  fi
+
+  # macOS does not ship GNU timeout; use Perl's core alarm support instead.
+  perl -e '
+use strict;
+use warnings;
+
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed: $!" unless defined $pid;
+
+if ($pid == 0) {
+  exec @ARGV;
+  die "exec failed: $!";
+}
+
+local $SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  waitpid($pid, 0);
+  exit 124;
+};
+
+alarm $timeout;
+waitpid($pid, 0);
+alarm 0;
+
+my $status = $?;
+if ($status == -1) {
+  exit 1;
+}
+if ($status & 127) {
+  exit 128 + ($status & 127);
+}
+exit $status >> 8;
+' "$seconds" "$@"
+}
+
 already_logged_in() {
   local profile="$1"
   local status_output
@@ -67,7 +118,7 @@ already_logged_in() {
 
   # Status says logged in, but the token might be expired.
   # Run a live probe to verify the token actually works.
-  if ! timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null >/dev/null 2>&1; then
+  if ! run_with_timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null >/dev/null 2>&1; then
     echo "  Token expired (status says logged in but live probe failed)"
     return 1
   fi
@@ -91,7 +142,7 @@ verify_profile() {
 
   # Live probe with /dev/null stdin and 15s timeout
   local probe_output
-  if probe_output="$(timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null 2>&1)"; then
+  if probe_output="$(run_with_timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null 2>&1)"; then
     local email
     email="$(grep -o '"email": "[^"]*"' <<<"$status_output" | head -1 | sed 's/"email": "//;s/"//')"
     echo "OK  ($email)"
@@ -348,7 +399,7 @@ case "$MODE" in
       echo
       echo "=== ${profile} ==="
       if [[ "$FORCE_LOGIN" -ne 1 ]] && already_logged_in "$profile"; then
-        local skip_email
+        skip_email=""
         skip_email="$(get_profile_email "$profile")"
         echo "Already logged in and verified; skipping. ($skip_email)"
         continue
