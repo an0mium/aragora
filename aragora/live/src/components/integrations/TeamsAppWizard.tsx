@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface TeamsWorkspace {
   tenant_id: string;
@@ -9,10 +9,12 @@ interface TeamsWorkspace {
   is_active: boolean;
 }
 
-interface TeamsChannel {
-  id: string;
-  name: string;
-  team_name: string;
+interface TeamsTenantApiRecord {
+  tenant_id?: string;
+  tenant_name?: string;
+  connected_at?: string;
+  installed_at_iso?: string;
+  is_active?: boolean;
 }
 
 interface TeamsAppWizardProps {
@@ -21,7 +23,20 @@ interface TeamsAppWizardProps {
   apiBaseUrl?: string;
 }
 
-type WizardStep = 'check' | 'consent' | 'channels' | 'test' | 'complete';
+type WizardStep = 'check' | 'consent' | 'test' | 'complete';
+
+function normalizeWorkspace(record: TeamsTenantApiRecord): TeamsWorkspace | null {
+  if (!record.tenant_id || !record.tenant_name) {
+    return null;
+  }
+
+  return {
+    tenant_id: record.tenant_id,
+    tenant_name: record.tenant_name,
+    connected_at: record.connected_at ?? record.installed_at_iso ?? '',
+    is_active: record.is_active ?? true,
+  };
+}
 
 export function TeamsAppWizard({
   onClose,
@@ -32,30 +47,74 @@ export function TeamsAppWizard({
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [workspace, setWorkspace] = useState<TeamsWorkspace | null>(null);
-  const [channels, setChannels] = useState<TeamsChannel[]>([]);
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [loading, setLoading] = useState(false);
-  const [consentUrl, setConsentUrl] = useState<string | null>(null);
+  const popupPollRef = useRef<number | null>(null);
 
-  // Check if Teams OAuth is configured on the server
+  const clearPopupPoll = useCallback(() => {
+    if (popupPollRef.current !== null) {
+      window.clearInterval(popupPollRef.current);
+      popupPollRef.current = null;
+    }
+  }, []);
+
+  const loadConnectedWorkspace = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/sme/teams/tenants`);
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      const records = Array.isArray(data.workspaces) ? data.workspaces : [];
+      const activeRecord =
+        records.find((record: TeamsTenantApiRecord) => record.is_active !== false) ?? records[0];
+      const nextWorkspace = activeRecord ? normalizeWorkspace(activeRecord) : null;
+
+      if (!nextWorkspace) {
+        return false;
+      }
+
+      setWorkspace(nextWorkspace);
+      setStep('test');
+      return true;
+    } catch {
+      return false;
+    }
+  }, [apiBaseUrl]);
+
+  const refreshWorkspaceAfterConsent = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const connected = await loadConnectedWorkspace();
+    if (!connected) {
+      setError(
+        'Teams consent finished, but no connected tenant was found yet. Try again in a moment.'
+      );
+    }
+    setLoading(false);
+  }, [loadConnectedWorkspace]);
+
   const checkConfiguration = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/integrations/teams/status`);
+      const response = await fetch(`${apiBaseUrl}/api/v1/integrations/teams/status`);
       if (!response.ok) {
         setIsConfigured(false);
         return;
       }
-      const data = await response.json();
-      setIsConfigured(data.oauth_configured ?? false);
-      setConsentUrl(data.consent_url ?? null);
 
-      if (data.workspace) {
-        setWorkspace(data.workspace);
-        setStep('channels');
-      } else if (data.oauth_configured) {
+      const data = await response.json();
+      const configured = Boolean(data.app_id_configured && data.password_configured);
+      setIsConfigured(configured);
+
+      if (!configured) {
+        return;
+      }
+
+      const hasWorkspace = await loadConnectedWorkspace();
+      if (!hasWorkspace) {
         setStep('consent');
       }
     } catch {
@@ -63,123 +122,93 @@ export function TeamsAppWizard({
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, loadConnectedWorkspace]);
 
   useEffect(() => {
     if (step === 'check') {
-      checkConfiguration();
+      void checkConfiguration();
     }
   }, [step, checkConfiguration]);
 
-  // Load available channels after workspace is connected
-  const loadChannels = useCallback(async () => {
-    if (!workspace) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/integrations/teams/channels`);
-      if (response.ok) {
-        const data = await response.json();
-        setChannels(data.channels || []);
-      }
-    } catch {
-      setChannels([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiBaseUrl, workspace]);
-
-  useEffect(() => {
-    if (step === 'channels' && workspace) {
-      loadChannels();
-    }
-  }, [step, workspace, loadChannels]);
-
-  // Handle OAuth callback
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'teams-oauth-complete') {
-        setWorkspace(event.data.workspace);
-        setStep('channels');
+        const nextWorkspace = normalizeWorkspace(event.data.workspace ?? {});
+        if (nextWorkspace) {
+          setWorkspace(nextWorkspace);
+          setStep('test');
+        }
       } else if (event.data?.type === 'teams-oauth-error') {
         setError(event.data.error || 'OAuth flow failed');
       }
     };
 
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    return () => {
+      clearPopupPoll();
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [clearPopupPoll]);
 
   const startAdminConsent = () => {
-    if (!consentUrl) {
-      setError('Admin consent URL not available');
-      return;
-    }
-
     const width = 600;
     const height = 700;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
     const popup = window.open(
-      consentUrl,
+      `${apiBaseUrl}/api/v1/sme/teams/oauth/start?host=${encodeURIComponent(window.location.host)}`,
       'teams-oauth',
       `width=${width},height=${height},left=${left},top=${top},popup=yes`
     );
 
     if (!popup) {
       setError('Popup blocked. Please allow popups and try again.');
+      return;
     }
-  };
 
-  const handleChannelToggle = (channelId: string) => {
-    setSelectedChannels(prev =>
-      prev.includes(channelId)
-        ? prev.filter(id => id !== channelId)
-        : [...prev, channelId]
-    );
-  };
-
-  const saveChannelConfig = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/integrations/teams/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channels: selectedChannels }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save channel configuration');
+    clearPopupPoll();
+    popupPollRef.current = window.setInterval(() => {
+      if (!popup.closed) {
+        return;
       }
 
-      setStep('test');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save configuration');
-    } finally {
-      setLoading(false);
-    }
+      clearPopupPoll();
+      void refreshWorkspaceAfterConsent();
+    }, 1000);
+  };
+
+  const handleClose = () => {
+    clearPopupPoll();
+    onClose();
   };
 
   const testConnection = async () => {
+    if (!workspace) {
+      setError('Connect a Teams tenant before running a test.');
+      return;
+    }
+
     setTestStatus('testing');
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/integrations/teams/test`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/sme/teams/tenants/${encodeURIComponent(workspace.tenant_id)}/test`,
+        {
+          method: 'POST',
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Test message failed');
+        throw new Error('Connection test failed');
       }
 
       setTestStatus('success');
       setTimeout(() => setStep('complete'), 1500);
     } catch (err) {
       setTestStatus('failed');
-      setError(err instanceof Error ? err.message : 'Test failed');
+      setError(err instanceof Error ? err.message : 'Connection test failed');
     }
   };
 
@@ -194,7 +223,7 @@ export function TeamsAppWizard({
                   [CHECKING CONFIGURATION...]
                 </div>
                 <p className="font-mono text-sm text-text-muted">
-                  Verifying Microsoft Teams OAuth is configured
+                  Verifying Microsoft Teams connector configuration
                 </p>
               </>
             ) : isConfigured === false ? (
@@ -248,13 +277,14 @@ TEAMS_TENANT_ID=your_tenant_id`}
             </h3>
             <p className="font-mono text-sm text-text-muted mb-6">
               A Microsoft 365 admin must grant consent for Aragora to access your organization.
-              Click the button below to start the consent flow.
+              After the popup closes, this wizard will refresh and attach the connected tenant.
             </p>
             <button
               onClick={startAdminConsent}
-              className="px-6 py-3 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              disabled={loading}
+              className="px-6 py-3 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
             >
-              [START ADMIN CONSENT]
+              {loading ? '[WAITING FOR TENANT...]' : '[START ADMIN CONSENT]'}
             </button>
             <p className="font-mono text-xs text-text-muted mt-4">
               Required permissions: Send channel messages, Read team info
@@ -262,80 +292,23 @@ TEAMS_TENANT_ID=your_tenant_id`}
           </div>
         );
 
-      case 'channels':
-        return (
-          <div className="py-4">
-            <div className="mb-4">
-              {workspace && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-acid-green/10 border border-acid-green/30 rounded">
-                  <span className="font-mono text-acid-green">Connected to:</span>
-                  <span className="font-mono text-text">{workspace.tenant_name}</span>
-                </div>
-              )}
-              <h3 className="font-mono text-lg text-text mb-2">
-                Select Channels
-              </h3>
-              <p className="font-mono text-sm text-text-muted">
-                Choose which Teams channels should receive debate notifications:
-              </p>
-            </div>
-
-            {loading ? (
-              <div className="text-center py-8 font-mono text-acid-cyan">
-                [LOADING CHANNELS...]
-              </div>
-            ) : channels.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="font-mono text-sm text-text-muted mb-4">
-                  No channels found. The app may need to be added to teams first.
-                </p>
-                <button
-                  onClick={() => setStep('test')}
-                  className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10"
-                >
-                  [SKIP - CONFIGURE LATER]
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {channels.map(channel => (
-                  <label
-                    key={channel.id}
-                    className={`flex items-center gap-3 p-3 border rounded cursor-pointer transition-colors ${
-                      selectedChannels.includes(channel.id)
-                        ? 'border-acid-green bg-acid-green/10'
-                        : 'border-acid-green/20 hover:border-acid-green/40'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedChannels.includes(channel.id)}
-                      onChange={() => handleChannelToggle(channel.id)}
-                      className="form-checkbox bg-bg border-acid-green/30"
-                    />
-                    <div>
-                      <span className="font-mono text-sm text-text block">
-                        {channel.name}
-                      </span>
-                      <span className="font-mono text-xs text-text-muted">
-                        {channel.team_name}
-                      </span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-
       case 'test':
         return (
           <div className="text-center py-8">
+            {workspace && (
+              <div className="flex items-center justify-center gap-2 mb-4 p-3 bg-acid-green/10 border border-acid-green/30 rounded">
+                <span className="font-mono text-acid-green">Connected to:</span>
+                <span className="font-mono text-text">{workspace.tenant_name}</span>
+              </div>
+            )}
             <h3 className="font-mono text-lg text-text mb-2">
               Test Connection
             </h3>
             <p className="font-mono text-sm text-text-muted mb-6">
-              Send a test Adaptive Card to verify the integration is working.
+              Run a tenant health check to verify the stored Teams credentials are usable.
+            </p>
+            <p className="font-mono text-xs text-text-muted mb-6">
+              Channel subscriptions are configured separately after the tenant is connected.
             </p>
 
             <button
@@ -349,15 +322,15 @@ TEAMS_TENANT_ID=your_tenant_id`}
                   : 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan hover:bg-acid-cyan/30'
               }`}
             >
-              {testStatus === 'testing' && '[SENDING TEST CARD...]'}
+              {testStatus === 'testing' && '[RUNNING CONNECTION TEST...]'}
               {testStatus === 'success' && '[TEST SUCCESSFUL!]'}
               {testStatus === 'failed' && '[TEST FAILED - TRY AGAIN]'}
-              {testStatus === 'idle' && '[SEND TEST CARD]'}
+              {testStatus === 'idle' && '[RUN CONNECTION TEST]'}
             </button>
 
             {testStatus === 'success' && (
               <p className="font-mono text-sm text-acid-green mt-4">
-                Check your Teams channel for the test Adaptive Card!
+                Teams credentials validated successfully.
               </p>
             )}
           </div>
@@ -371,8 +344,8 @@ TEAMS_TENANT_ID=your_tenant_id`}
               Teams Integration Complete!
             </h3>
             <p className="font-mono text-sm text-text-muted mb-6">
-              Aragora is now connected to Microsoft Teams.
-              Debate results will be posted as Adaptive Cards to your selected channels.
+              Aragora is now connected to Microsoft Teams. Configure channel subscriptions from the
+              Teams workspace controls when you are ready to route receipts.
             </p>
           </div>
         );
@@ -380,24 +353,15 @@ TEAMS_TENANT_ID=your_tenant_id`}
   };
 
   const canGoBack = step !== 'check' && step !== 'complete';
-  const canGoNext =
-    (step === 'channels' && (selectedChannels.length > 0 || channels.length === 0)) ||
-    (step === 'test' && testStatus === 'success');
+  const canGoNext = step === 'test' && testStatus === 'success';
 
   const handleBack = () => {
     if (step === 'consent') setStep('check');
-    else if (step === 'channels') setStep('consent');
-    else if (step === 'test') setStep('channels');
+    else if (step === 'test') setStep('consent');
   };
 
   const handleNext = () => {
-    if (step === 'channels') {
-      if (selectedChannels.length > 0) {
-        saveChannelConfig();
-      } else {
-        setStep('test');
-      }
-    } else if (step === 'test' && testStatus === 'success') {
+    if (step === 'test' && testStatus === 'success') {
       setStep('complete');
     }
   };
@@ -406,7 +370,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="absolute inset-0 bg-bg/80 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       <div className="relative bg-surface border border-acid-green/30 rounded-lg w-full max-w-xl max-h-[90vh] overflow-hidden">
@@ -423,7 +387,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-text-muted hover:text-text font-mono"
           >
             [X]
@@ -450,7 +414,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
             </button>
           ) : (
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
             >
               [CANCEL]
