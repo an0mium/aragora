@@ -193,6 +193,19 @@ export interface DebateCreateRequest {
     quality_priority?: number;
     diversity_preference?: number;
   };
+  /** Run the same debate across multiple candidate agent/model combinations and keep the best result. */
+  comparison_config?: {
+    enabled?: boolean;
+    pick_best_result?: boolean;
+    selection_strategy?: string;
+    agent_combinations?: any[][];
+  };
+  /** Deprecated alias for comparison_config. */
+  model_comparison?: Record<string, any>;
+  /** Deprecated alias for comparison_config.agent_combinations. */
+  agent_combinations?: string[][];
+  /** Deprecated human-facing alias for comparison_config.agent_combinations. */
+  model_combinations?: string[][];
   /** Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS) */
   enable_verticals?: boolean;
   /** Explicit vertical ID to inject (e.g., software, legal, healthcare) */
