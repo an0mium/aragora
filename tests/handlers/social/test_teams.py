@@ -1458,8 +1458,7 @@ class TestBlockBuilders:
             action_blocks = [b for b in blocks if b.get("type") == "ActionSet"]
             assert len(action_blocks) == 1
             assert (
-                action_blocks[0]["actions"][0]["url"]
-                == "https://aragora.ai/api/v1/receipts/rcpt_abc"
+                action_blocks[0]["actions"][0]["url"] == "https://aragora.ai/receipts?id=rcpt_abc"
             )
 
     def test_build_result_blocks_with_receipt_uses_public_base_url(self, handler, monkeypatch):
@@ -1482,7 +1481,7 @@ class TestBlockBuilders:
         assert len(action_blocks) == 1
         assert (
             action_blocks[0]["actions"][0]["url"]
-            == "https://app.example.com/api/v1/receipts/rcpt_custom"
+            == "https://app.example.com/receipts?id=rcpt_custom"
         )
 
     def test_build_leaderboard_blocks(self, handler):

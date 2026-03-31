@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
+from aragora.utils.public_urls import public_receipt_url
+
 from .formatter import ReceiptFormatter, register_formatter
 
 if TYPE_CHECKING:
@@ -224,7 +226,7 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                 {
                     "type": "Action.OpenUrl",
                     "title": "View Full Receipt",
-                    "url": f"https://aragora.ai/receipts/{receipt_id}",
+                    "url": public_receipt_url(receipt_id),
                 },
             ],
         }
