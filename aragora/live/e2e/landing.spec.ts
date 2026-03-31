@@ -89,7 +89,7 @@ test.describe('Landing Page', () => {
 
   test('should display error banner when error occurs', async ({ page }) => {
     // Trigger an error by mocking API failure
-    await page.route('**/api/**', route => {
+    await page.route('**/api/v1/playground/debate*', route => {
       route.fulfill({
         status: 500,
         body: JSON.stringify({ error: 'Test error' }),
@@ -104,9 +104,11 @@ test.describe('Landing Page', () => {
       const submitButton = page.locator('button[type="submit"], button').filter({ hasText: /start|debate|submit/i }).first();
       if (await submitButton.isVisible()) {
         await submitButton.click();
-        // Error should appear
-        const errorBanner = page.locator('.bg-warning\\/10, [class*="error"], [class*="warning"]').first();
-        await expect(errorBanner).toBeVisible({ timeout: 10000 });
+        // Error state is rendered inline with copy and retry action.
+        const errorState = page
+          .getByText(/test error|something went wrong|could not connect to the server/i)
+          .or(page.getByRole('button', { name: /try again/i }));
+        await expect(errorState.first()).toBeVisible({ timeout: 10000 });
       }
     }
   });
