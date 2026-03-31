@@ -4,6 +4,20 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright configuration for Aragora Live Dashboard E2E tests.
  * @see https://playwright.dev/docs/test-configuration
  */
+const requestedBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const parsedRequestedBaseUrl = requestedBaseUrl ? new URL(requestedBaseUrl) : null;
+const isLoopbackBaseUrl = parsedRequestedBaseUrl
+  ? ['localhost', '127.0.0.1'].includes(parsedRequestedBaseUrl.hostname)
+  : true;
+const playwrightHost = isLoopbackBaseUrl
+  ? parsedRequestedBaseUrl?.hostname || process.env.PLAYWRIGHT_WEB_HOST || '127.0.0.1'
+  : process.env.PLAYWRIGHT_WEB_HOST || '127.0.0.1';
+const playwrightPort = isLoopbackBaseUrl
+  ? parsedRequestedBaseUrl?.port || process.env.PLAYWRIGHT_WEB_PORT || '3000'
+  : process.env.PLAYWRIGHT_WEB_PORT || '3000';
+const localBaseUrl = `http://${playwrightHost}:${playwrightPort}`;
+const shouldStartLocalWebServer = !parsedRequestedBaseUrl || isLoopbackBaseUrl;
+
 export default defineConfig({
   // Test directory
   testDir: './e2e',
@@ -37,7 +51,7 @@ export default defineConfig({
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    baseURL: requestedBaseUrl || localBaseUrl,
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -126,10 +140,12 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
-    timeout: 120 * 1000,
-  },
+  webServer: shouldStartLocalWebServer
+    ? {
+        command: `npx next dev --hostname ${playwrightHost} --port ${playwrightPort}`,
+        url: localBaseUrl,
+        reuseExistingServer: true,
+        timeout: 120 * 1000,
+      }
+    : undefined,
 });
