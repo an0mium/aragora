@@ -642,6 +642,20 @@ def _render_tranche_queue_harvest_table(payload: dict[str, object]) -> None:
         ("needs_human", int(summary.get("needs_human", 0) or 0)),
         ("failed", int(summary.get("failed", 0) or 0)),
     ]
+    dry_run = bool(payload.get("dry_run", False))
+    preview = (
+        payload.get("dry_run_preview", {})
+        if isinstance(payload.get("dry_run_preview"), dict)
+        else {}
+    )
+    preview_summary = preview.get("summary", {}) if isinstance(preview.get("summary"), dict) else {}
+    if dry_run:
+        rows.extend(
+            [
+                ("would push/PR", int(preview_summary.get("publish_candidates", 0) or 0)),
+                ("would merge", int(preview_summary.get("merge_candidates", 0) or 0)),
+            ]
+        )
     metric_width = max(len("metric"), *(len(label) for label, _ in rows))
     count_width = max(len("count"), *(len(str(value)) for _, value in rows))
     queue_id = str(payload.get("queue_id", "") or "").strip()
@@ -651,11 +665,99 @@ def _render_tranche_queue_harvest_table(payload: dict[str, object]) -> None:
     print(title)
     if status:
         print(f"status={status}")
+    if dry_run:
+        print("Mode: DRY RUN (preview only)")
     print()
     print(f"{'metric':<{metric_width}}  {'count':>{count_width}}")
     print(f"{'-' * metric_width}  {'-' * count_width}")
     for label, value in rows:
         print(f"{label:<{metric_width}}  {value:>{count_width}}")
+    preview_actions = [item for item in preview.get("actions", []) if isinstance(item, dict)]
+    if preview_actions:
+        print()
+        print("Planned actions")
+        _print_table(
+            [
+                ("planned_action", "action"),
+                ("item_id", "item_id"),
+                ("branch", "branch"),
+                ("pr_url", "pr_url"),
+            ],
+            preview_actions,
+        )
+
+
+def _build_tranche_queue_harvest_dry_run_preview(
+    *,
+    status_payload: dict[str, object],
+    harvest_payload: dict[str, object],
+    requested_execute_merge: bool,
+) -> dict[str, object]:
+    publish_candidates: list[dict[str, object]] = []
+    merge_candidates: list[dict[str, object]] = []
+
+    status_items = [item for item in status_payload.get("items", []) if isinstance(item, dict)]
+    for item in status_items:
+        item_id = str(item.get("item_id", "") or "").strip()
+        if not item_id:
+            continue
+        status = str(item.get("status", "") or "").strip()
+        worker_branches = [
+            str(branch).strip() for branch in item.get("worker_branches", []) if str(branch).strip()
+        ]
+        if not worker_branches:
+            worker_branch = _optional_text(item.get("worker_branch"))
+            if worker_branch:
+                worker_branches = [worker_branch]
+        pr_urls = [str(url).strip() for url in item.get("pr_urls", []) if str(url).strip()]
+        if not pr_urls:
+            pr_url = _optional_text(item.get("pr_url"))
+            if pr_url:
+                pr_urls = [pr_url]
+        if status not in {"completed", "needs_human"} or not worker_branches or pr_urls:
+            continue
+        for branch in worker_branches:
+            publish_candidates.append(
+                {
+                    "planned_action": "push_branch_and_open_pr",
+                    "item_id": item_id,
+                    "branch": branch,
+                    "pr_url": "",
+                }
+            )
+
+    if requested_execute_merge:
+        harvest_items = [
+            item for item in harvest_payload.get("items", []) if isinstance(item, dict)
+        ]
+        for item in harvest_items:
+            item_id = str(item.get("item_id", "") or "").strip()
+            prs = [entry for entry in item.get("prs", []) if isinstance(entry, dict)]
+            for pr in prs:
+                disposition = _optional_text(pr.get("snapshot_disposition")) or _optional_text(
+                    pr.get("disposition")
+                )
+                if disposition != "merge_now":
+                    continue
+                merge_candidates.append(
+                    {
+                        "planned_action": "merge_pr",
+                        "item_id": item_id,
+                        "branch": _optional_text(pr.get("head_branch")) or "",
+                        "pr_url": _optional_text(pr.get("pr_url")) or "",
+                    }
+                )
+
+    return {
+        "summary": {
+            "publish_candidates": len(publish_candidates),
+            "merge_candidates": len(merge_candidates),
+            "actions": len(publish_candidates) + len(merge_candidates),
+        },
+        "publish_candidates": publish_candidates,
+        "merge_candidates": merge_candidates,
+        "actions": [*publish_candidates, *merge_candidates],
+    }
 
 
 def _run_supervised_or_report(awaitable: object) -> object | None:
@@ -1925,12 +2027,31 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     )
                 )
             elif subaction == "harvest-queue":
+                requested_execute_merge = bool(getattr(args, "execute_merge", False))
+                allow_admin = bool(getattr(args, "allow_admin", False))
+                status_payload = (
+                    tranche_queue_status(
+                        queue_path=queue_path,
+                        repo_root=repo_root,
+                    )
+                    if dry_run
+                    else None
+                )
                 payload = harvest_tranche_queue(
                     queue_path=queue_path,
                     repo_root=repo_root,
-                    execute_merge=bool(getattr(args, "execute_merge", False)),
-                    allow_admin=bool(getattr(args, "allow_admin", False)),
+                    execute_merge=False if dry_run else requested_execute_merge,
+                    allow_admin=allow_admin,
                 )
+                if dry_run:
+                    payload["dry_run"] = True
+                    payload["requested_execute_merge"] = requested_execute_merge
+                    if status_payload is not None:
+                        payload["dry_run_preview"] = _build_tranche_queue_harvest_dry_run_preview(
+                            status_payload=status_payload,
+                            harvest_payload=payload,
+                            requested_execute_merge=requested_execute_merge,
+                        )
             else:
                 payload = reconcile_tranche_queue(
                     queue_path=queue_path,

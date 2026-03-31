@@ -550,6 +550,7 @@ class TestSwarmParser:
                 "harvest-queue",
                 "--queue",
                 "docs/examples/overnight-queue.yaml",
+                "--dry-run",
                 "--execute-merge",
                 "--allow-admin",
                 "--json",
@@ -559,6 +560,7 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "tranche"
         assert args.swarm_goal == "harvest-queue"
         assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.dry_run is True
         assert args.execute_merge is True
         assert args.allow_admin is True
         assert args.json is True
@@ -1144,6 +1146,94 @@ class TestSwarmCommand:
             queue_path=Path("/tmp/overnight-queue.yaml").resolve(),
             repo_root=Path("/tmp/repo"),
             execute_merge=True,
+            allow_admin=True,
+        )
+
+    def test_cmd_swarm_tranche_harvest_queue_dry_run_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="harvest-queue",
+            queue="/tmp/overnight-queue.yaml",
+            dry_run=True,
+            execute_merge=True,
+            allow_admin=True,
+            json=True,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche_queue.tranche_queue_status") as mock_queue_status,
+            patch("aragora.swarm.tranche_queue.harvest_tranche_queue") as mock_harvest_queue,
+        ):
+            mock_queue_status.return_value = {
+                "mode": "tranche-queue-status",
+                "queue_id": "overnight",
+                "items": [
+                    {
+                        "item_id": "item-publish",
+                        "status": "completed",
+                        "pr_url": None,
+                        "pr_urls": [],
+                        "worker_branch": "feat/item-publish",
+                        "worker_branches": ["feat/item-publish"],
+                    },
+                    {
+                        "item_id": "item-merge",
+                        "status": "completed",
+                        "pr_url": "https://github.com/org/repo/pull/42",
+                        "pr_urls": ["https://github.com/org/repo/pull/42"],
+                        "worker_branch": "feat/item-merge",
+                        "worker_branches": ["feat/item-merge"],
+                    },
+                ],
+            }
+            mock_harvest_queue.return_value = {
+                "mode": "tranche-queue-harvest",
+                "queue_id": "overnight",
+                "status": "completed",
+                "summary": {
+                    "total_items": 2,
+                    "prs_created": 1,
+                    "completed": 2,
+                    "needs_human": 0,
+                    "failed": 0,
+                },
+                "pr_counts": {"merge_now": 1},
+                "executed_merges": [],
+                "items": [
+                    {
+                        "item_id": "item-publish",
+                        "pr_urls": [],
+                        "prs": [],
+                    },
+                    {
+                        "item_id": "item-merge",
+                        "pr_urls": ["https://github.com/org/repo/pull/42"],
+                        "prs": [
+                            {
+                                "pr_url": "https://github.com/org/repo/pull/42",
+                                "snapshot_disposition": "merge_now",
+                                "head_branch": "feat/item-merge",
+                            }
+                        ],
+                    },
+                ],
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"dry_run": true' in out
+        assert '"requested_execute_merge": true' in out
+        assert '"planned_action": "push_branch_and_open_pr"' in out
+        assert '"planned_action": "merge_pr"' in out
+        mock_queue_status.assert_called_once_with(
+            queue_path=Path("/tmp/overnight-queue.yaml").resolve(),
+            repo_root=Path("/tmp/repo"),
+        )
+        mock_harvest_queue.assert_called_once_with(
+            queue_path=Path("/tmp/overnight-queue.yaml").resolve(),
+            repo_root=Path("/tmp/repo"),
+            execute_merge=False,
             allow_admin=True,
         )
 
