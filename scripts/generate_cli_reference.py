@@ -93,7 +93,7 @@ def _render_markdown(*, include_frontmatter: bool) -> str:
             [
                 "---",
                 "title: Aragora CLI Reference",
-                "description: Generated Aragora CLI command catalog from live parser",
+                "description: Aragora CLI Reference",
                 "---",
                 "",
             ]
