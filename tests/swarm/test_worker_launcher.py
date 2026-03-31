@@ -918,6 +918,70 @@ class TestCollectFinishedSync:
         mock_verify.assert_called_once_with("/tmp/wt", [expected_test])
         assert "wo-sync-finished" not in launcher._processes
 
+    def test_collects_in_memory_worker_when_session_meta_marks_complete(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
+        verification_results = [
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.1,
+            }
+        ]
+
+        worker = WorkerProcess(
+            work_order_id="wo-sync-meta-finished",
+            agent="codex",
+            worktree_path="/tmp/wt-meta",
+            branch="main",
+            pid=333,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers["wo-sync-meta-finished"] = worker
+        proc = MagicMock()
+        proc.returncode = None
+        launcher._processes["wo-sync-meta-finished"] = proc
+
+        session_meta = {
+            "pid": 333,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands_sync",
+                return_value=verification_results,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=["wo-sync-meta-finished"])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 143
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.head_sha == "abc123"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == [expected_test]
+        assert result.verification_results == verification_results
+        mock_verify.assert_called_once_with("/tmp/wt-meta", [expected_test])
+        mock_wait_pid.assert_called_once_with(333)
+        assert "wo-sync-meta-finished" not in launcher._processes
+
 
 class TestCollectDetachedResult:
     @pytest.mark.asyncio

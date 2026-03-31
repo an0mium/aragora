@@ -412,7 +412,12 @@ class WorkerLauncher:
         ids = work_order_ids or list(self._processes.keys())
         for work_order_id in ids:
             proc = self._processes.get(work_order_id)
-            if proc is None or proc.returncode is None:
+            worker = self._workers.get(work_order_id)
+            session_exit_code: int | None = None
+            if worker is not None:
+                session_meta = self._read_session_meta(worker.worktree_path)
+                session_exit_code, _ = self._terminal_session_result(session_meta)
+            if proc is None or (proc.returncode is None and session_exit_code is None):
                 continue
             completed.append(self._wait_sync(work_order_id))
         return completed
@@ -1748,11 +1753,17 @@ class WorkerLauncher:
         """Synchronously finalize a worker whose subprocess already exited."""
         worker = self._workers.get(work_order_id)
         proc = self._processes.get(work_order_id)
-        if worker is None or proc is None or proc.returncode is None:
+        if worker is None or proc is None:
+            raise KeyError(f"No finished worker for {work_order_id}")
+
+        session_meta = self._read_session_meta(worker.worktree_path)
+        session_exit_code, session_completed_at = self._terminal_session_result(session_meta)
+        exit_code = proc.returncode if proc.returncode is not None else session_exit_code
+        if exit_code is None:
             raise KeyError(f"No finished worker for {work_order_id}")
 
         live_capture_enabled = work_order_id in self._live_log_tasks
-        worker.exit_code = proc.returncode
+        worker.exit_code = exit_code
         if live_capture_enabled:
             live_logs = self._finish_live_log_capture_sync(
                 work_order_id,
@@ -1764,7 +1775,7 @@ class WorkerLauncher:
             worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
             worker.stderr = self._read_log_file(worker.worktree_path, "stderr")
 
-        worker.completed_at = datetime.now(UTC).isoformat()
+        worker.completed_at = session_completed_at or datetime.now(UTC).isoformat()
         try:
             worker.diff = self._collect_diff_sync(worker.worktree_path)
 
@@ -1803,6 +1814,16 @@ class WorkerLauncher:
                     if str(item.get("command", "")).strip()
                 ]
         finally:
+            cleanup_pid = worker.pid
+            if cleanup_pid is None:
+                raw_pid = session_meta.get("pid")
+                if raw_pid is not None:
+                    try:
+                        cleanup_pid = int(raw_pid)
+                    except (TypeError, ValueError):
+                        pass
+            if cleanup_pid is not None:
+                self._wait_for_pid_exit_sync(cleanup_pid)
             self._cleanup_session_artifacts(worker.worktree_path)
 
         logger.info(
