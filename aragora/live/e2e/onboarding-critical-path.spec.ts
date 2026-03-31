@@ -74,9 +74,10 @@ const MOCK_TEMPLATES = {
 // ────────────────────────────────────────────────────────────────────────────
 
 test.describe('Try Page → Demo → Signup CTA', () => {
-  // FIXME: Mock API intercept for /api/v1/playground/debate not triggering
-  // correctly after /try page redesign. The page works in production (validated
-  // via MCP Playwright on aragora.ai) but the mock route pattern needs updating.
+  // Browser-level coverage for the /try result CTA remains skipped until the
+  // redesigned page's full Playwright intercept path is refreshed. The core
+  // analyze -> result -> signup CTA flow is covered in
+  // src/app/__tests__/runtimeBackendSelection.test.tsx.
   test.skip('user runs demo debate and sees signup CTA', async ({ page, aragoraPage }) => {
     // Mock the playground debate endpoint
     await mockApiResponse(page, '**/api/v1/playground/debate', MOCK_DEBATE_RESULT);

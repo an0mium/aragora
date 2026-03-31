@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import PublicDemoPage from '../(standalone)/demo/page';
 import TryPage from '../try/page';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const mockFetch = jest.fn();
 
@@ -31,7 +32,18 @@ jest.mock('@/components/MatrixRain', () => ({
 }));
 
 jest.mock('@/components/try/TeaserResult', () => ({
-  TeaserResult: ({ verdict }: { verdict: string }) => <div>{verdict}</div>,
+  TeaserResult: ({
+    verdict,
+    explanation,
+  }: {
+    verdict: string;
+    explanation: string;
+  }) => (
+    <div>
+      <div>{verdict}</div>
+      <div>{explanation}</div>
+    </div>
+  ),
 }));
 
 jest.mock('react-markdown', () => {
@@ -53,6 +65,10 @@ function jsonResponse(data: unknown): Response {
     },
     json: async () => data,
   } as Response;
+}
+
+function renderWithTheme(ui: React.ReactElement) {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
 
 describe('runtime backend selection for public debate surfaces', () => {
@@ -86,6 +102,11 @@ describe('runtime backend selection for public debate surfaces', () => {
         expect.objectContaining({ method: 'POST' }),
       );
     });
+
+    expect(await screen.findByText('Production path confirmed.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /sign up for full debate transcripts/i }),
+    ).toHaveAttribute('href', '/signup');
   });
 
   it('uses the selected backend for the standalone live demo run', async () => {
@@ -106,7 +127,7 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<PublicDemoPage />);
+    renderWithTheme(<PublicDemoPage />);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
