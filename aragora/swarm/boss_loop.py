@@ -2828,8 +2828,6 @@ class BossLoop:
             if pending_handoff is not None and str(pending_handoff[1]).strip()
             else self._requested_target_agent_for_issue(issue.number)
         )
-        if pending_handoff is not None:
-            self._pending_handoff_prompts.pop(issue.number, None)
 
         claimed_runner_id: str | None = None
         selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(
@@ -2860,6 +2858,10 @@ class BossLoop:
         finally:
             if claimed_runner_id:
                 self._release_runner_claim(claimed_runner_id)
+        if pending_handoff is not None:
+            dispatch_started = bool(result.get("run") or result.get("run_id"))
+            if result.get("status") != "failed" or dispatch_started:
+                self._pending_handoff_prompts.pop(issue.number, None)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
             result,
             issue=issue,

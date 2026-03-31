@@ -2032,6 +2032,41 @@ async def test_dispatch_issue_consumes_pending_handoff_prompt_and_target_agent()
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_preserves_pending_handoff_on_pre_run_failure() -> None:
+    issue = _make_issue(1703, "Retry handoff should survive dispatch crash")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
+    loop._pending_handoff_prompts[issue.number] = (
+        "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
+        "codex",
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": requested_target_agent or "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "failed", "outcome": "crash", "error": "boom"}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    dispatch_kwargs = dispatch_mock.await_args.kwargs
+    assert result["status"] == "failed"
+    assert dispatch_kwargs["default_target_agent"] == "codex"
+    assert loop._pending_handoff_prompts[issue.number] == (
+        "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
+        "codex",
+    )
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> None:
     issue = _make_issue(
         1641,
