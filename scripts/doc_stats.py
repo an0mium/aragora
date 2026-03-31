@@ -60,14 +60,8 @@ def _count_py_files(path: Path) -> int:
 
 
 def _count_tests() -> int:
-    count = _run_rg_count(
-        "def test_",
-        globs=["*.py"],
-        exclude_globs=["**/node_modules/**", "**/.nomic/**", "**/.venv/**"],
-    )
-    if count >= 0:
-        return count
-    # Fallback: scan tests/ directory only
+    # Keep the docs baseline stable across platforms and CI environments by
+    # counting only tracked test definitions under tests/.
     tests_dir = ROOT / "tests"
     if not tests_dir.exists():
         return 0
