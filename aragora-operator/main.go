@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -49,22 +50,30 @@ func main() {
 	var probeAddr string
 	var aragoraAPIEndpoint string
 	var aragoraAPIToken string
+	var allowInsecureControlPlane bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&aragoraAPIEndpoint, "aragora-api-endpoint", "http://aragora-control-plane:8080",
+	flag.StringVar(&aragoraAPIEndpoint, "aragora-api-endpoint", "https://aragora-control-plane:8443",
 		"The Aragora control plane API endpoint.")
 	flag.StringVar(&aragoraAPIToken, "aragora-api-token", "",
 		"The Aragora API token for authentication.")
+	flag.BoolVar(&allowInsecureControlPlane, "allow-insecure-control-plane", false,
+		"Allow http:// Aragora control plane endpoints. Disabled by default.")
 
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(aragoraAPIEndpoint)), "http://") && !allowInsecureControlPlane {
+		setupLog.Error(nil, "refusing insecure Aragora API endpoint without explicit opt-in", "endpoint", aragoraAPIEndpoint)
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -88,11 +97,11 @@ func main() {
 
 	// Setup AragoraCluster controller
 	if err = (&controllers.AragoraClusterReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Recorder:        mgr.GetEventRecorderFor("aragoracluster-controller"),
-		APIEndpoint:     aragoraAPIEndpoint,
-		APIToken:        aragoraAPIToken,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("aragoracluster-controller"),
+		APIEndpoint:      aragoraAPIEndpoint,
+		APIToken:         aragoraAPIToken,
 		MetricsCollector: metricsCollector,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AragoraCluster")
@@ -101,9 +110,9 @@ func main() {
 
 	// Setup AragoraInstance controller
 	if err = (&controllers.AragoraInstanceReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Recorder:        mgr.GetEventRecorderFor("aragorainstance-controller"),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("aragorainstance-controller"),
 		MetricsCollector: metricsCollector,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AragoraInstance")
@@ -112,11 +121,11 @@ func main() {
 
 	// Setup AragoraPolicy controller
 	if err = (&controllers.AragoraPolicyReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Recorder:        mgr.GetEventRecorderFor("aragorapolicy-controller"),
-		APIEndpoint:     aragoraAPIEndpoint,
-		APIToken:        aragoraAPIToken,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor("aragorapolicy-controller"),
+		APIEndpoint:      aragoraAPIEndpoint,
+		APIToken:         aragoraAPIToken,
 		MetricsCollector: metricsCollector,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AragoraPolicy")

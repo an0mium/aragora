@@ -23,6 +23,21 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_LOCAL_ENVIRONMENTS = {"dev", "development", "local", "test", "testing"}
+
+
+def _raw_private_key_allowed_by_default() -> bool:
+    env = (
+        str(
+            os.getenv("ARAGORA_ENV")
+            or os.getenv("ARAGORA_ENVIRONMENT")
+            or os.getenv("NODE_ENV")
+            or ""
+        )
+        .strip()
+        .lower()
+    )
+    return env in _LOCAL_ENVIRONMENTS
 
 
 class SignerType(Enum):
@@ -56,7 +71,7 @@ class WalletSigner:
     _account: Any = field(default=None, repr=False)
 
     @classmethod
-    def from_env(cls) -> WalletSigner:
+    def from_env(cls, allow_private_key: bool | None = None) -> WalletSigner:
         """Create a signer from environment variables.
 
         Checks in order:
@@ -69,8 +84,15 @@ class WalletSigner:
         Raises:
             ValueError: If no wallet credentials are configured.
         """
+        if allow_private_key is None:
+            allow_private_key = _raw_private_key_allowed_by_default()
         private_key = os.getenv("ERC8004_WALLET_KEY")
         if private_key:
+            if not allow_private_key:
+                raise ValueError(
+                    "Raw ERC8004_WALLET_KEY is disabled in production-like environments. "
+                    "Use ERC8004_KEYSTORE_PATH or an external signer."
+                )
             return cls.from_private_key(private_key)
 
         keystore_path = os.getenv("ERC8004_KEYSTORE_PATH")

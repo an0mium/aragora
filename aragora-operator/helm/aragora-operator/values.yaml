@@ -66,6 +66,7 @@ leaderElection:
 # Aragora control plane API settings
 aragoraAPI:
   endpoint: ""
+  allowInsecure: false
   tokenSecretName: ""
   tokenSecretKey: "token"
 

@@ -43,6 +43,34 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _allows_admin_override(body: dict[str, Any]) -> bool:
+    metadata = body.get("metadata")
+    if isinstance(metadata, dict):
+        candidate = metadata.get("admin_override")
+        if isinstance(candidate, bool):
+            return candidate
+        if str(candidate or "").strip().lower() in {"1", "true", "yes", "on"}:
+            return True
+    candidate = body.get("admin_override")
+    if isinstance(candidate, bool):
+        return candidate
+    return str(candidate or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_debate_body(body: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(body)
+    question = normalized.get("question")
+    task = normalized.get("task")
+    question_text = str(question).strip() if question is not None else ""
+    task_text = str(task).strip() if task is not None else ""
+    if question_text and task_text and question_text != task_text:
+        raise ValueError("question and deprecated task fields must match when both are provided")
+    if not question_text and task is not None:
+        normalized["question"] = task
+    normalized.pop("task", None)
+    return normalized
+
+
 def _get_validate_against_schema():
     handler_module = sys.modules.get("aragora.server.handlers.debates.handler")
     if handler_module is not None:
@@ -172,18 +200,20 @@ class CreateOperationsMixin:
         if not body:
             return error_response("No content provided", 400)
 
+        try:
+            body = _normalize_debate_body(body)
+        except ValueError as exc:
+            return error_response(str(exc), 422)
+
         # Schema validation for input sanitization
         validation_result = _get_validate_against_schema()(body, DEBATE_START_SCHEMA)
         if not validation_result.is_valid:
             return error_response(validation_result.error, 400)
 
         # Pydantic v2 strict validation (question length, rounds bounds, agents limit)
-        # Only applies when the body contains a 'question' field (the primary field);
-        # requests using the legacy 'task' field bypass this layer to preserve compatibility.
-        if "question" in body:
-            _pydantic_req, _pydantic_err = validate_debate_request(body)
-            if _pydantic_err is not None:
-                return error_response(_pydantic_err, 422)
+        _pydantic_req, _pydantic_err = validate_debate_request(body)
+        if _pydantic_err is not None:
+            return error_response(_pydantic_err, 422)
 
         # Spam check for debate content
         spam_result = self._check_spam_content(body)
@@ -494,7 +524,7 @@ class CreateOperationsMixin:
             from aragora.moderation import check_debate_content, ContentModerationError
 
             # Extract content to check
-            proposal = body.get("task") or body.get("question", "")
+            proposal = body.get("question", "")
             context = body.get("context", "")
 
             if not proposal:
@@ -524,16 +554,26 @@ class CreateOperationsMixin:
             return None  # Content passed
 
         except ImportError:
-            # Moderation module not available - allow content through
-            logger.debug("Spam moderation not available, skipping check")
-            return None
+            if _allows_admin_override(body):
+                logger.warning("Spam moderation unavailable; admin override allowed request")
+                return None
+            return error_response(
+                "Content moderation is required for public debate creation and is currently unavailable.",
+                503,
+            )
         except ContentModerationError as e:
             # Moderation explicitly rejected content
             logger.warning("Content moderation error: %s", e)
             return error_response("Invalid request", 400)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error("Spam check failed unexpectedly: %s", e, exc_info=True)
-            return None
+            if _allows_admin_override(body):
+                logger.warning("Spam moderation failed; admin override allowed request")
+                return None
+            return error_response(
+                "Content moderation check failed; request requires admin override to continue.",
+                503,
+            )
 
 
 __all__ = ["CreateOperationsMixin"]

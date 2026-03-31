@@ -12,6 +12,10 @@ pragma solidity ^0.8.24;
  *
  * Linked to AgentIdentityRegistry — only registered agents can receive feedback.
  */
+interface IReputationIdentityRegistry {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
 contract ReputationRegistry {
 
     // ── Types ──
@@ -80,6 +84,10 @@ contract ReputationRegistry {
         identityRegistry = _identityRegistry;
     }
 
+    function _requireRegisteredAgent(uint256 agentId) internal view returns (address) {
+        return IReputationIdentityRegistry(identityRegistry).ownerOf(agentId);
+    }
+
     // ── Feedback ──
 
     /**
@@ -103,6 +111,7 @@ contract ReputationRegistry {
         string calldata feedbackURI,
         bytes32 feedbackHash
     ) external {
+        _requireRegisteredAgent(agentId);
         uint64 idx = _nextIndex[agentId][msg.sender]++;
 
         _feedback[agentId][msg.sender][idx] = Feedback({
@@ -153,8 +162,13 @@ contract ReputationRegistry {
         string calldata responseURI,
         bytes32 responseHash
     ) external {
+        address agentOwner = _requireRegisteredAgent(agentId);
         Feedback storage fb = _feedback[agentId][clientAddress][feedbackIndex];
         require(fb.timestamp > 0, "Feedback not found");
+        require(
+            msg.sender == clientAddress || msg.sender == agentOwner,
+            "Not feedback participant"
+        );
 
         emit ResponseAppended(
             agentId, clientAddress, feedbackIndex,

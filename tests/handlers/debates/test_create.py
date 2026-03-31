@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -273,7 +274,7 @@ class TestCreateDebate:
     @patch("aragora.server.handlers.debates.create._get_validate_against_schema")
     @patch("aragora.server.handlers.debates.create.importlib.import_module")
     def test_create_debate_schema_validation_failure(self, mock_import, mock_get_schema):
-        """Invalid schema returns 400 with validation error."""
+        """Invalid request returns validation error."""
         mock_get_schema.return_value = lambda body, schema: _MockValidationResult(
             is_valid=False, error="question field is required"
         )
@@ -282,8 +283,7 @@ class TestCreateDebate:
         h = _make_handler(json_body=body)
         handler = _mock_http_handler()
         result = h._create_debate(handler)
-        assert _status(result) == 400
-        # Error comes from schema validation
+        assert _status(result) == 422
         error_text = _body(result).get("error", "").lower()
         assert "question" in error_text or "invalid" in error_text
 
@@ -780,7 +780,11 @@ class TestCancelDebate:
         h = _make_handler()
         handler = _mock_http_handler()
 
-        result = h._cancel_debate(handler, "debate-emit-1")
+        with patch(
+            "aragora.server.stream.StreamEvent",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ):
+            result = h._cancel_debate(handler, "debate-emit-1")
 
         assert _status(result) == 200
         handler.stream_emitter.emit.assert_called_once()
@@ -1106,13 +1110,12 @@ class TestCheckSpamContent:
         assert result is None
 
     def test_moderation_import_error(self):
-        """If moderation module is not available, content passes."""
+        """If moderation module is not available, public creation fails closed."""
         handler = _make_spam_handler()
 
         with patch.dict("sys.modules", {"aragora.moderation": None}):
             result = handler._check_spam_content({"question": "Buy stuff!"})
-        # ImportError path => returns None (allowed)
-        assert result is None
+        assert _status(result) == 503
 
     @patch("aragora.server.handlers.debates.create.run_async")
     def test_spam_blocked(self, mock_run_async):
@@ -1159,7 +1162,7 @@ class TestCheckSpamContent:
         assert result is None
 
     def test_spam_check_runtime_error(self):
-        """Runtime error during spam check allows content through."""
+        """Runtime error during spam check blocks unless explicitly overridden."""
         handler = _make_spam_handler()
 
         mock_mod = MagicMock()
@@ -1173,11 +1176,12 @@ class TestCheckSpamContent:
             ):
                 result = handler._check_spam_content({"question": "Normal question"})
 
-        assert result is None
+        assert _status(result) == 503
 
     def test_spam_check_uses_task_or_question(self):
-        """Spam check extracts from 'task' field if 'question' is absent."""
+        """Legacy task alias is normalized to question before spam checking."""
         handler = _make_spam_handler()
+        from aragora.server.handlers.debates.create import _normalize_debate_body
 
         mock_result = MagicMock()
         mock_result.should_block = False
@@ -1192,7 +1196,7 @@ class TestCheckSpamContent:
                 "aragora.server.handlers.debates.create.run_async",
                 return_value=mock_result,
             ):
-                handler._check_spam_content({"task": "Design a system"})
+                handler._check_spam_content(_normalize_debate_body({"task": "Design a system"}))
 
         mock_mod.check_debate_content.assert_called_once()
         call_args = mock_mod.check_debate_content.call_args

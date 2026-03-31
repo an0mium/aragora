@@ -70,6 +70,23 @@ def _status(result: HandlerResult) -> int:
     return 200
 
 
+def _assert_register_queued(
+    result: HandlerResult,
+    *,
+    agent_uri: str,
+    chain_id: int,
+) -> dict[str, Any]:
+    """Assert the request path queues a chain action instead of signing inline."""
+    assert _status(result) == 202
+    body = _body(result)
+    assert body["agent_uri"] == agent_uri
+    assert body["chain_id"] == chain_id
+    assert body["status"] == "queued"
+    assert body["requires_approval"] is True
+    assert body["action_id"].startswith("chain-")
+    return body
+
+
 class MockHTTPHandler:
     """Mock HTTP handler for testing (simulates BaseHTTPRequestHandler)."""
 
@@ -1482,12 +1499,12 @@ class TestRegisterAgent:
                 metadata={"role": "verifier"},
             )
 
-        assert _status(result) == 201
-        body = _body(result)
-        assert body["token_id"] == 42
-        assert body["agent_uri"] == "https://agent.example.com"
-        assert body["owner"] == "0xsigner_addr"
-        assert body["chain_id"] == 137
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=137,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -1515,7 +1532,11 @@ class TestRegisterAgent:
         ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
-        assert _status(result) == 400
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -1591,7 +1612,12 @@ class TestRegisterAgent:
         ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
-        assert _status(result) == 500
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -1651,9 +1677,12 @@ class TestRegisterAgent:
                 metadata=None,
             )
 
-        assert _status(result) == 201
-        # register_agent should have been called with empty metadata list
-        contract_inst.register_agent.assert_called_once()
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
+        contract_inst.register_agent.assert_not_called()
 
 
 # ============================================================================
@@ -2990,7 +3019,12 @@ class TestRegisterAgentEdgeCases:
         ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
-        assert _status(result) == 500
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -3027,7 +3061,12 @@ class TestRegisterAgentEdgeCases:
         ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
-        assert _status(result) == 500
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -3064,7 +3103,12 @@ class TestRegisterAgentEdgeCases:
         ):
             result = await handle_register_agent(agent_uri="https://agent.example.com")
 
-        assert _status(result) == 500
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -3105,9 +3149,12 @@ class TestRegisterAgentEdgeCases:
                 metadata={"role": "verifier", "level": 42, "active": True},
             )
 
-        assert _status(result) == 201
-        body = _body(result)
-        assert body["token_id"] == 100
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=42,
+        )
+        contract_inst.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -3148,7 +3195,11 @@ class TestRegisterAgentEdgeCases:
                 metadata={},
             )
 
-        assert _status(result) == 201
+        _assert_register_queued(
+            result,
+            agent_uri="https://agent.example.com",
+            chain_id=1,
+        )
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.erc8004._get_circuit_breaker")
@@ -3187,10 +3238,18 @@ class TestRegisterAgentEdgeCases:
             result = await handle_register_agent(agent_uri="https://a.com")
 
         body = _body(result)
-        expected_keys = {"token_id", "agent_uri", "owner", "chain_id"}
+        expected_keys = {
+            "action_id",
+            "agent_uri",
+            "chain_id",
+            "requires_approval",
+            "status",
+        }
         assert set(body.keys()) == expected_keys
         assert body["chain_id"] == 5
-        assert body["owner"] == "0xaddr"
+        assert body["status"] == "queued"
+        assert body["requires_approval"] is True
+        assert body["action_id"].startswith("chain-")
 
 
 # ============================================================================
@@ -3253,6 +3312,9 @@ class TestHandlerRoutingAdditional:
         mock_fn.assert_called_once_with(
             agent_uri="https://test.com",
             metadata={"role": "verifier"},
+            requested_by="",
+            approval_id="",
+            receipt_id="",
         )
 
     @patch("aragora.server.handlers.erc8004.handle_register_agent")
@@ -3261,7 +3323,13 @@ class TestHandlerRoutingAdditional:
         mock_fn.return_value = MagicMock()
         h = _make_handler(body={}, method="POST")
         handler.handle("/api/v1/blockchain/agents", {}, h)
-        mock_fn.assert_called_once_with(agent_uri="", metadata=None)
+        mock_fn.assert_called_once_with(
+            agent_uri="",
+            metadata=None,
+            requested_by="",
+            approval_id="",
+            receipt_id="",
+        )
 
     def test_metadata_as_list_rejected(self, handler):
         h = _make_handler(body={"agent_uri": "https://test.com", "metadata": [1, 2]}, method="POST")

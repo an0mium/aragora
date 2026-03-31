@@ -43,6 +43,12 @@ from aragora.pipeline.decision_plan import (
     PlanStatus,
     record_plan_outcome,
 )
+from aragora.security.capability_gate import (
+    Capability,
+    CapabilityApprovalEnforcer,
+    CapabilityApprovalRequiredError,
+    ensure_capability_approval_id,
+)
 
 if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext
@@ -173,6 +179,56 @@ class PlanExecutor:
         self._max_parallel = max_parallel
         self._execution_mode: ExecutionMode = execution_mode or DEFAULT_EXECUTION_MODE
         self._repo_path = repo_path or Path.cwd()
+
+    @staticmethod
+    def _resolve_browser_execution_approval(
+        plan: DecisionPlan,
+        *,
+        goal: str,
+    ) -> tuple[str, str, str, dict[str, Any]]:
+        metadata = dict(getattr(plan, "metadata", {}) or {})
+        actor_id = (
+            str(
+                metadata.get("requested_by")
+                or metadata.get("user_id")
+                or metadata.get("approved_by")
+                or "system"
+            ).strip()
+            or "system"
+        )
+        target_resource = str(
+            metadata.get("execution_target_resource")
+            or metadata.get("target_resource")
+            or f"plan:{plan.id}"
+        ).strip()
+        payload = {
+            "plan_id": plan.id,
+            "debate_id": plan.debate_id,
+            "goal": goal,
+            "tasks": [
+                str(getattr(task, "description", "")).strip()
+                for task in (getattr(plan.implement_plan, "tasks", None) or [])
+                if str(getattr(task, "description", "")).strip()
+            ],
+        }
+        approval_id = ensure_capability_approval_id(
+            capability=Capability.BROWSER_EXEC,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=payload,
+            approval_id=str(metadata.get("approval_id") or "").strip(),
+            receipt_id=str(
+                metadata.get("decision_receipt_id") or metadata.get("receipt_id") or ""
+            ).strip(),
+            admin_approved=bool(metadata.get("admin_approved")),
+            approved_by=str(metadata.get("approved_by") or actor_id or "system").strip(),
+            metadata={
+                "plan_id": plan.id,
+                "debate_id": plan.debate_id,
+                "approval_request_id": str(metadata.get("approval_request_id", "")).strip(),
+            },
+        )
+        return approval_id, actor_id, target_resource, payload
 
     @staticmethod
     def _emit_plan_event(event_type: str, data: dict[str, Any]) -> None:
@@ -940,11 +996,33 @@ class PlanExecutor:
             goal = f"{plan.task}\n\nTasks:\n" + "\n".join(f"- {d}" for d in task_descriptions)
 
         # Configure computer use
+        if self._sandbox_executor is None:
+            raise PermissionError(
+                "Computer use execution requires an approved sandbox backend; "
+                "host-side browser automation is disabled by default."
+            )
+
+        approval_id, actor_id, target_resource, approval_payload = (
+            self._resolve_browser_execution_approval(plan, goal=goal)
+        )
         config = ComputerUseConfig(
             max_steps=50,  # Reasonable limit for automated tasks
             screenshot_delay_ms=500,
+            enforce_sensitive_approvals=True,
         )
         policy = create_default_computer_policy()
+        approval_enforcer = CapabilityApprovalEnforcer(
+            capability=Capability.BROWSER_EXEC,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=approval_payload,
+            receipt_id=str(
+                (getattr(plan, "metadata", {}) or {}).get("decision_receipt_id")
+                or (getattr(plan, "metadata", {}) or {}).get("receipt_id")
+                or ""
+            ).strip(),
+            metadata={"plan_id": plan.id, "debate_id": plan.debate_id},
+        )
 
         tasks_total = len(plan.implement_plan.tasks) if plan.implement_plan else 1
         lessons: list[str] = []
@@ -962,6 +1040,7 @@ class PlanExecutor:
                     executor=executor,
                     policy=policy,
                     config=config,
+                    approval_enforcer=approval_enforcer,
                 )
 
                 # Run the computer use task
@@ -969,7 +1048,12 @@ class PlanExecutor:
                     goal=goal,
                     max_steps=config.max_steps,
                     initial_context=f"Debate ID: {plan.debate_id}\nPlan ID: {plan.id}",
-                    metadata={"debate_id": plan.debate_id, "plan_id": plan.id},
+                    metadata={
+                        "debate_id": plan.debate_id,
+                        "plan_id": plan.id,
+                        "approval_id": approval_id,
+                        "user_id": actor_id,
+                    },
                 )
 
             duration = time.time() - start_time
@@ -1030,7 +1114,15 @@ class PlanExecutor:
                 tasks_total=tasks_total,
             )
 
-        except (OSError, ConnectionError, RuntimeError, TimeoutError, ValueError) as e:
+        except (
+            OSError,
+            ConnectionError,
+            RuntimeError,
+            TimeoutError,
+            ValueError,
+            PermissionError,
+            CapabilityApprovalRequiredError,
+        ) as e:
             duration = time.time() - start_time
             logger.error("Computer use execution failed: %s", e)
             plan.status = PlanStatus.FAILED

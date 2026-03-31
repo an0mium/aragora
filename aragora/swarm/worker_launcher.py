@@ -21,6 +21,13 @@ import sys
 import time
 from typing import Any
 
+from aragora.security.capability_gate import (
+    Capability,
+    CapabilityApprovalRequiredError,
+    authorize_capability_dispatch,
+    ensure_capability_approval_id,
+)
+
 logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
@@ -88,6 +95,10 @@ class WorkerProcess:
     pid: int | None = None
     session_id: str = ""
     lease_id: str = ""
+    receipt_id: str = ""
+    approval_id: str = ""
+    git_write_approval_id: str = ""
+    push_approval_id: str = ""
     started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     completed_at: str | None = None
     exit_code: int | None = None
@@ -102,6 +113,9 @@ class WorkerProcess:
     tests_run: list[str] = field(default_factory=list)
     verification_results: list[dict[str, Any]] = field(default_factory=list)
     command: list[str] = field(default_factory=list)
+    dispatch_action_id: str = ""
+    push_action_id: str = ""
+    admin_approved: bool = False
 
     @property
     def is_running(self) -> bool:
@@ -116,6 +130,10 @@ class WorkerProcess:
             "pid": self.pid,
             "session_id": self.session_id,
             "lease_id": self.lease_id,
+            "receipt_id": self.receipt_id,
+            "approval_id": self.approval_id,
+            "git_write_approval_id": self.git_write_approval_id,
+            "push_approval_id": self.push_approval_id,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "exit_code": self.exit_code,
@@ -125,6 +143,9 @@ class WorkerProcess:
             "expected_tests": list(self.expected_tests),
             "tests_run": list(self.tests_run),
             "verification_results": [dict(item) for item in self.verification_results],
+            "dispatch_action_id": self.dispatch_action_id,
+            "push_action_id": self.push_action_id,
+            "admin_approved": self.admin_approved,
         }
 
 
@@ -144,6 +165,7 @@ class LaunchConfig:
     use_managed_session_script: bool = True
     base_branch: str = "main"
     detach: bool = False
+    require_explicit_approval: bool = True
 
 
 class WorkerLauncher:
@@ -174,12 +196,27 @@ class WorkerLauncher:
         prompt = self._build_prompt(work_order)
         session_id = str(work_order.get("owner_session_id", "")).strip()
         lease_id = str(work_order.get("lease_id", "")).strip()
+        metadata = self._metadata_dict(work_order)
+        admin_approved = self._is_admin_approved(work_order, metadata)
+        actor_id = self._actor_id_for_work_order(work_order, metadata)
+        receipt_id = self._receipt_id_for_work_order(work_order, metadata)
+        approval_id, dispatch_action_id = self._authorize_worker_launch(
+            work_order=work_order,
+            worktree_path=worktree_path,
+            agent=agent,
+            actor_id=actor_id,
+            receipt_id=receipt_id,
+            admin_approved=admin_approved,
+            metadata=metadata,
+            prompt=prompt,
+        )
 
         cmd = self._build_command(
             agent,
             prompt,
             worktree_path,
             session_id=session_id,
+            admin_approved=admin_approved,
         )
         if not cmd:
             raise RuntimeError(f"Cannot build launch command for agent={agent}")
@@ -193,8 +230,6 @@ class WorkerLauncher:
             work_order_id,
             worktree_path,
         )
-
-        metadata = work_order.get("metadata", {})
         raw_worker_env = metadata.get("worker_env", {}) if isinstance(metadata, dict) else {}
         worker_env_overrides = {
             str(key).strip(): str(value)
@@ -263,11 +298,15 @@ class WorkerLauncher:
             pid=proc.pid,
             session_id=session_id,
             lease_id=lease_id,
+            receipt_id=receipt_id,
+            approval_id=approval_id,
             initial_head=initial_head,
             expected_tests=[
                 str(item) for item in work_order.get("expected_tests", []) if str(item).strip()
             ],
             command=list(cmd),
+            dispatch_action_id=dispatch_action_id,
+            admin_approved=admin_approved,
         )
         self._workers[work_order_id] = worker
         self._processes[work_order_id] = proc
@@ -517,9 +556,15 @@ class WorkerLauncher:
         worktree_path: str,
         *,
         session_id: str = "",
+        admin_approved: bool = False,
     ) -> list[str]:
         """Build the launch command for the given agent type."""
-        inner = self._build_agent_command(agent, prompt, worktree_path=worktree_path)
+        inner = self._build_agent_command(
+            agent,
+            prompt,
+            worktree_path=worktree_path,
+            admin_approved=admin_approved,
+        )
         if not self.config.use_managed_session_script:
             return inner
 
@@ -544,11 +589,16 @@ class WorkerLauncher:
         return cmd
 
     def _build_agent_command(
-        self, agent: str, prompt: str, *, worktree_path: str = ""
+        self,
+        agent: str,
+        prompt: str,
+        *,
+        worktree_path: str = "",
+        admin_approved: bool = False,
     ) -> list[str]:
         if agent == "claude":
             cmd = [self.config.claude_path, "-p", prompt]
-            if self._should_skip_claude_permissions():
+            if admin_approved and self._should_skip_claude_permissions():
                 cmd.append("--dangerously-skip-permissions")
             if self.config.claude_model:
                 cmd.extend(["--model", self.config.claude_model])
@@ -562,17 +612,19 @@ class WorkerLauncher:
         if agent == "codex":
             # Use stdin ("-") for prompts to avoid OS arg length limits.
             # Long prompts with issue bodies + file lists can exceed ARG_MAX.
-            cmd = [self.config.codex_path, "exec", "-", "--full-auto"]
+            cmd = [self.config.codex_path, "exec", "-"]
+            if admin_approved:
+                cmd.append("--full-auto")
             if self.config.codex_model:
                 cmd.extend(["--model", self.config.codex_model])
-            git_dir = self._resolve_worktree_gitdir(worktree_path)
+            git_dir = self._resolve_worktree_gitdir(worktree_path) if admin_approved else ""
             if git_dir:
                 cmd.extend(["--add-dir", git_dir])
             return cmd
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
         cmd = [self.config.claude_path, "-p", prompt]
-        if self._should_skip_claude_permissions():
+        if admin_approved and self._should_skip_claude_permissions():
             cmd.append("--dangerously-skip-permissions")
         if self.config.claude_profile:
             profile_script = self.config.claude_profile_script or str(
@@ -580,6 +632,100 @@ class WorkerLauncher:
             )
             return [profile_script, "exec", self.config.claude_profile, "--", *cmd]
         return cmd
+
+    @staticmethod
+    def _metadata_dict(work_order: dict[str, Any]) -> dict[str, Any]:
+        metadata = work_order.get("metadata")
+        return dict(metadata) if isinstance(metadata, dict) else {}
+
+    @staticmethod
+    def _truthy(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    @classmethod
+    def _is_admin_approved(cls, work_order: dict[str, Any], metadata: dict[str, Any]) -> bool:
+        return cls._truthy(work_order.get("admin_approved")) or cls._truthy(
+            metadata.get("admin_approved")
+        )
+
+    @staticmethod
+    def _actor_id_for_work_order(work_order: dict[str, Any], metadata: dict[str, Any]) -> str:
+        for candidate in (
+            metadata.get("requested_by"),
+            metadata.get("user_id"),
+            work_order.get("owner_session_id"),
+            work_order.get("lease_id"),
+            work_order.get("work_order_id"),
+            "system",
+        ):
+            text = str(candidate or "").strip()
+            if text:
+                return text
+        return "system"
+
+    @staticmethod
+    def _receipt_id_for_work_order(work_order: dict[str, Any], metadata: dict[str, Any]) -> str:
+        return str(
+            work_order.get("receipt_id")
+            or metadata.get("receipt_id")
+            or metadata.get("decision_receipt_id")
+            or ""
+        ).strip()
+
+    def _authorize_worker_launch(
+        self,
+        *,
+        work_order: dict[str, Any],
+        worktree_path: str,
+        agent: str,
+        actor_id: str,
+        receipt_id: str,
+        admin_approved: bool,
+        metadata: dict[str, Any],
+        prompt: str,
+    ) -> tuple[str, str]:
+        if self.config.require_explicit_approval and not self.config.use_managed_session_script:
+            raise CapabilityApprovalRequiredError(
+                Capability.CODE_EXEC,
+                "managed session wrapper is required for code execution lanes",
+            )
+
+        target_resource = str(Path(worktree_path).resolve())
+        payload = {
+            "work_order_id": str(work_order.get("work_order_id", "")).strip(),
+            "agent": agent,
+            "prompt_hash": hash(prompt),
+            "expected_tests": list(work_order.get("expected_tests") or []),
+            "file_scope": list(work_order.get("file_scope") or []),
+        }
+        approval_id = ensure_capability_approval_id(
+            capability=Capability.CODE_EXEC,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=payload,
+            approval_id=str(
+                metadata.get("approval_id") or work_order.get("approval_id") or ""
+            ).strip(),
+            receipt_id=receipt_id,
+            admin_approved=admin_approved,
+            approved_by=str(metadata.get("approved_by") or actor_id or "system").strip(),
+            metadata={
+                "work_order_id": str(work_order.get("work_order_id", "")).strip(),
+                "approval_request_id": str(metadata.get("approval_request_id", "")).strip(),
+            },
+        )
+        action = authorize_capability_dispatch(
+            capability=Capability.CODE_EXEC,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=payload,
+            approval_id=approval_id,
+            receipt_id=receipt_id,
+            metadata={"agent": agent},
+        )
+        return approval_id, action.action_id
 
     @staticmethod
     def _should_skip_claude_permissions() -> bool:
@@ -740,7 +886,7 @@ class WorkerLauncher:
             "  - Stage only the files you intentionally changed with `git add <file> ...`.\n"
             "  - Do NOT use `git add -A` or `git add .` — session metadata files must not be committed.\n"
             '  - Commit with a descriptive message using `git commit -m "..."` before exiting.\n'
-            "  - After committing, push your branch: `git push origin HEAD`.\n"
+            "  - Push only when the lane has explicit remote-mutation approval; otherwise leave the local commit intact.\n"
             "  - If `git push` fails (e.g. no remote, permission error), that is acceptable — "
             "the harness will attempt to push for you.\n"
             "  - Exit with a truthful final state; do not claim integration or approval work is done unless it happened in this lane."
@@ -1542,9 +1688,63 @@ class WorkerLauncher:
         return text[-max_chars:]
 
     @staticmethod
+    def _worker_actor_id(worker: WorkerProcess) -> str:
+        for candidate in (worker.session_id, worker.lease_id, worker.work_order_id, "system"):
+            text = str(candidate or "").strip()
+            if text:
+                return text
+        return "system"
+
+    @classmethod
+    def _authorize_worker_capability(
+        cls,
+        worker: WorkerProcess,
+        *,
+        capability: Capability,
+        input_payload: Any,
+        approval_id: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> tuple[str, str]:
+        actor_id = cls._worker_actor_id(worker)
+        target_resource = str(Path(worker.worktree_path).resolve())
+        effective_approval_id = ensure_capability_approval_id(
+            capability=capability,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=input_payload,
+            approval_id=approval_id,
+            receipt_id=worker.receipt_id,
+            admin_approved=worker.admin_approved,
+            approved_by=actor_id,
+            metadata=metadata,
+        )
+        action = authorize_capability_dispatch(
+            capability=capability,
+            actor_id=actor_id,
+            target_resource=target_resource,
+            input_payload=input_payload,
+            approval_id=effective_approval_id,
+            receipt_id=worker.receipt_id,
+            metadata=metadata,
+        )
+        return effective_approval_id, action.action_id
+
+    @staticmethod
     async def _auto_commit(worker: WorkerProcess) -> None:
         """Auto-commit changes in the worktree, excluding session artifacts."""
         try:
+            approval_id, _ = WorkerLauncher._authorize_worker_capability(
+                worker,
+                capability=Capability.GIT_WRITE,
+                input_payload={
+                    "agent": worker.agent,
+                    "work_order_id": worker.work_order_id,
+                    "branch": worker.branch,
+                },
+                approval_id=worker.git_write_approval_id,
+                metadata={"work_order_id": worker.work_order_id},
+            )
+            worker.git_write_approval_id = approval_id
             # Stage everything, then unstage session artifacts so they are
             # never committed by the harness.
             add_proc = await asyncio.create_subprocess_exec(
@@ -1629,6 +1829,12 @@ class WorkerLauncher:
             # Best-effort: if push fails (no remote, auth, etc.) the local
             # commit is still collected by _collect_commit_shas.
             await WorkerLauncher._auto_push(worker)
+        except CapabilityApprovalRequiredError as exc:
+            logger.info(
+                "Auto-commit skipped for %s: %s — working tree left intact",
+                worker.work_order_id,
+                exc.reason,
+            )
         except (asyncio.TimeoutError, FileNotFoundError, OSError) as exc:
             logger.warning("Auto-commit failed for %s: %s", worker.work_order_id, exc)
 
@@ -1636,6 +1842,18 @@ class WorkerLauncher:
     def _auto_commit_sync(worker: WorkerProcess) -> None:
         """Sync auto-commit used by pre-reap refresh paths."""
         try:
+            approval_id, _ = WorkerLauncher._authorize_worker_capability(
+                worker,
+                capability=Capability.GIT_WRITE,
+                input_payload={
+                    "agent": worker.agent,
+                    "work_order_id": worker.work_order_id,
+                    "branch": worker.branch,
+                },
+                approval_id=worker.git_write_approval_id,
+                metadata={"work_order_id": worker.work_order_id},
+            )
+            worker.git_write_approval_id = approval_id
             add_proc = subprocess.run(
                 ["git", "add", "-A"],
                 cwd=worker.worktree_path,
@@ -1703,6 +1921,12 @@ class WorkerLauncher:
                 return
 
             WorkerLauncher._auto_push_sync(worker)
+        except CapabilityApprovalRequiredError as exc:
+            logger.info(
+                "Sync auto-commit skipped for %s: %s — working tree left intact",
+                worker.work_order_id,
+                exc.reason,
+            )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
             logger.warning("Sync auto-commit failed for %s: %s", worker.work_order_id, exc)
 
@@ -1716,6 +1940,20 @@ class WorkerLauncher:
         the local worktree.
         """
         try:
+            approval_id, action_id = WorkerLauncher._authorize_worker_capability(
+                worker,
+                capability=Capability.GIT_PUSH,
+                input_payload={
+                    "agent": worker.agent,
+                    "work_order_id": worker.work_order_id,
+                    "branch": worker.branch,
+                    "commit_shas": list(worker.commit_shas),
+                },
+                approval_id=worker.push_approval_id,
+                metadata={"work_order_id": worker.work_order_id},
+            )
+            worker.push_approval_id = approval_id
+            worker.push_action_id = action_id
             push_proc = await asyncio.create_subprocess_exec(
                 "git",
                 "push",
@@ -1735,6 +1973,12 @@ class WorkerLauncher:
                 )
             else:
                 logger.info("Auto-pushed branch for %s", worker.work_order_id)
+        except CapabilityApprovalRequiredError as exc:
+            logger.info(
+                "Auto-push skipped for %s: %s — local commit preserved",
+                worker.work_order_id,
+                exc.reason,
+            )
         except (asyncio.TimeoutError, FileNotFoundError, OSError) as exc:
             logger.info(
                 "Auto-push skipped for %s: %s — local commit preserved",
@@ -1745,6 +1989,20 @@ class WorkerLauncher:
     @staticmethod
     def _auto_push_sync(worker: WorkerProcess) -> None:
         try:
+            approval_id, action_id = WorkerLauncher._authorize_worker_capability(
+                worker,
+                capability=Capability.GIT_PUSH,
+                input_payload={
+                    "agent": worker.agent,
+                    "work_order_id": worker.work_order_id,
+                    "branch": worker.branch,
+                    "commit_shas": list(worker.commit_shas),
+                },
+                approval_id=worker.push_approval_id,
+                metadata={"work_order_id": worker.work_order_id},
+            )
+            worker.push_approval_id = approval_id
+            worker.push_action_id = action_id
             push_proc = subprocess.run(
                 ["git", "push", "origin", "HEAD"],
                 cwd=worker.worktree_path,
@@ -1762,6 +2020,12 @@ class WorkerLauncher:
                 )
             else:
                 logger.info("Sync auto-pushed branch for %s", worker.work_order_id)
+        except CapabilityApprovalRequiredError as exc:
+            logger.info(
+                "Sync auto-push skipped for %s: %s — local commit preserved",
+                worker.work_order_id,
+                exc.reason,
+            )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
             logger.info(
                 "Sync auto-push skipped for %s: %s — local commit preserved",

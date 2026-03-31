@@ -78,6 +78,7 @@ class ReceiptAnchor:
         receipt_hash: str,
         metadata: dict[str, Any] | None = None,
         signer: Any | None = None,
+        agent_id: int | None = None,
     ) -> str:
         """Write a receipt hash to the blockchain.
 
@@ -93,16 +94,29 @@ class ReceiptAnchor:
         """
         meta = metadata or {}
 
-        if self._provider is not None and signer is not None:
-            return await self._anchor_on_chain(receipt_hash, meta, signer)
+        resolved_agent_id = self._resolve_agent_id(agent_id, meta)
+        if self._provider is not None and signer is not None and resolved_agent_id is not None:
+            return await self._anchor_on_chain(receipt_hash, meta, signer, resolved_agent_id)
 
         return self._anchor_locally(receipt_hash, meta)
+
+    @staticmethod
+    def _resolve_agent_id(agent_id: int | None, metadata: dict[str, Any]) -> int | None:
+        if isinstance(agent_id, int) and agent_id >= 0:
+            return agent_id
+        candidate = metadata.get("on_chain_agent_id")
+        try:
+            resolved = int(candidate)
+        except (TypeError, ValueError):
+            return None
+        return resolved if resolved >= 0 else None
 
     async def _anchor_on_chain(
         self,
         receipt_hash: str,
         metadata: dict[str, Any],
         signer: Any,
+        agent_id: int,
     ) -> str:
         """Submit receipt hash to the Validation Registry on-chain."""
         from aragora.blockchain.contracts.validation import ValidationRegistryContract
@@ -125,7 +139,7 @@ class ReceiptAnchor:
         try:
             tx_hash = contract.request_validation(
                 validator_address=signer.address,
-                agent_id=0,  # Receipt anchor, not an agent validation
+                agent_id=agent_id,
                 request_uri=metadata_uri,
                 request_hash=receipt_hash_bytes,
                 signer=signer,

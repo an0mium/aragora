@@ -20,6 +20,12 @@ describe("ERC-8004 Contracts", function () {
     return { identity, reputation, validation, owner, client, validator, other };
   }
 
+  async function registerAgents(identity: any, count: number): Promise<void> {
+    for (let i = 0; i < count; i += 1) {
+      await identity.register(`ipfs://agent-${i}`, []);
+    }
+  }
+
   // ── AgentIdentityRegistry ──
 
   describe("AgentIdentityRegistry", function () {
@@ -129,7 +135,8 @@ describe("ERC-8004 Contracts", function () {
 
   describe("ReputationRegistry", function () {
     it("should accept feedback from any address", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0,        // agentId
@@ -152,7 +159,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should track multiple feedback entries", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 900, 3, "medical", "", "/api/v1/diagnose", "", ethers.ZeroHash
@@ -165,7 +173,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should revoke feedback", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 500, 3, "test", "", "", "", ethers.ZeroHash
@@ -177,7 +186,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should reject revocation from non-submitter", async function () {
-      const { reputation, client, other } = await loadFixture(deployFixture);
+      const { identity, reputation, client, other } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 500, 3, "test", "", "", "", ethers.ZeroHash
@@ -190,7 +200,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should compute summary across clients", async function () {
-      const { reputation, client, validator } = await loadFixture(deployFixture);
+      const { identity, reputation, client, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       // Two clients give feedback
       await reputation.connect(client).giveFeedback(
@@ -206,7 +217,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should filter summary by tag", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 800, 3, "financial", "", "", "", ethers.ZeroHash
@@ -220,7 +232,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should exclude revoked feedback from summary", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 800, 3, "test", "", "", "", ethers.ZeroHash
@@ -236,7 +249,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should track client list", async function () {
-      const { reputation, client, validator } = await loadFixture(deployFixture);
+      const { identity, reputation, client, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await reputation.connect(client).giveFeedback(
         0, 100, 0, "", "", "", "", ethers.ZeroHash
@@ -252,7 +266,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should emit NewFeedback event", async function () {
-      const { reputation, client } = await loadFixture(deployFixture);
+      const { identity, reputation, client } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       await expect(
         reputation.connect(client).giveFeedback(
@@ -271,7 +286,8 @@ describe("ERC-8004 Contracts", function () {
 
   describe("ValidationRegistry", function () {
     it("should submit a validation request", async function () {
-      const { validation, validator, owner } = await loadFixture(deployFixture);
+      const { identity, validation, validator, owner } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const requestHash = ethers.id("validation-request-1");
       await validation.validationRequest(
@@ -287,7 +303,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should reject duplicate request hash", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const requestHash = ethers.id("duplicate");
       await validation.validationRequest(validator.address, 0, "", requestHash);
@@ -298,7 +315,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should accept response from designated validator", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const requestHash = ethers.id("val-req");
       await validation.validationRequest(validator.address, 0, "", requestHash);
@@ -318,7 +336,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should reject response from non-validator", async function () {
-      const { validation, validator, other } = await loadFixture(deployFixture);
+      const { identity, validation, validator, other } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const requestHash = ethers.id("val-req-2");
       await validation.validationRequest(validator.address, 0, "", requestHash);
@@ -331,7 +350,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should reject invalid response codes", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const requestHash = ethers.id("val-req-3");
       await validation.validationRequest(validator.address, 0, "", requestHash);
@@ -350,7 +370,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should compute summary with tag filtering", async function () {
-      const { validation, validator, other } = await loadFixture(deployFixture);
+      const { identity, validation, validator, other } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       // Two validation requests for the same agent
       const h1 = ethers.id("req-1");
@@ -375,7 +396,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should track agent validations", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
 
       const h1 = ethers.id("a-1");
       const h2 = ethers.id("a-2");
@@ -387,7 +409,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should track validator requests", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 2);
 
       const h1 = ethers.id("v-1");
       const h2 = ethers.id("v-2");
@@ -399,7 +422,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should emit ValidationRequested event", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
       const requestHash = ethers.id("ev-1");
 
       await expect(
@@ -409,7 +433,8 @@ describe("ERC-8004 Contracts", function () {
     });
 
     it("should emit ValidationResponded event", async function () {
-      const { validation, validator } = await loadFixture(deployFixture);
+      const { identity, validation, validator } = await loadFixture(deployFixture);
+      await registerAgents(identity, 1);
       const requestHash = ethers.id("ev-2");
 
       await validation.validationRequest(validator.address, 0, "", requestHash);

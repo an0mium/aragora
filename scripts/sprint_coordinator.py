@@ -335,8 +335,13 @@ def cmd_execute(args: argparse.Namespace) -> None:
         log_file = wt_path / ".sprint-agent.log"
         log_handle = open(log_file, "w")
 
+        cmd = [claude_bin, "--print"]
+        if os.environ.get("ARAGORA_ADMIN_APPROVED", "").strip() == "1":
+            cmd.append("--dangerously-skip-permissions")
+        cmd.extend(["-p", prompt])
+
         proc = subprocess.Popen(
-            [claude_bin, "--print", "--dangerously-skip-permissions", "-p", prompt],
+            cmd,
             cwd=str(wt_path),
             stdout=log_handle,
             stderr=subprocess.STDOUT,

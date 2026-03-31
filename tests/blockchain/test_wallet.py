@@ -94,11 +94,17 @@ class TestWalletSigner:
         mock_acct.address = "0xABCD1234567890ABCD1234567890ABCD12345678"
         mock_account_cls.from_key.return_value = mock_acct
 
-        env = {"ERC8004_WALLET_KEY": "0x" + "b" * 64}
+        env = {"ERC8004_WALLET_KEY": "0x" + "b" * 64, "ARAGORA_ENV": "development"}
         with patch.dict(os.environ, env, clear=False):
             with patch.dict(sys.modules, {"eth_account": mock_mod}):
                 signer = WalletSigner.from_env()
         assert signer.address == "0xABCD1234567890ABCD1234567890ABCD12345678"
+
+    def test_from_env_rejects_private_key_in_production_like_env(self):
+        env = {"ERC8004_WALLET_KEY": "0x" + "d" * 64, "ARAGORA_ENV": "production"}
+        with patch.dict(os.environ, env, clear=False):
+            with pytest.raises(ValueError, match="disabled in production-like environments"):
+                WalletSigner.from_env()
 
     def test_from_env_with_keystore(self, tmp_path):
         mock_mod, mock_messages, mock_account_cls = _make_mock_eth_account()

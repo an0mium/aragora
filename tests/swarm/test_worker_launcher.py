@@ -145,7 +145,7 @@ class TestBuildCommand:
     def test_claude_command(self, monkeypatch):
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 501)
         launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
-        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt")
+        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt", admin_approved=True)
         assert cmd[0] == "bash"
         assert "scripts/codex_session.sh" in cmd[1]
         # session-id is derived from worktree basename when not provided
@@ -161,18 +161,18 @@ class TestBuildCommand:
     def test_claude_command_omits_dangerous_flag_as_root(self, monkeypatch):
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 0)
         launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
-        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt")
+        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt", admin_approved=True)
         assert "--dangerously-skip-permissions" not in cmd
 
     def test_claude_command_fails_closed_when_geteuid_is_unavailable(self, monkeypatch):
         monkeypatch.delattr("aragora.swarm.worker_launcher.os.geteuid", raising=False)
         launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
-        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt")
+        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt", admin_approved=True)
         assert "--dangerously-skip-permissions" not in cmd
 
     def test_codex_command(self):
         launcher = WorkerLauncher(LaunchConfig(codex_model="o3"))
-        cmd = launcher._build_command("codex", "fix bug", "/tmp/wt")
+        cmd = launcher._build_command("codex", "fix bug", "/tmp/wt", admin_approved=True)
         assert cmd[0] == "bash"
         assert "exec" in cmd
         # Prompt is piped via stdin using "-" to avoid ARG_MAX limits
@@ -184,7 +184,7 @@ class TestBuildCommand:
     def test_unknown_agent_falls_back_to_claude(self, monkeypatch):
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 501)
         launcher = WorkerLauncher()
-        cmd = launcher._build_command("gpt5", "do thing", "/tmp/wt")
+        cmd = launcher._build_command("gpt5", "do thing", "/tmp/wt", admin_approved=True)
         assert cmd[0] == "bash"
         assert "--dangerously-skip-permissions" in cmd
 
@@ -236,7 +236,7 @@ class TestBuildCommand:
         (real_gitdir / "commondir").write_text("../..\n")
         (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
         launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
-        cmd = launcher._build_command("codex", "task", str(wt))
+        cmd = launcher._build_command("codex", "task", str(wt), admin_approved=True)
         assert "--add-dir" in cmd
         idx = cmd.index("--add-dir")
         assert cmd[idx + 1] == str(parent_git.resolve())
@@ -248,7 +248,7 @@ class TestBuildCommand:
         wt.mkdir()
         (wt / ".git").mkdir()
         launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
-        cmd = launcher._build_command("codex", "task", str(wt))
+        cmd = launcher._build_command("codex", "task", str(wt), admin_approved=True)
         assert "--add-dir" not in cmd
         assert "--full-auto" in cmd
 
@@ -301,6 +301,7 @@ class TestLaunch:
             "target_agent": "claude",
             "title": "Test",
             "expected_tests": ["python -m pytest tests/auth/ -q"],
+            "metadata": {"admin_approved": True},
         }
 
         with (
@@ -333,6 +334,7 @@ class TestLaunch:
             "work_order_id": "wo-stdin",
             "target_agent": "claude",
             "title": "Stdin guard test",
+            "metadata": {"admin_approved": True},
         }
 
         with (
@@ -362,6 +364,7 @@ class TestLaunch:
             "work_order_id": "wo-stdin-detach",
             "target_agent": "codex",
             "title": "Stdin guard detached",
+            "metadata": {"admin_approved": True},
         }
 
         with (
@@ -389,6 +392,7 @@ class TestLaunch:
             "work_order_id": "wo-detach-handles",
             "target_agent": "codex",
             "title": "Detached handle cleanup",
+            "metadata": {"admin_approved": True},
         }
 
         with (
@@ -408,7 +412,11 @@ class TestLaunch:
     @pytest.mark.asyncio
     async def test_launch_raises_on_missing_cli(self):
         launcher = WorkerLauncher()
-        wo = {"work_order_id": "wo-1", "target_agent": "claude"}
+        wo = {
+            "work_order_id": "wo-1",
+            "target_agent": "claude",
+            "metadata": {"admin_approved": True},
+        }
 
         with patch("shutil.which", return_value=None):
             with pytest.raises(FileNotFoundError, match="CLI not found"):
@@ -433,7 +441,8 @@ class TestLaunch:
                 "worker_env": {
                     "ARAGORA_RELEVANT_FILES": "aragora/swarm/boss_loop.py",
                     "ARAGORA_TEST_PATTERNS": "tests/swarm/test_boss_loop.py",
-                }
+                },
+                "admin_approved": True,
             },
         }
 
@@ -686,7 +695,12 @@ class TestLaunchAndWait:
     @pytest.mark.asyncio
     async def test_launch_and_wait_combined(self, tmp_path: Path):
         launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
-        wo = {"work_order_id": "wo-combo", "target_agent": "claude", "title": "Test"}
+        wo = {
+            "work_order_id": "wo-combo",
+            "target_agent": "claude",
+            "title": "Test",
+            "metadata": {"admin_approved": True},
+        }
         worktree = tmp_path / "wt"
         (worktree / "scripts").mkdir(parents=True)
         (worktree / "scripts" / "codex_session.sh").write_text(

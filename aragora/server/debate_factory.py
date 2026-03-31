@@ -595,6 +595,9 @@ class DebateFactory:
             round_timeout_seconds=base_protocol.round_timeout_seconds,
             debate_rounds_timeout_seconds=base_protocol.debate_rounds_timeout_seconds,
             enable_breakpoints=base_protocol.enable_breakpoints,
+            enable_content_moderation=True,
+            enable_context_trust_tiering=True,
+            detect_context_taint=True,
         )
 
         # Enable epistemic hygiene flags when mode is set

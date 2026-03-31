@@ -45,6 +45,9 @@ spec:
             {{- if .Values.aragoraAPI.endpoint }}
             - --aragora-api-endpoint={{ .Values.aragoraAPI.endpoint }}
             {{- end }}
+            {{- if .Values.aragoraAPI.allowInsecure }}
+            - --allow-insecure-control-plane
+            {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           ports:

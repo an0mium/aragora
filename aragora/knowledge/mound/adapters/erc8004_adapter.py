@@ -840,16 +840,26 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
             "metadata": metadata or {},
             "status": "recorded",
         }
+        resolved_agent_id: int | None = None
+        if isinstance(agent_id, int):
+            resolved_agent_id = agent_id if agent_id >= 0 else None
+        elif isinstance(metadata, dict):
+            try:
+                candidate = int(metadata.get("on_chain_agent_id"))
+            except (TypeError, ValueError):
+                candidate = None
+            if candidate is not None and candidate >= 0:
+                resolved_agent_id = candidate
 
         # If we have signer + reverse sync, push on-chain
-        if self._signer is not None and self._enable_reverse_sync:
+        if self._signer is not None and self._enable_reverse_sync and resolved_agent_id is not None:
             try:
                 reputation_contract = self._get_reputation_contract()
                 feedback_data = f"{agent_id}:{domain}:{score}"
                 feedback_hash = hashlib.sha256(feedback_data.encode()).digest()
 
                 tx_hash = reputation_contract.give_feedback(
-                    agent_id=0,  # Resolved by contract from agent name
+                    agent_id=resolved_agent_id,
                     value=score,
                     signer=self._signer,
                     value_decimals=0,
@@ -864,6 +874,9 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 record["status"] = "local_only"
                 logger.debug("On-chain reputation push failed for %s: %s", agent_id, e)
+        elif self._signer is not None and self._enable_reverse_sync:
+            record["status"] = "local_only"
+            record["error"] = "on_chain_agent_id is required for reverse sync"
 
         self._emit_event("reputation_pushed", record)
         return True

@@ -11,6 +11,10 @@ pragma solidity ^0.8.24;
  *
  * Linked to AgentIdentityRegistry — only registered agents can be validated.
  */
+interface IValidationIdentityRegistry {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
 contract ValidationRegistry {
 
     // ── Types ──
@@ -75,6 +79,10 @@ contract ValidationRegistry {
         identityRegistry = _identityRegistry;
     }
 
+    function _requireRegisteredAgent(uint256 agentId) internal view {
+        IValidationIdentityRegistry(identityRegistry).ownerOf(agentId);
+    }
+
     // ── Validation Request ──
 
     /**
@@ -92,6 +100,7 @@ contract ValidationRegistry {
     ) external {
         require(validatorAddress != address(0), "Zero validator address");
         require(_records[requestHash].lastUpdate == 0, "Request hash already used");
+        _requireRegisteredAgent(agentId);
 
         _records[requestHash] = ValidationRecord({
             validatorAddress: validatorAddress,

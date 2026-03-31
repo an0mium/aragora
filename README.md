@@ -35,7 +35,8 @@ Why teams adopt Aragora:
 
 - **Disagreement becomes useful evidence.** Models challenge each other before work advances.
 - **Every consequential action has a receipt.** Review, provenance, confidence, and next steps stay inspectable.
-- **Execution is bounded and truthful.** Approval gates and blocker handling are explicit.
+- **Execution is bounded and truthful.** Consequential actions are denied by default unless an admin-scoped approval artifact exists.
+- **Sandboxed effectors are mandatory.** Browser automation and similar effectors require an approved sandbox backend instead of host-side execution.
 - **It fits above existing tools.** Use Aragora when review and governance matter; keep direct runtimes when raw speed is enough.
 
 ## Product Boundary
@@ -150,6 +151,12 @@ Each subtask gets an isolated git worktree, cross-agent review, sandbox
 validation, and a receipt trail before merge or truthful escalation. This is a
 governed execution path, not a claim that Aragora is a generic autonomous-agent
 runtime.
+
+Current default boundary:
+
+- public and issue-driven paths can draft plans and receipts, but cannot execute code, drive browsers, mutate git, emit consequential webhooks, or write on-chain without an explicit approval record
+- browser execution requires a sandbox backend; host-side browser automation is disabled by default
+- blockchain write requests queue durable chain actions for an admin signer lane instead of signing in the request path
 
 ### Add to Your CI Pipeline (1 minute)
 
@@ -493,7 +500,7 @@ python scripts/run_nomic_with_stream.py run --cycles 3
 python scripts/self_develop.py --goal "Improve test coverage" --require-approval
 ```
 
-Safety: automatic backups, protected file checksums, rollback on failure, human approval gates.
+Safety: automatic backups, protected file checksums, rollback on failure, explicit approval gates for consequential actions, sandbox-required browser execution, and asynchronous chain settlement.
 
 ---
 

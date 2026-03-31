@@ -23,24 +23,22 @@ Each agent is represented as an ERC-721 NFT on the Identity Registry.
 **Registration** (`aragora/blockchain/contracts/identity.py`):
 
 ```python
-# Register with metadata
-token_id = identity_registry.register(
+# Request registration with metadata
+action = client.blockchain.register_agent(
     agent_uri="https://org-a.com/agents/analyst-1.json",
-    metadata=[
-        {"key": "aragora_agent_id", "value": "analyst-1"},
-        {"key": "capabilities", "value": "security,compliance"},
-    ],
+    metadata={"aragora_agent_id": "analyst-1", "capabilities": "security,compliance"},
+    approval_id="cap-approval-123",
 )
 ```
 
-Returns a `token_id` (the portable identity) and records the `owner` address.
+The public API now queues a durable chain action and returns an `action_id`. An admin-approved signer lane submits the transaction asynchronously, and the portable `token_id` only exists after the queued action is mined and confirmed.
 
 **Wallet binding**: Agents can bind to wallet addresses via EIP-191 signed messages using `setAgentWallet()`. Supports private key, encrypted keystore, or external (hardware wallet) signers.
 
 **SDK surface** (`sdk/python/aragora_sdk/namespaces/blockchain.py`):
 
 ```python
-# Register
+# Queue registration
 result = client.blockchain.register_agent(
     agent_uri="https://org-a.com/agents/analyst-1.json",
     metadata={"aragora_agent_id": "analyst-1"},
@@ -49,6 +47,8 @@ result = client.blockchain.register_agent(
 # List all agents (paginated)
 agents = client.blockchain.list_agents(skip=0, limit=50)
 ```
+
+The registration request returns queue metadata such as `action_id`, `status="queued"`, and `requires_approval=True`. Consequential chain writes are not performed inline in the request-serving path.
 
 ## Reputation Scoring
 

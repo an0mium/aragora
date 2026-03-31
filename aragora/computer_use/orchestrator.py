@@ -595,6 +595,7 @@ class ComputerUseOrchestrator:
                 session_id=self._current_task.task_id if self._current_task else "",
                 tenant_id=metadata.get("tenant_id"),
                 roles=metadata.get("roles", []),
+                approval_id=metadata.get("approval_id"),
             )
 
             decision = await self._approval_enforcer.enforce(request)

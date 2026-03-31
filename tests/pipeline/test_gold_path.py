@@ -784,8 +784,14 @@ class TestHybridExecutorBridge:
         result = _make_debate_result()
         plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
         plan.status = PlanStatus.APPROVED
+        plan.metadata = {
+            "admin_approved": True,
+            "approved_by": "test-admin",
+            "requested_by": "test-admin",
+        }
 
         executor = PlanExecutor(execution_mode="computer_use")
+        executor._sandbox_executor = object()
 
         # Create a mock task result
         mock_task_result = MagicMock()
@@ -827,8 +833,14 @@ class TestHybridExecutorBridge:
         result = _make_debate_result()
         plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
         plan.status = PlanStatus.APPROVED
+        plan.metadata = {
+            "admin_approved": True,
+            "approved_by": "test-admin",
+            "requested_by": "test-admin",
+        }
 
         executor = PlanExecutor(execution_mode="computer_use")
+        executor._sandbox_executor = object()
         progress_events: list[tuple[str, object]] = []
 
         def _on_task_complete(task_id: str, result: object) -> None:

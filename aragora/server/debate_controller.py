@@ -142,6 +142,20 @@ def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
     return normalized
 
 
+def _normalize_question_payload(data: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(data)
+    question = normalized.get("question")
+    task = normalized.get("task")
+    question_text = str(question).strip() if question is not None else ""
+    task_text = str(task).strip() if task is not None else ""
+    if question_text and task_text and question_text != task_text:
+        raise ValueError("question and deprecated task fields must match when both are provided")
+    if not question_text and task is not None:
+        normalized["question"] = task
+    normalized.pop("task", None)
+    return normalized
+
+
 def _normalize_agent_names(agents_value: Any) -> list[str]:
     """Normalize agent specs into a list of display names/providers."""
     if not agents_value:
@@ -534,10 +548,11 @@ class DebateRequest:
         Raises:
             ValueError: If required fields are missing or invalid
         """
-        question = data.get("question") or data.get("task") or ""
+        data = _normalize_question_payload(data)
+        question = data.get("question") or ""
         question = str(question).strip()
         if not question:
-            raise ValueError("question or task field is required")
+            raise ValueError("question field is required")
         if len(question) > 10000:
             raise ValueError("question must be under 10,000 characters")
 

@@ -68,4 +68,8 @@ echo "▸ Worktree: $WORKTREE_PATH"
 echo "▸ Agent: $AGENT | Base: $BASE"
 
 cd "$WORKTREE_PATH"
-exec claude --dangerously-skip-permissions "${CLAUDE_ARGS[@]}"
+CLAUDE_CMD=(claude)
+if [[ "${ARAGORA_ADMIN_APPROVED:-0}" == "1" ]]; then
+  CLAUDE_CMD+=(--dangerously-skip-permissions)
+fi
+exec "${CLAUDE_CMD[@]}" "${CLAUDE_ARGS[@]}"

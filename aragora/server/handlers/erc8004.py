@@ -18,6 +18,7 @@ import logging
 from typing import Any
 from collections.abc import Awaitable
 
+from aragora.blockchain.action_store import enqueue_register_agent_action
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -543,10 +544,10 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
     method="POST",
     path="/api/v1/blockchain/agents",
     summary="Register new agent on-chain",
-    description="Registers a new agent on the ERC-8004 Identity Registry.",
+    description="Queues a new agent registration for the ERC-8004 Identity Registry.",
     tags=["Blockchain", "Agents"],
     responses={
-        "201": {"description": "Agent registered"},
+        "202": {"description": "Agent registration queued"},
         "400": {"description": "Invalid request"},
         "500": {"description": "Registration error"},
         "503": {"description": "Blockchain dependencies not installed or circuit breaker open"},
@@ -558,8 +559,11 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
 async def handle_register_agent(
     agent_uri: str = "",
     metadata: dict[str, Any] | None = None,
+    requested_by: str = "",
+    approval_id: str = "",
+    receipt_id: str = "",
 ) -> HandlerResult:
-    """Register a new agent on the Identity Registry."""
+    """Queue a new agent registration on the Identity Registry."""
     if not agent_uri:
         return error_response("agent_uri is required", status=400)
 
@@ -569,8 +573,6 @@ async def handle_register_agent(
             return error_response("Blockchain service temporarily unavailable", status=503)
 
         from aragora.blockchain.contracts.identity import IdentityRegistryContract
-        from aragora.blockchain.models import MetadataEntry
-        from aragora.blockchain.wallet import WalletSigner
 
         provider = _get_provider()
         config = provider.get_config()
@@ -580,33 +582,28 @@ async def handle_register_agent(
                 status=503,
             )
 
-        try:
-            signer = WalletSigner.from_env()
-        except ValueError as e:
-            logger.warning("Handler error: %s", e)
-            return error_response("Invalid request", status=400)
+        # Validate metadata values up front, but do not sign inside the request path.
+        for value in (metadata or {}).values():
+            _coerce_metadata_value(value)
 
-        contract = IdentityRegistryContract(provider)
-
-        metadata_entries: list[MetadataEntry] = []
-        for key, value in (metadata or {}).items():
-            metadata_entries.append(
-                MetadataEntry(
-                    key=str(key),
-                    value=_coerce_metadata_value(value),
-                )
-            )
-
-        token_id = contract.register_agent(agent_uri, signer, metadata_entries)
+        IdentityRegistryContract(provider)
+        action = enqueue_register_agent_action(
+            agent_uri=agent_uri,
+            metadata=metadata,
+            requested_by=requested_by or "system",
+            approval_id=approval_id,
+            receipt_id=receipt_id,
+        )
 
         return json_response(
             {
-                "token_id": token_id,
+                "action_id": action.action_id,
+                "status": action.status.value,
                 "agent_uri": agent_uri,
-                "owner": signer.address,
                 "chain_id": config.chain_id,
+                "requires_approval": True,
             },
-            status=201,
+            status=202,
         )
     except ValueError as e:
         logger.warning("Handler error: %s", e)
@@ -722,7 +719,13 @@ class ERC8004Handler(BaseHandler):
                 metadata = body.get("metadata")
                 if metadata is not None and not isinstance(metadata, dict):
                     return error_response("metadata must be an object", status=400)
-                return handle_register_agent(agent_uri=agent_uri, metadata=metadata)
+                return handle_register_agent(
+                    agent_uri=agent_uri,
+                    metadata=metadata,
+                    requested_by=str(body.get("requested_by", "")).strip(),
+                    approval_id=str(body.get("approval_id", "")).strip(),
+                    receipt_id=str(body.get("receipt_id", "")).strip(),
+                )
             return error_response(f"Method {method} not allowed", status=405)
 
         if path.startswith("/api/v1/blockchain/agents/"):

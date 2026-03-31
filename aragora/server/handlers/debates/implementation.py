@@ -820,6 +820,16 @@ class ImplementationOperationsMixin:
                 approver_id=approval_request.approved_by or requested_by or "system",
                 reason="Approved",
             )
+            plan_metadata = dict(getattr(computer_use_plan, "metadata", {}) or {})
+            plan_metadata["admin_approved"] = True
+            plan_metadata["approved_by"] = approval_request.approved_by or requested_by or "system"
+            plan_metadata["requested_by"] = requested_by or "system"
+            plan_metadata["approval_request_id"] = getattr(approval_request, "id", "")
+            receipt_id = str(response_payload.get("receipt_id") or "").strip()
+            if receipt_id:
+                plan_metadata["decision_receipt_id"] = receipt_id
+            plan_metadata.setdefault("execution_target_resource", f"plan:{computer_use_plan.id}")
+            computer_use_plan.metadata = plan_metadata
             store_plan(computer_use_plan)
             plan_executor = PlanExecutor(
                 continuum_memory=self.ctx.get("continuum_memory"),
@@ -827,6 +837,7 @@ class ImplementationOperationsMixin:
                 parallel_execution=rc.parallel_execution,
                 execution_mode="computer_use",
                 repo_path=rc.repo_path or Path.cwd(),
+                sandbox_config=self.ctx.get("sandbox_config"),
             )
             outcome = run_async(
                 plan_executor.execute(
