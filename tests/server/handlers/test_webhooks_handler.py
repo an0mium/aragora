@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -73,7 +74,15 @@ def webhook_handler(server_context):
     """Create webhook handler instance."""
     from aragora.server.handlers.webhooks import WebhookHandler
 
-    return WebhookHandler(server_context)
+    handler = WebhookHandler(server_context)
+    handler.get_current_user = MagicMock(
+        return_value=SimpleNamespace(
+            user_id="test-user-001",
+            role="admin",
+            org_id="org-001",
+        )
+    )
+    return handler
 
 
 # ===========================================================================
@@ -241,6 +250,17 @@ class TestWebhookStore:
 
         result = webhook_store.list(active_only=True)
         assert len(result) == 1
+
+    def test_register_persists_workspace_id(self, webhook_store):
+        """register should retain provided workspace ownership."""
+        webhook = webhook_store.register(
+            url="https://a.com",
+            events=["debate_start"],
+            user_id="user-1",
+            workspace_id="ws-1",
+        )
+
+        assert webhook.workspace_id == "ws-1"
 
     def test_delete_removes_webhook(self, webhook_store, sample_webhook):
         """delete should remove webhook."""
@@ -422,6 +442,9 @@ class TestWebhookHandlerRegister:
         assert body["webhook"]["url"] == "https://example.com/webhook"
         # Secret should be included on creation
         assert "secret" in body["webhook"]
+        created = webhook_handler._get_webhook_store().get(body["webhook"]["id"])
+        assert created is not None
+        assert created.workspace_id == "org-001"
 
     @pytest.mark.asyncio
     async def test_register_webhook_missing_url(self, webhook_handler):
@@ -494,6 +517,19 @@ class TestWebhookHandlerList:
     """Tests for GET /api/webhooks endpoint."""
 
     @pytest.mark.asyncio
+    @pytest.mark.no_auto_auth
+    async def test_list_webhooks_requires_authentication(self, server_context):
+        """Unauthenticated callers should not be able to enumerate webhooks."""
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        handler_obj = WebhookHandler(server_context)
+        handler = MockHandler(headers={})
+
+        result = await handler_obj.handle("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 401
+
+    @pytest.mark.asyncio
     async def test_list_webhooks_empty(self, webhook_handler):
         """Should return empty list when no webhooks registered."""
         handler = MockHandler(headers={})
@@ -559,6 +595,31 @@ class TestWebhookHandlerGet:
         result = await webhook_handler.handle("/api/v1/webhooks/non-existent-id", {}, handler)
 
         assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_webhook_denies_workspace_mismatch(self, server_context):
+        """Workspace-scoped records should not leak across orgs."""
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com",
+            events=["debate_start"],
+            workspace_id="org-locked",
+        )
+        handler_obj = WebhookHandler(server_context)
+        handler_obj.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id="org-other",
+            )
+        )
+
+        handler = MockHandler(headers={})
+        result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 403
 
 
 class TestWebhookHandlerDelete:
@@ -774,7 +835,15 @@ class TestWebhookRBAC:
     def handler(self, server_context):
         from aragora.server.handlers.webhooks import WebhookHandler
 
-        return WebhookHandler(server_context)
+        handler = WebhookHandler(server_context)
+        handler.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id="org-001",
+            )
+        )
+        return handler
 
     def test_rbac_helper_methods_exist(self, handler):
         """Handler should have RBAC helper methods."""
@@ -789,6 +858,19 @@ class TestWebhookRBAC:
         with patch.dict(module_globals, {"RBAC_AVAILABLE": False}):
             result = handler._check_rbac_permission(mock_http, "webhooks.create")
             assert result is None  # None means allowed
+
+    @pytest.mark.no_auto_auth
+    def test_permission_check_requires_authentication(self, server_context):
+        """Permission helper should fail closed when no user is attached."""
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        handler = WebhookHandler(server_context)
+        mock_http = MockHandler(headers={})
+
+        result = handler._check_rbac_permission(mock_http, "webhooks.create")
+
+        assert result is not None
+        assert result.status_code == 401
 
     def test_permission_check_allowed(self, handler):
         """Permission check should pass when RBAC allows."""

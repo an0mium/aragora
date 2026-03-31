@@ -224,6 +224,10 @@ class WebhookHandler(SecureHandler):
 
         Returns None if allowed, or an error response if denied.
         """
+        _user, auth_error = self.require_auth_or_error(handler)
+        if auth_error:
+            return auth_error
+
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():
                 return error_response("Service unavailable: access control module not loaded", 503)
@@ -231,8 +235,7 @@ class WebhookHandler(SecureHandler):
 
         rbac_ctx = self._get_auth_context(handler)
         if not rbac_ctx:
-            # No auth context - rely on existing auth checks
-            return None
+            return error_response("Authentication required", 401)
 
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
@@ -248,6 +251,19 @@ class WebhookHandler(SecureHandler):
             )
 
         return None
+
+    @staticmethod
+    def _is_webhook_access_denied(webhook: WebhookConfig, user: Any | None) -> bool:
+        """Check whether the authenticated requester may access this webhook."""
+        if user is None:
+            return True
+        user_id = str(getattr(user, "user_id", "") or "").strip()
+        org_id = str(getattr(user, "org_id", "") or "").strip()
+        if webhook.user_id and webhook.user_id != user_id:
+            return True
+        if webhook.workspace_id and org_id and webhook.workspace_id != org_id:
+            return True
+        return False
 
     @api_endpoint(
         path="/api/v1/webhooks",
@@ -606,7 +622,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         # Check ownership
         user = self.get_current_user(handler)
-        if user and webhook.user_id and webhook.user_id != user.user_id:
+        if self._is_webhook_access_denied(webhook, user):
             return error_response("Access denied", 403)
 
         return json_response({"webhook": webhook.to_dict(include_secret=False)})
@@ -657,6 +673,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             name=body.get("name"),
             description=body.get("description"),
             user_id=user_id,
+            workspace_id=getattr(user, "org_id", None),
         )
 
         # Audit log: webhook created
@@ -693,7 +710,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         # Check ownership
         user = self.get_current_user(handler)
-        if user and webhook.user_id and webhook.user_id != user.user_id:
+        if self._is_webhook_access_denied(webhook, user):
             return error_response("Access denied", 403)
 
         store.delete(webhook_id)
@@ -729,7 +746,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         # Check ownership
         user = self.get_current_user(handler)
-        if user and webhook.user_id and webhook.user_id != user.user_id:
+        if self._is_webhook_access_denied(webhook, user):
             return error_response("Access denied", 403)
 
         # Validate URL if provided (SSRF check)
@@ -787,7 +804,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         # Check ownership
         user = self.get_current_user(handler)
-        if user and webhook.user_id and webhook.user_id != user.user_id:
+        if self._is_webhook_access_denied(webhook, user):
             return error_response("Access denied", 403)
 
         # Import here to avoid circular dependency
