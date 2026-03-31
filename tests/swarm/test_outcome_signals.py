@@ -44,10 +44,15 @@ class TestOutcomeSignal:
         assert s.timestamp  # Not empty
         assert "T" in s.timestamp  # ISO format
 
+    def test_debate_id_defaults_to_empty_string(self):
+        s = _make_signal()
+        assert s.debate_id == ""
+
     def test_to_dict_roundtrip(self):
-        s = _make_signal(entity_title="Fix bug", tokens_used=50000)
+        s = _make_signal(entity_title="Fix bug", debate_id="debate-123", tokens_used=50000)
         d = s.to_dict()
         assert d["entity_title"] == "Fix bug"
+        assert d["debate_id"] == "debate-123"
         assert d["tokens_used"] == 50000
         # Should be JSON-serializable
         json.dumps(d)
@@ -65,11 +70,12 @@ class TestOutcomeSignalBus:
             path = Path(f.name)
 
         bus = OutcomeSignalBus(log_path=path)
-        bus.emit(_make_signal(entity_id="42"))
+        bus.emit(_make_signal(entity_id="42", debate_id="debate-123"))
 
         lines = path.read_text().strip().splitlines()
         assert len(lines) == 1
         data = json.loads(lines[0])
+        assert data["debate_id"] == "debate-123"
         assert data["entity_id"] == "42"
         path.unlink()
 
@@ -97,10 +103,11 @@ class TestOutcomeSignalBus:
 
         bus = OutcomeSignalBus(log_path=path)
         for i in range(5):
-            bus.emit(_make_signal(entity_id=str(i)))
+            bus.emit(_make_signal(entity_id=str(i), debate_id=f"debate-{i}"))
 
         recent = bus.recent(minutes=5)
         assert len(recent) == 5
+        assert [signal.debate_id for signal in recent] == [f"debate-{i}" for i in range(5)]
         path.unlink()
 
 
