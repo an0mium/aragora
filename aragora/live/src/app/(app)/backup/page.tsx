@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
@@ -182,6 +183,7 @@ export default function BackupDRPage() {
   const [drillResult, setDrillResult] = useState<Record<string, unknown> | null>(null);
 
   const PAGE_SIZE = 20;
+  const apiBase = getRuntimeBackendConfig().config.api;
 
   // Fetch backup stats
   const { data: statsData, isLoading: statsLoading } =
@@ -219,7 +221,7 @@ export default function BackupDRPage() {
   const handleCreateBackup = useCallback(async () => {
     setCreatingBackup(true);
     try {
-      const response = await fetch('/api/v2/backups', {
+      const response = await fetch(`${apiBase}/api/v2/backups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backup_type: 'full' }),
@@ -232,14 +234,14 @@ export default function BackupDRPage() {
     } finally {
       setCreatingBackup(false);
     }
-  }, [refreshBackups]);
+  }, [apiBase, refreshBackups]);
 
   // Run DR drill
   const handleRunDrill = useCallback(async (drillType: string) => {
     setRunningDrill(true);
     setDrillResult(null);
     try {
-      const response = await fetch('/api/v2/dr/drill', {
+      const response = await fetch(`${apiBase}/api/v2/dr/drill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ drill_type: drillType }),
@@ -253,7 +255,7 @@ export default function BackupDRPage() {
     } finally {
       setRunningDrill(false);
     }
-  }, []);
+  }, [apiBase]);
 
   return (
     <>
