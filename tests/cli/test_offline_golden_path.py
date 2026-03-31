@@ -24,6 +24,9 @@ def _stub_cmd_ask_global_side_effects(request):
         "test_cmd_ask_demo_forces_local_offline",
         "test_cmd_ask_cleans_shared_resources_on_debate_loop",
         "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
+        # CI on Python 3.11 surfaces loop/socket leaks in this path unless the
+        # real cmd_ask cleanup coroutine runs on the active event loop.
+        "test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output",
     }
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
