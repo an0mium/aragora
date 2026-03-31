@@ -52,6 +52,15 @@ class TestOutcomeSignal:
         # Should be JSON-serializable
         json.dumps(d)
 
+    def test_debate_id_defaults_to_empty(self):
+        s = _make_signal()
+        assert s.debate_id == ""
+
+    def test_debate_id_roundtrips_through_dict(self):
+        s = _make_signal(debate_id="debate-abc-123")
+        d = s.to_dict()
+        assert d["debate_id"] == "debate-abc-123"
+
     def test_to_dict_includes_elapsed_seconds(self):
         s = _make_signal(elapsed_seconds=12.5)
         d = s.to_dict()
