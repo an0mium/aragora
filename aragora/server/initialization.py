@@ -8,6 +8,7 @@ like InsightStore, EloSystem, PersonaManager, etc.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -1161,53 +1162,77 @@ async def init_postgres_stores() -> dict[str, bool]:
             return {"_connection": False}
 
     # List of PostgreSQL stores to initialize
-    stores_to_init: list[tuple[str, str, str]] = [
-        ("webhook_configs", "aragora.storage.webhook_config_store", "PostgresWebhookConfigStore"),
-        ("integrations", "aragora.storage.integration_store", "PostgresIntegrationStore"),
-        ("gmail_tokens", "aragora.storage.gmail_token_store", "PostgresGmailTokenStore"),
+    stores_to_init: list[tuple[str, str, str, str | None]] = [
+        (
+            "webhook_configs",
+            "aragora.storage.webhook_config_store",
+            "PostgresWebhookConfigStore",
+            "set_webhook_config_store",
+        ),
+        (
+            "integrations",
+            "aragora.storage.integration_store",
+            "PostgresIntegrationStore",
+            "set_integration_store",
+        ),
+        ("gmail_tokens", "aragora.storage.gmail_token_store", "PostgresGmailTokenStore", None),
         (
             "finding_workflows",
             "aragora.storage.finding_workflow_store",
             "PostgresFindingWorkflowStore",
+            None,
         ),
-        ("gauntlet_runs", "aragora.storage.gauntlet_run_store", "PostgresGauntletRunStore"),
-        ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore"),
-        ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore"),
-        ("marketplace", "aragora.storage.marketplace_store", "PostgresMarketplaceStore"),
+        ("gauntlet_runs", "aragora.storage.gauntlet_run_store", "PostgresGauntletRunStore", None),
+        ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore", None),
+        ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore", None),
+        ("marketplace", "aragora.storage.marketplace_store", "PostgresMarketplaceStore", None),
         (
             "federation_registry",
             "aragora.storage.federation_registry_store",
             "PostgresFederationRegistryStore",
+            None,
         ),
         (
             "approval_requests",
             "aragora.storage.approval_request_store",
             "PostgresApprovalRequestStore",
+            None,
         ),
-        ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist"),
-        ("users", "aragora.storage.user_store", "PostgresUserStore"),
-        ("webhooks", "aragora.storage.webhook_store", "PostgresWebhookStore"),
+        ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist", None),
+        ("users", "aragora.storage.user_store", "PostgresUserStore", None),
+        (
+            "webhooks",
+            "aragora.storage.webhook_store",
+            "PostgresWebhookStore",
+            "set_webhook_store",
+        ),
         # Phase 2 migration stores (facts handled by KnowledgeMound postgres_store)
-        ("insights", "aragora.insights.postgres_store", "PostgresInsightStore"),
-        ("debates", "aragora.server.postgres_storage", "PostgresDebateStorage"),
+        ("insights", "aragora.insights.postgres_store", "PostgresInsightStore", None),
+        ("debates", "aragora.server.postgres_storage", "PostgresDebateStorage", None),
         (
             "scheduled_debates",
             "aragora.pulse.postgres_store",
             "PostgresScheduledDebateStore",
+            None,
         ),
         (
             "cycle_learning",
             "aragora.nomic.postgres_cycle_store",
             "PostgresCycleLearningStore",
+            None,
         ),
     ]
 
-    for name, module_path, class_name in stores_to_init:
+    for name, module_path, class_name, setter_name in stores_to_init:
         try:
-            module = __import__(module_path, fromlist=[class_name])
+            module = importlib.import_module(module_path)
             store_class = getattr(module, class_name)
             store = store_class(pool)
             await store.initialize()
+            if setter_name:
+                setter = getattr(module, setter_name, None)
+                if callable(setter):
+                    setter(store)
             results[name] = True
             logger.info("[init] PostgreSQL store initialized: %s", name)
         except ImportError as e:
