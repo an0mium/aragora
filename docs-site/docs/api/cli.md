@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
@@ -11,8 +11,8 @@ description: Aragora CLI Reference
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **89**
-- Total top-level invocations (including aliases): **90**
+- Canonical top-level commands: **87**
+- Total top-level invocations (including aliases): **88**
 
 ## Installation
 
@@ -54,7 +54,6 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
 | `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
-| `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
@@ -72,7 +71,6 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `document-audit` | - | Audit documents using multi-agent analysis | `report`, `scan`, `status`, `upload` |
 | `documents` | - | Document management (upload, list, show) | `list`, `show`, `upload` |
 | `elo` | - | View ELO ratings, leaderboards, and match history | - |
-| `essay` | - | Refine raw ideas into a polished essay or score an existing draft | `refine`, `score` |
 | `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
