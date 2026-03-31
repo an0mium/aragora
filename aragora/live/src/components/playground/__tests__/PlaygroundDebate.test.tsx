@@ -1,5 +1,20 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+const mockRuntimeBackendConfig = {
+  backend: 'development',
+  config: {
+    api: 'https://api-dev.aragora.ai',
+    ws: 'wss://api-dev.aragora.ai/ws',
+    controlPlaneWs: 'wss://api-dev.aragora.ai/api/control-plane/stream',
+    label: 'DEV',
+    description: 'Local Mac (via tunnel or localhost)',
+  },
+};
+
+jest.mock('@/components/BackendSelector', () => ({
+  getRuntimeBackendConfig: () => mockRuntimeBackendConfig,
+}));
+
 import { PlaygroundDebate } from '../PlaygroundDebate';
 
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
