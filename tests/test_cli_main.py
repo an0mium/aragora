@@ -401,10 +401,15 @@ class TestCommandHandlers:
         from aragora.cli.main import cmd_demo
 
         args = argparse.Namespace(name="unknown")
-        cmd_demo(args)
+        with patch("aragora.cli.demo._has_any_api_key", return_value=True):
+            with patch("aragora.cli.demo._run_real_demo") as mock_real_demo:
+                with patch("aragora.cli.demo._run_mock_demo") as mock_mock_demo:
+                    cmd_demo(args)
 
         captured = capsys.readouterr()
         assert "Unknown demo" in captured.out
+        mock_real_demo.assert_not_called()
+        mock_mock_demo.assert_not_called()
 
 
 # =============================================================================

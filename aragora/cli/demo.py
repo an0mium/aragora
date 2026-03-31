@@ -683,6 +683,26 @@ def _run_mock_demo(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _print_unknown_demo(demo_name: str) -> None:
+    """Report an invalid demo selection."""
+    print(f"Unknown demo: {demo_name}")
+    print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
+
+
+def _has_valid_demo_selection(args: argparse.Namespace) -> bool:
+    """Return True when args select a known named demo or override it with --topic."""
+    custom_topic = getattr(args, "topic", None)
+    demo_name = getattr(args, "name", None)
+
+    if custom_topic or demo_name in (None, ""):
+        return True
+    if demo_name in DEMO_TASKS:
+        return True
+
+    _print_unknown_demo(demo_name)
+    return False
+
+
 def run_demo(
     demo_name: str,
     receipt_path: str | None = None,
@@ -694,8 +714,7 @@ def run_demo(
         receipt_path: If provided, save a decision receipt to this file path.
     """
     if demo_name not in DEMO_TASKS:
-        print(f"Unknown demo: {demo_name}")
-        print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
+        _print_unknown_demo(demo_name)
         return None
 
     topic = DEMO_TASKS[demo_name]["topic"]
@@ -722,6 +741,9 @@ def main(args: argparse.Namespace) -> None:
     # --server flag
     if getattr(args, "server", False):
         _run_server_demo()
+        return
+
+    if not _has_valid_demo_selection(args):
         return
 
     # Determine topic
