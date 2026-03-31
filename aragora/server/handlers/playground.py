@@ -1769,6 +1769,8 @@ class PlaygroundHandler(BaseHandler):
             from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
             agent_tags = _get_available_live_agents(agent_count)
+            if not agent_tags:
+                raise ValueError("no live playground agents configured")
             model_ids = [
                 tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag for tag in agent_tags
             ]
@@ -2212,9 +2214,7 @@ class PlaygroundHandler(BaseHandler):
 
         # Keep the readiness gate aligned with the actual live debate resolver.
         # Otherwise provider-specific keys can incorrectly fall back to mock mode.
-        try:
-            _get_available_live_agents(agent_count)
-        except ValueError:
+        if len(_get_available_live_agents(agent_count)) < 2:
             # Fall back to mock debate with a note
             result = self._run_debate(
                 topic,
@@ -2413,8 +2413,8 @@ def _get_available_live_agents(count: int) -> list[str]:
     """Pick agent providers for playground debates.
 
     Prefers primary API keys when available. Falls back to OpenRouter
-    with diverse models when primary keys are missing. Raises ValueError
-    if not even OPENROUTER_API_KEY is available.
+    with diverse models when primary keys are missing. Returns an empty list
+    when no live providers are configured.
     """
     has_openrouter = bool(_get_api_key("OPENROUTER_API_KEY"))
 
@@ -2444,10 +2444,7 @@ def _get_available_live_agents(count: int) -> list[str]:
         return candidates[:count]
 
     if not candidates:
-        raise ValueError(
-            "No API keys configured. Set OPENROUTER_API_KEY for universal access "
-            "to multiple LLM providers, or set individual provider keys."
-        )
+        return []
 
     while len(candidates) < count and candidates:
         candidates.append(candidates[0])
