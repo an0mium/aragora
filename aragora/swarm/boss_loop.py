@@ -1810,6 +1810,15 @@ class BossLoop:
         except Exception:
             logger.debug("Boss lane telemetry emission skipped", exc_info=True)
 
+    @staticmethod
+    def _emit_live_status(on_status: Any | None, status: BossIterationStatus) -> None:
+        if on_status is None:
+            return
+        try:
+            on_status(status)
+        except Exception:
+            pass
+
     async def run(
         self,
         *,
@@ -1834,15 +1843,11 @@ class BossLoop:
             # while the boss loop is running continuously.
             self._refresh_runner_heartbeats()
 
-            statuses = await self._run_iteration_statuses(iteration)
+            statuses = await self._run_iteration_statuses(iteration, on_status=on_status)
             self._iteration_statuses.extend(statuses)
 
             for status in statuses:
-                if on_status is not None:
-                    try:
-                        on_status(status)
-                    except Exception:
-                        pass
+                self._emit_live_status(on_status, status)
 
             terminal_status = next(
                 (
@@ -1893,12 +1898,22 @@ class BossLoop:
         self._emit_terminal_receipt(result)
         return result
 
-    async def _run_iteration_statuses(self, iteration: int) -> list[BossIterationStatus]:
+    async def _run_iteration_statuses(
+        self,
+        iteration: int,
+        *,
+        on_status: Any | None = None,
+    ) -> list[BossIterationStatus]:
         if int(self.config.max_parallel_dispatches or 1) <= 1:
-            return [await self._run_iteration(iteration)]
-        return await self._run_iteration_batch(iteration)
+            return [await self._run_iteration(iteration, on_status=on_status)]
+        return await self._run_iteration_batch(iteration, on_status=on_status)
 
-    async def _run_iteration(self, iteration: int) -> BossIterationStatus:
+    async def _run_iteration(
+        self,
+        iteration: int,
+        *,
+        on_status: Any | None = None,
+    ) -> BossIterationStatus:
         """Execute a single Boss loop iteration."""
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
@@ -2018,6 +2033,30 @@ class BossLoop:
         self._issue_attempt_counts[selected.number] = (
             self._issue_attempt_counts.get(selected.number, 0) + 1
         )
+        requested_target_agent = (
+            self._pending_handoff_prompts.get(selected.number, (None, None))[1]
+            or self._requested_target_agent_for_issue(selected.number)
+            or self.config.default_target_agent
+            or ""
+        )
+        self._emit_live_status(
+            on_status,
+            BossIterationStatus(
+                iteration=iteration,
+                run_id=self.run_id,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                selected_issue=issue_dict,
+                worker_status="dispatching",
+                stop_reason=None,
+                needs_human_reasons=[],
+                next_actions=[
+                    f"Dispatching issue #{selected.number} with "
+                    f"{str(requested_target_agent).strip() or 'default routing'}."
+                ],
+                elapsed_seconds=time.monotonic() - iter_start,
+            ),
+        )
 
         worker_result = await self._dispatch_issue(selected, freshness)
         return self._finalize_worker_result(
@@ -2030,7 +2069,12 @@ class BossLoop:
             elapsed_seconds=time.monotonic() - iter_start,
         )
 
-    async def _run_iteration_batch(self, iteration: int) -> list[BossIterationStatus]:
+    async def _run_iteration_batch(
+        self,
+        iteration: int,
+        *,
+        on_status: Any | None = None,
+    ) -> list[BossIterationStatus]:
         import asyncio
 
         now = datetime.now(UTC).isoformat()
@@ -2148,6 +2192,30 @@ class BossLoop:
             self._issue_attempt_counts[issue.number] = (
                 self._issue_attempt_counts.get(issue.number, 0) + 1
             )
+            requested_target_agent = (
+                self._pending_handoff_prompts.get(issue.number, (None, None))[1]
+                or self._requested_target_agent_for_issue(issue.number)
+                or self.config.default_target_agent
+                or ""
+            )
+            self._emit_live_status(
+                on_status,
+                BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness=freshness_dict,
+                    selected_issue=issue_dict,
+                    worker_status="dispatching",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=[
+                        f"Dispatching issue #{issue.number} with "
+                        f"{str(requested_target_agent).strip() or 'default routing'}."
+                    ],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                ),
+            )
             task = asyncio.create_task(self._dispatch_issue(issue, freshness))
             active_tasks[task] = (issue, issue_dict, time.monotonic())
 
@@ -2178,6 +2246,30 @@ class BossLoop:
                     self._attempted_issues.append(next_issue_dict)
                     self._issue_attempt_counts[next_issue.number] = (
                         self._issue_attempt_counts.get(next_issue.number, 0) + 1
+                    )
+                    requested_target_agent = (
+                        self._pending_handoff_prompts.get(next_issue.number, (None, None))[1]
+                        or self._requested_target_agent_for_issue(next_issue.number)
+                        or self.config.default_target_agent
+                        or ""
+                    )
+                    self._emit_live_status(
+                        on_status,
+                        BossIterationStatus(
+                            iteration=iteration,
+                            run_id=self.run_id,
+                            timestamp=now,
+                            runner_freshness=freshness_dict,
+                            selected_issue=next_issue_dict,
+                            worker_status="dispatching",
+                            stop_reason=None,
+                            needs_human_reasons=[],
+                            next_actions=[
+                                f"Dispatching issue #{next_issue.number} with "
+                                f"{str(requested_target_agent).strip() or 'default routing'}."
+                            ],
+                            elapsed_seconds=time.monotonic() - iter_start,
+                        ),
                     )
                     next_task = asyncio.create_task(self._dispatch_issue(next_issue, freshness))
                     active_tasks[next_task] = (

@@ -1141,6 +1141,27 @@ class TestBossLoop:
         assert isinstance(statuses[0], BossIterationStatus)
         assert statuses[0].iteration == 1
 
+    @pytest.mark.asyncio
+    async def test_on_status_callback_emits_dispatching_before_final_status(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(1749, "Receipt markdown flag")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, default_target_agent="codex"),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        statuses: list[BossIterationStatus] = []
+        result = await loop.run(on_status=statuses.append)
+
+        assert [status.worker_status for status in statuses] == ["dispatching", "completed"]
+        assert statuses[0].selected_issue["number"] == 1749
+        assert statuses[1].selected_issue["number"] == 1749
+        assert statuses[0].next_actions == ["Dispatching issue #1749 with codex."]
+        assert [status["worker_status"] for status in result.iteration_statuses] == ["completed"]
+
     def test_successful_completion_resets_consecutive_failures(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         call_count = 0
