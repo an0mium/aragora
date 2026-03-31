@@ -1811,7 +1811,9 @@ class DevCoordinationStore:
         prepare_commands: Any | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
+        task_keys: list[str] | None = None,
     ) -> int:
+        allowed_task_keys = {str(item).strip() for item in task_keys or [] if str(item).strip()}
         conn = self._connect()
         try:
             rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
@@ -1826,6 +1828,12 @@ class DevCoordinationStore:
                         continue
                     if isinstance(limit, int) and limit > 0 and attempted >= limit:
                         break
+                    if allowed_task_keys:
+                        task_key = _optional_text(item.get("task_key")) or (
+                            f"{record['run_id']}:{_work_order_identifier(item)}"
+                        )
+                        if task_key not in allowed_task_keys:
+                            continue
                     if not should_replay(item):
                         continue
                     work_order_id = _work_order_identifier(item)
@@ -1974,6 +1982,7 @@ class DevCoordinationStore:
         *,
         limit: int | None = None,
         timeout: float = 900.0,
+        task_keys: list[str] | None = None,
     ) -> int:
         def _prepare(item: dict[str, Any]) -> list[str] | None:
             targeted_commands = _targeted_replay_expected_tests_for_work_order(item)
@@ -2006,7 +2015,122 @@ class DevCoordinationStore:
             prepare_commands=_prepare,
             limit=limit,
             timeout=timeout,
+            task_keys=task_keys,
         )
+
+    def reclassify_branch_stale_merge_gate_failures(
+        self,
+        *,
+        limit: int | None = None,
+        timeout: float = 900.0,
+        task_keys: list[str] | None = None,
+    ) -> int:
+        allowed_task_keys = {str(item).strip() for item in task_keys or [] if str(item).strip()}
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            candidate_ids: list[tuple[str, str]] = []
+            attempted = 0
+            for row in rows:
+                if isinstance(limit, int) and limit > 0 and attempted >= limit:
+                    break
+                record = self._supervisor_run_from_row(row)
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    if isinstance(limit, int) and limit > 0 and attempted >= limit:
+                        break
+                    if allowed_task_keys:
+                        task_key = _optional_text(item.get("task_key")) or (
+                            f"{record['run_id']}:{_work_order_identifier(item)}"
+                        )
+                        if task_key not in allowed_task_keys:
+                            continue
+                    if not _work_order_should_reclassify_branch_stale_merge_gate_failure(item):
+                        continue
+                    work_order_id = _work_order_identifier(item)
+                    if not work_order_id:
+                        continue
+                    candidate_ids.append((record["run_id"], work_order_id))
+                    attempted += 1
+        finally:
+            conn.close()
+
+        reclassified = 0
+        repo_root = str(self.repo_root)
+        for run_id, work_order_id in candidate_ids:
+            record = self.get_supervisor_run(run_id)
+            if not record:
+                continue
+            item = _find_work_order(record, work_order_id)
+            if item is None or not _work_order_should_reclassify_branch_stale_merge_gate_failure(
+                item
+            ):
+                continue
+
+            commands = _mainline_verification_commands_for_work_order(item)
+            if not commands:
+                continue
+            verification_results = self._run_verification_commands_sync(
+                repo_root,
+                commands,
+                timeout=timeout,
+            )
+            if not verification_results or not all(
+                bool(entry.get("passed", False)) for entry in verification_results
+            ):
+                continue
+
+            conn = self._connect()
+            try:
+                row = conn.execute(
+                    "SELECT * FROM supervisor_runs WHERE run_id = ?",
+                    (run_id,),
+                ).fetchone()
+                if row is None:
+                    continue
+                record = self._supervisor_run_from_row(row)
+                item = _find_work_order(record, work_order_id)
+                if (
+                    item is None
+                    or not _work_order_should_reclassify_branch_stale_merge_gate_failure(item)
+                ):
+                    continue
+
+                metadata = dict(item.get("metadata") or {})
+                metadata["mainline_verification_passed"] = True
+                metadata["mainline_verification_passed_at"] = _utcnow().isoformat()
+                metadata["mainline_verification_commands"] = list(commands)
+                metadata["mainline_verification_results"] = [
+                    dict(entry) for entry in verification_results
+                ]
+                item["metadata"] = metadata
+                item["status"] = "needs_human"
+                item["review_status"] = "changes_requested"
+                item["worker_outcome"] = "branch_snapshot_stale"
+                item["failure_reason"] = "branch_snapshot_stale"
+                item["blocking_question"] = _default_blocking_question_for_reason(
+                    "branch_snapshot_stale"
+                )
+                item["dispatch_error"] = (
+                    f"branch snapshot stale: verification now passes on main for {commands[0]}"
+                )
+                item["blockers"] = ["branch_snapshot_stale"]
+                item["blocker"] = {
+                    "reason": "branch_snapshot_stale",
+                    "question": item["blocking_question"],
+                }
+                _backfill_work_order_blocker_metadata(item)
+
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = _utcnow().isoformat()
+                self._persist_supervisor_run(conn, record)
+                conn.commit()
+                reclassified += 1
+            finally:
+                conn.close()
+
+        return reclassified
 
     def reconcile_merge_gate_failed_work_orders(self) -> int:
         conn = self._connect()
@@ -4272,6 +4396,9 @@ def _default_blocking_question_for_reason(reason_code: str) -> str:
         "missing_verification_plan": (
             "Which verification command or acceptance check should be added before rerunning?"
         ),
+        "branch_snapshot_stale": (
+            "Should this stale branch be refreshed onto main, discarded, or replaced with the current mainline state?"
+        ),
         "scope_violation": (
             "Which files should stay in scope, or should this lane be split before rerunning?"
         ),
@@ -4312,7 +4439,13 @@ def _infer_missing_failure_reason_for_work_order(work_order: dict[str, Any]) -> 
         if missing:
             return missing
 
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and bool(metadata.get("mainline_verification_passed")):
+        return "branch_snapshot_stale"
+
     worker_outcome = _optional_text(work_order.get("worker_outcome")).lower()
+    if worker_outcome == "branch_snapshot_stale":
+        return "branch_snapshot_stale"
     if worker_outcome == "clean_exit_no_effect":
         return "clean_exit_no_deliverable"
     if worker_outcome == "merge_gate_failed":
@@ -4332,6 +4465,8 @@ def _infer_missing_failure_reason_for_work_order(work_order: dict[str, Any]) -> 
     lowered = _optional_text(work_order.get("dispatch_error")).lower()
     if "missing verification plan" in lowered:
         return "missing_verification_plan"
+    if "branch snapshot stale" in lowered or "passes on main" in lowered:
+        return "branch_snapshot_stale"
     if "merge gate" in lowered:
         return "merge_gate_failed"
     if "scope" in lowered and "ownership" in lowered:
@@ -4373,17 +4508,37 @@ def _backfill_work_order_blocker_metadata(work_order: dict[str, Any]) -> bool:
         return False
 
     changed = False
-    failure_reason = _optional_text(work_order.get("failure_reason"))
-    if not failure_reason:
-        inferred = _infer_missing_failure_reason_for_work_order(work_order)
-        if inferred:
+    previous_failure_reason = _optional_text(work_order.get("failure_reason"))
+    failure_reason = previous_failure_reason
+    inferred = _infer_missing_failure_reason_for_work_order(work_order)
+    if inferred and (not failure_reason or failure_reason == "merge_gate_failed"):
+        if failure_reason != inferred:
             work_order["failure_reason"] = inferred
             failure_reason = inferred
             changed = True
 
     blocking_question = _optional_text(work_order.get("blocking_question"))
-    if not blocking_question and failure_reason:
-        work_order["blocking_question"] = _default_blocking_question_for_reason(failure_reason)
+    expected_question = (
+        _default_blocking_question_for_reason(failure_reason) if failure_reason else ""
+    )
+    previous_default_question = (
+        _default_blocking_question_for_reason(previous_failure_reason)
+        if previous_failure_reason
+        else ""
+    )
+    if failure_reason and (
+        not blocking_question
+        or (
+            failure_reason != "merge_gate_failed"
+            and blocking_question == _default_blocking_question_for_reason("merge_gate_failed")
+        )
+        or (
+            previous_failure_reason
+            and previous_failure_reason != failure_reason
+            and blocking_question == previous_default_question
+        )
+    ):
+        work_order["blocking_question"] = expected_question
         blocking_question = _optional_text(work_order.get("blocking_question"))
         changed = True
 
@@ -4392,6 +4547,20 @@ def _backfill_work_order_blocker_metadata(work_order: dict[str, Any]) -> bool:
         not isinstance(blocker, dict)
         or not _optional_text(blocker.get("reason"))
         or not _optional_text(blocker.get("question"))
+        or (failure_reason and _optional_text(blocker.get("reason")) != failure_reason)
+        or (blocking_question and _optional_text(blocker.get("question")) != blocking_question)
+        or (
+            failure_reason
+            and previous_failure_reason
+            and previous_failure_reason != failure_reason
+            and _optional_text(blocker.get("reason")) == previous_failure_reason
+        )
+        or (
+            expected_question
+            and previous_failure_reason
+            and previous_failure_reason != failure_reason
+            and _optional_text(blocker.get("question")) == previous_default_question
+        )
     ) and (failure_reason or blocking_question):
         work_order["blocker"] = {
             "reason": failure_reason or "needs_human",
@@ -4544,6 +4713,13 @@ def _targeted_replay_expected_tests_for_work_order(work_order: dict[str, Any]) -
         if normalized.startswith("tests/") and normalized.endswith(".py"):
             _append(f"python -m pytest {normalized} -q")
 
+    for command in work_order.get("tests_run", []):
+        _append(str(command).strip())
+
+    for entry in work_order.get("verification_results", []):
+        if isinstance(entry, dict):
+            _append(str(entry.get("command", "")).strip())
+
     return targeted
 
 
@@ -4563,6 +4739,31 @@ def _work_order_should_replay_targeted_merge_gate_failure(work_order: dict[str, 
     if not targeted:
         return False
     return set(targeted) != {command for command in current_expected if command}
+
+
+def _mainline_verification_commands_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    targeted = _targeted_replay_expected_tests_for_work_order(work_order)
+    if targeted:
+        return targeted
+    commands = [
+        str(command).strip()
+        for command in work_order.get("expected_tests", [])
+        if str(command).strip()
+    ]
+    return [command for command in commands if not _is_overbroad_pytest_command(command)]
+
+
+def _work_order_should_reclassify_branch_stale_merge_gate_failure(
+    work_order: dict[str, Any],
+) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and bool(metadata.get("mainline_verification_passed")):
+        return False
+    return bool(_mainline_verification_commands_for_work_order(work_order))
 
 
 def _work_order_should_reconcile_merge_gate_failure(work_order: dict[str, Any]) -> bool:

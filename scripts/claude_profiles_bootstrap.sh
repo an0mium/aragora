@@ -8,6 +8,10 @@ usage() {
 Usage:
   claude_profiles_bootstrap.sh login [--force] [profile-name...]
   claude_profiles_bootstrap.sh status [profile-name...]
+  claude_profiles_bootstrap.sh verify [profile-name...]
+
+  verify  - live-probe each profile to detect expired tokens
+            (status can say loggedIn:true even when the token is expired)
 EOF
 }
 
@@ -57,7 +61,47 @@ already_logged_in() {
   if ! status_output="$("${PROFILE_TOOL}" status "$profile" 2>/dev/null)"; then
     return 1
   fi
-  grep -q '"loggedIn": true' <<<"$status_output"
+  if ! grep -q '"loggedIn": true' <<<"$status_output"; then
+    return 1
+  fi
+
+  # Status says logged in, but the token might be expired.
+  # Run a live probe to verify the token actually works.
+  if ! timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null >/dev/null 2>&1; then
+    echo "  Token expired (status says logged in but live probe failed)"
+    return 1
+  fi
+  return 0
+}
+
+verify_profile() {
+  local profile="$1"
+
+  printf "  %-10s " "$profile"
+
+  local status_output
+  if ! status_output="$("${PROFILE_TOOL}" status "$profile" 2>/dev/null)"; then
+    echo "NOT CONFIGURED"
+    return 1
+  fi
+  if ! grep -q '"loggedIn": true' <<<"$status_output"; then
+    echo "NOT LOGGED IN"
+    return 1
+  fi
+
+  # Live probe with /dev/null stdin and 15s timeout
+  local probe_output
+  if probe_output="$(timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null 2>&1)"; then
+    local email
+    email="$(grep -o '"email": "[^"]*"' <<<"$status_output" | head -1 | sed 's/"email": "//;s/"//')"
+    echo "OK  ($email)"
+    return 0
+  else
+    local err_line
+    err_line="$(echo "$probe_output" | grep -i -m1 'expired\|401\|error\|failed' || echo "$probe_output" | tail -1)"
+    echo "EXPIRED  -- ${err_line:0:80}"
+    return 1
+  fi
 }
 
 print_status() {
@@ -254,6 +298,25 @@ case "$MODE" in
     for profile in "${profiles[@]}"; do
       print_status "$profile"
     done
+    ;;
+  verify)
+    echo "Live-probing ${#profiles[@]} profiles..."
+    echo
+    pass=0
+    fail=0
+    for profile in "${profiles[@]}"; do
+      if verify_profile "$profile"; then
+        ((pass++)) || true
+      else
+        ((fail++)) || true
+      fi
+    done
+    echo
+    echo "${pass} passed, ${fail} failed"
+    if [[ $fail -gt 0 ]]; then
+      echo "Run: $0 login [profile...] to fix expired tokens"
+      exit 1
+    fi
     ;;
   login)
     for profile in "${profiles[@]}"; do
