@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from aragora.essay.prompts import build_evaluation_prompt
+
 logger = logging.getLogger(__name__)
 
 # ── Default dimension weights (must sum to 1.0) ──────────────────────────────
@@ -123,32 +125,6 @@ def load_rubric(path: str | None = None) -> dict[str, Any]:
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
 
-_INLINE_EVAL_PROMPT = """\
-You are an expert essay evaluator. Score the following essay on these dimensions (0.0–1.0):
-
-- thesis_clarity
-- argument_coherence
-- evidence_grounding
-- rhetorical_force
-- concision
-- factual_accuracy
-- originality
-
-Also provide:
-- severity_notes: list of critical issues
-- suggestions: list of improvement ideas
-- weakest_paragraph: identify the weakest paragraph
-- strongest_paragraph: identify the strongest paragraph
-- factual_claims_to_verify: list of claims that need fact-checking
-
-Return ONLY a JSON object with these fields.
-
-{context_section}
-
-Essay:
-{essay_text}
-"""
-
 
 async def evaluate_essay(
     essay_text: str,
@@ -174,11 +150,7 @@ async def evaluate_essay(
     if rubric is None:
         rubric = load_rubric()
 
-    context_section = f"Context:\n{context}" if context else ""
-    prompt = _INLINE_EVAL_PROMPT.format(
-        essay_text=essay_text,
-        context_section=context_section,
-    )
+    prompt = build_evaluation_prompt(essay_text, rubric, context)
 
     try:
         response = await judge_agent.generate(prompt)
