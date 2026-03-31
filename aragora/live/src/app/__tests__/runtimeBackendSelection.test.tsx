@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import PublicDemoPage from '../(standalone)/demo/page';
 import TryPage from '../try/page';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 const mockFetch = jest.fn();
 
@@ -55,6 +56,14 @@ function jsonResponse(data: unknown): Response {
   } as Response;
 }
 
+function renderPublicSurface(ui: React.ReactElement) {
+  return render(
+    <ThemeProvider defaultTheme="warm">
+      {ui}
+    </ThemeProvider>,
+  );
+}
+
 describe('runtime backend selection for public debate surfaces', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -72,7 +81,7 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<TryPage />);
+    renderPublicSurface(<TryPage />);
     fireEvent.change(screen.getByPlaceholderText('Enter your decision question...'), {
       target: {
         value: 'Should we use the production backend for public try flows?',
@@ -106,7 +115,7 @@ describe('runtime backend selection for public debate surfaces', () => {
       }),
     );
 
-    render(<PublicDemoPage />);
+    renderPublicSurface(<PublicDemoPage />);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
