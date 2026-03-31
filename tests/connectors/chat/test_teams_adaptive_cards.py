@@ -925,7 +925,7 @@ class TestReceiptCard:
         actions = card["actions"]
         view_action = next((a for a in actions if "Receipt" in a.get("title", "")), None)
         assert view_action is not None
-        assert "rec_xyz789" in view_action["url"]
+        assert view_action["url"] == "https://aragora.ai/receipts?id=rec_xyz789"
 
     def test_receipt_card_with_verification_url(self):
         """Test receipt card has Verify Integrity action when URL provided."""

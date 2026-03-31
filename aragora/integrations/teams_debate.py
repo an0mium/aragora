@@ -46,6 +46,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from aragora.receipts.links import build_public_receipt_url
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -1844,7 +1846,7 @@ class TeamsDebateLifecycle:
             base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
             receipt_id = getattr(receipt, "receipt_id", "")
             if receipt_id:
-                receipt_url = f"{base_url}/receipts/{receipt_id}"
+                receipt_url = build_public_receipt_url(receipt_id, base_url)
 
         card = _build_receipt_with_approval_card(
             receipt, debate_id=debate_id, receipt_url=receipt_url

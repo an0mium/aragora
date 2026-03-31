@@ -10,12 +10,14 @@ from aragora.export.decision_receipt import DecisionReceipt as LegacyDecisionRec
 from aragora.gauntlet.receipt import DecisionReceipt
 
 from .lane import LaneCompletionReceipt, emit_lane_receipt, validate_receipt
+from .links import build_public_receipt_url
 from .provenance import emit_operational_receipt
 
 __all__ = [
     "DecisionReceipt",
     "LaneCompletionReceipt",
     "LegacyDecisionReceipt",
+    "build_public_receipt_url",
     "emit_lane_receipt",
     "emit_operational_receipt",
     "validate_receipt",
