@@ -122,7 +122,7 @@ Examples:
     show_p.add_argument(
         "--format",
         "-f",
-        choices=["json", "md", "html"],
+        choices=["json", "md", "markdown", "html"],
         default=None,
         help="Output format (default: terminal inspect view)",
     )
@@ -834,14 +834,16 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     data = _normalize_receipt_payload_for_display(data)
     if output_format == "json":
         print(json.dumps(data, indent=2, default=str))
-    elif output_format == "md":
+    elif output_format in ("md", "markdown"):
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt
 
             receipt = DecisionReceipt.from_dict(data)
             print(receipt.to_markdown())
         except (ImportError, AttributeError, KeyError, ValueError, TypeError):
-            print(json.dumps(data, indent=2, default=str))
+            from aragora.cli.receipt_formatter import receipt_to_markdown
+
+            print(receipt_to_markdown(data))
     elif output_format == "html":
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt

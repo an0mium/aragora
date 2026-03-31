@@ -254,3 +254,82 @@ def test_receipt_show_falls_back_to_legacy_when_durable_missing(
     payload = json.loads(output)
     assert payload["receipt_id"] == "legacy-rcpt-456"
     assert payload["gauntlet_id"] == "gauntlet-live-456"
+
+
+def test_receipt_show_format_markdown_uses_receipt_to_markdown(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--format markdown renders readable markdown via receipt_to_markdown fallback."""
+    stored = {
+        "receipt_id": "rcpt-md-001",
+        "gauntlet_id": "rcpt-md-001",
+        "verdict": "PASS",
+        "confidence": 0.92,
+        "risk_summary": {"total": 1, "critical": 0, "high": 0, "medium": 1, "low": 0},
+    }
+
+    fake_markdown = MagicMock(return_value="# Receipt rcpt-md-001\nVerdict: PASS")
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        with patch.dict(
+            "sys.modules",
+            {"aragora.gauntlet.receipt_models": None},
+        ):
+            with patch(
+                "aragora.cli.receipt_formatter.receipt_to_markdown",
+                fake_markdown,
+            ):
+                cmd_receipt_show(
+                    argparse.Namespace(id="rcpt-md-001", format="markdown", org_id=None)
+                )
+
+    output = capsys.readouterr().out
+    assert "rcpt-md-001" in output
+    assert "PASS" in output
+    fake_markdown.assert_called_once()
+
+
+def test_receipt_show_format_md_alias_works(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--format md should produce the same markdown output as --format markdown."""
+    stored = {
+        "receipt_id": "rcpt-md-002",
+        "gauntlet_id": "rcpt-md-002",
+        "verdict": "FAIL",
+        "confidence": 0.3,
+    }
+
+    fake_markdown = MagicMock(return_value="# Receipt rcpt-md-002\nVerdict: FAIL")
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        with patch.dict(
+            "sys.modules",
+            {"aragora.gauntlet.receipt_models": None},
+        ):
+            with patch(
+                "aragora.cli.receipt_formatter.receipt_to_markdown",
+                fake_markdown,
+            ):
+                cmd_receipt_show(argparse.Namespace(id="rcpt-md-002", format="md", org_id=None))
+
+    output = capsys.readouterr().out
+    assert "rcpt-md-002" in output
+    assert "FAIL" in output
+
+
+def test_receipt_show_format_json_is_valid_json(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--format json outputs valid JSON with normalized verdict."""
+    stored = {
+        "receipt_id": "rcpt-json-001",
+        "gauntlet_id": "rcpt-json-001",
+        "verdict": "PASS",
+        "confidence": 0.99,
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-json-001", format="json", org_id=None))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["receipt_id"] == "rcpt-json-001"
+    assert payload["verdict"] == "PASS"
