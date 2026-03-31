@@ -34,6 +34,13 @@ export const testData = {
 export class AragoraPage {
   constructor(private page: import('@playwright/test').Page) {}
 
+  private logDismissWarning(context: string, error: unknown) {
+    if (!(error instanceof Error)) {
+      return;
+    }
+    console.warn(`[e2e] ${context}: ${error.message}`);
+  }
+
   /**
    * Dismiss the boot sequence animation if present.
    * The boot animation is a full-screen overlay that blocks all pointer events.
@@ -66,7 +73,11 @@ export class AragoraPage {
    * This fixed-bottom banner can intercept pointer events during E2E runs.
    */
   async dismissConnectivityWarning() {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    const backoffMs = [300, 600];
+
+    await this.page.waitForLoadState('networkidle', { timeout: 300 }).catch(() => {});
+
+    for (const [attempt, timeoutMs] of backoffMs.entries()) {
       const dismissButton = this.page.locator(
         'button[aria-label="Dismiss connectivity warning"], button[aria-label="Dismiss configuration warning"]'
       ).first();
@@ -74,13 +85,17 @@ export class AragoraPage {
         hasText: /NEXT_PUBLIC_SUPABASE_URL|Supabase not configured|\[CONFIG (WARNING|ERROR)\]/i,
       }).first();
 
-      if (await dismissButton.isVisible({ timeout: 300 }).catch(() => false)) {
-        await dismissButton.click().catch(() => {});
-        await configAlert.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      if (await dismissButton.isVisible({ timeout: timeoutMs }).catch(() => false)) {
+        await dismissButton.click().catch(error => {
+          this.logDismissWarning(`dismiss warning click attempt ${attempt + 1}`, error);
+        });
+        await configAlert.waitFor({ state: 'hidden', timeout: 3000 }).catch(error => {
+          this.logDismissWarning(`dismiss warning settle attempt ${attempt + 1}`, error);
+        });
         return;
       }
 
-      if (await configAlert.isVisible({ timeout: 300 }).catch(() => false)) {
+      if (await configAlert.isVisible({ timeout: timeoutMs }).catch(() => false)) {
         await this.page.evaluate(() => {
           for (const node of document.querySelectorAll<HTMLElement>('[role="alert"]')) {
             const text = node.textContent || '';
@@ -94,11 +109,15 @@ export class AragoraPage {
             }
           }
         });
-        await configAlert.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
+        await configAlert.waitFor({ state: 'hidden', timeout: 1000 }).catch(error => {
+          this.logDismissWarning(`dismiss warning hide attempt ${attempt + 1}`, error);
+        });
         return;
       }
 
-      await this.page.waitForTimeout(150);
+      if (attempt < backoffMs.length - 1) {
+        await this.page.waitForTimeout(timeoutMs);
+      }
     }
   }
 

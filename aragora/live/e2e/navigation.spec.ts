@@ -1,5 +1,9 @@
 import { test, expect, mockApiResponse } from './fixtures';
 
+function isLandingPath(url: string) {
+  return /\/landing\/?$/.test(new URL(url).pathname);
+}
+
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await mockApiResponse(page, '**/api/health', { status: 'ok' });
@@ -8,7 +12,7 @@ test.describe('Navigation', () => {
   test('should navigate to home page', async ({ page, aragoraPage }) => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
-    await expect(page).toHaveURL(/\/landing\/?$/);
+    expect(isLandingPath(page.url())).toBeTruthy();
     await expect(page.locator('body')).toBeVisible();
   });
 
@@ -77,7 +81,7 @@ test.describe('Navigation', () => {
     // Should show 404 or redirect
     const notFoundElement = page.locator('text=/404|not found|page.*exist/i').first();
     const hasNotFound = await notFoundElement.isVisible().catch(() => false);
-    const redirectedToHome = /\/(landing\/?)?$/.test(new URL(page.url()).pathname);
+    const redirectedToHome = isLandingPath(page.url());
 
     expect(hasNotFound || redirectedToHome).toBeTruthy();
   });

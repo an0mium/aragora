@@ -103,12 +103,16 @@ test.describe('Landing Page', () => {
       // Look for submit button and click
       const submitButton = page.locator('button[type="submit"], button').filter({ hasText: /start|debate|submit/i }).first();
       if (await submitButton.isVisible()) {
+        const mockedErrorResponse = page.waitForResponse(
+          response => response.url().includes('/api/v1/playground/debate') && response.status() === 500
+        );
         await submitButton.click();
+        await mockedErrorResponse;
         // Error state is rendered inline with copy and retry action.
         const errorState = page
           .getByText(/test error|something went wrong|could not connect to the server/i)
           .or(page.getByRole('button', { name: /try again/i }));
-        await expect(errorState.first()).toBeVisible({ timeout: 10000 });
+        await expect(errorState.first()).toBeVisible({ timeout: 3000 });
       }
     }
   });
