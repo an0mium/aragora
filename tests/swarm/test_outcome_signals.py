@@ -44,11 +44,24 @@ class TestOutcomeSignal:
         assert s.timestamp  # Not empty
         assert "T" in s.timestamp  # ISO format
 
+    def test_debate_id_defaults_to_empty_string(self):
+        s = _make_signal()
+        d = s.to_dict()
+        assert s.debate_id == ""
+        assert d["debate_id"] == ""
+
     def test_to_dict_roundtrip(self):
-        s = _make_signal(entity_title="Fix bug", tokens_used=50000)
+        s = _make_signal(
+            entity_title="Fix bug",
+            tokens_used=50000,
+            debate_id="debate-123",
+        )
         d = s.to_dict()
         assert d["entity_title"] == "Fix bug"
         assert d["tokens_used"] == 50000
+        assert d["debate_id"] == "debate-123"
+        roundtrip = OutcomeSignal(**d)
+        assert roundtrip.debate_id == "debate-123"
         # Should be JSON-serializable
         json.dumps(d)
 
@@ -65,12 +78,13 @@ class TestOutcomeSignalBus:
             path = Path(f.name)
 
         bus = OutcomeSignalBus(log_path=path)
-        bus.emit(_make_signal(entity_id="42"))
+        bus.emit(_make_signal(entity_id="42", debate_id="debate-42"))
 
         lines = path.read_text().strip().splitlines()
         assert len(lines) == 1
         data = json.loads(lines[0])
         assert data["entity_id"] == "42"
+        assert data["debate_id"] == "debate-42"
         path.unlink()
 
     def test_subscribers_notified(self):
@@ -101,6 +115,21 @@ class TestOutcomeSignalBus:
 
         recent = bus.recent(minutes=5)
         assert len(recent) == 5
+        path.unlink()
+
+    def test_recent_defaults_missing_debate_id_to_empty_string(self):
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+            path = Path(f.name)
+
+        legacy_signal = _make_signal().to_dict()
+        legacy_signal.pop("debate_id", None)
+        path.write_text(json.dumps(legacy_signal) + "\n")
+
+        bus = OutcomeSignalBus(log_path=path)
+        recent = bus.recent(minutes=5)
+
+        assert len(recent) == 1
+        assert recent[0].debate_id == ""
         path.unlink()
 
 
