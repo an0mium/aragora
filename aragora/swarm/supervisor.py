@@ -1438,6 +1438,8 @@ class SwarmSupervisor:
         decomposition = self.decomposer.analyze(
             goal,
             file_scope_hints=spec_hints or None,
+            acceptance_criteria=list(spec.acceptance_criteria) or None,
+            constraints=list(spec.constraints) or None,
         )
         subtasks = list(decomposition.subtasks)
         if not subtasks:

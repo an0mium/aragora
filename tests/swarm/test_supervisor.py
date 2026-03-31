@@ -118,6 +118,58 @@ def test_start_run_creates_leased_work_orders(repo: Path, store: DevCoordination
     assert store.status_summary()["counts"]["active_leases"] == 2
 
 
+def test_start_run_passes_acceptance_and_constraints_to_decomposer(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session = ManagedWorktreeSession(
+        session_id="swarm-acceptance",
+        agent="codex",
+        branch="codex/swarm-acceptance",
+        path=repo / "wt-acceptance",
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    session.path.mkdir()
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = session
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="wo-1",
+                title="Server lane",
+                description="Implement server lane",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Goal",
+        refined_goal="Goal",
+        acceptance_criteria=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        constraints=["Keep merge gate enabled", "Human approval required"],
+    )
+
+    supervisor.start_run(spec=spec, max_concurrency=1)
+
+    decomposer.analyze.assert_called_once()
+    kwargs = decomposer.analyze.call_args.kwargs
+    assert kwargs["acceptance_criteria"] == ["python -m pytest tests/swarm/test_supervisor.py -q"]
+    assert kwargs["constraints"] == ["Keep merge gate enabled", "Human approval required"]
+
+
 def test_refresh_run_scales_queued_work_after_completion(
     repo: Path, store: DevCoordinationStore
 ) -> None:

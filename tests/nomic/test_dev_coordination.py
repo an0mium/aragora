@@ -878,6 +878,93 @@ def test_archive_reaped_no_receipt_work_orders_discards_old_backlog(
     assert store.list_developer_tasks(open_only=True) == []
 
 
+def test_archive_inactive_lease_released_work_orders_discards_old_backlog(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Archive inactive released backlog",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Archive inactive released backlog",
+            "refined_goal": "Archive inactive released backlog",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-inactive-release",
+                "title": "Old inactive released lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "needs_human",
+                "failure_reason": "inactive_lease_released",
+                "dispatch_error": (
+                    "Lease lease-inactive was released without a synchronized terminal result."
+                ),
+                "dispatched_at": "2000-01-01T00:00:00+00:00",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    archived = store.archive_inactive_lease_released_work_orders(grace_period_hours=6.0)
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert archived == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "discarded"
+    assert work_order["failure_reason"] == "inactive_lease_released"
+    assert work_order["metadata"]["archived_due_to"] == "inactive_lease_released"
+    assert work_order["metadata"]["archive_reason"] == "inactive_lease_released"
+    assert work_order["metadata"]["previous_status"] == "needs_human"
+
+
+def test_archive_inactive_lease_released_work_orders_preserves_deliverable_lane(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Keep inactive released deliverable reviewable",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Keep inactive released deliverable reviewable",
+            "refined_goal": "Keep inactive released deliverable reviewable",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-inactive-deliverable",
+                "title": "Inactive released deliverable lane",
+                "file_scope": ["aragora/swarm/reporter.py"],
+                "status": "needs_human",
+                "failure_reason": "inactive_lease_released",
+                "dispatch_error": (
+                    "Lease lease-inactive was released without a synchronized terminal result."
+                ),
+                "dispatched_at": "2000-01-01T00:00:00+00:00",
+                "branch": "codex/inactive-release-deliverable",
+                "commit_shas": ["abc12345"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    archived = store.archive_inactive_lease_released_work_orders(grace_period_hours=6.0)
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert archived == 0
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "needs_human"
+
+
 def test_archive_reaped_no_receipt_work_orders_preserves_active_or_receipt_backed_lanes(
     store: DevCoordinationStore,
 ) -> None:
@@ -1714,6 +1801,43 @@ def test_backfill_missing_blocker_metadata_infers_clean_exit_no_deliverable(
     assert work_order["blocker"]["reason"] == "clean_exit_no_deliverable"
 
 
+def test_backfill_missing_blocker_metadata_infers_inactive_lease_released(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Backfill inactive lease released blocker metadata",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Backfill inactive lease released blocker metadata",
+            "refined_goal": "Backfill inactive lease released blocker metadata",
+        },
+        work_orders=[
+            {
+                "work_order_id": "subtask_1",
+                "title": "Historical inactive released lane",
+                "status": "needs_human",
+                "dispatch_error": (
+                    "Lease lease-inactive was released without a synchronized terminal result."
+                ),
+            }
+        ],
+    )
+
+    updated = store.backfill_missing_blocker_metadata()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["failure_reason"] == "inactive_lease_released"
+    assert work_order["blocker"]["reason"] == "inactive_lease_released"
+
+
 def test_backfill_missing_blocker_metadata_preserves_blocked_deliverable_lane(
     store: DevCoordinationStore,
 ) -> None:
@@ -1821,6 +1945,118 @@ def test_backfill_missing_completion_receipts_for_historical_deliverable(
     assert receipt is not None
     assert receipt.outcome == "deliverable_created"
     assert receipt.metadata["backfilled_receipt"] is True
+
+
+def test_rehabilitate_reaped_deliverable_work_orders_recovers_completed_lane(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Rehabilitate stale deliverable lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Rehabilitate stale deliverable lane",
+            "refined_goal": "Rehabilitate stale deliverable lane",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-rehab-completed",
+                "title": "Historical stale deliverable lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dispatch_error": "stale_lease_reaped",
+                "blocking_question": (
+                    "Should this stalled lane be rerun, split, or investigated before retrying?"
+                ),
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": (
+                        "Should this stalled lane be rerun, split, or investigated before retrying?"
+                    ),
+                },
+                "blockers": ["stale_lease_reaped", "historical-note"],
+                "worker_outcome": "completed",
+                "review_status": "pending",
+                "receipt_id": "receipt-rehab-completed",
+                "branch": "codex/rehab-completed",
+                "commit_shas": ["abc12345"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_reaped_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert "failure_reason" not in work_order
+    assert "dispatch_error" not in work_order
+    assert "blocking_question" not in work_order
+    assert "blocker" not in work_order
+    assert work_order["blockers"] == ["historical-note"]
+
+
+def test_rehabilitate_reaped_deliverable_work_orders_rewrites_merge_gate_lane(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Rehabilitate stale merge gate lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={
+            "raw_goal": "Rehabilitate stale merge gate lane",
+            "refined_goal": "Rehabilitate stale merge gate lane",
+        },
+        work_orders=[
+            {
+                "work_order_id": "wo-rehab-merge-gate",
+                "title": "Historical stale merge gate lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dispatch_error": (
+                    "merge gate blocked: missing verification plan for code-change lane"
+                ),
+                "blocking_question": (
+                    "Should this stalled lane be rerun, split, or investigated before retrying?"
+                ),
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": (
+                        "Should this stalled lane be rerun, split, or investigated before retrying?"
+                    ),
+                },
+                "blockers": ["stale_lease_reaped"],
+                "worker_outcome": "merge_gate_failed",
+                "branch": "codex/rehab-merge-gate",
+                "commit_shas": ["def67890"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_reaped_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "missing_verification_plan"
+    assert "verification command" in work_order["blocking_question"]
+    assert work_order["blocker"]["reason"] == "missing_verification_plan"
+    assert work_order["blockers"] == [
+        "merge gate blocked: missing verification plan for code-change lane"
+    ]
 
 
 def test_list_developer_tasks_preserves_terminal_truth_metadata(
