@@ -179,6 +179,35 @@ class TestExtractReviewFindings:
         assert findings["critical_issues"] == []
         assert len(findings["meta_issues"]) == 1
 
+    def test_extract_findings_drops_location_only_artifact(self):
+        """Malformed location-only review artifacts should stay non-blocking."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "openai-api_performance_reviewer"
+        meta_critique.issues = ["Location**: aragora/live/e2e/admin.spec.ts"]
+        meta_critique.suggestions = []
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
     def test_extract_findings_drops_meta_review_with_file_target(self):
         """Meta-review should not become blocking just because it names a file."""
         mock_result = Mock()

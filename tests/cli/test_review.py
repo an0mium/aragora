@@ -388,6 +388,35 @@ class TestExtractReviewFindings:
         assert len(findings["meta_issues"]) == 1
         assert findings["meta_issues"][0]["grounded"] is False
 
+    def test_filters_malformed_location_only_issue(self):
+        """Location-only artifacts from review formatting should not block PRs."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="openai-api_performance_reviewer",
+                    issues=["Location**: aragora/live/src/app/(app)/admin/page.tsx"],
+                    suggestions=[],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+
     def test_keeps_grounded_code_issue_and_extracts_location(self):
         """Concrete code findings should remain blocking even if aimed at another reviewer."""
         result = MockDebateResult(
