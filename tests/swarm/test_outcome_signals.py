@@ -58,6 +58,23 @@ class TestOutcomeSignal:
         assert "elapsed_seconds" in d
         assert d["elapsed_seconds"] == 12.5
 
+    def test_debate_id_defaults_to_empty_string(self):
+        s = _make_signal()
+        assert s.debate_id == ""
+
+    def test_debate_id_can_be_set(self):
+        s = _make_signal(debate_id="debate-abc-123")
+        assert s.debate_id == "debate-abc-123"
+
+    def test_debate_id_serialized_in_to_dict(self):
+        s = _make_signal(debate_id="debate-xyz-789")
+        d = s.to_dict()
+        assert d["debate_id"] == "debate-xyz-789"
+        # Verify it round-trips through JSON
+        serialized = json.dumps(d)
+        deserialized = json.loads(serialized)
+        assert deserialized["debate_id"] == "debate-xyz-789"
+
 
 class TestOutcomeSignalBus:
     def test_emit_persists_to_jsonl(self):
