@@ -44,6 +44,11 @@ class TestOutcomeSignal:
         assert s.timestamp  # Not empty
         assert "T" in s.timestamp  # ISO format
 
+    def test_debate_id_defaults_to_empty_string_and_serializes(self):
+        s = _make_signal()
+        assert s.debate_id == ""
+        assert s.to_dict()["debate_id"] == ""
+
     def test_to_dict_roundtrip(self):
         s = _make_signal(entity_title="Fix bug", tokens_used=50000)
         d = s.to_dict()
@@ -71,6 +76,17 @@ class TestOutcomeSignalBus:
         assert len(lines) == 1
         data = json.loads(lines[0])
         assert data["entity_id"] == "42"
+        path.unlink()
+
+    def test_emit_persists_debate_id_to_jsonl(self):
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+            path = Path(f.name)
+
+        bus = OutcomeSignalBus(log_path=path)
+        bus.emit(_make_signal(entity_id="42", debate_id="debate-123"))
+
+        data = json.loads(path.read_text().strip())
+        assert data["debate_id"] == "debate-123"
         path.unlink()
 
     def test_subscribers_notified(self):

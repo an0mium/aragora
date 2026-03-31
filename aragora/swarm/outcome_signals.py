@@ -42,6 +42,7 @@ class OutcomeSignal:
     signal_type: str  # completed | failed | escalated | repaired | blocked
     entity_id: str  # issue number, cycle ID, campaign ID, etc.
     entity_title: str = ""
+    debate_id: str = ""
 
     # Quality
     quality_delta: float = 0.0  # Net quality change (-1.0 to 1.0)
