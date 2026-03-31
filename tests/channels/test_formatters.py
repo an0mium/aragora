@@ -317,7 +317,7 @@ class TestTeamsFormatter:
 
         assert len(actions) == 1
         assert actions[0]["type"] == "Action.OpenUrl"
-        assert "my-receipt-id" in actions[0]["url"]
+        assert actions[0]["url"] == "https://aragora.ai/receipts?id=my-receipt-id"
 
     def test_channel_type(self):
         """Test channel type property."""
