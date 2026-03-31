@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -29,13 +30,17 @@ from aragora.agents.base import AgentType, create_agent
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.orchestrator import Arena, DebateProtocol
-from aragora.config.settings import DebateSettings, AgentSettings
 
 logger = logging.getLogger(__name__)
 
 # Default agents for code review (fast, diverse perspectives)
-DEFAULT_REVIEW_AGENTS = AgentSettings().default_agents
-DEFAULT_ROUNDS = DebateSettings().default_rounds
+_DEFAULT_REVIEW_AGENTS_FALLBACK = "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi"
+_DEFAULT_ROUNDS_FALLBACK = 9
+DEFAULT_REVIEW_AGENTS = os.getenv("ARAGORA_DEFAULT_AGENTS", _DEFAULT_REVIEW_AGENTS_FALLBACK)
+try:
+    DEFAULT_ROUNDS = int(os.getenv("ARAGORA_DEFAULT_ROUNDS", str(_DEFAULT_ROUNDS_FALLBACK)))
+except ValueError:
+    DEFAULT_ROUNDS = _DEFAULT_ROUNDS_FALLBACK
 MAX_DIFF_SIZE = 50000  # 50KB max diff size
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 SHARE_BASE_URL = "https://aragora.ai/reviews"
@@ -82,6 +87,64 @@ _META_REVIEW_MARKERS = (
     "since the diff is truncated",
     "since the diff may be truncated",
 )
+_REVIEW_OFFLINE_PROTOCOL_OVERRIDES = {
+    "convergence_detection": False,
+    "vote_grouping": False,
+    "enable_trickster": False,
+    "enable_research": False,
+    "enable_rhetorical_observer": False,
+    "role_rotation": False,
+    "role_matching": False,
+    "enable_trending_injection": False,
+    "enable_llm_question_classification": False,
+    "enable_llm_synthesis": False,
+}
+_REVIEW_OFFLINE_ARENA_KWARGS = {
+    "knowledge_mound": None,
+    "auto_create_knowledge_mound": False,
+    "enable_knowledge_retrieval": False,
+    "enable_knowledge_ingestion": False,
+    "enable_cross_debate_memory": False,
+    "use_rlm_limiter": False,
+    "enable_ml_delegation": False,
+    "enable_quality_gates": False,
+    "enable_consensus_estimation": False,
+    "disable_post_debate_pipeline": True,
+}
+
+
+def _parse_review_agent_specs(agents_str: str) -> list[str]:
+    """Split a review agent string into normalized agent specs."""
+    return [spec.strip() for spec in agents_str.split(",") if spec.strip()]
+
+
+def _should_run_review_offline(agent_specs: list[str]) -> bool:
+    """Return True when review debate should disable network/ML side paths."""
+    from aragora.utils.env import is_offline_mode
+
+    return is_offline_mode() or (bool(agent_specs) and all(spec == "demo" for spec in agent_specs))
+
+
+@contextmanager
+def _temporary_offline_review_env(enabled: bool):
+    """Set offline-safe env defaults for local demo review runs."""
+    if not enabled:
+        yield
+        return
+
+    applied: list[str] = []
+    if "ARAGORA_OFFLINE" not in os.environ:
+        os.environ["ARAGORA_OFFLINE"] = "1"
+        applied.append("ARAGORA_OFFLINE")
+    if "ARAGORA_USE_SECRETS_MANAGER" not in os.environ:
+        os.environ["ARAGORA_USE_SECRETS_MANAGER"] = "false"
+        applied.append("ARAGORA_USE_SECRETS_MANAGER")
+
+    try:
+        yield
+    finally:
+        for key in applied:
+            os.environ.pop(key, None)
 
 
 def generate_review_id(findings: dict, diff_hash: str) -> str:
@@ -309,39 +372,42 @@ async def run_review_debate(
     """Run a code review debate on the given diff."""
 
     # Parse and create agents
-    agent_specs = []
-    for spec in agents_str.split(","):
-        spec = spec.strip()
-        if spec:
-            agent_specs.append(spec)
+    agent_specs = _parse_review_agent_specs(agents_str)
 
     if len(agent_specs) < 2:
-        agent_specs = DEFAULT_REVIEW_AGENTS.split(",")
+        agent_specs = _parse_review_agent_specs(DEFAULT_REVIEW_AGENTS)
 
-    # Create agents with reviewer roles
-    agents: list[Agent] = []
-    roles = ["security_reviewer", "performance_reviewer", "quality_reviewer"]
-    for i, agent_type in enumerate(agent_specs):
-        role = roles[i % len(roles)]
-        agent = create_agent(
-            model_type=cast(AgentType, agent_type),
-            name=f"{agent_type}_{role}",
-            role=role,
-        )
-        agents.append(agent)
+    offline = _should_run_review_offline(agent_specs)
 
-    # Build review prompt
-    task = build_review_prompt(diff, focus_areas)
+    with _temporary_offline_review_env(offline):
+        # Create agents with reviewer roles
+        agents: list[Agent] = []
+        roles = ["security_reviewer", "performance_reviewer", "quality_reviewer"]
+        for i, agent_type in enumerate(agent_specs):
+            role = roles[i % len(roles)]
+            agent = create_agent(
+                model_type=cast(AgentType, agent_type),
+                name=f"{agent_type}_{role}",
+                role=role,
+            )
+            agents.append(agent)
 
-    # Create environment and protocol
-    env = Environment(task=task, max_rounds=rounds)
-    protocol = DebateProtocol(rounds=rounds, consensus="majority")
+        # Build review prompt
+        task = build_review_prompt(diff, focus_areas)
 
-    # Run debate
-    arena = Arena(env, agents, protocol)
-    result = await arena.run()
+        # Create environment and protocol
+        env = Environment(task=task, max_rounds=rounds)
+        protocol_kwargs: dict[str, Any] = {}
+        if offline:
+            protocol_kwargs.update(_REVIEW_OFFLINE_PROTOCOL_OVERRIDES)
+        protocol = DebateProtocol(rounds=rounds, consensus="majority", **protocol_kwargs)
 
-    return result
+        # Run debate
+        arena_kwargs: dict[str, Any] = {}
+        if offline:
+            arena_kwargs.update(_REVIEW_OFFLINE_ARENA_KWARGS)
+        arena = Arena(env, agents, protocol, **arena_kwargs)
+        return await arena.run()
 
 
 def _extract_location_hint(text: str) -> str | None:

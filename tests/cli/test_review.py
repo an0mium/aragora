@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -27,6 +28,7 @@ from aragora.cli.review import (
     get_available_agents,
     get_demo_findings,
     get_shareable_url,
+    run_review_debate,
     save_review_for_sharing,
 )
 
@@ -639,6 +641,105 @@ class TestFormatGithubComment:
         assert "<details" in comment
         assert "Add rate limiting" in comment
         assert "| Topic |" in comment  # Table header
+
+
+# ===========================================================================
+# Tests: run_review_debate
+# ===========================================================================
+
+
+class TestRunReviewDebate:
+    """Tests for run_review_debate."""
+
+    @pytest.mark.asyncio
+    async def test_demo_agents_force_offline_safe_protocol_and_arena(self, monkeypatch):
+        """All-demo reviews should disable network and ML-heavy debate extras."""
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+        monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
+
+        protocol_kwargs: dict[str, object] = {}
+        arena_capture: dict[str, object] = {}
+        mock_result = MockDebateResult()
+
+        class FakeArena:
+            def __init__(self, env, agents, protocol, **kwargs):
+                arena_capture["offline_env"] = os.environ.get("ARAGORA_OFFLINE")
+                arena_capture["secrets_env"] = os.environ.get("ARAGORA_USE_SECRETS_MANAGER")
+                arena_capture["kwargs"] = kwargs
+
+            async def run(self):
+                return mock_result
+
+        def _protocol_factory(*args, **kwargs):
+            protocol_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch("aragora.cli.review.create_agent", side_effect=[MagicMock(), MagicMock()]),
+            patch("aragora.cli.review.DebateProtocol", side_effect=_protocol_factory),
+            patch("aragora.cli.review.Arena", FakeArena),
+        ):
+            result = await run_review_debate("diff content", agents_str="demo,demo", rounds=1)
+
+        assert result is mock_result
+        assert arena_capture["offline_env"] == "1"
+        assert arena_capture["secrets_env"] == "false"
+        assert "ARAGORA_OFFLINE" not in os.environ
+        assert "ARAGORA_USE_SECRETS_MANAGER" not in os.environ
+
+        assert protocol_kwargs["rounds"] == 1
+        assert protocol_kwargs["consensus"] == "majority"
+        assert protocol_kwargs["convergence_detection"] is False
+        assert protocol_kwargs["vote_grouping"] is False
+        assert protocol_kwargs["enable_research"] is False
+        assert protocol_kwargs["enable_llm_synthesis"] is False
+
+        arena_kwargs = arena_capture["kwargs"]
+        assert arena_kwargs["knowledge_mound"] is None
+        assert arena_kwargs["auto_create_knowledge_mound"] is False
+        assert arena_kwargs["enable_knowledge_retrieval"] is False
+        assert arena_kwargs["enable_quality_gates"] is False
+        assert arena_kwargs["disable_post_debate_pipeline"] is True
+
+    @pytest.mark.asyncio
+    async def test_non_demo_review_keeps_default_protocol_and_arena(self, monkeypatch):
+        """Normal reviews should keep the existing debate configuration."""
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+        monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
+
+        protocol_kwargs: dict[str, object] = {}
+        arena_capture: dict[str, object] = {}
+        mock_result = MockDebateResult()
+
+        class FakeArena:
+            def __init__(self, env, agents, protocol, **kwargs):
+                arena_capture["offline_env"] = os.environ.get("ARAGORA_OFFLINE")
+                arena_capture["secrets_env"] = os.environ.get("ARAGORA_USE_SECRETS_MANAGER")
+                arena_capture["kwargs"] = kwargs
+
+            async def run(self):
+                return mock_result
+
+        def _protocol_factory(*args, **kwargs):
+            protocol_kwargs.update(kwargs)
+            return MagicMock()
+
+        with (
+            patch("aragora.cli.review.create_agent", side_effect=[MagicMock(), MagicMock()]),
+            patch("aragora.cli.review.DebateProtocol", side_effect=_protocol_factory),
+            patch("aragora.cli.review.Arena", FakeArena),
+        ):
+            result = await run_review_debate(
+                "diff content",
+                agents_str="anthropic-api,openai-api",
+                rounds=2,
+            )
+
+        assert result is mock_result
+        assert arena_capture["offline_env"] is None
+        assert arena_capture["secrets_env"] is None
+        assert protocol_kwargs == {"rounds": 2, "consensus": "majority"}
+        assert arena_capture["kwargs"] == {}
 
 
 # ===========================================================================
