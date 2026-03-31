@@ -896,10 +896,14 @@ class SwarmSupervisor:
     def _reset_work_order_for_requeue(item: dict[str, Any]) -> None:
         item["status"] = "queued"
         item["review_status"] = "pending"
+        # Requeued lanes must start from a clean attempt state. Preserve only
+        # dispatch inputs (scope/tests/agent hints), not terminal artifacts from
+        # the dead or conflict-only attempt we are replacing.
         for key in (
             "lease_id",
             "owner_session_id",
             "worktree_path",
+            "initial_head",
             "pid",
             "dispatched_at",
             "dispatch_error",
@@ -908,6 +912,25 @@ class SwarmSupervisor:
             "resource_error",
             "blocker",
             "conflicts",
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "last_observed_at",
+            "last_progress_at",
+            "progress_fingerprint",
         ):
             item.pop(key, None)
         item.pop("blockers", None)

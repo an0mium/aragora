@@ -281,6 +281,30 @@ def test_refresh_run_requeues_leased_work_order_when_active_lease_is_missing(
                 "worktree_path": str(repo / "missing-worktree"),
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
+                "worker_outcome": "crash_with_salvage",
+                "completed_at": "2026-03-31T12:34:56+00:00",
+                "initial_head": "old-base-sha",
+                "head_sha": "old-head-sha",
+                "commit_shas": ["old-commit"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "diff": "diff --git a/aragora/swarm/supervisor.py b/aragora/swarm/supervisor.py",
+                "stdout_tail": "worker output",
+                "stderr_tail": "worker stderr",
+                "tests_run": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "verification_results": [{"command": "pytest", "passed": True}],
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "old missing verification",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
+                "last_observed_at": "2026-03-31T12:35:00+00:00",
+                "last_progress_at": "2026-03-31T12:35:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "old-head-sha",
+                    "changed_paths": ["aragora/swarm/supervisor.py"],
+                    "diff_lines": 12,
+                },
                 "conflicts": [
                     {
                         "source": "lease",
@@ -300,6 +324,29 @@ def test_refresh_run_requeues_leased_work_order_when_active_lease_is_missing(
     assert work_order["lease_id"] != "missing-lease"
     assert "conflicts" not in work_order
     assert work_order["owner_session_id"] == "swarm-released-requeue"
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "initial_head",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "diff",
+        "stdout_tail",
+        "stderr_tail",
+        "tests_run",
+        "verification_results",
+        "merge_gate",
+        "verification_missing_reason",
+        "pr_url",
+        "adopted_pr",
+        "last_observed_at",
+        "last_progress_at",
+        "progress_fingerprint",
+    ):
+        assert cleared_key not in work_order
 
 
 def test_refresh_run_rebinds_released_work_order_to_new_active_lease(
