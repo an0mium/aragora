@@ -4,16 +4,39 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright configuration for Aragora Live Dashboard E2E tests.
  * @see https://playwright.dev/docs/test-configuration
  */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function parseConfiguredBaseUrl(value?: string): URL | null {
+  if (!value) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Invalid PLAYWRIGHT_BASE_URL: ${value}`);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`PLAYWRIGHT_BASE_URL must use http or https: ${value}`);
+  }
+
+  return parsed;
+}
+
 const requestedBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
-const parsedRequestedBaseUrl = requestedBaseUrl ? new URL(requestedBaseUrl) : null;
+const parsedRequestedBaseUrl = parseConfiguredBaseUrl(requestedBaseUrl);
 const isLoopbackBaseUrl = parsedRequestedBaseUrl
-  ? ['localhost', '127.0.0.1'].includes(parsedRequestedBaseUrl.hostname)
+  ? LOOPBACK_HOSTS.has(parsedRequestedBaseUrl.hostname)
   : true;
+const requestedLoopbackPort =
+  parsedRequestedBaseUrl && isLoopbackBaseUrl ? parsedRequestedBaseUrl.port : undefined;
 const playwrightHost = isLoopbackBaseUrl
   ? parsedRequestedBaseUrl?.hostname || process.env.PLAYWRIGHT_WEB_HOST || '127.0.0.1'
   : process.env.PLAYWRIGHT_WEB_HOST || '127.0.0.1';
 const playwrightPort = isLoopbackBaseUrl
-  ? parsedRequestedBaseUrl?.port || process.env.PLAYWRIGHT_WEB_PORT || '3000'
+  ? requestedLoopbackPort || process.env.PLAYWRIGHT_WEB_PORT || '3000'
   : process.env.PLAYWRIGHT_WEB_PORT || '3000';
 const localBaseUrl = `http://${playwrightHost}:${playwrightPort}`;
 const shouldStartLocalWebServer = !parsedRequestedBaseUrl || isLoopbackBaseUrl;
@@ -51,7 +74,7 @@ export default defineConfig({
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: requestedBaseUrl || localBaseUrl,
+    baseURL: parsedRequestedBaseUrl?.toString() || localBaseUrl,
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
