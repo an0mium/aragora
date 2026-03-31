@@ -122,9 +122,9 @@ Examples:
     show_p.add_argument(
         "--format",
         "-f",
-        choices=["json", "md", "html"],
-        default=None,
-        help="Output format (default: terminal inspect view)",
+        choices=["json", "md", "markdown", "html"],
+        default="json",
+        help="Output format (default: json)",
     )
     show_p.add_argument("--org-id", help="Organization ID for ownership check")
     show_p.set_defaults(func=cmd_receipt_show)
@@ -793,7 +793,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
 def cmd_receipt_show(args: argparse.Namespace) -> None:
     """Show a specific receipt by ID."""
     receipt_id = getattr(args, "id", None)
-    output_format = getattr(args, "format", None)
+    output_format = getattr(args, "format", None) or "json"
     org_id = getattr(args, "org_id", None)
     if not receipt_id:
         print("Error: Receipt ID required", file=sys.stderr)
@@ -832,16 +832,13 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
         print(f"Error: Receipt not found: {receipt_id}", file=sys.stderr)
         sys.exit(1)
     data = _normalize_receipt_payload_for_display(data)
+    json_output = json.dumps(data, indent=2, default=str)
     if output_format == "json":
-        print(json.dumps(data, indent=2, default=str))
-    elif output_format == "md":
-        try:
-            from aragora.gauntlet.receipt_models import DecisionReceipt
+        print(json_output)
+    elif output_format in {"md", "markdown"}:
+        from aragora.cli.receipt_formatter import receipt_to_markdown
 
-            receipt = DecisionReceipt.from_dict(data)
-            print(receipt.to_markdown())
-        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
-            print(json.dumps(data, indent=2, default=str))
+        print(receipt_to_markdown(json.loads(json_output)))
     elif output_format == "html":
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt

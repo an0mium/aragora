@@ -13,6 +13,7 @@ import pytest
 
 from aragora.cli.commands.receipt import (
     _format_receipt_created_at,
+    add_receipt_parser,
     cmd_receipt_list,
     cmd_receipt_show,
 )
@@ -197,7 +198,17 @@ def test_receipt_show_normalizes_trust_wedge_receipts_for_json(
     assert payload["confidence"] == pytest.approx(0.61)
 
 
-def test_receipt_show_renders_inbox_receipt_details(
+def test_receipt_show_parser_accepts_markdown_format() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+
+    args = parser.parse_args(["receipt", "show", "rcpt-inbox-789", "--format", "markdown"])
+
+    assert args.format == "markdown"
+
+
+def test_receipt_show_defaults_to_json_format(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     stored = {
@@ -224,13 +235,31 @@ def test_receipt_show_renders_inbox_receipt_details(
     with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
         cmd_receipt_show(argparse.Namespace(id="rcpt-inbox-789", format=None, org_id=None))
 
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["receipt_id"] == "rcpt-inbox-789"
+    assert payload["verdict"] == "CONDITIONAL"
+    assert payload["action_intent"]["provider"] == "gmail"
+
+
+def test_receipt_show_markdown_format_renders_from_json_output(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    stored = {
+        "receipt_id": "rcpt-live-123",
+        "gauntlet_id": "rcpt-live-123",
+        "verdict": "PASS",
+        "confidence": 1.0,
+        "summary": "Stored in durable receipt store",
+    }
+
+    with patch("aragora.cli.commands.receipt._load_storage_receipt", return_value=stored):
+        cmd_receipt_show(argparse.Namespace(id="rcpt-live-123", format="markdown", org_id=None))
+
     output = capsys.readouterr().out
-    assert "Type:          inbox" in output
-    assert "Action:        archive" in output
-    assert "Provider:      gmail" in output
-    assert "Message ID:    msg-123" in output
-    assert "Receipt State: created" in output
-    assert "Rationale:     Archive the newsletter." in output
+    assert "# Decision Receipt: N/A" in output
+    assert "**Verdict:** PASS" in output
+    assert "**Receipt ID:** rcpt-live-123" in output
+    assert "Stored in durable receipt store" in output
 
 
 def test_receipt_show_falls_back_to_legacy_when_durable_missing(
