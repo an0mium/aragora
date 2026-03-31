@@ -264,7 +264,8 @@ class SearchOperationsMixin:
 
                 normalized = []
                 if retrieved is not None:
-                    normalized = [_normalize_search_result(item) for item in retrieved.items]
+                    items = getattr(retrieved, "items", retrieved)
+                    normalized = [_normalize_search_result(item) for item in items]
                 normalized = _filter_normalized_results(
                     normalized,
                     min_confidence=min_confidence,

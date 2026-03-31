@@ -140,20 +140,10 @@ class KnowledgeHandler(
         return self._query_engine
 
     def _get_knowledge_mound(self) -> Any | None:
-        """Get a shared Knowledge Mound instance when available."""
+        """Get an explicitly configured Knowledge Mound instance when available."""
         mound = self.ctx.get("knowledge_mound")
         if mound is not None:
             return mound
-        if self._knowledge_mound is not None:
-            return self._knowledge_mound
-
-        try:
-            from aragora.knowledge.mound import get_knowledge_mound
-
-            self._knowledge_mound = get_knowledge_mound()
-        except (ImportError, RuntimeError, OSError, ValueError) as e:
-            logger.debug("Knowledge Mound unavailable for search: %s", e)
-            self._knowledge_mound = None
         return self._knowledge_mound
 
     def can_handle(self, path: str) -> bool:
