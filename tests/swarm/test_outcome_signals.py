@@ -211,3 +211,10 @@ class TestCalibration:
         assert snap.loop_merge_rates["boss"] == 0.5
         assert snap.loop_merge_rates["nomic"] == 1.0
         assert snap.loop_merge_rates["ralph"] == 0.0
+
+    def test_calibration_to_dict_includes_timestamp_iso(self):
+        signals = self._make_signals(10)
+        snap = compute_calibration(signals)
+        assert snap is not None
+        data = snap.to_dict()
+        assert data["timestamp_iso"] == snap.timestamp
