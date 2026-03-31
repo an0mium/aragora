@@ -13,6 +13,7 @@ import pytest
 
 from aragora.cli.commands.receipt import (
     _format_receipt_created_at,
+    add_receipt_parser,
     cmd_receipt_list,
     cmd_receipt_show,
 )
@@ -147,6 +148,17 @@ def test_receipt_created_at_formats_epoch_and_iso_consistently() -> None:
     epoch_timestamp = datetime.fromisoformat(iso_timestamp).timestamp()
 
     assert _format_receipt_created_at(epoch_timestamp) == _format_receipt_created_at(iso_timestamp)
+
+
+def test_receipt_show_parser_accepts_markdown_format() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_receipt_parser(subparsers)
+
+    args = parser.parse_args(["receipt", "show", "rcpt-live-123", "--format", "markdown"])
+
+    assert args.format == "markdown"
+    assert args.func is cmd_receipt_show
 
 
 def test_receipt_show_reads_durable_store_by_receipt_id(
