@@ -64,6 +64,8 @@ def _create_session_artifacts(repo: Path) -> None:
     (repo / ".codex_session_meta.json").write_text(json.dumps(meta) + "\n", encoding="utf-8")
     (repo / ".codex_session.log").write_text("session log data\n", encoding="utf-8")
     (repo / ".codex_session_active").write_text("1\n", encoding="utf-8")
+    (repo / ".swarm_worker_stdout.log").write_text("worker stdout\n", encoding="utf-8")
+    (repo / ".swarm_worker_stderr.log").write_text("worker stderr\n", encoding="utf-8")
 
 
 def _session_artifacts_exist(repo: Path) -> dict[str, bool]:
@@ -89,6 +91,8 @@ class TestCleanupAfterSuccessfulCollection:
         assert before[".codex_session_meta.json"] is True
         assert before[".codex_session.log"] is True
         assert before[".codex_session_active"] is True
+        assert before[".swarm_worker_stdout.log"] is True
+        assert before[".swarm_worker_stderr.log"] is True
 
         result = asyncio.run(
             WorkerLauncher.collect_detached_result(
@@ -107,6 +111,8 @@ class TestCleanupAfterSuccessfulCollection:
         assert after[".codex_session_meta.json"] is False
         assert after[".codex_session.log"] is False
         assert after[".codex_session_active"] is False
+        assert after[".swarm_worker_stdout.log"] is False
+        assert after[".swarm_worker_stderr.log"] is False
 
     def test_detached_preserves_real_files(self, repo: Path) -> None:
         """Real deliverable files must survive cleanup."""

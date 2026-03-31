@@ -73,6 +73,12 @@ class TestSessionArtifactsConstant:
     def test_contains_codex_session_log(self) -> None:
         assert ".codex_session.log" in SESSION_ARTIFACTS
 
+    def test_contains_swarm_worker_stdout_log(self) -> None:
+        assert ".swarm_worker_stdout.log" in SESSION_ARTIFACTS
+
+    def test_contains_swarm_worker_stderr_log(self) -> None:
+        assert ".swarm_worker_stderr.log" in SESSION_ARTIFACTS
+
     def test_is_frozen(self) -> None:
         assert isinstance(SESSION_ARTIFACTS, frozenset)
 
@@ -95,6 +101,11 @@ class TestStripSessionArtifacts:
         result = SwarmSupervisor._strip_session_artifacts(paths)
         assert result == ["src/app.ts"]
 
+    def test_strips_swarm_worker_stdout_log(self) -> None:
+        paths = [".swarm_worker_stdout.log", "src/app.ts"]
+        result = SwarmSupervisor._strip_session_artifacts(paths)
+        assert result == ["src/app.ts"]
+
     def test_keeps_non_artifacts(self) -> None:
         paths = ["aragora/live/package.json", "README.md"]
         result = SwarmSupervisor._strip_session_artifacts(paths)
@@ -105,7 +116,12 @@ class TestStripSessionArtifacts:
 
     def test_only_artifacts_returns_empty(self) -> None:
         """If session artifacts are the ONLY changes, result is empty."""
-        paths = [".codex_session_meta.json", ".codex_session.log"]
+        paths = [
+            ".codex_session_meta.json",
+            ".codex_session.log",
+            ".swarm_worker_stdout.log",
+            ".swarm_worker_stderr.log",
+        ]
         result = SwarmSupervisor._strip_session_artifacts(paths)
         assert result == []
 
@@ -275,6 +291,34 @@ class TestApplyWorkerResultSessionArtifacts:
 
         assert item["status"] == "needs_human"
 
+    def test_only_swarm_worker_log_rejected_not_completed(
+        self, repo: Path, store: DevCoordinationStore
+    ) -> None:
+        """Detached worker logs alone must not qualify as deliverables."""
+        supervisor = self._make_supervisor(repo, store)
+        item = {
+            "work_order_id": "swarm-log-only",
+            "file_scope": [],
+            "status": "dispatched",
+            "lease_id": "",
+            "target_agent": "codex",
+        }
+        result = WorkerProcess(
+            work_order_id="swarm-log-only",
+            agent="codex",
+            worktree_path=str(repo),
+            branch="main",
+            exit_code=0,
+            changed_paths=[".swarm_worker_stdout.log"],
+            commit_shas=["def456"],
+            head_sha="def456",
+        )
+        supervisor._apply_worker_result(item, result)
+
+        assert item["changed_paths"] == []
+        assert item["status"] == "needs_human"
+        assert "only session artifacts" in item.get("dispatch_error", "")
+
     def test_regression_issue_873_forensic_paths(
         self, repo: Path, store: DevCoordinationStore
     ) -> None:
@@ -407,6 +451,24 @@ class TestCollectChangedPathsFiltering:
         assert "real.py" in paths
         assert ".codex_session_meta.json" not in paths
 
+    def test_collect_excludes_swarm_worker_logs(self, repo: Path) -> None:
+        """Detached worker logs in git diff/status must be stripped from results."""
+        initial = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        (repo / ".swarm_worker_stdout.log").write_text("worker stdout\n", encoding="utf-8")
+        (repo / ".swarm_worker_stderr.log").write_text("worker stderr\n", encoding="utf-8")
+        (repo / "real.py").write_text("x = 1\n", encoding="utf-8")
+        _run(repo, "git", "add", "-A")
+        _run(repo, "git", "commit", "-m", "test swarm logs")
+        head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        paths = asyncio.run(
+            WorkerLauncher._collect_changed_paths(str(repo), initial_head=initial, head_sha=head)
+        )
+        assert "real.py" in paths
+        assert ".swarm_worker_stdout.log" not in paths
+        assert ".swarm_worker_stderr.log" not in paths
+
 
 # ---------------------------------------------------------------------------
 # End-to-end detached worker fail-closed path
@@ -480,14 +542,14 @@ class TestDetachedWorkerEndToEndFailClosed:
             worktree_path=str(repo),
             branch="main",
             exit_code=0,
-            changed_paths=["aragora/live/package.json"],  # real deliverable
+            changed_paths=["docs/status/DETACHED_REAL_WORK.md"],  # real deliverable
             commit_shas=["def456"],
             head_sha="def456",
         )
         supervisor._apply_worker_result(item, result)
 
-        # Should proceed to completed, not rejected
-        assert item["status"] != "needs_human"
+        # Docs-only deliverables remain merge-eligible without a verification plan.
+        assert item["status"] == "completed"
 
     def test_genuine_no_op_worker_fails_closed(
         self, repo: Path, store: DevCoordinationStore

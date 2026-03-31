@@ -543,8 +543,8 @@ class TestWait:
         assert result.exit_code == 0
         assert result.stdout == "worker stdout\n"
         assert result.stderr == "worker stderr\n"
-        assert (worktree / ".swarm_worker_stdout.log").read_text() == "worker stdout\n"
-        assert (worktree / ".swarm_worker_stderr.log").read_text() == "worker stderr\n"
+        assert not (worktree / ".swarm_worker_stdout.log").exists()
+        assert not (worktree / ".swarm_worker_stderr.log").exists()
 
     @pytest.mark.asyncio
     async def test_wait_handles_timeout(self):

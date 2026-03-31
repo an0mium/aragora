@@ -35,6 +35,8 @@ SESSION_ARTIFACTS: frozenset[str] = frozenset(
         ".codex_session_meta.json",
         ".codex_session.log",
         ".codex_session_active",
+        ".swarm_worker_stdout.log",
+        ".swarm_worker_stderr.log",
     }
 )
 
