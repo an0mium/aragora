@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -358,6 +359,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
   const [liveReceipt, setLiveReceipt] = useState<ReceiptData | null>(null);
   const [liveFinalAnswer, setLiveFinalAnswer] = useState('');
   const [isLive, setIsLive] = useState(false);
+  const apiBase = getRuntimeBackendConfig().config.api;
 
   // Pick data source based on mode
   const agents = isLive ? liveAgents : DEMO_AGENTS;
@@ -405,7 +407,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
     setShareUrl('');
 
     try {
-      const res = await fetch('/api/v1/playground/debate', {
+      const res = await fetch(`${apiBase}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: topicText, rounds: 2, agents: 3 }),
@@ -440,7 +442,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
       setError('Failed to connect. The server may be offline.');
       setLoading(false);
     }
-  }, [customTopic]);
+  }, [apiBase, customTopic]);
 
   // Orchestrate the reveal sequence (works for both demo and live)
   useEffect(() => {
