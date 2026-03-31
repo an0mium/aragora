@@ -7,61 +7,51 @@ import { test, expect } from './fixtures';
  * to visualizing the debate graph with nodes and branches.
  */
 
-// Skip mode selection tests on live.aragora.ai - shows dashboard not landing page
+async function openArena(page: import('@playwright/test').Page, aragoraPage: { dismissAllOverlays: () => Promise<void> }) {
+  await page.goto('/arena');
+  await aragoraPage.dismissAllOverlays();
+  await page.waitForLoadState('domcontentloaded');
+}
+
+async function expandAdvancedDebateOptions(page: import('@playwright/test').Page) {
+  const toggle = page.getByRole('button', { name: /show advanced options/i });
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator('#advanced-options')).toBeVisible();
+}
+
 test.describe('Graph Debate Mode Selection', () => {
   test.beforeEach(async () => {
-    // Skip these tests on live.aragora.ai (dashboard instead of landing page)
+    // Skip these tests on live.aragora.ai (dashboard shell instead of arena page)
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
-    test.skip(baseUrl.includes('live.aragora.ai'), 'Mode selection only available on landing page');
+    test.skip(baseUrl.includes('live.aragora.ai'), 'Mode selection only available in the local arena flow');
   });
 
-  test('should display mode selection buttons on homepage', async ({ page, aragoraPage }) => {
-    await page.goto('/');
-    await aragoraPage.dismissAllOverlays();
-    await page.waitForLoadState('domcontentloaded');
+  test('should display mode selection buttons in the arena', async ({ page, aragoraPage }) => {
+    await openArena(page, aragoraPage);
+    await expandAdvancedDebateOptions(page);
 
-    // Mode buttons are inside advanced options - need to expand first
-    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
-    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await showOptions.click();
-    }
-
-    // Should show mode buttons (tabs)
-    const modeButtons = page.locator('[role="tab"]');
-    await expect(modeButtons.first()).toBeVisible();
+    await expect(page.getByRole('tab', { name: /standard mode/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /graph mode/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /matrix mode/i })).toBeVisible();
   });
 
   test('should switch to GRAPH mode when clicked', async ({ page, aragoraPage }) => {
-    await page.goto('/');
-    await aragoraPage.dismissAllOverlays();
-    await page.waitForLoadState('domcontentloaded');
+    await openArena(page, aragoraPage);
+    await expandAdvancedDebateOptions(page);
 
-    // Expand advanced options first
-    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
-    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await showOptions.click();
-    }
-
-    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
+    const graphMode = page.getByRole('tab', { name: /graph mode/i });
     await graphMode.click();
 
-    // Should show as active (uses aria-selected or bg-acid-green class)
     await expect(graphMode).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText(/branching debate exploring multiple paths/i)).toBeVisible();
   });
 
   test('should update submit button text in GRAPH mode', async ({ page, aragoraPage }) => {
-    await page.goto('/');
-    await aragoraPage.dismissAllOverlays();
-    await page.waitForLoadState('domcontentloaded');
+    await openArena(page, aragoraPage);
+    await expandAdvancedDebateOptions(page);
 
-    // Expand advanced options first
-    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
-    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await showOptions.click();
-    }
-
-    // Switch to GRAPH mode
-    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
+    const graphMode = page.getByRole('tab', { name: /graph mode/i });
     await graphMode.click();
 
     // Button should still say START DEBATE (mode doesn't change button text)
@@ -72,37 +62,35 @@ test.describe('Graph Debate Mode Selection', () => {
 
 test.describe('Graph Debate Creation', () => {
   test.beforeEach(async () => {
-    // Skip on live.aragora.ai - shows dashboard not landing page
+    // Skip on live.aragora.ai - shows dashboard shell instead of arena page
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
-    test.skip(baseUrl.includes('live.aragora.ai'), 'Debate creation only available on landing page');
+    test.skip(baseUrl.includes('live.aragora.ai'), 'Debate creation only available in the local arena flow');
   });
 
   test('should create a graph debate and navigate to visualization', async ({ page, aragoraPage }) => {
     // This test may require API mocking or a running server
-    await page.goto('/');
-    await aragoraPage.dismissAllOverlays();
-    await page.waitForLoadState('domcontentloaded');
+    await openArena(page, aragoraPage);
+    await expandAdvancedDebateOptions(page);
 
-    // Expand advanced options first
-    const showOptions = page.locator('button').filter({ hasText: /Show options|\[\+\]/i });
-    if (await showOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await showOptions.click();
-    }
-
-    // Switch to GRAPH mode
-    const graphMode = page.locator('[role="tab"]').filter({ hasText: /graph/i });
+    const graphMode = page.getByRole('tab', { name: /graph mode/i });
     await graphMode.click();
 
-    // Enter a debate topic
-    const textarea = page.getByRole('textbox');
-    await textarea.fill('What is the best approach to sustainable energy?');
+    const questionInput = page.getByRole('textbox', { name: /enter your debate question/i });
+    await expect(questionInput).toBeVisible();
 
-    // Submit the debate - button text stays as START DEBATE
+    if (!(await questionInput.isEnabled())) {
+      const submitButton = page.getByRole('button', { name: /start debate/i });
+      await expect(submitButton).toBeDisabled();
+      await expect(submitButton).toContainText(/offline/i);
+      const offlineState = page.locator(':text("API server offline"), :text("Server temporarily unavailable")').first();
+      await expect(offlineState).toBeVisible();
+      return;
+    }
+
+    await questionInput.fill('What is the best approach to sustainable energy?');
+
+    // Submit the debate - button text stays as START DEBATE when online
     const submitButton = page.getByRole('button', { name: /start debate/i });
-
-    // Click submit - this will either:
-    // 1. Navigate to /debates/graph (if API is running)
-    // 2. Show an error (if API is not available)
     await submitButton.click();
 
     // Wait for navigation or error
