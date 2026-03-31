@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -111,3 +111,60 @@ async def test_pipeline_full_run_produces_essay_and_score() -> None:
     assert result["outline"] == "1. Stats\n2. Culture\n3. Conclusion"
     assert result["rounds_used"] >= 1
     assert isinstance(result["critique_history"], list)
+
+
+# ---------------------------------------------------------------------------
+# End-to-end integration with mocked agents
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pipeline_end_to_end_with_mocked_agents():
+    with patch("aragora.essay.pipeline.create_agent") as mock_create:
+        mock_agent = AsyncMock()
+        mock_agent.generate.side_effect = [
+            # Extraction
+            MagicMock(text="**Thesis:** AI needs testing\n**Outline:**\n1. Problem\n2. Solution"),
+            # Draft 1, 2, 3
+            MagicMock(text="Draft about AI testing. " * 80),
+            MagicMock(text="Alternative AI draft. " * 80),
+            MagicMock(text="Third perspective. " * 80),
+            # Evaluation scores (3 JSON responses)
+            MagicMock(
+                text='{"thesis_clarity":0.8,"argument_coherence":0.7,"evidence_grounding":0.6,"rhetorical_force":0.7,"concision":0.8,"factual_accuracy":0.9,"originality":0.5,"severity_notes":["weak"],"suggestions":["add data"]}'
+            ),
+            MagicMock(
+                text='{"thesis_clarity":0.7,"argument_coherence":0.8,"evidence_grounding":0.7,"rhetorical_force":0.6,"concision":0.7,"factual_accuracy":0.8,"originality":0.6}'
+            ),
+            MagicMock(
+                text='{"thesis_clarity":0.6,"argument_coherence":0.6,"evidence_grounding":0.8,"rhetorical_force":0.5,"concision":0.6,"factual_accuracy":0.7,"originality":0.7}'
+            ),
+            # Synthesis
+            MagicMock(text="Synthesized essay. " * 80),
+            # Polish
+            MagicMock(text="Polished final. " * 80),
+            # Final score
+            MagicMock(
+                text='{"thesis_clarity":0.85,"argument_coherence":0.82,"evidence_grounding":0.78,"rhetorical_force":0.80,"concision":0.85,"factual_accuracy":0.90,"originality":0.70}'
+            ),
+        ]
+        mock_create.return_value = mock_agent
+
+        # Rewrap side_effect so each call returns the .text string value directly.
+        # The pipeline passes the generate() return value to re.search and JSON
+        # parsers, which require plain strings rather than MagicMock objects.
+        _raw_responses = mock_agent.generate.side_effect
+        mock_agent.generate.side_effect = [r.text for r in _raw_responses]
+
+        pipeline = EssayRefinementPipeline(
+            models=["anthropic-api", "openai-api", "gemini"],
+            target_words=1000,
+            max_rounds=1,
+        )
+        result = await pipeline.run("Raw ideas about AI testing")
+
+        assert "final_essay" in result
+        assert "final_score" in result
+        assert result["final_score"].overall > 0
+        assert result["thesis"]
+        assert result["rounds_used"] >= 1
