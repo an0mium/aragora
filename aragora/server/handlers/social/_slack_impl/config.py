@@ -162,6 +162,11 @@ def create_tracked_task(coro_or_factory: TrackedTaskInput, name: str) -> asyncio
     """
     coro = _resolve_tracked_task_coro(coro_or_factory)
 
+    try:
+        current = asyncio.get_running_loop()
+    except RuntimeError:
+        current = None
+
     # 1. Find the persistent main server loop
     main_loop = None
     try:
@@ -180,11 +185,6 @@ def create_tracked_task(coro_or_factory: TrackedTaskInput, name: str) -> asyncio
 
     # 2. Dispatch to the main loop if available
     if main_loop is not None and main_loop.is_running():
-        try:
-            current = asyncio.get_running_loop()
-        except RuntimeError:
-            current = None
-
         if current is main_loop:
             # Already on the main loop — create_task is safe
             task = main_loop.create_task(coro, name=name)
@@ -207,7 +207,13 @@ def create_tracked_task(coro_or_factory: TrackedTaskInput, name: str) -> asyncio
 
         return _ThreadsafeTask()  # type: ignore[return-value]
 
-    # 3. Final fallback: thread with isolated event loop
+    # 3. If we're already on a live loop, prefer it over a background thread.
+    if current is not None:
+        task = current.create_task(coro, name=name)
+        task.add_done_callback(lambda t: _handle_task_exception(t, name))
+        return task
+
+    # 4. Final fallback: thread with isolated event loop
     def _run_in_thread() -> None:
         try:
             asyncio.run(coro)
