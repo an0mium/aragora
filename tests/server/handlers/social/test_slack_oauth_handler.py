@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import os
 import time
+import hmac
+import hashlib
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -66,6 +68,22 @@ def reset_oauth_state_store(oauth_state_store):
     oauth_state_store._states.clear()
     yield
     oauth_state_store._states.clear()
+
+
+@pytest.fixture(autouse=True)
+def patch_secret_lookup(monkeypatch):
+    """Keep unit tests isolated from live Secrets Manager values."""
+
+    def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+        module_value = globals().get(name)
+        if module_value not in (None, ""):
+            return module_value
+        return default
+
+    monkeypatch.setattr(
+        "aragora.server.handlers.social.slack_oauth.get_secret",
+        fake_get_secret,
+    )
 
 
 def parse_handler_response(result) -> dict[str, Any]:
@@ -144,6 +162,28 @@ class TestSlackOAuthInstall:
         assert "Location" in result.headers
         assert "slack.com/oauth" in result.headers["Location"]
         assert "client_id=test-client-id" in result.headers["Location"]
+
+    @pytest.mark.asyncio
+    async def test_install_uses_secret_backed_client_id(self, oauth_handler, oauth_state_store):
+        """Install should use Secrets Manager values when module env snapshot is empty."""
+
+        def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+            values = {
+                "SLACK_CLIENT_ID": "secret-client-id",
+                "ARAGORA_ENV": "test",
+            }
+            return values.get(name, default)
+
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", ""),
+            patch(
+                "aragora.server.handlers.social.slack_oauth.get_secret", side_effect=fake_get_secret
+            ),
+        ):
+            result = await oauth_handler.handle("GET", "/api/integrations/slack/install")
+
+        assert result.status_code == 302
+        assert "client_id=secret-client-id" in result.headers["Location"]
 
     @pytest.mark.asyncio
     async def test_install_generates_state(self, oauth_handler, oauth_state_store):
@@ -411,7 +451,7 @@ class TestSlackOAuthUninstall:
     @pytest.fixture(autouse=True)
     def _set_test_env(self):
         """Set ARAGORA_ENV=test so uninstall handler skips signing secret checks."""
-        with patch.dict(os.environ, {"ARAGORA_ENV": "test"}):
+        with patch("aragora.server.handlers.social.slack_oauth.ARAGORA_ENV", "test"):
             yield
 
     @pytest.mark.asyncio
@@ -455,6 +495,58 @@ class TestSlackOAuthUninstall:
                         "type": "tokens_revoked",
                         "tokens": {"bot": ["xoxb-token"]},
                     },
+                },
+            )
+
+        assert result.status_code == 200
+        mock_store.deactivate.assert_called_once_with("T12345678")
+
+    @pytest.mark.asyncio
+    async def test_uninstall_uses_secret_backed_signing_secret(self, oauth_handler):
+        """Uninstall should verify signatures with secret-backed config in production."""
+        body = {
+            "type": "event_callback",
+            "team_id": "T12345678",
+            "event": {"type": "app_uninstalled", "team_id": "T12345678"},
+        }
+        raw_body = json.dumps(body, separators=(",", ":"))
+        timestamp = str(int(time.time()))
+        signing_secret = "secret-signing-key"
+        signature = (
+            "v0="
+            + hmac.new(
+                signing_secret.encode(),
+                f"v0:{timestamp}:{raw_body}".encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
+
+        def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+            values = {
+                "SLACK_SIGNING_SECRET": signing_secret,
+                "ARAGORA_ENV": "production",
+            }
+            return values.get(name, default)
+
+        mock_store = MagicMock()
+
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_SIGNING_SECRET", ""),
+            patch(
+                "aragora.server.handlers.social.slack_oauth.get_secret", side_effect=fake_get_secret
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_store,
+            ),
+        ):
+            result = await oauth_handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body=body,
+                headers={
+                    "x-slack-request-timestamp": timestamp,
+                    "x-slack-signature": signature,
                 },
             )
 

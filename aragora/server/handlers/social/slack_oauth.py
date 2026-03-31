@@ -28,6 +28,7 @@ from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
+from aragora.config.secrets import get_secret
 from aragora.server.oauth_state_store import OAUTH_STATE_TTL_SECONDS
 
 from ..base import (
@@ -54,6 +55,7 @@ SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID")
 SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET")
 SLACK_REDIRECT_URI = os.environ.get("SLACK_REDIRECT_URI")
 ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "production")
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
 
 # Log at debug level for unconfigured optional integrations
 if not SLACK_CLIENT_ID:
@@ -114,6 +116,36 @@ _slack_oauth_audit: Any = None
 
 # Legacy in-memory fallback for tests/compatibility
 _oauth_states_fallback: dict[str, dict[str, Any]] = {}
+
+
+def _get_aragora_env() -> str:
+    """Resolve environment mode from Secrets Manager or env."""
+    return get_secret("ARAGORA_ENV", ARAGORA_ENV, strict=False) or "production"
+
+
+def _get_slack_client_id() -> str:
+    """Resolve Slack client ID from Secrets Manager or env."""
+    return get_secret("SLACK_CLIENT_ID", SLACK_CLIENT_ID, strict=False) or ""
+
+
+def _get_slack_client_secret() -> str:
+    """Resolve Slack client secret from Secrets Manager or env."""
+    return get_secret("SLACK_CLIENT_SECRET", SLACK_CLIENT_SECRET, strict=False) or ""
+
+
+def _get_slack_redirect_uri() -> str:
+    """Resolve Slack redirect URI from Secrets Manager or env."""
+    return get_secret("SLACK_REDIRECT_URI", SLACK_REDIRECT_URI, strict=False) or ""
+
+
+def _get_slack_scopes() -> str:
+    """Resolve Slack scopes from Secrets Manager or env."""
+    return get_secret("SLACK_SCOPES", SLACK_SCOPES, strict=False) or DEFAULT_SCOPES
+
+
+def _get_slack_signing_secret() -> str:
+    """Resolve Slack signing secret from Secrets Manager or env."""
+    return get_secret("SLACK_SIGNING_SECRET", SLACK_SIGNING_SECRET, strict=False) or ""
 
 
 def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
@@ -361,7 +393,7 @@ class SlackOAuthHandler(SecureHandler):
 
         # Allow unauthenticated install flow in non-production for developer convenience
         if path == "/api/integrations/slack/install" and method == "GET":
-            if ARAGORA_ENV.lower() in {"development", "dev", "test", "local"}:
+            if _get_aragora_env().lower() in {"development", "dev", "test", "local"}:
                 return await self._handle_install(query_params)
 
         # All other routes require authentication
@@ -468,7 +500,8 @@ class SlackOAuthHandler(SecureHandler):
         Optional query params:
             tenant_id: Aragora tenant to link workspace to
         """
-        if not SLACK_CLIENT_ID:
+        client_id = _get_slack_client_id()
+        if not client_id:
             return error_response(
                 "Slack OAuth not configured. Set SLACK_CLIENT_ID environment variable.",
                 503,
@@ -485,10 +518,10 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Failed to initialize OAuth flow", 503)
 
         # Build OAuth URL
-        redirect_uri = SLACK_REDIRECT_URI
+        redirect_uri = _get_slack_redirect_uri()
         if not redirect_uri:
             # SLACK_REDIRECT_URI is required in production to prevent open redirect attacks
-            if ARAGORA_ENV == "production":
+            if _get_aragora_env().lower() == "production":
                 return error_response(
                     "SLACK_REDIRECT_URI must be configured in production",
                     500,
@@ -502,8 +535,8 @@ class SlackOAuthHandler(SecureHandler):
             logger.warning("Using fallback redirect_uri in development: %s", redirect_uri)
 
         oauth_params = {
-            "client_id": SLACK_CLIENT_ID,
-            "scope": SLACK_SCOPES,
+            "client_id": client_id,
+            "scope": _get_slack_scopes(),
             "redirect_uri": redirect_uri,
             "state": state,
         }
@@ -540,7 +573,8 @@ class SlackOAuthHandler(SecureHandler):
         Query params:
             tenant_id: Optional tenant to link workspace to
         """
-        if not SLACK_CLIENT_ID:
+        client_id = _get_slack_client_id()
+        if not client_id:
             return error_response(
                 "Slack OAuth not configured. Set SLACK_CLIENT_ID environment variable.",
                 503,
@@ -549,7 +583,7 @@ class SlackOAuthHandler(SecureHandler):
         tenant_id = query_params.get("tenant_id", "")
 
         # Build scope information for display
-        current_scopes = SLACK_SCOPES.split(",")
+        current_scopes = _get_slack_scopes().split(",")
         required_scopes = []
         optional_scopes = []
 
@@ -825,7 +859,10 @@ class SlackOAuthHandler(SecureHandler):
             metadata = getattr(state_data, "metadata", None)
             tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
 
-        if not SLACK_CLIENT_ID or not SLACK_CLIENT_SECRET:
+        client_id = _get_slack_client_id()
+        client_secret = _get_slack_client_secret()
+        redirect_uri = _get_slack_redirect_uri()
+        if not client_id or not client_secret:
             return error_response("Slack OAuth not configured", 503)
 
         # Exchange code for access token with retry logic
@@ -847,10 +884,10 @@ class SlackOAuthHandler(SecureHandler):
                         response = await client.post(
                             SLACK_OAUTH_TOKEN_URL,
                             data={
-                                "client_id": SLACK_CLIENT_ID,
-                                "client_secret": SLACK_CLIENT_SECRET,
+                                "client_id": client_id,
+                                "client_secret": client_secret,
                                 "code": code,
-                                "redirect_uri": SLACK_REDIRECT_URI,
+                                "redirect_uri": redirect_uri,
                             },
                         )
 
@@ -1082,8 +1119,8 @@ class SlackOAuthHandler(SecureHandler):
         Verifies the request signature using the Slack signing secret.
         """
         # Verify signature - REQUIRED in production
-        signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
-        env = os.environ.get("ARAGORA_ENV", "production").lower()
+        signing_secret = _get_slack_signing_secret()
+        env = _get_aragora_env().lower()
         is_production = env not in ("development", "dev", "local", "test")
 
         if not signing_secret:
@@ -1340,8 +1377,8 @@ class SlackOAuthHandler(SecureHandler):
                     response = await client.post(
                         SLACK_OAUTH_TOKEN_URL,
                         data={
-                            "client_id": SLACK_CLIENT_ID,
-                            "client_secret": SLACK_CLIENT_SECRET,
+                            "client_id": _get_slack_client_id(),
+                            "client_secret": _get_slack_client_secret(),
                             "grant_type": "refresh_token",
                             "refresh_token": workspace.refresh_token,
                         },

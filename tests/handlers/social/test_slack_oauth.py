@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -100,6 +101,47 @@ def _patch_env(monkeypatch, handler_module):
     monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", "https://example.com/callback")
     monkeypatch.setattr(handler_module, "ARAGORA_ENV", "test")
     monkeypatch.setattr(handler_module, "SLACK_SCOPES", "channels:history,chat:write")
+    monkeypatch.setattr(handler_module, "SLACK_SIGNING_SECRET", "")
+    monkeypatch.setenv("SLACK_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("SLACK_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("SLACK_REDIRECT_URI", "https://example.com/callback")
+    monkeypatch.setenv("ARAGORA_ENV", "test")
+    monkeypatch.setenv("SLACK_SCOPES", "channels:history,chat:write")
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+
+
+@pytest.fixture(autouse=True)
+def _patch_secret_lookup(monkeypatch, handler_module):
+    """Keep unit tests isolated from live Secrets Manager values."""
+
+    baselines = {
+        "SLACK_CLIENT_ID": "test-client-id",
+        "SLACK_CLIENT_SECRET": "test-client-secret",
+        "SLACK_REDIRECT_URI": "https://example.com/callback",
+        "ARAGORA_ENV": "test",
+        "SLACK_SCOPES": "channels:history,chat:write",
+        "SLACK_SIGNING_SECRET": "",
+    }
+
+    def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+        baseline = baselines.get(name)
+        module_value = getattr(handler_module, name, None)
+        env_value = os.environ.get(name)
+
+        if name in baselines and module_value != baseline:
+            return module_value if module_value not in (None, "") else default
+
+        if name in baselines and env_value != baseline:
+            return env_value if env_value not in (None, "") else default
+
+        env_value = os.environ.get(name)
+        if module_value not in (None, ""):
+            return module_value
+        if env_value not in (None, ""):
+            return env_value
+        return default
+
+    monkeypatch.setattr(handler_module, "get_secret", fake_get_secret)
 
 
 @pytest.fixture
