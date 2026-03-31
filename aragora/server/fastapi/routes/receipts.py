@@ -364,6 +364,28 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
     )
 
 
+def _normalize_receipt_timestamp_value(value: Any) -> str | None:
+    """Return a parseable receipt timestamp string from common storage shapes."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat()
+    if isinstance(value, (int, float)):
+        normalized = value / 1000 if value > 1_000_000_000_000 else value
+        return datetime.fromtimestamp(normalized, tz=timezone.utc).isoformat()
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        try:
+            numeric = float(trimmed)
+        except ValueError:
+            return trimmed
+        normalized = numeric / 1000 if numeric > 1_000_000_000_000 else numeric
+        return datetime.fromtimestamp(normalized, tz=timezone.utc).isoformat()
+    return None
+
+
 def _extract_receipt_payload(receipt: Any) -> dict[str, Any]:
     """Normalize receipt payloads from dict, StoredReceipt, or legacy objects."""
     if isinstance(receipt, dict):
@@ -371,11 +393,19 @@ def _extract_receipt_payload(receipt: Any) -> dict[str, Any]:
         nested = receipt.get("data")
         if isinstance(nested, dict):
             payload.update(nested)
+        payload.setdefault(
+            "timestamp",
+            _normalize_receipt_timestamp_value(payload.get("created_at")),
+        )
         return payload
 
     if hasattr(receipt, "to_full_dict"):
         full_payload = receipt.to_full_dict()
         if isinstance(full_payload, dict):
+            full_payload.setdefault(
+                "timestamp",
+                _normalize_receipt_timestamp_value(full_payload.get("created_at")),
+            )
             return full_payload
 
     payload: dict[str, Any] = {}
@@ -400,11 +430,19 @@ def _extract_receipt_payload(receipt: Any) -> dict[str, Any]:
             payload[field] = getattr(receipt, field)
 
     if payload:
+        payload.setdefault(
+            "timestamp",
+            _normalize_receipt_timestamp_value(payload.get("created_at")),
+        )
         return payload
 
     if hasattr(receipt, "to_dict"):
         plain = receipt.to_dict()
         if isinstance(plain, dict):
+            plain.setdefault(
+                "timestamp",
+                _normalize_receipt_timestamp_value(plain.get("created_at")),
+            )
             return plain
 
     return {}
@@ -418,6 +456,10 @@ def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
             payload = dict(nested)
         else:
             payload = dict(receipt)
+        payload.setdefault(
+            "timestamp",
+            _normalize_receipt_timestamp_value(payload.get("created_at")),
+        )
     else:
         nested = getattr(receipt, "data", None)
         if isinstance(nested, dict):
@@ -433,6 +475,11 @@ def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
 
     if not payload:
         return {}
+
+    payload.setdefault(
+        "timestamp",
+        _normalize_receipt_timestamp_value(payload.get("created_at")),
+    )
 
     if hasattr(receipt, "to_dict"):
         plain = receipt.to_dict()

@@ -12,6 +12,7 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -147,6 +148,27 @@ def sample_stored_receipt(sample_receipt_dict):
     )
 
 
+@pytest.fixture
+def sample_stored_receipt_created_at_only(sample_receipt_dict):
+    """StoredReceipt without embedded timestamp, relying on ledger created_at."""
+    data = dict(sample_receipt_dict)
+    data.pop("timestamp", None)
+    return StoredReceipt(
+        receipt_id=sample_receipt_dict["receipt_id"],
+        gauntlet_id=sample_receipt_dict["gauntlet_id"],
+        debate_id="debate-123",
+        created_at=1740000000.0,
+        expires_at=None,
+        verdict=sample_receipt_dict["verdict"],
+        confidence=sample_receipt_dict["confidence"],
+        risk_level=sample_receipt_dict["risk_level"],
+        risk_score=sample_receipt_dict["risk_score"],
+        checksum=sample_receipt_dict["checksum"],
+        audit_trail_id=sample_receipt_dict["audit_trail_id"],
+        data=data,
+    )
+
+
 class TestListReceipts:
     """Tests for GET /api/v2/receipts."""
 
@@ -215,6 +237,54 @@ class TestListReceipts:
         assert data["receipts"][0]["input_summary"] == "Test input content"
         assert data["receipts"][0]["findings_count"] == 1
 
+    def test_list_receipts_backfills_timestamp_from_created_at_dict(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """List receipts should normalize created_at when dict payloads omit timestamp."""
+        receipt = dict(sample_receipt_dict)
+        receipt.pop("timestamp", None)
+        receipt["created_at"] = 1740000000.0
+        mock_receipt_store.list_recent.return_value = [receipt]
+        mock_receipt_store.count.return_value = 1
+
+        response = client.get("/api/v2/receipts")
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["receipts"][0]["timestamp"]
+            == datetime.fromtimestamp(1740000000.0, tz=timezone.utc).isoformat()
+        )
+
+    def test_list_receipts_backfills_timestamp_from_created_at(
+        self, app, sample_stored_receipt_created_at_only
+    ):
+        """List receipts should expose timestamps even when only created_at is stored."""
+
+        class StorageBackedStore:
+            def list(self, **kwargs):
+                return [sample_stored_receipt_created_at_only]
+
+            def count(self, **kwargs):
+                return 1
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": StorageBackedStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts")
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["receipts"][0]["timestamp"]
+            == datetime.fromtimestamp(1740000000.0, tz=timezone.utc).isoformat()
+        )
+
     def test_list_receipts_validation_limit_bounds(self, client):
         """Pagination limit must be between 1 and 100."""
         response = client.get("/api/v2/receipts?limit=0")
@@ -255,6 +325,22 @@ class TestGetReceipt:
         data = response.json()
         assert data["receipt_id"] == "rcpt_test123"
 
+    def test_get_receipt_backfills_timestamp_from_created_at_dict(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Get receipt should normalize created_at when dict payloads omit timestamp."""
+        receipt = dict(sample_receipt_dict)
+        receipt.pop("timestamp", None)
+        receipt["created_at"] = 1740000000.0
+        mock_receipt_store.get.return_value = receipt
+
+        response = client.get("/api/v2/receipts/rcpt_test123")
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["timestamp"] == datetime.fromtimestamp(1740000000.0, tz=timezone.utc).isoformat()
+        )
+
     def test_get_receipt_from_stored_receipt_uses_full_payload(
         self, client, mock_receipt_store, sample_stored_receipt
     ):
@@ -268,6 +354,19 @@ class TestGetReceipt:
         assert data["timestamp"] == "2026-02-11T12:00:00"
         assert len(data["findings"]) == 1
         assert data["agents_involved"] == ["claude", "codex"]
+
+    def test_get_receipt_backfills_timestamp_from_created_at(
+        self, client, mock_receipt_store, sample_stored_receipt_created_at_only
+    ):
+        """Get receipt should not drop ledger timestamps when payload timestamp is absent."""
+        mock_receipt_store.get.return_value = sample_stored_receipt_created_at_only
+
+        response = client.get("/api/v2/receipts/rcpt_test123")
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["timestamp"] == datetime.fromtimestamp(1740000000.0, tz=timezone.utc).isoformat()
+        )
 
 
 class TestVerifyReceipt:
