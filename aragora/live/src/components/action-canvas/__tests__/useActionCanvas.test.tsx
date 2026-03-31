@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { useOrchCanvas } from '../useOrchCanvas';
+import { useActionCanvas } from '../useActionCanvas';
 
 jest.mock('@/components/BackendSelector', () => ({
   useBackend: () => ({
@@ -43,35 +43,37 @@ class MockWebSocket {
   }
 }
 
-describe('useOrchCanvas', () => {
+describe('useActionCanvas', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+    MockWebSocket.instances = [];
+    mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
-      if (url === 'https://backend.test/api/v1/orchestration/canvas-1') {
+      if (url === 'https://backend.test/api/v1/actions/canvas-1' && !init) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
             id: 'canvas-1',
-            name: 'Test orchestration canvas',
-            owner_id: null,
-            workspace_id: null,
-            source_canvas_id: null,
-            description: '',
+            name: 'Test action canvas',
             metadata: { pipeline_id: 'pipe-123' },
-            created_at: '2026-03-25T00:00:00Z',
-            updated_at: '2026-03-25T00:00:00Z',
             nodes: [],
             edges: [],
           }),
         });
       }
 
-      if (url === 'https://backend.test/api/v1/canvas/pipeline/pipe-123/execute') {
+      if (url === 'https://backend.test/api/v1/actions/canvas-1' && init?.method === 'PUT') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ pipeline_id: 'pipe-123', status: 'queued' }),
+          json: async () => ({}),
+        });
+      }
+
+      if (url === 'https://backend.test/api/v1/canvas/pipeline/advance') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'ok' }),
         });
       }
 
@@ -80,37 +82,42 @@ describe('useOrchCanvas', () => {
 
     (global as typeof globalThis & { WebSocket: typeof WebSocket }).WebSocket =
       MockWebSocket as unknown as typeof WebSocket;
-    MockWebSocket.instances = [];
   });
 
-  it('executes the existing pipeline instead of starting a new run', async () => {
-    const { result } = renderHook(() => useOrchCanvas('canvas-1'));
+  it('uses the selected backend for action canvas load, save, advance, and websocket sync', async () => {
+    const { result } = renderHook(() => useActionCanvas('canvas-1'));
 
     await waitFor(() => {
       expect(result.current.canvasMeta?.metadata?.pipeline_id).toBe('pipe-123');
     });
 
-    let executionResult: { pipelineId: string; workflowId?: string } | null = null;
     await act(async () => {
-      executionResult = await result.current.executePipeline();
+      await result.current.saveCanvas();
     });
 
-    expect(executionResult).toEqual({ pipelineId: 'pipe-123' });
+    act(() => {
+      result.current.setSelectedNodeId('action-1');
+    });
+
+    await act(async () => {
+      await result.current.advanceToOrchestration();
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith('https://backend.test/api/v1/actions/canvas-1');
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://backend.test/api/v1/canvas/pipeline/pipe-123/execute',
+      'https://backend.test/api/v1/actions/canvas-1',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://backend.test/api/v1/canvas/pipeline/advance',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }),
     );
     expect(MockWebSocket.instances[0]?.url).toBe('wss://backend.test/ws/canvas/canvas-1');
-    expect(mockFetch).not.toHaveBeenCalledWith(
-      '/api/v1/canvas/pipeline/run',
-      expect.anything(),
-    );
-    expect(mockFetch).not.toHaveBeenCalledWith(
-      expect.stringContaining('/api/v2/pipeline/runs/pipe-123/execute-workflow'),
-      expect.anything(),
-    );
   });
 });

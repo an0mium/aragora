@@ -36,6 +36,7 @@ export const BACKENDS: Record<BackendType, BackendConfig> = {
 };
 
 const STORAGE_KEY = 'aragora-backend';
+export const BACKEND_CHANGE_EVENT = 'aragora-backend-change';
 
 export function buildHealthCheckUrl(apiBase: string): string {
   const normalizedBase = apiBase.trim().replace(/\/$/, '');
@@ -180,6 +181,7 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
   const handleSelect = (backend: BackendType) => {
     setSelected(backend);
     localStorage.setItem(STORAGE_KEY, backend);
+    window.dispatchEvent(new CustomEvent<BackendType>(BACKEND_CHANGE_EVENT, { detail: backend }));
     onChange?.(backend, resolveBackendConfig(backend, devSource));
   };
 
@@ -291,8 +293,18 @@ export function useBackend(): { backend: BackendType; config: BackendConfig } {
         setBackend(e.newValue as BackendType);
       }
     };
+    const handleBackendChange = (event: Event) => {
+      const nextBackend = (event as CustomEvent<BackendType>).detail;
+      if (nextBackend && BACKENDS[nextBackend]) {
+        setBackend(nextBackend);
+      }
+    };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener(BACKEND_CHANGE_EVENT, handleBackendChange as EventListener);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(BACKEND_CHANGE_EVENT, handleBackendChange as EventListener);
+    };
   }, [localHost]);
 
   return {

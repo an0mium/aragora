@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BackendSelector, useBackend } from '../BackendSelector';
 
 function BackendProbe() {
@@ -62,6 +62,27 @@ describe('BackendSelector', () => {
         expect.objectContaining({
           api: '',
           ws: 'ws://localhost:8765/ws',
+        }),
+      );
+    });
+  });
+
+  it('updates other useBackend consumers immediately after a same-tab backend switch', async () => {
+    render(
+      <>
+        <BackendSelector compact />
+        <BackendProbe />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /prod/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('backend-probe')).toHaveTextContent(
+        JSON.stringify({
+          backend: 'production',
+          api: 'https://api.aragora.ai',
+          ws: 'wss://api.aragora.ai/ws',
         }),
       );
     });

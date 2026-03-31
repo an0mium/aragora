@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge, type Connection, addEdge } from '@xyflow/react';
+import { useBackend } from '@/components/BackendSelector';
+import { joinBackendPath } from '@/lib/backendUrls';
 import type { ActionCanvasMeta, ActionNodeData, ActionNodeType, RemoteCursor } from './types';
 import { ACTION_NODE_CONFIGS } from './types';
 
 const API_BASE = '/api/v1/actions';
 
 export function useActionCanvas(canvasId: string | null) {
+  const { config: backendConfig } = useBackend();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -18,11 +21,20 @@ export function useActionCanvas(canvasId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const cursorThrottleRef = useRef<number>(0);
 
+  const buildApiUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.api, path),
+    [backendConfig.api],
+  );
+  const buildWsUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.ws, path),
+    [backendConfig.ws],
+  );
+
   const loadCanvas = useCallback(async () => {
     if (!canvasId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/${canvasId}`);
+      const res = await fetch(buildApiUrl(`${API_BASE}/${canvasId}`));
       if (!res.ok) return;
       const data = await res.json();
       setCanvasMeta(data);
@@ -44,14 +56,13 @@ export function useActionCanvas(canvasId: string | null) {
       setNodes(rfNodes);
       setEdges(rfEdges);
     } finally { setLoading(false); }
-  }, [canvasId, setNodes, setEdges]);
+  }, [buildApiUrl, canvasId, setEdges, setNodes]);
 
   useEffect(() => { loadCanvas(); }, [loadCanvas]);
 
   useEffect(() => {
     if (!canvasId) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/canvas/${canvasId}`);
+    const ws = new WebSocket(buildWsUrl(`/canvas/${canvasId}`));
     wsRef.current = ws;
     ws.onmessage = (event) => {
       try {
@@ -68,7 +79,7 @@ export function useActionCanvas(canvasId: string | null) {
     };
     ws.onopen = () => { ws.send(JSON.stringify({ type: 'actions:presence:join' })); };
     return () => { ws.send(JSON.stringify({ type: 'actions:presence:leave' })); ws.close(); wsRef.current = null; };
-  }, [canvasId, loadCanvas]);
+  }, [buildWsUrl, canvasId, loadCanvas]);
 
   const sendCursorMove = useCallback((position: { x: number; y: number }) => {
     const now = Date.now();
@@ -107,14 +118,14 @@ export function useActionCanvas(canvasId: string | null) {
 
   const saveCanvas = useCallback(async () => {
     if (!canvasId) return;
-    await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
-  }, [canvasId, canvasMeta]);
+    await fetch(buildApiUrl(`${API_BASE}/${canvasId}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
+  }, [buildApiUrl, canvasId, canvasMeta]);
 
   const advanceToOrchestration = useCallback(async () => {
     if (!canvasId || !selectedNodeId) return;
     const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
     if (pipelineId) {
-      const res = await fetch('/api/v1/canvas/pipeline/advance', {
+      const res = await fetch(buildApiUrl('/api/v1/canvas/pipeline/advance'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pipeline_id: pipelineId, target_stage: 'orchestration' }),
       });
@@ -122,7 +133,7 @@ export function useActionCanvas(canvasId: string | null) {
     } else {
       updateSelectedNode({ status: 'completed' } as Partial<ActionNodeData>);
     }
-  }, [canvasId, selectedNodeId, canvasMeta, updateSelectedNode]);
+  }, [buildApiUrl, canvasId, canvasMeta, selectedNodeId, updateSelectedNode]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeData = selectedNode?.data as ActionNodeData | undefined;

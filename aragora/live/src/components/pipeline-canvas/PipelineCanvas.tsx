@@ -34,6 +34,8 @@ import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
 import { usePipelineWebSocket } from '../../hooks/usePipelineWebSocket';
 import { StageTransitionGate } from '../pipeline/StageTransitionGate';
 import { StageSidebar } from './StageSidebar';
+import { useBackend } from '@/components/BackendSelector';
+import { joinBackendPath } from '@/lib/backendUrls';
 
 // =============================================================================
 // Constants
@@ -127,6 +129,8 @@ function PipelineCanvasInner({
   onTransitionReject,
   readOnly = false,
 }: PipelineCanvasProps) {
+  const { config: backendConfig } = useBackend();
+
   // -- Hook: central state management -----------------------------------------
   const {
     nodes,
@@ -443,7 +447,9 @@ function PipelineCanvasInner({
   const handleExportReceipt = useCallback(async () => {
     if (!pipelineId) return;
     try {
-      const response = await fetch(`/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/receipt`);
+      const response = await fetch(
+        joinBackendPath(backendConfig.api, `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/receipt`),
+      );
       if (!response.ok) {
         console.error('Failed to fetch receipt:', response.status);
         return;
@@ -461,7 +467,7 @@ function PipelineCanvasInner({
     } catch (err) {
       console.error('Export receipt failed:', err);
     }
-  }, [pipelineId]);
+  }, [backendConfig.api, pipelineId]);
 
   // -- Provenance navigation handler ------------------------------------------
   const handleProvenanceNavigate = useCallback(
@@ -477,7 +483,7 @@ function PipelineCanvasInner({
   // -- Template selection handlers --------------------------------------------
   const handleSelectTemplate = useCallback(async (templateName: string) => {
     try {
-      const res = await fetch('/api/v1/canvas/pipeline/from-template', {
+      const res = await fetch(joinBackendPath(backendConfig.api, '/api/v1/canvas/pipeline/from-template'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template_name: templateName, auto_advance: false }),
@@ -490,7 +496,7 @@ function PipelineCanvasInner({
     } catch {
       // Template creation failed silently, user can retry
     }
-  }, []);
+  }, [backendConfig.api]);
 
   const handleStartBlank = useCallback(() => {
     setShowTemplates(false);

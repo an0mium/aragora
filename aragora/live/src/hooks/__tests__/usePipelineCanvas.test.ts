@@ -16,6 +16,16 @@ import { renderHook, act } from '@testing-library/react';
 import { usePipelineCanvas } from '../usePipelineCanvas';
 import type { PipelineResultResponse } from '../../components/pipeline-canvas/types';
 
+jest.mock('../../components/BackendSelector', () => ({
+  useBackend: () => ({
+    backend: 'production',
+    config: {
+      api: 'https://backend.test',
+      ws: 'wss://backend.test/ws',
+    },
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -33,6 +43,21 @@ jest.mock('@xyflow/react', () => ({
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+class MockWebSocket {
+  static instances: MockWebSocket[] = [];
+
+  url: string;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onopen: (() => void) | null = null;
+  send = jest.fn();
+  close = jest.fn();
+
+  constructor(url: string) {
+    this.url = url;
+    MockWebSocket.instances.push(this);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -75,6 +100,9 @@ describe('usePipelineCanvas', () => {
     mockSetEdges.mockClear();
     mockOnNodesChange.mockClear();
     mockOnEdgesChange.mockClear();
+    MockWebSocket.instances = [];
+    (global as typeof globalThis & { WebSocket: typeof WebSocket }).WebSocket =
+      MockWebSocket as unknown as typeof WebSocket;
   });
 
   it('returns default state when pipelineId is null', () => {
@@ -128,10 +156,13 @@ describe('usePipelineCanvas', () => {
       renderHook(() => usePipelineCanvas('test-1'));
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/v1/canvas/pipeline/test-1');
+    expect(mockFetch).toHaveBeenCalledWith('https://backend.test/api/v1/canvas/pipeline/test-1');
     // After successful fetch, setNodes/setEdges are called to load ideas stage
     expect(mockSetNodes).toHaveBeenCalled();
     expect(mockSetEdges).toHaveBeenCalled();
+    expect(MockWebSocket.instances[0]?.url).toBe(
+      'wss://backend.test/ws/pipeline?pipeline_id=test-1',
+    );
   });
 
   it('setActiveStage switches stage and updates nodes/edges', () => {
@@ -313,7 +344,7 @@ describe('usePipelineCanvas', () => {
 
       expect(pipelineId).toBe('pipe-new');
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/canvas/pipeline/from-ideas',
+        'https://backend.test/api/v1/canvas/pipeline/from-ideas',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -394,7 +425,7 @@ describe('usePipelineCanvas', () => {
 
       expect(pipelineId).toBe('pipe-run-1');
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/canvas/pipeline/run',
+        'https://backend.test/api/v1/canvas/pipeline/run',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

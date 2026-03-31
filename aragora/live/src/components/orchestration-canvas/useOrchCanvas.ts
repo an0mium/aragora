@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge, type Connection, addEdge } from '@xyflow/react';
+import { useBackend } from '@/components/BackendSelector';
+import { joinBackendPath } from '@/lib/backendUrls';
 import type { OrchCanvasMeta, OrchNodeData, OrchNodeType, RemoteCursor } from './types';
 import { ORCH_NODE_CONFIGS } from './types';
 
 const API_BASE = '/api/v1/orchestration';
 
 export function useOrchCanvas(canvasId: string | null) {
+  const { config: backendConfig } = useBackend();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -18,11 +21,20 @@ export function useOrchCanvas(canvasId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const cursorThrottleRef = useRef<number>(0);
 
+  const buildApiUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.api, path),
+    [backendConfig.api],
+  );
+  const buildWsUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.ws, path),
+    [backendConfig.ws],
+  );
+
   const loadCanvas = useCallback(async () => {
     if (!canvasId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/${canvasId}`);
+      const res = await fetch(buildApiUrl(`${API_BASE}/${canvasId}`));
       if (!res.ok) return;
       const data = await res.json();
       setCanvasMeta(data);
@@ -47,14 +59,13 @@ export function useOrchCanvas(canvasId: string | null) {
       setNodes(rfNodes);
       setEdges(rfEdges);
     } finally { setLoading(false); }
-  }, [canvasId, setNodes, setEdges]);
+  }, [buildApiUrl, canvasId, setEdges, setNodes]);
 
   useEffect(() => { loadCanvas(); }, [loadCanvas]);
 
   useEffect(() => {
     if (!canvasId) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/canvas/${canvasId}`);
+    const ws = new WebSocket(buildWsUrl(`/canvas/${canvasId}`));
     wsRef.current = ws;
     ws.onmessage = (event) => {
       try {
@@ -71,7 +82,7 @@ export function useOrchCanvas(canvasId: string | null) {
     };
     ws.onopen = () => { ws.send(JSON.stringify({ type: 'orchestration:presence:join' })); };
     return () => { ws.send(JSON.stringify({ type: 'orchestration:presence:leave' })); ws.close(); wsRef.current = null; };
-  }, [canvasId, loadCanvas]);
+  }, [buildWsUrl, canvasId, loadCanvas]);
 
   const sendCursorMove = useCallback((position: { x: number; y: number }) => {
     const now = Date.now();
@@ -110,8 +121,8 @@ export function useOrchCanvas(canvasId: string | null) {
 
   const saveCanvas = useCallback(async () => {
     if (!canvasId) return;
-    await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
-  }, [canvasId, canvasMeta]);
+    await fetch(buildApiUrl(`${API_BASE}/${canvasId}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
+  }, [buildApiUrl, canvasId, canvasMeta]);
 
   const executePipeline = useCallback(async (): Promise<{ pipelineId: string; workflowId?: string } | null> => {
     if (!canvasId) return null;
@@ -124,7 +135,7 @@ export function useOrchCanvas(canvasId: string | null) {
     })));
 
     try {
-      const executionRes = await fetch(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {
+      const executionRes = await fetch(buildApiUrl(`/api/v1/canvas/pipeline/${pipelineId}/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dry_run: false, enable_receipts: true }),
@@ -150,7 +161,7 @@ export function useOrchCanvas(canvasId: string | null) {
       })));
       return null;
     }
-  }, [canvasId, canvasMeta, setNodes]);
+  }, [buildApiUrl, canvasId, canvasMeta, setNodes]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeData = selectedNode?.data as OrchNodeData | undefined;

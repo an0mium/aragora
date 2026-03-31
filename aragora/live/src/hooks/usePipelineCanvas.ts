@@ -18,6 +18,8 @@ import {
   type OnConnect,
   type Connection,
 } from '@xyflow/react';
+import { useBackend } from '@/components/BackendSelector';
+import { joinBackendPath } from '@/lib/backendUrls';
 import type {
   PipelineStageType,
   PipelineResultResponse,
@@ -33,8 +35,8 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const API_PREFIX = '/api/v1/canvas/pipeline';
-const GRAPH_API_PREFIX = '/api/v1/pipeline/graph';
+const PIPELINE_API_PATH = '/api/v1/canvas/pipeline';
+const PIPELINE_GRAPH_API_PATH = '/api/v1/pipeline/graph';
 
 /** A single transition suggestion returned from the suggestions endpoint. */
 export interface TransitionSuggestion {
@@ -124,6 +126,8 @@ export function usePipelineCanvas(
   pipelineId: string | null,
   initialData?: PipelineResultResponse | null,
 ) {
+  const { config: backendConfig } = useBackend();
+
   // -- React Flow state (active stage) ------------------------------------
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -153,6 +157,16 @@ export function usePipelineCanvas(
 
   // -- WebSocket ref ------------------------------------------------------
   const wsRef = useRef<WebSocket | null>(null);
+  const previousApiBaseRef = useRef(backendConfig.api);
+
+  const buildApiUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.api, path),
+    [backendConfig.api],
+  );
+  const buildWsUrl = useCallback(
+    (path: string) => joinBackendPath(backendConfig.ws, path),
+    [backendConfig.ws],
+  );
 
   // -- Sync helpers -------------------------------------------------------
   const syncCacheToState = useCallback(() => {
@@ -199,7 +213,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${id}`);
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/${id}`));
         if (!res.ok) {
           setError(`Failed to load pipeline: ${res.status}`);
           return;
@@ -214,7 +228,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [populateFromResult, loadStageIntoFlow, activeStage],
+    [activeStage, buildApiUrl, loadStageIntoFlow, populateFromResult],
   );
 
   // ---- Reload a single stage from API ----------------------------------
@@ -222,7 +236,7 @@ export function usePipelineCanvas(
     async (stage: PipelineStageType) => {
       if (!pipelineId) return;
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/stage/${stage}`);
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/${pipelineId}/stage/${stage}`));
         if (!res.ok) return;
         const data = await res.json();
         const stageData = data.data ?? data;
@@ -238,7 +252,7 @@ export function usePipelineCanvas(
         // Silently fail -- the cache retains its previous state
       }
     },
-    [pipelineId, activeStage, loadStageIntoFlow, syncCacheToState],
+    [activeStage, buildApiUrl, loadStageIntoFlow, pipelineId, syncCacheToState],
   );
 
   // ---- Clear current stage -----------------------------------------------
@@ -269,12 +283,19 @@ export function usePipelineCanvas(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelineId]);
 
+  useEffect(() => {
+    if (previousApiBaseRef.current === backendConfig.api) return;
+    previousApiBaseRef.current = backendConfig.api;
+    if (pipelineId && !initialData) {
+      void loadPipeline(pipelineId);
+    }
+  }, [backendConfig.api, initialData, loadPipeline, pipelineId]);
+
   // ---- WebSocket --------------------------------------------------------
   useEffect(() => {
     if (!pipelineId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/pipeline?pipeline_id=${encodeURIComponent(pipelineId)}`;
+    const wsUrl = buildWsUrl(`/pipeline?pipeline_id=${encodeURIComponent(pipelineId)}`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -324,7 +345,7 @@ export function usePipelineCanvas(
       ws.close();
       wsRef.current = null;
     };
-  }, [pipelineId, activeStage, reloadStage]);
+  }, [activeStage, buildWsUrl, pipelineId, reloadStage]);
 
   // ---- Stage switching --------------------------------------------------
   const setActiveStage = useCallback(
@@ -465,7 +486,7 @@ export function usePipelineCanvas(
       }
       body.stages = stagesPayload;
 
-      const res = await fetch(`${API_PREFIX}/${pipelineId}`, {
+      const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/${pipelineId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -479,7 +500,7 @@ export function usePipelineCanvas(
     } finally {
       setLoading(false);
     }
-  }, [pipelineId, saveCurrentToCache]);
+  }, [buildApiUrl, pipelineId, saveCurrentToCache]);
 
   // ---- API: AI generate stage -------------------------------------------
   const aiGenerate = useCallback(
@@ -494,7 +515,7 @@ export function usePipelineCanvas(
         if (stage === 'goals') {
           // Extract goals from current ideas nodes
           const ideaNodes = stageNodesRef.current.ideas;
-          res = await fetch(`${API_PREFIX}/extract-goals`, {
+          res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/extract-goals`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -509,7 +530,7 @@ export function usePipelineCanvas(
           });
         } else {
           // Advance to 'actions' or 'orchestration'
-          res = await fetch(`${API_PREFIX}/advance`, {
+          res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/advance`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -551,7 +572,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [pipelineId, activeStage, populateFromResult, loadStageIntoFlow, syncCacheToState],
+    [activeStage, buildApiUrl, loadStageIntoFlow, pipelineId, populateFromResult, syncCacheToState],
   );
 
   // ---- API: create pipeline from natural-language ideas ----------------
@@ -572,7 +593,7 @@ export function usePipelineCanvas(
           return null;
         }
 
-        const res = await fetch(`${API_PREFIX}/from-ideas`, {
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/from-ideas`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -602,7 +623,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [activeStage, populateFromResult, loadStageIntoFlow],
+    [activeStage, buildApiUrl, loadStageIntoFlow, populateFromResult],
   );
 
   // ---- API: run full pipeline ------------------------------------------
@@ -611,7 +632,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/run`, {
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/run`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -633,7 +654,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [],
+    [buildApiUrl],
   );
 
   // ---- API: approve transition ------------------------------------------
@@ -643,7 +664,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/${pipelineId}/approve-transition`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transition_id: transitionId, approved: true }),
@@ -657,7 +678,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [pipelineId],
+    [buildApiUrl, pipelineId],
   );
 
   // ---- API: reject transition -------------------------------------------
@@ -667,7 +688,7 @@ export function usePipelineCanvas(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+        const res = await fetch(buildApiUrl(`${PIPELINE_API_PATH}/${pipelineId}/approve-transition`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transition_id: transitionId, approved: false, reason: reason ?? '' }),
@@ -681,7 +702,7 @@ export function usePipelineCanvas(
         setLoading(false);
       }
     },
-    [pipelineId],
+    [buildApiUrl, pipelineId],
   );
 
   // ---- API: fetch transition suggestions ---------------------------------
@@ -692,7 +713,9 @@ export function usePipelineCanvas(
       setSuggestionsLoading(true);
       try {
         const res = await fetch(
-          `${GRAPH_API_PREFIX}/${encodeURIComponent(pipelineId)}/suggestions?stage=${encodeURIComponent(stage)}`,
+          buildApiUrl(
+            `${PIPELINE_GRAPH_API_PATH}/${encodeURIComponent(pipelineId)}/suggestions?stage=${encodeURIComponent(stage)}`,
+          ),
         );
         if (!res.ok) {
           setSuggestions([]);
@@ -709,7 +732,7 @@ export function usePipelineCanvas(
         setSuggestionsLoading(false);
       }
     },
-    [pipelineId],
+    [buildApiUrl, pipelineId],
   );
 
   // ---- Node status updates (from WebSocket) ------------------------------

@@ -5,7 +5,7 @@
  * property editor display, and provenance sidebar in readOnly mode.
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import type { PipelineResultResponse, PipelineStageType } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,10 @@ jest.mock('../PipelinePalette', () => ({
 
 jest.mock('../PipelineToolbar', () => ({
   PipelineToolbar: (props: Record<string, unknown>) => (
-    <div data-testid="pipeline-toolbar">Toolbar: {props.stage as string}</div>
+    <div data-testid="pipeline-toolbar">
+      Toolbar: {props.stage as string}
+      <button onClick={props.onExportReceipt as () => void}>Export Receipt</button>
+    </div>
   ),
 }));
 
@@ -232,11 +235,62 @@ describe('PipelineCanvas Interactive', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    localStorage.clear();
     mockedUsePipelineCanvas.mockReturnValue(makeMockCanvas());
   });
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('exports receipts from the selected backend', async () => {
+    localStorage.setItem('aragora-backend', 'production');
+    const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ receipt_id: 'receipt-1' }),
+    } as Response);
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: jest.fn(() => 'blob:test'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: jest.fn(),
+    });
+    const anchorClickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<PipelineCanvas pipelineId="pipe-1" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('stage-btn-ideas'));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /export receipt/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/v1/canvas/pipeline/pipe-1/receipt',
+      );
+    });
+
+    anchorClickSpy.mockRestore();
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: originalRevokeObjectUrl,
+    });
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: originalCreateObjectUrl,
+    });
+    mockFetch.mockRestore();
   });
 
   it('renders "All Stages" button and StageNavigator in default view', () => {

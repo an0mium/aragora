@@ -1,6 +1,8 @@
 'use client';
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { useBackend } from '@/components/BackendSelector';
+import { joinBackendPath } from '@/lib/backendUrls';
 
 // =============================================================================
 // Types
@@ -45,6 +47,7 @@ export const TemplateSelector = memo(function TemplateSelector({
   onSelectTemplate,
   onStartBlank,
 }: TemplateSelectorProps) {
+  const { config: backendConfig } = useBackend();
   const [templates, setTemplates] = useState<PipelineTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export const TemplateSelector = memo(function TemplateSelector({
 
     async function fetchTemplates() {
       try {
-        const res = await fetch('/api/v1/canvas/pipeline/templates');
+        const res = await fetch(joinBackendPath(backendConfig.api, '/api/v1/canvas/pipeline/templates'));
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) {
@@ -79,7 +82,7 @@ export const TemplateSelector = memo(function TemplateSelector({
 
     fetchTemplates();
     return () => { cancelled = true; };
-  }, []);
+  }, [backendConfig.api]);
 
   const categories = Array.from(new Set(templates.map((t) => t.category)));
   const filtered = selectedCategory
