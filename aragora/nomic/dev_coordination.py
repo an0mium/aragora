@@ -1621,43 +1621,44 @@ class DevCoordinationStore:
 
         results: list[dict[str, Any]] = []
         verification_env = WorkerLauncher._verification_environment(worktree_path)
-        for raw_command in commands:
-            command = str(raw_command).strip()
-            if not command:
-                continue
-            execution_command = WorkerLauncher._prepare_verification_command(command)
-            started = time.monotonic()
-            try:
-                proc = subprocess.run(
-                    ["/bin/bash", "-lc", execution_command],
-                    cwd=worktree_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    check=False,
-                    env=verification_env,
+        with WorkerLauncher._temporary_verification_mounts(worktree_path):
+            for raw_command in commands:
+                command = str(raw_command).strip()
+                if not command:
+                    continue
+                execution_command = WorkerLauncher._prepare_verification_command(command)
+                started = time.monotonic()
+                try:
+                    proc = subprocess.run(
+                        ["/bin/bash", "-lc", execution_command],
+                        cwd=worktree_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        check=False,
+                        env=verification_env,
+                    )
+                    exit_code = proc.returncode
+                    stdout = proc.stdout
+                    stderr = proc.stderr
+                except subprocess.TimeoutExpired as exc:
+                    exit_code = -1
+                    stdout = exc.stdout or ""
+                    stderr = exc.stderr or f"Timed out after {int(timeout)}s"
+                except OSError as exc:
+                    exit_code = -2
+                    stdout = ""
+                    stderr = str(exc)
+                results.append(
+                    {
+                        "command": command,
+                        "exit_code": exit_code,
+                        "passed": exit_code == 0,
+                        "stdout": stdout,
+                        "stderr": stderr,
+                        "duration_seconds": round(time.monotonic() - started, 3),
+                    }
                 )
-                exit_code = proc.returncode
-                stdout = proc.stdout
-                stderr = proc.stderr
-            except subprocess.TimeoutExpired as exc:
-                exit_code = -1
-                stdout = exc.stdout or ""
-                stderr = exc.stderr or f"Timed out after {int(timeout)}s"
-            except OSError as exc:
-                exit_code = -2
-                stdout = ""
-                stderr = str(exc)
-            results.append(
-                {
-                    "command": command,
-                    "exit_code": exit_code,
-                    "passed": exit_code == 0,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "duration_seconds": round(time.monotonic() - started, 3),
-                }
-            )
         return results
 
     def _resolve_verification_worktree(
@@ -1665,6 +1666,14 @@ class DevCoordinationStore:
         work_order: dict[str, Any],
     ) -> tuple[str, Path | None]:
         worktree_path = Path(str(work_order.get("worktree_path") or "").strip())
+        existing_path = str(worktree_path) if worktree_path.is_dir() else ""
+        allow_existing_fallback = bool(
+            existing_path
+            and (
+                _optional_text(work_order.get("receipt_id"))
+                or _work_order_has_concrete_deliverable(work_order)
+            )
+        )
         if worktree_path.is_dir():
             head_sha = str(work_order.get("head_sha") or "").strip()
             if head_sha:
@@ -1708,7 +1717,7 @@ class DevCoordinationStore:
                 ref = candidate
                 break
         if not ref:
-            return "", None
+            return (existing_path, None) if allow_existing_fallback else ("", None)
 
         parent = self.repo_root / ".worktrees" / "verification-replay"
         parent.mkdir(parents=True, exist_ok=True)
@@ -1809,9 +1818,13 @@ class DevCoordinationStore:
         should_replay: Any,
         metadata_flag: str,
         prepare_commands: Any | None = None,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
     ) -> int:
+        allowed_task_keys = {
+            str(task_key).strip() for task_key in (task_keys or []) if str(task_key).strip()
+        }
         conn = self._connect()
         try:
             rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
@@ -1831,6 +1844,13 @@ class DevCoordinationStore:
                     work_order_id = _work_order_identifier(item)
                     if not work_order_id:
                         continue
+                    if allowed_task_keys and not _merge_gate_replay_matches_task_keys(
+                        run_id=record["run_id"],
+                        work_order_id=work_order_id,
+                        work_order=item,
+                        allowed_task_keys=allowed_task_keys,
+                    ):
+                        continue
                     candidate_ids.append((record["run_id"], work_order_id))
                     attempted += 1
         finally:
@@ -1843,6 +1863,13 @@ class DevCoordinationStore:
                 continue
             item = _find_work_order(record, work_order_id)
             if item is None or not should_replay(item):
+                continue
+            if allowed_task_keys and not _merge_gate_replay_matches_task_keys(
+                run_id=run_id,
+                work_order_id=work_order_id,
+                work_order=item,
+                allowed_task_keys=allowed_task_keys,
+            ):
                 continue
 
             commands = [
@@ -1885,6 +1912,13 @@ class DevCoordinationStore:
                 record = self._supervisor_run_from_row(row)
                 item = _find_work_order(record, work_order_id)
                 if item is None or not should_replay(item):
+                    continue
+                if allowed_task_keys and not _merge_gate_replay_matches_task_keys(
+                    run_id=run_id,
+                    work_order_id=work_order_id,
+                    work_order=item,
+                    allowed_task_keys=allowed_task_keys,
+                ):
                     continue
                 if prepare_commands is not None and prepare_commands(item) is None:
                     continue
@@ -1946,12 +1980,14 @@ class DevCoordinationStore:
     def replay_missing_verification_for_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
     ) -> int:
         return self._replay_merge_gate_failures(
             should_replay=_work_order_should_replay_missing_verification,
             metadata_flag="verification_replayed",
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
         )
@@ -1959,12 +1995,46 @@ class DevCoordinationStore:
     def replay_environment_blocked_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
     ) -> int:
         return self._replay_merge_gate_failures(
             should_replay=_work_order_should_replay_environment_blocked_verification,
             metadata_flag="verification_environment_replayed",
+            task_keys=task_keys,
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_docs_only_merge_gate_failures(
+        self,
+        *,
+        task_keys: list[str] | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_docs_only_merge_gate_failure,
+            metadata_flag="verification_docs_replayed",
+            prepare_commands=_docs_only_replay_commands_for_work_order,
+            task_keys=task_keys,
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_narrow_pytest_merge_gate_failures(
+        self,
+        *,
+        task_keys: list[str] | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_narrow_pytest_merge_gate_failure,
+            metadata_flag="verification_narrow_pytest_replayed",
+            prepare_commands=_narrow_pytest_replay_commands_for_work_order,
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
         )
@@ -1972,6 +2042,7 @@ class DevCoordinationStore:
     def replay_targeted_merge_gate_failures(
         self,
         *,
+        task_keys: list[str] | None = None,
         limit: int | None = None,
         timeout: float = 900.0,
     ) -> int:
@@ -2004,6 +2075,7 @@ class DevCoordinationStore:
             should_replay=_work_order_should_replay_targeted_merge_gate_failure,
             metadata_flag="verification_targeted_replayed",
             prepare_commands=_prepare,
+            task_keys=task_keys,
             limit=limit,
             timeout=timeout,
         )
@@ -3996,6 +4068,23 @@ def _work_order_identifier(work_order: dict[str, Any]) -> str:
     )
 
 
+def _merge_gate_replay_matches_task_keys(
+    *,
+    run_id: str,
+    work_order_id: str,
+    work_order: dict[str, Any],
+    allowed_task_keys: set[str],
+) -> bool:
+    if not allowed_task_keys:
+        return True
+    candidates = {
+        f"{str(run_id).strip()}:{str(work_order_id).strip()}",
+        _optional_text(work_order.get("task_key")),
+    }
+    candidates.discard("")
+    return any(candidate in allowed_task_keys for candidate in candidates)
+
+
 def _find_work_order(record: dict[str, Any], work_order_id: str) -> dict[str, Any] | None:
     target = str(work_order_id).strip()
     if not target:
@@ -4480,6 +4569,8 @@ def _verification_result_looks_environment_blocked(result: dict[str, Any]) -> bo
             "no module named 'aragora_debate'",
             "no module named 'pydantic_settings'",
             "cannot find module 'next/jest'",
+            "cannot find type definition file for 'jest'",
+            "cannot find type definition file for 'node'",
             "jest: command not found",
             "cannot find module 'react'",
             "react/jsx-runtime",
@@ -4501,6 +4592,105 @@ def _work_order_should_replay_environment_blocked_verification(work_order: dict[
     return any(
         _verification_result_looks_environment_blocked(entry) for entry in verification_results
     )
+
+
+def _is_docs_only_verification_command(command: str) -> bool:
+    normalized = _canonical_verification_command(command)
+    if not normalized:
+        return False
+    try:
+        tokens = shlex.split(normalized)
+    except ValueError:
+        return False
+    if len(tokens) < 2:
+        return False
+    script_path = str(tokens[1]).strip()
+    return script_path in {
+        "scripts/reconcile_status_docs.py",
+        "scripts/check_capability_matrix_sync.py",
+        "scripts/check_version_alignment.py",
+    }
+
+
+def _docs_only_replay_commands_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    commands: list[str] = []
+    seen: set[str] = set()
+    for source in (
+        work_order.get("expected_tests", []),
+        work_order.get("tests_run", []),
+        [
+            entry.get("command")
+            for entry in work_order.get("verification_results", [])
+            if isinstance(entry, dict)
+        ],
+    ):
+        for command in source:
+            display = str(command).strip()
+            normalized = _canonical_verification_command(display)
+            if (
+                not display
+                or not normalized
+                or normalized in seen
+                or not _is_docs_only_verification_command(display)
+            ):
+                continue
+            seen.add(normalized)
+            commands.append(display)
+    return commands
+
+
+def _narrow_pytest_replay_commands_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    commands: list[str] = []
+    seen: set[str] = set()
+    sources = (
+        work_order.get("expected_tests", []),
+        work_order.get("tests_run", []),
+        [
+            entry.get("command")
+            for entry in work_order.get("verification_results", [])
+            if isinstance(entry, dict)
+        ],
+    )
+    discovered = False
+    for source in sources:
+        for command in source:
+            display = str(command).strip()
+            normalized = _canonical_verification_command(display)
+            if not display or not normalized:
+                continue
+            discovered = True
+            if not _pytest_command_targets(normalized) or _is_overbroad_pytest_command(normalized):
+                return []
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            commands.append(display)
+    if not discovered:
+        return []
+    return commands
+
+
+def _work_order_should_replay_docs_only_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    changed_paths = [
+        str(path).strip()
+        for path in work_order.get("changed_paths", []) or work_order.get("file_scope", [])
+        if str(path).strip()
+    ]
+    if not changed_paths or not all(_is_docs_only_path(path) for path in changed_paths):
+        return False
+    return bool(_docs_only_replay_commands_for_work_order(work_order))
+
+
+def _work_order_should_replay_narrow_pytest_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    return bool(_narrow_pytest_replay_commands_for_work_order(work_order))
 
 
 def _targeted_replay_expected_tests_for_work_order(work_order: dict[str, Any]) -> list[str]:

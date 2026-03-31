@@ -759,6 +759,31 @@ class TestVerificationCommands:
         assert not linked_node_modules.is_symlink()
         assert "NODE_PATH" not in env or str(linked_node_modules) not in env["NODE_PATH"]
 
+    def test_temporary_verification_mounts_live_node_modules_only_for_duration(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        runtime_root = tmp_path / "runtime"
+        source_node_modules = runtime_root / "aragora" / "live" / "node_modules"
+        (source_node_modules / ".bin").mkdir(parents=True)
+        worktree = tmp_path / "wt"
+        (worktree / "aragora" / "live").mkdir(parents=True)
+
+        monkeypatch.setattr(
+            WorkerLauncher,
+            "_runtime_repo_root",
+            staticmethod(lambda: runtime_root),
+        )
+
+        linked_node_modules = worktree / "aragora" / "live" / "node_modules"
+        assert not linked_node_modules.exists()
+
+        with WorkerLauncher._temporary_verification_mounts(worktree):
+            assert linked_node_modules.is_symlink()
+            assert linked_node_modules.resolve() == source_node_modules.resolve()
+
+        assert not linked_node_modules.exists()
+        assert not linked_node_modules.is_symlink()
+
     @pytest.mark.asyncio
     async def test_run_verification_commands_uses_shared_verification_environment(self) -> None:
         mock_proc = AsyncMock()
@@ -782,6 +807,42 @@ class TestVerificationCommands:
         assert result[0]["passed"] is True
         mock_env.assert_called_once_with("/tmp/wt")
         assert mock_exec.await_args.kwargs["env"] == {"CUSTOM_ENV": "1"}
+
+    @pytest.mark.asyncio
+    async def test_run_verification_commands_temporary_mounts_live_node_modules(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        runtime_root = tmp_path / "runtime"
+        source_node_modules = runtime_root / "aragora" / "live" / "node_modules"
+        (source_node_modules / ".bin").mkdir(parents=True)
+        worktree = tmp_path / "wt"
+        (worktree / "aragora" / "live").mkdir(parents=True)
+        linked_node_modules = worktree / "aragora" / "live" / "node_modules"
+
+        monkeypatch.setattr(
+            WorkerLauncher,
+            "_runtime_repo_root",
+            staticmethod(lambda: runtime_root),
+        )
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"ok\n", b""))
+        mock_proc.returncode = 0
+
+        async def fake_exec(*args: object, **kwargs: object) -> AsyncMock:
+            assert linked_node_modules.is_symlink()
+            assert linked_node_modules.resolve() == source_node_modules.resolve()
+            return mock_proc
+
+        with patch("asyncio.create_subprocess_exec", new=AsyncMock(side_effect=fake_exec)):
+            result = await WorkerLauncher._run_verification_commands(
+                str(worktree),
+                ["cd aragora/live && npx tsc --noEmit"],
+                timeout=30.0,
+            )
+
+        assert result[0]["passed"] is True
+        assert not linked_node_modules.exists()
 
     @pytest.mark.asyncio
     async def test_run_verification_commands_wraps_pytest_commands(self) -> None:

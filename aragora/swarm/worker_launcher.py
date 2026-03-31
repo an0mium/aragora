@@ -7,6 +7,7 @@ reusing the managed-session wrapper so worktree locks/logs stay coherent.
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ import shlex
 import shutil
 import sys
 import time
-from typing import Any
+from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -1023,61 +1024,62 @@ class WorkerLauncher:
         """Run required verification commands and capture structured results."""
         results: list[dict[str, Any]] = []
         verification_env = cls._verification_environment(worktree_path)
-        for raw_command in commands:
-            command = str(raw_command).strip()
-            if not command:
-                continue
-            execution_command = cls._prepare_verification_command(command)
+        with cls._temporary_verification_mounts(worktree_path):
+            for raw_command in commands:
+                command = str(raw_command).strip()
+                if not command:
+                    continue
+                execution_command = cls._prepare_verification_command(command)
 
-            started = time.monotonic()
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    "/bin/bash",
-                    "-lc",
-                    execution_command,
-                    cwd=worktree_path,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=verification_env,
-                )
-            except (FileNotFoundError, OSError) as exc:
+                started = time.monotonic()
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        "/bin/bash",
+                        "-lc",
+                        execution_command,
+                        cwd=worktree_path,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=verification_env,
+                    )
+                except (FileNotFoundError, OSError) as exc:
+                    results.append(
+                        {
+                            "command": command,
+                            "exit_code": -2,
+                            "passed": False,
+                            "stdout": "",
+                            "stderr": str(exc),
+                            "duration_seconds": round(time.monotonic() - started, 3),
+                        }
+                    )
+                    continue
+
+                try:
+                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                        proc.communicate(),
+                        timeout=timeout,
+                    )
+                    exit_code = proc.returncode if proc.returncode is not None else -1
+                    stdout = (stdout_bytes or b"").decode(errors="replace")
+                    stderr = (stderr_bytes or b"").decode(errors="replace")
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    exit_code = -1
+                    stdout = ""
+                    stderr = f"Timed out after {int(timeout)}s"
+
                 results.append(
                     {
                         "command": command,
-                        "exit_code": -2,
-                        "passed": False,
-                        "stdout": "",
-                        "stderr": str(exc),
+                        "exit_code": exit_code,
+                        "passed": exit_code == 0,
+                        "stdout": stdout,
+                        "stderr": stderr,
                         "duration_seconds": round(time.monotonic() - started, 3),
                     }
                 )
-                continue
-
-            try:
-                stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    proc.communicate(),
-                    timeout=timeout,
-                )
-                exit_code = proc.returncode if proc.returncode is not None else -1
-                stdout = (stdout_bytes or b"").decode(errors="replace")
-                stderr = (stderr_bytes or b"").decode(errors="replace")
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-                exit_code = -1
-                stdout = ""
-                stderr = f"Timed out after {int(timeout)}s"
-
-            results.append(
-                {
-                    "command": command,
-                    "exit_code": exit_code,
-                    "passed": exit_code == 0,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "duration_seconds": round(time.monotonic() - started, 3),
-                }
-            )
         return results
 
     @staticmethod
@@ -1087,6 +1089,44 @@ class WorkerLauncher:
     @classmethod
     def _ensure_live_node_modules(cls, worktree_root: Path) -> Path | None:
         return None
+
+    @classmethod
+    @contextmanager
+    def _temporary_verification_mounts(cls, worktree_path: str | Path) -> Iterator[None]:
+        worktree_root = Path(worktree_path).resolve()
+        created_symlinks: list[Path] = []
+        live_root = worktree_root / "aragora" / "live"
+        runtime_node_modules = cls._runtime_repo_root() / "aragora" / "live" / "node_modules"
+        target_node_modules = live_root / "node_modules"
+        if (
+            live_root.is_dir()
+            and runtime_node_modules.is_dir()
+            and not target_node_modules.exists()
+            and not target_node_modules.is_symlink()
+        ):
+            try:
+                target_node_modules.symlink_to(runtime_node_modules, target_is_directory=True)
+            except OSError:
+                logger.debug(
+                    "Unable to mount shared live node_modules for verification in %s",
+                    worktree_root,
+                    exc_info=True,
+                )
+            else:
+                created_symlinks.append(target_node_modules)
+        try:
+            yield
+        finally:
+            for path in reversed(created_symlinks):
+                try:
+                    if path.is_symlink():
+                        path.unlink()
+                except OSError:
+                    logger.debug(
+                        "Unable to remove temporary verification mount %s",
+                        path,
+                        exc_info=True,
+                    )
 
     @staticmethod
     def _prepend_env_path(env: dict[str, str], key: str, entries: list[Path]) -> None:
