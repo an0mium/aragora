@@ -220,21 +220,20 @@ class SecretsConfig:
     def from_env(cls) -> SecretsConfig:
         """Load config from environment.
 
-        AWS Secrets Manager is enabled by default. It gracefully falls back
-        to environment variables when AWS credentials or boto3 are
-        unavailable, so there is no harm in leaving it on.
+        Outside production/staging, AWS Secrets Manager is opt-in. This avoids
+        slow cold-path network probes during local development, tests, and
+        other offline flows. Production and staging still enable AWS by
+        default, and any environment can opt in explicitly.
 
-        Set ARAGORA_USE_SECRETS_MANAGER=false to explicitly disable.
+        Set ARAGORA_USE_SECRETS_MANAGER=true to explicitly enable anywhere, or
+        false to explicitly disable.
         """
         use_flag = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "")
         if use_flag:
             use_aws = use_flag.lower() in ("true", "1", "yes")
         else:
-            # Default: always try AWS Secrets Manager.  _load_from_aws()
-            # handles missing boto3, credentials, or secret gracefully by
-            # returning an empty dict, at which point get() falls through
-            # to environment variables.
-            use_aws = True
+            env = os.environ.get("ARAGORA_ENV", "").lower()
+            use_aws = env in ("production", "prod", "staging", "stage")
 
         primary_region = (
             os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"

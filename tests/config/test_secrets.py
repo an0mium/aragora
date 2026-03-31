@@ -49,12 +49,12 @@ class TestSecretsConfig:
         assert config.cache_ttl_seconds == 300
 
     def test_from_env_defaults(self):
-        """Config defaults to use_aws=True (graceful fallback to env vars)."""
+        """Config defaults to no AWS probing outside production-like envs."""
         with patch.dict(os.environ, {}, clear=True):
             config = SecretsConfig.from_env()
             assert config.aws_region == "us-east-1"
             assert config.secret_name == "aragora/production"
-            assert config.use_aws is True
+            assert config.use_aws is False
 
     def test_from_env_with_values(self):
         """Config loads values from environment."""
@@ -84,8 +84,15 @@ class TestSecretsConfig:
             assert config.use_aws is False
 
     def test_use_aws_default_when_unset(self):
-        """Config defaults to use_aws=True when env var is not set."""
+        """Config defaults to use_aws=False when env var is not set."""
         with patch.dict(os.environ, {}, clear=True):
+            config = SecretsConfig.from_env()
+            assert config.use_aws is False
+
+    @pytest.mark.parametrize("env", ["production", "prod", "staging", "stage"])
+    def test_use_aws_defaults_on_in_production_like_envs(self, env):
+        """Production-like envs still auto-enable AWS Secrets Manager."""
+        with patch.dict(os.environ, {"ARAGORA_ENV": env}, clear=True):
             config = SecretsConfig.from_env()
             assert config.use_aws is True
 
@@ -175,6 +182,24 @@ class TestSecretManager:
 
         with patch.dict(os.environ, {}, clear=True):
             assert manager.is_configured("UNCONFIGURED_SECRET") is False
+
+    def test_from_env_non_production_does_not_probe_aws_before_env_fallback(self):
+        """Default non-production config should not initialize AWS clients."""
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "development",
+                "OPENAI_API_KEY": "env-openai-key",
+            },
+            clear=True,
+        ):
+            manager = SecretManager(SecretsConfig.from_env())
+            with patch.object(
+                manager,
+                "_load_from_aws",
+                side_effect=AssertionError("AWS probe should stay disabled"),
+            ):
+                assert manager.get("OPENAI_API_KEY") == "env-openai-key"
 
 
 class TestSecretManagerAWS:
