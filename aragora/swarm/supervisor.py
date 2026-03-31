@@ -1531,15 +1531,29 @@ class SwarmSupervisor:
         adopted_pr = str(metadata.get("adopted_pr") or "").strip()
         return bool(getattr(task, "receipt_id", None) or commit_shas or pr_url or adopted_pr)
 
+    def _duplicate_open_work_order_group_key(
+        self,
+        goal: str,
+        file_scope: list[str],
+        metadata: dict[str, Any] | None,
+    ) -> tuple[str, str, tuple[str, ...]] | None:
+        scope = self._normalized_scope_signature(file_scope)
+        if not scope:
+            return None
+        payload = dict(metadata or {})
+        tranche_lane_id = str(payload.get("tranche_lane_id") or "").strip()
+        if tranche_lane_id:
+            return ("tranche_lane_id", tranche_lane_id, scope)
+        goal_key = self._normalized_goal_signature(goal)
+        if not goal_key:
+            return None
+        return ("goal", goal_key, scope)
+
     def _suppress_duplicate_open_work_orders(
         self,
         goal: str,
         work_orders: list[dict[str, Any]],
     ) -> None:
-        goal_key = self._normalized_goal_signature(goal)
-        if not goal_key:
-            return
-
         active_duplicate_statuses = {
             "queued",
             "leased",
@@ -1551,31 +1565,35 @@ class SwarmSupervisor:
             "timed_out",
             "failed",
         }
-        existing_by_scope: dict[tuple[str, ...], str] = {}
+        existing_by_group: dict[tuple[str, str, tuple[str, ...]], str] = {}
         for task in self.store.list_developer_tasks(open_only=True, limit=1000):
-            if self._normalized_goal_signature(getattr(task, "goal", "")) != goal_key:
-                continue
             if str(getattr(task, "status", "")).strip().lower() not in active_duplicate_statuses:
                 continue
             if self._task_has_concrete_deliverable(task):
                 continue
-            scope = self._normalized_scope_signature(list(getattr(task, "allowed_paths", []) or []))
-            if not scope or scope in existing_by_scope:
+            group_key = self._duplicate_open_work_order_group_key(
+                str(getattr(task, "goal", "") or ""),
+                list(getattr(task, "allowed_paths", []) or []),
+                getattr(task, "metadata", {}) or {},
+            )
+            if not group_key or group_key in existing_by_group:
                 continue
-            existing_by_scope[scope] = str(getattr(task, "task_key", "")).strip()
+            existing_by_group[group_key] = str(getattr(task, "task_key", "")).strip()
 
-        if not existing_by_scope:
+        if not existing_by_group:
             return
 
         now = datetime.now(UTC).isoformat()
         for item in work_orders:
             if str(item.get("status", "")).strip().lower() == "discarded":
                 continue
-            scope = self._normalized_scope_signature(
-                [str(path) for path in item.get("file_scope", []) if str(path).strip()]
+            group_key = self._duplicate_open_work_order_group_key(
+                goal,
+                [str(path) for path in item.get("file_scope", []) if str(path).strip()],
+                dict(item.get("metadata") or {}),
             )
-            canonical_task_key = existing_by_scope.get(scope)
-            if not scope or not canonical_task_key:
+            canonical_task_key = existing_by_group.get(group_key) if group_key else None
+            if not group_key or not canonical_task_key:
                 continue
             metadata = dict(item.get("metadata") or {})
             metadata.update(

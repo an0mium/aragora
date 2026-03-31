@@ -247,6 +247,80 @@ def test_start_run_preserves_duplicate_scope_when_existing_lane_has_deliverable(
     assert run.work_orders[0]["status"] == "queued"
 
 
+def test_start_run_discards_duplicate_explicit_lane_by_tranche_lane_id(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal="Replace integrations UI path with truthful live-state behavior.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "Integrations slice",
+                "status": "waiting_conflict",
+                "file_scope": [
+                    "aragora/live/**",
+                    "aragora/server/handlers/features/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "tranche_lane_id": "integrations-ui-truthful-status-slice",
+                },
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    spec = SwarmSpec(
+        raw_goal=(
+            "Replace one non-trustworthy integrations UI path with live-state behavior "
+            "and truthful status messaging."
+        ),
+        refined_goal=(
+            "Replace one non-trustworthy integrations UI path with live-state behavior "
+            "and truthful status messaging."
+        ),
+        work_orders=[
+            {
+                "work_order_id": "integrations-ui-truthful-status-slice",
+                "title": "Integrations slice",
+                "description": "Replace the status/edit path with truthful live-state behavior.",
+                "file_scope": [
+                    "aragora/live/**",
+                    "aragora/server/handlers/features/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
+                "metadata": {
+                    "tranche_lane_id": "integrations-ui-truthful-status-slice",
+                },
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
 def test_start_run_passes_acceptance_and_constraints_to_decomposer(
     repo: Path, store: DevCoordinationStore
 ) -> None:

@@ -1930,9 +1930,6 @@ class DevCoordinationStore:
                 tuple[str, tuple[str, ...]], list[tuple[dict[str, Any], dict[str, Any]]]
             ] = {}
             for record in records:
-                goal_key = _canonical_goal_key(record.get("goal"))
-                if not goal_key:
-                    continue
                 for item in record["work_orders"]:
                     if not isinstance(item, dict):
                         continue
@@ -1943,10 +1940,10 @@ class DevCoordinationStore:
                         lease_status=lease_status,
                     ):
                         continue
-                    scope_key = _canonical_work_order_scope_key(item)
-                    if not scope_key:
+                    group_key = _duplicate_waiting_conflict_group_key(item, run=record)
+                    if not group_key:
                         continue
-                    grouped.setdefault((goal_key, scope_key), []).append((record, item))
+                    grouped.setdefault(group_key, []).append((record, item))
 
             archived = 0
             changed_run_ids: set[str] = set()
@@ -5963,8 +5960,27 @@ def _work_order_is_duplicate_waiting_conflict_candidate(
     ):
         return False
     return bool(_canonical_work_order_scope_key(work_order)) and bool(
-        _canonical_goal_key(run.get("goal"))
+        _duplicate_waiting_conflict_group_key(work_order, run=run)
     )
+
+
+def _duplicate_waiting_conflict_group_key(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> tuple[str, str, tuple[str, ...]] | None:
+    scope_key = _canonical_work_order_scope_key(work_order)
+    if not scope_key:
+        return None
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict):
+        tranche_lane_id = _optional_text(metadata.get("tranche_lane_id"))
+        if tranche_lane_id:
+            return ("tranche_lane_id", tranche_lane_id, scope_key)
+    goal_key = _canonical_goal_key(run.get("goal"))
+    if not goal_key:
+        return None
+    return ("goal", goal_key, scope_key)
 
 
 def _duplicate_work_order_leasing_failed_priority(
