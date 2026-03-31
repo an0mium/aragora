@@ -1022,11 +1022,12 @@ class WorkerLauncher:
     ) -> list[dict[str, Any]]:
         """Run required verification commands and capture structured results."""
         results: list[dict[str, Any]] = []
+        verification_env = cls._verification_environment(worktree_path)
         for raw_command in commands:
             command = str(raw_command).strip()
             if not command:
                 continue
-            execution_command = cls._normalize_verification_command(command)
+            execution_command = cls._prepare_verification_command(command)
 
             started = time.monotonic()
             try:
@@ -1037,6 +1038,7 @@ class WorkerLauncher:
                     cwd=worktree_path,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env=verification_env,
                 )
             except (FileNotFoundError, OSError) as exc:
                 results.append(
@@ -1079,6 +1081,49 @@ class WorkerLauncher:
         return results
 
     @staticmethod
+    def _runtime_repo_root() -> Path:
+        return Path(__file__).resolve().parents[2]
+
+    @classmethod
+    def _ensure_live_node_modules(cls, worktree_root: Path) -> Path | None:
+        return None
+
+    @staticmethod
+    def _prepend_env_path(env: dict[str, str], key: str, entries: list[Path]) -> None:
+        values = [str(entry) for entry in entries if str(entry).strip()]
+        existing = env.get(key, "").strip()
+        if existing:
+            values.extend(part for part in existing.split(os.pathsep) if part)
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            if value in seen:
+                continue
+            seen.add(value)
+            deduped.append(value)
+        if deduped:
+            env[key] = os.pathsep.join(deduped)
+
+    @classmethod
+    def _verification_environment(cls, worktree_path: str) -> dict[str, str]:
+        worktree_root = Path(worktree_path).resolve()
+        env = dict(os.environ)
+
+        python_entries = [worktree_root]
+        debate_src = worktree_root / "aragora-debate" / "src"
+        if debate_src.is_dir():
+            python_entries.append(debate_src)
+        cls._prepend_env_path(env, "PYTHONPATH", python_entries)
+
+        node_modules = cls._ensure_live_node_modules(worktree_root)
+        if node_modules is not None:
+            cls._prepend_env_path(env, "NODE_PATH", [node_modules])
+            bin_dir = node_modules / ".bin"
+            if bin_dir.is_dir():
+                cls._prepend_env_path(env, "PATH", [bin_dir])
+        return env
+
+    @staticmethod
     def _normalize_verification_command(command: str) -> str:
         """Rewrite leading ``python`` to the current interpreter.
 
@@ -1093,6 +1138,35 @@ class WorkerLauncher:
             return command
         prefix = match.group("prefix")
         return f"{prefix}{shlex.quote(sys.executable)}{command[match.end() :]}"
+
+    @staticmethod
+    def _pytest_command_args(command: str) -> list[str]:
+        text = str(command or "").strip()
+        if not text:
+            return []
+        try:
+            tokens = shlex.split(text)
+        except ValueError:
+            return []
+        if len(tokens) >= 3 and tokens[1] == "-m" and tokens[2] == "pytest":
+            return tokens[3:]
+        if tokens and tokens[0].endswith("pytest"):
+            return tokens[1:]
+        return []
+
+    @classmethod
+    def _prepare_verification_command(cls, command: str) -> str:
+        normalized = cls._normalize_verification_command(command).strip()
+        pytest_args = cls._pytest_command_args(normalized)
+        if not pytest_args:
+            return normalized
+        serialized_args = ", ".join(repr(arg) for arg in pytest_args)
+        return (
+            f"{shlex.quote(sys.executable)} - <<'PY'\n"
+            "import pytest\n"
+            f"raise SystemExit(pytest.main([{serialized_args}]))\n"
+            "PY"
+        )
 
     @staticmethod
     def _can_query_dirty_tree(worker: WorkerProcess) -> bool:

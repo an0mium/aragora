@@ -711,6 +711,96 @@ class TestLaunchAndWait:
 
 
 class TestVerificationCommands:
+    def test_prepare_verification_command_wraps_pytest_with_pytest_main(self) -> None:
+        prepared = WorkerLauncher._prepare_verification_command(
+            "python -m pytest tests/swarm/test_supervisor.py -q --timeout=60 -x"
+        )
+
+        assert "import pytest" in prepared
+        assert "pytest.main" in prepared
+        assert "'tests/swarm/test_supervisor.py'" in prepared
+        assert "'--timeout=60'" in prepared
+        assert "'-x'" in prepared
+
+    def test_verification_environment_adds_worktree_python_paths(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        worktree = tmp_path / "wt"
+        (worktree / "aragora-debate" / "src").mkdir(parents=True)
+        monkeypatch.setenv("PYTHONPATH", "/existing/pythonpath")
+
+        env = WorkerLauncher._verification_environment(str(worktree))
+
+        pythonpath = env["PYTHONPATH"].split(os.pathsep)
+        assert pythonpath[0] == str(worktree.resolve())
+        assert str((worktree / "aragora-debate" / "src").resolve()) in pythonpath
+        assert "/existing/pythonpath" in pythonpath
+
+    def test_verification_environment_does_not_link_live_node_modules(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_ensure_live_node_modules is disabled -- no cross-worktree symlinks."""
+        runtime_root = tmp_path / "runtime"
+        source_node_modules = runtime_root / "aragora" / "live" / "node_modules"
+        (source_node_modules / ".bin").mkdir(parents=True)
+        worktree = tmp_path / "wt"
+        (worktree / "aragora" / "live").mkdir(parents=True)
+
+        monkeypatch.setattr(
+            WorkerLauncher,
+            "_runtime_repo_root",
+            staticmethod(lambda: runtime_root),
+        )
+
+        env = WorkerLauncher._verification_environment(str(worktree))
+
+        linked_node_modules = worktree / "aragora" / "live" / "node_modules"
+        assert not linked_node_modules.exists()
+        assert not linked_node_modules.is_symlink()
+        assert "NODE_PATH" not in env or str(linked_node_modules) not in env["NODE_PATH"]
+
+    @pytest.mark.asyncio
+    async def test_run_verification_commands_uses_shared_verification_environment(self) -> None:
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"ok\n", b""))
+        mock_proc.returncode = 0
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_verification_environment",
+                return_value={"CUSTOM_ENV": "1"},
+            ) as mock_env,
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            result = await WorkerLauncher._run_verification_commands(
+                "/tmp/wt",
+                ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                timeout=30.0,
+            )
+
+        assert result[0]["passed"] is True
+        mock_env.assert_called_once_with("/tmp/wt")
+        assert mock_exec.await_args.kwargs["env"] == {"CUSTOM_ENV": "1"}
+
+    @pytest.mark.asyncio
+    async def test_run_verification_commands_wraps_pytest_commands(self) -> None:
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+        mock_proc.returncode = 0
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+            result = await WorkerLauncher._run_verification_commands(
+                "/tmp/wt",
+                ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                timeout=30.0,
+            )
+
+        assert result[0]["passed"] is True
+        execution_command = mock_exec.await_args.args[2]
+        assert "import pytest" in execution_command
+        assert "pytest.main" in execution_command
+
     @pytest.mark.asyncio
     async def test_run_verification_commands_uses_current_python_interpreter(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -965,3 +1055,13 @@ class TestActiveWorkers:
         active = launcher.active_workers()
         assert len(active) == 1
         assert active[0].work_order_id == "a"
+
+
+class TestEnsureLiveNodeModulesDisabled:
+    def test_always_returns_none(self, tmp_path: Path) -> None:
+        """_ensure_live_node_modules must never create cross-worktree symlinks."""
+        worktree = tmp_path / "wt"
+        (worktree / "aragora" / "live").mkdir(parents=True)
+        result = WorkerLauncher._ensure_live_node_modules(worktree)
+        assert result is None
+        assert not (worktree / "aragora" / "live" / "node_modules").exists()

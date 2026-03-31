@@ -225,6 +225,35 @@ class TestTaskDecomposer:
         assert "mirrored subtask" in result.rationale.lower()
 
     @patch.object(TaskDecomposer, "_llm_extract_subtasks", return_value=[])
+    def test_analyze_threads_acceptance_and_constraints_to_llm_extraction(
+        self,
+        mock_llm_extract: object,
+    ) -> None:
+        decomposer = TaskDecomposer()
+        task = (
+            "Refactor the entire database layer to support multi-tenancy. "
+            "This requires changes to models, migrations, API endpoints, "
+            "and security middleware. Update auth.py, db.py, handlers.py."
+        )
+        acceptance = ["python -m pytest tests/database/test_tenancy.py -q"]
+        constraints = ["Keep merge gate enabled", "Stay within the bounded scope"]
+        hints = ["aragora/database/**", "tests/database/**"]
+
+        decomposer.analyze(
+            task,
+            file_scope_hints=hints,
+            acceptance_criteria=acceptance,
+            constraints=constraints,
+        )
+
+        mock_llm_extract.assert_called_once_with(
+            task,
+            file_scope_hints=hints,
+            acceptance_criteria=acceptance,
+            constraints=constraints,
+        )
+
+    @patch.object(TaskDecomposer, "_llm_extract_subtasks", return_value=[])
     def test_same_scope_heuristic_subtasks_collapse_to_one_lane(self, _mock_llm_extract: object):
         decomposer = TaskDecomposer(DecomposerConfig(complexity_threshold=1))
         task = (

@@ -19,8 +19,11 @@ import argparse
 import asyncio
 import hashlib
 import json
+import re
+import shlex
 import sqlite3
 import subprocess
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -45,6 +48,7 @@ _DUPLICATE_BRANCH_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _SUPERSEDED_WAITING_CONFLICT_ARCHIVE_GRACE_HOURS = 24.0
 _CLEAN_EXIT_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _FAILED_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
+_SQLITE_BUSY_TIMEOUT_MS = 60_000
 _OPEN_DEVELOPER_TASK_STATUSES = {
     "queued",
     "leased",
@@ -73,6 +77,14 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
 }
 _REAPED_NO_RECEIPT_ARCHIVE_GRACE_HOURS = 6.0
 _REAPED_NO_RECEIPT_BLOCKERS = {"stale_lease_reaped", "expired_lease_reaped"}
+_TEST_FILE_PATTERN = re.compile(r"(tests/[\w./-]+\.py)")
+
+
+def _is_docs_only_path(path: Any) -> bool:
+    normalized = str(path or "").strip().removeprefix("./")
+    if not normalized:
+        return False
+    return normalized.startswith("docs/") or normalized.endswith((".md", ".mdx", ".rst", ".txt"))
 
 
 def _get_lane_telemetry() -> LaneTelemetryCollector:
@@ -574,9 +586,10 @@ class DevCoordinationStore:
         return Path(proc.stdout.strip()).resolve()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=_SQLITE_BUSY_TIMEOUT_MS / 1000.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(f"PRAGMA busy_timeout={_SQLITE_BUSY_TIMEOUT_MS}")
         return conn
 
     def _ensure_schema(self) -> None:
@@ -873,6 +886,102 @@ class DevCoordinationStore:
                     normalized = _backfill_work_order_blocker_metadata(item)
                     if not normalized:
                         continue
+                    changed = True
+                    updated += 1
+                if not changed:
+                    continue
+                record["updated_at"] = now
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return updated
+
+    def backfill_missing_verification_plans(self) -> int:
+        """Infer verification commands for historical merge-gate rows missing them."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            updated = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not _work_order_should_backfill_verification_plan(item):
+                        continue
+                    inferred_tests = _inferred_expected_tests_for_work_order(item)
+                    if not inferred_tests:
+                        continue
+                    item["expected_tests"] = list(inferred_tests)
+                    success_criteria = dict(item.get("success_criteria") or {})
+                    if "tests" not in success_criteria:
+                        success_criteria["tests"] = (
+                            inferred_tests[0] if len(inferred_tests) == 1 else list(inferred_tests)
+                        )
+                    item["success_criteria"] = success_criteria
+                    merge_gate = _merge_gate_state_for_work_order(item)
+                    item["merge_gate"] = merge_gate
+                    item["verification_missing_reason"] = merge_gate.get(
+                        "verification_missing_reason"
+                    )
+                    blocked_reasons = [
+                        str(reason).strip()
+                        for reason in merge_gate.get("blocked_reasons", [])
+                        if str(reason).strip()
+                    ]
+                    if blocked_reasons:
+                        item["dispatch_error"] = blocked_reasons[0]
+                        item["blockers"] = blocked_reasons
+                    if not merge_gate.get("verification_missing_reason"):
+                        item["failure_reason"] = "merge_gate_failed"
+                        item["worker_outcome"] = "merge_gate_failed"
+                        item["blocking_question"] = _default_blocking_question_for_reason(
+                            "merge_gate_failed"
+                        )
+                        item["blocker"] = {
+                            "reason": "merge_gate_failed",
+                            "question": item["blocking_question"],
+                        }
+                    changed = True
+                    updated += 1
+                if not changed:
+                    continue
+                record["updated_at"] = now
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return updated
+
+    def rehabilitate_docs_only_missing_verification_plan_work_orders(self) -> int:
+        """Restore docs-only deliverables that were blocked only by absent test commands."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            updated = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not _work_order_should_rehabilitate_docs_only_missing_verification_plan(
+                        item
+                    ):
+                        continue
+                    item["merge_gate"] = _merge_gate_state_for_work_order(item)
+                    item["verification_missing_reason"] = None
+                    item["status"] = "completed"
+                    item["review_status"] = "pending_heterogeneous_review"
+                    item["worker_outcome"] = "completed"
+                    for key in (
+                        "failure_reason",
+                        "blocking_question",
+                        "blocker",
+                        "dispatch_error",
+                    ):
+                        item.pop(key, None)
+                    item["blockers"] = []
                     changed = True
                     updated += 1
                 if not changed:
@@ -1389,7 +1498,57 @@ class DevCoordinationStore:
                             },
                             require_session_ownership=False,
                         )
-                    except (FileScopeViolationError, KeyError, ValueError):
+                    except FileScopeViolationError:
+                        if not self._rehydrate_lease_scope_from_work_order(item):
+                            continue
+                        try:
+                            receipt = self.record_completion(
+                                lease_id=lease_id,
+                                owner_agent=_optional_text(item.get("target_agent")),
+                                owner_session_id=_optional_text(item.get("owner_session_id")),
+                                branch=_optional_text(item.get("branch")),
+                                worktree_path=_optional_text(item.get("worktree_path")),
+                                base_sha=_optional_text(item.get("initial_head")),
+                                head_sha=_optional_text(item.get("head_sha")),
+                                commit_shas=list(item.get("commit_shas", []) or []),
+                                changed_paths=list(item.get("changed_paths", []) or []),
+                                tests_run=list(item.get("tests_run", []) or []),
+                                validations_run=list(item.get("validations_run", []) or []),
+                                assumptions=[],
+                                blockers=[
+                                    str(blocker).strip()
+                                    for blocker in item.get("blockers", [])
+                                    if str(blocker).strip()
+                                ],
+                                outcome=_work_order_receipt_outcome(item),
+                                risks=[
+                                    str(blocker).strip()
+                                    for blocker in item.get("blockers", [])
+                                    if str(blocker).strip()
+                                ],
+                                pr_url=_optional_text(item.get("pr_url"), item.get("adopted_pr")),
+                                pr_number=_extract_pr_number(
+                                    _optional_text(item.get("pr_url"), item.get("adopted_pr"))
+                                ),
+                                confidence=float(item.get("confidence", 0.0) or 0.0),
+                                metadata={
+                                    "task_key": _optional_text(item.get("task_key")) or None,
+                                    "verification_results": list(
+                                        item.get("verification_results", []) or []
+                                    ),
+                                    "worker_outcome": _optional_text(item.get("worker_outcome"))
+                                    or None,
+                                    "approval_required": bool(item.get("approval_required", False)),
+                                    "risk_level": _optional_text(item.get("risk_level")) or None,
+                                    "success_criteria": dict(item.get("success_criteria") or {}),
+                                    "backfilled_receipt": True,
+                                    "lease_scope_rehydrated": True,
+                                },
+                                require_session_ownership=False,
+                            )
+                        except (FileScopeViolationError, KeyError, ValueError):
+                            continue
+                    except (KeyError, ValueError):
                         continue
                 item["receipt_id"] = receipt.receipt_id
                 item["confidence"] = receipt.confidence
@@ -1399,6 +1558,509 @@ class DevCoordinationStore:
                 continue
             self.update_supervisor_run(record["run_id"], work_orders=record["work_orders"])
         return backfilled
+
+    def _rehydrate_lease_scope_from_work_order(self, work_order: dict[str, Any]) -> bool:
+        lease_id = _optional_text(work_order.get("lease_id"))
+        if not lease_id:
+            return False
+        patterns = _work_order_scope_patterns(work_order)
+        if not patterns:
+            return False
+        changed_paths = [
+            _normalize_claim(str(item))
+            for item in work_order.get("changed_paths", []) or []
+            if _normalize_claim(str(item))
+        ]
+        if changed_paths and not all(
+            any(_path_matches_glob(path, pattern) for pattern in patterns) for path in changed_paths
+        ):
+            return False
+        allowed_globs = [pattern for pattern in patterns if _has_wildcard(pattern)]
+        claimed_paths = [pattern for pattern in patterns if not _has_wildcard(pattern)]
+        if not allowed_globs and not claimed_paths:
+            claimed_paths = list(patterns)
+
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT * FROM leases WHERE lease_id = ?", (lease_id,)).fetchone()
+            if row is None:
+                return False
+            lease = WorkLease.from_row(row)
+            if lease.claimed_paths or lease.allowed_globs:
+                return False
+            metadata = _json_loads(row["metadata_json"], {})
+            metadata.pop("last_scope_violation", None)
+            conn.execute(
+                """
+                UPDATE leases
+                SET allowed_globs_json = ?, claimed_paths_json = ?, metadata_json = ?, updated_at = ?
+                WHERE lease_id = ?
+                """,
+                (
+                    _json_dump(allowed_globs),
+                    _json_dump(claimed_paths),
+                    _json_dump(metadata),
+                    now,
+                    lease_id,
+                ),
+            )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _run_verification_commands_sync(
+        worktree_path: str,
+        commands: list[str],
+        *,
+        timeout: float = 900.0,
+    ) -> list[dict[str, Any]]:
+        from aragora.swarm.worker_launcher import WorkerLauncher
+
+        results: list[dict[str, Any]] = []
+        verification_env = WorkerLauncher._verification_environment(worktree_path)
+        for raw_command in commands:
+            command = str(raw_command).strip()
+            if not command:
+                continue
+            execution_command = WorkerLauncher._prepare_verification_command(command)
+            started = time.monotonic()
+            try:
+                proc = subprocess.run(
+                    ["/bin/bash", "-lc", execution_command],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=False,
+                    env=verification_env,
+                )
+                exit_code = proc.returncode
+                stdout = proc.stdout
+                stderr = proc.stderr
+            except subprocess.TimeoutExpired as exc:
+                exit_code = -1
+                stdout = exc.stdout or ""
+                stderr = exc.stderr or f"Timed out after {int(timeout)}s"
+            except OSError as exc:
+                exit_code = -2
+                stdout = ""
+                stderr = str(exc)
+            results.append(
+                {
+                    "command": command,
+                    "exit_code": exit_code,
+                    "passed": exit_code == 0,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "duration_seconds": round(time.monotonic() - started, 3),
+                }
+            )
+        return results
+
+    def _resolve_verification_worktree(
+        self,
+        work_order: dict[str, Any],
+    ) -> tuple[str, Path | None]:
+        worktree_path = Path(str(work_order.get("worktree_path") or "").strip())
+        if worktree_path.is_dir():
+            head_sha = str(work_order.get("head_sha") or "").strip()
+            if head_sha:
+                proc = subprocess.run(
+                    ["git", "-C", str(worktree_path), "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                actual_sha = proc.stdout.strip() if proc.returncode == 0 else ""
+                if not actual_sha or not (
+                    actual_sha.startswith(head_sha) or head_sha.startswith(actual_sha)
+                ):
+                    pass  # fall through to create fresh worktree
+                else:
+                    return str(worktree_path), None
+            else:
+                return str(worktree_path), None
+
+        subprocess.run(
+            ["git", "-C", str(self.repo_root), "worktree", "prune"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        ref_candidates = [
+            _optional_text(work_order.get("branch")),
+            _optional_text(work_order.get("head_sha")),
+        ]
+        ref = ""
+        for candidate in ref_candidates:
+            if not candidate:
+                continue
+            proc = subprocess.run(
+                ["git", "-C", str(self.repo_root), "rev-parse", "--verify", "--quiet", candidate],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                ref = candidate
+                break
+        if not ref:
+            return "", None
+
+        parent = self.repo_root / ".worktrees" / "verification-replay"
+        parent.mkdir(parents=True, exist_ok=True)
+        temp_path = parent / f"verify-{str(uuid.uuid4())[:8]}"
+        proc = subprocess.run(
+            ["git", "-C", str(self.repo_root), "worktree", "add", "--detach", str(temp_path), ref],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return "", None
+        return str(temp_path), temp_path
+
+    def _cleanup_verification_worktree(self, worktree_path: Path | None) -> None:
+        if worktree_path is None:
+            return
+        subprocess.run(
+            ["git", "-C", str(self.repo_root), "worktree", "remove", "--force", str(worktree_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.repo_root), "worktree", "prune"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    @staticmethod
+    def _update_completion_receipt_verification_locked(
+        conn: sqlite3.Connection,
+        *,
+        receipt_id: str,
+        verification_results: list[dict[str, Any]],
+        replayed_at: str,
+    ) -> bool:
+        row = conn.execute(
+            "SELECT * FROM completion_receipts WHERE receipt_id = ?",
+            (receipt_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        receipt = CompletionReceipt.from_row(row)
+        tests_run = [
+            str(entry.get("command", "")).strip()
+            for entry in verification_results
+            if str(entry.get("command", "")).strip()
+        ]
+        metadata = dict(receipt.metadata)
+        metadata["verification_results"] = [dict(entry) for entry in verification_results]
+        metadata["verification_replayed"] = True
+        metadata["verification_replayed_at"] = replayed_at
+        updated_receipt = CompletionReceipt(
+            receipt_id=receipt.receipt_id,
+            lease_id=receipt.lease_id,
+            task_id=receipt.task_id,
+            owner_agent=receipt.owner_agent,
+            owner_session_id=receipt.owner_session_id,
+            branch=receipt.branch,
+            worktree_path=receipt.worktree_path,
+            base_sha=receipt.base_sha,
+            head_sha=receipt.head_sha,
+            commit_shas=list(receipt.commit_shas),
+            changed_paths=list(receipt.changed_paths),
+            tests_run=tests_run,
+            validations_run=tests_run,
+            assumptions=list(receipt.assumptions),
+            blockers=list(receipt.blockers),
+            outcome=receipt.outcome,
+            risks=list(receipt.risks),
+            pr_url=receipt.pr_url,
+            pr_number=receipt.pr_number,
+            confidence=receipt.confidence,
+            created_at=receipt.created_at,
+            metadata=metadata,
+        )
+        conn.execute(
+            """
+            UPDATE completion_receipts
+            SET tests_run_json = ?, validations_run_json = ?, artifact_hash = ?, metadata_json = ?
+            WHERE receipt_id = ?
+            """,
+            (
+                _json_dump(updated_receipt.tests_run),
+                _json_dump(updated_receipt.validations_run),
+                updated_receipt.artifact_hash,
+                _json_dump(updated_receipt.metadata),
+                receipt_id,
+            ),
+        )
+        return True
+
+    def _replay_merge_gate_failures(
+        self,
+        *,
+        should_replay: Any,
+        metadata_flag: str,
+        prepare_commands: Any | None = None,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            candidate_ids: list[tuple[str, str]] = []
+            attempted = 0
+            for row in rows:
+                if isinstance(limit, int) and limit > 0 and attempted >= limit:
+                    break
+                record = self._supervisor_run_from_row(row)
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    if isinstance(limit, int) and limit > 0 and attempted >= limit:
+                        break
+                    if not should_replay(item):
+                        continue
+                    work_order_id = _work_order_identifier(item)
+                    if not work_order_id:
+                        continue
+                    candidate_ids.append((record["run_id"], work_order_id))
+                    attempted += 1
+        finally:
+            conn.close()
+
+        replayed = 0
+        for run_id, work_order_id in candidate_ids:
+            record = self.get_supervisor_run(run_id)
+            if not record:
+                continue
+            item = _find_work_order(record, work_order_id)
+            if item is None or not should_replay(item):
+                continue
+
+            commands = [
+                str(command).strip()
+                for command in item.get("expected_tests", [])
+                if str(command).strip()
+            ]
+            if prepare_commands is not None:
+                prepared_commands = prepare_commands(item)
+                if prepared_commands is None:
+                    continue
+                commands = [
+                    str(command).strip() for command in prepared_commands if str(command).strip()
+                ]
+            if not commands:
+                continue
+
+            worktree_path, cleanup_path = self._resolve_verification_worktree(item)
+            if not worktree_path:
+                continue
+            try:
+                verification_results = self._run_verification_commands_sync(
+                    worktree_path,
+                    commands,
+                    timeout=timeout,
+                )
+            finally:
+                self._cleanup_verification_worktree(cleanup_path)
+            if not verification_results:
+                continue
+
+            conn = self._connect()
+            try:
+                row = conn.execute(
+                    "SELECT * FROM supervisor_runs WHERE run_id = ?",
+                    (run_id,),
+                ).fetchone()
+                if row is None:
+                    continue
+                record = self._supervisor_run_from_row(row)
+                item = _find_work_order(record, work_order_id)
+                if item is None or not should_replay(item):
+                    continue
+                if prepare_commands is not None and prepare_commands(item) is None:
+                    continue
+
+                tests_run = [
+                    str(entry.get("command", "")).strip()
+                    for entry in verification_results
+                    if str(entry.get("command", "")).strip()
+                ]
+                item["tests_run"] = tests_run
+                item["verification_results"] = [dict(entry) for entry in verification_results]
+                item["merge_gate"] = _merge_gate_state_for_work_order(item)
+                metadata = dict(item.get("metadata") or {})
+                metadata[metadata_flag] = True
+                metadata[f"{metadata_flag}_at"] = _utcnow().isoformat()
+                item["metadata"] = metadata
+                receipt_id = _optional_text(item.get("receipt_id"))
+                if receipt_id:
+                    self._update_completion_receipt_verification_locked(
+                        conn,
+                        receipt_id=receipt_id,
+                        verification_results=verification_results,
+                        replayed_at=metadata[f"{metadata_flag}_at"],
+                    )
+                if item["merge_gate"]["checks_passed"]:
+                    item["status"] = "completed"
+                    item["review_status"] = "pending_heterogeneous_review"
+                    item["worker_outcome"] = "completed"
+                    item["blockers"] = []
+                    for key in (
+                        "failure_reason",
+                        "blocking_question",
+                        "blocker",
+                        "dispatch_error",
+                    ):
+                        item.pop(key, None)
+                else:
+                    item["status"] = "needs_human"
+                    item["review_status"] = "changes_requested"
+                    item["worker_outcome"] = "merge_gate_failed"
+                    item["failure_reason"] = "merge_gate_failed"
+                    item["dispatch_error"] = (
+                        item["merge_gate"]["blocked_reasons"][0]
+                        if item["merge_gate"]["blocked_reasons"]
+                        else "merge gate blocked"
+                    )
+                    item["blockers"] = list(item["merge_gate"]["blocked_reasons"])
+                    _backfill_work_order_blocker_metadata(item)
+
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = _utcnow().isoformat()
+                self._persist_supervisor_run(conn, record)
+                conn.commit()
+                replayed += 1
+            finally:
+                conn.close()
+        return replayed
+
+    def replay_missing_verification_for_merge_gate_failures(
+        self,
+        *,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_missing_verification,
+            metadata_flag="verification_replayed",
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_environment_blocked_merge_gate_failures(
+        self,
+        *,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_environment_blocked_verification,
+            metadata_flag="verification_environment_replayed",
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def replay_targeted_merge_gate_failures(
+        self,
+        *,
+        limit: int | None = None,
+        timeout: float = 900.0,
+    ) -> int:
+        def _prepare(item: dict[str, Any]) -> list[str] | None:
+            targeted_commands = _targeted_replay_expected_tests_for_work_order(item)
+            if not targeted_commands:
+                return None
+            previous_expected = [
+                str(command).strip()
+                for command in item.get("expected_tests", [])
+                if str(command).strip()
+            ]
+            metadata = dict(item.get("metadata") or {})
+            if previous_expected and not metadata.get(
+                "verification_targeted_previous_expected_tests"
+            ):
+                metadata["verification_targeted_previous_expected_tests"] = list(previous_expected)
+            item["metadata"] = metadata
+            item["expected_tests"] = list(targeted_commands)
+            success_criteria = dict(item.get("success_criteria") or {})
+            success_criteria["tests"] = (
+                targeted_commands[0] if len(targeted_commands) == 1 else list(targeted_commands)
+            )
+            item["success_criteria"] = success_criteria
+            item["tests_run"] = []
+            item["verification_results"] = []
+            return targeted_commands
+
+        return self._replay_merge_gate_failures(
+            should_replay=_work_order_should_replay_targeted_merge_gate_failure,
+            metadata_flag="verification_targeted_replayed",
+            prepare_commands=_prepare,
+            limit=limit,
+            timeout=timeout,
+        )
+
+    def reconcile_merge_gate_failed_work_orders(self) -> int:
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            reconciled = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    if not _work_order_should_reconcile_merge_gate_failure(item):
+                        continue
+                    item["merge_gate"] = _merge_gate_state_for_work_order(item)
+                    metadata = dict(item.get("metadata") or {})
+                    metadata["merge_gate_reconciled"] = True
+                    metadata["merge_gate_reconciled_at"] = _utcnow().isoformat()
+                    item["metadata"] = metadata
+                    if item["merge_gate"]["checks_passed"]:
+                        item["status"] = "completed"
+                        item["review_status"] = "pending_heterogeneous_review"
+                        item["worker_outcome"] = "completed"
+                        item["blockers"] = []
+                        for key in (
+                            "failure_reason",
+                            "blocking_question",
+                            "blocker",
+                            "dispatch_error",
+                        ):
+                            item.pop(key, None)
+                    else:
+                        item["status"] = "needs_human"
+                        item["review_status"] = "changes_requested"
+                        item["worker_outcome"] = "merge_gate_failed"
+                        item["failure_reason"] = "merge_gate_failed"
+                        item["dispatch_error"] = (
+                            item["merge_gate"]["blocked_reasons"][0]
+                            if item["merge_gate"]["blocked_reasons"]
+                            else "merge gate blocked"
+                        )
+                        item["blockers"] = list(item["merge_gate"]["blocked_reasons"])
+                        _backfill_work_order_blocker_metadata(item)
+                    changed = True
+                    reconciled += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = _utcnow().isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return reconciled
 
     def get_developer_task(self, task_key: str) -> DeveloperTask | None:
         for task in self.list_developer_tasks(limit=500):
@@ -2596,6 +3258,8 @@ class DevCoordinationStore:
         """Project open developer tasks into the global work queue."""
         self.backfill_missing_completion_receipts()
         self.backfill_missing_blocker_metadata()
+        self.backfill_missing_verification_plans()
+        self.rehabilitate_docs_only_missing_verification_plan_work_orders()
         self.archive_reaped_no_receipt_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
@@ -3324,6 +3988,26 @@ def _flatten_acceptance_value(value: Any) -> list[str]:
     return [text] if text else []
 
 
+def _work_order_identifier(work_order: dict[str, Any]) -> str:
+    return (
+        str(work_order.get("work_order_id", "")).strip()
+        or str(work_order.get("task_id", "")).strip()
+        or str(work_order.get("id", "")).strip()
+    )
+
+
+def _find_work_order(record: dict[str, Any], work_order_id: str) -> dict[str, Any] | None:
+    target = str(work_order_id).strip()
+    if not target:
+        return None
+    for item in record.get("work_orders", []):
+        if not isinstance(item, dict):
+            continue
+        if _work_order_identifier(item) == target:
+            return item
+    return None
+
+
 def _developer_task_acceptance_checks(work_order: dict[str, Any]) -> list[str]:
     checks: list[str] = []
     for entry in work_order.get("expected_tests", []):
@@ -3340,6 +4024,226 @@ def _developer_task_acceptance_checks(work_order: dict[str, Any]) -> list[str]:
             if text and text not in checks:
                 checks.append(text)
     return checks
+
+
+def _extract_tests_value(value: Any) -> list[str]:
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _inferred_expected_tests_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    inferred: list[str] = []
+    seen: set[str] = set()
+    deferred_overbroad: list[str] = []
+    deferred_seen: set[str] = set()
+
+    def _append(command: str) -> None:
+        normalized = str(command).strip()
+        canonical = _canonical_verification_command(normalized)
+        dedupe_key = canonical or normalized
+        if not normalized or dedupe_key in seen:
+            return
+        if _is_overbroad_pytest_command(normalized):
+            if dedupe_key in deferred_seen:
+                return
+            deferred_seen.add(dedupe_key)
+            deferred_overbroad.append(normalized)
+            return
+        seen.add(dedupe_key)
+        inferred.append(normalized)
+
+    for entry in work_order.get("expected_tests", []):
+        _append(str(entry))
+
+    success_criteria = work_order.get("success_criteria")
+    if isinstance(success_criteria, dict):
+        for entry in _extract_tests_value(success_criteria.get("tests")):
+            _append(entry)
+
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict):
+        for entry in metadata.get("acceptance_criteria", []):
+            text = str(entry).strip()
+            if text.startswith("python -m pytest") or text.startswith("pytest"):
+                _append(text)
+            for match in _TEST_FILE_PATTERN.findall(text):
+                _append(f"python -m pytest {match} -q")
+
+    for path in work_order.get("file_scope", []):
+        normalized = str(path).strip()
+        if normalized.startswith("tests/") and normalized.endswith(".py"):
+            _append(f"python -m pytest {normalized} -q")
+
+    for path in work_order.get("changed_paths", []):
+        normalized = str(path).strip()
+        if normalized.startswith("tests/") and normalized.endswith(".py"):
+            _append(f"python -m pytest {normalized} -q")
+
+    if not inferred:
+        inferred.extend(deferred_overbroad)
+
+    return inferred
+
+
+def _merge_gate_state_for_work_order(work_order: dict[str, Any]) -> dict[str, Any]:
+    expected_checks = _inferred_expected_tests_for_work_order(work_order)
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    missing_checks = [
+        command
+        for command in expected_checks
+        if not any(
+            _verification_command_covers_expected(entry.get("command", ""), command)
+            for entry in verification_results
+        )
+    ]
+    failed_checks = [
+        dict(entry)
+        for entry in verification_results
+        if any(
+            _verification_command_covers_expected(entry.get("command", ""), command)
+            for command in expected_checks
+        )
+        and not bool(entry.get("passed", False))
+    ]
+
+    blocked_reasons: list[str] = []
+    verification_missing_reason: str | None = None
+    if not expected_checks:
+        candidates = [
+            str(path).strip()
+            for path in work_order.get("changed_paths", []) or work_order.get("file_scope", [])
+            if str(path).strip()
+        ]
+        if candidates and all(_is_docs_only_path(path) for path in candidates):
+            return {
+                "enabled": True,
+                "expected_checks": expected_checks,
+                "verification_results": verification_results,
+                "verification_missing_reason": None,
+                "checks_passed": True,
+                "human_approval_required": True,
+                "merge_eligible": True,
+                "blocked_reasons": [],
+            }
+        verification_missing_reason = "missing_verification_plan"
+        blocked_reasons.append(
+            "merge gate blocked: missing verification plan or verification command"
+        )
+    if missing_checks:
+        blocked_reasons.append(
+            "merge gate blocked: required verification did not run: "
+            + ", ".join(missing_checks[:3])
+        )
+    if failed_checks:
+        first = failed_checks[0]
+        reason = (
+            "merge gate blocked: verification failed: "
+            f"{first.get('command', '')} (exit {first.get('exit_code', -1)})"
+        )
+        stderr = str(first.get("stderr", "")).strip()
+        if stderr:
+            reason = f"{reason} - {stderr.splitlines()[0][:200]}"
+        blocked_reasons.append(reason)
+
+    checks_passed = not blocked_reasons
+    return {
+        "enabled": True,
+        "expected_checks": expected_checks,
+        "verification_results": verification_results,
+        "verification_missing_reason": verification_missing_reason,
+        "checks_passed": checks_passed,
+        "human_approval_required": True,
+        "merge_eligible": checks_passed,
+        "blocked_reasons": blocked_reasons,
+    }
+
+
+def _canonical_verification_command(command: Any) -> str:
+    text = str(command or "").strip()
+    if not text:
+        return ""
+    for prefix in ("bash -lc ", "/bin/bash -lc "):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+            if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+                text = text[1:-1]
+            break
+    from aragora.swarm.worker_launcher import WorkerLauncher
+
+    text = re.sub(r"^(?P<prefix>\s*)python3(?=\s|$)", r"\g<prefix>python", text)
+    return WorkerLauncher._normalize_verification_command(text).strip()
+
+
+def _pytest_command_targets(command: Any) -> list[str]:
+    text = _canonical_verification_command(command)
+    if not text:
+        return []
+    try:
+        tokens = shlex.split(text)
+    except ValueError:
+        return []
+    if not tokens:
+        return []
+    start = 0
+    if len(tokens) >= 3 and tokens[1] == "-m" and tokens[2] == "pytest":
+        start = 3
+    elif tokens[0].endswith("pytest"):
+        start = 1
+    else:
+        return []
+
+    targets: list[str] = []
+    skip_next = False
+    options_with_values = {"-k", "-m", "--maxfail", "--timeout", "--tb", "-c", "--rootdir"}
+    for token in tokens[start:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if token in options_with_values:
+            skip_next = True
+            continue
+        if token.startswith("-"):
+            continue
+        normalized = _normalize_claim(token.rstrip("/"))
+        if token.endswith("/") or "/" in normalized or normalized.endswith(".py"):
+            targets.append(normalized)
+    return targets
+
+
+def _is_overbroad_pytest_command(command: Any) -> bool:
+    targets = _pytest_command_targets(command)
+    if not targets:
+        return False
+    return len(targets) == 1 and targets[0] == "tests"
+
+
+def _verification_command_covers_expected(recorded_command: Any, expected_command: Any) -> bool:
+    recorded = _canonical_verification_command(recorded_command)
+    expected = _canonical_verification_command(expected_command)
+    if not recorded or not expected:
+        return False
+    if recorded == expected:
+        return True
+    recorded_targets = _pytest_command_targets(recorded)
+    expected_targets = _pytest_command_targets(expected)
+    if not recorded_targets or not expected_targets:
+        return False
+    for expected_target in expected_targets:
+        if not any(
+            expected_target == recorded_target
+            or expected_target.startswith(recorded_target.rstrip("/") + "/")
+            for recorded_target in recorded_targets
+        ):
+            return False
+    return True
 
 
 def _developer_task_blockers(work_order: dict[str, Any]) -> list[str]:
@@ -3497,6 +4401,186 @@ def _backfill_work_order_blocker_metadata(work_order: dict[str, Any]) -> bool:
         changed = True
 
     return changed
+
+
+def _work_order_should_backfill_verification_plan(work_order: dict[str, Any]) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested", "completed"}:
+        return False
+    if _infer_missing_failure_reason_for_work_order(work_order) != "missing_verification_plan":
+        return False
+    return not [
+        str(item).strip() for item in work_order.get("expected_tests", []) if str(item).strip()
+    ]
+
+
+def _work_order_should_rehabilitate_docs_only_missing_verification_plan(
+    work_order: dict[str, Any],
+) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return False
+    if _infer_missing_failure_reason_for_work_order(work_order) != "missing_verification_plan":
+        return False
+    candidates = [
+        str(path).strip()
+        for path in work_order.get("changed_paths", []) or work_order.get("file_scope", [])
+        if str(path).strip()
+    ]
+    if not candidates or not all(_is_docs_only_path(path) for path in candidates):
+        return False
+    return _work_order_has_concrete_deliverable(work_order)
+
+
+def _work_order_should_replay_missing_verification(work_order: dict[str, Any]) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return False
+    if _optional_text(work_order.get("failure_reason")).lower() != "merge_gate_failed":
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    expected_tests = [
+        str(item).strip() for item in work_order.get("expected_tests", []) if str(item).strip()
+    ]
+    if not expected_tests:
+        return False
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    if verification_results:
+        return False
+    tests_run = [str(item).strip() for item in work_order.get("tests_run", []) if str(item).strip()]
+    return not tests_run
+
+
+def _verification_result_looks_environment_blocked(result: dict[str, Any]) -> bool:
+    if not isinstance(result, dict):
+        return False
+    if bool(result.get("passed", False)):
+        return False
+    haystack = "\n".join(
+        str(result.get(key, "")).lower()
+        for key in ("stdout", "stderr")
+        if str(result.get(key, "")).strip()
+    )
+    return any(
+        marker in haystack
+        for marker in (
+            "no module named 'aragora_debate'",
+            "no module named 'pydantic_settings'",
+            "cannot find module 'next/jest'",
+            "jest: command not found",
+            "cannot find module 'react'",
+            "react/jsx-runtime",
+            "cannot execute binary file",
+        )
+    )
+
+
+def _work_order_should_replay_environment_blocked_verification(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    return any(
+        _verification_result_looks_environment_blocked(entry) for entry in verification_results
+    )
+
+
+def _targeted_replay_expected_tests_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    targeted: list[str] = []
+    seen: set[str] = set()
+
+    def _append(command: str) -> None:
+        display = str(command).strip()
+        normalized = _canonical_verification_command(display)
+        if (
+            not display
+            or not normalized
+            or normalized in seen
+            or _is_overbroad_pytest_command(normalized)
+        ):
+            return
+        seen.add(normalized)
+        targeted.append(display)
+
+    success_criteria = work_order.get("success_criteria")
+    if isinstance(success_criteria, dict):
+        for entry in _extract_tests_value(success_criteria.get("tests")):
+            _append(entry)
+
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict):
+        for entry in metadata.get("acceptance_criteria", []):
+            text = str(entry).strip()
+            if text.startswith("python -m pytest") or text.startswith("pytest"):
+                _append(text)
+            for match in _TEST_FILE_PATTERN.findall(text):
+                _append(f"python -m pytest {match} -q")
+
+    for path in work_order.get("file_scope", []):
+        normalized = str(path).strip()
+        if normalized.startswith("tests/") and normalized.endswith(".py"):
+            _append(f"python -m pytest {normalized} -q")
+
+    for path in work_order.get("changed_paths", []):
+        normalized = str(path).strip()
+        if normalized.startswith("tests/") and normalized.endswith(".py"):
+            _append(f"python -m pytest {normalized} -q")
+
+    return targeted
+
+
+def _work_order_should_replay_targeted_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not _work_order_should_reconcile_merge_gate_failure(work_order):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    current_expected = [
+        _canonical_verification_command(command)
+        for command in work_order.get("expected_tests", [])
+        if str(command).strip()
+    ]
+    if not any(_is_overbroad_pytest_command(command) for command in current_expected):
+        return False
+    targeted = _targeted_replay_expected_tests_for_work_order(work_order)
+    if not targeted:
+        return False
+    return set(targeted) != {command for command in current_expected if command}
+
+
+def _work_order_should_reconcile_merge_gate_failure(work_order: dict[str, Any]) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return False
+    if _optional_text(work_order.get("failure_reason")).lower() != "merge_gate_failed":
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    return bool(verification_results)
 
 
 def _work_order_reap_failure_reason(
@@ -3949,7 +5033,7 @@ def _parse_dt(value: str) -> datetime:
 
 
 def _json_dump(value: Any) -> str:
-    return json.dumps(value, sort_keys=True)
+    return json.dumps(_json_compatible(value), sort_keys=True)
 
 
 def _json_loads(value: str | None, default: Any) -> Any:
@@ -3962,7 +5046,19 @@ def _json_loads(value: str | None, default: Any) -> Any:
 
 
 def _artifact_hash(payload: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(_json_compatible(payload), sort_keys=True).encode()
+    ).hexdigest()
+
+
+def _json_compatible(value: Any) -> Any:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, dict):
+        return {str(key): _json_compatible(nested) for key, nested in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_compatible(item) for item in value]
+    return value
 
 
 def _normalize_claim(value: str) -> str:

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import shlex
 import subprocess
 import uuid
 from dataclasses import dataclass, field
@@ -1438,6 +1440,8 @@ class SwarmSupervisor:
         decomposition = self.decomposer.analyze(
             goal,
             file_scope_hints=spec_hints or None,
+            acceptance_criteria=list(spec.acceptance_criteria) or None,
+            constraints=list(spec.constraints) or None,
         )
         subtasks = list(decomposition.subtasks)
         if not subtasks:
@@ -2870,6 +2874,113 @@ class SwarmSupervisor:
             if str(command).strip()
         ]
 
+    @staticmethod
+    def _canonical_verification_command(command: Any) -> str:
+        text = str(command or "").strip()
+        if not text:
+            return ""
+        for prefix in ("bash -lc ", "/bin/bash -lc "):
+            if text.startswith(prefix):
+                text = text[len(prefix) :].strip()
+                if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+                    text = text[1:-1]
+                break
+        text = re.sub(r"^(?P<prefix>\s*)python3(?=\s|$)", r"\g<prefix>python", text)
+        return WorkerLauncher._normalize_verification_command(text).strip()
+
+    @classmethod
+    def _pytest_command_targets(cls, command: Any) -> list[str]:
+        text = cls._canonical_verification_command(command)
+        if not text:
+            return []
+        try:
+            tokens = shlex.split(text)
+        except ValueError:
+            return []
+        if not tokens:
+            return []
+        start = 0
+        if len(tokens) >= 3 and tokens[1] == "-m" and tokens[2] == "pytest":
+            start = 3
+        elif tokens[0].endswith("pytest"):
+            start = 1
+        else:
+            return []
+
+        targets: list[str] = []
+        skip_next = False
+        options_with_values = {"-k", "-m", "--maxfail", "--timeout", "--tb", "-c", "--rootdir"}
+        for token in tokens[start:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if token in options_with_values:
+                skip_next = True
+                continue
+            if token.startswith("-"):
+                continue
+            normalized = str(token).strip().removeprefix("./").rstrip("/")
+            if token.endswith("/") or "/" in normalized or normalized.endswith(".py"):
+                targets.append(normalized)
+        return targets
+
+    @classmethod
+    def _pytest_command_has_selectors(cls, command: Any) -> bool:
+        """Return True if the pytest command contains -k or -m selectors."""
+        text = cls._canonical_verification_command(command)
+        if not text:
+            return False
+        try:
+            tokens = shlex.split(text)
+        except ValueError:
+            return False
+        start = 0
+        if len(tokens) >= 3 and tokens[1] == "-m" and tokens[2] == "pytest":
+            start = 3
+        elif tokens and tokens[0].endswith("pytest"):
+            start = 1
+        else:
+            return False
+        skip_next = False
+        for token in tokens[start:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if token in {"-k", "-m"}:
+                return True
+            options_with_values = {"--maxfail", "--timeout", "--tb", "-c", "--rootdir"}
+            if token in options_with_values:
+                skip_next = True
+                continue
+        return False
+
+    @classmethod
+    def _verification_command_covers_expected(
+        cls, recorded_command: Any, expected_command: Any
+    ) -> bool:
+        recorded = cls._canonical_verification_command(recorded_command)
+        expected = cls._canonical_verification_command(expected_command)
+        if not recorded or not expected:
+            return False
+        if recorded == expected:
+            return True
+        recorded_targets = cls._pytest_command_targets(recorded)
+        expected_targets = cls._pytest_command_targets(expected)
+        if not recorded_targets or not expected_targets:
+            return False
+        if cls._pytest_command_has_selectors(recorded) or cls._pytest_command_has_selectors(
+            expected
+        ):
+            return False
+        for expected_target in expected_targets:
+            if not any(
+                expected_target == recorded_target
+                or expected_target.startswith(recorded_target.rstrip("/") + "/")
+                for recorded_target in recorded_targets
+            ):
+                return False
+        return True
+
     @classmethod
     def _merge_gate_state(cls, item: dict[str, Any]) -> dict[str, Any]:
         expected_checks = [
@@ -2880,22 +2991,38 @@ class SwarmSupervisor:
             for entry in item.get("verification_results", [])
             if isinstance(entry, dict) and str(entry.get("command", "")).strip()
         ]
-        seen_commands = {
-            str(entry.get("command", "")).strip()
-            for entry in verification_results
-            if str(entry.get("command", "")).strip()
-        }
-        missing_checks = [command for command in expected_checks if command not in seen_commands]
+        missing_checks = [
+            command
+            for command in expected_checks
+            if not any(
+                cls._verification_command_covers_expected(entry.get("command", ""), command)
+                for entry in verification_results
+            )
+        ]
         failed_checks = [
             dict(entry)
             for entry in verification_results
-            if str(entry.get("command", "")).strip() in expected_checks
+            if any(
+                cls._verification_command_covers_expected(entry.get("command", ""), command)
+                for command in expected_checks
+            )
             and not bool(entry.get("passed", False))
         ]
 
         blocked_reasons: list[str] = []
         verification_missing_reason: str | None = None
         if not expected_checks:
+            if cls._work_order_is_docs_only(item):
+                return {
+                    "enabled": True,
+                    "expected_checks": expected_checks,
+                    "verification_results": verification_results,
+                    "verification_missing_reason": None,
+                    "checks_passed": True,
+                    "human_approval_required": True,
+                    "merge_eligible": True,
+                    "blocked_reasons": [],
+                }
             verification_missing_reason = "missing_verification_plan"
             blocked_reasons.append(
                 "merge gate blocked: missing verification plan or verification command"
@@ -2927,6 +3054,38 @@ class SwarmSupervisor:
             "merge_eligible": checks_passed,
             "blocked_reasons": blocked_reasons,
         }
+
+    _DOCS_SAFE_PREFIXES = ("docs/", "docs-site/")
+    _DOCS_SAFE_FILENAMES = frozenset(
+        {
+            "CHANGELOG.md",
+            "CODE_OF_CONDUCT.md",
+            "CONTRIBUTING.md",
+            "LICENSE",
+            "LICENSE.md",
+        }
+    )
+
+    @staticmethod
+    def _is_docs_only_path(path: Any) -> bool:
+        normalized = str(path or "").strip().removeprefix("./")
+        if not normalized:
+            return False
+        if any(normalized.startswith(prefix) for prefix in SwarmSupervisor._DOCS_SAFE_PREFIXES):
+            return True
+        basename = normalized.rsplit("/", 1)[-1] if "/" in normalized else normalized
+        return basename in SwarmSupervisor._DOCS_SAFE_FILENAMES
+
+    @classmethod
+    def _work_order_is_docs_only(cls, item: dict[str, Any]) -> bool:
+        candidates = [
+            str(path).strip()
+            for path in item.get("changed_paths", []) or item.get("file_scope", [])
+            if str(path).strip()
+        ]
+        if not candidates:
+            return False
+        return all(cls._is_docs_only_path(path) for path in candidates)
 
     @staticmethod
     def _merge_gate_failure_reason(merge_gate: dict[str, Any]) -> str:

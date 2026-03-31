@@ -394,6 +394,8 @@ class TaskDecomposer:
         depth: int = 0,
         *,
         file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
     ) -> TaskDecomposition:
         """Analyze a task and determine if decomposition is needed.
 
@@ -446,16 +448,19 @@ class TaskDecomposer:
         ):
             llm_subtasks = self._finalize_generated_subtasks(
                 task_description,
-                self._llm_extract_subtasks(task_description, file_scope_hints=file_scope_hints),
+                self._llm_extract_subtasks(
+                    task_description,
+                    file_scope_hints=file_scope_hints,
+                    acceptance_criteria=acceptance_criteria,
+                    constraints=constraints,
+                ),
                 file_scope_hints=file_scope_hints,
             )
             if llm_subtasks and (len(llm_subtasks) >= 2 or file_scope_hints):
                 return TaskDecomposition(
                     original_task=task_description,
-                    complexity_score=max(complexity_score, self.config.complexity_threshold),
-                    complexity_level=self._score_to_level(
-                        max(complexity_score, self.config.complexity_threshold)
-                    ),
+                    complexity_score=complexity_score,
+                    complexity_level=self._score_to_level(complexity_score),
                     should_decompose=True,
                     subtasks=llm_subtasks[: self.config.max_subtasks],
                     rationale=self._build_rationale(task_description, complexity_score, True),
@@ -463,10 +468,8 @@ class TaskDecomposer:
             if file_scope_hints:
                 return TaskDecomposition(
                     original_task=task_description,
-                    complexity_score=max(complexity_score, self.config.complexity_threshold),
-                    complexity_level=self._score_to_level(
-                        max(complexity_score, self.config.complexity_threshold)
-                    ),
+                    complexity_score=complexity_score,
+                    complexity_level=self._score_to_level(complexity_score),
                     should_decompose=True,
                     subtasks=[
                         self._build_mirrored_subtask(
@@ -524,7 +527,11 @@ class TaskDecomposer:
             result.subtasks = self._finalize_generated_subtasks(
                 task_description,
                 self._generate_subtasks(
-                    task_description, debate_result, file_scope_hints=file_scope_hints
+                    task_description,
+                    debate_result,
+                    file_scope_hints=file_scope_hints,
+                    acceptance_criteria=acceptance_criteria,
+                    constraints=constraints,
                 ),
                 file_scope_hints=file_scope_hints,
             )
@@ -1220,6 +1227,8 @@ class TaskDecomposer:
         debate_result: DebateResult | None = None,
         *,
         file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
     ) -> list[SubTask]:
         """Generate subtasks for a complex task.
 
@@ -1252,7 +1261,12 @@ class TaskDecomposer:
 
         # 2. Try LLM-based subtask extraction (frontier model).
         #    Returns [] when no API key is configured — falls through silently.
-        llm_subtasks = self._llm_extract_subtasks(task, file_scope_hints=file_scope_hints)
+        llm_subtasks = self._llm_extract_subtasks(
+            task,
+            file_scope_hints=file_scope_hints,
+            acceptance_criteria=acceptance_criteria,
+            constraints=constraints,
+        )
         if llm_subtasks:
             return llm_subtasks[: self.config.max_subtasks]
 
@@ -1260,7 +1274,12 @@ class TaskDecomposer:
         return self._heuristic_decomposition(task, debate_result)
 
     def _llm_extract_subtasks(
-        self, task: str, *, file_scope_hints: list[str] | None = None
+        self,
+        task: str,
+        *,
+        file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
     ) -> list[SubTask]:
         """Extract subtasks using a frontier LLM.
 
@@ -1271,7 +1290,12 @@ class TaskDecomposer:
         Returns an empty list if no provider is available or both fail,
         allowing the caller to fall back to heuristic decomposition.
         """
-        prompt = self._build_decomposition_prompt(task, file_scope_hints)
+        prompt = self._build_decomposition_prompt(
+            task,
+            file_scope_hints,
+            acceptance_criteria=acceptance_criteria,
+            constraints=constraints,
+        )
 
         # Try Anthropic first
         text = self._call_anthropic(prompt)
@@ -1284,7 +1308,12 @@ class TaskDecomposer:
         return self._parse_llm_subtasks(text)
 
     def _build_decomposition_prompt(
-        self, task: str, file_scope_hints: list[str] | None = None
+        self,
+        task: str,
+        file_scope_hints: list[str] | None = None,
+        *,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
     ) -> str:
         """Build a structured prompt for LLM-based task decomposition."""
         scope_section = ""
@@ -1297,11 +1326,23 @@ class TaskDecomposer:
                 f"- Do NOT generate subtasks targeting other parts of the codebase.\n"
             )
 
+        acceptance_section = ""
+        if acceptance_criteria:
+            acceptance_lines = "\n".join(f"- {item}" for item in acceptance_criteria)
+            acceptance_section = f"\n## Acceptance Criteria\n{acceptance_lines}\n"
+
+        constraints_section = ""
+        if constraints:
+            constraint_lines = "\n".join(f"- {item}" for item in constraints)
+            constraints_section = f"\n## Constraints\n{constraint_lines}\n"
+
         return (
             "You are a precise task decomposition engine for a software project.\n\n"
             "## Task\n"
             f"{task}\n"
             f"{scope_section}\n"
+            f"{acceptance_section}"
+            f"{constraints_section}"
             "## Instructions\n"
             "Analyze the task above and decompose it into 1-5 concrete, actionable subtasks.\n\n"
             "### Classification Rules\n"

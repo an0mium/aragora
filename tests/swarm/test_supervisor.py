@@ -118,6 +118,58 @@ def test_start_run_creates_leased_work_orders(repo: Path, store: DevCoordination
     assert store.status_summary()["counts"]["active_leases"] == 2
 
 
+def test_start_run_passes_acceptance_and_constraints_to_decomposer(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session = ManagedWorktreeSession(
+        session_id="swarm-acceptance",
+        agent="codex",
+        branch="codex/swarm-acceptance",
+        path=repo / "wt-acceptance",
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    session.path.mkdir()
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = session
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="wo-1",
+                title="Server lane",
+                description="Implement server lane",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Goal",
+        refined_goal="Goal",
+        acceptance_criteria=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        constraints=["Keep merge gate enabled", "Human approval required"],
+    )
+
+    supervisor.start_run(spec=spec, max_concurrency=1)
+
+    decomposer.analyze.assert_called_once()
+    kwargs = decomposer.analyze.call_args.kwargs
+    assert kwargs["acceptance_criteria"] == ["python -m pytest tests/swarm/test_supervisor.py -q"]
+    assert kwargs["constraints"] == ["Keep merge gate enabled", "Human approval required"]
+
+
 def test_refresh_run_scales_queued_work_after_completion(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1500,6 +1552,68 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert wo["failure_reason"] == "missing_verification_plan"
     assert "verification command" in wo["blocking_question"]
     assert "missing verification plan" in wo["dispatch_error"]
+
+
+def test_merge_gate_state_allows_docs_only_lane_without_verification_plan() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "file_scope": ["docs/**"],
+            "changed_paths": ["docs/status/DESIGN_PARTNER_PROGRAM.md"],
+            "expected_tests": [],
+            "verification_results": [],
+        }
+    )
+
+    assert state["checks_passed"] is True
+    assert state["merge_eligible"] is True
+    assert state["verification_missing_reason"] is None
+    assert state["blocked_reasons"] == []
+
+
+def test_merge_gate_state_normalizes_python_command_equivalence() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python3 -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": True,
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is True
+    assert state["merge_eligible"] is True
+    assert state["blocked_reasons"] == []
+
+
+def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
+    """A recorded command with -k selectors must NOT satisfy an expected check
+    via path-based equivalence -- the selectors may filter out the required tests."""
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/ -q -k 'not benchmark and not load' --timeout=60 -x",
+                    "passed": True,
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert len(state["blocked_reasons"]) > 0
 
 
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
@@ -3458,3 +3572,49 @@ async def test_refresh_run_async_context_reconciles_dead_worker_salvage(
         capture_output=True,
         check=False,
     )
+
+
+# --- Finding 1: Filtered pytest commands with selectors ---
+
+
+def test_pytest_command_has_selectors_detects_k_flag() -> None:
+    assert SwarmSupervisor._pytest_command_has_selectors("python -m pytest tests/ -k 'not slow'")
+
+
+def test_pytest_command_has_selectors_detects_m_flag() -> None:
+    assert SwarmSupervisor._pytest_command_has_selectors("pytest tests/ -m integration")
+
+
+def test_pytest_command_has_selectors_false_for_plain_command() -> None:
+    assert not SwarmSupervisor._pytest_command_has_selectors("python -m pytest tests/swarm/ -x -q")
+
+
+# --- Finding 4: Docs-only path allowlist ---
+
+
+def test_is_docs_only_path_accepts_docs_prefix() -> None:
+    assert SwarmSupervisor._is_docs_only_path("docs/STATUS.md")
+
+
+def test_is_docs_only_path_accepts_docs_site_prefix() -> None:
+    assert SwarmSupervisor._is_docs_only_path("docs-site/docs/guide.md")
+
+
+def test_is_docs_only_path_accepts_changelog() -> None:
+    assert SwarmSupervisor._is_docs_only_path("CHANGELOG.md")
+
+
+def test_is_docs_only_path_rejects_claude_md() -> None:
+    assert not SwarmSupervisor._is_docs_only_path("CLAUDE.md")
+
+
+def test_is_docs_only_path_rejects_readme_md() -> None:
+    assert not SwarmSupervisor._is_docs_only_path("README.md")
+
+
+def test_is_docs_only_path_rejects_scripts_txt() -> None:
+    assert not SwarmSupervisor._is_docs_only_path("scripts/pii_allowlist.txt")
+
+
+def test_is_docs_only_path_rejects_arbitrary_md_in_src() -> None:
+    assert not SwarmSupervisor._is_docs_only_path("aragora/notes.md")
