@@ -12,10 +12,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,20 +34,6 @@ class Stats:
     agent_types_allowlisted: int
 
 
-def _run_rg_count(pattern: str, globs: Iterable[str], exclude_globs: Iterable[str]) -> int:
-    cmd = ["rg", pattern]
-    for glob in globs:
-        cmd.extend(["-g", glob])
-    for glob in exclude_globs:
-        cmd.extend(["-g", f"!{glob}"])
-    cmd.append(str(ROOT))
-    try:
-        out = subprocess.check_output(cmd, cwd=ROOT)
-        return len(out.splitlines())
-    except FileNotFoundError:
-        return -1
-
-
 def _count_py_files(path: Path) -> int:
     if not path.exists():
         return 0
@@ -60,20 +45,14 @@ def _count_py_files(path: Path) -> int:
 
 
 def _count_tests() -> int:
-    count = _run_rg_count(
-        "def test_",
-        globs=["*.py"],
-        exclude_globs=["**/node_modules/**", "**/.nomic/**", "**/.venv/**"],
-    )
-    if count >= 0:
-        return count
-    # Fallback: scan tests/ directory only
     tests_dir = ROOT / "tests"
     if not tests_dir.exists():
         return 0
     pattern = re.compile(r"^\s*def test_", re.MULTILINE)
     total = 0
     for p in tests_dir.rglob("*.py"):
+        if "__pycache__" in p.parts or ".venv" in p.parts or "node_modules" in p.parts:
+            continue
         total += len(pattern.findall(p.read_text(errors="ignore")))
     return total
 
@@ -390,7 +369,7 @@ def main() -> int:
     stats = compute_stats()
     print("Doc stats:")
     print(f"- Python modules (aragora/): {stats.python_modules}")
-    print(f"- Tests (def test_ across repo): {stats.test_count}")
+    print(f"- Tests (def test_ under tests/): {stats.test_count}")
     print(f"- Test files (tests/): {stats.test_files}")
     print(f"- API paths: {stats.api_paths}")
     print(f"- API operations: {stats.api_operations}")

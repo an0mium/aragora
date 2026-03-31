@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from scripts import doc_stats
 
 
@@ -29,3 +31,27 @@ def test_patch_docs_uses_coarse_repo_test_rounding(monkeypatch, tmp_path) -> Non
 
     assert changed == 1
     assert "210,000+ tests" in readme.read_text(encoding="utf-8")
+
+
+def test_count_tests_ignores_non_tests_tree(monkeypatch, tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_real.py").write_text(
+        "def test_alpha():\n    pass\n\ndef test_beta():\n    pass\n",
+        encoding="utf-8",
+    )
+    sdk_dir = tmp_path / "sdk"
+    sdk_dir.mkdir()
+    (sdk_dir / "test_generated.py").write_text(
+        "def test_generated_sdk_case():\n    pass\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "aragora").mkdir()
+    (tmp_path / "aragora" / "test_helpers.py").write_text(
+        "def test_helper_stub():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(doc_stats, "ROOT", tmp_path)
+
+    assert doc_stats._count_tests() == 2
