@@ -12,17 +12,19 @@
  * - Clearing stage nodes and edges
  */
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { usePipelineCanvas } from '../usePipelineCanvas';
 import type { PipelineResultResponse } from '../../components/pipeline-canvas/types';
+
+const mockBackendConfig = {
+  api: 'https://backend.test',
+  ws: 'wss://backend.test/ws',
+};
 
 jest.mock('../../components/BackendSelector', () => ({
   useBackend: () => ({
     backend: 'production',
-    config: {
-      api: 'https://backend.test',
-      ws: 'wss://backend.test/ws',
-    },
+    config: mockBackendConfig,
   }),
 }));
 
@@ -96,6 +98,8 @@ const MOCK_API_RESPONSE: PipelineResultResponse = {
 describe('usePipelineCanvas', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBackendConfig.api = 'https://backend.test';
+    mockBackendConfig.ws = 'wss://backend.test/ws';
     mockSetNodes.mockClear();
     mockSetEdges.mockClear();
     mockOnNodesChange.mockClear();
@@ -162,6 +166,42 @@ describe('usePipelineCanvas', () => {
     expect(mockSetEdges).toHaveBeenCalled();
     expect(MockWebSocket.instances[0]?.url).toBe(
       'wss://backend.test/ws/pipeline?pipeline_id=test-1',
+    );
+  });
+
+  it('reloads pipeline data when backend changes after initialData mount', async () => {
+    const { rerender } = renderHook(
+      ({ pipelineId, initialData }: { pipelineId: string; initialData: PipelineResultResponse }) =>
+        usePipelineCanvas(pipelineId, initialData),
+      {
+        initialProps: {
+          pipelineId: 'test-1',
+          initialData: MOCK_API_RESPONSE,
+        },
+      },
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    mockBackendConfig.api = 'https://backend-2.test';
+    mockBackendConfig.ws = 'wss://backend-2.test/ws';
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_API_RESPONSE),
+    });
+
+    await act(async () => {
+      rerender({
+        pipelineId: 'test-1',
+        initialData: MOCK_API_RESPONSE,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('https://backend-2.test/api/v1/canvas/pipeline/test-1');
+    });
+    expect(MockWebSocket.instances[1]?.url).toBe(
+      'wss://backend-2.test/ws/pipeline?pipeline_id=test-1',
     );
   });
 
