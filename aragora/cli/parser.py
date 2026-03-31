@@ -149,6 +149,7 @@ Examples:
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
     _add_review_pr_parser(subparsers)
+    _add_codebase_audit_parser(subparsers)
     _add_external_parsers(subparsers)
     _add_badge_parser(subparsers)
     _add_verticals_parser(subparsers)
@@ -1260,6 +1261,70 @@ def _add_review_pr_parser(subparsers) -> None:
     from aragora.cli.document_audit import create_document_audit_parser
 
     create_document_audit_parser(subparsers)
+
+
+def _add_codebase_audit_parser(subparsers) -> None:
+    """Add the staged repository codebase audit parser."""
+    parser = subparsers.add_parser(
+        "codebase-audit",
+        help="Run a staged repo audit with triage, threat-surface ranking, and deep audit",
+        description=(
+            "Run a deterministic staged repo audit that first filters bespoke code, "
+            "then ranks trust boundaries, then optionally runs Deep Audit against the "
+            "highest-risk files."
+        ),
+    )
+    parser.add_argument(
+        "repo",
+        nargs="?",
+        default=".",
+        help="Repository root to audit (default: current directory)",
+    )
+    parser.add_argument(
+        "--agents",
+        default=DEFAULT_AGENTS,
+        help=f"Comma-separated deep-audit agents (default: {DEFAULT_AGENTS})",
+    )
+    parser.add_argument(
+        "--top-files",
+        type=int,
+        default=12,
+        help="Number of highest-risk files to rank and carry into deep audit (default: 12)",
+    )
+    parser.add_argument(
+        "--max-dirs",
+        type=int,
+        default=25,
+        help="Max directories to include in the triage map (default: 25)",
+    )
+    parser.add_argument(
+        "--max-preview-chars",
+        type=int,
+        default=4000,
+        help="Max characters per file preview in the threat-surface stage (default: 4000)",
+    )
+    parser.add_argument(
+        "--max-file-chars",
+        type=int,
+        default=12000,
+        help="Max characters per file forwarded into deep audit context (default: 12000)",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        default=None,
+        help="Directory for audit artifacts (default: .aragora/codebase-audit/<timestamp>)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip the LLM deep-audit stage and only emit staged artifacts",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the final run summary as JSON",
+    )
+    parser.set_defaults(func=_lazy("aragora.cli.commands.codebase_audit", "cmd_codebase_audit"))
 
     # Documents command (upload, list, show with folder support)
     from aragora.cli.documents import create_documents_parser
