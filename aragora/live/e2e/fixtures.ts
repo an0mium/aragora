@@ -34,17 +34,47 @@ export const testData = {
 export class AragoraPage {
   constructor(private page: import('@playwright/test').Page) {}
 
+  private async isVisible(locator: import('@playwright/test').Locator, label: string, timeout = 1000) {
+    if ((await locator.count()) === 0) {
+      return false;
+    }
+    try {
+      return await locator.first().isVisible({ timeout });
+    } catch (error) {
+      console.warn(`[e2e] Visibility check failed for ${label}:`, error);
+      return false;
+    }
+  }
+
+  private async clickIfVisible(locator: import('@playwright/test').Locator, label: string, timeout = 1000) {
+    if (!(await this.isVisible(locator, label, timeout))) {
+      return false;
+    }
+    try {
+      await locator.first().click();
+      return true;
+    } catch (error) {
+      console.warn(`[e2e] Click failed for ${label}:`, error);
+      return false;
+    }
+  }
+
+  private async waitForHidden(locator: import('@playwright/test').Locator, label: string, timeout = 3000) {
+    try {
+      await locator.waitFor({ state: 'hidden', timeout });
+    } catch (error) {
+      console.warn(`[e2e] ${label} did not hide within ${timeout}ms:`, error);
+    }
+  }
+
   /**
    * Dismiss the boot sequence animation if present.
    * The boot animation is a full-screen overlay that blocks all pointer events.
    */
   async dismissBootAnimation() {
     const bootOverlay = this.page.locator('[aria-label*="Boot sequence"]');
-    if (await bootOverlay.isVisible({ timeout: 1000 }).catch(() => false)) {
-      // Click to skip the boot animation
-      await bootOverlay.click();
-      // Wait for animation to complete and overlay to disappear
-      await bootOverlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    if (await this.clickIfVisible(bootOverlay, 'boot animation')) {
+      await this.waitForHidden(bootOverlay, 'boot animation', 5000);
     }
   }
 
@@ -54,10 +84,8 @@ export class AragoraPage {
    */
   async dismissOnboarding() {
     const skipButton = this.page.locator('button:has-text("[SKIP]")');
-    if (await skipButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await skipButton.click();
-      // Wait for wizard to disappear
-      await this.page.locator('.fixed.z-\\[100\\]').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    if (await this.clickIfVisible(skipButton, 'onboarding skip button')) {
+      await this.waitForHidden(this.page.locator('.fixed.z-\\[100\\]'), 'onboarding wizard');
     }
   }
 
@@ -67,9 +95,8 @@ export class AragoraPage {
    */
   async dismissConnectivityWarning() {
     const dismissButton = this.page.locator('button[aria-label="Dismiss connectivity warning"]');
-    if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismissButton.click().catch(() => {});
-      await this.page.locator('[role="alert"]').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    if (await this.clickIfVisible(dismissButton, 'connectivity warning dismiss button')) {
+      await this.waitForHidden(this.page.locator('[role="alert"]'), 'connectivity warning');
     }
   }
 
@@ -81,13 +108,13 @@ export class AragoraPage {
     const dismissButton = this.page.locator(
       'button[aria-label="Dismiss configuration warning"], button[aria-label="Dismiss warnings"]'
     );
-    if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismissButton.click().catch(() => {});
-      await this.page
-        .locator('[role="alert"]')
-        .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i })
-        .waitFor({ state: 'hidden', timeout: 3000 })
-        .catch(() => {});
+    if (await this.clickIfVisible(dismissButton, 'configuration warning dismiss button')) {
+      await this.waitForHidden(
+        this.page
+          .locator('[role="alert"]')
+          .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i }),
+        'configuration warning'
+      );
     }
   }
 
@@ -108,7 +135,7 @@ export class AragoraPage {
     // Wait for Next.js hydration
     await this.page.waitForLoadState('domcontentloaded');
     // Wait for any loading spinners to disappear
-    await this.page.waitForSelector('[data-testid="loading"]', { state: 'hidden' }).catch(() => {});
+    await this.waitForHidden(this.page.locator('[data-testid="loading"]'), 'loading spinner');
   }
 
   async getToast() {
@@ -121,8 +148,8 @@ export class AragoraPage {
 
   async dismissToast() {
     const toast = await this.getToast();
-    if (await toast.isVisible()) {
-      await toast.locator('button[aria-label="Close"]').click().catch(() => {});
+    if (await this.isVisible(toast, 'toast', 0)) {
+      await this.clickIfVisible(toast.locator('button[aria-label="Close"]'), 'toast close button', 0);
     }
   }
 }
