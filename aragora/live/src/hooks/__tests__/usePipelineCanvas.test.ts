@@ -12,16 +12,19 @@
  * - Clearing stage nodes and edges
  */
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { usePipelineCanvas } from '../usePipelineCanvas';
 import type { PipelineResultResponse } from '../../components/pipeline-canvas/types';
+
+let mockBackendApi = 'https://backend.test';
+let mockBackendWs = 'wss://backend.test/ws';
 
 jest.mock('../../components/BackendSelector', () => ({
   useBackend: () => ({
     backend: 'production',
     config: {
-      api: 'https://backend.test',
-      ws: 'wss://backend.test/ws',
+      api: mockBackendApi,
+      ws: mockBackendWs,
     },
   }),
 }));
@@ -96,6 +99,8 @@ const MOCK_API_RESPONSE: PipelineResultResponse = {
 describe('usePipelineCanvas', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBackendApi = 'https://backend.test';
+    mockBackendWs = 'wss://backend.test/ws';
     mockSetNodes.mockClear();
     mockSetEdges.mockClear();
     mockOnNodesChange.mockClear();
@@ -163,6 +168,39 @@ describe('usePipelineCanvas', () => {
     expect(MockWebSocket.instances[0]?.url).toBe(
       'wss://backend.test/ws/pipeline?pipeline_id=test-1',
     );
+  });
+
+  it('reloads pipeline data when backend changes after initialData mount', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(MOCK_API_RESPONSE),
+    });
+
+    const { rerender } = renderHook(
+      ({ pipelineId, initialData }) => usePipelineCanvas(pipelineId, initialData),
+      {
+        initialProps: {
+          pipelineId: 'test-1',
+          initialData: MOCK_API_RESPONSE,
+        },
+      },
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    mockBackendApi = 'https://backend-2.test';
+    mockBackendWs = 'wss://backend-2.test/ws';
+
+    rerender({
+      pipelineId: 'test-1',
+      initialData: MOCK_API_RESPONSE,
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://backend-2.test/api/v1/canvas/pipeline/test-1',
+      );
+    });
   });
 
   it('setActiveStage switches stage and updates nodes/edges', () => {

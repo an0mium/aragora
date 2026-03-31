@@ -286,7 +286,7 @@ export function usePipelineCanvas(
   useEffect(() => {
     if (previousApiBaseRef.current === backendConfig.api) return;
     previousApiBaseRef.current = backendConfig.api;
-    if (pipelineId && !initialData) {
+    if (pipelineId) {
       void loadPipeline(pipelineId);
     }
   }, [backendConfig.api, initialData, loadPipeline, pipelineId]);
