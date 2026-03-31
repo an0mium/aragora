@@ -1,0 +1,10 @@
+name: substack
+quality_threshold: 0.75
+weights:
+  thesis_clarity: 0.15
+  argument_coherence: 0.10
+  evidence_grounding: 0.10
+  rhetorical_force: 0.25
+  concision: 0.15
+  factual_accuracy: 0.10
+  originality: 0.15

@@ -1,0 +1,10 @@
+name: default
+quality_threshold: 0.8
+weights:
+  thesis_clarity: 0.20
+  argument_coherence: 0.20
+  evidence_grounding: 0.15
+  rhetorical_force: 0.15
+  concision: 0.10
+  factual_accuracy: 0.10
+  originality: 0.10
