@@ -3226,14 +3226,14 @@ def test_pre_reap_salvage_backfills_commit_shas_from_dead_worker(
                 id="wo-1",
                 title="Test salvage",
                 description="Test pre-reap salvage",
-                file_scope=["test.py"],
+                file_scope=["salvage_test.py"],
             )
         ],
     )
     supervisor = SwarmSupervisor(
         repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
     )
-    spec = SwarmSpec(raw_goal="salvage test", file_scope_hints=["test.py"])
+    spec = SwarmSpec(raw_goal="salvage test", file_scope_hints=["salvage_test.py"])
     run = supervisor.start_run(spec=spec)
 
     # Simulate a dispatched work order with a dead PID
@@ -3268,12 +3268,16 @@ def test_pre_reap_salvage_backfills_commit_shas_from_dead_worker(
     # Run pre-reap salvage
     supervisor._collect_finished_workers_sync(run.run_id)
 
-    # Verify commit SHAs were salvaged
+    # Verify the dead worker was fully reconciled into a salvage completion
     updated = store.get_supervisor_run(run.run_id)
     wo_updated = updated["work_orders"][0]
+    assert wo_updated["status"] == "completed"
+    assert wo_updated["worker_outcome"] == "crash_with_salvage"
+    assert wo_updated["review_status"] == "pending_heterogeneous_review"
     assert wo_updated.get("commit_shas"), "Expected commit SHAs to be salvaged"
     assert len(wo_updated["commit_shas"]) >= 1
     assert wo_updated.get("head_sha"), "Expected head SHA to be set"
+    assert wo_updated.get("receipt_id"), "Expected salvage receipt to be backfilled"
 
     # Cleanup
     subprocess.run(
@@ -3366,3 +3370,91 @@ def test_pre_reap_salvage_handles_missing_worktree(repo: Path, store: DevCoordin
     # No SHAs salvaged from nonexistent path
     updated = store.get_supervisor_run(run.run_id)
     assert not updated["work_orders"][0].get("commit_shas")
+
+
+@pytest.mark.asyncio
+async def test_refresh_run_async_context_reconciles_dead_worker_salvage(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-async-salvage"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-async-salvage",
+        agent="codex",
+        branch="codex/swarm-async-salvage",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="async salvage",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[
+            SubTask(
+                id="wo-1",
+                title="Async salvage lane",
+                description="Prove sync reconciliation in async refresh",
+                file_scope=["salvage_async.py"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+    run = supervisor.start_run(
+        spec=SwarmSpec(raw_goal="async salvage", file_scope_hints=["salvage_async.py"])
+    )
+
+    wt_path = repo / "async-salvage-wt"
+    subprocess.run(
+        ["git", "worktree", "add", str(wt_path), "-b", "async-salvage-branch"],
+        cwd=repo,
+        capture_output=True,
+        check=False,
+    )
+    test_file = wt_path / "salvage_async.py"
+    test_file.write_text("print('salvage')\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "salvage_async.py"], cwd=wt_path, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "async salvage commit"],
+        cwd=wt_path,
+        capture_output=True,
+        check=False,
+    )
+    initial_head = subprocess.run(
+        ["git", "rev-parse", "HEAD~1"],
+        cwd=wt_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+
+    record = store.get_supervisor_run(run.run_id)
+    assert record is not None
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = 99999
+    record["work_orders"][0]["worktree_path"] = str(wt_path)
+    record["work_orders"][0]["initial_head"] = initial_head
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    refreshed = supervisor.refresh_run(run.run_id)
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "crash_with_salvage"
+    assert work_order["receipt_id"]
+    assert work_order["commit_shas"]
+
+    subprocess.run(
+        ["git", "worktree", "remove", str(wt_path), "--force"],
+        cwd=repo,
+        capture_output=True,
+        check=False,
+    )

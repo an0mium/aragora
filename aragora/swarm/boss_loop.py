@@ -1274,6 +1274,7 @@ class BossLoop:
         self._iteration_statuses: list[BossIterationStatus] = []
         self._consecutive_failures = 0
         self._issue_attempt_counts: dict[int, int] = {}
+        self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
 
     def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
@@ -1437,6 +1438,55 @@ class BossLoop:
         if default_target:
             return rotation[(attempt_count - 2) % len(rotation)]
         return rotation[(attempt_count - 2) % len(rotation)]
+
+    def _extract_worker_agent(self, worker_result: dict[str, Any]) -> str | None:
+        for key in ("target_agent", "runner_type"):
+            value = str(worker_result.get(key, "")).strip().lower()
+            if value:
+                return value
+
+        receipt_metadata = worker_result.get("receipt_metadata")
+        if isinstance(receipt_metadata, dict):
+            for key in ("actual_target_agent", "requested_target_agent", "runner_type"):
+                value = str(receipt_metadata.get(key, "")).strip().lower()
+                if value:
+                    return value
+
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return None
+        work_orders = run.get("work_orders", [])
+        if not isinstance(work_orders, list):
+            return None
+        for work_order in work_orders:
+            if not isinstance(work_order, dict):
+                continue
+            value = str(work_order.get("target_agent", "")).strip().lower()
+            if value:
+                return value
+        return None
+
+    def _pending_handoff_candidates(self, issues: list[GitHubIssue]) -> list[GitHubIssue]:
+        if not self._pending_handoff_prompts:
+            return []
+
+        issue_by_number = {int(issue.number): issue for issue in issues}
+        candidates: list[GitHubIssue] = []
+        stale_issue_numbers: list[int] = []
+
+        for issue_number in list(self._pending_handoff_prompts):
+            issue = issue_by_number.get(issue_number)
+            if issue is None:
+                stale_issue_numbers.append(issue_number)
+                continue
+            if self.config.issue_number is not None and issue_number != self.config.issue_number:
+                continue
+            candidates.append(issue)
+
+        for issue_number in stale_issue_numbers:
+            self._pending_handoff_prompts.pop(issue_number, None)
+
+        return candidates
 
     def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
         reasons = [
@@ -1880,7 +1930,10 @@ class BossLoop:
             if count >= self.config.max_retries_per_issue
         }
         candidate_issues = [i for i in issues if i.number not in already_maxed]
-        if self.config.issue_number is not None:
+        pending_handoffs = self._pending_handoff_candidates(candidate_issues)
+        if pending_handoffs:
+            selected = pending_handoffs[0]
+        elif self.config.issue_number is not None:
             target_issue = next(
                 (issue for issue in candidate_issues if issue.number == self.config.issue_number),
                 None,
@@ -2010,8 +2063,13 @@ class BossLoop:
             if count >= self.config.max_retries_per_issue
         }
         candidate_issues = [i for i in issues if i.number not in already_maxed]
+        pending_handoffs = self._pending_handoff_candidates(candidate_issues)
+        pending_issue_numbers = {issue.number for issue in pending_handoffs}
+        ordered_candidates = pending_handoffs + [
+            issue for issue in candidate_issues if issue.number not in pending_issue_numbers
+        ]
         selected_issues = self._select_issues_for_iteration(
-            candidate_issues,
+            ordered_candidates,
             limit=None,
         )
 
@@ -2370,11 +2428,7 @@ class BossLoop:
                 transcript = self._extract_worker_transcript(worker_result)
                 if pp_count < 1 and len(transcript.strip()) > 50:
                     self._issue_attempt_counts[pp_key] = pp_count + 1
-                    previous_agent = str(
-                        worker_result.get("runner_type")
-                        or worker_result.get("target_agent")
-                        or "unknown"
-                    )
+                    previous_agent = self._extract_worker_agent(worker_result) or "unknown"
                     rotation = list(self.config.model_rotation or ["claude", "codex"])
                     next_agent = rotation[0] if previous_agent == rotation[-1] else rotation[-1]
 
@@ -2389,8 +2443,6 @@ class BossLoop:
                         files_changed=self._extract_worker_files_changed(worker_result),
                         remaining_issues=[str(r) for r in reasons[:5]],
                     )
-                    if not hasattr(self, "_pending_handoff_prompts"):
-                        self._pending_handoff_prompts = {}
                     self._pending_handoff_prompts[issue_num] = (handoff, next_agent)
                     logger.info(
                         "boss_loop_ping_pong issue=#%s from=%s to=%s transcript_len=%d",
@@ -2542,6 +2594,9 @@ class BossLoop:
 
         refinement: dict[str, Any] = {}
         refined_prompt = ""
+        pending_handoff = self._pending_handoff_prompts.get(issue.number)
+        if pending_handoff is not None:
+            refined_prompt = str(pending_handoff[0]).strip()
 
         try:
             from aragora.swarm.prompt_refiner import (
@@ -2556,7 +2611,8 @@ class BossLoop:
             )
             refinement_worker_env = build_refinement_worker_env(refinement)
             if refinement.get("context_gathered"):
-                refined_prompt = str(refinement.get("refined_prompt", "")).strip()
+                if pending_handoff is None:
+                    refined_prompt = str(refinement.get("refined_prompt", "")).strip()
                 logger.info(
                     "Refined prompt for #%s: %d relevant files, %d test patterns",
                     issue.number,
@@ -2598,6 +2654,13 @@ class BossLoop:
             issue_body=issue.body or "",
             refined_prompt=refined_prompt,
         )
+        if "git add -A && git commit" not in goal:
+            goal += (
+                "\n\n## CRITICAL: You MUST commit your changes\n"
+                "After making changes, run:\n"
+                "```\ngit add -A && git commit -m 'fix: description of changes'\n```\n"
+                "If you do not commit, your work will be lost."
+            )
 
         spec = SwarmSpec(
             raw_goal=goal,
@@ -2668,7 +2731,13 @@ class BossLoop:
                 ],
             }
 
-        requested_target_agent = self._requested_target_agent_for_issue(issue.number)
+        requested_target_agent = (
+            str(pending_handoff[1]).strip().lower()
+            if pending_handoff is not None and str(pending_handoff[1]).strip()
+            else self._requested_target_agent_for_issue(issue.number)
+        )
+        if pending_handoff is not None:
+            self._pending_handoff_prompts.pop(issue.number, None)
 
         claimed_runner_id: str | None = None
         selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(

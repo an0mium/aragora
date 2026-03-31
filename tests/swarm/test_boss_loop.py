@@ -1972,6 +1972,45 @@ async def test_dispatch_issue_builds_clean_spec_from_issue_body() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_consumes_pending_handoff_prompt_and_target_agent() -> None:
+    issue = _make_issue(1701, "Retry same issue with handoff")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
+    loop._pending_handoff_prompts[issue.number] = (
+        "## Goal\nRetry with prior context\n\n## Context (from claude, round 1)\nKnown bad edge case.",
+        "codex",
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": requested_target_agent or "codex",
+    }
+
+    fake_result = {
+        "status": "completed",
+        "run": {"work_orders": [{"status": "completed", "target_agent": "codex"}]},
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    dispatched_spec = dispatch_mock.await_args.args[0]
+    dispatch_kwargs = dispatch_mock.await_args.kwargs
+    assert result["status"] == "completed"
+    assert "Retry with prior context" in dispatched_spec.raw_goal
+    assert dispatch_kwargs["default_target_agent"] == "codex"
+    assert issue.number not in loop._pending_handoff_prompts
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> None:
     issue = _make_issue(
         1641,
@@ -2022,6 +2061,82 @@ async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> No
 
 
 @pytest.mark.asyncio
+async def test_ping_pong_retry_prioritizes_same_issue_and_uses_handoff_prompt() -> None:
+    issue = _make_issue(1702, "Ping-pong retry")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue]
+
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=2,
+            default_target_agent="claude",
+            enable_ping_pong_retry=True,
+            model_rotation=["claude", "codex"],
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": f"{requested_target_agent or 'claude'}-runner-1",
+        "runner_type": requested_target_agent or "claude",
+    }
+
+    calls: list[dict[str, Any]] = []
+
+    async def _dispatch(spec, **kwargs):
+        calls.append(
+            {
+                "goal": spec.raw_goal,
+                "target_agent": kwargs.get("default_target_agent"),
+            }
+        )
+        if len(calls) == 1:
+            return {
+                "status": "needs_human",
+                "reasons": ["Need a second implementation pass"],
+                "run": {
+                    "work_orders": [
+                        {
+                            "stdout_tail": (
+                                "Found the failure in the boss loop retry path. "
+                                "The next agent needs the transcript to finish the fix cleanly."
+                            ),
+                            "changed_paths": ["aragora/swarm/boss_loop.py"],
+                            "target_agent": "claude",
+                        }
+                    ]
+                },
+            }
+        return {
+            "status": "completed",
+            "run": {"work_orders": [{"status": "completed", "target_agent": "codex"}]},
+        }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec", new=AsyncMock(side_effect=_dispatch)
+        ),
+    ):
+        result = await loop.run()
+
+    assert [status["worker_status"] for status in result.iteration_statuses] == [
+        "ping_pong_retry",
+        "completed",
+    ]
+    assert len(calls) == 2
+    assert calls[0]["target_agent"] == "claude"
+    assert calls[1]["target_agent"] == "codex"
+    assert "## Context (from claude, round 1)" in calls[1]["goal"]
+    assert "Need a second implementation pass" in calls[1]["goal"]
+    assert not loop._pending_handoff_prompts
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_keeps_explicit_validation_commands_when_focused_enabled() -> None:
     issue = _make_issue(
         1640,
@@ -2062,6 +2177,34 @@ async def test_dispatch_issue_keeps_explicit_validation_commands_when_focused_en
     assert spec.acceptance_criteria == [
         "python -m pytest tests/swarm/test_boss_loop.py tests/swarm/test_spec.py -q"
     ]
+
+
+@pytest.mark.asyncio
+async def test_run_iteration_prioritizes_pending_handoff_issue() -> None:
+    issue_a = _make_issue(1801, "Regular issue")
+    issue_b = _make_issue(1802, "Pending handoff issue")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue_a, issue_b]
+
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+    loop._pending_handoff_prompts[issue_b.number] = ("handoff prompt", "codex")
+
+    seen: list[int] = []
+
+    async def _dispatch_issue(issue, freshness):
+        seen.append(issue.number)
+        return {"status": "completed"}
+
+    loop._dispatch_issue = _dispatch_issue
+
+    status = await loop._run_iteration(1)
+
+    assert seen == [issue_b.number]
+    assert status.selected_issue["number"] == issue_b.number
 
 
 # ---------------------------------------------------------------------------
