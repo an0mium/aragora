@@ -382,7 +382,7 @@ def _looks_like_agent_target(target: Any) -> bool:
 def _is_meta_review_issue(issue: str, suggestions: list[str], raw_target: Any) -> bool:
     """Filter critique-of-review chatter out of blocking issue buckets."""
     normalized_issue = issue.strip().lower()
-    if normalized_issue.startswith(("location:**", "location:")):
+    if normalized_issue.startswith(("location**:", "location:**", "location:")):
         return True
     if normalized_issue.startswith(_META_REVIEW_PREFIXES):
         return True
