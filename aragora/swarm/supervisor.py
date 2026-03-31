@@ -1291,26 +1291,34 @@ class SwarmSupervisor:
             worktree_path = str(item.get("worktree_path", "")).strip()
             if not worktree_path:
                 continue
-            result = await WorkerLauncher.collect_detached_result(
-                work_order_id=woid,
-                agent=str(item.get("target_agent", "codex")),
-                worktree_path=worktree_path,
-                branch=str(item.get("branch", "main")),
-                pid=item.get("pid"),
-                initial_head=str(item.get("initial_head", "")),
-                auto_commit=self.launcher.config.auto_commit,
-                expected_tests=[
-                    str(test).strip()
-                    for test in item.get("expected_tests", [])
-                    if str(test).strip()
-                ],
-            )
+            try:
+                result = await WorkerLauncher.collect_detached_result(
+                    work_order_id=woid,
+                    agent=str(item.get("target_agent", "codex")),
+                    worktree_path=worktree_path,
+                    branch=str(item.get("branch", "main")),
+                    pid=item.get("pid"),
+                    initial_head=str(item.get("initial_head", "")),
+                    auto_commit=self.launcher.config.auto_commit,
+                    expected_tests=[
+                        str(test).strip()
+                        for test in item.get("expected_tests", [])
+                        if str(test).strip()
+                    ],
+                )
+            except Exception:
+                logger.debug("Detached result collection failed for %s", woid, exc_info=True)
+                result = None
             if result is not None:
                 finished.append(result)
                 finished_ids.add(woid)
                 continue
 
-            progress = await self.launcher.snapshot_progress(item)
+            try:
+                progress = await self.launcher.snapshot_progress(item)
+            except Exception:
+                logger.debug("Progress snapshot failed for %s", woid, exc_info=True)
+                continue
             observed_at = datetime.now(UTC).isoformat()
             item["last_observed_at"] = observed_at
             if self._update_log_tails(

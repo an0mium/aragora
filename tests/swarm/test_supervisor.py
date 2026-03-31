@@ -3158,6 +3158,191 @@ async def test_collect_finished_results_falls_back_when_in_memory_collection_rai
 
 
 @pytest.mark.asyncio
+async def test_collect_finished_results_isolates_initial_detached_collection_failure(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="mixed detached collection failure",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "mixed detached collection failure"},
+        work_orders=[
+            {
+                "work_order_id": "wo-good-detached-isolation",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 1001,
+                "initial_head": "abc123",
+                "lease_id": "lease-good",
+                "owner_session_id": "session-good",
+            },
+            {
+                "work_order_id": "wo-bad-detached-isolation",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 1002,
+                "initial_head": "abc123",
+            },
+        ],
+        status="active",
+    )
+
+    finished_worker = WorkerProcess(
+        work_order_id="wo-good-detached-isolation",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        lease_id="lease-good",
+        session_id="session-good",
+        exit_code=0,
+        head_sha="def456",
+        commit_shas=["def456"],
+        changed_paths=["aragora/swarm/supervisor.py"],
+        completed_at=datetime.now(UTC).isoformat(),
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[finished_worker])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": False,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    async def _collect_detached_result(**kwargs):
+        if kwargs["work_order_id"] == "wo-bad-detached-isolation":
+            raise RuntimeError("broken detached collection")
+        return None
+
+    with patch.object(
+        WorkerLauncher,
+        "collect_detached_result",
+        new=AsyncMock(side_effect=_collect_detached_result),
+    ):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert [worker.work_order_id for worker in completed] == ["wo-good-detached-isolation"]
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    good = next(
+        item
+        for item in updated["work_orders"]
+        if item["work_order_id"] == "wo-good-detached-isolation"
+    )
+    bad = next(
+        item
+        for item in updated["work_orders"]
+        if item["work_order_id"] == "wo-bad-detached-isolation"
+    )
+    assert good["status"] != "dispatched"
+    assert good["commit_shas"] == ["def456"]
+    assert good["changed_paths"] == ["aragora/swarm/supervisor.py"]
+    assert bad["status"] == "dispatched"
+    assert bad["head_sha"] == "abc123"
+    assert bad["changed_paths"] == []
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_isolates_progress_snapshot_failure(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="mixed progress snapshot failure",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "mixed progress snapshot failure"},
+        work_orders=[
+            {
+                "work_order_id": "wo-good-progress-isolation",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 2001,
+                "initial_head": "abc123",
+                "lease_id": "lease-good-progress",
+                "owner_session_id": "session-good-progress",
+            },
+            {
+                "work_order_id": "wo-bad-progress-isolation",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 2002,
+                "initial_head": "abc123",
+            },
+        ],
+        status="active",
+    )
+
+    finished_worker = WorkerProcess(
+        work_order_id="wo-good-progress-isolation",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        lease_id="lease-good-progress",
+        session_id="session-good-progress",
+        exit_code=0,
+        head_sha="fedcba",
+        commit_shas=["fedcba"],
+        changed_paths=["aragora/swarm/worker_launcher.py"],
+        completed_at=datetime.now(UTC).isoformat(),
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[finished_worker])
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    async def _snapshot_progress(item):
+        if item["work_order_id"] == "wo-bad-progress-isolation":
+            raise RuntimeError("snapshot exploded")
+        return {
+            "pid_alive": True,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+
+    mock_launcher.snapshot_progress = AsyncMock(side_effect=_snapshot_progress)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert [worker.work_order_id for worker in completed] == ["wo-good-progress-isolation"]
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    good = next(
+        item
+        for item in updated["work_orders"]
+        if item["work_order_id"] == "wo-good-progress-isolation"
+    )
+    bad = next(
+        item
+        for item in updated["work_orders"]
+        if item["work_order_id"] == "wo-bad-progress-isolation"
+    )
+    assert good["status"] != "dispatched"
+    assert good["commit_shas"] == ["fedcba"]
+    assert good["changed_paths"] == ["aragora/swarm/worker_launcher.py"]
+    assert bad["status"] == "dispatched"
+
+
+@pytest.mark.asyncio
 async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     repo: Path, store: DevCoordinationStore
 ) -> None:
