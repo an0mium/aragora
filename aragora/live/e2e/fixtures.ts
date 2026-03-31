@@ -66,10 +66,39 @@ export class AragoraPage {
    * This fixed-bottom banner can intercept pointer events during E2E runs.
    */
   async dismissConnectivityWarning() {
-    const dismissButton = this.page.locator('button[aria-label="Dismiss connectivity warning"]');
-    if (await dismissButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await dismissButton.click().catch(() => {});
-      await this.page.locator('[role="alert"]').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const dismissButton = this.page.locator(
+        'button[aria-label="Dismiss connectivity warning"], button[aria-label="Dismiss configuration warning"]'
+      ).first();
+      const configAlert = this.page.locator('[role="alert"]').filter({
+        hasText: /NEXT_PUBLIC_SUPABASE_URL|Supabase not configured|\[CONFIG (WARNING|ERROR)\]/i,
+      }).first();
+
+      if (await dismissButton.isVisible({ timeout: 300 }).catch(() => false)) {
+        await dismissButton.click().catch(() => {});
+        await configAlert.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+        return;
+      }
+
+      if (await configAlert.isVisible({ timeout: 300 }).catch(() => false)) {
+        await this.page.evaluate(() => {
+          for (const node of document.querySelectorAll<HTMLElement>('[role="alert"]')) {
+            const text = node.textContent || '';
+            if (
+              text.includes('NEXT_PUBLIC_SUPABASE_URL') ||
+              text.includes('Supabase not configured') ||
+              text.includes('[CONFIG WARNING]') ||
+              text.includes('[CONFIG ERROR]')
+            ) {
+              node.style.display = 'none';
+            }
+          }
+        });
+        await configAlert.waitFor({ state: 'hidden', timeout: 1000 }).catch(() => {});
+        return;
+      }
+
+      await this.page.waitForTimeout(150);
     }
   }
 
