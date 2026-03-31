@@ -358,6 +358,7 @@ _UNSAFE_PRE_DISPATCH_SHELL_FRAGMENTS = (
     "<",
     ">",
     "$(",
+    "${",
     "`",
     "\n",
     "\r",

@@ -296,6 +296,27 @@ Acceptance Criteria:
         assert "shell operators are not allowed" in result["results"][0]["detail"]
         assert not marker.exists()
 
+    def test_run_pre_dispatch_validation_commands_rejects_env_expansion(
+        self, monkeypatch, tmp_path: Path
+    ):
+        calls: list[object] = []
+
+        def _run(cmd, **kwargs):
+            calls.append(cmd)
+            raise AssertionError("unsafe command should not be executed")
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        result = run_pre_dispatch_validation_commands(
+            ['python -m pytest tests/swarm/test_boss_loop.py -q "${PATH}"'],
+            cwd=tmp_path,
+            timeout_seconds=15,
+        )
+
+        assert calls == []
+        assert result["satisfied"] is False
+        assert result["results"][0]["status"] == "unsafe"
+        assert "shell operators are not allowed" in result["results"][0]["detail"]
+
     def test_requires_labels_when_specified(self):
         issues = [
             _make_issue(1, "No label"),
