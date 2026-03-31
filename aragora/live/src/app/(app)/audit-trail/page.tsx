@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useBackend } from '@/components/BackendSelector';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
@@ -136,6 +137,7 @@ function formatTimestamp(ts: string | null): string {
 type ActiveTab = 'trails' | 'receipts';
 
 export default function AuditTrailPage() {
+  const { config: backendConfig } = useBackend();
   const [activeTab, setActiveTab] = useState<ActiveTab>('trails');
   const [trailOffset, setTrailOffset] = useState(0);
   const [receiptOffset, setReceiptOffset] = useState(0);
@@ -155,7 +157,7 @@ export default function AuditTrailPage() {
   const { data: trailsData, isLoading: trailsLoading, error: trailsError } =
     useSWRFetch<AuditTrailsResponse>(
       activeTab === 'trails' ? `/api/v1/audit-trails?${trailParams}` : null,
-      { refreshInterval: 30000 },
+      { refreshInterval: 30000, baseUrl: backendConfig.api },
     );
 
   // Fetch receipts
@@ -167,7 +169,7 @@ export default function AuditTrailPage() {
   const { data: receiptsData, isLoading: receiptsLoading, error: receiptsError } =
     useSWRFetch<ReceiptsResponse>(
       activeTab === 'receipts' ? `/api/v1/receipts?${receiptParams}` : null,
-      { refreshInterval: 30000 },
+      { refreshInterval: 30000, baseUrl: backendConfig.api },
     );
 
   const trails = trailsData?.trails ?? [];
@@ -181,8 +183,8 @@ export default function AuditTrailPage() {
     setVerifyResult(null);
     try {
       const endpoint = type === 'trail'
-        ? `/api/v1/audit-trails/${id}/verify`
-        : `/api/v1/receipts/${id}/verify`;
+        ? `${backendConfig.api}/api/v1/audit-trails/${id}/verify`
+        : `${backendConfig.api}/api/v1/receipts/${id}/verify`;
       const response = await fetch(endpoint, { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
@@ -193,7 +195,7 @@ export default function AuditTrailPage() {
     } finally {
       setVerifying(null);
     }
-  }, []);
+  }, [backendConfig.api]);
 
   const isLoading = activeTab === 'trails' ? trailsLoading : receiptsLoading;
   const error = activeTab === 'trails' ? trailsError : receiptsError;
