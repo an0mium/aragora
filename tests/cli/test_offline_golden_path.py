@@ -178,6 +178,8 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     assert os.getenv("ARAGORA_OFFLINE") == "1"
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
 def test_cmd_ask_demo_quality_pipeline_skips_provider_repairs(monkeypatch):
     """Demo/offline asks should not invoke provider repair agents in quality loops."""
     from aragora.cli.commands import debate as debate_cmd
