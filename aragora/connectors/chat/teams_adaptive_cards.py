@@ -34,6 +34,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.utils.public_urls import public_receipt_url
+
 
 @dataclass
 class AgentContribution:
@@ -621,7 +623,7 @@ class TeamsAdaptiveCards:
                 {
                     "type": "Action.OpenUrl",
                     "title": "View Full Receipt",
-                    "url": f"/api/v1/receipts/{receipt_id}",
+                    "url": public_receipt_url(receipt_id),
                 }
             )
         if debate_id:
@@ -792,7 +794,7 @@ class TeamsAdaptiveCards:
             {
                 "type": "Action.OpenUrl",
                 "title": "View Full Receipt",
-                "url": f"/api/v1/receipts/{receipt_id}",
+                "url": public_receipt_url(receipt_id),
             }
         ]
         if verification_url:

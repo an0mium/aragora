@@ -41,6 +41,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from aragora.utils.public_urls import public_receipt_url
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -759,14 +761,11 @@ class SlackDebateLifecycle:
         if receipt_url:
             return receipt_url
 
-        import os as _os
-
         receipt_id = getattr(receipt, "receipt_id", "")
         if not receipt_id:
             return ""
 
-        base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
-        return f"{base_url}/receipts/{receipt_id}"
+        return public_receipt_url(receipt_id)
 
     async def _post_to_thread(
         self,

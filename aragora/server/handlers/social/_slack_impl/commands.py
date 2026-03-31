@@ -10,12 +10,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import time
 from typing import Any
 from urllib.parse import parse_qs
 
 from aragora.config import DEFAULT_ROUNDS
+from aragora.utils.public_urls import public_receipt_url
 
 try:
     from aragora.server.storage import get_debates_db
@@ -1371,8 +1371,7 @@ Reply in thread to add suggestions to ongoing debates
                 receipt_id = receipt.receipt_id
 
                 # Build receipt URL
-                base_url = os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
-                receipt_url = f"{base_url}/receipts/{receipt_id}"
+                receipt_url = public_receipt_url(receipt_id)
 
                 # Persist receipt
                 try:
