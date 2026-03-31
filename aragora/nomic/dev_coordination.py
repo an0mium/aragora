@@ -1021,6 +1021,63 @@ class DevCoordinationStore:
             conn.close()
         return updated
 
+    def archive_inactive_lease_released_work_orders(
+        self,
+        *,
+        grace_period_hours: float = _INACTIVE_LEASE_RELEASED_ARCHIVE_GRACE_HOURS,
+    ) -> int:
+        """Archive old released-without-terminal-result lanes with no deliverable."""
+        now = _utcnow()
+        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
+        cutoff = now - grace_period
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            lease_status_by_id = {
+                str(row["lease_id"]).strip(): str(row["status"]).strip()
+                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
+                if str(row["lease_id"]).strip()
+            }
+            archived = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_should_archive_inactive_lease_released(
+                        item,
+                        run=record,
+                        cutoff=cutoff,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "inactive_lease_released",
+                            "archived_at": now.isoformat(),
+                            "archive_reason": "inactive_lease_released",
+                            "previous_status": _optional_text(item.get("status")) or "needs_human",
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    if not _optional_text(item.get("failure_reason")):
+                        item["failure_reason"] = "inactive_lease_released"
+                    changed = True
+                    archived += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return archived
+
     def archive_reaped_no_receipt_work_orders(
         self,
         *,
@@ -4638,9 +4695,10 @@ def _clear_reaped_blocker_metadata(work_order: dict[str, Any]) -> None:
     }:
         work_order.pop("blocking_question", None)
     blockers = [
-        text
-        for text in _text_list(work_order.get("blockers"))
-        if text.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+        normalized
+        for text in work_order.get("blockers", [])
+        if (normalized := str(text).strip())
+        and normalized.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
     ]
     if blockers:
         work_order["blockers"] = blockers
@@ -4695,9 +4753,10 @@ def _rehabilitate_reaped_deliverable_work_order(work_order: dict[str, Any]) -> b
             work_order["blocker"] = blocker
             changed = True
         blockers = [
-            text
-            for text in _text_list(work_order.get("blockers"))
-            if text.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
+            normalized
+            for text in work_order.get("blockers", [])
+            if (normalized := str(text).strip())
+            and normalized.lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
         ]
         if _optional_text(work_order.get("dispatch_error")):
             if _optional_text(work_order.get("dispatch_error")) not in blockers:
@@ -4758,6 +4817,41 @@ def _work_order_should_archive_reaped_no_receipt(
     ):
         return False
     if not _work_order_reap_failure_reason(work_order, lease_status=lease_status):
+        return False
+    updated_at = _parse_dt(_developer_task_updated_at(work_order, run))
+    return updated_at <= cutoff
+
+
+def _work_order_inactive_lease_released_reason(work_order: dict[str, Any]) -> str:
+    for blocker in _developer_task_blockers(work_order):
+        normalized = blocker.strip().lower()
+        if normalized == "inactive_lease_released":
+            return "inactive_lease_released"
+        if "released without a synchronized terminal result" in normalized:
+            return "inactive_lease_released"
+    return ""
+
+
+def _work_order_should_archive_inactive_lease_released(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    cutoff: datetime,
+    lease_status: str | None,
+) -> bool:
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in _OPEN_DEVELOPER_TASK_STATUSES:
+        return False
+    if _optional_text(lease_status).lower() == LeaseStatus.ACTIVE.value:
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return False
+    if _optional_text(work_order.get("receipt_id")) or _work_order_has_concrete_deliverable(
+        work_order
+    ):
+        return False
+    if not _work_order_inactive_lease_released_reason(work_order):
         return False
     updated_at = _parse_dt(_developer_task_updated_at(work_order, run))
     return updated_at <= cutoff

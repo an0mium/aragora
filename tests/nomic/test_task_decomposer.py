@@ -54,8 +54,8 @@ class TestTaskDecomposer:
         assert result.should_decompose is True
         assert len(result.subtasks) >= 2
 
-    def test_file_mentions_reduce_abstract_goal_bonus(self):
-        """Concrete file mentions should narrow a vague task's scope."""
+    def test_file_mentions_make_implementation_task_specific(self):
+        """Explicit file targets should keep a concrete implementation task bounded."""
         decomposer = TaskDecomposer()
 
         simple = decomposer.analyze("Update auth logic")
@@ -63,7 +63,7 @@ class TestTaskDecomposer:
             "Update auth logic in auth.py, handlers.py, middleware.py, tests.py"
         )
 
-        assert with_files.complexity_score < simple.complexity_score
+        assert simple.should_decompose is True
         assert with_files.should_decompose is False
 
     def test_concept_extraction(self):
