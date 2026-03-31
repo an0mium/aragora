@@ -4089,6 +4089,8 @@ def test_reclassify_branch_stale_merge_gate_failures_when_mainline_passes(
     assert item["blocking_question"] == (
         "Should this deliverable be rebased, regenerated, or otherwise refreshed on current main before review?"
     )
+
+
 def test_reconcile_merge_gate_failed_work_orders_normalizes_existing_results(
     store: DevCoordinationStore,
 ) -> None:
