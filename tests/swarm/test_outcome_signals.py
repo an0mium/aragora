@@ -45,10 +45,15 @@ class TestOutcomeSignal:
         assert "T" in s.timestamp  # ISO format
 
     def test_to_dict_roundtrip(self):
-        s = _make_signal(entity_title="Fix bug", tokens_used=50000)
+        s = _make_signal(
+            entity_title="Fix bug",
+            tokens_used=50000,
+            debate_id="debate-123",
+        )
         d = s.to_dict()
         assert d["entity_title"] == "Fix bug"
         assert d["tokens_used"] == 50000
+        assert d["debate_id"] == "debate-123"
         # Should be JSON-serializable
         json.dumps(d)
 
@@ -58,6 +63,11 @@ class TestOutcomeSignal:
         assert "elapsed_seconds" in d
         assert d["elapsed_seconds"] == 12.5
 
+    def test_debate_id_defaults_empty_string(self):
+        s = _make_signal()
+        d = s.to_dict()
+        assert d["debate_id"] == ""
+
 
 class TestOutcomeSignalBus:
     def test_emit_persists_to_jsonl(self):
@@ -65,12 +75,13 @@ class TestOutcomeSignalBus:
             path = Path(f.name)
 
         bus = OutcomeSignalBus(log_path=path)
-        bus.emit(_make_signal(entity_id="42"))
+        bus.emit(_make_signal(entity_id="42", debate_id="debate-42"))
 
         lines = path.read_text().strip().splitlines()
         assert len(lines) == 1
         data = json.loads(lines[0])
         assert data["entity_id"] == "42"
+        assert data["debate_id"] == "debate-42"
         path.unlink()
 
     def test_subscribers_notified(self):
