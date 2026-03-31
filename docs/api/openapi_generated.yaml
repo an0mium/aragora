@@ -40459,7 +40459,7 @@ paths:
       tags:
       - Blockchain
       - Agents
-      description: Registers a new agent on the ERC-8004 Identity Registry.
+      description: Queues a new agent registration for the ERC-8004 Identity Registry.
       operationId: handle_register_agent
       requestBody:
         content:
@@ -40467,8 +40467,8 @@ paths:
             schema:
               type: object
       responses:
-        '201':
-          description: Agent registered
+        '202':
+          description: Agent registration queued
         '400':
           description: Invalid request
         '500':
