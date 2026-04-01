@@ -557,6 +557,39 @@ class TestWebhookHandlerList:
         assert len(body["webhooks"]) == 2
 
     @pytest.mark.asyncio
+    async def test_list_webhooks_filters_to_current_workspace(
+        self, webhook_handler, server_context
+    ):
+        """Should not list same-user webhooks from other workspaces."""
+        store = server_context["webhook_store"]
+        store.register(
+            url="https://current-workspace.com",
+            events=["debate_start"],
+            user_id="test-user-001",
+            workspace_id="org-001",
+        )
+        store.register(
+            url="https://other-workspace.com",
+            events=["debate_end"],
+            user_id="test-user-001",
+            workspace_id="org-other",
+        )
+        store.register(
+            url="https://legacy-global.com",
+            events=["vote"],
+            user_id="test-user-001",
+            workspace_id=None,
+        )
+
+        handler = MockHandler(headers={})
+        result = await webhook_handler.handle("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        urls = {webhook["url"] for webhook in body["webhooks"]}
+        assert urls == {"https://current-workspace.com", "https://legacy-global.com"}
+
+    @pytest.mark.asyncio
     async def test_list_webhooks_excludes_secrets(self, webhook_handler, server_context):
         """Should not include secrets in list response."""
         store = server_context["webhook_store"]
@@ -613,6 +646,31 @@ class TestWebhookHandlerGet:
                 user_id="test-user-001",
                 role="admin",
                 org_id="org-other",
+            )
+        )
+
+        handler = MockHandler(headers={})
+        result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_webhook_denies_missing_workspace_context(self, server_context):
+        """Workspace-scoped records should fail closed when requester has no org scope."""
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com",
+            events=["debate_start"],
+            workspace_id="org-locked",
+        )
+        handler_obj = WebhookHandler(server_context)
+        handler_obj.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id=None,
             )
         )
 

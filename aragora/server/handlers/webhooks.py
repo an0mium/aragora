@@ -261,7 +261,7 @@ class WebhookHandler(SecureHandler):
         org_id = str(getattr(user, "org_id", "") or "").strip()
         if webhook.user_id and webhook.user_id != user_id:
             return True
-        if webhook.workspace_id and org_id and webhook.workspace_id != org_id:
+        if webhook.workspace_id and (not org_id or webhook.workspace_id != org_id):
             return True
         return False
 
@@ -599,6 +599,9 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         store = self._get_webhook_store()
         webhooks = store.list(user_id=user_id, active_only=active_only)
+        webhooks = [
+            webhook for webhook in webhooks if not self._is_webhook_access_denied(webhook, user)
+        ]
 
         return json_response(
             {
