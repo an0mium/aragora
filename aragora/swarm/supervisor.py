@@ -136,6 +136,48 @@ def _narrow_scope_to_explicit_paths(
     return item
 
 
+_NON_ACTIONABLE_EXPLICIT_SPEC_TITLES = {
+    "validation changes",
+    "acceptance criteria changes",
+    "stop conditions changes",
+    "scope changes",
+    "goal changes",
+    "context changes",
+    "source issue context changes",
+}
+
+
+def _looks_like_non_actionable_explicit_spec_work_order(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+) -> bool:
+    title = " ".join(str(item.title or "").strip().lower().split())
+    description = " ".join(str(item.description or "").strip().lower().split())
+    if title not in _NON_ACTIONABLE_EXPLICIT_SPEC_TITLES and not description.startswith("## "):
+        return False
+    if any(
+        _is_concrete_repo_path(path)
+        for path in (
+            *SwarmSpec.infer_file_scope_hints(item.title or ""),
+            *SwarmSpec.infer_file_scope_hints(item.description or ""),
+        )
+    ):
+        return False
+    expected_tests = [str(test).strip() for test in item.expected_tests if str(test).strip()]
+    if expected_tests:
+        return False
+    success_tests = item.success_criteria.get("tests")
+    if isinstance(success_tests, str) and success_tests.strip():
+        return False
+    if isinstance(success_tests, list) and any(str(test).strip() for test in success_tests):
+        return False
+    scope_key = {path.strip() for path in item.file_scope if path.strip()}
+    spec_scope = {path.strip() for path in spec.file_scope_hints if path.strip()}
+    if scope_key and spec_scope and scope_key != spec_scope:
+        return False
+    return True
+
+
 def _ensure_work_order_scope(
     item: BoundedWorkOrder,
     spec: SwarmSpec,
@@ -2011,6 +2053,21 @@ class SwarmSupervisor:
                 "acceptance_criteria": list(spec.acceptance_criteria),
                 "constraints": list(spec.constraints),
             }
+
+        filtered_work_orders = [
+            item
+            for item in work_orders
+            if not _looks_like_non_actionable_explicit_spec_work_order(item, spec)
+        ]
+        if filtered_work_orders:
+            dropped = len(work_orders) - len(filtered_work_orders)
+            if dropped:
+                logger.info(
+                    "Dropped %d non-actionable explicit spec work orders from %d total payloads",
+                    dropped,
+                    len(work_orders),
+                )
+            work_orders = filtered_work_orders
 
         return work_orders
 
