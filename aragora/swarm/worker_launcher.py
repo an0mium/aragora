@@ -2119,12 +2119,7 @@ class WorkerLauncher:
         finally:
             cleanup_pid = worker.pid
             if cleanup_pid is None:
-                raw_pid = session_meta.get("pid")
-                if raw_pid is not None:
-                    try:
-                        cleanup_pid = int(raw_pid)
-                    except (TypeError, ValueError):
-                        pass
+                cleanup_pid = self._normalized_pid(session_meta.get("pid"))
             if cleanup_pid is not None:
                 self._wait_for_pid_exit_sync(cleanup_pid)
             self._cleanup_session_artifacts(worker.worktree_path)

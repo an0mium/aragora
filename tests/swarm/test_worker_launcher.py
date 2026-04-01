@@ -1032,6 +1032,46 @@ class TestCollectFinishedSync:
         mock_wait_pid.assert_called_once_with(333)
         assert "wo-sync-meta-finished" not in launcher._processes
 
+    def test_collect_finished_sync_ignores_invalid_session_meta_pid_for_cleanup(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-invalid-meta-pid",
+            agent="codex",
+            worktree_path="/tmp/wt-invalid-pid",
+            branch="main",
+            pid=None,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-invalid-meta-pid"] = worker
+        proc = MagicMock()
+        proc.returncode = None
+        launcher._processes["wo-sync-invalid-meta-pid"] = proc
+
+        session_meta = {
+            "pid": 0,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=["wo-sync-invalid-meta-pid"])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 143
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        mock_wait_pid.assert_not_called()
+        assert "wo-sync-invalid-meta-pid" not in launcher._processes
+
 
 class TestCollectDetachedResult:
     @pytest.mark.asyncio
