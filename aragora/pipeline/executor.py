@@ -89,9 +89,13 @@ def _get_backing_store() -> Any:
     attempts are made (avoids repeated expensive retries).
     """
     global _backing_store, _backing_store_init_failed
-    if "pytest" in sys.modules and os.environ.get("ARAGORA_FORCE_PERSISTENT_PLAN_STORE") != "1":
-        return None
+    # Tests often inject a fake or temporary persistent store directly. Honor
+    # that explicit override even when auto-init is disabled under pytest.
+    if _backing_store is not None:
+        return _backing_store
     if _backing_store_init_failed:
+        return None
+    if "pytest" in sys.modules and os.environ.get("ARAGORA_FORCE_PERSISTENT_PLAN_STORE") != "1":
         return None
     if _backing_store is None:
         try:

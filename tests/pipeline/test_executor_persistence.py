@@ -8,6 +8,7 @@ initialization fails.
 from __future__ import annotations
 
 import importlib
+import os
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -232,17 +233,18 @@ class TestLazySingletonInit:
         executor_mod._backing_store = None
         executor_mod._backing_store_init_failed = False
 
-        with patch("aragora.pipeline.plan_store.PlanStore") as MockStore:
-            mock_instance = MagicMock()
-            MockStore.return_value = mock_instance
+        with patch.dict(os.environ, {"ARAGORA_FORCE_PERSISTENT_PLAN_STORE": "1"}):
+            with patch("aragora.pipeline.plan_store.PlanStore") as MockStore:
+                mock_instance = MagicMock()
+                MockStore.return_value = mock_instance
 
-            store1 = executor_mod._get_backing_store()
-            store2 = executor_mod._get_backing_store()
+                store1 = executor_mod._get_backing_store()
+                store2 = executor_mod._get_backing_store()
 
-            # Should create only once
-            MockStore.assert_called_once()
-            assert store1 is mock_instance
-            assert store2 is mock_instance
+                # Should create only once
+                MockStore.assert_called_once()
+                assert store1 is mock_instance
+                assert store2 is mock_instance
 
     def test_get_backing_store_remembers_failure(self):
         """_get_backing_store does not retry after init failure."""
@@ -251,17 +253,18 @@ class TestLazySingletonInit:
         executor_mod._backing_store = None
         executor_mod._backing_store_init_failed = False
 
-        with patch(
-            "aragora.pipeline.executor._try_init_backing_store",
-            side_effect=RuntimeError("Cannot create DB"),
-        ):
-            store1 = executor_mod._get_backing_store()
-            assert store1 is None
-            assert executor_mod._backing_store_init_failed is True
+        with patch.dict(os.environ, {"ARAGORA_FORCE_PERSISTENT_PLAN_STORE": "1"}):
+            with patch(
+                "aragora.pipeline.executor._try_init_backing_store",
+                side_effect=RuntimeError("Cannot create DB"),
+            ):
+                store1 = executor_mod._get_backing_store()
+                assert store1 is None
+                assert executor_mod._backing_store_init_failed is True
 
-            # Second call should not retry
-            store2 = executor_mod._get_backing_store()
-            assert store2 is None
+                # Second call should not retry
+                store2 = executor_mod._get_backing_store()
+                assert store2 is None
 
 
 class TestStoreOutcomeFallback:
