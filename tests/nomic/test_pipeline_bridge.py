@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -291,3 +291,100 @@ class TestCreatePipelineFromCycle:
 
         # Should have at least one cross-stage edge (idea -> goal)
         assert len(graph.edges) >= 1
+
+
+class TestExecuteViaPipeline:
+    @pytest.mark.asyncio
+    async def test_execute_via_pipeline_routes_through_backbone_helper(self, tmp_path):
+        bridge = NomicPipelineBridge(repo_path=tmp_path, execution_mode="workflow")
+        plan = MagicMock()
+        plan.id = "plan-nomic-1"
+        plan.debate_id = "debate-nomic-1"
+        plan.metadata = {
+            "custom": "value",
+            "source_surface": "spoofed",
+            "source_id": "spoofed-id",
+            "backbone_run_id": "run-spoofed",
+            "backbone_entrypoint": "spoofed.entrypoint",
+        }
+        plan.implement_plan = SimpleNamespace(tasks=[MagicMock(), MagicMock()])
+        outcome = MagicMock(
+            success=True,
+            tasks_completed=2,
+            tasks_total=2,
+            receipt_id="receipt-nomic-1",
+        )
+        launch = {
+            "run_id": "run-nomic-1",
+            "execution_id": "exec-nomic-1",
+            "correlation_id": "corr-nomic-1",
+        }
+
+        with (
+            patch.object(bridge, "build_decision_plan", return_value=plan) as mock_build,
+            patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
+            patch(
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(return_value=(launch, outcome)),
+            ) as mock_execute,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+
+            result = await bridge.execute_via_pipeline(
+                goal="Harden pipeline bridge",
+                subtasks=[],
+                execution_mode="queued",
+            )
+
+        assert result is outcome
+        mock_build.assert_called_once_with(
+            goal="Harden pipeline bridge",
+            subtasks=[],
+            debate_result=None,
+            dissent=None,
+        )
+        mock_executor_cls.assert_called_once_with(
+            execution_mode="queued",
+            repo_path=tmp_path,
+        )
+        mock_execute.assert_awaited_once_with(
+            plan,
+            executor=mock_executor,
+            auth_context=None,
+            execution_mode="queued",
+        )
+        assert plan.metadata["custom"] == "value"
+        assert plan.metadata["source_surface"] == "nomic_pipeline_bridge"
+        assert plan.metadata["source_id"] == "debate-nomic-1"
+        assert "backbone_run_id" not in plan.metadata
+        assert "backbone_entrypoint" not in plan.metadata
+
+    @pytest.mark.asyncio
+    async def test_execute_via_pipeline_uses_plan_id_when_debate_id_missing(self, tmp_path):
+        bridge = NomicPipelineBridge(repo_path=tmp_path)
+        plan = MagicMock()
+        plan.id = "plan-nomic-2"
+        plan.debate_id = None
+        plan.metadata = {}
+        plan.implement_plan = SimpleNamespace(tasks=[])
+        outcome = MagicMock(
+            success=True,
+            tasks_completed=0,
+            tasks_total=0,
+            receipt_id=None,
+        )
+
+        with (
+            patch.object(bridge, "build_decision_plan", return_value=plan),
+            patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
+            patch(
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(return_value=({"run_id": "run-nomic-2"}, outcome)),
+            ),
+        ):
+            mock_executor_cls.return_value = MagicMock()
+            await bridge.execute_via_pipeline(goal="Bridge fallback ids", subtasks=[])
+
+        assert plan.metadata["source_surface"] == "nomic_pipeline_bridge"
+        assert plan.metadata["source_id"] == "plan-nomic-2"

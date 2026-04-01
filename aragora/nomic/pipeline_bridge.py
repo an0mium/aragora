@@ -789,6 +789,7 @@ class NomicPipelineBridge:
             A PlanOutcome with execution results, receipt ID, and lessons.
         """
         from aragora.pipeline.executor import PlanExecutor
+        from aragora.server.decision_integrity_utils import execute_decision_plan_with_backbone
 
         plan = self.build_decision_plan(
             goal=goal,
@@ -796,6 +797,12 @@ class NomicPipelineBridge:
             debate_result=debate_result,
             dissent=dissent,
         )
+        plan_metadata = dict(getattr(plan, "metadata", {}) or {})
+        for key in ("backbone_entrypoint", "backbone_run_id", "source_id", "source_surface"):
+            plan_metadata.pop(key, None)
+        plan_metadata["source_surface"] = "nomic_pipeline_bridge"
+        plan_metadata["source_id"] = str(getattr(plan, "debate_id", "") or plan.id)
+        plan.metadata = plan_metadata
 
         mode = execution_mode or self._execution_mode
 
@@ -811,14 +818,21 @@ class NomicPipelineBridge:
             len(plan.implement_plan.tasks) if plan.implement_plan else 0,
         )
 
-        outcome = await executor.execute(plan, execution_mode=mode)  # type: ignore[arg-type]
+        launch, outcome = await execute_decision_plan_with_backbone(
+            plan,
+            executor=executor,
+            auth_context=None,
+            execution_mode=mode,
+        )
 
         logger.info(
-            "PlanExecutor completed: success=%s, tasks=%d/%d, receipt=%s",
+            "PlanExecutor completed: success=%s, tasks=%d/%d, receipt=%s, run_id=%s, execution_id=%s",
             outcome.success,
             outcome.tasks_completed,
             outcome.tasks_total,
             outcome.receipt_id or "none",
+            launch.get("run_id"),
+            launch.get("execution_id"),
         )
 
         return outcome

@@ -239,9 +239,9 @@ ENTRYPOINT_INVENTORY: Final[tuple[BackboneEntrypoint, ...]] = (
         file_path="aragora/nomic/pipeline_bridge.py",
         qualname="NomicPipelineBridge.execute_via_pipeline",
         lifecycle="execute",
-        coverage="legacy_bypass",
-        wiring_mode="direct_execute",
-        signals=("plan_executor_execute",),
+        coverage="green",
+        wiring_mode="canonical_queue",
+        signals=("execute_decision_plan_with_backbone",),
     ),
 )
 
