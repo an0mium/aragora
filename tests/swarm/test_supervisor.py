@@ -5133,3 +5133,19 @@ def test_is_docs_only_path_rejects_scripts_txt() -> None:
 
 def test_is_docs_only_path_rejects_arbitrary_md_in_src() -> None:
     assert not SwarmSupervisor._is_docs_only_path("aragora/notes.md")
+
+
+@pytest.mark.asyncio
+async def test_kill_worker_ignores_invalid_pid_metadata() -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=Path("/tmp/repo"),
+        store=MagicMock(),
+        launcher=MagicMock(spec=WorkerLauncher),
+    )
+    item = {"pid": 0}
+
+    with patch("os.kill") as mock_kill:
+        await supervisor._kill_worker(item)
+
+    mock_kill.assert_not_called()
+    assert "pid" not in item

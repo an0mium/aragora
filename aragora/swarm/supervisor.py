@@ -3970,12 +3970,11 @@ class SwarmSupervisor:
         """Kill a running worker process by PID."""
         import signal
 
-        raw_pid = item.get("pid")
-        if raw_pid is None:
+        if "pid" not in item:
             return
-        try:
-            pid = int(raw_pid)
-        except (TypeError, ValueError):
+        pid = WorkerLauncher._normalized_pid(item.get("pid"))
+        if pid is None:
+            item.pop("pid", None)
             return
         try:
             import os as _os
