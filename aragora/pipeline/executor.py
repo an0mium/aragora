@@ -108,6 +108,11 @@ def _get_backing_store() -> Any:
 _plan_store_fallback: dict[str, DecisionPlan] = {}
 _plan_outcomes_fallback: dict[str, PlanOutcome] = {}
 
+# Backward-compatible aliases for older tests and helper code that still import
+# the original in-memory store symbols directly from this module.
+_plan_store = _plan_store_fallback
+_plan_outcomes = _plan_outcomes_fallback
+
 # Maximum number of plans to keep in the in-memory fallback
 _MAX_PLANS = 1000
 
