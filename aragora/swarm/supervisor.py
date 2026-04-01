@@ -831,6 +831,35 @@ class SwarmSupervisor:
         ]
         if expected_tests:
             item["expected_tests"] = expected_tests
+        item["review_status"] = "pending"
+        for key in (
+            "dispatch_error",
+            "resource_error",
+            "blocking_question",
+            "failure_reason",
+            "blocker",
+            "conflicts",
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+        ):
+            item.pop(key, None)
+        item.pop("blockers", None)
         metadata = getattr(lease, "metadata", {}) or {}
         worker_pid = metadata.get("worker_pid")
         try:
