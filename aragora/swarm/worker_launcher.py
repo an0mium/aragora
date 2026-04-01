@@ -1169,9 +1169,16 @@ class WorkerLauncher:
         """
         session_meta = cls._read_session_meta(worktree_path)
         session_exit_code, session_completed_at = cls._terminal_session_result(session_meta)
-        missing_terminal_marker = session_exit_code is None and pid is not None
+        observed_pid = cls._normalized_pid(pid)
+        if observed_pid is None:
+            observed_pid = cls._normalized_pid(session_meta.get("pid"))
+        missing_terminal_marker = session_exit_code is None
 
-        if missing_terminal_marker and cls._is_pid_running(pid):
+        if (
+            missing_terminal_marker
+            and observed_pid is not None
+            and cls._is_pid_running(observed_pid)
+        ):
             return None
 
         worker = WorkerProcess(
@@ -1179,7 +1186,7 @@ class WorkerLauncher:
             agent=agent,
             worktree_path=worktree_path,
             branch=branch,
-            pid=pid,
+            pid=observed_pid,
             initial_head=initial_head,
             expected_tests=[
                 str(item).strip() for item in expected_tests or [] if str(item).strip()
@@ -1237,14 +1244,7 @@ class WorkerLauncher:
             # fully terminate before removing artifacts.  Without this wait
             # the codex_session.sh trap can recreate .codex_session_meta.json
             # and append to .codex_session.log after Python-side cleanup (#902).
-            _cleanup_pid = pid
-            if _cleanup_pid is None:
-                raw_pid = session_meta.get("pid")
-                if raw_pid is not None:
-                    try:
-                        _cleanup_pid = int(raw_pid)
-                    except (TypeError, ValueError):
-                        pass
+            _cleanup_pid = observed_pid
             if _cleanup_pid is not None:
                 await cls._wait_for_pid_exit(_cleanup_pid)
             cls._cleanup_session_artifacts(worktree_path)
@@ -1273,6 +1273,14 @@ class WorkerLauncher:
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return {}
         return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _normalized_pid(raw_pid: Any) -> int | None:
+        try:
+            pid = int(raw_pid)
+        except (TypeError, ValueError):
+            return None
+        return pid if pid > 0 else None
 
     @staticmethod
     def _cleanup_session_artifacts(worktree_path: str) -> None:

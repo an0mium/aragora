@@ -1098,8 +1098,7 @@ class TestCollectDetachedResult:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_collects_without_pid(self):
-        """When no PID is stored, always collect (assume finished)."""
+    async def test_returns_none_without_pid_or_terminal_marker_and_no_deliverable(self):
         with (
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
             patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
@@ -1114,8 +1113,24 @@ class TestCollectDetachedResult:
                 branch="main",
             )
 
-        assert result is not None
-        assert result.exit_code == 0
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_uses_session_meta_pid_to_defer_when_marker_missing(self):
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680}),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=True) as mock_running,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-meta-pid-running",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=None,
+            )
+
+        assert result is None
+        mock_running.assert_called_once_with(24680)
 
 
 class TestSnapshotProgress:
