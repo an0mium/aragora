@@ -1844,6 +1844,20 @@ class BossLoop:
         start_time = time.monotonic()
         iteration = 0
 
+        # Clean stale supervisor runs that would block dispatch via
+        # duplicate_open_work_order detection.  Previous runs with
+        # needs_human/discarded work orders accumulate across sessions
+        # and permanently block new dispatches for the same file scopes.
+        try:
+            from aragora.nomic.dev_coordination import DevCoordinationStore
+
+            store = DevCoordinationStore()
+            cleaned = store.cleanup_stale_supervisor_runs()
+            if cleaned:
+                logger.info("Cleaned %d stale supervisor runs before starting boss loop", cleaned)
+        except Exception:
+            logger.debug("Stale supervisor run cleanup skipped", exc_info=True)
+
         while iteration < self.config.max_iterations:
             iteration += 1
 

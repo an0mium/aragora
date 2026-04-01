@@ -6865,3 +6865,59 @@ def test_resolve_verification_worktree_rejects_sha_mismatch(
         assert result_path != str(worktree_dir)
     if cleanup:
         store._cleanup_verification_worktree(cleanup)
+
+
+def test_cleanup_stale_supervisor_runs(store: DevCoordinationStore) -> None:
+    """Stale needs_human runs with non-terminal work orders should be cleaned up."""
+    # Create a run with discarded work orders (simulates a stale dispatch)
+    record = store.create_supervisor_run(
+        goal="Test stale cleanup",
+        target_branch="main",
+        supervisor_agents={"planner": "codex"},
+        approval_policy={},
+        spec={"raw_goal": "test"},
+        work_orders=[
+            {"work_order_id": "wo-1", "status": "discarded"},
+            {"work_order_id": "wo-2", "status": "needs_human"},
+        ],
+        status="needs_human",
+    )
+    run_id = record["run_id"]
+
+    # Before cleanup: run is needs_human
+    run = store.get_supervisor_run(run_id)
+    assert run is not None
+    assert run["status"] == "needs_human"
+
+    # Run cleanup
+    cleaned = store.cleanup_stale_supervisor_runs()
+    assert cleaned >= 1
+
+    # After cleanup: run is completed, work orders are completed
+    run = store.get_supervisor_run(run_id)
+    assert run is not None
+    assert run["status"] == "completed"
+    for wo in run["work_orders"]:
+        assert wo["status"] == "completed"
+
+
+def test_cleanup_skips_active_runs(store: DevCoordinationStore) -> None:
+    """Runs with active work orders should NOT be cleaned up."""
+    record = store.create_supervisor_run(
+        goal="Active run",
+        target_branch="main",
+        supervisor_agents={"planner": "codex"},
+        approval_policy={},
+        spec={"raw_goal": "active"},
+        work_orders=[
+            {"work_order_id": "wo-active", "status": "leased"},
+        ],
+        status="running",
+    )
+    run_id = record["run_id"]
+
+    cleaned = store.cleanup_stale_supervisor_runs()
+    # Should not clean active runs
+    run = store.get_supervisor_run(run_id)
+    assert run is not None
+    assert run["status"] == "running"

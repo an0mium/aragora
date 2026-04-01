@@ -4091,12 +4091,31 @@ class SwarmSupervisor:
         if not file_scope or not changed_paths:
             return []
 
+        # Expand scope: for specific test file paths, also allow sibling
+        # test files in the same directory.  Workers often choose a more
+        # descriptive file name than the issue suggested (e.g.
+        # test_live_explainability_wiring.py vs test_live_explainability_e2e.py).
+        expanded_scope = list(file_scope)
+        for scope in file_scope:
+            clean = scope.strip().removeprefix("./")
+            parts = clean.split("/")
+            # If it's a specific test file (e.g. tests/debate/test_foo.py),
+            # add the parent directory as an allowed scope
+            if (
+                len(parts) >= 2
+                and any(part.startswith("test") for part in parts)
+                and "." in parts[-1]
+            ):
+                parent = "/".join(parts[:-1])
+                if parent not in expanded_scope:
+                    expanded_scope.append(parent)
+
         violations: list[dict[str, Any]] = []
         for path in changed_paths:
             normalized = str(path).strip().removeprefix("./")
             if not normalized:
                 continue
-            if not any(_path_in_scope(normalized, scope) for scope in file_scope):
+            if not any(_path_in_scope(normalized, scope) for scope in expanded_scope):
                 violations.append(
                     {
                         "type": "out_of_scope",

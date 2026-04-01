@@ -3338,6 +3338,71 @@ class DevCoordinationStore:
         self.rehabilitate_narrowed_waiting_conflict_work_orders()
         return expired
 
+    def cleanup_stale_supervisor_runs(
+        self,
+        *,
+        max_age_hours: float = 24.0,
+        limit: int = 200,
+    ) -> int:
+        """Mark stale supervisor runs as completed so duplicate detection doesn't block new dispatches.
+
+        A run is stale when:
+        - Its status is 'needs_human' or 'completed'
+        - ALL of its work orders are in non-actionable states (discarded, needs_human,
+          dispatch_failed, failed, timed_out, completed, scope_violation)
+        - No work order has an active lease or running process
+
+        This prevents the duplicate_open_work_order detector in
+        _suppress_duplicate_open_work_orders from permanently blocking new work
+        orders that share file scope with old, abandoned runs.
+
+        Returns:
+            Number of runs cleaned up.
+        """
+        terminal_wo_statuses = {
+            "completed",
+            "discarded",
+            "needs_human",
+            "dispatch_failed",
+            "failed",
+            "timed_out",
+            "scope_violation",
+            "cancelled",
+        }
+        runs = self.list_supervisor_runs(limit=limit)
+        cleaned = 0
+        for run in runs:
+            status = str(run.get("status", "")).strip().lower()
+            if status not in ("needs_human", "completed"):
+                continue
+            work_orders = run.get("work_orders", [])
+            if not work_orders:
+                continue
+            all_terminal = all(
+                str(wo.get("status", "")).strip().lower() in terminal_wo_statuses
+                for wo in work_orders
+                if isinstance(wo, dict)
+            )
+            if not all_terminal:
+                continue
+            # Mark non-terminal work orders as completed
+            changed = False
+            for wo in work_orders:
+                if not isinstance(wo, dict):
+                    continue
+                wo_status = str(wo.get("status", "")).strip().lower()
+                if wo_status not in ("completed",):
+                    wo["status"] = "completed"
+                    changed = True
+            if changed or status == "needs_human":
+                self.update_supervisor_run(
+                    run["run_id"],
+                    status="completed",
+                    work_orders=work_orders,
+                )
+                cleaned += 1
+        return cleaned
+
     def reap_stale_leases(
         self,
         *,
