@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,194 @@ def _serialize_approval_request(approval_request: Any) -> dict[str, Any]:
         "rejection_reason": approval_request.rejection_reason,
         "metadata": approval_request.metadata,
     }
+
+
+def _extract_spec_bundle(plan: Any) -> Any | None:
+    metadata = getattr(plan, "metadata", None)
+    if not isinstance(metadata, dict):
+        return None
+    spec_payload = metadata.get("spec_bundle")
+    if not isinstance(spec_payload, dict):
+        return None
+    payload = dict(spec_payload)
+    payload.pop("missing_required_fields", None)
+    payload.pop("is_execution_grade", None)
+    try:
+        from aragora.pipeline.backbone_contracts import SpecBundle
+
+        return SpecBundle(**payload)
+    except (ImportError, TypeError):
+        logger.debug("Ignoring malformed spec bundle on plan %s", getattr(plan, "id", ""))
+        return None
+
+
+def ensure_decision_plan_backbone_run(
+    plan: Any,
+    *,
+    auth_context: Any | None,
+    source_surface: str,
+    source_id: str,
+) -> str:
+    """Seed a RunLedger for a decision plan before persistence or execution."""
+    from aragora.pipeline.backbone_contracts import (
+        BackboneStage,
+        IntakeBundle,
+        RunLedger,
+        build_goal_refs_from_implement_plan,
+    )
+    from aragora.pipeline.backbone_runtime import BackboneRuntime
+    from aragora.pipeline.plan_store import get_plan_store
+
+    metadata = getattr(plan, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+        setattr(plan, "metadata", metadata)
+
+    metadata.setdefault("source_surface", source_surface)
+    if source_id:
+        metadata.setdefault("source_id", source_id)
+
+    run_id = (
+        str(metadata.get("backbone_run_id", "") or "").strip() or f"run-{uuid.uuid4().hex[:12]}"
+    )
+    entrypoint = f"decision_integrity.{source_surface}"
+    BackboneRuntime.ensure_plan_metadata(plan, run_id, entrypoint)
+
+    runtime = BackboneRuntime(get_plan_store())
+    scheduled_by = str(getattr(auth_context, "user_id", "") or "").strip()
+    goal_refs = build_goal_refs_from_implement_plan(getattr(plan, "implement_plan", None))
+    run_metadata: dict[str, Any] = {"source_surface": source_surface}
+    if source_id:
+        run_metadata["source_id"] = source_id
+    if scheduled_by:
+        run_metadata["scheduled_by"] = scheduled_by
+
+    if runtime.get_run(run_id) is None:
+        intake = IntakeBundle(
+            source_kind=source_surface,
+            raw_intent=str(getattr(plan, "task", "") or "").strip(),
+            context_refs=(
+                [{"kind": "debate", "id": str(getattr(plan, "debate_id", "") or "").strip()}]
+                if str(getattr(plan, "debate_id", "") or "").strip()
+                else []
+            )
+            + ([{"kind": "source", "id": source_id}] if source_id else []),
+            trust_tiers=["authenticated-user"] if scheduled_by else ["service-authored"],
+            origin_metadata={
+                "debate_id": str(getattr(plan, "debate_id", "") or "").strip(),
+                "source_surface": source_surface,
+                **({"source_id": source_id} if source_id else {}),
+                **({"scheduled_by": scheduled_by} if scheduled_by else {}),
+            },
+            taint_flags=[
+                str(flag).strip() for flag in metadata.get("taint_flags", []) if str(flag).strip()
+            ]
+            if isinstance(metadata.get("taint_flags"), list | tuple)
+            else [],
+        )
+        spec_bundle = _extract_spec_bundle(plan)
+        run = RunLedger(
+            run_id=run_id,
+            entrypoint=entrypoint,
+            status="plan_ready",
+            intake_bundle=intake,
+            spec_bundle=spec_bundle,
+            goal_refs=goal_refs,
+            plan_id=str(getattr(plan, "id", "") or "").strip(),
+            debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
+            taint_flags=list(intake.taint_flags)
+            + (list(spec_bundle.taint_flags) if spec_bundle is not None else []),
+            metadata=run_metadata,
+        )
+        runtime.create_run(run)
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.INTAKE,
+            status="completed",
+            details={"source_surface": source_surface},
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.SPECIFICATION,
+            status="completed" if spec_bundle is not None else "skipped",
+            artifact_ref="spec_bundle" if spec_bundle is not None else "",
+            details={"has_spec_bundle": spec_bundle is not None},
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.GOALS,
+            status="completed" if goal_refs else "skipped",
+            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+            details={"goal_refs_count": len(goal_refs)},
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.PLAN,
+            status="completed",
+            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+            details={
+                "plan_status": getattr(getattr(plan, "status", None), "value", str(plan.status)),
+                "approval_mode": getattr(
+                    getattr(plan, "approval_mode", None),
+                    "value",
+                    str(getattr(plan, "approval_mode", "")),
+                ),
+            },
+        )
+    else:
+        runtime.update_run(
+            run_id,
+            status="plan_ready",
+            goal_refs=goal_refs,
+            plan_id=str(getattr(plan, "id", "") or "").strip(),
+            debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
+            metadata=run_metadata,
+        )
+
+    return run_id
+
+
+def sync_decision_plan_backbone_receipt(
+    plan: Any,
+    *,
+    append_event: bool,
+) -> bool:
+    """Mirror the current decision receipt state into the RunLedger."""
+    from aragora.pipeline.backbone_runtime import BackboneRuntime
+    from aragora.pipeline.plan_store import get_plan_store
+
+    return BackboneRuntime(get_plan_store()).sync_plan_receipt_to_run(
+        plan,
+        append_event=append_event,
+    )
+
+
+async def execute_decision_plan_with_backbone(
+    plan: Any,
+    *,
+    executor: Any,
+    auth_context: Any | None,
+    execution_mode: str | None,
+) -> tuple[dict[str, Any], Any]:
+    """Queue and execute a decision plan through ExecutionBridge with a supplied executor."""
+    from aragora.pipeline.canonical_execution import queue_plan_execution
+    from aragora.pipeline.execution_bridge import ExecutionBridge
+    from aragora.pipeline.plan_store import get_plan_store
+
+    launch = queue_plan_execution(
+        plan,
+        auth_context=auth_context,
+        execution_mode=execution_mode,
+    )
+    bridge = ExecutionBridge(plan_store=get_plan_store(), executor=executor)
+    outcome = await bridge.execute_approved_plan(
+        plan.id,
+        auth_context=auth_context,
+        execution_mode=str(launch.get("execution_mode", execution_mode or "")) or None,
+        execution_id=str(launch.get("execution_id", "") or ""),
+        correlation_id=str(launch.get("correlation_id", "") or ""),
+    )
+    return launch, outcome
 
 
 async def build_decision_integrity_payload(
@@ -269,6 +458,8 @@ async def build_decision_integrity_payload(
                 metadata: dict[str, Any] = {
                     "source": "decision_integrity",
                     "debate_id": debate_key,
+                    "source_surface": "decision_integrity_payload",
+                    "source_id": str(debate_key or ""),
                 }
                 if isinstance(cfg.get("openclaw_actions"), list):
                     metadata["openclaw_actions"] = cfg.get("openclaw_actions")
@@ -312,9 +503,17 @@ async def build_decision_integrity_payload(
                     implement_plan=package.plan,
                     implementation_profile=implementation_profile,
                 )
+                run_id = ensure_decision_plan_backbone_run(
+                    plan,
+                    auth_context=auth_context,
+                    source_surface="decision_integrity_payload",
+                    source_id=str(debate_key or ""),
+                )
                 store_plan(plan)
+                sync_decision_plan_backbone_receipt(plan, append_event=False)
                 payload["decision_plan"] = plan.to_dict()
                 payload["plan_id"] = plan.id
+                payload["run_id"] = run_id
             except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 logger.debug("Decision plan creation failed: %s", exc)
 
@@ -367,6 +566,7 @@ async def build_decision_integrity_payload(
                         from aragora.pipeline.executor import store_plan
 
                         store_plan(plan)
+                        sync_decision_plan_backbone_receipt(plan, append_event=True)
                 except (ImportError, OSError, RuntimeError):
                     logger.debug("Failed to store approved plan", exc_info=True)
             except (ImportError, ValueError, TypeError, RuntimeError, OSError) as exc:
@@ -384,6 +584,7 @@ async def build_decision_integrity_payload(
             execution_payload = {
                 "status": "pending_approval",
                 "approval_id": approval_request.id if approval_request else None,
+                "run_id": payload.get("run_id"),
             }
         else:
             try:
@@ -394,7 +595,6 @@ async def build_decision_integrity_payload(
                 parallel_execution = bool(cfg.get("parallel_execution", False))
 
                 notifier = None
-                on_task_complete = None
                 if engine == "hybrid":
                     notifier = ExecutionNotifier(
                         debate_id=plan.debate_id or str(debate_key or ""),
@@ -404,7 +604,6 @@ async def build_decision_integrity_payload(
                     )
                     if plan.implement_plan is not None:
                         notifier.set_task_descriptions(plan.implement_plan.tasks)
-                    on_task_complete = notifier.on_task_complete
 
                 executor = PlanExecutor(
                     continuum_memory=getattr(arena, "continuum_memory", None),
@@ -412,22 +611,27 @@ async def build_decision_integrity_payload(
                     parallel_execution=parallel_execution,
                     execution_mode=engine,  # type: ignore[arg-type]
                 )
-                outcome = await executor.execute(
+                launch, outcome = await execute_decision_plan_with_backbone(
                     plan,
-                    parallel_execution=parallel_execution,
-                    execution_mode=engine,  # type: ignore[arg-type]
-                    on_task_complete=on_task_complete,
+                    executor=executor,
+                    auth_context=auth_context,
+                    execution_mode=engine,
                 )
                 if notifier and notify_origin:
                     await notifier.send_completion_summary()
                 execution_payload = {
-                    "status": "completed",
-                    "mode": engine,
+                    "status": "completed" if outcome.success else "failed",
+                    "mode": str(launch.get("execution_mode", engine) or engine),
+                    "run_id": launch.get("run_id"),
+                    "execution_id": launch.get("execution_id"),
+                    "correlation_id": launch.get("correlation_id"),
                     "outcome": outcome.to_dict(),
                 }
             except (ImportError, ValueError, TypeError, RuntimeError, OSError) as exc:
                 execution_payload = {
                     "status": "failed",
+                    "mode": execution_engine or ("workflow" if workflow_mode else "hybrid"),
+                    "run_id": payload.get("run_id"),
                     "error": str(exc),
                 }
 

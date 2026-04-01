@@ -393,6 +393,110 @@ class PlanStore:
         finally:
             conn.close()
 
+    def save(self, plan: DecisionPlan) -> bool:
+        """Persist the full current state of an existing plan."""
+        try:
+            from aragora.pipeline.receipt_gate import ensure_plan_receipt
+
+            ensure_plan_receipt(plan)
+        except Exception as exc:  # noqa: BLE001 - keep persistence available; execution gate enforces
+            logger.warning("Failed to pre-persist decision receipt for plan %s: %s", plan.id, exc)
+
+        now = datetime.now(timezone.utc).isoformat()
+        budget_json = json.dumps(plan.budget.to_dict()) if plan.budget else "{}"
+        approval_json = json.dumps(plan.approval_record.to_dict()) if plan.approval_record else None
+        implementation_profile_json = (
+            json.dumps(plan.implementation_profile.to_dict())
+            if plan.implementation_profile
+            else None
+        )
+        risk_register_json = (
+            json.dumps(plan.risk_register.to_dict()) if plan.risk_register else None
+        )
+        verification_plan_json = (
+            json.dumps(plan.verification_plan.to_dict()) if plan.verification_plan else None
+        )
+        implement_plan_json = (
+            json.dumps(plan.implement_plan.to_dict()) if plan.implement_plan else None
+        )
+        metadata_json = json.dumps(plan.metadata) if plan.metadata else "{}"
+        approved_by = plan.approval_record.approver_id if plan.approval_record else None
+        rejection_reason = (
+            plan.approval_record.reason
+            if plan.approval_record and not plan.approval_record.approved
+            else None
+        )
+        approved_at = (
+            plan.approval_record.timestamp.isoformat()
+            if plan.approval_record and plan.approval_record.approved
+            else None
+        )
+
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                """
+                UPDATE plans
+                SET debate_id = ?,
+                    task = ?,
+                    status = ?,
+                    approval_mode = ?,
+                    max_auto_risk = ?,
+                    approved_by = ?,
+                    rejection_reason = ?,
+                    approved_at = ?,
+                    budget_json = ?,
+                    approval_record_json = ?,
+                    implementation_profile_json = ?,
+                    risk_register_json = ?,
+                    verification_plan_json = ?,
+                    implement_plan_json = ?,
+                    metadata_json = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    plan.debate_id,
+                    plan.task,
+                    plan.status.value,
+                    plan.approval_mode.value,
+                    plan.max_auto_risk.value,
+                    approved_by,
+                    rejection_reason,
+                    approved_at,
+                    budget_json,
+                    approval_json,
+                    implementation_profile_json,
+                    risk_register_json,
+                    verification_plan_json,
+                    implement_plan_json,
+                    metadata_json,
+                    now,
+                    plan.id,
+                ),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+        finally:
+            conn.close()
+
+        if updated and plan.status in (
+            PlanStatus.APPROVED,
+            PlanStatus.REJECTED,
+            PlanStatus.COMPLETED,
+        ):
+            try:
+                from aragora.pipeline.receipt_gate import sync_plan_receipt_state
+
+                sync_plan_receipt_state(plan, on_status=plan.status)
+            except Exception as exc:  # noqa: BLE001 - do not mask save
+                logger.warning(
+                    "Failed to synchronize decision receipt for plan %s: %s",
+                    plan.id,
+                    exc,
+                )
+        return updated
+
     def get(self, plan_id: str) -> DecisionPlan | None:
         """Retrieve a plan by ID."""
         conn = self._connect()

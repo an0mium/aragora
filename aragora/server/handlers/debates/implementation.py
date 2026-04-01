@@ -26,6 +26,11 @@ from aragora.pipeline.decision_integrity import (
     build_decision_integrity_package,
     coerce_debate_result,
 )
+from aragora.server.decision_integrity_utils import (
+    ensure_decision_plan_backbone_run,
+    execute_decision_plan_with_backbone,
+    sync_decision_plan_backbone_receipt,
+)
 from aragora.server.result_router import route_result
 from aragora.implement import HybridExecutor
 from aragora.pipeline.execution_notifier import ExecutionNotifier
@@ -490,8 +495,16 @@ class ImplementationOperationsMixin:
                         package.plan,
                         debate_id=debate_id,
                     )
+                    run_id = ensure_decision_plan_backbone_run(
+                        computer_use_plan,
+                        auth_context=None,
+                        source_surface="debates_decision_integrity_computer_use",
+                        source_id=debate_id,
+                    )
                     store_plan(computer_use_plan)
+                    sync_decision_plan_backbone_receipt(computer_use_plan, append_event=False)
                     response_payload["plan_id"] = computer_use_plan.id
+                    response_payload["run_id"] = run_id
                 except (
                     ImportError,
                     KeyError,
@@ -565,6 +578,7 @@ class ImplementationOperationsMixin:
         from aragora.pipeline.risk_register import RiskLevel
 
         debate_result = coerce_debate_result(debate)
+        user = self.get_current_user(handler)
 
         try:
             approval_mode_enum = ApprovalMode(rc.approval_mode)
@@ -583,7 +597,12 @@ class ImplementationOperationsMixin:
             except (TypeError, ValueError):
                 budget_limit = None
 
-        metadata: dict[str, Any] = {"source": "decision_integrity", "debate_id": debate_id}
+        metadata: dict[str, Any] = {
+            "source": "decision_integrity",
+            "debate_id": debate_id,
+            "source_surface": "debates_decision_integrity_workflow",
+            "source_id": debate_id,
+        }
         if isinstance(rc.openclaw_actions, list):
             metadata["openclaw_actions"] = rc.openclaw_actions
         if isinstance(rc.computer_use_actions, list):
@@ -624,10 +643,18 @@ class ImplementationOperationsMixin:
             implement_plan=package.plan,
             implementation_profile=implementation_profile,
         )
+        run_id = ensure_decision_plan_backbone_run(
+            plan,
+            auth_context=user,
+            source_surface="debates_decision_integrity_workflow",
+            source_id=debate_id,
+        )
         store_plan(plan)
+        sync_decision_plan_backbone_receipt(plan, append_event=False)
 
         response_payload["decision_plan"] = plan.to_dict()
         response_payload["plan_id"] = plan.id
+        response_payload["run_id"] = run_id
 
         # Approval flow
         approval_request = None
@@ -636,7 +663,6 @@ class ImplementationOperationsMixin:
             if perm_err is not None:
                 return perm_err
 
-            user = self.get_current_user(handler)
             requested_by = getattr(user, "user_id", None) if user else "system"
             changes = self._build_changes_list(plan.implement_plan)
 
@@ -673,6 +699,7 @@ class ImplementationOperationsMixin:
                     else "Approved",
                 )
                 store_plan(plan)
+                sync_decision_plan_backbone_receipt(plan, append_event=True)
 
         # Execute workflow if requested
         if rc.execute_workflow:
@@ -686,17 +713,26 @@ class ImplementationOperationsMixin:
                     knowledge_mound=self.ctx.get("knowledge_mound"),
                     parallel_execution=rc.parallel_execution,
                 )
-                outcome = run_async(
-                    plan_executor.execute(plan, parallel_execution=rc.parallel_execution)
+                launch, outcome = run_async(
+                    execute_decision_plan_with_backbone(
+                        plan,
+                        executor=plan_executor,
+                        auth_context=user,
+                        execution_mode="workflow",
+                    )
                 )
                 response_payload["workflow_execution"] = {
-                    "status": "completed",
+                    "status": "completed" if outcome.success else "failed",
+                    "run_id": launch.get("run_id"),
+                    "execution_id": launch.get("execution_id"),
+                    "correlation_id": launch.get("correlation_id"),
                     "outcome": outcome.to_dict(),
                 }
             else:
                 response_payload["workflow_execution"] = {
                     "status": "pending_approval",
                     "approval_id": approval_request.id if approval_request else None,
+                    "run_id": run_id,
                 }
 
         return self._route_and_respond(response_payload, debate_id, rc.notify_origin)
@@ -780,6 +816,7 @@ class ImplementationOperationsMixin:
             response_payload["execution"] = {
                 "status": "pending_approval",
                 "approval_id": approval_request.id,
+                "run_id": response_payload.get("run_id"),
             }
             return None
 
@@ -831,6 +868,7 @@ class ImplementationOperationsMixin:
             plan_metadata.setdefault("execution_target_resource", f"plan:{computer_use_plan.id}")
             computer_use_plan.metadata = plan_metadata
             store_plan(computer_use_plan)
+            sync_decision_plan_backbone_receipt(computer_use_plan, append_event=True)
             plan_executor = PlanExecutor(
                 continuum_memory=self.ctx.get("continuum_memory"),
                 knowledge_mound=self.ctx.get("knowledge_mound"),
@@ -839,16 +877,20 @@ class ImplementationOperationsMixin:
                 repo_path=rc.repo_path or Path.cwd(),
                 sandbox_config=self.ctx.get("sandbox_config"),
             )
-            outcome = run_async(
-                plan_executor.execute(
+            launch, outcome = run_async(
+                execute_decision_plan_with_backbone(
                     computer_use_plan,
-                    parallel_execution=rc.parallel_execution,
+                    executor=plan_executor,
+                    auth_context=None,
                     execution_mode="computer_use",
                 )
             )
             response_payload["execution"] = {
-                "status": "completed",
+                "status": "completed" if outcome.success else "failed",
                 "mode": "computer_use",
+                "run_id": launch.get("run_id"),
+                "execution_id": launch.get("execution_id"),
+                "correlation_id": launch.get("correlation_id"),
                 "outcome": outcome.to_dict(),
                 "progress": {
                     "total_steps": outcome.tasks_total,

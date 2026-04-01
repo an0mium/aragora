@@ -479,7 +479,10 @@ def queue_plan_execution(
         existing_run_id or f"run-{uuid.uuid4().hex[:12]}",
         _backbone_entrypoint(plan),
     )
-    store.create(plan)
+    if store.get(plan.id) is None:
+        store.create(plan)
+    else:
+        store.save(plan)
     store_plan(plan)
     run_id = _ensure_backbone_run(
         plan,

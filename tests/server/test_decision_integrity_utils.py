@@ -82,21 +82,27 @@ async def test_build_payload_executes_hybrid(monkeypatch):
         task=plan.task,
         success=True,
     )
-
-    captured: dict[str, object] = {}
-
-    async def _execute(*_args, **kwargs):
-        captured.update(kwargs)
-        return outcome
+    launch = {
+        "run_id": "run-di-1",
+        "execution_id": "exec-di-1",
+        "correlation_id": "corr-di-1",
+        "execution_mode": "hybrid",
+    }
 
     with (
         patch(
-            "aragora.pipeline.executor.PlanExecutor.execute",
-            new=AsyncMock(side_effect=_execute),
+            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            return_value="run-di-1",
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+            new=AsyncMock(return_value=(launch, outcome)),
         ) as mock_execute,
-        patch("aragora.pipeline.execution_notifier.ExecutionNotifier") as mock_notifier,
     ):
-        mock_notifier.return_value.on_task_complete = object()
         payload = await build_decision_integrity_payload(
             result=DummyResult(),
             debate_id="debate-1",
@@ -109,9 +115,11 @@ async def test_build_payload_executes_hybrid(monkeypatch):
             },
         )
 
-    assert mock_execute.called is True
-    assert captured.get("on_task_complete") is not None
+    assert mock_execute.await_count == 1
     assert payload is not None
     assert payload["execution"]["status"] == "completed"
+    assert payload["run_id"] == "run-di-1"
+    assert payload["execution"]["run_id"] == "run-di-1"
+    assert payload["execution"]["execution_id"] == "exec-di-1"
     assert payload["execution_mode"] == "execute"
     assert payload["execution_engine"] == "hybrid"

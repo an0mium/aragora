@@ -782,6 +782,75 @@ class TestApprovalFlow:
 
 
 # =============================================================================
+# Tests for workflow backbone execution
+# =============================================================================
+
+
+class TestWorkflowBackbone:
+    def test_execute_workflow_routes_through_backbone_wrapper(
+        self, handler, mock_storage, mock_package
+    ):
+        handler._body = {"execution_mode": "workflow_execute"}
+
+        from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
+        from aragora.pipeline.decision_plan.core import ApprovalRecord
+
+        plan = DecisionPlan(
+            debate_id="debate-001",
+            task="Should we use microservices?",
+            approval_mode=ApprovalMode.NEVER,
+            status=PlanStatus.APPROVED,
+            approval_record=ApprovalRecord(approved=True, approver_id="system"),
+        )
+
+        mock_outcome = MagicMock()
+        mock_outcome.success = True
+        mock_outcome.to_dict.return_value = {"success": True}
+        launch = {
+            "run_id": "run-workflow-1",
+            "execution_id": "exec-workflow-1",
+            "correlation_id": "corr-workflow-1",
+            "execution_mode": "workflow",
+        }
+
+        with (
+            patch(
+                "aragora.server.handlers.debates.implementation.run_async",
+            ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation._persist_receipt",
+                return_value=None,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+                return_value=plan,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-workflow-1",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+            patch.dict(
+                "os.environ",
+                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
+            ),
+        ):
+            mock_run.side_effect = [mock_package, (launch, mock_outcome)]
+            result = handler._create_decision_integrity(None, "debate-001")
+
+        body, status = parse_result(result)
+        assert status == 200
+        assert body["run_id"] == "run-workflow-1"
+        assert body["workflow_execution"]["status"] == "completed"
+        assert body["workflow_execution"]["run_id"] == "run-workflow-1"
+        assert body["workflow_execution"]["execution_id"] == "exec-workflow-1"
+        assert body["workflow_execution"]["outcome"]["success"] is True
+
+
+# =============================================================================
 # Tests for execute mode
 # =============================================================================
 
@@ -952,7 +1021,7 @@ class TestExecuteMode:
     def test_execute_approved_computer_use(
         self, handler, mock_storage, mock_package, mock_approval_request
     ):
-        """Approved execution uses PlanExecutor computer_use mode."""
+        """Approved computer-use execution queues through the backbone wrapper."""
         handler._body = {"execution_mode": "execute", "execution_engine": "computer_use"}
 
         from aragora.autonomous.loop_enhancement import ApprovalStatus
@@ -967,6 +1036,12 @@ class TestExecuteMode:
         mock_outcome.tasks_total = 5
         mock_outcome.tasks_completed = 3
         mock_outcome.duration_seconds = 1.2
+        launch = {
+            "run_id": "run-cu-1",
+            "execution_id": "exec-cu-1",
+            "correlation_id": "corr-cu-1",
+            "execution_mode": "computer_use",
+        }
 
         with (
             patch(
@@ -984,6 +1059,14 @@ class TestExecuteMode:
                 "aragora.server.handlers.debates.implementation.get_permission_checker",
             ),
             patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-cu-1",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+            patch(
                 "aragora.pipeline.executor.PlanExecutor",
             ) as mock_executor_cls,
             patch.dict(
@@ -992,13 +1075,12 @@ class TestExecuteMode:
             ),
         ):
             mock_executor = MagicMock()
-            mock_executor.execute = AsyncMock(return_value=mock_outcome)
             mock_executor_cls.return_value = mock_executor
 
             mock_run.side_effect = [
                 mock_package,
                 mock_approval_request,
-                mock_outcome,
+                (launch, mock_outcome),
             ]
             result = handler._create_decision_integrity(None, "debate-001")
 
@@ -1006,6 +1088,8 @@ class TestExecuteMode:
         assert status == 200
         assert body["execution"]["status"] == "completed"
         assert body["execution"]["mode"] == "computer_use"
+        assert body["execution"]["run_id"] == "run-cu-1"
+        assert body["execution"]["execution_id"] == "exec-cu-1"
         assert body["execution"]["outcome"]["success"] is True
         assert body["execution"]["progress"]["total_steps"] >= 0
         assert mock_executor_cls.called is True

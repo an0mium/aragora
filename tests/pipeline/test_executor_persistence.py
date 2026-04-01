@@ -82,6 +82,26 @@ class TestPersistentBackendDelegation:
         assert retrieved.id == "dp-persist-001"
         assert retrieved.task == "Test task"
 
+    def test_store_plan_persists_metadata_updates_for_existing_plan(self, tmp_path: Path):
+        """Re-storing an existing plan should persist updated metadata, not only status."""
+        from aragora.pipeline.plan_store import PlanStore
+        import aragora.pipeline.executor as executor_mod
+
+        db_path = str(tmp_path / "test_plans.db")
+        store = PlanStore(db_path=db_path)
+        executor_mod._backing_store = store
+        executor_mod._backing_store_init_failed = False
+
+        plan = _make_plan("dp-persist-003")
+        executor_mod.store_plan(plan)
+
+        plan.metadata = {"backbone_run_id": "run-123"}
+        executor_mod.store_plan(plan)
+
+        retrieved = store.get("dp-persist-003")
+        assert retrieved is not None
+        assert retrieved.metadata["backbone_run_id"] == "run-123"
+
     def test_get_plan_delegates_to_plan_store(self, tmp_path: Path):
         """get_plan should retrieve from the persistent PlanStore backend."""
         from aragora.pipeline.plan_store import PlanStore

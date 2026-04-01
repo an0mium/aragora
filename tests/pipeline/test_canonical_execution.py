@@ -139,3 +139,20 @@ class TestQueuePlanExecution:
             and event.artifact_ref == launch["execution_id"]
             for event in run.stage_events
         )
+
+    def test_queue_plan_execution_reuses_existing_stored_plan(
+        self,
+        store: PlanStore,
+    ) -> None:
+        plan, _tasks = _build_plan(source_surface="decision_integrity_payload")
+        store.create(plan)
+
+        launch = queue_plan_execution(plan, execution_mode="hybrid")
+        stored_plan = store.get(plan.id)
+        record = store.get_execution_record(launch["execution_id"])
+
+        assert store.count() == 1
+        assert stored_plan is not None
+        assert stored_plan.metadata["backbone_run_id"] == launch["run_id"]
+        assert record is not None
+        assert record["metadata"]["backbone_run_id"] == launch["run_id"]

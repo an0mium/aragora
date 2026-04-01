@@ -130,11 +130,10 @@ def store_plan(plan: DecisionPlan) -> None:
     store = _get_backing_store()
     if store is not None:
         try:
-            # Try create first; on duplicate key (re-store for status update),
-            # fall back to update_status which is the expected re-store path.
+            # Try create first; on existing plans, persist the latest full plan state.
             existing = store.get(plan.id)
             if existing is not None:
-                store.update_status(plan.id, plan.status)
+                store.save(plan)
             else:
                 store.create(plan)
             return
