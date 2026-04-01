@@ -862,8 +862,12 @@ class AsyncProtocolMessageStore:
         """
 
         def _cleanup_sync() -> int:
-            cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            cutoff = cutoff.replace(day=cutoff.day - days)
+            cutoff = datetime.now(timezone.utc).replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            ) - timedelta(days=days)
 
             with self._sync_store._cursor() as cursor:
                 cursor.execute(
