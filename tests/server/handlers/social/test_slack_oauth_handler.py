@@ -17,6 +17,7 @@ import time
 import hmac
 import hashlib
 from typing import Any
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -202,13 +203,26 @@ class TestSlackOAuthInstall:
     @pytest.mark.asyncio
     async def test_install_with_tenant_id(self, oauth_handler, oauth_state_store):
         """Authenticated install should prefer the caller tenant over query scope."""
-        with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"),
+            patch(
+                "aragora.server.handlers.social.slack_oauth.SLACK_REDIRECT_URI",
+                "https://example.com/callback",
+            ),
+            patch.object(
+                oauth_handler,
+                "get_auth_context",
+                AsyncMock(return_value=SimpleNamespace(org_id="test-org-001")),
+            ),
+            patch.object(oauth_handler, "_check_permission", return_value=True),
+        ):
             result = await oauth_handler.handle(
                 "GET",
                 "/api/integrations/slack/install",
                 query_params={"tenant_id": "tenant-001"},
             )
 
+        assert result.status_code == 302
         # Find the new state
         found = any(
             data.metadata and data.metadata.get("tenant_id") == "test-org-001"
@@ -229,7 +243,10 @@ class TestSlackOAuthInstall:
             metadata=None,
         )
 
-        with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"),
+            patch("aragora.server.handlers.social.slack_oauth.ARAGORA_ENV", "test"),
+        ):
             await oauth_handler.handle("GET", "/api/integrations/slack/install")
 
         assert old_state not in oauth_state_store._states

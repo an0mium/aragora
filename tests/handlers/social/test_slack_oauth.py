@@ -510,6 +510,24 @@ class TestInstall:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
+    async def test_dev_fallback_persists_redirect_uri_in_state_metadata(
+        self, handler, handler_module, monkeypatch, mock_state_store
+    ):
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+
+        result = await handler.handle(
+            "GET", "/api/integrations/slack/install", {}, {"host": "localhost:3000"}, {}, None
+        )
+
+        assert _status(result) == 302
+        generate_kwargs = mock_state_store.generate.call_args.kwargs
+        assert (
+            generate_kwargs["metadata"]["redirect_uri"]
+            == "http://localhost:3000/api/integrations/slack/callback"
+        )
+
+    @pytest.mark.asyncio
     async def test_production_requires_redirect_uri(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
         monkeypatch.setattr(handler_module, "ARAGORA_ENV", "production")
@@ -1020,6 +1038,55 @@ class TestCallback:
                 None,
             )
         assert _status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_callback_uses_redirect_uri_from_state_metadata_when_config_missing(
+        self, handler, handler_module, mock_state_store, mock_workspace_store, monkeypatch
+    ):
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        mock_state_store.validate_and_consume.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "redirect_uri": "http://localhost:3000/api/integrations/slack/callback",
+            "created_at": time.time(),
+        }
+        mock_workspace_store.get.return_value = None
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W123", "name": "Redirect URI Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history",
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 200
+        assert (
+            mock_client.post.await_args.kwargs["data"]["redirect_uri"]
+            == "http://localhost:3000/api/integrations/slack/callback"
+        )
 
     @pytest.mark.asyncio
     async def test_callback_fallback_state_validation(
