@@ -408,6 +408,7 @@ class TestSlackOAuthCallback:
         mock_response.raise_for_status = MagicMock()
 
         mock_store = MagicMock()
+        mock_store.get.return_value = None
         mock_store.save.return_value = True
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
@@ -431,6 +432,55 @@ class TestSlackOAuthCallback:
         assert b"Connected" in result.body
         assert b"Test Workspace" in result.body
         mock_store.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_callback_rejects_cross_tenant_rebind(self, oauth_handler, oauth_state_store):
+        """Existing workspaces cannot be rebound to a different tenant via callback."""
+        state = "valid-state"
+        oauth_state_store._states[state] = OAuthState(
+            user_id=None,
+            redirect_url=None,
+            expires_at=time.time() + 600,
+            created_at=time.time(),
+            metadata={"tenant_id": "tenant-001"},
+        )
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "access_token": "xoxb-test-token",
+            "team": {"id": "T12345678", "name": "Test Workspace"},
+            "bot_user_id": "U87654321",
+            "authed_user": {"id": "U11111111"},
+            "scope": "channels:history,chat:write",
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        existing_workspace = MagicMock()
+        existing_workspace.tenant_id = "tenant-002"
+        mock_store = MagicMock()
+        mock_store.get.return_value = existing_workspace
+
+        with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
+            with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_SECRET", "secret"):
+                with patch("httpx.AsyncClient") as mock_client:
+                    mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                        return_value=mock_response
+                    )
+                    with patch(
+                        "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                        return_value=mock_store,
+                    ):
+                        result = await oauth_handler.handle(
+                            "GET",
+                            "/api/integrations/slack/callback",
+                            query_params={"code": "auth-code", "state": state},
+                        )
+
+        assert result.status_code == 409
+        data = parse_handler_response(result)
+        assert "different tenant" in data.get("error", "").lower()
+        mock_store.save.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_callback_method_not_allowed(self, oauth_handler):

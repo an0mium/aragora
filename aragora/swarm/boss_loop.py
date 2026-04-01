@@ -1952,8 +1952,11 @@ class BossLoop:
             for num, count in self._issue_attempt_counts.items()
             if count >= self.config.max_retries_per_issue
         }
-        candidate_issues = [i for i in issues if i.number not in already_maxed]
-        pending_handoffs = self._pending_handoff_candidates(candidate_issues)
+        pending_handoffs = self._pending_handoff_candidates(issues)
+        pending_issue_numbers = {issue.number for issue in pending_handoffs}
+        candidate_issues = [
+            i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
+        ]
         if pending_handoffs:
             selected = pending_handoffs[0]
         elif self.config.issue_number is not None:
@@ -2114,9 +2117,11 @@ class BossLoop:
             for num, count in self._issue_attempt_counts.items()
             if count >= self.config.max_retries_per_issue
         }
-        candidate_issues = [i for i in issues if i.number not in already_maxed]
-        pending_handoffs = self._pending_handoff_candidates(candidate_issues)
+        pending_handoffs = self._pending_handoff_candidates(issues)
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
+        candidate_issues = [
+            i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
+        ]
         ordered_candidates = pending_handoffs + [
             issue for issue in candidate_issues if issue.number not in pending_issue_numbers
         ]

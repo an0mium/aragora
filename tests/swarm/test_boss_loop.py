@@ -2193,6 +2193,82 @@ async def test_ping_pong_retry_prioritizes_same_issue_and_uses_handoff_prompt() 
 
 
 @pytest.mark.asyncio
+async def test_ping_pong_retry_survives_max_retry_cap() -> None:
+    issue = _make_issue(1704, "Ping-pong under strict retry cap")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue]
+
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=2,
+            max_retries_per_issue=1,
+            default_target_agent="claude",
+            enable_ping_pong_retry=True,
+            model_rotation=["claude", "codex"],
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": f"{requested_target_agent or 'claude'}-runner-1",
+        "runner_type": requested_target_agent or "claude",
+    }
+
+    calls: list[dict[str, Any]] = []
+
+    async def _dispatch(spec, **kwargs):
+        calls.append(
+            {
+                "goal": spec.raw_goal,
+                "target_agent": kwargs.get("default_target_agent"),
+            }
+        )
+        if len(calls) == 1:
+            return {
+                "status": "needs_human",
+                "reasons": ["Need one more pass"],
+                "run": {
+                    "work_orders": [
+                        {
+                            "stdout_tail": (
+                                "First pass isolated the failing edge case. "
+                                "A second agent should finish the handoff-based fix."
+                            ),
+                            "changed_paths": ["aragora/swarm/boss_loop.py"],
+                            "target_agent": "claude",
+                        }
+                    ]
+                },
+            }
+        return {
+            "status": "completed",
+            "run": {"work_orders": [{"status": "completed", "target_agent": "codex"}]},
+        }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec", new=AsyncMock(side_effect=_dispatch)
+        ),
+    ):
+        result = await loop.run()
+
+    assert [status["worker_status"] for status in result.iteration_statuses] == [
+        "ping_pong_retry",
+        "completed",
+    ]
+    assert len(calls) == 2
+    assert calls[0]["target_agent"] == "claude"
+    assert calls[1]["target_agent"] == "codex"
+    assert "## Context (from claude, round 1)" in calls[1]["goal"]
+    assert not loop._pending_handoff_prompts
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_keeps_explicit_validation_commands_when_focused_enabled() -> None:
     issue = _make_issue(
         1640,

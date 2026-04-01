@@ -1704,6 +1704,99 @@ def test_start_run_narrows_explicit_spec_broad_scope_when_description_names_spec
     assert run.work_orders[0]["file_scope"] == ["docs/plans/phase0b_campaign_manifest.yaml"]
 
 
+def test_start_run_drops_non_actionable_explicit_spec_validation_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    spec = SwarmSpec(
+        raw_goal="Define the founder-facing PMF scorecard and roadmap dependency map.",
+        refined_goal="Define the founder-facing PMF scorecard and roadmap dependency map.",
+        file_scope_hints=["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+        work_orders=[
+            {
+                "work_order_id": "pmf-scorecard",
+                "title": "Define the founder-facing PMF scorecard, evidence thresholds, and weekly operating cadence for Aragora's current wedge.",
+                "description": "Produce one concrete PMF scorecard artifact.",
+                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+            {
+                "work_order_id": "proj-001",
+                "title": "Validation Changes",
+                "description": "## Validation\n\n- Changed files stay within the allowed scope",
+                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "success_criteria": {"notes": "Complete bounded task: Validation Changes"},
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+            },
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert [item["work_order_id"] for item in run.work_orders] == ["pmf-scorecard"]
+    assert run.work_orders[0]["metadata"]["source"] == "explicit_spec_work_order"
+
+
+def test_start_run_drops_explicit_spec_umbrella_lane_when_specific_sibling_exists(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    spec = SwarmSpec(
+        raw_goal=(
+            "Make one already reachable core page functional with real data flow, empty-state "
+            "handling, and tests, choosing the smallest verifiable page from the issue instead "
+            "of broad page churn."
+        ),
+        refined_goal=(
+            "Make one already reachable core page functional with real data flow, empty-state "
+            "handling, and tests, choosing the smallest verifiable page from the issue instead "
+            "of broad page churn."
+        ),
+        work_orders=[
+            {
+                "work_order_id": "core-pages-functional-slice",
+                "title": (
+                    "Make one already reachable core page functional with real data flow, "
+                    "empty-state handling, and tests, choosing the smallest verifiable page "
+                    "from the issue instead of broad page churn."
+                ),
+                "description": (
+                    "Make one already reachable core page functional with real data flow, "
+                    "empty-state handling, and tests, choosing the smallest verifiable page "
+                    "from the issue instead of broad page churn."
+                ),
+                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+            },
+            {
+                "work_order_id": "proj-001",
+                "title": "Implement functional Results page with real data flow",
+                "description": (
+                    "Connect the results page to backend endpoints to display debate outcomes."
+                ),
+                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+            },
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert [item["work_order_id"] for item in run.work_orders] == ["proj-001"]
+
+
 def test_start_run_preserves_broad_scope_without_explicit_path_hints(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -5040,3 +5133,19 @@ def test_is_docs_only_path_rejects_scripts_txt() -> None:
 
 def test_is_docs_only_path_rejects_arbitrary_md_in_src() -> None:
     assert not SwarmSupervisor._is_docs_only_path("aragora/notes.md")
+
+
+@pytest.mark.asyncio
+async def test_kill_worker_ignores_invalid_pid_metadata() -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=Path("/tmp/repo"),
+        store=MagicMock(),
+        launcher=MagicMock(spec=WorkerLauncher),
+    )
+    item = {"pid": 0}
+
+    with patch("os.kill") as mock_kill:
+        await supervisor._kill_worker(item)
+
+    mock_kill.assert_not_called()
+    assert "pid" not in item
