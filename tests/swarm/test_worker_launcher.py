@@ -1217,6 +1217,26 @@ class TestSnapshotProgress:
         assert snapshot["diff_lines"] == 2
 
     @pytest.mark.asyncio
+    async def test_ignores_invalid_pid_values(self):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": 0,
+            "worktree_path": "/tmp/wt",
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_includes_log_tails(self, tmp_path: Path):
         launcher = WorkerLauncher()
         work_order = {

@@ -494,11 +494,7 @@ class WorkerLauncher:
         """Capture lightweight progress state for a dispatched worker."""
         worktree_path = str(work_order.get("worktree_path", "")).strip()
         initial_head = str(work_order.get("initial_head", "")).strip()
-        raw_pid = work_order.get("pid")
-        try:
-            pid = int(raw_pid) if raw_pid is not None else None
-        except (TypeError, ValueError):
-            pid = None
+        pid = self._normalized_pid(work_order.get("pid"))
 
         snapshot: dict[str, Any] = {
             "pid_alive": self._is_pid_running(pid) if pid is not None else False,
