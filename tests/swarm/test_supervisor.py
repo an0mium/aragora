@@ -444,6 +444,73 @@ def test_start_run_discards_duplicate_open_lane_when_goal_differs_only_by_boiler
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_discards_specific_pytest_child_when_broader_explicit_spec_exists(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal=(
+            "Write thorough pytest tests for classify_blocker() and its internal helpers "
+            "_classify_time_limit() and _classify_campaign_blocked(). Cover every "
+            "BlockerKind enum value with at least one test case."
+        ),
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "Write comprehensive pytest tests for classify_blocker and internal helpers",
+                "status": "waiting_conflict",
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Write one pytest test for classify_blocker that tests the still_running path.",
+                description="Write one pytest test for classify_blocker that tests the still_running path.",
+                file_scope=[
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write one pytest test for classify_blocker that tests the still_running path.",
+            refined_goal="Write one pytest test for classify_blocker that tests the still_running path.",
+        ),
+        refresh_scaling=False,
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1702,6 +1769,47 @@ def test_start_run_narrows_explicit_spec_broad_scope_when_description_names_spec
     run = supervisor.start_run(spec=spec, refresh_scaling=False)
 
     assert run.work_orders[0]["file_scope"] == ["docs/plans/phase0b_campaign_manifest.yaml"]
+
+
+def test_start_run_narrows_docs_only_scope_to_doc_hints(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    (repo / "docs" / "ADR").mkdir(parents=True, exist_ok=True)
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Improve Developer Track",
+                description="Enhance capabilities in the Developer track. Key folders: sdk/, docs/, tests/sdk/.",
+                file_scope=["sdk/", "docs/", "tests/sdk/"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            refined_goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            acceptance_criteria=["ADR committed under docs/ADR"],
+            constraints=["Documentation only"],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert run.work_orders[0]["file_scope"] == ["docs/ADR"]
 
 
 def test_start_run_drops_non_actionable_explicit_spec_validation_lane(
@@ -4885,6 +4993,54 @@ def test_pre_reap_salvage_skips_live_workers(repo: Path, store: DevCoordinationS
     # Verify no commit SHAs were added
     updated = store.get_supervisor_run(run.run_id)
     assert not updated["work_orders"][0].get("commit_shas")
+
+
+def test_pre_reap_salvage_ignores_invalid_pid_probe(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    """Invalid PID metadata must not hit os.kill(0) or process-group probes."""
+    session_path = repo / "wt-invalid-pid-test"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-invalid-pid",
+        agent="codex",
+        branch="codex/swarm-invalid-pid",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="invalid pid test",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[SubTask(id="wo-1", title="T", description="D", file_scope=["t.py"])],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+
+    spec = SwarmSpec(raw_goal="invalid pid test", file_scope_hints=["t.py"])
+    run = supervisor.start_run(spec=spec)
+    record = store.get_supervisor_run(run.run_id)
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = 0
+    record["work_orders"][0]["worktree_path"] = str(repo)
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    with (
+        patch("os.kill") as mock_kill,
+        patch.object(
+            supervisor, "_build_dead_worker_salvage_result", return_value=None
+        ) as mock_salvage,
+    ):
+        supervisor._collect_finished_workers_sync(run.run_id)
+
+    mock_kill.assert_not_called()
+    mock_salvage.assert_called_once()
 
 
 def test_pre_reap_salvage_handles_missing_worktree(repo: Path, store: DevCoordinationStore) -> None:

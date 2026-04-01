@@ -602,14 +602,6 @@ class SlackOAuthHandler(SecureHandler):
 
         tenant_id = self._resolved_tenant_id(query_params, auth_context)
 
-        # Generate state using centralized OAuth state store
-        state_store = _get_state_store()
-        try:
-            state = state_store.generate(metadata={"tenant_id": tenant_id, "provider": "slack"})
-        except (ValueError, TypeError, OSError, RuntimeError) as e:
-            logger.error("Failed to generate OAuth state: %s", e)
-            return error_response("Failed to initialize OAuth flow", 503)
-
         # Build OAuth URL
         redirect_uri = _get_slack_redirect_uri()
         if not redirect_uri:
@@ -627,6 +619,20 @@ class SlackOAuthHandler(SecureHandler):
             redirect_uri = f"{scheme}://{host}/api/integrations/slack/callback"
             logger.warning("Using fallback redirect_uri in development: %s", redirect_uri)
 
+        # Generate state using centralized OAuth state store
+        state_store = _get_state_store()
+        try:
+            state = state_store.generate(
+                metadata={
+                    "tenant_id": tenant_id,
+                    "provider": "slack",
+                    "redirect_uri": redirect_uri,
+                }
+            )
+        except (ValueError, TypeError, OSError, RuntimeError) as e:
+            logger.error("Failed to generate OAuth state: %s", e)
+            return error_response("Failed to initialize OAuth flow", 503)
+
         oauth_params = {
             "client_id": client_id,
             "scope": _get_slack_scopes(),
@@ -641,6 +647,7 @@ class SlackOAuthHandler(SecureHandler):
             "created_at": time.time(),
             "tenant_id": tenant_id,
             "provider": "slack",
+            "redirect_uri": redirect_uri,
         }
 
         logger.info("Initiating Slack OAuth flow (state: %s...)", state[:8])
@@ -950,15 +957,19 @@ class SlackOAuthHandler(SecureHandler):
         if not state_data:
             return error_response("Invalid or expired state token", 400)
 
+        state_redirect_uri: str | None = None
         if isinstance(state_data, dict):
             tenant_id = state_data.get("tenant_id")
+            state_redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
         else:
             metadata = getattr(state_data, "metadata", None)
             tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
+            if isinstance(metadata, dict):
+                state_redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
 
         client_id = _get_slack_client_id()
         client_secret = _get_slack_client_secret()
-        redirect_uri = _get_slack_redirect_uri()
+        redirect_uri = state_redirect_uri or _get_slack_redirect_uri()
         if not client_id or not client_secret:
             return error_response("Slack OAuth not configured", 503)
 
@@ -1578,6 +1589,17 @@ class SlackOAuthHandler(SecureHandler):
 
             # Update stored tokens
             new_access_token = data.get("access_token")
+            if not str(new_access_token or "").strip():
+                logger.error("Token refresh returned no access token for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: missing access token",
+                    )
+                return error_response("Invalid token refresh response", 502)
             new_refresh_token = data.get("refresh_token", workspace.refresh_token)
             expires_in = data.get("expires_in")
             new_expires_at = time.time() + expires_in if expires_in else None

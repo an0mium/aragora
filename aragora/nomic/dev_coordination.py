@@ -50,7 +50,6 @@ _CLEAN_EXIT_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _FAILED_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _WORK_ORDER_LEASING_FAILED_ARCHIVE_GRACE_HOURS = 24.0
 _WORKER_TYPE_BLOCKED_ARCHIVE_GRACE_HOURS = 24.0
-_NON_ACTIONABLE_EXPLICIT_SPEC_ARCHIVE_GRACE_HOURS = 24.0
 _SQLITE_BUSY_TIMEOUT_MS = 60_000
 _OPEN_DEVELOPER_TASK_STATUSES = {
     "queued",
@@ -79,15 +78,6 @@ _QUEUEABLE_DEVELOPER_TASK_STATUSES = {
     "failed",
 }
 _REAPED_NO_RECEIPT_ARCHIVE_GRACE_HOURS = 6.0
-_NON_ACTIONABLE_EXPLICIT_SPEC_TITLES = {
-    "validation changes",
-    "acceptance criteria changes",
-    "stop conditions changes",
-    "scope changes",
-    "goal changes",
-    "context changes",
-    "source issue context changes",
-}
 _REAPED_NO_RECEIPT_BLOCKERS = {"stale_lease_reaped", "expired_lease_reaped"}
 _TEST_FILE_PATTERN = re.compile(r"(tests/[\w./-]+\.py)")
 _DOCS_ONLY_GENERATE_CAPABILITY_MATRIX_COMMANDS = (
@@ -2071,6 +2061,68 @@ class DevCoordinationStore:
                     archived += 1
                     changed_run_ids.add(_optional_text(record.get("run_id")))
 
+            waiting_by_scope: dict[
+                tuple[str, ...], list[tuple[dict[str, Any], dict[str, Any]]]
+            ] = {}
+            for record in records:
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_is_duplicate_waiting_conflict_candidate(
+                        item,
+                        run=record,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    scope_key = _canonical_work_order_scope_key(item)
+                    if not scope_key:
+                        continue
+                    waiting_by_scope.setdefault(scope_key, []).append((record, item))
+
+            for siblings in waiting_by_scope.values():
+                umbrella_candidates = [
+                    (record, item)
+                    for record, item in siblings
+                    if _work_order_is_broad_explicit_pytest_umbrella(item, run=record)
+                ]
+                if not umbrella_candidates:
+                    continue
+                keeper_record, keeper_item = max(
+                    umbrella_candidates,
+                    key=lambda pair: _duplicate_waiting_conflict_priority(pair[1], run=pair[0]),
+                )
+                keeper_run_id = _optional_text(keeper_record.get("run_id"))
+                keeper_id = _optional_text(
+                    keeper_item.get("work_order_id"),
+                    keeper_item.get("task_id"),
+                )
+                for record, item in siblings:
+                    if record is keeper_record and item is keeper_item:
+                        continue
+                    if not _work_order_is_specific_pytest_child(item, run=record):
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    if _optional_text(metadata.get("archived_due_to")):
+                        continue
+                    metadata.update(
+                        {
+                            "archived_due_to": "duplicate_waiting_conflict",
+                            "archived_at": now,
+                            "archive_reason": "broader_explicit_pytest_waiting_conflict",
+                            "canonical_run_id": keeper_run_id or None,
+                            "canonical_work_order_id": keeper_id or None,
+                            "previous_status": _optional_text(item.get("status"))
+                            or "waiting_conflict",
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    if not _optional_text(item.get("failure_reason")):
+                        item["failure_reason"] = "duplicate_waiting_conflict"
+                    archived += 1
+                    changed_run_ids.add(_optional_text(record.get("run_id")))
+
             for record in records:
                 run_id = _optional_text(record.get("run_id"))
                 if run_id not in changed_run_ids:
@@ -2086,216 +2138,6 @@ class DevCoordinationStore:
             return archived
         finally:
             conn.close()
-
-    def archive_non_actionable_explicit_spec_work_orders(
-        self,
-        *,
-        grace_period_hours: float = _NON_ACTIONABLE_EXPLICIT_SPEC_ARCHIVE_GRACE_HOURS,
-    ) -> int:
-        """Archive stale non-actionable explicit-spec conflict rows when a real sibling exists."""
-        now = _utcnow()
-        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
-        cutoff = now - grace_period
-        conn = self._connect()
-        try:
-            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
-            lease_status_by_id = {
-                str(row["lease_id"]).strip(): str(row["status"]).strip()
-                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
-                if str(row["lease_id"]).strip()
-            }
-            records = [self._supervisor_run_from_row(row) for row in rows]
-            grouped: dict[tuple[str, ...], list[tuple[dict[str, Any], dict[str, Any]]]] = {}
-            for record in records:
-                for item in record["work_orders"]:
-                    if not isinstance(item, dict):
-                        continue
-                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
-                    if not _work_order_should_archive_non_actionable_explicit_spec(
-                        item,
-                        run=record,
-                        cutoff=cutoff,
-                        lease_status=lease_status,
-                    ):
-                        continue
-                    scope_key = _canonical_work_order_scope_key(item)
-                    if not scope_key:
-                        continue
-                    grouped.setdefault(scope_key, []).append((record, item))
-
-            archived = 0
-            changed_run_ids: set[str] = set()
-            for scope_key, candidates in grouped.items():
-                actionable_siblings: list[tuple[dict[str, Any], dict[str, Any]]] = []
-                for record in records:
-                    for item in record["work_orders"]:
-                        if not isinstance(item, dict):
-                            continue
-                        if _canonical_work_order_scope_key(item) != scope_key:
-                            continue
-                        status = _optional_text(item.get("status")).lower()
-                        if status in {"discarded", "superseded", "merged"}:
-                            continue
-                        metadata = item.get("metadata")
-                        if isinstance(metadata, dict) and _optional_text(
-                            metadata.get("archived_due_to")
-                        ):
-                            continue
-                        if _work_order_is_non_actionable_explicit_spec(item):
-                            continue
-                        actionable_siblings.append((record, item))
-                if not actionable_siblings:
-                    continue
-                keeper_record, keeper_item = max(
-                    actionable_siblings,
-                    key=lambda pair: _duplicate_waiting_conflict_priority(pair[1], run=pair[0]),
-                )
-                keeper_run_id = _optional_text(keeper_record.get("run_id"))
-                keeper_id = _optional_text(
-                    keeper_item.get("work_order_id"),
-                    keeper_item.get("task_id"),
-                )
-                for record, item in candidates:
-                    metadata = dict(item.get("metadata") or {})
-                    if _optional_text(metadata.get("archived_due_to")):
-                        continue
-                    metadata.update(
-                        {
-                            "archived_due_to": "non_actionable_explicit_spec_work_order",
-                            "archived_at": now.isoformat(),
-                            "archive_reason": "non_actionable_explicit_spec_work_order",
-                            "canonical_run_id": keeper_run_id or None,
-                            "canonical_work_order_id": keeper_id or None,
-                            "previous_status": _optional_text(item.get("status"))
-                            or "waiting_conflict",
-                        }
-                    )
-                    item["metadata"] = metadata
-                    item["status"] = "discarded"
-                    if not _optional_text(item.get("failure_reason")):
-                        item["failure_reason"] = "non_actionable_explicit_spec_work_order"
-                    archived += 1
-                    changed_run_ids.add(_optional_text(record.get("run_id")))
-
-            for record in records:
-                run_id = _optional_text(record.get("run_id"))
-                if run_id not in changed_run_ids:
-                    continue
-                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
-                record["updated_at"] = now.isoformat()
-                self._persist_supervisor_run(conn, record)
-
-            if archived:
-                conn.commit()
-            else:
-                conn.rollback()
-        finally:
-            conn.close()
-        return archived
-
-    def archive_umbrella_explicit_spec_work_orders(
-        self,
-        *,
-        grace_period_hours: float = _NON_ACTIONABLE_EXPLICIT_SPEC_ARCHIVE_GRACE_HOURS,
-    ) -> int:
-        """Archive stale umbrella explicit-spec rows when a same-scope child lane exists."""
-        now = _utcnow()
-        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
-        cutoff = now - grace_period
-        conn = self._connect()
-        try:
-            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
-            lease_status_by_id = {
-                str(row["lease_id"]).strip(): str(row["status"]).strip()
-                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
-                if str(row["lease_id"]).strip()
-            }
-            records = [self._supervisor_run_from_row(row) for row in rows]
-            archived = 0
-            changed_run_ids: set[str] = set()
-            for record in records:
-                same_scope_explicit = [
-                    (sibling_record, sibling)
-                    for sibling_record in records
-                    for sibling in sibling_record.get("work_orders", [])
-                    if isinstance(sibling, dict)
-                    and isinstance(sibling.get("metadata"), dict)
-                    and _optional_text((sibling.get("metadata") or {}).get("source")).lower()
-                    == "explicit_spec_work_order"
-                ]
-                for item in record["work_orders"]:
-                    if not isinstance(item, dict):
-                        continue
-                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
-                    if not _work_order_should_archive_superseded_waiting_conflict(
-                        item,
-                        run=record,
-                        cutoff=cutoff,
-                        lease_status=lease_status,
-                    ):
-                        continue
-                    if not _work_order_is_umbrella_explicit_spec(
-                        item,
-                        run=record,
-                        siblings=same_scope_explicit,
-                    ):
-                        continue
-                    keeper_record, keeper = next(
-                        (
-                            pair
-                            for pair in same_scope_explicit
-                            if pair[1] is not item
-                            and _canonical_work_order_scope_key(pair[1])
-                            == _canonical_work_order_scope_key(item)
-                            and " ".join(_optional_text(pair[1].get("title")).lower().split())
-                            != " ".join(_optional_text(item.get("title")).lower().split())
-                            and _optional_text(pair[1].get("status")).lower()
-                            not in {"discarded", "superseded", "merged"}
-                        ),
-                        (None, None),
-                    )
-                    if keeper_record is None or keeper is None:
-                        continue
-                    metadata = dict(item.get("metadata") or {})
-                    if _optional_text(metadata.get("archived_due_to")):
-                        continue
-                    metadata.update(
-                        {
-                            "archived_due_to": "umbrella_explicit_spec_work_order",
-                            "archived_at": now.isoformat(),
-                            "archive_reason": "umbrella_explicit_spec_work_order",
-                            "canonical_run_id": _optional_text(keeper_record.get("run_id")) or None,
-                            "canonical_work_order_id": _optional_text(
-                                keeper.get("work_order_id"),
-                                keeper.get("task_id"),
-                            )
-                            or None,
-                            "previous_status": _optional_text(item.get("status"))
-                            or "waiting_conflict",
-                        }
-                    )
-                    item["metadata"] = metadata
-                    item["status"] = "discarded"
-                    if not _optional_text(item.get("failure_reason")):
-                        item["failure_reason"] = "umbrella_explicit_spec_work_order"
-                    archived += 1
-                    changed_run_ids.add(_optional_text(record.get("run_id")))
-
-            for record in records:
-                run_id = _optional_text(record.get("run_id"))
-                if run_id not in changed_run_ids:
-                    continue
-                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
-                record["updated_at"] = now.isoformat()
-                self._persist_supervisor_run(conn, record)
-
-            if archived:
-                conn.commit()
-            else:
-                conn.rollback()
-        finally:
-            conn.close()
-        return archived
 
     def rehabilitate_narrowed_waiting_conflict_work_orders(
         self,
@@ -3167,7 +3009,12 @@ class DevCoordinationStore:
                         continue
                     if isinstance(limit, int) and limit > 0 and attempted >= limit:
                         break
-                    if not _work_order_should_reclassify_branch_stale_merge_gate_failure(item):
+                    if not (
+                        _work_order_should_reclassify_branch_stale_merge_gate_failure(item)
+                        or _work_order_should_reclassify_branch_stale_verification_target_missing(
+                            item, repo_root=self.repo_root
+                        )
+                    ):
                         continue
                     work_order_id = _work_order_identifier(item)
                     if not work_order_id:
@@ -3186,40 +3033,55 @@ class DevCoordinationStore:
             if not record:
                 continue
             item = _find_work_order(record, work_order_id)
-            if item is None or not _work_order_should_reclassify_branch_stale_merge_gate_failure(
-                item
+            is_missing_target = False
+            if item is None:
+                continue
+            if _work_order_should_reclassify_branch_stale_merge_gate_failure(item):
+                pass
+            elif _work_order_should_reclassify_branch_stale_verification_target_missing(
+                item, repo_root=self.repo_root
             ):
+                is_missing_target = True
+            else:
                 continue
             task_key = _task_key_for(record, item, work_order_id)
             if requested_task_keys and task_key not in requested_task_keys:
                 continue
-            commands = _mainline_verification_commands_for_work_order(item)
-            if not commands:
-                continue
-
             target_ref = _optional_text(record.get("target_branch")) or "main"
-            worktree_path, cleanup_path = self._resolve_verification_worktree(
-                {"branch": target_ref}
-            )
-            if not worktree_path and target_ref != "main":
-                target_ref = "main"
+            commands = _mainline_verification_commands_for_work_order(item)
+            verification_results: list[dict[str, Any]] = []
+            missing_paths: list[str] = []
+            if is_missing_target:
+                missing_paths = _mainline_missing_repo_paths_for_work_order(
+                    item, repo_root=self.repo_root
+                )
+                if not missing_paths:
+                    continue
+            else:
+                if not commands:
+                    continue
                 worktree_path, cleanup_path = self._resolve_verification_worktree(
                     {"branch": target_ref}
                 )
-            if not worktree_path:
-                continue
-            try:
-                verification_results = self._run_verification_commands_sync(
-                    worktree_path,
-                    commands,
-                    timeout=timeout,
-                )
-            finally:
-                self._cleanup_verification_worktree(cleanup_path)
-            if not verification_results or not all(
-                bool(entry.get("passed", False)) for entry in verification_results
-            ):
-                continue
+                if not worktree_path and target_ref != "main":
+                    target_ref = "main"
+                    worktree_path, cleanup_path = self._resolve_verification_worktree(
+                        {"branch": target_ref}
+                    )
+                if not worktree_path:
+                    continue
+                try:
+                    verification_results = self._run_verification_commands_sync(
+                        worktree_path,
+                        commands,
+                        timeout=timeout,
+                    )
+                finally:
+                    self._cleanup_verification_worktree(cleanup_path)
+                if not verification_results or not all(
+                    bool(entry.get("passed", False)) for entry in verification_results
+                ):
+                    continue
 
             conn = self._connect()
             try:
@@ -3231,12 +3093,16 @@ class DevCoordinationStore:
                     continue
                 refreshed_record = self._supervisor_run_from_row(row)
                 refreshed_item = _find_work_order(refreshed_record, work_order_id)
-                if (
-                    refreshed_item is None
-                    or not _work_order_should_reclassify_branch_stale_merge_gate_failure(
-                        refreshed_item
-                    )
+                refreshed_is_missing_target = False
+                if refreshed_item is None:
+                    continue
+                if _work_order_should_reclassify_branch_stale_merge_gate_failure(refreshed_item):
+                    pass
+                elif _work_order_should_reclassify_branch_stale_verification_target_missing(
+                    refreshed_item, repo_root=self.repo_root
                 ):
+                    refreshed_is_missing_target = True
+                else:
                     continue
                 refreshed_task_key = _task_key_for(refreshed_record, refreshed_item, work_order_id)
                 if requested_task_keys and refreshed_task_key not in requested_task_keys:
@@ -3244,12 +3110,17 @@ class DevCoordinationStore:
 
                 checked_at = _utcnow().isoformat()
                 metadata = dict(refreshed_item.get("metadata") or {})
-                metadata["mainline_verification_passed"] = True
                 metadata["mainline_verification_checked_at"] = checked_at
-                metadata["mainline_verification_commands"] = list(commands)
-                metadata["mainline_verification_results"] = [
-                    dict(entry) for entry in verification_results
-                ]
+                if refreshed_is_missing_target:
+                    metadata["mainline_verification_target_missing"] = True
+                    metadata["mainline_missing_paths"] = list(missing_paths)
+                    metadata["mainline_verification_commands"] = list(commands)
+                else:
+                    metadata["mainline_verification_passed"] = True
+                    metadata["mainline_verification_commands"] = list(commands)
+                    metadata["mainline_verification_results"] = [
+                        dict(entry) for entry in verification_results
+                    ]
                 refreshed_item["metadata"] = metadata
                 refreshed_item["status"] = "changes_requested"
                 refreshed_item["review_status"] = "changes_requested"
@@ -3258,9 +3129,15 @@ class DevCoordinationStore:
                 refreshed_item["blocking_question"] = _default_blocking_question_for_reason(
                     "branch_snapshot_stale"
                 )
-                refreshed_item["dispatch_error"] = (
-                    f"branch snapshot stale: merge-gate verification now passes on {target_ref}"
-                )
+                if refreshed_is_missing_target:
+                    refreshed_item["dispatch_error"] = (
+                        "branch snapshot stale: referenced verification targets no longer exist "
+                        f"on {target_ref}"
+                    )
+                else:
+                    refreshed_item["dispatch_error"] = (
+                        f"branch snapshot stale: merge-gate verification now passes on {target_ref}"
+                    )
                 refreshed_item["blockers"] = ["branch_snapshot_stale"]
                 refreshed_item["blocker"] = {
                     "reason": "branch_snapshot_stale",
@@ -3457,8 +3334,6 @@ class DevCoordinationStore:
         self.archive_duplicate_work_order_leasing_failed_work_orders()
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
-        self.archive_non_actionable_explicit_spec_work_orders()
-        self.archive_umbrella_explicit_spec_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
         self.rehabilitate_narrowed_waiting_conflict_work_orders()
         return expired
@@ -3554,8 +3429,6 @@ class DevCoordinationStore:
         self.archive_duplicate_work_order_leasing_failed_work_orders()
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
-        self.archive_non_actionable_explicit_spec_work_orders()
-        self.archive_umbrella_explicit_spec_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
         self.rehabilitate_narrowed_waiting_conflict_work_orders()
         return stale
@@ -4559,8 +4432,6 @@ class DevCoordinationStore:
         self.archive_duplicate_work_order_leasing_failed_work_orders()
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
-        self.archive_non_actionable_explicit_spec_work_orders()
-        self.archive_umbrella_explicit_spec_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
         self.rehabilitate_narrowed_waiting_conflict_work_orders()
         work_queue = queue or GlobalWorkQueue(storage_dir=self.repo_root / ".work_queue")
@@ -6211,6 +6082,80 @@ def _mainline_verification_commands_for_work_order(work_order: dict[str, Any]) -
     return commands
 
 
+def _mainline_candidate_repo_paths_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+
+    def _append(raw: Any) -> None:
+        text = str(raw or "").strip()
+        if not text:
+            return
+        target = text.split("::", 1)[0].strip()
+        normalized = _normalize_claim(target)
+        if not normalized or any(token in normalized for token in ("*", "?", "[", "]", "{", "}")):
+            return
+        if normalized in seen:
+            return
+        seen.add(normalized)
+        paths.append(normalized)
+
+    for entry in work_order.get("file_scope", []) or []:
+        _append(entry)
+    for entry in work_order.get("changed_paths", []) or []:
+        _append(entry)
+    for command in _mainline_verification_commands_for_work_order(work_order):
+        for target in _pytest_command_targets(command):
+            _append(target)
+    return paths
+
+
+def _mainline_missing_repo_paths_for_work_order(
+    work_order: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> list[str]:
+    root = repo_root.resolve()
+    missing: list[str] = []
+    for candidate in _mainline_candidate_repo_paths_for_work_order(work_order):
+        resolved = (root / candidate).resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        if not resolved.exists():
+            missing.append(candidate)
+    return missing
+
+
+def _work_order_should_reclassify_branch_stale_verification_target_missing(
+    work_order: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return False
+    if _optional_text(work_order.get("failure_reason")).lower() != "verification_target_missing":
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and (
+        bool(metadata.get("mainline_verification_passed"))
+        or bool(metadata.get("mainline_verification_target_missing"))
+    ):
+        return False
+    candidate_paths = _mainline_candidate_repo_paths_for_work_order(work_order)
+    if not candidate_paths:
+        return False
+    missing_paths = _mainline_missing_repo_paths_for_work_order(work_order, repo_root=repo_root)
+    return bool(missing_paths) and len(missing_paths) == len(candidate_paths)
+
+
 def _work_order_should_reclassify_branch_stale_merge_gate_failure(
     work_order: dict[str, Any],
 ) -> bool:
@@ -6696,83 +6641,62 @@ def _work_order_is_duplicate_waiting_conflict_candidate(
     return bool(_duplicate_waiting_conflict_group_key(work_order, run=run))
 
 
-def _work_order_is_non_actionable_explicit_spec(work_order: dict[str, Any]) -> bool:
-    metadata = work_order.get("metadata")
-    if not isinstance(metadata, dict):
-        return False
-    if _optional_text(metadata.get("source")).lower() != "explicit_spec_work_order":
-        return False
-    title = " ".join(_optional_text(work_order.get("title")).lower().split())
-    description = " ".join(_optional_text(work_order.get("description")).lower().split())
-    if title not in _NON_ACTIONABLE_EXPLICIT_SPEC_TITLES and not description.startswith("## "):
-        return False
-    if _explicit_scope_paths_for_waiting_conflict(
-        work_order,
-        run={"goal": "", "spec": {}},
-        repo_root=None,
-    ):
-        return False
-    success_criteria = work_order.get("success_criteria")
-    if isinstance(success_criteria, dict):
-        tests = success_criteria.get("tests")
-        if isinstance(tests, str) and tests.strip():
-            return False
-        if isinstance(tests, list) and any(str(item).strip() for item in tests):
-            return False
-    if any(str(item).strip() for item in work_order.get("expected_tests", []) or []):
-        return False
-    return True
+def _waiting_conflict_candidate_text(work_order: dict[str, Any], *, run: dict[str, Any]) -> str:
+    metadata = work_order.get("metadata") or {}
+    acceptance = metadata.get("acceptance_criteria") if isinstance(metadata, dict) else []
+    parts: list[str] = [
+        _optional_text(run.get("goal")),
+        _optional_text(work_order.get("title")),
+        _optional_text(work_order.get("description")),
+    ]
+    if isinstance(acceptance, list):
+        parts.extend(str(item).strip() for item in acceptance if str(item).strip())
+    return " ".join(part for part in parts if part).lower()
 
 
-def _work_order_should_archive_non_actionable_explicit_spec(
+def _work_order_source_name(work_order: dict[str, Any]) -> str:
+    metadata = work_order.get("metadata") or {}
+    return _optional_text(work_order.get("source"), metadata.get("source")).lower()
+
+
+def _work_order_is_broad_explicit_pytest_umbrella(
     work_order: dict[str, Any],
     *,
     run: dict[str, Any],
-    cutoff: datetime,
-    lease_status: str | None,
 ) -> bool:
-    if not _work_order_should_archive_superseded_waiting_conflict(
-        work_order,
-        run=run,
-        cutoff=cutoff,
-        lease_status=lease_status,
-    ):
+    if _work_order_source_name(work_order) != "explicit_spec_work_order":
         return False
-    return _work_order_is_non_actionable_explicit_spec(work_order)
+    text = _waiting_conflict_candidate_text(work_order, run=run)
+    if "pytest" not in text:
+        return False
+    return any(
+        marker in text
+        for marker in (
+            "comprehensive pytest",
+            "thorough pytest",
+            "cover every",
+            "internal helper",
+            "helper function",
+        )
+    )
 
 
-def _work_order_is_umbrella_explicit_spec(
+def _work_order_is_specific_pytest_child(
     work_order: dict[str, Any],
     *,
     run: dict[str, Any],
-    siblings: list[tuple[dict[str, Any], dict[str, Any]]],
 ) -> bool:
-    metadata = work_order.get("metadata")
-    if not isinstance(metadata, dict):
+    text = _waiting_conflict_candidate_text(work_order, run=run)
+    if "pytest" not in text:
         return False
-    if _optional_text(metadata.get("source")).lower() != "explicit_spec_work_order":
-        return False
-    normalized_title = " ".join(_optional_text(work_order.get("title")).lower().split())
-    normalized_goal = _canonical_goal_key(run.get("goal"))
-    if not normalized_goal:
-        return False
-    if normalized_title != normalized_goal:
-        return False
-    item_scope = _canonical_work_order_scope_key(work_order)
-    if not item_scope:
-        return False
-    for sibling_record, sibling in siblings:
-        if sibling is work_order and sibling_record is run:
-            continue
-        if _canonical_work_order_scope_key(sibling) != item_scope:
-            continue
-        sibling_status = _optional_text(sibling.get("status")).lower()
-        if sibling_status in {"discarded", "superseded", "merged"}:
-            continue
-        sibling_title = " ".join(_optional_text(sibling.get("title")).lower().split())
-        if sibling_title and sibling_title != normalized_title:
-            return True
-    return False
+    return any(
+        marker in text
+        for marker in (
+            "write one pytest test",
+            "one pytest test",
+            "single pytest test",
+        )
+    )
 
 
 def _duplicate_waiting_conflict_group_key(
@@ -7095,6 +7019,10 @@ def _is_concrete_repo_path_hint(path: str, *, repo_root: Path | None) -> bool:
 def _waiting_conflict_inference_text(work_order: dict[str, Any], run: dict[str, Any]) -> str:
     spec = run.get("spec")
     metadata = work_order.get("metadata")
+    spec_acceptance = spec.get("acceptance_criteria") if isinstance(spec, dict) else []
+    spec_constraints = spec.get("constraints") if isinstance(spec, dict) else []
+    metadata_acceptance = metadata.get("acceptance_criteria") if isinstance(metadata, dict) else []
+    metadata_constraints = metadata.get("constraints") if isinstance(metadata, dict) else []
     parts = [
         run.get("goal"),
         spec.get("raw_goal") if isinstance(spec, dict) else None,
@@ -7103,6 +7031,14 @@ def _waiting_conflict_inference_text(work_order: dict[str, Any], run: dict[str, 
         work_order.get("description"),
         metadata.get("description") if isinstance(metadata, dict) else None,
     ]
+    if isinstance(spec_acceptance, list):
+        parts.extend(spec_acceptance)
+    if isinstance(spec_constraints, list):
+        parts.extend(spec_constraints)
+    if isinstance(metadata_acceptance, list):
+        parts.extend(metadata_acceptance)
+    if isinstance(metadata_constraints, list):
+        parts.extend(metadata_constraints)
     return " ".join(str(part).strip() for part in parts if str(part or "").strip())
 
 
@@ -7133,6 +7069,53 @@ def _explicit_scope_paths_for_waiting_conflict(
     return explicit_paths
 
 
+def _docs_only_scope_hints_for_waiting_conflict(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    metadata = work_order.get("metadata") or {}
+    constraints = metadata.get("constraints") if isinstance(metadata, dict) else []
+    if not isinstance(constraints, list) or not any(
+        "documentation only" in str(item).strip().lower() for item in constraints
+    ):
+        spec = run.get("spec")
+        spec_constraints = spec.get("constraints") if isinstance(spec, dict) else []
+        if not isinstance(spec_constraints, list) or not any(
+            "documentation only" in str(item).strip().lower() for item in spec_constraints
+        ):
+            return []
+
+    original_scope = [
+        _canonical_scope_pattern(str(path))
+        for path in work_order.get("file_scope", []) or []
+        if _canonical_scope_pattern(str(path))
+    ]
+    if not original_scope:
+        return []
+
+    doc_hints: list[str] = []
+    for path in SwarmSpec.infer_file_scope_hints(_waiting_conflict_inference_text(work_order, run)):
+        clean = _canonical_scope_pattern(path)
+        if not clean.startswith("docs"):
+            continue
+        if any(
+            scope == clean or clean.startswith(f"{scope}/") or scope.startswith(f"{clean}/")
+            for scope in original_scope
+        ):
+            doc_hints.append(clean)
+    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
+        doc_hints = [hint for hint in doc_hints if hint != "docs"]
+    collapsed = _collapse_scope_patterns(doc_hints)
+    if collapsed:
+        return collapsed
+    if any(scope == "docs" or scope.startswith("docs/") for scope in original_scope):
+        return ["docs"]
+    return []
+
+
 def _narrow_waiting_conflict_scope_from_explicit_paths(
     work_order: dict[str, Any],
     *,
@@ -7151,27 +7134,29 @@ def _narrow_waiting_conflict_scope_from_explicit_paths(
         run=run,
         repo_root=repo_root,
     )
-    if not explicit_paths:
-        return []
+    if explicit_paths:
+        narrowed_scope: list[str] = []
+        replaced = False
+        for scope in original_scope:
+            contains_explicit = any(_path_matches_glob(path, scope) for path in explicit_paths)
+            if (
+                contains_explicit
+                and scope not in explicit_paths
+                and not _is_concrete_repo_path_hint(
+                    scope,
+                    repo_root=repo_root,
+                )
+            ):
+                replaced = True
+                continue
+            narrowed_scope.append(scope)
+        if replaced:
+            return _collapse_scope_patterns(narrowed_scope + explicit_paths)
 
-    narrowed_scope: list[str] = []
-    replaced = False
-    for scope in original_scope:
-        contains_explicit = any(_path_matches_glob(path, scope) for path in explicit_paths)
-        if (
-            contains_explicit
-            and scope not in explicit_paths
-            and not _is_concrete_repo_path_hint(
-                scope,
-                repo_root=repo_root,
-            )
-        ):
-            replaced = True
-            continue
-        narrowed_scope.append(scope)
-    if not replaced:
-        return []
-    return _collapse_scope_patterns(narrowed_scope + explicit_paths)
+    docs_only_scope = _docs_only_scope_hints_for_waiting_conflict(work_order, run=run)
+    if docs_only_scope and tuple(docs_only_scope) != tuple(original_scope):
+        return docs_only_scope
+    return []
 
 
 def _waiting_conflict_sibling_can_be_ignored(

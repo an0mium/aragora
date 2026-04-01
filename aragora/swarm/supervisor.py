@@ -136,6 +136,60 @@ def _narrow_scope_to_explicit_paths(
     return item
 
 
+def _narrow_docs_only_scope(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+) -> BoundedWorkOrder:
+    constraints = [str(value).strip() for value in spec.constraints if str(value).strip()]
+    if not any("documentation only" in value.lower() for value in constraints):
+        return item
+
+    original_scope = [str(path).strip() for path in item.file_scope if str(path).strip()]
+    if not original_scope:
+        return item
+
+    inference_text = " ".join(
+        filter(
+            None,
+            [
+                spec.refined_goal or "",
+                spec.raw_goal or "",
+                item.title or "",
+                item.description or "",
+                *list(spec.acceptance_criteria),
+                *constraints,
+            ],
+        )
+    )
+    doc_hints: list[str] = []
+    for path in SwarmSpec.infer_file_scope_hints(inference_text):
+        clean = path.strip().removeprefix("./").rstrip("/")
+        if not clean.startswith("docs"):
+            continue
+        if any(
+            _path_in_scope(clean, scope) or _path_in_scope(scope, clean) for scope in original_scope
+        ):
+            doc_hints.append(clean)
+    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
+        doc_hints = [hint for hint in doc_hints if hint != "docs"]
+    narrowed_scope = list(dict.fromkeys(doc_hints))
+    if not narrowed_scope and any(
+        scope == "docs" or scope.startswith("docs/") for scope in original_scope
+    ):
+        narrowed_scope = ["docs"]
+    if not narrowed_scope or tuple(narrowed_scope) == tuple(original_scope):
+        return item
+
+    item.file_scope = narrowed_scope
+    logger.info(
+        "Narrowed docs-only file_scope on work order %s: %s -> %s",
+        item.work_order_id,
+        original_scope,
+        item.file_scope,
+    )
+    return item
+
+
 _NON_ACTIONABLE_EXPLICIT_SPEC_TITLES = {
     "validation changes",
     "acceptance criteria changes",
@@ -266,7 +320,8 @@ def _ensure_work_order_scope(
                 item.work_order_id,
             )
 
-    return _narrow_scope_to_explicit_paths(item, spec)
+    item = _narrow_scope_to_explicit_paths(item, spec)
+    return _narrow_docs_only_scope(item, spec)
 
 
 class SupervisorRunStatus(str, Enum):
@@ -640,15 +695,16 @@ class SwarmSupervisor:
                 continue
             if str(item.get("work_order_id", "")).strip() in finished_by_id:
                 continue
-            pid = item.get("pid")
+            pid = WorkerLauncher._normalized_pid(item.get("pid"))
             if pid is None:
-                continue
-            # Check if PID is still alive
-            try:
-                os.kill(int(pid), 0)
-                continue  # Still running
-            except (OSError, ValueError):
-                pass  # Dead — check for commits
+                pass
+            else:
+                # Check if PID is still alive
+                try:
+                    os.kill(pid, 0)
+                    continue  # Still running
+                except OSError:
+                    pass  # Dead — check for commits
 
             worktree_path = str(item.get("worktree_path", "")).strip()
             initial_head = str(item.get("initial_head", "")).strip()
@@ -1792,6 +1848,45 @@ class SwarmSupervisor:
             for path in containee
         )
 
+    @staticmethod
+    def _work_order_candidate_text(goal: str, item: dict[str, Any]) -> str:
+        parts = [
+            str(goal or "").strip(),
+            str(item.get("title", "") or "").strip(),
+            str(item.get("description", "") or "").strip(),
+        ]
+        return " ".join(part for part in parts if part).lower()
+
+    @staticmethod
+    def _looks_like_broad_explicit_pytest_umbrella(*, source: str, text: str) -> bool:
+        if source.strip() != "explicit_spec_work_order":
+            return False
+        if "pytest" not in text:
+            return False
+        return any(
+            marker in text
+            for marker in (
+                "comprehensive pytest",
+                "thorough pytest",
+                "cover every",
+                "internal helper",
+                "helper function",
+            )
+        )
+
+    @staticmethod
+    def _looks_like_specific_pytest_child(text: str) -> bool:
+        if "pytest" not in text:
+            return False
+        return any(
+            marker in text
+            for marker in (
+                "write one pytest test",
+                "one pytest test",
+                "single pytest test",
+            )
+        )
+
     def _suppress_duplicate_open_work_orders(
         self,
         goal: str,
@@ -1810,7 +1905,7 @@ class SwarmSupervisor:
         }
         goal_key = self._normalized_goal_signature(goal)
         existing_by_group: dict[tuple[str, str, tuple[str, ...]], str] = {}
-        existing_overlap_candidates: list[tuple[str, str, str, tuple[str, ...]]] = []
+        existing_overlap_candidates: list[dict[str, Any]] = []
         for task in self.store.list_developer_tasks(open_only=True, limit=1000):
             if str(getattr(task, "status", "")).strip().lower() not in active_duplicate_statuses:
                 continue
@@ -1823,6 +1918,8 @@ class SwarmSupervisor:
             )
             task_lane = str(task_metadata.get("tranche_lane_id") or "").strip()
             task_key = str(getattr(task, "task_key", "")).strip()
+            task_title = str(getattr(task, "title", "") or "").strip()
+            task_source = str(task_metadata.get("source") or "").strip()
             group_key = self._duplicate_open_work_order_group_key(
                 str(getattr(task, "goal", "") or ""),
                 list(getattr(task, "allowed_paths", []) or []),
@@ -1830,11 +1927,43 @@ class SwarmSupervisor:
             )
             if not group_key or group_key in existing_by_group:
                 if task_scope and task_key and task_goal:
-                    existing_overlap_candidates.append((task_key, task_goal, task_lane, task_scope))
+                    existing_overlap_candidates.append(
+                        {
+                            "task_key": task_key,
+                            "goal_key": task_goal,
+                            "lane": task_lane,
+                            "scope": task_scope,
+                            "source": task_source,
+                            "text": " ".join(
+                                part
+                                for part in (
+                                    str(getattr(task, "goal", "") or "").strip(),
+                                    task_title,
+                                )
+                                if part
+                            ).lower(),
+                        }
+                    )
                 continue
             existing_by_group[group_key] = task_key
             if task_scope and task_key and task_goal:
-                existing_overlap_candidates.append((task_key, task_goal, task_lane, task_scope))
+                existing_overlap_candidates.append(
+                    {
+                        "task_key": task_key,
+                        "goal_key": task_goal,
+                        "lane": task_lane,
+                        "scope": task_scope,
+                        "source": task_source,
+                        "text": " ".join(
+                            part
+                            for part in (
+                                str(getattr(task, "goal", "") or "").strip(),
+                                task_title,
+                            )
+                            if part
+                        ).lower(),
+                    }
+                )
 
         if not existing_by_group and not existing_overlap_candidates:
             return
@@ -1847,6 +1976,8 @@ class SwarmSupervisor:
                 [str(path) for path in item.get("file_scope", []) if str(path).strip()]
             )
             item_lane = str((item.get("metadata") or {}).get("tranche_lane_id") or "").strip()
+            item_text = self._work_order_candidate_text(goal, item)
+            item_is_specific_pytest_child = self._looks_like_specific_pytest_child(item_text)
             group_key = self._duplicate_open_work_order_group_key(
                 goal,
                 [str(path) for path in item.get("file_scope", []) if str(path).strip()],
@@ -1854,20 +1985,27 @@ class SwarmSupervisor:
             )
             canonical_task_key = existing_by_group.get(group_key) if group_key else None
             if not canonical_task_key and item_scope:
-                for (
-                    task_key,
-                    existing_goal,
-                    existing_lane,
-                    existing_scope,
-                ) in existing_overlap_candidates:
-                    same_lane = bool(item_lane and existing_lane and item_lane == existing_lane)
-                    same_goal = bool(goal_key and existing_goal == goal_key)
+                for existing in existing_overlap_candidates:
+                    same_lane = bool(
+                        item_lane and existing["lane"] and item_lane == existing["lane"]
+                    )
+                    same_goal = bool(goal_key and existing["goal_key"] == goal_key)
+                    if (
+                        item_is_specific_pytest_child
+                        and item_scope == existing["scope"]
+                        and self._looks_like_broad_explicit_pytest_umbrella(
+                            source=str(existing["source"]),
+                            text=str(existing["text"]),
+                        )
+                    ):
+                        canonical_task_key = str(existing["task_key"])
+                        break
                     if not same_lane and not same_goal:
                         continue
-                    if self._scope_signature_contains(existing_scope, item_scope) or (
-                        self._scope_signature_contains(item_scope, existing_scope)
+                    if self._scope_signature_contains(existing["scope"], item_scope) or (
+                        self._scope_signature_contains(item_scope, existing["scope"])
                     ):
-                        canonical_task_key = task_key
+                        canonical_task_key = str(existing["task_key"])
                         break
             if not group_key or not canonical_task_key:
                 if group_key:
@@ -1876,12 +2014,14 @@ class SwarmSupervisor:
                     )
                 if item_scope and goal_key:
                     existing_overlap_candidates.append(
-                        (
-                            str(item.get("work_order_id", "")).strip(),
-                            goal_key,
-                            item_lane,
-                            item_scope,
-                        )
+                        {
+                            "task_key": str(item.get("work_order_id", "")).strip(),
+                            "goal_key": goal_key,
+                            "lane": item_lane,
+                            "scope": item_scope,
+                            "source": str((item.get("metadata") or {}).get("source") or ""),
+                            "text": item_text,
+                        }
                     )
                 continue
             metadata = dict(item.get("metadata") or {})

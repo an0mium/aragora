@@ -2598,180 +2598,67 @@ def test_archive_duplicate_waiting_conflict_work_orders_discards_scope_less_same
     assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
-def test_archive_non_actionable_explicit_spec_work_orders_discards_validation_placeholder(
+def test_archive_duplicate_waiting_conflict_work_orders_discards_specific_pytest_child_when_broader_explicit_spec_exists(
     store: DevCoordinationStore,
 ) -> None:
-    keeper = store.create_supervisor_run(
-        goal="Define the founder-facing PMF scorecard.",
+    broader = store.create_supervisor_run(
+        goal=(
+            "Write thorough pytest tests for classify_blocker() and its internal helpers "
+            "_classify_time_limit() and _classify_campaign_blocked(). Cover every "
+            "BlockerKind enum value with at least one test case."
+        ),
         target_branch="main",
         supervisor_agents={"planner": "codex", "judge": "claude"},
         approval_policy={},
         spec={},
         work_orders=[
             {
-                "work_order_id": "pmf-scorecard",
-                "title": "Define the founder-facing PMF scorecard.",
+                "work_order_id": "subtask_1",
+                "title": "Write comprehensive pytest tests for classify_blocker and internal helpers",
                 "status": "waiting_conflict",
-                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
                 "metadata": {"source": "explicit_spec_work_order"},
             }
         ],
     )
-    placeholder = store.create_supervisor_run(
-        goal="## Validation\n\n- Changed files stay within the allowed scope",
+    specific = store.create_supervisor_run(
+        goal="Write one pytest test for classify_blocker that tests the still_running path.",
         target_branch="main",
         supervisor_agents={"planner": "codex", "judge": "claude"},
         approval_policy={},
         spec={},
         work_orders=[
             {
-                "work_order_id": "proj-001",
-                "title": "Validation Changes",
-                "description": "## Validation\n\n- Changed files stay within the allowed scope",
+                "work_order_id": "subtask_2",
+                "title": "Write one pytest test for classify_blocker that tests the still_running path.",
                 "status": "waiting_conflict",
-                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
-                "metadata": {"source": "explicit_spec_work_order"},
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+                "metadata": {"source": "nomic_subtask"},
             }
         ],
     )
 
-    conn = store._connect()
-    try:
-        conn.execute(
-            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
-            ("2000-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", keeper["run_id"]),
-        )
-        conn.execute(
-            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
-            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", placeholder["run_id"]),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    archived = store.archive_non_actionable_explicit_spec_work_orders()
-    placeholder_refreshed = store.get_supervisor_run(placeholder["run_id"])
-    keeper_refreshed = store.get_supervisor_run(keeper["run_id"])
+    archived = store.archive_duplicate_waiting_conflict_work_orders()
+    broader_refreshed = store.get_supervisor_run(broader["run_id"])
+    specific_refreshed = store.get_supervisor_run(specific["run_id"])
 
     assert archived == 1
-    assert placeholder_refreshed is not None
-    assert keeper_refreshed is not None
-    assert placeholder_refreshed["work_orders"][0]["status"] == "discarded"
-    assert (
-        placeholder_refreshed["work_orders"][0]["metadata"]["archived_due_to"]
-        == "non_actionable_explicit_spec_work_order"
+    assert broader_refreshed is not None
+    assert specific_refreshed is not None
+    assert broader_refreshed["work_orders"][0]["status"] == "waiting_conflict"
+    assert specific_refreshed["work_orders"][0]["status"] == "discarded"
+    assert specific_refreshed["work_orders"][0]["metadata"]["archive_reason"] == (
+        "broader_explicit_pytest_waiting_conflict"
     )
     assert (
-        placeholder_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == keeper["run_id"]
+        specific_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == (broader["run_id"])
     )
-    assert keeper_refreshed["work_orders"][0]["status"] == "waiting_conflict"
-
-
-def test_archive_non_actionable_explicit_spec_work_orders_preserves_placeholder_without_real_sibling(
-    store: DevCoordinationStore,
-) -> None:
-    placeholder = store.create_supervisor_run(
-        goal="## Validation\n\n- Changed files stay within the allowed scope",
-        target_branch="main",
-        supervisor_agents={"planner": "codex", "judge": "claude"},
-        approval_policy={},
-        spec={},
-        work_orders=[
-            {
-                "work_order_id": "proj-001",
-                "title": "Validation Changes",
-                "description": "## Validation\n\n- Changed files stay within the allowed scope",
-                "status": "waiting_conflict",
-                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
-                "metadata": {"source": "explicit_spec_work_order"},
-            }
-        ],
-    )
-
-    conn = store._connect()
-    try:
-        conn.execute(
-            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
-            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", placeholder["run_id"]),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    archived = store.archive_non_actionable_explicit_spec_work_orders()
-    placeholder_refreshed = store.get_supervisor_run(placeholder["run_id"])
-
-    assert archived == 0
-    assert placeholder_refreshed is not None
-    assert placeholder_refreshed["work_orders"][0]["status"] == "waiting_conflict"
-
-
-def test_archive_umbrella_explicit_spec_work_orders_discards_broad_goal_mirror_lane(
-    store: DevCoordinationStore,
-) -> None:
-    umbrella = store.create_supervisor_run(
-        goal="Make one already reachable core page functional with real data flow.",
-        target_branch="main",
-        supervisor_agents={"planner": "codex", "judge": "claude"},
-        approval_policy={},
-        spec={},
-        work_orders=[
-            {
-                "work_order_id": "core-pages-functional-slice",
-                "title": "Make one already reachable core page functional with real data flow.",
-                "description": "Make one already reachable core page functional with real data flow.",
-                "status": "waiting_conflict",
-                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
-                "metadata": {"source": "explicit_spec_work_order"},
-            }
-        ],
-    )
-    child = store.create_supervisor_run(
-        goal="Connect the results page to backend endpoints.",
-        target_branch="main",
-        supervisor_agents={"planner": "codex", "judge": "claude"},
-        approval_policy={},
-        spec={},
-        work_orders=[
-            {
-                "work_order_id": "proj-001",
-                "title": "Implement functional Results page with real data flow",
-                "description": "Connect the results page to backend endpoints.",
-                "status": "waiting_conflict",
-                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
-                "metadata": {"source": "explicit_spec_work_order"},
-            }
-        ],
-    )
-
-    conn = store._connect()
-    try:
-        conn.execute(
-            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
-            ("2000-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", umbrella["run_id"]),
-        )
-        conn.execute(
-            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
-            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", child["run_id"]),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    archived = store.archive_umbrella_explicit_spec_work_orders()
-    umbrella_refreshed = store.get_supervisor_run(umbrella["run_id"])
-    child_refreshed = store.get_supervisor_run(child["run_id"])
-
-    assert archived == 1
-    assert umbrella_refreshed is not None
-    assert child_refreshed is not None
-    assert umbrella_refreshed["work_orders"][0]["status"] == "discarded"
-    assert (
-        umbrella_refreshed["work_orders"][0]["metadata"]["archived_due_to"]
-        == "umbrella_explicit_spec_work_order"
-    )
-    assert umbrella_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == child["run_id"]
-    assert child_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
 def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocked_only_by_broader_waiting_conflict(
@@ -2833,6 +2720,78 @@ def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocke
     work_order = refreshed["work_orders"][0]
     assert work_order["status"] == "queued"
     assert work_order["file_scope"] == ["docs/governance/phase1-scope-boundaries.md"]
+    assert work_order["blockers"] == []
+    assert work_order["conflicts"] == []
+    assert "failure_reason" not in work_order
+    assert work_order["metadata"]["waiting_conflict_requeue_reason"] == (
+        "narrowed_scope_cleared_container_only_blockers"
+    )
+
+
+def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_docs_only_lane_after_scope_truth_narrowing(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    (repo / "docs" / "ADR").mkdir(parents=True, exist_ok=True)
+
+    store.create_supervisor_run(
+        goal="Keep the broader docs planning lane open.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "broad-docs",
+                "title": "Broad docs lane",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "file_scope": ["docs"],
+            }
+        ],
+    )
+    candidate = store.create_supervisor_run(
+        goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={
+            "raw_goal": "Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            "refined_goal": "Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            "acceptance_criteria": ["ADR committed under docs/ADR"],
+            "constraints": ["Documentation only"],
+        },
+        work_orders=[
+            {
+                "work_order_id": "docs-only-adr",
+                "title": "Improve Developer Track",
+                "description": "Enhance capabilities in the Developer track. Key folders: sdk/, docs/, tests/sdk/.",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Which overlapping lane should finish first?",
+                "blocker": {
+                    "reason": "waiting_conflict",
+                    "question": "Which overlapping lane should finish first?",
+                },
+                "blockers": ["waiting_conflict"],
+                "file_scope": ["sdk/", "docs/", "tests/sdk/"],
+                "metadata": {
+                    "acceptance_criteria": ["ADR committed under docs/ADR"],
+                    "constraints": ["Documentation only"],
+                    "source": "nomic_subtask",
+                },
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_narrowed_waiting_conflict_work_orders(grace_period_hours=0.0)
+    refreshed = store.get_supervisor_run(candidate["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "queued"
+    assert work_order["file_scope"] == ["docs/ADR"]
     assert work_order["blockers"] == []
     assert work_order["conflicts"] == []
     assert "failure_reason" not in work_order
@@ -5990,6 +5949,84 @@ def test_reclassify_branch_stale_merge_gate_failures_when_mainline_passes(
     assert item["metadata"]["mainline_verification_passed"] is True
     assert item["metadata"]["mainline_verification_commands"] == [command]
     assert item["metadata"]["mainline_verification_results"][0]["passed"] is True
+    assert item["blocking_question"] == (
+        "Should this deliverable be rebased, regenerated, or otherwise refreshed on current main before review?"
+    )
+
+
+def test_reclassify_branch_stale_verification_target_missing_when_paths_absent_on_main(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Reclassify stale branch paths after repo layout drift",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-target-missing",
+                "title": "Budget gate lane",
+                "status": "changes_requested",
+                "review_status": "changes_requested",
+                "failure_reason": "verification_target_missing",
+                "worker_outcome": "merge_gate_failed",
+                "receipt_id": "receipt-target-missing",
+                "branch": "codex/old-layout",
+                "commit_shas": ["abc12345"],
+                "file_scope": ["src/orchestrator/hardened.py", "src/orchestrator/budget_gate.py"],
+                "changed_paths": [
+                    "src/orchestrator/hardened.py",
+                    "src/orchestrator/budget_gate.py",
+                ],
+                "expected_tests": ["python -m pytest tests/orchestrator/test_budget_gate.py -q"],
+                "tests_run": ["python -m pytest tests/orchestrator/test_budget_gate.py -q"],
+                "verification_results": [
+                    {
+                        "command": "python -m pytest tests/orchestrator/test_budget_gate.py -q",
+                        "passed": False,
+                        "exit_code": 4,
+                        "stdout": "",
+                        "stderr": "ERROR: file or directory not found: tests/orchestrator/test_budget_gate.py",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    "merge gate blocked: verification failed: "
+                    "python -m pytest tests/orchestrator/test_budget_gate.py -q "
+                    "(exit 4) - ERROR: file or directory not found: "
+                    "tests/orchestrator/test_budget_gate.py"
+                ),
+                "metadata": {"task_key": "run-stale:wo-target-missing"},
+            }
+        ],
+    )
+
+    with patch.object(
+        DevCoordinationStore,
+        "_resolve_verification_worktree",
+        side_effect=AssertionError("stale target-missing reclassification should not replay"),
+    ):
+        reclassified = store.reclassify_branch_stale_merge_gate_failures(
+            task_keys=["run-stale:wo-target-missing"]
+        )
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert reclassified == 1
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "changes_requested"
+    assert item["review_status"] == "changes_requested"
+    assert item["worker_outcome"] == "branch_snapshot_stale"
+    assert item["failure_reason"] == "branch_snapshot_stale"
+    assert item["metadata"]["mainline_verification_target_missing"] is True
+    assert item["metadata"]["mainline_missing_paths"] == [
+        "src/orchestrator/hardened.py",
+        "src/orchestrator/budget_gate.py",
+        "tests/orchestrator/test_budget_gate.py",
+    ]
+    assert "no longer exist on main" in item["dispatch_error"]
     assert item["blocking_question"] == (
         "Should this deliverable be rebased, regenerated, or otherwise refreshed on current main before review?"
     )
