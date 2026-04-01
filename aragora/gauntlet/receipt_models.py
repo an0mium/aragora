@@ -27,6 +27,81 @@ if TYPE_CHECKING:
     from .signing import ReceiptSigner
 
 
+def _normalize_live_explainability_text(value: Any, *, max_len: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    return normalized[:max_len]
+
+
+def _normalize_live_explainability_number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def normalize_live_explainability(payload: Any) -> dict[str, Any] | None:
+    """Normalize live explainability snapshots before persisting them in receipts."""
+    if not isinstance(payload, dict):
+        return None
+
+    normalized: dict[str, Any] = {}
+
+    factors = payload.get("factors")
+    if isinstance(factors, list):
+        normalized_factors: list[dict[str, Any]] = []
+        for raw_factor in factors[:12]:
+            if not isinstance(raw_factor, dict):
+                continue
+            factor: dict[str, Any] = {}
+            name = _normalize_live_explainability_text(raw_factor.get("name"), max_len=160)
+            if name is not None:
+                factor["name"] = name
+            contribution = _normalize_live_explainability_number(raw_factor.get("contribution"))
+            if contribution is not None:
+                factor["contribution"] = round(contribution, 3)
+            explanation = _normalize_live_explainability_text(
+                raw_factor.get("explanation"),
+                max_len=600,
+            )
+            if explanation is not None:
+                factor["explanation"] = explanation
+            trend = _normalize_live_explainability_text(raw_factor.get("trend"), max_len=64)
+            if trend is not None:
+                factor["trend"] = trend
+            if factor:
+                normalized_factors.append(factor)
+        if normalized_factors:
+            normalized["factors"] = normalized_factors
+
+    narrative = _normalize_live_explainability_text(payload.get("narrative"), max_len=2000)
+    if narrative is not None:
+        normalized["narrative"] = narrative
+
+    leading_position = _normalize_live_explainability_text(
+        payload.get("leading_position"),
+        max_len=160,
+    )
+    if leading_position is not None:
+        normalized["leading_position"] = leading_position
+
+    for key in ("agent_agreement", "evidence_quality", "position_confidence"):
+        number = _normalize_live_explainability_number(payload.get(key))
+        if number is not None:
+            normalized[key] = round(number, 3)
+
+    for key in ("round_num", "evidence_count", "vote_count", "belief_shifts"):
+        number = payload.get(key)
+        if isinstance(number, int) and number >= 0:
+            normalized[key] = number
+
+    return normalized or None
+
+
 @dataclass
 class ProvenanceRecord:
     """A single provenance record in the chain."""
@@ -1089,8 +1164,8 @@ class DecisionReceipt:
         if isinstance(large_roster_runtime, dict):
             config_used["large_roster_runtime"] = large_roster_runtime
         explainability: dict[str, Any] | None = None
-        live_explainability = metadata.get("live_explainability")
-        if isinstance(live_explainability, dict):
+        live_explainability = normalize_live_explainability(metadata.get("live_explainability"))
+        if live_explainability is not None:
             explainability = {"live_explainability": live_explainability}
 
         # Determine verdict from consensus

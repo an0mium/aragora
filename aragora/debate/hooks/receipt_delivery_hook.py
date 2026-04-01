@@ -191,6 +191,8 @@ class ReceiptDeliveryHook:
         try:
             import hashlib
 
+            from aragora.gauntlet.receipt_models import normalize_live_explainability
+
             # Build receipt data
             receipt_data = {
                 "debate_id": getattr(result, "debate_id", getattr(result, "id", "")),
@@ -205,8 +207,10 @@ class ReceiptDeliveryHook:
                 "org_id": self.org_id,
             }
             result_metadata = getattr(result, "metadata", {}) or {}
-            live_explainability = result_metadata.get("live_explainability")
-            if isinstance(live_explainability, dict):
+            live_explainability = normalize_live_explainability(
+                result_metadata.get("live_explainability")
+            )
+            if live_explainability is not None:
                 receipt_data["explainability"] = {"live_explainability": live_explainability}
 
             # Generate explainability data

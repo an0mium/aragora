@@ -176,17 +176,30 @@ async def test_eventbus_snapshot_survives_receipt_roundtrip(fake_arena, executio
 
     result = execution_state.ctx.result
     live_explainability = result.metadata["live_explainability"]
+    live_explainability["unexpected"] = "<script>alert(1)</script>"
+    live_explainability["factors"].append(
+        {
+            "name": "Injected factor",
+            "contribution": 0.42,
+            "explanation": "  Extra factor with bounded text.  ",
+            "trend": "up",
+            "ignored": "<svg onload=alert(1)>",
+        }
+    )
     assert live_explainability["factors"]
     assert live_explainability["vote_count"] == 3
     assert live_explainability["evidence_count"] == 3
 
     receipt = DecisionReceipt.from_debate_result(result)
     assert receipt.explainability is not None
-    assert receipt.explainability["live_explainability"]["factors"]
-    assert (
-        receipt.explainability["live_explainability"]["leading_position"]
-        == "preserve_live_explainability"
-    )
+    stored_explainability = receipt.explainability["live_explainability"]
+    assert stored_explainability["factors"]
+    assert stored_explainability["leading_position"] == "preserve_live_explainability"
+    assert "unexpected" not in stored_explainability
+    assert "ignored" not in stored_explainability["factors"][-1]
+
+    receipt.sign()
+    assert receipt.verify_signature()
 
     restored = DecisionReceipt.from_dict(receipt.to_dict())
     assert restored.explainability is not None
@@ -195,5 +208,10 @@ async def test_eventbus_snapshot_survives_receipt_roundtrip(fake_arena, executio
         == live_explainability["narrative"]
     )
     assert (
-        restored.explainability["live_explainability"]["factors"] == live_explainability["factors"]
+        restored.explainability["live_explainability"]["factors"]
+        == stored_explainability["factors"]
     )
+    assert restored.verify_signature()
+
+    restored.explainability["live_explainability"]["narrative"] = "tampered"
+    assert not restored.verify_signature()
