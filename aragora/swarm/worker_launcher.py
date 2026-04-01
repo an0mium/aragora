@@ -1169,8 +1169,9 @@ class WorkerLauncher:
         """
         session_meta = cls._read_session_meta(worktree_path)
         session_exit_code, session_completed_at = cls._terminal_session_result(session_meta)
+        missing_terminal_marker = session_exit_code is None and pid is not None
 
-        if session_exit_code is None and pid is not None and cls._is_pid_running(pid):
+        if missing_terminal_marker and cls._is_pid_running(pid):
             return None
 
         worker = WorkerProcess(
@@ -1254,6 +1255,14 @@ class WorkerLauncher:
             len(worker.commit_shas),
             len(worker.changed_paths),
         )
+        if missing_terminal_marker:
+            # A dead detached PID with no terminal session marker should not be
+            # reported as a clean success. Only surface it if there is concrete
+            # work to salvage; otherwise let the supervisor classify it as
+            # "without receipt or exit marker".
+            if not worker.commit_shas and not worker.changed_paths:
+                return None
+            worker.exit_code = 1
         return worker
 
     @staticmethod

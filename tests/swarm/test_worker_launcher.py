@@ -1064,7 +1064,7 @@ class TestCollectDetachedResult:
             )
 
         assert result is not None
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         assert result.head_sha == "abc123"
         assert result.commit_shas == ["abc123"]
         assert result.changed_paths == ["file.py"]
@@ -1072,6 +1072,30 @@ class TestCollectDetachedResult:
         assert result.verification_results == verification_results
         assert result.stdout == "some output"
         mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
+
+    @pytest.mark.asyncio
+    async def test_returns_none_if_pid_dead_without_terminal_marker_or_deliverable(self):
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-no-marker",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+            )
+
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_collects_without_pid(self):
