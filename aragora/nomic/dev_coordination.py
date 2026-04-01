@@ -2061,6 +2061,68 @@ class DevCoordinationStore:
                     archived += 1
                     changed_run_ids.add(_optional_text(record.get("run_id")))
 
+            waiting_by_scope: dict[
+                tuple[str, ...], list[tuple[dict[str, Any], dict[str, Any]]]
+            ] = {}
+            for record in records:
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_is_duplicate_waiting_conflict_candidate(
+                        item,
+                        run=record,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    scope_key = _canonical_work_order_scope_key(item)
+                    if not scope_key:
+                        continue
+                    waiting_by_scope.setdefault(scope_key, []).append((record, item))
+
+            for siblings in waiting_by_scope.values():
+                umbrella_candidates = [
+                    (record, item)
+                    for record, item in siblings
+                    if _work_order_is_broad_explicit_pytest_umbrella(item, run=record)
+                ]
+                if not umbrella_candidates:
+                    continue
+                keeper_record, keeper_item = max(
+                    umbrella_candidates,
+                    key=lambda pair: _duplicate_waiting_conflict_priority(pair[1], run=pair[0]),
+                )
+                keeper_run_id = _optional_text(keeper_record.get("run_id"))
+                keeper_id = _optional_text(
+                    keeper_item.get("work_order_id"),
+                    keeper_item.get("task_id"),
+                )
+                for record, item in siblings:
+                    if record is keeper_record and item is keeper_item:
+                        continue
+                    if not _work_order_is_specific_pytest_child(item, run=record):
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    if _optional_text(metadata.get("archived_due_to")):
+                        continue
+                    metadata.update(
+                        {
+                            "archived_due_to": "duplicate_waiting_conflict",
+                            "archived_at": now,
+                            "archive_reason": "broader_explicit_pytest_waiting_conflict",
+                            "canonical_run_id": keeper_run_id or None,
+                            "canonical_work_order_id": keeper_id or None,
+                            "previous_status": _optional_text(item.get("status"))
+                            or "waiting_conflict",
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    if not _optional_text(item.get("failure_reason")):
+                        item["failure_reason"] = "duplicate_waiting_conflict"
+                    archived += 1
+                    changed_run_ids.add(_optional_text(record.get("run_id")))
+
             for record in records:
                 run_id = _optional_text(record.get("run_id"))
                 if run_id not in changed_run_ids:
@@ -6468,6 +6530,64 @@ def _work_order_is_duplicate_waiting_conflict_candidate(
     ):
         return False
     return bool(_duplicate_waiting_conflict_group_key(work_order, run=run))
+
+
+def _waiting_conflict_candidate_text(work_order: dict[str, Any], *, run: dict[str, Any]) -> str:
+    metadata = work_order.get("metadata") or {}
+    acceptance = metadata.get("acceptance_criteria") if isinstance(metadata, dict) else []
+    parts: list[str] = [
+        _optional_text(run.get("goal")),
+        _optional_text(work_order.get("title")),
+        _optional_text(work_order.get("description")),
+    ]
+    if isinstance(acceptance, list):
+        parts.extend(str(item).strip() for item in acceptance if str(item).strip())
+    return " ".join(part for part in parts if part).lower()
+
+
+def _work_order_source_name(work_order: dict[str, Any]) -> str:
+    metadata = work_order.get("metadata") or {}
+    return _optional_text(work_order.get("source"), metadata.get("source")).lower()
+
+
+def _work_order_is_broad_explicit_pytest_umbrella(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> bool:
+    if _work_order_source_name(work_order) != "explicit_spec_work_order":
+        return False
+    text = _waiting_conflict_candidate_text(work_order, run=run)
+    if "pytest" not in text:
+        return False
+    return any(
+        marker in text
+        for marker in (
+            "comprehensive pytest",
+            "thorough pytest",
+            "cover every",
+            "internal helper",
+            "helper function",
+        )
+    )
+
+
+def _work_order_is_specific_pytest_child(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> bool:
+    text = _waiting_conflict_candidate_text(work_order, run=run)
+    if "pytest" not in text:
+        return False
+    return any(
+        marker in text
+        for marker in (
+            "write one pytest test",
+            "one pytest test",
+            "single pytest test",
+        )
+    )
 
 
 def _duplicate_waiting_conflict_group_key(

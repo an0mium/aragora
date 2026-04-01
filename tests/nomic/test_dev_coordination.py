@@ -2598,6 +2598,69 @@ def test_archive_duplicate_waiting_conflict_work_orders_discards_scope_less_same
     assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
+def test_archive_duplicate_waiting_conflict_work_orders_discards_specific_pytest_child_when_broader_explicit_spec_exists(
+    store: DevCoordinationStore,
+) -> None:
+    broader = store.create_supervisor_run(
+        goal=(
+            "Write thorough pytest tests for classify_blocker() and its internal helpers "
+            "_classify_time_limit() and _classify_campaign_blocked(). Cover every "
+            "BlockerKind enum value with at least one test case."
+        ),
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "subtask_1",
+                "title": "Write comprehensive pytest tests for classify_blocker and internal helpers",
+                "status": "waiting_conflict",
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+    specific = store.create_supervisor_run(
+        goal="Write one pytest test for classify_blocker that tests the still_running path.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "subtask_2",
+                "title": "Write one pytest test for classify_blocker that tests the still_running path.",
+                "status": "waiting_conflict",
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+                "metadata": {"source": "nomic_subtask"},
+            }
+        ],
+    )
+
+    archived = store.archive_duplicate_waiting_conflict_work_orders()
+    broader_refreshed = store.get_supervisor_run(broader["run_id"])
+    specific_refreshed = store.get_supervisor_run(specific["run_id"])
+
+    assert archived == 1
+    assert broader_refreshed is not None
+    assert specific_refreshed is not None
+    assert broader_refreshed["work_orders"][0]["status"] == "waiting_conflict"
+    assert specific_refreshed["work_orders"][0]["status"] == "discarded"
+    assert specific_refreshed["work_orders"][0]["metadata"]["archive_reason"] == (
+        "broader_explicit_pytest_waiting_conflict"
+    )
+    assert (
+        specific_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == (broader["run_id"])
+    )
+
+
 def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocked_only_by_broader_waiting_conflict(
     repo: Path,
     store: DevCoordinationStore,

@@ -444,6 +444,73 @@ def test_start_run_discards_duplicate_open_lane_when_goal_differs_only_by_boiler
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_discards_specific_pytest_child_when_broader_explicit_spec_exists(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal=(
+            "Write thorough pytest tests for classify_blocker() and its internal helpers "
+            "_classify_time_limit() and _classify_campaign_blocked(). Cover every "
+            "BlockerKind enum value with at least one test case."
+        ),
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "Write comprehensive pytest tests for classify_blocker and internal helpers",
+                "status": "waiting_conflict",
+                "file_scope": [
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Write one pytest test for classify_blocker that tests the still_running path.",
+                description="Write one pytest test for classify_blocker that tests the still_running path.",
+                file_scope=[
+                    "aragora/ralph/classifier.py",
+                    "tests/ralph/test_classifier.py",
+                ],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write one pytest test for classify_blocker that tests the still_running path.",
+            refined_goal="Write one pytest test for classify_blocker that tests the still_running path.",
+        ),
+        refresh_scaling=False,
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
     repo: Path, store: DevCoordinationStore
 ) -> None:

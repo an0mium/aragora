@@ -261,6 +261,10 @@ class SwarmCommander:
             config=LaunchConfig(
                 detach=not wait,
                 use_managed_session_script=use_managed_session_script,
+                # When the managed session wrapper is disabled (boss loop path),
+                # the caller is the approval authority — skip the launcher's
+                # own approval gate that requires the wrapper.
+                require_explicit_approval=use_managed_session_script,
                 claude_profile=(
                     str(default_target_runner.get("profile", "")).strip()
                     if isinstance(default_target_runner, dict)

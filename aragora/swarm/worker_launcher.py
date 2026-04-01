@@ -695,6 +695,11 @@ class WorkerLauncher:
                 "managed session wrapper is required for code execution lanes",
             )
 
+        # When the caller (e.g. boss loop) has already authorized the run,
+        # skip the per-launch approval flow entirely.
+        if not self.config.require_explicit_approval:
+            return "", ""
+
         target_resource = str(Path(worktree_path).resolve())
         payload = {
             "work_order_id": str(work_order.get("work_order_id", "")).strip(),
