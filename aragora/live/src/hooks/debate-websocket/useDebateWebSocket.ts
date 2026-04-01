@@ -18,6 +18,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 
 // Import types from local module
 import type {
@@ -56,6 +57,13 @@ export type {
   UseDebateWebSocketReturn,
   ConnectionQuality,
 };
+
+function resolveRuntimeApiBase(): string {
+  if (typeof window !== 'undefined') {
+    return getRuntimeBackendConfig().config.api.replace(/\/$/, '');
+  }
+  return API_BASE_URL.replace(/\/$/, '');
+}
 
 function normalizeSettlementMetadata(raw: unknown): SettlementMetadata | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -293,7 +301,7 @@ export function useDebateWebSocket({
   // Fetch debate status from HTTP API
   const fetchDebateStatus = useCallback(async (): Promise<DebateStatus | null> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/debates/${debateId}`);
+      const response = await fetch(`${resolveRuntimeApiBase()}/api/debates/${debateId}`);
       if (response.ok) {
         const data = await response.json();
         return {
@@ -448,7 +456,7 @@ export function useDebateWebSocket({
       }
       try {
         const sinceSeq = lastSeqRef.current;
-        const url = `${API_BASE_URL}/api/debates/${debateId}/events?since=${sinceSeq}`;
+        const url = `${resolveRuntimeApiBase()}/api/debates/${debateId}/events?since=${sinceSeq}`;
         const response = await fetch(url);
         if (!response.ok) {
           // If 404 the endpoint does not exist -- stop polling gracefully

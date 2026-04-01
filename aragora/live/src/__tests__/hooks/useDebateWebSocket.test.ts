@@ -55,11 +55,17 @@ class MockWebSocket {
 
 // Store original WebSocket
 const originalWebSocket = global.WebSocket;
+const originalFetch = global.fetch;
+const mockFetch = jest.fn();
 
 describe('useDebateWebSocket', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     MockWebSocket.instances = [];
+    localStorage.clear();
+    localStorage.setItem('aragora-backend', 'production');
+    mockFetch.mockReset();
+    (global as { fetch: unknown }).fetch = mockFetch;
     // Replace global WebSocket with mock, including static constants
     const MockWSWithStatics = MockWebSocket as unknown as typeof WebSocket;
     Object.defineProperty(MockWSWithStatics, 'CONNECTING', { value: 0, writable: true });
@@ -78,6 +84,7 @@ describe('useDebateWebSocket', () => {
     });
     MockWebSocket.instances = [];
     (global as { WebSocket: unknown }).WebSocket = originalWebSocket;
+    (global as { fetch: unknown }).fetch = originalFetch;
   });
 
   const getLatestWs = () => MockWebSocket.instances[MockWebSocket.instances.length - 1];
@@ -205,6 +212,41 @@ describe('useDebateWebSocket', () => {
       unmount();
 
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
+    });
+
+    it('uses the selected backend for HTTP polling fallback after repeated handshake failures', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+      });
+
+      const { result } = renderHook(() =>
+        useDebateWebSocket({ debateId: 'test-debate-1' })
+      );
+
+      act(() => {
+        getLatestWs().simulateClose(1006, 'Connection lost');
+        jest.advanceTimersByTime(1000);
+      });
+
+      act(() => {
+        getLatestWs().simulateClose(1006, 'Connection lost');
+        jest.advanceTimersByTime(2000);
+      });
+
+      act(() => {
+        getLatestWs().simulateClose(1006, 'Connection lost');
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe('polling');
+      });
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://api.aragora.ai/api/debates/test-debate-1/events?since=0',
+        );
+      });
     });
   });
 

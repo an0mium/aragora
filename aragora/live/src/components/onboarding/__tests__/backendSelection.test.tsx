@@ -4,6 +4,10 @@ let mockStoreState: Record<string, unknown>;
 
 const mockPush = jest.fn();
 const mockFetch = jest.fn();
+const mockUseDebateWebSocket = jest.fn(() => ({
+  status: 'connecting',
+  messages: [],
+}));
 
 global.fetch = mockFetch as typeof fetch;
 
@@ -21,6 +25,22 @@ jest.mock('@/store/onboardingStore', () => ({
   selectIsOnboardingNeeded: () => true,
 }));
 
+jest.mock('@/store', () => ({
+  useOnboardingStore: () => mockStoreState,
+}));
+
+jest.mock('@/hooks/debate-websocket/useDebateWebSocket', () => ({
+  useDebateWebSocket: (...args: unknown[]) => mockUseDebateWebSocket(...args),
+}));
+
+jest.mock('@/utils/logger', () => ({
+  logger: {
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
 jest.mock('../steps', () => ({
   WelcomeStep: () => <div>Welcome</div>,
   UseCaseStep: () => <div>Use case</div>,
@@ -32,6 +52,8 @@ jest.mock('../steps', () => ({
 }));
 
 import { OnboardingFlow } from '../OnboardingFlow';
+import { FirstDebateStep } from '../FirstDebateStep';
+import { IntegrationSelector } from '../IntegrationSelector';
 import { QuickDebatePanel } from '../QuickDebatePanel';
 import { TryDebateStep } from '../steps/TryDebateStep';
 
@@ -41,6 +63,11 @@ describe('Onboarding backend selection', () => {
     localStorage.setItem('aragora-backend', 'production');
     mockFetch.mockReset();
     mockPush.mockReset();
+    mockUseDebateWebSocket.mockClear();
+    mockUseDebateWebSocket.mockReturnValue({
+      status: 'connecting',
+      messages: [],
+    });
     mockStoreState = {
       currentStep: 'template-select',
       nextStep: jest.fn(),
@@ -48,11 +75,14 @@ describe('Onboarding backend selection', () => {
       completeOnboarding: jest.fn(),
       skipOnboarding: jest.fn(),
       setFirstDebateId: jest.fn(),
+      firstDebateId: null,
+      firstReceiptId: null,
+      setFirstReceiptId: jest.fn(),
       setDebateStatus: jest.fn(),
       selectedTemplate: { id: 'hiring', rounds: 5 },
       debateStatus: 'idle',
       debateError: null,
-      firstDebateTopic: '',
+      firstDebateTopic: 'Should onboarding honor the selected backend?',
       setFirstDebateTopic: jest.fn(),
       setDebateError: jest.fn(),
       updateProgress: jest.fn(),
@@ -75,6 +105,46 @@ describe('Onboarding backend selection', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.aragora.ai/api/v1/onboarding/first-debate',
         expect.objectContaining({ method: 'POST' }),
+      );
+    });
+  });
+
+  it('FirstDebateStep creates debates and subscribes against the selected backend', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ debate_id: 'debate-123' }),
+    });
+
+    render(<FirstDebateStep />);
+    fireEvent.click(screen.getByRole('button', { name: 'START DEBATE' }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/debate',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    expect(mockUseDebateWebSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        debateId: '',
+        enabled: false,
+        wsUrl: 'wss://api.aragora.ai/ws',
+      }),
+    );
+  });
+
+  it('IntegrationSelector checks provider status against the selected backend', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ integrations: { anthropic: true } }),
+    });
+
+    render(<IntegrationSelector onComplete={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.aragora.ai/api/v1/integrations/status',
       );
     });
   });

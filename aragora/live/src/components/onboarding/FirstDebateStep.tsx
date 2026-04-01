@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { API_BASE_URL } from '@/config';
+import { API_BASE_URL, WS_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 import { useOnboardingStore } from '@/store';
 import { useDebateWebSocket } from '@/hooks/debate-websocket/useDebateWebSocket';
 
@@ -23,7 +24,9 @@ type ReceiptFull = Record<string, unknown> & {
 };
 
 export function FirstDebateStep() {
-  const apiBase = API_BASE_URL;
+  const runtimeBackend = typeof window !== 'undefined' ? getRuntimeBackendConfig().config : null;
+  const apiBase = runtimeBackend?.api || API_BASE_URL;
+  const wsUrl = runtimeBackend?.ws || WS_URL;
   const {
     selectedTemplate,
     firstDebateTopic,
@@ -51,6 +54,7 @@ export function FirstDebateStep() {
   } = useDebateWebSocket({
     debateId: firstDebateId || '',
     enabled: !!firstDebateId && debateStatus === 'running',
+    wsUrl,
   });
 
   // Update debate status based on WebSocket events
