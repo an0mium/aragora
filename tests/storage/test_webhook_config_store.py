@@ -503,6 +503,29 @@ class TestWebhookConfig:
         assert config.user_id == "user-row"
         assert config.workspace_id == "ws-row"
 
+    def test_from_row_with_native_events_sequence(self):
+        """Test from_row accepts already-decoded event sequences."""
+        now = time.time()
+        row = (
+            "row-id",
+            "https://example.com/hook",
+            ["debate_end", "vote"],
+            "plain-secret",
+            1,
+            now,
+            now,
+            "Row Hook",
+            "A row-based hook",
+            None,
+            None,
+            0,
+            0,
+            None,
+            None,
+        )
+        config = WebhookConfig.from_row(row)
+        assert config.events == ["debate_end", "vote"]
+
     def test_from_row_with_null_optional_fields(self):
         """Test from_row handles NULL values for optional fields."""
         now = time.time()
@@ -1503,6 +1526,34 @@ class TestPostgresWebhookConfigStoreSyncWrappers:
 
         assert result is None
         mock_run.assert_called_once()
+
+    def test_row_to_config_accepts_native_jsonb_sequence(self, postgres_store) -> None:
+        """Postgres JSONB rows may already be decoded into Python sequences."""
+        now = time.time()
+        row = {
+            "id": "webhook-123",
+            "url": "https://example.com/hook",
+            "events_json": ["debate_end", "vote"],
+            "secret": "plain-secret",
+            "active": True,
+            "created_at": now,
+            "updated_at": now,
+            "name": "Example Hook",
+            "description": "Example description",
+            "last_delivery_at": None,
+            "last_delivery_status": None,
+            "delivery_count": 0,
+            "failure_count": 0,
+            "user_id": "user-123",
+            "workspace_id": "ws-123",
+        }
+
+        config = postgres_store._row_to_config(row)
+
+        assert config.id == "webhook-123"
+        assert config.events == ["debate_end", "vote"]
+        assert config.user_id == "user-123"
+        assert config.workspace_id == "ws-123"
 
 
 # =============================================================================

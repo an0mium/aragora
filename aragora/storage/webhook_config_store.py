@@ -157,6 +157,21 @@ def _decrypt_secret(encrypted_secret: str) -> str:
         return encrypted_secret  # Return as-is if decryption fails
 
 
+def _deserialize_events(value: Any) -> list[str]:
+    """Normalize stored event payloads from JSON strings or native sequences."""
+    if value is None:
+        return []
+    payload = value
+    if isinstance(payload, str):
+        payload = json.loads(payload) if payload else []
+    elif isinstance(payload, bytes):
+        payload = json.loads(payload.decode("utf-8")) if payload else []
+    if isinstance(payload, (list, tuple, set)):
+        return [str(item) for item in payload]
+    logger.debug("Unexpected webhook events payload type: %s", type(payload).__name__)
+    return []
+
+
 # Events that can trigger webhooks
 WEBHOOK_EVENTS: set[str] = {
     "debate_start",
@@ -240,7 +255,7 @@ class WebhookConfig:
         return cls(
             id=row[0],
             url=row[1],
-            events=json.loads(row[2]) if row[2] else [],
+            events=_deserialize_events(row[2]),
             secret=_decrypt_secret(row[3] or ""),
             active=bool(row[4]),
             created_at=row[5] or time.time(),
@@ -1095,7 +1110,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         return WebhookConfig(
             id=row["id"],
             url=row["url"],
-            events=json.loads(row["events_json"]) if row["events_json"] else [],
+            events=_deserialize_events(row["events_json"]),
             secret=_decrypt_secret(row["secret"] or ""),
             active=bool(row["active"]),
             created_at=row["created_at"] or time.time(),
