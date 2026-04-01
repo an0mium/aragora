@@ -321,6 +321,116 @@ def test_start_run_discards_duplicate_explicit_lane_by_tranche_lane_id(
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_discards_duplicate_scope_less_open_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "ADR lane",
+                "status": "waiting_conflict",
+            }
+        ],
+    )
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="ADR lane",
+                description="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+                file_scope=[],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+            refined_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        ),
+        refresh_scaling=False,
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
+def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal="Connect the results page to backend endpoints.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "Results page lane",
+                "status": "waiting_conflict",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "tranche_lane_id": "proj-001",
+                },
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    spec = SwarmSpec(
+        raw_goal="Rebuild the 30/60/90 execution map from current repo reality.",
+        refined_goal="Rebuild the 30/60/90 execution map from current repo reality.",
+        work_orders=[
+            {
+                "work_order_id": "proj-001",
+                "title": "Results page lane",
+                "description": "Connect the results page to backend endpoints.",
+                "file_scope": [],
+                "metadata": {
+                    "tranche_lane_id": "proj-001",
+                },
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
 def test_start_run_passes_acceptance_and_constraints_to_decomposer(
     repo: Path, store: DevCoordinationStore
 ) -> None:

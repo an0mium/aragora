@@ -1538,8 +1538,6 @@ class SwarmSupervisor:
         metadata: dict[str, Any] | None,
     ) -> tuple[str, str, tuple[str, ...]] | None:
         scope = self._normalized_scope_signature(file_scope)
-        if not scope:
-            return None
         payload = dict(metadata or {})
         tranche_lane_id = str(payload.get("tranche_lane_id") or "").strip()
         if tranche_lane_id:
