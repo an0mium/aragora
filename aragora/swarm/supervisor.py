@@ -136,6 +136,60 @@ def _narrow_scope_to_explicit_paths(
     return item
 
 
+def _narrow_docs_only_scope(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+) -> BoundedWorkOrder:
+    constraints = [str(value).strip() for value in spec.constraints if str(value).strip()]
+    if not any("documentation only" in value.lower() for value in constraints):
+        return item
+
+    original_scope = [str(path).strip() for path in item.file_scope if str(path).strip()]
+    if not original_scope:
+        return item
+
+    inference_text = " ".join(
+        filter(
+            None,
+            [
+                spec.refined_goal or "",
+                spec.raw_goal or "",
+                item.title or "",
+                item.description or "",
+                *list(spec.acceptance_criteria),
+                *constraints,
+            ],
+        )
+    )
+    doc_hints: list[str] = []
+    for path in SwarmSpec.infer_file_scope_hints(inference_text):
+        clean = path.strip().removeprefix("./").rstrip("/")
+        if not clean.startswith("docs"):
+            continue
+        if any(
+            _path_in_scope(clean, scope) or _path_in_scope(scope, clean) for scope in original_scope
+        ):
+            doc_hints.append(clean)
+    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
+        doc_hints = [hint for hint in doc_hints if hint != "docs"]
+    narrowed_scope = list(dict.fromkeys(doc_hints))
+    if not narrowed_scope and any(
+        scope == "docs" or scope.startswith("docs/") for scope in original_scope
+    ):
+        narrowed_scope = ["docs"]
+    if not narrowed_scope or tuple(narrowed_scope) == tuple(original_scope):
+        return item
+
+    item.file_scope = narrowed_scope
+    logger.info(
+        "Narrowed docs-only file_scope on work order %s: %s -> %s",
+        item.work_order_id,
+        original_scope,
+        item.file_scope,
+    )
+    return item
+
+
 _NON_ACTIONABLE_EXPLICIT_SPEC_TITLES = {
     "validation changes",
     "acceptance criteria changes",
@@ -266,7 +320,8 @@ def _ensure_work_order_scope(
                 item.work_order_id,
             )
 
-    return _narrow_scope_to_explicit_paths(item, spec)
+    item = _narrow_scope_to_explicit_paths(item, spec)
+    return _narrow_docs_only_scope(item, spec)
 
 
 class SupervisorRunStatus(str, Enum):
