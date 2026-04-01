@@ -4420,6 +4420,9 @@ def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_st
                 "reviewer_agent": "claude",
                 "file_scope": ["aragora/swarm/reconciler.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_reconciler.py -q"],
+                "exit_code": 143,
+                "diff_lines": 9,
+                "scope_violation": {"violations": [{"path": "aragora/swarm/reconciler.py"}]},
                 "conflicts": [
                     {
                         "source": "fleet_claim",
@@ -4438,6 +4441,9 @@ def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_st
     assert work_order["status"] == "leased"
     assert work_order["owner_session_id"] == "swarm-fleet-requeue"
     assert "conflicts" not in work_order
+    assert "exit_code" not in work_order
+    assert "diff_lines" not in work_order
+    assert "scope_violation" not in work_order
 
 
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
