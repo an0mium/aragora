@@ -24,7 +24,7 @@ import os
 import secrets
 import time
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +146,20 @@ def _get_slack_scopes() -> str:
 def _get_slack_signing_secret() -> str:
     """Resolve Slack signing secret from Secrets Manager or env."""
     return get_secret("SLACK_SIGNING_SECRET", SLACK_SIGNING_SECRET, strict=False) or ""
+
+
+def _is_loopback_redirect_host(host: str) -> bool:
+    """Allow only exact loopback authorities for dev-only redirect fallbacks."""
+    candidate = str(host or "").strip()
+    if not candidate:
+        return False
+    parsed = urlsplit(f"http://{candidate}")
+    if parsed.username or parsed.password:
+        return False
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        return False
+    hostname = (parsed.hostname or "").strip().lower()
+    return hostname in {"localhost", "127.0.0.1", "::1"}
 
 
 def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
@@ -607,7 +621,7 @@ class SlackOAuthHandler(SecureHandler):
                 )
             # Development fallback only - restrict to localhost to prevent open redirect
             host = query_params.get("host", "localhost:8080")
-            if not host.startswith(("localhost", "127.0.0.1", "[::1]")):
+            if not _is_loopback_redirect_host(host):
                 return error_response("Only localhost allowed in development mode", 400)
             scheme = "http"
             redirect_uri = f"{scheme}://{host}/api/integrations/slack/callback"

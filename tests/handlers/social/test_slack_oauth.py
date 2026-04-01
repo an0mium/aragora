@@ -464,6 +464,52 @@ class TestInstall:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
+    async def test_dev_fallback_rejects_localhost_prefix_host(
+        self, handler, handler_module, monkeypatch
+    ):
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {"host": "localhost.evil.com:8080"},
+            {},
+            None,
+        )
+        assert _status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_dev_fallback_rejects_host_with_path(self, handler, handler_module, monkeypatch):
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {"host": "localhost:3000/evil"},
+            {},
+            None,
+        )
+        assert _status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_dev_fallback_rejects_host_with_userinfo(
+        self, handler, handler_module, monkeypatch
+    ):
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/install",
+            {},
+            {"host": "localhost@evil.com:3000"},
+            {},
+            None,
+        )
+        assert _status(result) == 400
+
+    @pytest.mark.asyncio
     async def test_production_requires_redirect_uri(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
         monkeypatch.setattr(handler_module, "ARAGORA_ENV", "production")
