@@ -2598,6 +2598,138 @@ def test_archive_duplicate_waiting_conflict_work_orders_discards_scope_less_same
     assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
+def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocked_only_by_broader_waiting_conflict(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    target = repo / "docs" / "governance" / "phase1-scope-boundaries.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("scope\n", encoding="utf-8")
+
+    store.create_supervisor_run(
+        goal="Refresh the broader docs governance planning lane.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "broad-docs",
+                "title": "Broad docs governance lane",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "file_scope": ["docs/**"],
+            }
+        ],
+    )
+    candidate = store.create_supervisor_run(
+        goal="Update docs/governance/phase1-scope-boundaries.md with the final scope notes.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={
+            "raw_goal": "Update docs/governance/phase1-scope-boundaries.md with the final scope notes.",
+            "refined_goal": "Update docs/governance/phase1-scope-boundaries.md with the final scope notes.",
+        },
+        work_orders=[
+            {
+                "work_order_id": "narrow-doc",
+                "title": "Edit docs/governance/phase1-scope-boundaries.md",
+                "description": "Tighten the language in docs/governance/phase1-scope-boundaries.md.",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Which overlapping lane should finish first?",
+                "blocker": {
+                    "reason": "waiting_conflict",
+                    "question": "Which overlapping lane should finish first?",
+                },
+                "blockers": ["waiting_conflict"],
+                "file_scope": ["docs/governance/"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_narrowed_waiting_conflict_work_orders(grace_period_hours=0.0)
+    refreshed = store.get_supervisor_run(candidate["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "queued"
+    assert work_order["file_scope"] == ["docs/governance/phase1-scope-boundaries.md"]
+    assert work_order["blockers"] == []
+    assert work_order["conflicts"] == []
+    assert "failure_reason" not in work_order
+    assert work_order["metadata"]["waiting_conflict_requeue_reason"] == (
+        "narrowed_scope_cleared_container_only_blockers"
+    )
+
+
+def test_rehabilitate_narrowed_waiting_conflict_work_orders_preserves_real_overlap(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    target = repo / "docs" / "governance" / "phase1-scope-boundaries.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("scope\n", encoding="utf-8")
+
+    queued = store.create_supervisor_run(
+        goal="Queue the concrete governance file lane.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "queued-lane",
+                "title": "Governance file lane",
+                "status": "queued",
+                "file_scope": ["docs/governance/phase1-scope-boundaries.md"],
+            }
+        ],
+    )
+    candidate = store.create_supervisor_run(
+        goal="Update docs/governance/phase1-scope-boundaries.md with more scope detail.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={
+            "raw_goal": "Update docs/governance/phase1-scope-boundaries.md with more scope detail.",
+            "refined_goal": "Update docs/governance/phase1-scope-boundaries.md with more scope detail.",
+        },
+        work_orders=[
+            {
+                "work_order_id": "blocked-lane",
+                "title": "Edit docs/governance/phase1-scope-boundaries.md",
+                "description": "Adjust docs/governance/phase1-scope-boundaries.md for the new boundary note.",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "file_scope": ["docs/governance/"],
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_narrowed_waiting_conflict_work_orders(grace_period_hours=0.0)
+    refreshed = store.get_supervisor_run(candidate["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "waiting_conflict"
+    assert work_order["failure_reason"] == "waiting_conflict"
+    assert work_order["file_scope"] == ["docs/governance/phase1-scope-boundaries.md"]
+    assert work_order["conflicts"] == [
+        {
+            "source": "work_order",
+            "run_id": queued["run_id"],
+            "work_order_id": "queued-lane",
+            "status": "queued",
+            "title": "Governance file lane",
+            "allowed_globs": ["docs/governance/phase1-scope-boundaries.md"],
+        }
+    ]
+
+
 def test_archive_work_order_leasing_failed_work_orders_preserves_deliverable_backed_lane(
     store: DevCoordinationStore,
 ) -> None:

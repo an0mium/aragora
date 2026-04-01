@@ -2077,6 +2077,115 @@ class DevCoordinationStore:
         finally:
             conn.close()
 
+    def rehabilitate_narrowed_waiting_conflict_work_orders(
+        self,
+        *,
+        grace_period_hours: float = _SUPERSEDED_WAITING_CONFLICT_ARCHIVE_GRACE_HOURS,
+    ) -> int:
+        """Narrow stale waiting-conflict scopes and requeue lanes that are no longer truly blocked."""
+        now = _utcnow()
+        grace_period = timedelta(hours=max(0.0, float(grace_period_hours)))
+        cutoff = now - grace_period
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            lease_status_by_id = {
+                str(row["lease_id"]).strip(): str(row["status"]).strip()
+                for row in conn.execute("SELECT lease_id, status FROM leases").fetchall()
+                if str(row["lease_id"]).strip()
+            }
+            records = [self._supervisor_run_from_row(row) for row in rows]
+            updated = 0
+            for record in records:
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    lease_status = lease_status_by_id.get(_optional_text(item.get("lease_id")))
+                    if not _work_order_should_rehabilitate_narrowed_waiting_conflict(
+                        item,
+                        run=record,
+                        cutoff=cutoff,
+                        lease_status=lease_status,
+                    ):
+                        continue
+                    narrowed_scope = _narrow_waiting_conflict_scope_from_explicit_paths(
+                        item,
+                        run=record,
+                        repo_root=self.repo_root,
+                    )
+                    if not narrowed_scope:
+                        continue
+
+                    original_scope = [
+                        str(path).strip()
+                        for path in item.get("file_scope", [])
+                        if str(path).strip()
+                    ]
+                    item_changed = False
+                    if _canonical_work_order_scope_key({"file_scope": narrowed_scope}) != (
+                        _canonical_work_order_scope_key(item)
+                    ):
+                        item["file_scope"] = list(narrowed_scope)
+                        metadata = dict(item.get("metadata") or {})
+                        metadata["waiting_conflict_scope_narrowed_at"] = now.isoformat()
+                        metadata["waiting_conflict_original_scope"] = original_scope
+                        item["metadata"] = metadata
+                        item_changed = True
+
+                    lease_conflicts = self._find_conflicting_leases_locked(
+                        conn,
+                        allowed_globs=_work_order_scope_patterns(item),
+                        claimed_paths=[],
+                        owner_session_id=_optional_text(item.get("owner_session_id")),
+                    )
+                    sibling_conflicts = _blocking_waiting_conflict_siblings(
+                        item,
+                        run=record,
+                        records=records,
+                    )
+                    item["conflicts"] = [*lease_conflicts, *sibling_conflicts]
+
+                    if not lease_conflicts and not sibling_conflicts:
+                        metadata = dict(item.get("metadata") or {})
+                        metadata["waiting_conflict_requeued_at"] = now.isoformat()
+                        metadata["waiting_conflict_previous_scope"] = original_scope
+                        metadata["waiting_conflict_requeue_reason"] = (
+                            "narrowed_scope_cleared_container_only_blockers"
+                        )
+                        item["metadata"] = metadata
+                        item["status"] = "queued"
+                        item["blockers"] = []
+                        item["conflicts"] = []
+                        item.pop("review_status", None)
+                        for key in (
+                            "failure_reason",
+                            "blocking_question",
+                            "blocker",
+                            "dispatch_error",
+                        ):
+                            item.pop(key, None)
+                        item_changed = True
+                    else:
+                        item["status"] = "waiting_conflict"
+                        item["failure_reason"] = "waiting_conflict"
+                        _backfill_work_order_blocker_metadata(item)
+                        item["blockers"] = _developer_task_blockers(item)
+
+                    if not item_changed:
+                        continue
+                    changed = True
+                    updated += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return updated
+
     def backfill_file_scope_from_changed_paths(self) -> int:
         """Repair historical empty-scope rows from concrete changed-path evidence."""
         now = _utcnow().isoformat()
@@ -3129,6 +3238,7 @@ class DevCoordinationStore:
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
+        self.rehabilitate_narrowed_waiting_conflict_work_orders()
         return expired
 
     def reap_stale_leases(
@@ -3223,6 +3333,7 @@ class DevCoordinationStore:
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
+        self.rehabilitate_narrowed_waiting_conflict_work_orders()
         return stale
 
     def list_completion_receipts(
@@ -4225,6 +4336,7 @@ class DevCoordinationStore:
         self.archive_duplicate_branch_deliverable_work_orders()
         self.archive_superseded_waiting_conflict_work_orders()
         self.archive_duplicate_waiting_conflict_work_orders()
+        self.rehabilitate_narrowed_waiting_conflict_work_orders()
         work_queue = queue or GlobalWorkQueue(storage_dir=self.repo_root / ".work_queue")
         await work_queue.initialize()
 
@@ -6572,6 +6684,29 @@ def _work_order_should_archive_superseded_waiting_conflict(
     return updated_at <= cutoff
 
 
+def _work_order_should_rehabilitate_narrowed_waiting_conflict(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    cutoff: datetime,
+    lease_status: str | None,
+) -> bool:
+    if not _work_order_should_archive_superseded_waiting_conflict(
+        work_order,
+        run=run,
+        cutoff=cutoff,
+        lease_status=lease_status,
+    ):
+        return False
+    return bool(
+        _narrow_waiting_conflict_scope_from_explicit_paths(
+            work_order,
+            run=run,
+            repo_root=None,
+        )
+    )
+
+
 def _waiting_conflict_staleness_anchor(work_order: dict[str, Any], run: dict[str, Any]) -> str:
     for value in (
         *(
@@ -6634,6 +6769,166 @@ def _containing_waiting_conflict_priority(
         -sum(len(pattern) for pattern in patterns),
         _optional_text(work_order.get("work_order_id"), work_order.get("task_id")),
     )
+
+
+def _is_concrete_repo_path_hint(path: str, *, repo_root: Path | None) -> bool:
+    clean = _normalize_claim(path)
+    if not clean or any(token in clean for token in ("*", "?", "[", "]", "{", "}")):
+        return False
+    name = clean.rsplit("/", 1)[-1]
+    if repo_root is not None:
+        candidate = (repo_root / clean).resolve()
+        try:
+            candidate.relative_to(repo_root.resolve())
+        except ValueError:
+            return False
+        if candidate.is_file():
+            return True
+    return "." in name
+
+
+def _waiting_conflict_inference_text(work_order: dict[str, Any], run: dict[str, Any]) -> str:
+    spec = run.get("spec")
+    metadata = work_order.get("metadata")
+    parts = [
+        run.get("goal"),
+        spec.get("raw_goal") if isinstance(spec, dict) else None,
+        spec.get("refined_goal") if isinstance(spec, dict) else None,
+        work_order.get("title"),
+        work_order.get("description"),
+        metadata.get("description") if isinstance(metadata, dict) else None,
+    ]
+    return " ".join(str(part).strip() for part in parts if str(part or "").strip())
+
+
+def _explicit_scope_paths_for_waiting_conflict(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    repo_root: Path | None,
+) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    original_scope = [
+        _canonical_scope_pattern(str(path))
+        for path in work_order.get("file_scope", []) or []
+        if _canonical_scope_pattern(str(path))
+    ]
+    if not original_scope:
+        return []
+    explicit_paths: list[str] = []
+    for path in SwarmSpec.infer_file_scope_hints(_waiting_conflict_inference_text(work_order, run)):
+        clean = _normalize_claim(path)
+        if not _is_concrete_repo_path_hint(clean, repo_root=repo_root):
+            continue
+        if not any(_path_matches_glob(clean, scope) for scope in original_scope):
+            continue
+        if clean not in explicit_paths:
+            explicit_paths.append(clean)
+    return explicit_paths
+
+
+def _narrow_waiting_conflict_scope_from_explicit_paths(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    repo_root: Path | None,
+) -> list[str]:
+    original_scope = [
+        _canonical_scope_pattern(str(path))
+        for path in work_order.get("file_scope", []) or []
+        if _canonical_scope_pattern(str(path))
+    ]
+    if not original_scope:
+        return []
+    explicit_paths = _explicit_scope_paths_for_waiting_conflict(
+        work_order,
+        run=run,
+        repo_root=repo_root,
+    )
+    if not explicit_paths:
+        return []
+
+    narrowed_scope: list[str] = []
+    replaced = False
+    for scope in original_scope:
+        contains_explicit = any(_path_matches_glob(path, scope) for path in explicit_paths)
+        if (
+            contains_explicit
+            and scope not in explicit_paths
+            and not _is_concrete_repo_path_hint(
+                scope,
+                repo_root=repo_root,
+            )
+        ):
+            replaced = True
+            continue
+        narrowed_scope.append(scope)
+    if not replaced:
+        return []
+    return _collapse_scope_patterns(narrowed_scope + explicit_paths)
+
+
+def _waiting_conflict_sibling_can_be_ignored(
+    candidate: dict[str, Any],
+    sibling: dict[str, Any],
+) -> bool:
+    if _optional_text(sibling.get("status")).lower() != "waiting_conflict":
+        return False
+    metadata = sibling.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return False
+    if _optional_text(sibling.get("receipt_id")) or _work_order_has_concrete_deliverable(sibling):
+        return False
+    return _work_order_scope_contains(sibling, candidate) and not _work_order_scope_contains(
+        candidate,
+        sibling,
+    )
+
+
+def _blocking_waiting_conflict_siblings(
+    candidate: dict[str, Any],
+    *,
+    run: dict[str, Any],
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    run_id = _optional_text(run.get("run_id"))
+    work_order_id = _work_order_identifier(candidate)
+    conflicts: list[dict[str, Any]] = []
+    for sibling_record in records:
+        sibling_run_id = _optional_text(sibling_record.get("run_id"))
+        for sibling in sibling_record.get("work_orders", []):
+            if not isinstance(sibling, dict):
+                continue
+            if sibling is candidate and sibling_run_id == run_id:
+                continue
+            if (
+                work_order_id
+                and sibling_run_id == run_id
+                and _work_order_identifier(sibling) == work_order_id
+            ):
+                continue
+            status = _optional_text(sibling.get("status")).lower()
+            if status in {"discarded", "superseded", "merged"}:
+                continue
+            metadata = sibling.get("metadata")
+            if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+                continue
+            if not _work_orders_overlap_by_scope(candidate, sibling):
+                continue
+            if _waiting_conflict_sibling_can_be_ignored(candidate, sibling):
+                continue
+            conflicts.append(
+                {
+                    "source": "work_order",
+                    "run_id": sibling_run_id or None,
+                    "work_order_id": _work_order_identifier(sibling) or None,
+                    "status": status or None,
+                    "title": _optional_text(sibling.get("title")) or None,
+                    "allowed_globs": _work_order_scope_patterns(sibling),
+                }
+            )
+    return conflicts
 
 
 def _work_order_receipt_outcome(work_order: dict[str, Any]) -> str:
