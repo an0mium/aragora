@@ -1365,10 +1365,6 @@ class TestAsyncProtocolMessageStoreClass:
         store.close()
 
     async def test_cleanup_old(self):
-        # Use days=1 with a 2-day-old message to avoid the source's
-        # cutoff.replace(day=cutoff.day - days) month boundary bug.
-        # This works as long as today's date >= 2 (which is always true
-        # except on the 1st of the month).
         store = fresh_async_store()
         now = datetime.now(timezone.utc)
         old_ts = now - timedelta(days=2)
