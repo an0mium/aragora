@@ -280,6 +280,72 @@ class SlackOAuthHandler(SecureHandler):
             permission=permissions[0],
         )
 
+    @staticmethod
+    def _request_tenant_id(auth_context: Any | None) -> str:
+        """Resolve the authenticated tenant/org scope for connector ownership."""
+        if auth_context is None:
+            return ""
+        for attr in ("org_id", "workspace_id"):
+            value = str(getattr(auth_context, attr, "") or "").strip()
+            if value:
+                return value
+        return ""
+
+    @staticmethod
+    def _can_manage_all_workspaces(auth_context: Any | None) -> bool:
+        """Return True when the caller has global Slack admin scope."""
+        if auth_context is None:
+            return False
+        has_permission = getattr(auth_context, "has_permission", None)
+        if callable(has_permission):
+            try:
+                if has_permission(PERM_SLACK_ADMIN):
+                    return True
+            except Exception:
+                logger.debug("Slack admin permission probe failed", exc_info=True)
+        has_any_role = getattr(auth_context, "has_any_role", None)
+        if callable(has_any_role):
+            try:
+                if has_any_role("superadmin", "super_admin", "platform_admin"):
+                    return True
+            except Exception:
+                logger.debug("Slack admin role probe failed", exc_info=True)
+        return False
+
+    def _resolved_tenant_id(
+        self,
+        query_params: dict[str, str],
+        auth_context: Any | None,
+    ) -> str | None:
+        """Resolve tenant binding, preferring authenticated org scope."""
+        requested_tenant_id = str(query_params.get("tenant_id", "") or "").strip() or None
+        authenticated_tenant_id = self._request_tenant_id(auth_context) or None
+        if authenticated_tenant_id:
+            if requested_tenant_id and requested_tenant_id != authenticated_tenant_id:
+                logger.warning(
+                    "Ignoring Slack OAuth tenant_id=%s in favor of authenticated org=%s",
+                    requested_tenant_id,
+                    authenticated_tenant_id,
+                )
+            return authenticated_tenant_id
+        return requested_tenant_id
+
+    def _is_workspace_access_denied(
+        self,
+        workspace: Any,
+        auth_context: Any | None,
+    ) -> bool:
+        """Fail closed unless the caller owns the workspace tenant or is Slack admin."""
+        if auth_context is None:
+            return True
+        if self._can_manage_all_workspaces(auth_context):
+            return False
+        requester_tenant_id = self._request_tenant_id(auth_context)
+        workspace_tenant_id = str(getattr(workspace, "tenant_id", "") or "").strip()
+        if not requester_tenant_id or not workspace_tenant_id:
+            return True
+        return requester_tenant_id != workspace_tenant_id
+
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Route OAuth requests with dual-signature support.
 
@@ -397,7 +463,7 @@ class SlackOAuthHandler(SecureHandler):
         # Allow unauthenticated install flow in non-production for developer convenience
         if path == "/api/integrations/slack/install" and method == "GET":
             if _get_aragora_env().lower() in {"development", "dev", "test", "local"}:
-                return await self._handle_install(query_params)
+                return await self._handle_install(query_params, auth_context=None)
 
         # All other routes require authentication
         try:
@@ -418,7 +484,7 @@ class SlackOAuthHandler(SecureHandler):
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning("Permission denied for Slack install: %s", e)
                     return error_response("Permission denied", 403)
-                return await self._handle_install(query_params)
+                return await self._handle_install(query_params, auth_context=auth_context)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/preview":
@@ -429,7 +495,7 @@ class SlackOAuthHandler(SecureHandler):
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning("Permission denied for Slack preview: %s", e)
                     return error_response("Permission denied", 403)
-                return await self._handle_preview(query_params)
+                return await self._handle_preview(query_params, auth_context=auth_context)
             return error_response("Method not allowed", 405)
 
         elif path == "/api/integrations/slack/workspaces":
@@ -447,7 +513,7 @@ class SlackOAuthHandler(SecureHandler):
                         "Permission denied",
                         403,
                     )
-                return await self._handle_list_workspaces()
+                return await self._handle_list_workspaces(auth_context=auth_context)
             return error_response("Method not allowed", 405)
 
         # Check for dynamic workspace routes
@@ -470,7 +536,10 @@ class SlackOAuthHandler(SecureHandler):
                         "Permission denied",
                         403,
                     )
-                return await self._handle_workspace_status(workspace_id)
+                return await self._handle_workspace_status(
+                    workspace_id,
+                    auth_context=auth_context,
+                )
             return error_response("Method not allowed", 405)
 
         refresh_match = re.match(r"/api/integrations/slack/workspaces/([^/]+)/refresh", path)
@@ -490,12 +559,19 @@ class SlackOAuthHandler(SecureHandler):
                         "Permission denied",
                         403,
                     )
-                return await self._handle_refresh_token(workspace_id)
+                return await self._handle_refresh_token(
+                    workspace_id,
+                    auth_context=auth_context,
+                )
             return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)
 
-    async def _handle_install(self, query_params: dict[str, str]) -> HandlerResult:
+    async def _handle_install(
+        self,
+        query_params: dict[str, str],
+        auth_context: Any | None = None,
+    ) -> HandlerResult:
         """
         Initiate Slack OAuth installation flow.
 
@@ -510,7 +586,7 @@ class SlackOAuthHandler(SecureHandler):
                 503,
             )
 
-        tenant_id = query_params.get("tenant_id")
+        tenant_id = self._resolved_tenant_id(query_params, auth_context)
 
         # Generate state using centralized OAuth state store
         state_store = _get_state_store()
@@ -566,7 +642,11 @@ class SlackOAuthHandler(SecureHandler):
             },
         )
 
-    async def _handle_preview(self, query_params: dict[str, str]) -> HandlerResult:
+    async def _handle_preview(
+        self,
+        query_params: dict[str, str],
+        auth_context: Any | None = None,
+    ) -> HandlerResult:
         """
         Display consent preview page before Slack OAuth.
 
@@ -583,7 +663,7 @@ class SlackOAuthHandler(SecureHandler):
                 503,
             )
 
-        tenant_id = query_params.get("tenant_id", "")
+        tenant_id = self._resolved_tenant_id(query_params, auth_context) or ""
 
         # Build scope information for display
         current_scopes = _get_slack_scopes().split(",")
@@ -1246,7 +1326,7 @@ class SlackOAuthHandler(SecureHandler):
         # Acknowledge the event
         return json_response({"ok": True})
 
-    async def _handle_list_workspaces(self) -> HandlerResult:
+    async def _handle_list_workspaces(self, auth_context: Any | None = None) -> HandlerResult:
         """
         List all Slack workspaces with their status.
 
@@ -1258,11 +1338,22 @@ class SlackOAuthHandler(SecureHandler):
 
             store = get_slack_workspace_store()
             workspaces = store.list_active(limit=1000)
+            if self._can_manage_all_workspaces(auth_context):
+                visible_workspaces = list(workspaces)
+            else:
+                requester_tenant_id = self._request_tenant_id(auth_context)
+                if not requester_tenant_id:
+                    return error_response("Workspace access denied", 403)
+                visible_workspaces = [
+                    ws
+                    for ws in workspaces
+                    if str(getattr(ws, "tenant_id", "") or "").strip() == requester_tenant_id
+                ]
 
             workspace_list = []
             current_time = time.time()
 
-            for ws in workspaces:
+            for ws in visible_workspaces:
                 # Determine token health
                 token_status = "valid"  # noqa: S105 -- status label
                 if ws.token_expires_at:
@@ -1300,7 +1391,11 @@ class SlackOAuthHandler(SecureHandler):
             logger.error("Failed to list workspaces: %s", e)
             return error_response("Failed to list workspaces", 500)
 
-    async def _handle_workspace_status(self, workspace_id: str) -> HandlerResult:
+    async def _handle_workspace_status(
+        self,
+        workspace_id: str,
+        auth_context: Any | None = None,
+    ) -> HandlerResult:
         """
         Get detailed token status for a specific workspace.
 
@@ -1318,6 +1413,8 @@ class SlackOAuthHandler(SecureHandler):
 
             if not workspace:
                 return error_response(f"Workspace {workspace_id} not found", 404)
+            if self._is_workspace_access_denied(workspace, auth_context):
+                return error_response("Workspace access denied", 403)
 
             current_time = time.time()
 
@@ -1361,7 +1458,11 @@ class SlackOAuthHandler(SecureHandler):
             logger.error("Failed to get workspace status: %s", e)
             return error_response("Failed to get workspace status", 500)
 
-    async def _handle_refresh_token(self, workspace_id: str) -> HandlerResult:
+    async def _handle_refresh_token(
+        self,
+        workspace_id: str,
+        auth_context: Any | None = None,
+    ) -> HandlerResult:
         """
         Manually trigger token refresh for a workspace.
 
@@ -1379,6 +1480,8 @@ class SlackOAuthHandler(SecureHandler):
 
             if not workspace:
                 return error_response(f"Workspace {workspace_id} not found", 404)
+            if self._is_workspace_access_denied(workspace, auth_context):
+                return error_response("Workspace access denied", 403)
 
             if not workspace.refresh_token:
                 return error_response("No refresh token available. Re-installation required.", 400)

@@ -201,7 +201,7 @@ class TestSlackOAuthInstall:
 
     @pytest.mark.asyncio
     async def test_install_with_tenant_id(self, oauth_handler, oauth_state_store):
-        """Test install stores tenant_id in state."""
+        """Authenticated install should prefer the caller tenant over query scope."""
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"):
             result = await oauth_handler.handle(
                 "GET",
@@ -211,7 +211,7 @@ class TestSlackOAuthInstall:
 
         # Find the new state
         found = any(
-            data.metadata and data.metadata.get("tenant_id") == "tenant-001"
+            data.metadata and data.metadata.get("tenant_id") == "test-org-001"
             for data in oauth_state_store._states.values()
         )
         assert found, "tenant_id not stored in state"

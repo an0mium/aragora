@@ -27,6 +27,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aragora.rbac.models import AuthorizationContext
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +373,33 @@ class TestInstall:
         assert metadata["tenant_id"] == "t-123"
 
     @pytest.mark.asyncio
+    async def test_authenticated_install_prefers_auth_tenant(
+        self,
+        handler,
+        mock_state_store,
+        handler_module,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "production")
+        auth_context = AuthorizationContext(
+            user_id="tenant-user",
+            org_id="tenant-1",
+            roles={"member"},
+            permissions={"connectors.authorize"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=auth_context)
+        handler.check_permission = MagicMock(return_value=True)
+
+        result = await handler.handle(
+            "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
+        )
+        assert _status(result) == 302
+        mock_state_store.generate.assert_called_once()
+        call_kwargs = mock_state_store.generate.call_args
+        metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
+        assert metadata["tenant_id"] == "tenant-1"
+
+    @pytest.mark.asyncio
     async def test_stores_state_in_fallback(self, handler, handler_module):
         await handler.handle("GET", "/api/integrations/slack/install", {}, {}, {}, None)
         assert "test-state-token-abc123" in handler_module._oauth_states_fallback
@@ -492,13 +520,13 @@ class TestPreview:
             "GET", "/api/integrations/slack/preview", {}, {"tenant_id": "t-abc"}, {}, None
         )
         html = _html(result)
-        assert "tenant_id=t-abc" in html
+        assert "tenant_id=test-org-001" in html
 
     @pytest.mark.asyncio
     async def test_preview_without_tenant_id(self, handler):
         result = await handler.handle("GET", "/api/integrations/slack/preview", {}, {}, {}, None)
         html = _html(result)
-        assert "tenant_id=" not in html
+        assert "tenant_id=test-org-001" in html
 
     @pytest.mark.asyncio
     async def test_preview_no_client_id_returns_503(self, handler, handler_module, monkeypatch):
@@ -1453,6 +1481,51 @@ class TestListWorkspaces:
         assert body["workspaces"] == []
 
     @pytest.mark.asyncio
+    async def test_list_workspaces_filters_to_request_tenant(self, handler, mock_workspace):
+        other_workspace = MagicMock()
+        other_workspace.workspace_id = "W999"
+        other_workspace.workspace_name = "Other Workspace"
+        other_workspace.access_token = "xoxb-other"
+        other_workspace.bot_user_id = "B999"
+        other_workspace.installed_at = time.time()
+        other_workspace.installed_by = "U999"
+        other_workspace.scopes = ["channels:history"]
+        other_workspace.tenant_id = "tenant-2"
+        other_workspace.is_active = True
+        other_workspace.refresh_token = "xoxr-other"
+        other_workspace.token_expires_at = time.time() + 7200
+
+        mock_store = MagicMock()
+        mock_store.list_active.return_value = [mock_workspace, other_workspace]
+        mock_workspace.tenant_id = "tenant-1"
+
+        scoped_ctx = AuthorizationContext(
+            user_id="tenant-user",
+            org_id="tenant-1",
+            roles={"member"},
+            permissions={"connectors.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=scoped_ctx)
+        handler.check_permission = MagicMock(return_value=True)
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_store,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/workspaces",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        body = _body(result)
+        assert body["total"] == 1
+        assert [item["workspace_id"] for item in body["workspaces"]] == ["W123"]
+
+    @pytest.mark.asyncio
     async def test_method_not_allowed_post(self, handler):
         result = await handler.handle(
             "POST",
@@ -1699,6 +1772,35 @@ class TestWorkspaceStatus:
                 None,
             )
         assert _status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_workspace_status_denies_cross_tenant_access(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
+        mock_workspace.tenant_id = "tenant-2"
+        scoped_ctx = AuthorizationContext(
+            user_id="tenant-user",
+            org_id="tenant-1",
+            roles={"member"},
+            permissions={"connectors.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=scoped_ctx)
+        handler.check_permission = MagicMock(return_value=True)
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/workspaces/W123/status",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 403
 
     @pytest.mark.asyncio
     async def test_store_import_error_returns_503(self, handler):
@@ -2055,6 +2157,35 @@ class TestRefreshToken:
                 None,
             )
         assert _status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_refresh_denies_cross_tenant_access(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
+        mock_workspace.tenant_id = "tenant-2"
+        scoped_ctx = AuthorizationContext(
+            user_id="tenant-user",
+            org_id="tenant-1",
+            roles={"member"},
+            permissions={"connectors.authorize"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=scoped_ctx)
+        handler.check_permission = MagicMock(return_value=True)
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 403
 
 
 # ============================================================================
