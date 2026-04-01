@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.gauntlet.receipt_store import ReceiptState, get_receipt_store, reset_receipt_store
+from aragora.pipeline.backbone_contracts import RunLedger
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     ApprovalRecord,
@@ -15,7 +16,12 @@ from aragora.pipeline.decision_plan.core import (
 )
 from aragora.pipeline.decision_plan.memory import PlanOutcome
 from aragora.pipeline.executor import PlanExecutor
-from aragora.pipeline.receipt_gate import PlanReceiptGateError, ensure_plan_receipt
+from aragora.pipeline.plan_store import PlanStore
+from aragora.pipeline.receipt_gate import (
+    PlanExecutionGateError,
+    PlanReceiptGateError,
+    ensure_plan_receipt,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -146,3 +152,29 @@ async def test_executor_verifies_receipt_before_running_actions() -> None:
     assert stored.state == ReceiptState.EXECUTED
     assert stored.receipt_data["config_used"]["taint_analysis"]["tainted"] is True
     assert stored.receipt_data["config_used"]["execution_gate"]["provider_diversity"] == 2
+
+
+@pytest.mark.asyncio
+async def test_executor_blocks_backbone_taint_without_manual_override(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = PlanStore(db_path=str(tmp_path / "receipt-gate.db"))
+    monkeypatch.setattr("aragora.pipeline.plan_store.get_plan_store", lambda: store)
+    store.create_run(
+        RunLedger(
+            run_id="run-tainted",
+            entrypoint="prompt_engine.run",
+            status="plan_ready",
+            taint_flags=["user_context_supplied"],
+        )
+    )
+    plan = _plan(
+        status=PlanStatus.CREATED,
+        approval_mode=ApprovalMode.NEVER,
+        metadata={"backbone_run_id": "run-tainted"},
+    )
+
+    executor = PlanExecutor()
+
+    with pytest.raises(PlanExecutionGateError, match="blocked by execution gate"):
+        await executor.execute(plan, execution_mode="workflow")

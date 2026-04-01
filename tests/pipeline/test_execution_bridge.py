@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from pathlib import Path
 import threading
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     ApprovalRecord,
@@ -45,6 +46,7 @@ def mock_executor() -> MagicMock:
             tasks_completed=2,
             tasks_total=2,
             duration_seconds=1.5,
+            receipt_id="receipt-bridge-001",
         )
     )
     return executor
@@ -320,6 +322,86 @@ class TestExecutionBridgeExecute:
         assert records[0]["completed_at"] is not None
         assert records[0]["error"]["type"] == "RuntimeError"
         assert records[0]["error"]["message"] == "workflow exploded"
+
+    @pytest.mark.asyncio
+    async def test_execute_updates_backbone_run(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create_run(
+            RunLedger(
+                run_id="run-bridge",
+                entrypoint="prompt_engine.run",
+                status="plan_ready",
+                plan_id=approved_plan.id,
+            )
+        )
+        approved_plan.metadata["backbone_run_id"] = "run-bridge"
+        store.create(approved_plan)
+
+        outcome = await bridge.execute_approved_plan(approved_plan.id, execution_mode="workflow")
+        run = store.get_run("run-bridge")
+
+        assert outcome.success is True
+        assert run is not None
+        assert run.execution_id
+        assert run.status == "execution_succeeded"
+        assert run.receipt_envelope is not None
+        assert run.receipt_envelope.receipt_id == "receipt-bridge-001"
+        assert run.feedback_record is not None
+        assert run.attestation.get("local_only") is True
+        assert any(
+            event.stage == BackboneStage.EXECUTION.value and event.status == "running"
+            for event in run.stage_events
+        )
+        assert any(
+            event.stage == BackboneStage.EXECUTION.value and event.status == "succeeded"
+            for event in run.stage_events
+        )
+        assert any(
+            event.stage == BackboneStage.RECEIPT.value and event.status == "completed"
+            for event in run.stage_events
+        )
+        assert any(
+            event.stage == BackboneStage.FEEDBACK.value and event.status == "completed"
+            for event in run.stage_events
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_blocks_tainted_backbone_run_without_manual_override(
+        self, bridge: ExecutionBridge, store: PlanStore
+    ) -> None:
+        plan = DecisionPlan(
+            id="dp-tainted",
+            debate_id="debate-tainted",
+            task="Tainted task",
+            status=PlanStatus.CREATED,
+            approval_mode=ApprovalMode.NEVER,
+            metadata={"backbone_run_id": "run-tainted"},
+        )
+        store.create_run(
+            RunLedger(
+                run_id="run-tainted",
+                entrypoint="prompt_engine.run",
+                status="plan_ready",
+                plan_id=plan.id,
+                taint_flags=["user_context_supplied"],
+            )
+        )
+        store.create(plan)
+
+        with pytest.raises(ValueError, match="blocked by execution gate"):
+            await bridge.execute_approved_plan(plan.id)
+
+        records = bridge.list_execution_records(plan_id=plan.id)
+        run = store.get_run("run-tainted")
+
+        assert records[0]["status"] == "pending_approval"
+        assert run is not None
+        assert run.status == "pending_approval"
+        assert any(
+            event.stage == BackboneStage.EXECUTION.value and event.status == "pending_approval"
+            for event in run.stage_events
+        )
 
 
 class TestExecutionBridgeSchedule:

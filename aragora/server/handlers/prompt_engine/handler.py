@@ -1,6 +1,8 @@
 """Prompt Engine API Handler.
 
 Endpoints:
+- GET /api/prompt-engine/runs       - List persisted backbone runs
+- GET /api/prompt-engine/runs/{id}  - Fetch one persisted backbone run
 - POST /api/prompt-engine/run        - Full pipeline (decompose → interrogate → research → specify)
 - POST /api/prompt-engine/decompose  - Decompose a vague prompt into structured intent
 - POST /api/prompt-engine/interrogate - Generate clarifying questions for an intent
@@ -13,9 +15,17 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import Any, cast
 
-from aragora.pipeline.backbone_contracts import SpecBundle
+from aragora.pipeline.backbone_contracts import (
+    BackboneStage,
+    IntakeBundle,
+    RunLedger,
+    RunStageEvent,
+    SpecBundle,
+    build_goal_refs_from_implement_plan,
+)
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.pipeline.executor import ExecutionMode
 
@@ -36,19 +46,46 @@ class PromptEngineHandler(SecureHandler):
     """Handler for the prompt-to-specification engine."""
 
     ROUTES = [
-        ("POST", "/api/prompt-engine/run"),
-        ("POST", "/api/prompt-engine/decompose"),
-        ("POST", "/api/prompt-engine/interrogate"),
-        ("POST", "/api/prompt-engine/research"),
-        ("POST", "/api/prompt-engine/specify"),
-        ("POST", "/api/prompt-engine/validate"),
+        "/api/prompt-engine/run",
+        "/api/prompt-engine/decompose",
+        "/api/prompt-engine/interrogate",
+        "/api/prompt-engine/research",
+        "/api/prompt-engine/specify",
+        "/api/prompt-engine/validate",
+        "/api/prompt-engine/runs",
+        "/api/prompt-engine/runs/{run_id}",
     ]
 
     def can_handle(self, path: str, method: str | None = None) -> bool:
         # Backward-compatible signature: can_handle(method, path)
         if method is not None and not path.startswith("/") and method.startswith("/"):
             path, method = method, path
-        return (method or "POST") == "POST" and path.startswith("/api/prompt-engine/")
+        if not path.startswith("/api/prompt-engine/"):
+            return False
+        if method is None:
+            return True
+        resolved_method = method.upper()
+        if resolved_method == "GET":
+            return path == "/api/prompt-engine/runs" or path.startswith("/api/prompt-engine/runs/")
+        return resolved_method == "POST"
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Router-compatible GET entrypoint."""
+        method = getattr(handler, "command", "GET") if handler else "GET"
+        if method != "GET":
+            return None
+        return self._handle_get(path, query_params)
+
+    def handle_post(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult | None:
+        """Router-compatible POST entrypoint."""
+        if getattr(handler, "command", "POST") != "POST":
+            return None
+        return self.handle_POST(handler)
 
     @handle_errors("prompt engine")
     def handle_POST(self, handler: Any) -> HandlerResult:
@@ -68,6 +105,15 @@ class PromptEngineHandler(SecureHandler):
             return self._handle_validate(handler)
 
         return error_response("Unknown prompt-engine endpoint", 404)
+
+    @handle_errors("prompt engine")
+    def handle_GET(
+        self,
+        handler: Any,
+        query_params: dict[str, Any] | None = None,
+    ) -> HandlerResult:
+        path = getattr(handler, "path", "")
+        return self._handle_get(path, query_params or {})
 
     # ------------------------------------------------------------------
     # Body parsing helper
@@ -126,6 +172,84 @@ class PromptEngineHandler(SecureHandler):
             stage_durations_ms={stage: total_duration_ms},
             operation_timings=list(operation_timings or []),
         ).to_dict()
+
+    @staticmethod
+    def _derive_backbone_taint_flags(context: Any) -> list[str]:
+        if context in (None, "", {}, [], ()):
+            return []
+        return ["user_context_supplied"]
+
+    @classmethod
+    def _derive_backbone_trust_tiers(
+        cls,
+        context: Any,
+        intent: Any | None = None,
+    ) -> list[str]:
+        tiers = ["operator-authored"]
+        if list(getattr(intent, "related_knowledge", []) or []):
+            tiers.append("internal-retrieved")
+        if cls._derive_backbone_taint_flags(context):
+            tiers.append("user-supplied-context")
+        return list(dict.fromkeys(tiers))
+
+    @staticmethod
+    def _run_payload(
+        *,
+        run_id: str,
+        status: str,
+        plan_id: str = "",
+        execution_id: str = "",
+        receipt_id: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "status": status,
+            "plan_id": plan_id,
+            "execution_id": execution_id,
+            "receipt_id": receipt_id,
+        }
+
+    @staticmethod
+    def _query_limit(value: Any, default: int = 20) -> int:
+        try:
+            return max(1, min(int(value), 100))
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _query_offset(value: Any, default: int = 0) -> int:
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return default
+
+    def _handle_get(self, path: str, query_params: dict[str, Any]) -> HandlerResult:
+        from aragora.pipeline.plan_store import get_plan_store
+
+        store = get_plan_store()
+        if path == "/api/prompt-engine/runs":
+            runs = store.list_runs(
+                status=str(query_params.get("status", "")).strip() or None,
+                plan_id=str(query_params.get("plan_id", "")).strip() or None,
+                debate_id=str(query_params.get("debate_id", "")).strip() or None,
+                execution_id=str(query_params.get("execution_id", "")).strip() or None,
+                limit=self._query_limit(query_params.get("limit", 20), default=20),
+                offset=self._query_offset(query_params.get("offset", 0), default=0),
+            )
+            runs = cast(list[RunLedger], runs)
+            return json_response({"runs": [run.to_dict() for run in runs]})
+
+        prefix = "/api/prompt-engine/runs/"
+        if path.startswith(prefix):
+            run_id = path[len(prefix) :].strip()
+            if not run_id:
+                return error_response("run_id is required", 400)
+            run = store.get_run(run_id)
+            if run is None:
+                return error_response("Run not found", 404)
+            return json_response({"run": run.to_dict()})
+
+        return error_response("Unknown prompt-engine endpoint", 404)
 
     # ------------------------------------------------------------------
     # Endpoint handlers
@@ -218,6 +342,7 @@ class PromptEngineHandler(SecureHandler):
     def _handle_run(self, handler: Any) -> HandlerResult:
         """Run the full prompt-to-specification pipeline."""
         import asyncio
+        from aragora.pipeline.plan_store import get_plan_store
         from aragora.prompt_engine.timing import elapsed_ms, start_timer
 
         request_start = start_timer()
@@ -233,8 +358,51 @@ class PromptEngineHandler(SecureHandler):
         if plan_error:
             return plan_error
 
-        conductor = self._make_conductor(data)
         context = data.get("context")
+        store = get_plan_store()
+        run_id = f"run-{uuid.uuid4().hex[:12]}"
+        initial_taint_flags = self._derive_backbone_taint_flags(context)
+        initial_intake = IntakeBundle(
+            source_kind="prompt_engine_request",
+            raw_intent=prompt,
+            context_refs=[],
+            trust_tiers=self._derive_backbone_trust_tiers(context),
+            origin_metadata={
+                "entrypoint": "prompt_engine.run",
+                "profile": data.get("profile"),
+                "autonomy": data.get("autonomy"),
+                "skip_research": bool(data.get("skip_research", False)),
+                "skip_interrogation": bool(data.get("skip_interrogation", False)),
+            },
+            taint_flags=initial_taint_flags,
+        )
+        run = RunLedger(
+            run_id=run_id,
+            entrypoint="prompt_engine.run",
+            status="running",
+            intake_bundle=initial_intake,
+            taint_flags=list(initial_taint_flags),
+            metadata={
+                "decision_plan_requested": bool(plan_request),
+                "schedule_execution_requested": bool(
+                    plan_request and plan_request["schedule_execution"]
+                ),
+                "has_context": context not in (None, "", {}, [], ()),
+            },
+        )
+        run.add_event(
+            RunStageEvent.create(
+                BackboneStage.INTAKE,
+                status="received",
+                details={
+                    "prompt_length": len(prompt),
+                    "has_context": context not in (None, "", {}, [], ()),
+                },
+            )
+        )
+        store.create_run(run)
+
+        conductor = self._make_conductor(data)
 
         result = asyncio.run(conductor.run(prompt, context=context))
 
@@ -264,6 +432,65 @@ class PromptEngineHandler(SecureHandler):
             },
         }
 
+        canonical_intake = IntakeBundle.from_prompt_intent(
+            result.intent,
+            source_kind="prompt_engine_run",
+            trust_tiers=self._derive_backbone_trust_tiers(context, result.intent),
+            taint_flags=initial_taint_flags,
+            origin_metadata={
+                "entrypoint": "prompt_engine.run",
+                "question_count": len(result.questions),
+                "auto_approved": bool(result.auto_approved),
+                "stages_completed": list(result.stages_completed),
+            },
+        )
+        store.update_run(
+            run_id,
+            status="spec_ready",
+            intake_bundle=canonical_intake,
+            spec_bundle=spec_bundle,
+            metadata={
+                "prompt_engine": {
+                    "question_count": len(result.questions),
+                    "auto_approved": bool(result.auto_approved),
+                    "stages_completed": list(result.stages_completed),
+                    "validation_passed": bool(getattr(validation, "passed", False)),
+                }
+            },
+        )
+        store.append_run_stage_event(
+            run_id,
+            RunStageEvent.create(
+                BackboneStage.INTENT,
+                status="completed",
+                details={
+                    "intent_type": result.intent.to_dict().get("intent_type"),
+                    "ambiguity_count": len(getattr(result.intent, "ambiguities", []) or []),
+                },
+            ),
+        )
+        if "research" in result.stages_completed or result.research is not None:
+            store.append_run_stage_event(
+                run_id,
+                RunStageEvent.create(
+                    BackboneStage.RESEARCH,
+                    status="completed" if result.research is not None else "skipped",
+                ),
+            )
+        store.append_run_stage_event(
+            run_id,
+            RunStageEvent.create(
+                BackboneStage.SPECIFICATION,
+                status="completed",
+                artifact_ref="spec_bundle",
+                details={
+                    "execution_grade": spec_bundle.is_execution_grade,
+                    "missing_required_fields": list(spec_bundle.missing_required_fields),
+                    "validation_passed": bool(getattr(validation, "passed", False)),
+                },
+            ),
+        )
+
         payload = {
             "specification": result.specification.to_dict(),
             "spec_bundle": spec_bundle.to_dict(),
@@ -277,14 +504,19 @@ class PromptEngineHandler(SecureHandler):
         }
 
         if not plan_request:
+            payload["run"] = self._run_payload(run_id=run_id, status="spec_ready")
             payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
             return json_response(payload)
 
         from aragora.pipeline.decision_plan import DecisionPlanFactory
+        from aragora.pipeline.decision_plan.core import ApprovalMode, PlanStatus
         from aragora.pipeline.executor import store_plan
         from aragora.pipeline.execution_bridge import get_execution_bridge
-        from aragora.pipeline.plan_store import get_plan_store
+        from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
 
+        plan_metadata = dict(plan_request["metadata"] or {})
+        plan_metadata["backbone_run_id"] = run_id
+        plan_metadata["backbone_entrypoint"] = "prompt_engine.run"
         try:
             plan = DecisionPlanFactory.from_specification(
                 result.specification,
@@ -293,30 +525,144 @@ class PromptEngineHandler(SecureHandler):
                 budget_limit_usd=plan_request["budget_limit_usd"],
                 approval_mode=plan_request["approval_mode"],
                 max_auto_risk=plan_request["max_auto_risk"],
-                metadata=plan_request["metadata"],
+                metadata=plan_metadata,
                 implementation_profile=plan_request["implementation_profile"],
                 validation_result=validation,
                 fail_closed_spec_validation=True,
             )
         except ValueError as exc:
+            store.append_run_stage_event(
+                run_id,
+                RunStageEvent.create(
+                    BackboneStage.PLAN,
+                    status="blocked",
+                    details={
+                        "reason": "spec_not_execution_grade",
+                        "missing_required_fields": list(spec_bundle.missing_required_fields),
+                    },
+                ),
+            )
+            store.update_run(
+                run_id,
+                status="spec_ready",
+                metadata={"decision_plan_error": str(exc)},
+            )
             payload["decision_plan_error"] = {
                 "message": str(exc),
                 "missing_required_fields": list(spec_bundle.missing_required_fields),
             }
+            payload["run"] = self._run_payload(run_id=run_id, status="spec_ready")
             payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
             return json_response(payload, status=422)
 
-        store = get_plan_store()
+        execution_gate_decision = evaluate_plan_execution_gate(plan, plan_store=store)
+        if execution_gate_decision.requires_human_approval:
+            plan.approval_mode = ApprovalMode.ALWAYS
+            plan.status = PlanStatus.AWAITING_APPROVAL
+            if not isinstance(plan.metadata, dict):
+                plan.metadata = {}
+            plan.metadata["execution_gate"] = execution_gate_decision.gate
+
         store.create(plan)
         store_plan(plan)
         payload["decision_plan"] = plan.to_dict()
+        goal_refs = build_goal_refs_from_implement_plan(plan.implement_plan)
+        decision_receipt = (
+            plan.metadata.get("decision_receipt", {}) if isinstance(plan.metadata, dict) else {}
+        )
+        receipt_id = str(decision_receipt.get("receipt_id", "") or "").strip()
+        run_status = (
+            "plan_pending_approval"
+            if plan.requires_human_approval and not plan.is_approved
+            else "plan_ready"
+        )
+        store.update_run(
+            run_id,
+            status=run_status,
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            receipt_id=receipt_id,
+            goal_refs=goal_refs,
+            metadata={
+                "decision_plan_status": plan.status.value,
+                "decision_plan_requires_human_approval": plan.requires_human_approval,
+                "goal_refs_count": len(goal_refs),
+                "execution_gate": execution_gate_decision.gate,
+            },
+        )
+        store.append_run_stage_event(
+            run_id,
+            RunStageEvent.create(
+                BackboneStage.GOALS,
+                status="completed" if goal_refs else "skipped",
+                artifact_ref=plan.id,
+                details={"goal_refs_count": len(goal_refs)},
+            ),
+        )
+        store.append_run_stage_event(
+            run_id,
+            RunStageEvent.create(
+                BackboneStage.PLAN,
+                status="completed",
+                artifact_ref=plan.id,
+                details={
+                    "plan_status": plan.status.value,
+                    "approval_mode": plan.approval_mode.value,
+                    "requires_human_approval": plan.requires_human_approval,
+                    "execution_gate_reasons": list(execution_gate_decision.reason_codes),
+                },
+            ),
+        )
+        if receipt_id:
+            store.append_run_stage_event(
+                run_id,
+                RunStageEvent.create(
+                    BackboneStage.RECEIPT,
+                    status=str(decision_receipt.get("state", "created") or "created"),
+                    artifact_ref=receipt_id,
+                    details={"source": "decision_plan_receipt"},
+                ),
+            )
 
+        execution_id = ""
         if plan_request["schedule_execution"]:
-            if plan.requires_human_approval and not plan.is_approved:
+            if (
+                not execution_gate_decision.allow_execution
+                or execution_gate_decision.requires_human_approval
+                or (plan.requires_human_approval and not plan.is_approved)
+            ):
+                run_status = (
+                    "pending_approval"
+                    if execution_gate_decision.requires_human_approval
+                    or (plan.requires_human_approval and not plan.is_approved)
+                    else "blocked"
+                )
+                store.update_run(
+                    run_id,
+                    status=run_status,
+                    metadata={
+                        "execution_pending_approval": run_status == "pending_approval",
+                        "execution_gate_blocked": run_status == "blocked",
+                        "execution_gate": execution_gate_decision.gate,
+                    },
+                )
+                store.append_run_stage_event(
+                    run_id,
+                    RunStageEvent.create(
+                        BackboneStage.EXECUTION,
+                        status=run_status,
+                        artifact_ref=plan.id,
+                        details={
+                            "requires_human_approval": run_status == "pending_approval",
+                            "execution_gate_reasons": list(execution_gate_decision.reason_codes),
+                        },
+                    ),
+                )
                 payload["execution"] = {
-                    "status": "pending_approval",
+                    "status": run_status,
                     "plan_id": plan.id,
-                    "requires_human_approval": True,
+                    "requires_human_approval": run_status == "pending_approval",
+                    "execution_gate": execution_gate_decision.gate,
                 }
             else:
                 bridge = get_execution_bridge()
@@ -324,6 +670,24 @@ class PromptEngineHandler(SecureHandler):
                     plan.implementation_profile.execution_mode
                     if plan.implementation_profile
                     else None
+                )
+                run_status = "execution_requested"
+                store.update_run(
+                    run_id,
+                    status=run_status,
+                    metadata={
+                        "execution_mode": execution_mode or "default",
+                        "execution_requested": True,
+                    },
+                )
+                store.append_run_stage_event(
+                    run_id,
+                    RunStageEvent.create(
+                        BackboneStage.EXECUTION,
+                        status="requested",
+                        artifact_ref=plan.id,
+                        details={"execution_mode": execution_mode or "default"},
+                    ),
                 )
                 bridge.schedule_execution(
                     plan.id,
@@ -337,8 +701,36 @@ class PromptEngineHandler(SecureHandler):
                 }
                 if record:
                     execution_payload["record"] = record
+                    execution_id = str(record.get("execution_id", "") or "").strip()
+                    store.update_run(
+                        run_id,
+                        status="execution_scheduled",
+                        execution_id=execution_id,
+                        metadata={
+                            "scheduled_execution_status": str(
+                                record.get("status", "queued") or "queued"
+                            )
+                        },
+                    )
+                    store.append_run_stage_event(
+                        run_id,
+                        RunStageEvent.create(
+                            BackboneStage.EXECUTION,
+                            status=str(record.get("status", "queued") or "queued"),
+                            artifact_ref=execution_id,
+                            details={"execution_mode": execution_mode or "default"},
+                        ),
+                    )
+                    run_status = "execution_scheduled"
                 payload["execution"] = execution_payload
 
+        payload["run"] = self._run_payload(
+            run_id=run_id,
+            status=run_status,
+            plan_id=plan.id,
+            execution_id=execution_id,
+            receipt_id=receipt_id,
+        )
         payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
         return json_response(payload)
 

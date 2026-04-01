@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from aragora.pipeline.backbone_contracts import BackboneStage
+from aragora.pipeline.decision_plan.memory import PlanOutcome
+from aragora.pipeline.plan_store import PlanStore
 from aragora.pipeline.unified_orchestrator import (
     OrchestratorConfig,
     OrchestratorResult,
@@ -45,7 +48,10 @@ class FakePlanOutcome:
 @dataclass
 class FakeDecisionPlan:
     id: str = "plan-1"
+    debate_id: str = "test-debate-1"
+    task: str = "Test task"
     status: str = "created"
+    metadata: dict = field(default_factory=dict)
 
 
 def make_researcher(results=None):
@@ -113,6 +119,13 @@ def make_meta_loop(should_trigger=False):
     meta.identify_targets.return_value = []
     meta.execute.return_value = MagicMock(improved=False)
     return meta
+
+
+@pytest.fixture(autouse=True)
+def isolated_plan_store(tmp_path, monkeypatch):
+    store = PlanStore(db_path=str(tmp_path / "unified_orchestrator.db"))
+    monkeypatch.setattr("aragora.pipeline.plan_store.get_plan_store", lambda: store)
+    return store
 
 
 # --- Tests ---
@@ -207,6 +220,85 @@ class TestUnifiedOrchestrator:
         assert "execute" in result.stages_completed
         assert "feedback" in result.stages_completed
         assert result.duration_s > 0
+
+    @pytest.mark.asyncio
+    async def test_persists_backbone_run_progress(self, isolated_plan_store):
+        orch = UnifiedOrchestrator(
+            researcher=make_researcher(),
+            input_extension=make_input_extension(),
+            arena_factory=make_arena_factory(),
+            plan_factory=make_plan_factory(),
+        )
+
+        cfg = OrchestratorConfig(skip_execution=True, autonomy_level="fully_autonomous")
+        result = await orch.run("Build a ledger", config=cfg)
+        run = isolated_plan_store.get_run(result.run_id)
+
+        assert run is not None
+        assert run.plan_id == "plan-1"
+        assert run.status == "completed"
+        assert any(event.stage == BackboneStage.DELIBERATION.value for event in run.stage_events)
+        assert any(event.stage == BackboneStage.PLAN.value for event in run.stage_events)
+
+    @pytest.mark.asyncio
+    async def test_execution_gate_blocks_tainted_plan(self, isolated_plan_store):
+        plan = FakeDecisionPlan(
+            metadata={
+                "execution_gate": {
+                    "allow_auto_execution": False,
+                    "reason_codes": ["tainted_context_detected"],
+                }
+            }
+        )
+        executor = make_plan_executor()
+        orch = UnifiedOrchestrator(
+            arena_factory=make_arena_factory(),
+            plan_factory=make_plan_factory(plan),
+            plan_executor=executor,
+        )
+
+        cfg = OrchestratorConfig(autonomy_level="fully_autonomous")
+        result = await orch.run("Handle untrusted context", config=cfg)
+        run = isolated_plan_store.get_run(result.run_id)
+
+        assert "execution" in result.approvals_needed
+        assert run is not None
+        assert run.status == "pending_approval"
+        executor.execute.assert_not_called()
+        assert any(
+            event.stage == BackboneStage.EXECUTION.value and event.status == "pending_approval"
+            for event in run.stage_events
+        )
+
+    @pytest.mark.asyncio
+    async def test_persists_receipt_feedback_and_attestation(self, isolated_plan_store):
+        outcome = PlanOutcome(
+            plan_id="plan-1",
+            debate_id="test-debate-1",
+            task="Test task",
+            success=True,
+            tasks_completed=1,
+            tasks_total=1,
+            duration_seconds=0.2,
+            receipt_id="receipt-shadow-1",
+        )
+        orch = UnifiedOrchestrator(
+            arena_factory=make_arena_factory(),
+            plan_factory=make_plan_factory(),
+            plan_executor=make_plan_executor(outcome),
+            feedback_recorder=make_feedback_recorder(),
+        )
+
+        cfg = OrchestratorConfig(autonomy_level="fully_autonomous")
+        result = await orch.run("Ship the feature", config=cfg)
+        run = isolated_plan_store.get_run(result.run_id)
+
+        assert run is not None
+        assert run.receipt_envelope is not None
+        assert run.receipt_envelope.receipt_id == "receipt-shadow-1"
+        assert run.feedback_record is not None
+        assert run.attestation.get("local_only") is True
+        assert any(event.stage == BackboneStage.ATTESTATION.value for event in run.stage_events)
 
     @pytest.mark.asyncio
     async def test_debate_only_no_execution(self):

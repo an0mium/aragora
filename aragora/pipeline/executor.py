@@ -406,7 +406,13 @@ class PlanExecutor:
             plan.metadata.setdefault("org_id", getattr(auth_context, "org_id", None))
             plan.metadata.setdefault("requested_by", getattr(auth_context, "user_id", None))
 
-        from aragora.pipeline.receipt_gate import ensure_plan_receipt, sync_plan_receipt_state
+        from aragora.pipeline.receipt_gate import (
+            enforce_plan_execution_gate,
+            ensure_plan_receipt,
+            sync_plan_receipt_state,
+        )
+
+        enforce_plan_execution_gate(plan)
 
         ensure_plan_receipt(plan)
 

@@ -9,7 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.decision_plan import ApprovalMode, PlanStatus
+from aragora.pipeline.plan_store import PlanStore
 from aragora.prompt_engine.spec_validator import ValidationResult
 from aragora.prompt_engine.types import RiskItem, SpecFile, Specification
 from aragora.server.handlers.prompt_engine.handler import PromptEngineHandler
@@ -78,6 +80,13 @@ def handler() -> PromptEngineHandler:
     return PromptEngineHandler({})
 
 
+@pytest.fixture(autouse=True)
+def isolated_plan_store(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> PlanStore:
+    store = PlanStore(db_path=str(tmp_path / "prompt_engine_handler.db"))
+    monkeypatch.setattr("aragora.pipeline.plan_store.get_plan_store", lambda: store)
+    return store
+
+
 # ---------------------------------------------------------------------------
 # Route matching
 # ---------------------------------------------------------------------------
@@ -102,7 +111,13 @@ class TestCanHandle:
     def test_matches_validate(self, handler: PromptEngineHandler) -> None:
         assert handler.can_handle("POST", "/api/prompt-engine/validate")
 
-    def test_rejects_get(self, handler: PromptEngineHandler) -> None:
+    def test_matches_runs_get(self, handler: PromptEngineHandler) -> None:
+        assert handler.can_handle("GET", "/api/prompt-engine/runs")
+
+    def test_matches_single_run_get(self, handler: PromptEngineHandler) -> None:
+        assert handler.can_handle("GET", "/api/prompt-engine/runs/run-123")
+
+    def test_rejects_get_run_pipeline(self, handler: PromptEngineHandler) -> None:
         assert not handler.can_handle("GET", "/api/prompt-engine/run")
 
     def test_rejects_other_paths(self, handler: PromptEngineHandler) -> None:
@@ -277,8 +292,25 @@ class TestRunPipeline:
         handler: PromptEngineHandler,
     ) -> None:
         # Mock conductor result
-        mock_spec = MagicMock()
-        mock_spec.to_dict.return_value = {"title": "Test", "confidence": 0.9}
+        mock_spec = Specification(
+            title="Test",
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            constraints=["Keep API stable"],
+            success_criteria=["It works"],
+            file_changes=[
+                SpecFile(path="aragora/server/example.py", action="modify", description="Patch")
+            ],
+            risks=[
+                RiskItem(
+                    description="Regression risk",
+                    likelihood="medium",
+                    impact="medium",
+                    mitigation="Rollback quickly",
+                )
+            ],
+            confidence=0.9,
+        )
         mock_intent = MagicMock()
         mock_intent.to_dict.return_value = {"raw_prompt": "test", "intent_type": "feature"}
 
@@ -301,8 +333,11 @@ class TestRunPipeline:
         instance.run = AsyncMock(return_value=mock_result)
 
         # Mock validator
-        mock_validation = MagicMock()
-        mock_validation.to_dict.return_value = {"passed": True, "overall_confidence": 0.85}
+        mock_validation = ValidationResult(
+            role_results={},
+            passed=True,
+            overall_confidence=0.85,
+        )
         mock_validator = mock_validator_cls.return_value
         mock_validator.validate_heuristic.return_value = mock_validation
         mock_validator.last_operation_timings = []
@@ -321,6 +356,7 @@ class TestRunPipeline:
         assert "spec_bundle" in parsed["data"]
         assert parsed["data"]["validation"]["passed"] is True
         assert "stages_completed" in parsed["data"]
+        assert parsed["data"]["run"]["status"] == "spec_ready"
         assert parsed["data"]["timing"]["slowest_stage"]["stage"] == "specify"
 
     @patch("aragora.pipeline.executor.store_plan")
@@ -410,6 +446,7 @@ class TestRunPipeline:
         assert parsed["status"] == 200
         assert parsed["data"]["decision_plan"]["status"] == PlanStatus.APPROVED.value
         assert parsed["data"]["execution"]["status"] == "scheduled"
+        assert parsed["data"]["run"]["execution_id"] == "exec-123"
         assert parsed["data"]["timing"]["slowest_stage"]["stage"] == "specify"
         mock_get_plan_store.return_value.create.assert_called_once()
         mock_store_plan.assert_called_once()
@@ -481,9 +518,124 @@ class TestRunPipeline:
         )
         mock_get_plan_store.return_value.create.assert_not_called()
 
+    @patch("aragora.pipeline.execution_bridge.get_execution_bridge")
+    @patch("aragora.prompt_engine.SpecValidator")
+    @patch("aragora.prompt_engine.PromptConductor")
+    @patch("aragora.prompt_engine.ConductorConfig")
+    def test_run_forces_manual_lane_when_context_is_tainted(
+        self,
+        mock_config_cls: MagicMock,
+        mock_conductor_cls: MagicMock,
+        mock_validator_cls: MagicMock,
+        mock_get_execution_bridge: MagicMock,
+        handler: PromptEngineHandler,
+    ) -> None:
+        spec = Specification(
+            title="Tainted spec",
+            problem_statement="Problem",
+            proposed_solution="Ship carefully",
+            constraints=["Keep controls"],
+            success_criteria=["Criterion"],
+            file_changes=[
+                SpecFile(path="aragora/server/example.py", action="modify", description="Patch")
+            ],
+            risks=[
+                RiskItem(
+                    description="Regression risk",
+                    likelihood="medium",
+                    impact="medium",
+                    mitigation="Rollback quickly",
+                )
+            ],
+            confidence=0.95,
+        )
+        mock_intent = MagicMock()
+        mock_intent.to_dict.return_value = {"raw_prompt": "test", "intent_type": "feature"}
+        mock_result = MagicMock(
+            specification=spec,
+            intent=mock_intent,
+            questions=[],
+            research=None,
+            auto_approved=False,
+            stages_completed=["decompose", "specify"],
+            timing=_FakeTiming(),
+        )
+        mock_conductor_cls.return_value.run = AsyncMock(return_value=mock_result)
+        validation = ValidationResult(role_results={}, passed=True, overall_confidence=0.95)
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = validation
+        mock_validator.last_operation_timings = []
+        mock_config_cls.return_value = MagicMock()
+        mock_config_cls.from_profile.return_value = MagicMock()
+        handler.require_permission_or_error = MagicMock(return_value=(MagicMock(), None))
+
+        req = _make_handler_request(
+            {
+                "prompt": "Build something",
+                "context": {"repo": "user supplied"},
+                "decision_plan": {
+                    "create": True,
+                    "schedule_execution": True,
+                    "approval_mode": ApprovalMode.NEVER.value,
+                },
+            }
+        )
+        req.path = "/api/prompt-engine/run"
+
+        result = handler.handle_POST(req)
+        parsed = _parse(result)
+
+        assert parsed["status"] == 200
+        assert parsed["data"]["decision_plan"]["status"] == PlanStatus.AWAITING_APPROVAL.value
+        assert parsed["data"]["execution"]["status"] == "pending_approval"
+        assert parsed["data"]["execution"]["requires_human_approval"] is True
+        assert (
+            "backbone_taint_detected"
+            in parsed["data"]["execution"]["execution_gate"]["reason_codes"]
+        )
+        mock_get_execution_bridge.return_value.schedule_execution.assert_not_called()
+
     def test_unknown_endpoint_returns_404(self, handler: PromptEngineHandler) -> None:
         req = _make_handler_request({"prompt": "test"})
         req.path = "/api/prompt-engine/unknown"
         result = handler.handle_POST(req)
         parsed = _parse(result)
         assert parsed["status"] == 404
+
+
+class TestBackboneRunEndpoints:
+    def test_list_runs_returns_persisted_ledgers(
+        self,
+        handler: PromptEngineHandler,
+        isolated_plan_store: PlanStore,
+    ) -> None:
+        run = RunLedger(run_id="run-1", entrypoint="prompt_engine.run", status="spec_ready")
+        run.add_event(RunStageEvent.create(BackboneStage.INTAKE, status="received"))
+        isolated_plan_store.create_run(run)
+
+        req = MagicMock()
+        req.path = "/api/prompt-engine/runs"
+        result = handler.handle_GET(req, {"status": "spec_ready"})
+        parsed = _parse(result)
+
+        assert parsed["status"] == 200
+        assert len(parsed["data"]["runs"]) == 1
+        assert parsed["data"]["runs"][0]["run_id"] == "run-1"
+
+    def test_get_run_returns_single_ledger(
+        self,
+        handler: PromptEngineHandler,
+        isolated_plan_store: PlanStore,
+    ) -> None:
+        run = RunLedger(run_id="run-2", entrypoint="prompt_engine.run", status="plan_ready")
+        run.add_event(RunStageEvent.create(BackboneStage.PLAN, status="completed"))
+        isolated_plan_store.create_run(run)
+
+        req = MagicMock()
+        req.path = "/api/prompt-engine/runs/run-2"
+        result = handler.handle_GET(req)
+        parsed = _parse(result)
+
+        assert parsed["status"] == 200
+        assert parsed["data"]["run"]["run_id"] == "run-2"
+        assert parsed["data"]["run"]["stage_events"][0]["stage"] == BackboneStage.PLAN.value

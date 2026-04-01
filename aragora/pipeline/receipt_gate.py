@@ -25,9 +25,22 @@ from aragora.pipeline.decision_plan.core import PlanStatus
 
 logger = logging.getLogger(__name__)
 
+_SAFE_AUTO_EXECUTION_TRUST_TIERS = frozenset({"operator-authored", "internal-retrieved"})
+_HUMAN_OVERRIDE_REASON_CODES = frozenset(
+    {
+        "tainted_context_detected",
+        "backbone_taint_detected",
+        "untrusted_intake_tier",
+    }
+)
+
 
 class PlanReceiptGateError(RuntimeError):
     """Raised when a plan lacks a valid pre-execution decision receipt."""
+
+
+class PlanExecutionGateError(RuntimeError):
+    """Raised when execution is blocked by trust/taint execution gating."""
 
 
 @dataclass
@@ -39,6 +52,18 @@ class PlanReceiptStatus:
     signature_valid: bool
     integrity_valid: bool
     exempted: bool = False
+
+
+@dataclass
+class PlanExecutionGateDecision:
+    """Resolved execution permission for a plan at the trust wedge."""
+
+    allow_auto_execution: bool
+    allow_execution: bool
+    requires_human_approval: bool
+    human_override_applied: bool
+    reason_codes: list[str]
+    gate: dict[str, Any]
 
 
 def _metadata(plan: Any) -> dict[str, Any]:
@@ -102,6 +127,134 @@ def _list_of_strings(value: Any) -> list[str]:
                 result.append(text)
         return result
     return []
+
+
+def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | None:
+    metadata = _metadata(plan)
+    run_id = str(metadata.get("backbone_run_id", "") or "").strip()
+    if not run_id:
+        return None
+    store = plan_store
+    if store is None:
+        try:
+            from aragora.pipeline.plan_store import get_plan_store
+
+            store = get_plan_store()
+        except Exception:  # noqa: BLE001 - gating must degrade safely
+            logger.debug("Backbone run store unavailable during execution gate lookup")
+            return None
+    try:
+        return store.get_run(run_id)
+    except Exception:  # noqa: BLE001 - treat missing run as absent evidence
+        logger.debug("Backbone run lookup failed for %s", run_id, exc_info=True)
+        return None
+
+
+def _collect_backbone_taint(run: Any | None) -> tuple[list[str], dict[str, Any]]:
+    if run is None:
+        return [], {}
+
+    from aragora.pipeline.backbone_contracts import TaintChecker
+
+    taint_summary = TaintChecker.collect_taint_summary(
+        intake=getattr(run, "intake_bundle", None),
+        spec=getattr(run, "spec_bundle", None),
+        deliberation=getattr(run, "deliberation_bundle", None),
+        verification=getattr(run, "receipt_envelope", None),
+    )
+    flags = _list_of_strings(getattr(run, "taint_flags", []))
+    flags.extend(_list_of_strings(taint_summary.get("flags")))
+    unique_flags = list(dict.fromkeys(flags))
+    taint_summary["flags"] = unique_flags
+    taint_summary["tainted"] = bool(unique_flags)
+    return unique_flags, taint_summary
+
+
+def evaluate_plan_execution_gate(
+    plan: Any,
+    *,
+    plan_store: Any | None = None,
+) -> PlanExecutionGateDecision:
+    """Evaluate trust/taint gating on top of any existing execution gate metadata."""
+
+    metadata = _metadata(plan)
+    gate = metadata.get("execution_gate")
+    if not isinstance(gate, dict):
+        gate = {}
+
+    reason_codes = _list_of_strings(gate.get("reason_codes"))
+    allow_auto_execution = bool(gate.get("allow_auto_execution", True))
+    if "gate_evaluation_failed" in reason_codes:
+        allow_auto_execution = False
+
+    run = _resolve_backbone_run(plan, plan_store=plan_store)
+    run_id = str(metadata.get("backbone_run_id", "") or "").strip()
+    trust_tiers = _list_of_strings(
+        getattr(getattr(run, "intake_bundle", None), "trust_tiers", []) if run else []
+    )
+    taint_flags, taint_summary = _collect_backbone_taint(run)
+
+    if trust_tiers and any(tier not in _SAFE_AUTO_EXECUTION_TRUST_TIERS for tier in trust_tiers):
+        reason_codes.append("untrusted_intake_tier")
+        allow_auto_execution = False
+    if taint_flags:
+        reason_codes.append("backbone_taint_detected")
+        allow_auto_execution = False
+    if not allow_auto_execution and not reason_codes:
+        reason_codes.append("execution_gate_blocked")
+
+    ordered_reason_codes = list(dict.fromkeys(reason_codes))
+    overrideable = bool(set(ordered_reason_codes) & _HUMAN_OVERRIDE_REASON_CODES)
+    only_overrideable = bool(ordered_reason_codes) and set(ordered_reason_codes).issubset(
+        _HUMAN_OVERRIDE_REASON_CODES
+    )
+    human_override_applied = bool(getattr(plan, "approval_record", None)) and bool(
+        getattr(getattr(plan, "approval_record", None), "approved", False)
+    )
+    allow_execution = allow_auto_execution and not ordered_reason_codes
+    requires_human_approval = False
+    if not allow_execution and overrideable and only_overrideable:
+        requires_human_approval = not human_override_applied
+        allow_execution = human_override_applied
+
+    gate_payload = {
+        **gate,
+        "allow_auto_execution": allow_auto_execution and not ordered_reason_codes,
+        "allow_execution": allow_execution,
+        "requires_human_approval": requires_human_approval,
+        "human_override_applied": human_override_applied,
+        "reason_codes": ordered_reason_codes,
+        "backbone_run_id": run_id,
+        "trust_tiers": trust_tiers,
+        "taint_flags": taint_flags,
+        "context_taint_detected": bool(gate.get("context_taint_detected")) or bool(taint_flags),
+        "taint_summary": taint_summary,
+    }
+    metadata["execution_gate"] = gate_payload
+    return PlanExecutionGateDecision(
+        allow_auto_execution=bool(gate_payload["allow_auto_execution"]),
+        allow_execution=allow_execution,
+        requires_human_approval=requires_human_approval,
+        human_override_applied=human_override_applied,
+        reason_codes=ordered_reason_codes,
+        gate=gate_payload,
+    )
+
+
+def enforce_plan_execution_gate(
+    plan: Any,
+    *,
+    plan_store: Any | None = None,
+) -> PlanExecutionGateDecision:
+    """Raise if a plan is not allowed to execute at the trust wedge."""
+
+    decision = evaluate_plan_execution_gate(plan, plan_store=plan_store)
+    if not decision.allow_execution:
+        reasons = ", ".join(decision.reason_codes) or "execution_gate_blocked"
+        raise PlanExecutionGateError(
+            f"Plan {getattr(plan, 'id', '')} blocked by execution gate: {reasons}"
+        )
+    return decision
 
 
 def _synthetic_debate_result(plan: Any) -> Any:
@@ -405,23 +558,27 @@ def sync_plan_receipt_state(
         if status.exempted or status.receipt_id is None:
             return status
 
+    resolved_receipt_id = status.receipt_id
+    if resolved_receipt_id is None:
+        return status
+
     store = get_receipt_store()
-    stored = store.get(status.receipt_id)
+    stored = store.get(resolved_receipt_id)
     if stored is None:
-        raise PlanReceiptGateError(f"Decision receipt {status.receipt_id} missing during sync")
+        raise PlanReceiptGateError(f"Decision receipt {resolved_receipt_id} missing during sync")
 
     if stored.state != target_state:
         try:
-            stored = store.transition(status.receipt_id, target_state)
+            stored = store.transition(resolved_receipt_id, target_state)
         except ReceiptStateError as exc:
             raise PlanReceiptGateError(
-                f"Could not transition decision receipt {status.receipt_id} "
+                f"Could not transition decision receipt {resolved_receipt_id} "
                 f"from {stored.state.value} to {target_state.value}"
             ) from exc
 
     _update_metadata_from_store(
         plan,
-        receipt_id=status.receipt_id,
+        receipt_id=resolved_receipt_id,
         state=stored.state,
         stored=stored,
     )
@@ -429,8 +586,12 @@ def sync_plan_receipt_state(
 
 
 __all__ = [
+    "PlanExecutionGateDecision",
+    "PlanExecutionGateError",
     "PlanReceiptGateError",
     "PlanReceiptStatus",
+    "enforce_plan_execution_gate",
     "ensure_plan_receipt",
+    "evaluate_plan_execution_gate",
     "sync_plan_receipt_state",
 ]

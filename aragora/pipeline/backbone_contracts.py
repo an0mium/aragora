@@ -9,7 +9,10 @@ compose without implicit contracts.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, is_dataclass
+from datetime import datetime, timezone
+from enum import Enum
 from typing import Any
+import uuid
 
 
 def propagate_taint(
@@ -45,7 +48,7 @@ def _string_list(values: Any) -> list[str]:
             continue
         if isinstance(value, str):
             text = value.strip()
-        elif is_dataclass(value):
+        elif is_dataclass(value) and not isinstance(value, type):
             text = str(asdict(value))
         else:
             text = str(value).strip()
@@ -80,6 +83,10 @@ def _risk_mitigations(risks: Any) -> list[str]:
     return mitigations
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 @dataclass
 class IntakeBundle:
     source_kind: str
@@ -110,6 +117,100 @@ class IntakeBundle:
             origin_metadata=dict(origin_metadata or {}),
             taint_flags=list(taint_flags or []),
         )
+
+
+class BackboneStage(str, Enum):
+    """Canonical stages for the golden-path run ledger."""
+
+    INTAKE = "intake"
+    INTENT = "intent"
+    RESEARCH = "research"
+    EXTENSION = "extension"
+    SPECIFICATION = "specification"
+    GOALS = "goals"
+    DELIBERATION = "deliberation"
+    PLAN = "plan"
+    EXECUTION = "execution"
+    RECEIPT = "receipt"
+    FEEDBACK = "feedback"
+    ATTESTATION = "attestation"
+
+
+@dataclass
+class RunStageEvent:
+    """Immutable event emitted by one backbone stage."""
+
+    stage: str
+    status: str
+    event_id: str = field(default_factory=lambda: f"evt-{uuid.uuid4().hex[:12]}")
+    artifact_ref: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=_utc_now_iso)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def create(
+        cls,
+        stage: BackboneStage | str,
+        *,
+        status: str,
+        artifact_ref: str = "",
+        details: dict[str, Any] | None = None,
+    ) -> RunStageEvent:
+        stage_name = stage.value if isinstance(stage, BackboneStage) else str(stage).strip()
+        return cls(
+            stage=stage_name,
+            status=str(status).strip() or "unknown",
+            artifact_ref=str(artifact_ref).strip(),
+            details=dict(details or {}),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RunStageEvent:
+        return cls(
+            stage=str(data.get("stage", "")).strip(),
+            status=str(data.get("status", "")).strip(),
+            event_id=str(data.get("event_id", "")).strip() or f"evt-{uuid.uuid4().hex[:12]}",
+            artifact_ref=str(data.get("artifact_ref", "")).strip(),
+            details=dict(data.get("details", {}) or {}),
+            created_at=str(data.get("created_at", "")).strip() or _utc_now_iso(),
+        )
+
+
+def build_goal_refs_from_implement_plan(
+    implement_plan: Any | None,
+    *,
+    source_stage: BackboneStage | str = BackboneStage.GOALS,
+) -> list[dict[str, Any]]:
+    """Project an implementation plan into canonical goal refs."""
+    if implement_plan is None:
+        return []
+
+    stage_name = (
+        source_stage.value if isinstance(source_stage, BackboneStage) else str(source_stage)
+    )
+    tasks = list(getattr(implement_plan, "tasks", []) or [])
+    refs: list[dict[str, Any]] = []
+    for index, task in enumerate(tasks, start=1):
+        if task is None:
+            continue
+        task_id = str(getattr(task, "id", "") or f"goal-{index}").strip()
+        title = str(getattr(task, "description", "") or task_id).strip()
+        refs.append(
+            {
+                "id": task_id,
+                "title": title,
+                "source_stage": stage_name,
+                "files": list(getattr(task, "files", []) or []),
+                "dependencies": list(getattr(task, "dependencies", []) or []),
+                "complexity": str(getattr(task, "complexity", "") or ""),
+                "task_type": str(getattr(task, "task_type", "") or ""),
+                "requires_approval": bool(getattr(task, "requires_approval", False)),
+            }
+        )
+    return refs
 
 
 @dataclass
@@ -174,7 +275,8 @@ class SpecBundle:
             if str(getattr(item, "path", "") or item.get("path", "")).strip()
         ]
         provenance = getattr(spec, "provenance", None)
-        provenance_refs = [provenance.to_dict()] if hasattr(provenance, "to_dict") else []
+        provenance_to_dict = getattr(provenance, "to_dict", None)
+        provenance_refs = [provenance_to_dict()] if callable(provenance_to_dict) else []
         provenance_refs.extend(list(getattr(spec, "provenance_chain", []) or []))
 
         return cls(
@@ -337,6 +439,37 @@ class ReceiptEnvelope:
             extras={
                 "pipeline_id": receipt.get("pipeline_id"),
                 "generated_at": receipt.get("generated_at"),
+            },
+        )
+
+    @classmethod
+    def from_decision_receipt(
+        cls,
+        receipt: dict[str, Any],
+        *,
+        policy_gate_result: dict[str, Any] | None = None,
+        taint_summary: dict[str, Any] | None = None,
+    ) -> ReceiptEnvelope:
+        provenance_chain = [
+            dict(item)
+            for item in list(receipt.get("provenance_chain", []) or [])
+            if isinstance(item, dict)
+        ]
+        return cls(
+            receipt_id=str(receipt.get("receipt_id", "")).strip(),
+            artifact_hash=str(
+                receipt.get("artifact_hash") or receipt.get("input_hash", "")
+            ).strip(),
+            verdict=str(receipt.get("verdict", "unknown") or "unknown").strip(),
+            confidence=float(receipt.get("confidence", 0.0) or 0.0),
+            signature=str(receipt.get("signature", "")).strip(),
+            policy_gate_result=dict(policy_gate_result or {}),
+            provenance_chain=provenance_chain,
+            taint_summary=dict(taint_summary or {}),
+            extras={
+                "gauntlet_id": receipt.get("gauntlet_id"),
+                "generated_at": receipt.get("timestamp"),
+                "decision_receipt": dict(receipt),
             },
         )
 
@@ -583,6 +716,137 @@ class OutcomeFeedbackRecord:
             calibration_updates=[],
             next_action_recommendation=next_action_recommendation,
             extras={"total_duration_s": float(getattr(outcome, "total_duration_s", 0.0) or 0.0)},
+        )
+
+
+@dataclass
+class RunLedger:
+    """Persistent canonical ledger connecting the golden-path stages."""
+
+    run_id: str
+    entrypoint: str
+    status: str = "received"
+    intake_bundle: IntakeBundle | None = None
+    spec_bundle: SpecBundle | None = None
+    goal_refs: list[dict[str, Any]] = field(default_factory=list)
+    deliberation_bundle: DeliberationBundle | None = None
+    plan_id: str = ""
+    debate_id: str = ""
+    execution_id: str = ""
+    receipt_id: str = ""
+    receipt_envelope: ReceiptEnvelope | None = None
+    feedback_record: OutcomeFeedbackRecord | None = None
+    attestation: dict[str, Any] = field(default_factory=dict)
+    taint_flags: list[str] = field(default_factory=list)
+    stage_events: list[RunStageEvent] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=_utc_now_iso)
+    updated_at: str = field(default_factory=_utc_now_iso)
+
+    def touch(self) -> None:
+        self.updated_at = _utc_now_iso()
+
+    def merge_taint(self, taint_flags: list[str] | None = None) -> None:
+        self.taint_flags = propagate_taint(self.taint_flags, taint_flags or [])
+        self.touch()
+
+    def add_event(self, event: RunStageEvent) -> None:
+        self.stage_events.append(event)
+        self.updated_at = event.created_at
+
+    def attach_intake(self, bundle: IntakeBundle | None) -> None:
+        self.intake_bundle = bundle
+        self.merge_taint(getattr(bundle, "taint_flags", []))
+
+    def attach_spec(self, bundle: SpecBundle | None) -> None:
+        self.spec_bundle = bundle
+        self.merge_taint(getattr(bundle, "taint_flags", []))
+
+    def attach_deliberation(self, bundle: DeliberationBundle | None) -> None:
+        self.deliberation_bundle = bundle
+        self.merge_taint(getattr(bundle, "taint_flags", []))
+
+    def attach_receipt(self, envelope: ReceiptEnvelope | None) -> None:
+        self.receipt_envelope = envelope
+        if envelope is not None and envelope.receipt_id:
+            self.receipt_id = envelope.receipt_id
+        self.touch()
+
+    def attach_feedback(self, record: OutcomeFeedbackRecord | None) -> None:
+        self.feedback_record = record
+        self.touch()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "entrypoint": self.entrypoint,
+            "status": self.status,
+            "intake_bundle": self.intake_bundle.to_dict() if self.intake_bundle else None,
+            "spec_bundle": self.spec_bundle.to_dict() if self.spec_bundle else None,
+            "goal_refs": list(self.goal_refs),
+            "deliberation_bundle": (
+                self.deliberation_bundle.to_dict() if self.deliberation_bundle else None
+            ),
+            "plan_id": self.plan_id,
+            "debate_id": self.debate_id,
+            "execution_id": self.execution_id,
+            "receipt_id": self.receipt_id,
+            "receipt_envelope": self.receipt_envelope.to_dict() if self.receipt_envelope else None,
+            "feedback_record": self.feedback_record.to_dict() if self.feedback_record else None,
+            "attestation": dict(self.attestation),
+            "taint_flags": list(self.taint_flags),
+            "stage_events": [event.to_dict() for event in self.stage_events],
+            "metadata": dict(self.metadata),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RunLedger:
+        intake_payload = data.get("intake_bundle")
+        spec_payload = data.get("spec_bundle")
+        if isinstance(spec_payload, dict):
+            spec_payload = dict(spec_payload)
+            spec_payload.pop("missing_required_fields", None)
+            spec_payload.pop("is_execution_grade", None)
+        return cls(
+            run_id=str(data.get("run_id", "")).strip(),
+            entrypoint=str(data.get("entrypoint", "")).strip(),
+            status=str(data.get("status", "received") or "received").strip(),
+            intake_bundle=IntakeBundle(**intake_payload)
+            if isinstance(intake_payload, dict)
+            else None,
+            spec_bundle=SpecBundle(**spec_payload) if isinstance(spec_payload, dict) else None,
+            goal_refs=list(data.get("goal_refs", []) or []),
+            deliberation_bundle=(
+                DeliberationBundle(**data["deliberation_bundle"])
+                if isinstance(data.get("deliberation_bundle"), dict)
+                else None
+            ),
+            plan_id=str(data.get("plan_id", "")).strip(),
+            debate_id=str(data.get("debate_id", "")).strip(),
+            execution_id=str(data.get("execution_id", "")).strip(),
+            receipt_id=str(data.get("receipt_id", "")).strip(),
+            receipt_envelope=(
+                ReceiptEnvelope(**data["receipt_envelope"])
+                if isinstance(data.get("receipt_envelope"), dict)
+                else None
+            ),
+            feedback_record=(
+                OutcomeFeedbackRecord(**data["feedback_record"])
+                if isinstance(data.get("feedback_record"), dict)
+                else None
+            ),
+            attestation=dict(data.get("attestation", {}) or {}),
+            taint_flags=list(data.get("taint_flags", []) or []),
+            stage_events=[
+                RunStageEvent.from_dict(event)
+                for event in list(data.get("stage_events", []) or [])
+                if isinstance(event, dict)
+            ],
+            metadata=dict(data.get("metadata", {}) or {}),
+            created_at=str(data.get("created_at", "")).strip() or _utc_now_iso(),
+            updated_at=str(data.get("updated_at", "")).strip() or _utc_now_iso(),
         )
 
 

@@ -21,9 +21,20 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterable, Sequence
 import uuid
 
+from aragora.pipeline.backbone_contracts import (
+    BackboneStage,
+    DeliberationBundle,
+    IntakeBundle,
+    OutcomeFeedbackRecord,
+    ReceiptEnvelope,
+    RunLedger,
+    RunStageEvent,
+    SpecBundle,
+    TaintChecker,
+)
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     ApprovalRecord,
@@ -41,6 +52,7 @@ logger = logging.getLogger(__name__)
 # Default database location
 _DEFAULT_DB_DIR = os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))
 _DEFAULT_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "plans.db")
+_UNSET = object()
 
 
 def _get_db_path() -> str:
@@ -53,7 +65,7 @@ def _get_db_path() -> str:
         return _DEFAULT_DB_PATH
 
 
-def _dedupe_strings(values: Sequence[Any]) -> list[str]:
+def _dedupe_strings(values: Iterable[Any]) -> list[str]:
     """Preserve order while removing blank or duplicate string-like values."""
     seen: set[str] = set()
     deduped: list[str] = []
@@ -75,6 +87,16 @@ def _parse_metadata_json(raw: str | None) -> dict[str, Any]:
     except (TypeError, ValueError, json.JSONDecodeError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _load_json_value(raw: str | None) -> Any:
+    """Parse arbitrary JSON payloads safely."""
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
 
 
 def _extract_refresh_scope(metadata: dict[str, Any]) -> dict[str, Any]:
@@ -224,6 +246,64 @@ class PlanStore:
                 CREATE INDEX IF NOT EXISTS idx_plan_executions_started_at
                 ON plan_executions(started_at DESC)
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS backbone_runs (
+                    run_id TEXT PRIMARY KEY,
+                    entrypoint TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'received',
+                    intake_bundle_json TEXT,
+                    spec_bundle_json TEXT,
+                    goal_refs_json TEXT,
+                    deliberation_bundle_json TEXT,
+                    plan_id TEXT,
+                    debate_id TEXT,
+                    execution_id TEXT,
+                    receipt_id TEXT,
+                    receipt_envelope_json TEXT,
+                    feedback_record_json TEXT,
+                    attestation_json TEXT,
+                    taint_flags_json TEXT,
+                    metadata_json TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_runs_status
+                ON backbone_runs(status)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_runs_plan_id
+                ON backbone_runs(plan_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_runs_debate_id
+                ON backbone_runs(debate_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_runs_execution_id
+                ON backbone_runs(execution_id)
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS backbone_run_events (
+                    event_id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    artifact_ref TEXT,
+                    details_json TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (run_id) REFERENCES backbone_runs(run_id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_run_events_run_id
+                ON backbone_run_events(run_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_backbone_run_events_stage
+                ON backbone_run_events(stage)
+            """)
 
             # Backward-compatible schema migration for existing databases.
             columns = {row["name"] for row in conn.execute("PRAGMA table_info(plans)").fetchall()}
@@ -311,6 +391,7 @@ class PlanStore:
                 ),
             )
             conn.commit()
+            self._attach_backbone_receipt_for_plan(plan, append_event=False)
             logger.info("Stored plan %s for debate %s", plan.id, plan.debate_id)
         finally:
             conn.close()
@@ -450,6 +531,7 @@ class PlanStore:
                         plan = self.get(plan_id)
                         if plan is not None:
                             sync_plan_receipt_state(plan, on_status=status)
+                            self._attach_backbone_receipt_for_plan(plan, append_event=True)
                     except Exception as exc:  # noqa: BLE001 - do not mask status update
                         logger.warning(
                             "Failed to synchronize decision receipt for plan %s: %s",
@@ -532,6 +614,7 @@ class PlanStore:
                         plan = self.get(plan_id)
                         if plan is not None:
                             sync_plan_receipt_state(plan, on_status=new_status)
+                            self._attach_backbone_receipt_for_plan(plan, append_event=True)
                     except Exception as exc:  # noqa: BLE001 - do not mask status update
                         logger.warning(
                             "Failed to synchronize decision receipt for plan %s: %s",
@@ -610,8 +693,11 @@ class PlanStore:
                 params.append(now)
 
         if metadata is not None:
+            existing = self.get_execution_record(execution_id)
+            merged_metadata = dict(existing.get("metadata", {}) or {}) if existing else {}
+            merged_metadata.update(metadata)
             fields.append("metadata_json = ?")
-            params.append(json.dumps(metadata))
+            params.append(json.dumps(merged_metadata))
 
         if error is not None:
             fields.append("error_json = ?")
@@ -747,6 +833,264 @@ class PlanStore:
         finally:
             conn.close()
 
+    # -------------------------------------------------------------------------
+    # Backbone run ledger
+    # -------------------------------------------------------------------------
+
+    def create_run(self, run: RunLedger) -> None:
+        """Insert a new persisted backbone run ledger."""
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO backbone_runs (
+                    run_id, entrypoint, status, intake_bundle_json, spec_bundle_json,
+                    goal_refs_json, deliberation_bundle_json, plan_id, debate_id,
+                    execution_id, receipt_id, receipt_envelope_json, feedback_record_json,
+                    attestation_json, taint_flags_json, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run.run_id,
+                    run.entrypoint,
+                    run.status,
+                    json.dumps(run.intake_bundle.to_dict()) if run.intake_bundle else None,
+                    json.dumps(run.spec_bundle.to_dict()) if run.spec_bundle else None,
+                    json.dumps(run.goal_refs),
+                    json.dumps(run.deliberation_bundle.to_dict())
+                    if run.deliberation_bundle
+                    else None,
+                    run.plan_id or None,
+                    run.debate_id or None,
+                    run.execution_id or None,
+                    run.receipt_id or None,
+                    json.dumps(run.receipt_envelope.to_dict()) if run.receipt_envelope else None,
+                    json.dumps(run.feedback_record.to_dict()) if run.feedback_record else None,
+                    json.dumps(run.attestation),
+                    json.dumps(run.taint_flags),
+                    json.dumps(run.metadata),
+                    run.created_at,
+                    run.updated_at,
+                ),
+            )
+            for event in run.stage_events:
+                conn.execute(
+                    """
+                    INSERT INTO backbone_run_events (
+                        event_id, run_id, stage, status, artifact_ref, details_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event.event_id,
+                        run.run_id,
+                        event.stage,
+                        event.status,
+                        event.artifact_ref or None,
+                        json.dumps(event.details),
+                        event.created_at,
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_run(self, run_id: str) -> RunLedger | None:
+        """Fetch one backbone run ledger by ID."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM backbone_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            event_rows = conn.execute(
+                """
+                SELECT * FROM backbone_run_events
+                WHERE run_id = ?
+                ORDER BY created_at ASC, event_id ASC
+                """,
+                (run_id,),
+            ).fetchall()
+            return self._row_to_run(row, event_rows)
+        finally:
+            conn.close()
+
+    def list_runs(
+        self,
+        *,
+        status: str | None = None,
+        plan_id: str | None = None,
+        debate_id: str | None = None,
+        execution_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> builtins.list[RunLedger]:
+        """List backbone run ledgers with optional filters."""
+        clauses: builtins.list[str] = []
+        params: builtins.list[Any] = []
+
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        if plan_id is not None:
+            clauses.append("plan_id = ?")
+            params.append(plan_id)
+        if debate_id is not None:
+            clauses.append("debate_id = ?")
+            params.append(debate_id)
+        if execution_id is not None:
+            clauses.append("execution_id = ?")
+            params.append(execution_id)
+
+        where = ""
+        if clauses:
+            where = "WHERE " + " AND ".join(clauses)
+
+        query = f"SELECT * FROM backbone_runs {where} ORDER BY created_at DESC LIMIT ? OFFSET ?"  # noqa: S608 -- internal query construction
+        params.extend([limit, offset])
+
+        conn = self._connect()
+        try:
+            rows = conn.execute(query, params).fetchall()
+            results: builtins.list[RunLedger] = []
+            for row in rows:
+                event_rows = conn.execute(
+                    """
+                    SELECT * FROM backbone_run_events
+                    WHERE run_id = ?
+                    ORDER BY created_at ASC, event_id ASC
+                    """,
+                    (row["run_id"],),
+                ).fetchall()
+                results.append(self._row_to_run(row, event_rows))
+            return results
+        finally:
+            conn.close()
+
+    def update_run(
+        self,
+        run_id: str,
+        *,
+        status: str | None = None,
+        intake_bundle: IntakeBundle | None | object = _UNSET,
+        spec_bundle: SpecBundle | None | object = _UNSET,
+        goal_refs: builtins.list[dict[str, Any]] | object = _UNSET,
+        deliberation_bundle: DeliberationBundle | None | object = _UNSET,
+        plan_id: str | None = None,
+        debate_id: str | None = None,
+        execution_id: str | None = None,
+        receipt_id: str | None = None,
+        receipt_envelope: ReceiptEnvelope | None | object = _UNSET,
+        feedback_record: OutcomeFeedbackRecord | None | object = _UNSET,
+        attestation: dict[str, Any] | object = _UNSET,
+        taint_flags: builtins.list[str] | None | object = _UNSET,
+        metadata: dict[str, Any] | object = _UNSET,
+        merge_metadata: bool = True,
+    ) -> bool:
+        """Update one run ledger in-place."""
+        run = self.get_run(run_id)
+        if run is None:
+            return False
+
+        if status is not None:
+            run.status = str(status).strip() or run.status
+        if intake_bundle is not _UNSET:
+            run.attach_intake(intake_bundle if isinstance(intake_bundle, IntakeBundle) else None)
+        if spec_bundle is not _UNSET:
+            run.attach_spec(spec_bundle if isinstance(spec_bundle, SpecBundle) else None)
+        if goal_refs is not _UNSET:
+            run.goal_refs = list(goal_refs) if isinstance(goal_refs, list) else []
+            run.touch()
+        if deliberation_bundle is not _UNSET:
+            run.attach_deliberation(
+                deliberation_bundle if isinstance(deliberation_bundle, DeliberationBundle) else None
+            )
+        if plan_id is not None:
+            run.plan_id = str(plan_id).strip()
+            run.touch()
+        if debate_id is not None:
+            run.debate_id = str(debate_id).strip()
+            run.touch()
+        if execution_id is not None:
+            run.execution_id = str(execution_id).strip()
+            run.touch()
+        if receipt_id is not None:
+            run.receipt_id = str(receipt_id).strip()
+            run.touch()
+        if receipt_envelope is not _UNSET:
+            run.attach_receipt(
+                receipt_envelope if isinstance(receipt_envelope, ReceiptEnvelope) else None
+            )
+        if feedback_record is not _UNSET:
+            run.attach_feedback(
+                feedback_record if isinstance(feedback_record, OutcomeFeedbackRecord) else None
+            )
+        if attestation is not _UNSET:
+            run.attestation = dict(attestation) if isinstance(attestation, dict) else {}
+            run.touch()
+        if taint_flags is not _UNSET:
+            run.merge_taint(list(taint_flags) if isinstance(taint_flags, list | tuple) else [])
+        if metadata is not _UNSET:
+            next_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+            if merge_metadata:
+                run.metadata.update(next_metadata)
+            else:
+                run.metadata = next_metadata
+            run.touch()
+
+        run.touch()
+        return self._save_run(run)
+
+    def append_run_stage_event(self, run_id: str, event: RunStageEvent) -> bool:
+        """Append a single stage event to a run."""
+        conn = self._connect()
+        try:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO backbone_run_events (
+                        event_id, run_id, stage, status, artifact_ref, details_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event.event_id,
+                        run_id,
+                        event.stage,
+                        event.status,
+                        event.artifact_ref or None,
+                        json.dumps(event.details),
+                        event.created_at,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                return False
+
+            cursor = conn.execute(
+                "UPDATE backbone_runs SET updated_at = ? WHERE run_id = ?",
+                (event.created_at, run_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def list_run_stage_events(self, run_id: str) -> builtins.list[RunStageEvent]:
+        """List all persisted stage events for a run."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT * FROM backbone_run_events
+                WHERE run_id = ?
+                ORDER BY created_at ASC, event_id ASC
+                """,
+                (run_id,),
+            ).fetchall()
+            return [self._row_to_run_event(row) for row in rows]
+        finally:
+            conn.close()
+
     def delete(self, plan_id: str) -> bool:
         """Delete a plan by ID. Returns True if deleted."""
         conn = self._connect()
@@ -760,6 +1104,80 @@ class PlanStore:
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
+
+    def _attach_backbone_receipt_for_plan(
+        self,
+        plan: DecisionPlan,
+        *,
+        append_event: bool = False,
+    ) -> None:
+        metadata = plan.metadata if isinstance(plan.metadata, dict) else {}
+        run_id = str(metadata.get("backbone_run_id", "") or "").strip()
+        if not run_id:
+            return
+
+        receipt_meta = metadata.get("decision_receipt")
+        receipt_id = ""
+        if isinstance(receipt_meta, dict):
+            receipt_id = str(receipt_meta.get("receipt_id", "") or "").strip()
+        if not receipt_id:
+            receipt_id = str(metadata.get("decision_receipt_id", "") or "").strip()
+        if not receipt_id:
+            return
+
+        try:
+            from aragora.pipeline.receipt_store_facade import get_receipt_store_facade
+
+            canonical = get_receipt_store_facade().get_canonical(receipt_id)
+        except Exception:  # noqa: BLE001 - best-effort ledger enrichment
+            logger.debug("Backbone receipt fetch failed for %s", receipt_id, exc_info=True)
+            return
+
+        if not isinstance(canonical, dict):
+            return
+        receipt_payload = canonical.get("receipt_data")
+        if isinstance(receipt_payload, dict):
+            receipt_payload = dict(receipt_payload)
+            receipt_payload.setdefault("receipt_id", receipt_id)
+            receipt_payload.setdefault("signature", canonical.get("signature"))
+            receipt_payload.setdefault("signature_key_id", canonical.get("signature_key_id"))
+            receipt_payload.setdefault("signed_at", canonical.get("signed_at"))
+            receipt_payload.setdefault("signature_algorithm", canonical.get("signature_algorithm"))
+            receipt_payload["state"] = canonical.get("state", receipt_payload.get("state"))
+        else:
+            receipt_payload = canonical
+        if not isinstance(receipt_payload, dict):
+            return
+
+        run = self.get_run(run_id)
+        taint_summary = TaintChecker.collect_taint_summary(
+            intake=getattr(run, "intake_bundle", None),
+            spec=getattr(run, "spec_bundle", None),
+            deliberation=getattr(run, "deliberation_bundle", None),
+            verification=getattr(run, "receipt_envelope", None),
+        )
+        gate = metadata.get("execution_gate")
+        envelope = ReceiptEnvelope.from_decision_receipt(
+            receipt_payload,
+            policy_gate_result=dict(gate or {}) if isinstance(gate, dict) else {},
+            taint_summary=taint_summary,
+        )
+        self.update_run(
+            run_id,
+            receipt_id=receipt_id,
+            receipt_envelope=envelope,
+            metadata={"plan_receipt_state": str(receipt_payload.get("state", "")).lower()},
+        )
+        if append_event:
+            self.append_run_stage_event(
+                run_id,
+                RunStageEvent.create(
+                    BackboneStage.RECEIPT,
+                    status=str(receipt_payload.get("state", "created") or "created").lower(),
+                    artifact_ref=receipt_id,
+                    details={"source": "plan_status_transition", "plan_id": plan.id},
+                ),
+            )
 
     @staticmethod
     def _row_to_plan(row: sqlite3.Row) -> DecisionPlan:
@@ -885,6 +1303,104 @@ class PlanStore:
             "completed_at": row["completed_at"],
             "updated_at": row["updated_at"],
         }
+
+    def _save_run(self, run: RunLedger) -> bool:
+        """Persist the current snapshot of a run ledger."""
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                """
+                UPDATE backbone_runs
+                SET entrypoint = ?,
+                    status = ?,
+                    intake_bundle_json = ?,
+                    spec_bundle_json = ?,
+                    goal_refs_json = ?,
+                    deliberation_bundle_json = ?,
+                    plan_id = ?,
+                    debate_id = ?,
+                    execution_id = ?,
+                    receipt_id = ?,
+                    receipt_envelope_json = ?,
+                    feedback_record_json = ?,
+                    attestation_json = ?,
+                    taint_flags_json = ?,
+                    metadata_json = ?,
+                    updated_at = ?
+                WHERE run_id = ?
+                """,
+                (
+                    run.entrypoint,
+                    run.status,
+                    json.dumps(run.intake_bundle.to_dict()) if run.intake_bundle else None,
+                    json.dumps(run.spec_bundle.to_dict()) if run.spec_bundle else None,
+                    json.dumps(run.goal_refs),
+                    json.dumps(run.deliberation_bundle.to_dict())
+                    if run.deliberation_bundle
+                    else None,
+                    run.plan_id or None,
+                    run.debate_id or None,
+                    run.execution_id or None,
+                    run.receipt_id or None,
+                    json.dumps(run.receipt_envelope.to_dict()) if run.receipt_envelope else None,
+                    json.dumps(run.feedback_record.to_dict()) if run.feedback_record else None,
+                    json.dumps(run.attestation),
+                    json.dumps(run.taint_flags),
+                    json.dumps(run.metadata),
+                    run.updated_at,
+                    run.run_id,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _row_to_run_event(row: sqlite3.Row) -> RunStageEvent:
+        details = _load_json_value(row["details_json"])
+        return RunStageEvent.from_dict(
+            {
+                "event_id": row["event_id"],
+                "stage": row["stage"],
+                "status": row["status"],
+                "artifact_ref": row["artifact_ref"] or "",
+                "details": details if isinstance(details, dict) else {},
+                "created_at": row["created_at"],
+            }
+        )
+
+    @staticmethod
+    def _row_to_run(
+        row: sqlite3.Row,
+        event_rows: Sequence[sqlite3.Row] | None = None,
+    ) -> RunLedger:
+        return RunLedger.from_dict(
+            {
+                "run_id": row["run_id"],
+                "entrypoint": row["entrypoint"],
+                "status": row["status"],
+                "intake_bundle": _load_json_value(row["intake_bundle_json"]),
+                "spec_bundle": _load_json_value(row["spec_bundle_json"]),
+                "goal_refs": _load_json_value(row["goal_refs_json"]) or [],
+                "deliberation_bundle": _load_json_value(row["deliberation_bundle_json"]),
+                "plan_id": row["plan_id"] or "",
+                "debate_id": row["debate_id"] or "",
+                "execution_id": row["execution_id"] or "",
+                "receipt_id": row["receipt_id"] or "",
+                "receipt_envelope": _load_json_value(row["receipt_envelope_json"]),
+                "feedback_record": _load_json_value(row["feedback_record_json"]),
+                "attestation": _load_json_value(row["attestation_json"]) or {},
+                "taint_flags": _load_json_value(row["taint_flags_json"]) or [],
+                "metadata": _parse_metadata_json(row["metadata_json"]),
+                "stage_events": [
+                    PlanStore._row_to_run_event(event_row).to_dict()
+                    for event_row in list(event_rows or [])
+                ],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
 
 
 # ---------------------------------------------------------------------------

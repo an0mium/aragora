@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from aragora.gauntlet.receipt_store import ReceiptState, get_receipt_store, reset_receipt_store
+from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     BudgetAllocation,
@@ -366,6 +365,112 @@ class TestPlanStoreCombinedFilters:
         result = store.list(debate_id="dA", status=PlanStatus.APPROVED)
         assert len(result) == 1
         assert result[0].id == "dp-1"
+
+
+class TestPlanStoreBackboneRuns:
+    def test_create_and_get_run(self, store: PlanStore) -> None:
+        run = RunLedger(run_id="run-001", entrypoint="prompt_engine.run", status="spec_ready")
+        run.add_event(RunStageEvent.create(BackboneStage.INTAKE, status="received"))
+
+        store.create_run(run)
+        retrieved = store.get_run("run-001")
+
+        assert retrieved is not None
+        assert retrieved.run_id == "run-001"
+        assert retrieved.status == "spec_ready"
+        assert len(retrieved.stage_events) == 1
+        assert retrieved.stage_events[0].stage == BackboneStage.INTAKE.value
+
+    def test_list_runs_filters_by_plan_and_status(self, store: PlanStore) -> None:
+        store.create_run(
+            RunLedger(
+                run_id="run-a",
+                entrypoint="prompt_engine.run",
+                status="plan_ready",
+                plan_id="plan-a",
+            )
+        )
+        store.create_run(
+            RunLedger(
+                run_id="run-b",
+                entrypoint="prompt_engine.run",
+                status="execution_running",
+                plan_id="plan-b",
+            )
+        )
+
+        filtered = store.list_runs(status="plan_ready", plan_id="plan-a")
+        assert [run.run_id for run in filtered] == ["run-a"]
+
+    def test_update_run_merges_metadata_and_taint(self, store: PlanStore) -> None:
+        store.create_run(
+            RunLedger(
+                run_id="run-meta",
+                entrypoint="prompt_engine.run",
+                status="received",
+                metadata={"source": "prompt"},
+                taint_flags=["user_context_supplied"],
+            )
+        )
+
+        updated = store.update_run(
+            "run-meta",
+            status="plan_ready",
+            metadata={"plan_status": "approved"},
+            taint_flags=["external_action_requested"],
+        )
+        retrieved = store.get_run("run-meta")
+
+        assert updated is True
+        assert retrieved is not None
+        assert retrieved.status == "plan_ready"
+        assert retrieved.metadata["source"] == "prompt"
+        assert retrieved.metadata["plan_status"] == "approved"
+        assert set(retrieved.taint_flags) == {
+            "user_context_supplied",
+            "external_action_requested",
+        }
+
+    def test_append_run_stage_event_persists(self, store: PlanStore) -> None:
+        store.create_run(
+            RunLedger(run_id="run-events", entrypoint="orchestrator", status="running")
+        )
+
+        appended = store.append_run_stage_event(
+            "run-events",
+            RunStageEvent.create(BackboneStage.PLAN, status="completed", artifact_ref="plan-1"),
+        )
+        events = store.list_run_stage_events("run-events")
+
+        assert appended is True
+        assert len(events) == 1
+        assert events[0].artifact_ref == "plan-1"
+
+    def test_update_status_syncs_backbone_receipt_envelope(self, store: PlanStore) -> None:
+        store.create_run(
+            RunLedger(run_id="run-receipt", entrypoint="prompt_engine.run", status="plan_ready")
+        )
+        plan = DecisionPlan(
+            id="dp-receipt-sync",
+            debate_id="debate-receipt-sync",
+            task="Review receipt sync",
+            status=PlanStatus.AWAITING_APPROVAL,
+            approval_mode=ApprovalMode.ALWAYS,
+            metadata={"backbone_run_id": "run-receipt"},
+        )
+
+        store.create(plan)
+        updated = store.update_status(plan.id, PlanStatus.APPROVED, approved_by="approver-1")
+        run = store.get_run("run-receipt")
+
+        assert updated is True
+        assert run is not None
+        assert run.receipt_envelope is not None
+        assert run.metadata["plan_receipt_state"] == "approved"
+        assert any(
+            event.stage == BackboneStage.RECEIPT.value and event.status == "approved"
+            for event in run.stage_events
+        )
 
 
 class TestPlanStoreExecutionClaims:

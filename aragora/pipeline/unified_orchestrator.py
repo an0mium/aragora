@@ -26,6 +26,19 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.pipeline.backbone_contracts import (
+    BackboneStage,
+    DeliberationBundle,
+    IntakeBundle,
+    OutcomeFeedbackRecord,
+    ReceiptEnvelope,
+    RunLedger,
+    RunStageEvent,
+    SpecBundle,
+    TaintChecker,
+    build_goal_refs_from_implement_plan,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,6 +172,193 @@ class UnifiedOrchestrator:
         self._code_task_factory = code_task_factory
         self._provider_router = provider_router
 
+    @staticmethod
+    def _backbone_store() -> Any:
+        from aragora.pipeline.plan_store import get_plan_store
+
+        return get_plan_store()
+
+    def _create_backbone_run(self, result: OrchestratorResult, cfg: OrchestratorConfig) -> None:
+        intake = IntakeBundle(
+            source_kind="unified_orchestrator",
+            raw_intent=result.prompt,
+            context_refs=[],
+            trust_tiers=["operator-authored"],
+            origin_metadata={
+                "entrypoint": "unified_orchestrator.run",
+                "domain": cfg.domain,
+                "preset_name": cfg.preset_name,
+                "execution_mode": cfg.execution_mode,
+            },
+            taint_flags=[],
+        )
+        run = RunLedger(
+            run_id=result.run_id,
+            entrypoint="unified_orchestrator.run",
+            status="running",
+            intake_bundle=intake,
+            metadata={"skip_execution": cfg.skip_execution},
+        )
+        run.add_event(
+            RunStageEvent.create(
+                BackboneStage.INTAKE,
+                status="received",
+                details={"prompt_length": len(result.prompt), "domain": cfg.domain or "general"},
+            )
+        )
+        self._backbone_store().create_run(run)
+
+    def _append_backbone_event(
+        self,
+        result: OrchestratorResult,
+        stage: BackboneStage | str,
+        *,
+        status: str,
+        artifact_ref: str = "",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self._backbone_store().append_run_stage_event(
+            result.run_id,
+            RunStageEvent.create(
+                stage,
+                status=status,
+                artifact_ref=artifact_ref,
+                details=details,
+            ),
+        )
+
+    def _update_backbone_run(
+        self,
+        result: OrchestratorResult,
+        *,
+        status: str | None = None,
+        spec_bundle: SpecBundle | None | object = None,
+        deliberation_bundle: DeliberationBundle | None | object = None,
+        goal_refs: list[dict[str, Any]] | None = None,
+        plan_id: str | None = None,
+        debate_id: str | None = None,
+        receipt_id: str | None = None,
+        receipt_envelope: ReceiptEnvelope | None | object = None,
+        feedback_record: OutcomeFeedbackRecord | None | object = None,
+        attestation: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        update_kwargs: dict[str, Any] = {}
+        if status is not None:
+            update_kwargs["status"] = status
+        if spec_bundle is not None:
+            update_kwargs["spec_bundle"] = spec_bundle
+        if deliberation_bundle is not None:
+            update_kwargs["deliberation_bundle"] = deliberation_bundle
+        if goal_refs is not None:
+            update_kwargs["goal_refs"] = goal_refs
+        if plan_id is not None:
+            update_kwargs["plan_id"] = plan_id
+        if debate_id is not None:
+            update_kwargs["debate_id"] = debate_id
+        if receipt_id is not None:
+            update_kwargs["receipt_id"] = receipt_id
+        if receipt_envelope is not None:
+            update_kwargs["receipt_envelope"] = receipt_envelope
+        if feedback_record is not None:
+            update_kwargs["feedback_record"] = feedback_record
+        if attestation is not None:
+            update_kwargs["attestation"] = attestation
+        if metadata is not None:
+            update_kwargs["metadata"] = metadata
+        if update_kwargs:
+            self._backbone_store().update_run(result.run_id, **update_kwargs)
+
+    @staticmethod
+    def _ensure_plan_backbone_metadata(plan: Any, run_id: str) -> None:
+        metadata = getattr(plan, "metadata", None)
+        if not isinstance(metadata, dict):
+            metadata = {}
+            setattr(plan, "metadata", metadata)
+        metadata.setdefault("backbone_run_id", run_id)
+        metadata.setdefault("backbone_entrypoint", "unified_orchestrator.run")
+
+    async def _attach_backbone_receipt(
+        self,
+        result: OrchestratorResult,
+        plan: Any,
+        outcome: Any,
+    ) -> str:
+        from aragora.blockchain.receipt_settlement import ReceiptSettlementService
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+        from aragora.pipeline.canonical_execution import build_decision_receipt_payload
+
+        receipt_payload = build_decision_receipt_payload(plan, outcome)
+        if not isinstance(receipt_payload, dict):
+            return ""
+
+        run = self._backbone_store().get_run(result.run_id)
+        taint_summary = TaintChecker.collect_taint_summary(
+            intake=getattr(run, "intake_bundle", None),
+            spec=getattr(run, "spec_bundle", None),
+            deliberation=getattr(run, "deliberation_bundle", None),
+            verification=getattr(run, "receipt_envelope", None),
+        )
+        metadata = getattr(plan, "metadata", None)
+        gate = metadata.get("execution_gate", {}) if isinstance(metadata, dict) else {}
+        envelope = ReceiptEnvelope.from_decision_receipt(
+            receipt_payload,
+            policy_gate_result=dict(gate or {}),
+            taint_summary=taint_summary,
+        )
+        self._update_backbone_run(
+            result,
+            receipt_id=envelope.receipt_id,
+            receipt_envelope=envelope,
+        )
+        self._append_backbone_event(
+            result,
+            BackboneStage.RECEIPT,
+            status="completed",
+            artifact_ref=envelope.receipt_id,
+            details={"source": "decision_plan_execution"},
+        )
+
+        try:
+            settled_receipt = await ReceiptSettlementService().anchor_receipt(
+                DecisionReceipt.from_dict(receipt_payload)
+            )
+            attestation = getattr(settled_receipt, "settlement_status", None)
+            if isinstance(attestation, dict):
+                self._update_backbone_run(result, attestation=attestation)
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.ATTESTATION,
+                    status="completed",
+                    artifact_ref=envelope.receipt_id,
+                    details=attestation,
+                )
+        except Exception:
+            logger.debug("Backbone attestation shadow-mode failed", exc_info=True)
+
+        return envelope.receipt_id
+
+    def _attach_backbone_feedback(
+        self,
+        result: OrchestratorResult,
+        *,
+        receipt_ref: str,
+    ) -> None:
+        if result.pipeline_outcome is None:
+            return
+        record = OutcomeFeedbackRecord.from_pipeline_outcome(
+            result.pipeline_outcome,
+            receipt_ref=receipt_ref or result.run_id,
+        )
+        self._update_backbone_run(result, feedback_record=record)
+        self._append_backbone_event(
+            result,
+            BackboneStage.FEEDBACK,
+            status="completed",
+            artifact_ref=record.receipt_ref,
+            details={"next_action": record.next_action_recommendation},
+        )
+
     async def run(
         self,
         prompt: str,
@@ -181,6 +381,10 @@ class UnifiedOrchestrator:
         cfg = config or OrchestratorConfig()
         result = OrchestratorResult(run_id=str(uuid.uuid4()), prompt=prompt)
         start = time.monotonic()
+        try:
+            self._create_backbone_run(result, cfg)
+        except Exception:
+            logger.debug("Backbone run initialization failed", exc_info=True)
 
         # Load preset defaults
         preset_config = self._load_preset(cfg.preset_name)
@@ -199,9 +403,19 @@ class UnifiedOrchestrator:
         try:
             result.research_context = await self._do_research(prompt)
             result.stages_completed.append("research")
+            self._append_backbone_event(
+                result,
+                BackboneStage.RESEARCH,
+                status="completed",
+            )
         except Exception:
             logger.warning("Research stage failed, continuing without context")
             result.stages_skipped.append("research")
+            self._append_backbone_event(
+                result,
+                BackboneStage.RESEARCH,
+                status="skipped",
+            )
 
         # --- Stage 2: Extend Input ---
         try:
@@ -209,9 +423,19 @@ class UnifiedOrchestrator:
                 prompt, cfg.domain, result.research_context
             )
             result.stages_completed.append("extend")
+            self._append_backbone_event(
+                result,
+                BackboneStage.EXTENSION,
+                status="completed",
+            )
         except Exception:
             logger.warning("Input extension failed, using raw prompt")
             result.stages_skipped.append("extend")
+            self._append_backbone_event(
+                result,
+                BackboneStage.EXTENSION,
+                status="skipped",
+            )
 
         # --- Stage 3: Debate ---
         try:
@@ -254,6 +478,25 @@ class UnifiedOrchestrator:
                 diversity_report=result.diversity_report,
             )
             result.stages_completed.append("debate")
+            deliberation_bundle = DeliberationBundle.from_debate_result(result.debate_result)
+            self._update_backbone_run(
+                result,
+                status="deliberation_ready",
+                deliberation_bundle=deliberation_bundle,
+                debate_id=str(getattr(result.debate_result, "debate_id", "") or ""),
+            )
+            self._append_backbone_event(
+                result,
+                BackboneStage.DELIBERATION,
+                status="completed",
+                artifact_ref=str(getattr(result.debate_result, "debate_id", "") or ""),
+                details={
+                    "confidence": getattr(result.debate_result, "confidence", 0.0),
+                    "consensus_reached": bool(
+                        getattr(result.debate_result, "consensus_reached", False)
+                    ),
+                },
+            )
 
             # Update phase ELO from debate
             if self._elo_tracker is not None and result.debate_result is not None:
@@ -284,6 +527,15 @@ class UnifiedOrchestrator:
             logger.error("Debate stage failed: %s", exc)
             result.errors.append(f"Debate failed: {exc}")
             result.duration_s = time.monotonic() - start
+            self._update_backbone_run(
+                result, status="failed", metadata={"errors": list(result.errors)}
+            )
+            self._append_backbone_event(
+                result,
+                BackboneStage.DELIBERATION,
+                status="failed",
+                details={"error": str(exc)},
+            )
             return result
 
         # --- Stage 3b: Quality Gate ---
@@ -318,18 +570,65 @@ class UnifiedOrchestrator:
             try:
                 result.spec_bundle = self._spec_extractor(result.debate_result)
                 result.stages_completed.append("spec_extraction")
+                spec_bundle = result.spec_bundle
+                if isinstance(spec_bundle, SpecBundle):
+                    self._update_backbone_run(
+                        result,
+                        status="spec_ready",
+                        spec_bundle=spec_bundle,
+                    )
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.SPECIFICATION,
+                        status="completed",
+                        details={"execution_grade": spec_bundle.is_execution_grade},
+                    )
             except Exception:
                 logger.warning("Spec extraction failed")
                 result.stages_skipped.append("spec_extraction")
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.SPECIFICATION,
+                    status="skipped",
+                )
 
         # --- Stage 4: Create Decision Plan ---
         if result.debate_result is not None and self._plan_factory is not None:
             try:
                 result.decision_plan = self._plan_factory.from_debate_result(result.debate_result)
+                self._ensure_plan_backbone_metadata(result.decision_plan, result.run_id)
+                goal_refs = build_goal_refs_from_implement_plan(
+                    getattr(result.decision_plan, "implement_plan", None)
+                )
+                self._update_backbone_run(
+                    result,
+                    status="plan_ready",
+                    plan_id=str(getattr(result.decision_plan, "id", "") or ""),
+                    debate_id=str(getattr(result.decision_plan, "debate_id", "") or ""),
+                    goal_refs=goal_refs,
+                )
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.GOALS,
+                    status="completed" if goal_refs else "skipped",
+                    artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                    details={"goal_refs_count": len(goal_refs)},
+                )
                 result.stages_completed.append("plan")
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.PLAN,
+                    status="completed",
+                    artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                )
             except Exception:
                 logger.warning("Plan creation failed")
                 result.stages_skipped.append("plan")
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.PLAN,
+                    status="failed",
+                )
 
         # --- Stage 5: Approval Gate ---
         if result.decision_plan is not None and gates.get("spec") is not None:
@@ -340,13 +639,71 @@ class UnifiedOrchestrator:
                     if not approved:
                         result.approvals_needed.append("spec")
                         result.duration_s = time.monotonic() - start
+                        self._update_backbone_run(
+                            result,
+                            status="pending_approval",
+                            metadata={"approvals_needed": list(result.approvals_needed)},
+                        )
+                        self._append_backbone_event(
+                            result,
+                            BackboneStage.PLAN,
+                            status="pending_approval",
+                            artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                        )
                         return result
                 else:
                     result.approvals_needed.append("spec")
                     result.duration_s = time.monotonic() - start
+                    self._update_backbone_run(
+                        result,
+                        status="pending_approval",
+                        metadata={"approvals_needed": list(result.approvals_needed)},
+                    )
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.PLAN,
+                        status="pending_approval",
+                        artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                    )
                     return result
 
+        # --- Stage 5b: Trust/Taint Execution Gate ---
+        if result.decision_plan is not None:
+            from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
+
+            execution_gate = evaluate_plan_execution_gate(
+                result.decision_plan,
+                plan_store=self._backbone_store(),
+            )
+            metadata = getattr(result.decision_plan, "metadata", None)
+            if isinstance(metadata, dict):
+                metadata["execution_gate"] = execution_gate.gate
+            self._update_backbone_run(
+                result,
+                metadata={"execution_gate": execution_gate.gate},
+            )
+            if not execution_gate.allow_execution:
+                result.approvals_needed.append("execution")
+                result.duration_s = time.monotonic() - start
+                pending_status = (
+                    "pending_approval" if execution_gate.requires_human_approval else "blocked"
+                )
+                self._update_backbone_run(
+                    result,
+                    status=pending_status,
+                    metadata={"approvals_needed": list(result.approvals_needed)},
+                )
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.EXECUTION,
+                    status=pending_status,
+                    artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                    details={"reason_codes": list(execution_gate.reason_codes)},
+                )
+                return result
+
         # --- Stage 6: Execute Plan ---
+        backbone_receipt_ref = ""
         if not cfg.skip_execution:
             if (
                 cfg.execution_mode == "openclaw"
@@ -354,6 +711,13 @@ class UnifiedOrchestrator:
                 and result.spec_bundle is not None
             ):
                 try:
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="running",
+                        artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                        details={"execution_mode": cfg.execution_mode},
+                    )
                     spec = result.spec_bundle
                     exec_result = await self._code_task_factory(
                         implementation_prompt=spec.implementation_prompt
@@ -371,19 +735,66 @@ class UnifiedOrchestrator:
                         else 0,
                     }
                     result.stages_completed.append("execute")
+                    if (
+                        result.decision_plan is not None
+                        and result.plan_outcome is not None
+                        and hasattr(result.plan_outcome, "receipt_id")
+                    ):
+                        backbone_receipt_ref = await self._attach_backbone_receipt(
+                            result,
+                            result.decision_plan,
+                            result.plan_outcome,
+                        )
+                    self._update_backbone_run(result, status="execution_completed")
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="succeeded",
+                    )
                 except Exception:
                     logger.warning("OpenClaw execution failed")
                     result.stages_skipped.append("execute")
+                    self._update_backbone_run(result, status="execution_failed")
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="failed",
+                    )
             elif result.decision_plan is not None and self._plan_executor is not None:
                 try:
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="running",
+                        artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
+                        details={"execution_mode": cfg.execution_mode},
+                    )
                     result.plan_outcome = await self._plan_executor.execute(
                         result.decision_plan,
                         execution_mode=cfg.execution_mode,
                     )
                     result.stages_completed.append("execute")
+                    if result.plan_outcome is not None:
+                        backbone_receipt_ref = await self._attach_backbone_receipt(
+                            result,
+                            result.decision_plan,
+                            result.plan_outcome,
+                        )
+                    self._update_backbone_run(result, status="execution_completed")
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="succeeded",
+                    )
                 except Exception:
                     logger.warning("Execution failed")
                     result.stages_skipped.append("execute")
+                    self._update_backbone_run(result, status="execution_failed")
+                    self._append_backbone_event(
+                        result,
+                        BackboneStage.EXECUTION,
+                        status="failed",
+                    )
 
         # --- Stage 6b: Bug-Fix Loop (CLB-008) ---
         # Auto-trigger when tests fail, even without explicit enable_bug_fix_loop.
@@ -408,9 +819,19 @@ class UnifiedOrchestrator:
                 self._feedback_recorder.record(outcome)
                 result.pipeline_outcome = outcome
                 result.stages_completed.append("feedback")
+                self._attach_backbone_feedback(
+                    result,
+                    receipt_ref=backbone_receipt_ref
+                    or str(getattr(result.plan_outcome, "receipt_id", "") or ""),
+                )
             except Exception:
                 logger.warning("Feedback recording failed")
                 result.stages_skipped.append("feedback")
+                self._append_backbone_event(
+                    result,
+                    BackboneStage.FEEDBACK,
+                    status="failed",
+                )
 
         # --- Stage 8: Meta-Loop Check ---
         if cfg.enable_meta_loop and self._meta_loop is not None:
@@ -425,6 +846,22 @@ class UnifiedOrchestrator:
                 result.stages_skipped.append("meta_loop")
 
         result.duration_s = time.monotonic() - start
+        final_status = "completed"
+        if result.errors:
+            final_status = "failed"
+        elif result.approvals_needed:
+            final_status = "pending_approval"
+        elif (
+            not cfg.skip_execution
+            and result.decision_plan is not None
+            and "execute" in result.stages_skipped
+        ):
+            final_status = "execution_failed"
+        self._update_backbone_run(
+            result,
+            status=final_status,
+            metadata={"duration_s": result.duration_s},
+        )
         return result
 
     def _load_preset(self, preset_name: str) -> dict[str, Any]:
@@ -569,13 +1006,14 @@ class UnifiedOrchestrator:
 
     def _update_phase_elo(self, debate_result: Any, domain: str) -> None:
         """Update phase ELO ratings from debate results."""
-        if not hasattr(debate_result, "participants"):
+        elo_tracker = self._elo_tracker
+        if elo_tracker is None or not hasattr(debate_result, "participants"):
             return
         domain_key = domain or "general"
         for participant in debate_result.participants:
             name = participant if isinstance(participant, str) else str(participant)
             won = hasattr(debate_result, "final_answer") and debate_result.final_answer
-            self._elo_tracker.record_match(
+            elo_tracker.record_match(
                 agent_name=name,
                 domain=domain_key,
                 phase="debate",
@@ -635,13 +1073,18 @@ class UnifiedOrchestrator:
         if test_output is None:
             return {"status": "skipped", "reason": "no test output"}
 
+        bug_fixer = self._bug_fixer
+        plan_executor = self._plan_executor
+        if bug_fixer is None:
+            return {"status": "skipped", "reason": "bug fixer unavailable"}
+
         fixes_applied: list[dict[str, Any]] = []
         for attempt in range(cfg.bug_fix_max_retries):
-            diagnosis = self._bug_fixer.diagnose_failure(test_output, diff=diff)
+            diagnosis = bug_fixer.diagnose_failure(test_output, diff=diff)
             if diagnosis is None or getattr(diagnosis, "confidence", 0) < 0.3:
                 break
 
-            fix = self._bug_fixer.suggest_fix(diagnosis)
+            fix = bug_fixer.suggest_fix(diagnosis)
             if fix is None:
                 break
 
@@ -655,8 +1098,8 @@ class UnifiedOrchestrator:
             )
 
             # If executor supports re-run, apply fix and re-test
-            if hasattr(self._plan_executor, "apply_fix_and_retest"):
-                test_output = await self._plan_executor.apply_fix_and_retest(fix)
+            if plan_executor is not None and hasattr(plan_executor, "apply_fix_and_retest"):
+                test_output = await plan_executor.apply_fix_and_retest(fix)
                 if test_output is None or "FAILED" not in str(test_output).upper():
                     return {
                         "status": "fixed",
