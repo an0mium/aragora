@@ -15,6 +15,14 @@ DIRECT_RE = re.compile(
 )
 
 NAMESPACE_CONTRACTS = {
+    "breakpoints": {
+        "file": "sdk/typescript/src/namespaces/breakpoints.ts",
+        "endpoints": [
+            ("get", "/api/v1/breakpoints/pending"),
+            ("get", "/api/v1/breakpoints/{param}/status"),
+            ("post", "/api/v1/breakpoints/{param}/resolve"),
+        ],
+    },
     "decisions": {
         "file": "sdk/typescript/src/namespaces/decisions.ts",
         "endpoints": [

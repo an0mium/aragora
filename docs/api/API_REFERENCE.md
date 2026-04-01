@@ -929,9 +929,9 @@ User feedback and NPS collection under `/api/v1/feedback`.
 | `GET /api/debates/matrix/:id` | Get matrix debate by ID | NEW |
 | `GET /api/debates/matrix/:id/scenarios` | Get scenario results | NEW |
 | `GET /api/debates/matrix/:id/conclusions` | Get matrix conclusions | NEW |
-| `GET /api/breakpoints/pending` | List pending human-in-the-loop breakpoints | NEW |
-| `GET /api/breakpoints/:id/status` | Get breakpoint status | NEW |
-| `POST /api/breakpoints/:id/resolve` | Resolve breakpoint with human input | NEW |
+| `GET /api/v1/breakpoints/pending` | List pending human-in-the-loop breakpoints | NEW |
+| `GET /api/v1/breakpoints/:id/status` | Get breakpoint status | NEW |
+| `POST /api/v1/breakpoints/:id/resolve` | Resolve breakpoint with human input | NEW |
 | `GET /api/introspection/all` | Get all agent introspection data | NEW |
 | `GET /api/introspection/leaderboard` | Agents ranked by reputation | NEW |
 | `GET /api/introspection/agents` | List available agents | NEW |
@@ -4663,7 +4663,7 @@ Human-in-the-loop breakpoint management for debate supervision.
 ### List Pending Breakpoints
 
 ```http
-GET /api/breakpoints/pending
+GET /api/v1/breakpoints/pending
 ```
 
 Returns all breakpoints awaiting human resolution.
@@ -4689,7 +4689,7 @@ Returns all breakpoints awaiting human resolution.
 ### Get Breakpoint Status
 
 ```http
-GET /api/breakpoints/:id/status
+GET /api/v1/breakpoints/:id/status
 ```
 
 Returns the current status of a specific breakpoint.
@@ -4697,7 +4697,7 @@ Returns the current status of a specific breakpoint.
 ### Resolve Breakpoint
 
 ```http
-POST /api/breakpoints/:id/resolve
+POST /api/v1/breakpoints/:id/resolve
 ```
 
 Resolve a pending breakpoint with human guidance.

@@ -2,9 +2,9 @@
 Breakpoints endpoint handlers for human-in-the-loop intervention.
 
 Endpoints:
-- GET /api/breakpoints/pending - List pending breakpoints awaiting resolution
-- POST /api/breakpoints/{id}/resolve - Resolve a pending breakpoint
-- GET /api/breakpoints/{id}/status - Get status of a specific breakpoint
+- GET /api/v1/breakpoints/pending - List pending breakpoints awaiting resolution
+- POST /api/v1/breakpoints/{id}/resolve - Resolve a pending breakpoint
+- GET /api/v1/breakpoints/{id}/status - Get status of a specific breakpoint
 """
 
 from __future__ import annotations

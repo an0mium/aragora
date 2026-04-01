@@ -74,6 +74,7 @@ from aragora.server.openapi.endpoints.debate_hardening import DEBATE_HARDENING_E
 from aragora.server.openapi.endpoints.reconciliation import RECONCILIATION_ENDPOINTS
 from aragora.server.openapi.endpoints.response_schemas import RESPONSE_SCHEMA_ENDPOINTS
 from aragora.server.openapi.endpoints.pipeline import PIPELINE_ENDPOINTS
+from aragora.server.openapi.endpoints.breakpoints import BREAKPOINT_ENDPOINTS
 from aragora.server.openapi.endpoints.playbooks import PLAYBOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.marketplace import MARKETPLACE_ENDPOINTS
 from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOINTS
@@ -169,6 +170,7 @@ ALL_ENDPOINTS = {
     **RECONCILIATION_ENDPOINTS,
     **RESPONSE_SCHEMA_ENDPOINTS,
     **PIPELINE_ENDPOINTS,
+    **BREAKPOINT_ENDPOINTS,
     **PLAYBOOK_ENDPOINTS,
     **MARKETPLACE_ENDPOINTS,
     **ORCHESTRATION_ENDPOINTS,
@@ -250,6 +252,7 @@ __all__ = [
     "RECONCILIATION_ENDPOINTS",
     "RESPONSE_SCHEMA_ENDPOINTS",
     "PIPELINE_ENDPOINTS",
+    "BREAKPOINT_ENDPOINTS",
     "PLAYBOOK_ENDPOINTS",
     "MARKETPLACE_ENDPOINTS",
     "ORCHESTRATION_ENDPOINTS",

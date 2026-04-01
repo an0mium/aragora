@@ -11,11 +11,6 @@ interface BreakpointsClientInterface {
 export class BreakpointsAPI {
   constructor(private client: BreakpointsClientInterface) {}
 
-  /** Create a new breakpoint. */
-  async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/breakpoints', { body: data });
-  }
-
   /** List all pending breakpoints. */
   async listPending(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/breakpoints/pending');

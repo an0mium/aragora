@@ -931,7 +931,7 @@ export class AragoraClient {
   /** Benchmarks API - Performance benchmark listing and comparison. */
   readonly benchmarks: BenchmarksAPI;
 
-  /** Breakpoints API - Debate breakpoint creation. */
+  /** Breakpoints API - Human review queue for debate breakpoints. */
   readonly breakpoints: BreakpointsAPI;
 
   /** Channels API - Channel health monitoring. */

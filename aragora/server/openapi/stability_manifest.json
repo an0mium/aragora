@@ -1094,7 +1094,7 @@
     "POST /api/v1/bots/telegram/webhook",
     "POST /api/v1/bots/whatsapp/webhook",
     "POST /api/v1/bots/zoom/events",
-    "POST /api/v1/breakpoints/pending",
+    "GET /api/v1/breakpoints/pending",
     "POST /api/v1/budgets",
     "POST /api/v1/budgets/check",
     "POST /api/v1/budgets/{param}/alerts/{param}/acknowledge",

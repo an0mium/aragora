@@ -4,15 +4,66 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/config';
 import { useAuth } from '@/context/AuthContext';
 
+interface BreakpointApiSnapshot {
+  debate_id?: string;
+  round_num?: number;
+  task?: string;
+  confidence?: number;
+  agents?: string[];
+}
+
+interface BreakpointApiRecord {
+  breakpoint_id: string;
+  trigger: string;
+  message: string;
+  created_at: string;
+  timeout_minutes?: number;
+  snapshot?: BreakpointApiSnapshot | null;
+}
+
 interface Breakpoint {
   id: string;
-  debate_id: string;
+  debateId: string;
   type: string;
   reason: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  created_at: string;
+  createdAt: string;
   context?: Record<string, unknown>;
   options?: string[];
+}
+
+const DEFAULT_BREAKPOINT_OPTIONS = ['continue', 'redirect', 'abort'];
+
+function normalizeBreakpoint(raw: BreakpointApiRecord): Breakpoint {
+  const confidence = raw.snapshot?.confidence;
+  let severity: Breakpoint['severity'] = 'low';
+  if (raw.trigger === 'safety_concern' || (typeof confidence === 'number' && confidence < 0.2)) {
+    severity = 'critical';
+  } else if (typeof confidence === 'number' && confidence < 0.4) {
+    severity = 'high';
+  } else if (raw.trigger === 'low_confidence' || raw.trigger === 'user_request') {
+    severity = 'medium';
+  }
+
+  const context = raw.snapshot
+    ? {
+        ...raw.snapshot,
+        timeout_minutes: raw.timeout_minutes,
+      }
+    : raw.timeout_minutes !== undefined
+      ? { timeout_minutes: raw.timeout_minutes }
+      : undefined;
+
+  return {
+    id: raw.breakpoint_id,
+    debateId: raw.snapshot?.debate_id ?? 'unknown',
+    type: raw.trigger,
+    reason: raw.message || 'Breakpoint requires review',
+    severity,
+    createdAt: raw.created_at,
+    context,
+    options: DEFAULT_BREAKPOINT_OPTIONS,
+  };
 }
 
 interface BreakpointsPanelProps {
@@ -34,12 +85,12 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
       if (tokens?.access_token) {
         headers['Authorization'] = `Bearer ${tokens.access_token}`;
       }
-      const response = await fetch(`${apiBase}/api/breakpoints/pending`, { headers });
+      const response = await fetch(`${apiBase}/api/v1/breakpoints/pending`, { headers });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const data = await response.json();
-      setBreakpoints(data.breakpoints || []);
+      const data = await response.json() as { breakpoints?: BreakpointApiRecord[] };
+      setBreakpoints((data.breakpoints || []).map(normalizeBreakpoint));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch breakpoints');
@@ -66,13 +117,13 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
 
     setResolving(id);
     try {
-      const response = await fetch(`${apiBase}/api/breakpoints/${id}/resolve`, {
+      const response = await fetch(`${apiBase}/api/v1/breakpoints/${id}/resolve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokens.access_token}`,
         },
-        body: JSON.stringify({ action, reasoning: `User selected: ${action}` }),
+        body: JSON.stringify({ action, message: `User selected: ${action}` }),
       });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -161,12 +212,12 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
                   <h3 className="font-mono text-acid-green">{bp.reason}</h3>
                 </div>
                 <span className="text-xs font-mono text-text-muted">
-                  {new Date(bp.created_at).toLocaleTimeString()}
+                  {new Date(bp.createdAt).toLocaleTimeString()}
                 </span>
               </div>
 
               <div className="text-xs font-mono text-text-muted mb-3">
-                Debate: <span className="text-acid-cyan">{bp.debate_id}</span>
+                Debate: <span className="text-acid-cyan">{bp.debateId}</span>
               </div>
 
               {bp.context && Object.keys(bp.context).length > 0 && (
