@@ -847,6 +847,9 @@ def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker
     session_path = repo / "wt-rebound-dispatched"
     session_path.mkdir()
     supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    supervisor._collect_finished_results_before_reap = MagicMock(return_value=None)
+    store.reap_stale_leases = MagicMock(return_value=[])
+    store.reap_expired_leases = MagicMock(return_value=[])
     old_lease = store.claim_lease(
         task_id="wo-rebound-dispatched",
         title="Rebind dispatched lane",
@@ -927,6 +930,87 @@ def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker
         "progress_fingerprint",
     ):
         assert cleared_key not in work_order
+
+
+def test_refresh_run_does_not_rebind_completed_lane_to_active_replacement_lease(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-terminal-rebind"
+    session_path.mkdir()
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    store.reap_stale_leases = MagicMock(return_value=[])
+    store.reap_expired_leases = MagicMock(return_value=[])
+    old_lease = store.claim_lease(
+        task_id="wo-terminal",
+        title="Completed lane",
+        owner_agent="codex",
+        owner_session_id="swarm-terminal",
+        branch="codex/swarm-terminal",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-terminal",
+            "work_order_id": "wo-terminal",
+            "task_key": "run-terminal:wo-terminal",
+        },
+    )
+    store.release_lease(old_lease.lease_id)
+    replacement = store.claim_lease(
+        task_id="wo-terminal",
+        title="Completed lane",
+        owner_agent="claude",
+        owner_session_id="swarm-terminal",
+        branch="codex/swarm-terminal",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-terminal",
+            "work_order_id": "wo-terminal",
+            "task_key": "run-terminal:wo-terminal",
+        },
+    )
+    run_record = store.create_supervisor_run(
+        goal="completed lane should remain terminal",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "completed lane should remain terminal"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-terminal",
+                "title": "Completed lane",
+                "description": "Already done",
+                "status": "completed",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "lease_id": old_lease.lease_id,
+                "owner_session_id": "swarm-terminal",
+                "task_key": "run-terminal:wo-terminal",
+                "branch": "codex/swarm-terminal",
+                "worktree_path": str(session_path),
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "receipt_id": "receipt-123",
+                "commit_shas": ["abc123"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "head_sha": "abc123",
+                "worker_outcome": "completed",
+            }
+        ],
+        status="completed",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["lease_id"] == old_lease.lease_id
+    assert work_order["owner_session_id"] == "swarm-terminal"
+    assert work_order["target_agent"] == "codex"
+    assert work_order["receipt_id"] == "receipt-123"
+    assert work_order["commit_shas"] == ["abc123"]
+    assert work_order["changed_paths"] == ["aragora/swarm/supervisor.py"]
+    assert replacement.lease_id in {lease.lease_id for lease in store.list_active_leases()}
 
 
 def test_refresh_run_respects_dispatched_workers_as_active(

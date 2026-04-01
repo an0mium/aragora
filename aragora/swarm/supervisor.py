@@ -696,13 +696,15 @@ class SwarmSupervisor:
         ]
         for item in work_orders:
             self._prune_stale_conflicts(item, active_leases, live_claims)
-            replacement_lease = self._replacement_active_lease(item, active_leases)
-            if replacement_lease is not None:
-                self._apply_active_lease_binding(item, replacement_lease)
-                continue
-            if self._should_requeue_stale_work_order(item, active_leases):
-                self._reset_work_order_for_requeue(item)
-                continue
+            status = str(item.get("status", "")).strip()
+            if status in {"leased", "dispatched"}:
+                replacement_lease = self._replacement_active_lease(item, active_leases)
+                if replacement_lease is not None:
+                    self._apply_active_lease_binding(item, replacement_lease)
+                    continue
+                if self._should_requeue_stale_work_order(item, active_leases):
+                    self._reset_work_order_for_requeue(item)
+                    continue
             if self._should_requeue_conflict_only_needs_human(item):
                 self._reset_work_order_for_requeue(item)
 
