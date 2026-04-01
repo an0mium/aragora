@@ -640,15 +640,16 @@ class SwarmSupervisor:
                 continue
             if str(item.get("work_order_id", "")).strip() in finished_by_id:
                 continue
-            pid = item.get("pid")
+            pid = WorkerLauncher._normalized_pid(item.get("pid"))
             if pid is None:
-                continue
-            # Check if PID is still alive
-            try:
-                os.kill(int(pid), 0)
-                continue  # Still running
-            except (OSError, ValueError):
-                pass  # Dead — check for commits
+                pass
+            else:
+                # Check if PID is still alive
+                try:
+                    os.kill(pid, 0)
+                    continue  # Still running
+                except OSError:
+                    pass  # Dead — check for commits
 
             worktree_path = str(item.get("worktree_path", "")).strip()
             initial_head = str(item.get("initial_head", "")).strip()
