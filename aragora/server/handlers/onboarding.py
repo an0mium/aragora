@@ -1306,16 +1306,10 @@ async def handle_quick_start(
 
 
 @require_permission("analytics:read")
-async def handle_analytics(
-    data: dict[str, Any],
-    user_id: str = "default",
+def get_onboarding_analytics_snapshot(
     organization_id: str | None = None,
-) -> HandlerResult:
-    """
-    Get onboarding funnel analytics.
-
-    GET /api/v1/onboarding/analytics
-    """
+) -> dict[str, Any]:
+    """Return onboarding funnel analytics for direct reuse by other handlers."""
     try:
         with _analytics_lock:
             # Filter events for this organization if specified
@@ -1462,31 +1456,45 @@ async def handle_analytics(
         earliest = min(parsed_times).isoformat() if parsed_times else None
         latest = max(parsed_times).isoformat() if parsed_times else None
 
-        return success_response(
-            {
-                "funnel": {
-                    "started": started,
-                    "first_debate": first_debate,
-                    "completed": completed,
-                    "completion_rate": (completed / started * 100) if started > 0 else 0,
-                },
-                "step_completion": step_counts,
-                "step_drop_off": step_drop_off,
-                "timing": {
-                    "time_to_first_debate_seconds": _summarize_durations_seconds(debate_durations),
-                    "time_to_first_receipt_seconds": _summarize_durations_seconds(
-                        receipt_durations
-                    ),
-                },
-                "total_events": len(events),
-                "time_range": {
-                    "earliest": earliest,
-                    "latest": latest,
-                },
-            }
-        )
+        return {
+            "funnel": {
+                "started": started,
+                "first_debate": first_debate,
+                "first_receipt": len(first_receipt_by_flow),
+                "completed": completed,
+                "completion_rate": (completed / started * 100) if started > 0 else 0,
+            },
+            "step_completion": step_counts,
+            "step_drop_off": step_drop_off,
+            "timing": {
+                "time_to_first_debate_seconds": _summarize_durations_seconds(debate_durations),
+                "time_to_first_receipt_seconds": _summarize_durations_seconds(receipt_durations),
+            },
+            "total_events": len(events),
+            "time_range": {
+                "earliest": earliest,
+                "latest": latest,
+            },
+        }
 
-    except (KeyError, ValueError, TypeError, ZeroDivisionError):
+    except (KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
+        raise RuntimeError("Failed to compute onboarding analytics snapshot") from exc
+
+
+@require_permission("analytics:read")
+async def handle_analytics(
+    data: dict[str, Any],
+    user_id: str = "default",
+    organization_id: str | None = None,
+) -> HandlerResult:
+    """
+    Get onboarding funnel analytics.
+
+    GET /api/v1/onboarding/analytics
+    """
+    try:
+        return success_response(get_onboarding_analytics_snapshot(organization_id=organization_id))
+    except RuntimeError:
         logger.exception("Failed to get analytics")
         return error_response("Failed to retrieve analytics", status=500)
 
@@ -1675,6 +1683,7 @@ __all__ = [
     "handle_quick_start",
     "handle_quick_debate",
     "handle_analytics",
+    "get_onboarding_analytics_snapshot",
     "get_onboarding_handlers",
     "OnboardingHandler",
     "OnboardingStep",

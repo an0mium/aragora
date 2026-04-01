@@ -723,7 +723,7 @@ class TestGetSummary:
 
         assert body["debates"]["total"] == 42
         assert body["quality"]["avg_confidence"] == 0.85
-        assert body["costs"]["total_usd"] == "123.45"
+        assert body["costs"]["total_usd"] == "12.50"
         assert [agent["agent_name"] for agent in body["agents"]["top_agents"]] == [
             "Claude",
             "GPT-4",

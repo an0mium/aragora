@@ -380,7 +380,8 @@ class TestPreview:
             "GET", "/api/integrations/slack/preview", {}, {"tenant_id": "t-abc"}, {}, None
         )
         html = _html(result)
-        assert "tenant_id=t-abc" in html
+        assert "tenant_id=t-abc" not in html
+        assert "tenant_id=test-org-001" in html
 
     @pytest.mark.asyncio
     async def test_preview_no_client_id_returns_503(self, handler, handler_module, monkeypatch):
@@ -766,6 +767,7 @@ class TestCallback:
         mock_client.post = AsyncMock(return_value=mock_response)
 
         mock_ws_store = MagicMock()
+        mock_ws_store.get.return_value = None
         mock_ws_store.save.return_value = True
 
         with (

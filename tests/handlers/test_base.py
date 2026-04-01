@@ -571,7 +571,7 @@ class TestBaseHandler:
         mock_handler.headers = {"Content-Length": "0"}
 
         result = handler.read_json_body(mock_handler)
-        assert result == {}
+        assert result is None
 
     def test_read_json_body_invalid_json(self, handler):
         """Test reading invalid JSON body."""

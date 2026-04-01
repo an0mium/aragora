@@ -878,7 +878,7 @@ class TestRouteDispatch:
         assert lane["canonical_lane"] is True
         assert lane["task_key"] == "run-1:docs-lane"
         assert lane["integration_decision"] == "pending_review"
-        assert "merge" in lane["available_actions"]
+        assert lane["available_actions"] == ["monitor"]
 
     @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
     @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")

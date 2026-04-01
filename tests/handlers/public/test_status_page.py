@@ -256,6 +256,7 @@ class TestRoutes:
             "/api/v1/status/components",
             "/api/v1/status/incidents",
             "/api/v1/status/uptime",
+            "/api/v1/public/surfaces",
         ]
         assert StatusPageHandler.ROUTES == expected
 
