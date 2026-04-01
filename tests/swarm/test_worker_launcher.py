@@ -128,6 +128,30 @@ class TestBuildPrompt:
 
         assert "Codex lane discipline:" not in prompt
 
+    def test_claude_prompt_includes_commit_discipline(self):
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "target_agent": "claude",
+                "title": "Fix tests",
+            }
+        )
+
+        assert "CRITICAL" in prompt
+        assert "MUST commit" in prompt
+        assert "NEVER exit without committing" in prompt
+        assert "analysis-only" in prompt
+        assert "git commit" in prompt
+
+    def test_generic_stop_condition_warns_about_no_commit(self):
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "target_agent": "claude",
+                "title": "Fix tests",
+            }
+        )
+
+        assert "run that exits without a git commit is a FAILED run" in prompt
+
     def test_file_scope_guidance_is_hard_boundary(self):
         prompt = WorkerLauncher._build_prompt(
             {

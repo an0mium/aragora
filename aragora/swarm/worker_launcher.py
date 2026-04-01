@@ -864,6 +864,21 @@ class WorkerLauncher:
                 "  - If validation is slow or fails, the commit still preserves your deliverable "
                 "with an honest commit message."
             )
+        elif target_agent == "claude":
+            parts.append(
+                "CRITICAL — You MUST commit your work:\n"
+                "  Your work is ONLY preserved if you commit it to git. If you exit without "
+                "committing, all your changes are lost and the run is wasted.\n\n"
+                "  Follow this exact sequence:\n"
+                "  1. Write the code changes\n"
+                "  2. Run `git add <specific-files>` (NOT `git add .` or `git add -A`)\n"
+                "  3. Run `git commit -m 'fix: <descriptive message>'`\n"
+                "  4. THEN run tests if time allows\n"
+                "  5. If tests fail, commit the fix attempt anyway with an honest message\n\n"
+                "  NEVER exit without committing. Even partial work is better than no work.\n"
+                "  NEVER spend more than 2 minutes reading/exploring before writing code.\n"
+                "  NEVER do analysis-only — this lane requires a code deliverable."
+            )
 
         lease_id = str(work_order.get("lease_id", "")).strip()
         if lease_id:
@@ -883,7 +898,9 @@ class WorkerLauncher:
             "  - Push only when the lane has explicit remote-mutation approval; otherwise leave the local commit intact.\n"
             "  - If `git push` fails (e.g. no remote, permission error), that is acceptable — "
             "the harness will attempt to push for you.\n"
-            "  - Exit with a truthful final state; do not claim integration or approval work is done unless it happened in this lane."
+            "  - Exit with a truthful final state; do not claim integration or approval work is done unless it happened in this lane.\n\n"
+            "REMINDER: A run that exits without a git commit is a FAILED run, even if exit code is 0. "
+            "The harness only detects your deliverable via git commits. Always commit before exiting."
         )
 
         return "\n\n".join(parts)
