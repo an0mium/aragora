@@ -3167,7 +3167,12 @@ class DevCoordinationStore:
                         continue
                     if isinstance(limit, int) and limit > 0 and attempted >= limit:
                         break
-                    if not _work_order_should_reclassify_branch_stale_merge_gate_failure(item):
+                    if not (
+                        _work_order_should_reclassify_branch_stale_merge_gate_failure(item)
+                        or _work_order_should_reclassify_branch_stale_verification_target_missing(
+                            item, repo_root=self.repo_root
+                        )
+                    ):
                         continue
                     work_order_id = _work_order_identifier(item)
                     if not work_order_id:
@@ -3186,40 +3191,55 @@ class DevCoordinationStore:
             if not record:
                 continue
             item = _find_work_order(record, work_order_id)
-            if item is None or not _work_order_should_reclassify_branch_stale_merge_gate_failure(
-                item
+            is_missing_target = False
+            if item is None:
+                continue
+            if _work_order_should_reclassify_branch_stale_merge_gate_failure(item):
+                pass
+            elif _work_order_should_reclassify_branch_stale_verification_target_missing(
+                item, repo_root=self.repo_root
             ):
+                is_missing_target = True
+            else:
                 continue
             task_key = _task_key_for(record, item, work_order_id)
             if requested_task_keys and task_key not in requested_task_keys:
                 continue
-            commands = _mainline_verification_commands_for_work_order(item)
-            if not commands:
-                continue
-
             target_ref = _optional_text(record.get("target_branch")) or "main"
-            worktree_path, cleanup_path = self._resolve_verification_worktree(
-                {"branch": target_ref}
-            )
-            if not worktree_path and target_ref != "main":
-                target_ref = "main"
+            commands = _mainline_verification_commands_for_work_order(item)
+            verification_results: list[dict[str, Any]] = []
+            missing_paths: list[str] = []
+            if is_missing_target:
+                missing_paths = _mainline_missing_repo_paths_for_work_order(
+                    item, repo_root=self.repo_root
+                )
+                if not missing_paths:
+                    continue
+            else:
+                if not commands:
+                    continue
                 worktree_path, cleanup_path = self._resolve_verification_worktree(
                     {"branch": target_ref}
                 )
-            if not worktree_path:
-                continue
-            try:
-                verification_results = self._run_verification_commands_sync(
-                    worktree_path,
-                    commands,
-                    timeout=timeout,
-                )
-            finally:
-                self._cleanup_verification_worktree(cleanup_path)
-            if not verification_results or not all(
-                bool(entry.get("passed", False)) for entry in verification_results
-            ):
-                continue
+                if not worktree_path and target_ref != "main":
+                    target_ref = "main"
+                    worktree_path, cleanup_path = self._resolve_verification_worktree(
+                        {"branch": target_ref}
+                    )
+                if not worktree_path:
+                    continue
+                try:
+                    verification_results = self._run_verification_commands_sync(
+                        worktree_path,
+                        commands,
+                        timeout=timeout,
+                    )
+                finally:
+                    self._cleanup_verification_worktree(cleanup_path)
+                if not verification_results or not all(
+                    bool(entry.get("passed", False)) for entry in verification_results
+                ):
+                    continue
 
             conn = self._connect()
             try:
@@ -3231,12 +3251,16 @@ class DevCoordinationStore:
                     continue
                 refreshed_record = self._supervisor_run_from_row(row)
                 refreshed_item = _find_work_order(refreshed_record, work_order_id)
-                if (
-                    refreshed_item is None
-                    or not _work_order_should_reclassify_branch_stale_merge_gate_failure(
-                        refreshed_item
-                    )
+                refreshed_is_missing_target = False
+                if refreshed_item is None:
+                    continue
+                if _work_order_should_reclassify_branch_stale_merge_gate_failure(refreshed_item):
+                    pass
+                elif _work_order_should_reclassify_branch_stale_verification_target_missing(
+                    refreshed_item, repo_root=self.repo_root
                 ):
+                    refreshed_is_missing_target = True
+                else:
                     continue
                 refreshed_task_key = _task_key_for(refreshed_record, refreshed_item, work_order_id)
                 if requested_task_keys and refreshed_task_key not in requested_task_keys:
@@ -3244,12 +3268,17 @@ class DevCoordinationStore:
 
                 checked_at = _utcnow().isoformat()
                 metadata = dict(refreshed_item.get("metadata") or {})
-                metadata["mainline_verification_passed"] = True
                 metadata["mainline_verification_checked_at"] = checked_at
-                metadata["mainline_verification_commands"] = list(commands)
-                metadata["mainline_verification_results"] = [
-                    dict(entry) for entry in verification_results
-                ]
+                if refreshed_is_missing_target:
+                    metadata["mainline_verification_target_missing"] = True
+                    metadata["mainline_missing_paths"] = list(missing_paths)
+                    metadata["mainline_verification_commands"] = list(commands)
+                else:
+                    metadata["mainline_verification_passed"] = True
+                    metadata["mainline_verification_commands"] = list(commands)
+                    metadata["mainline_verification_results"] = [
+                        dict(entry) for entry in verification_results
+                    ]
                 refreshed_item["metadata"] = metadata
                 refreshed_item["status"] = "changes_requested"
                 refreshed_item["review_status"] = "changes_requested"
@@ -3258,9 +3287,15 @@ class DevCoordinationStore:
                 refreshed_item["blocking_question"] = _default_blocking_question_for_reason(
                     "branch_snapshot_stale"
                 )
-                refreshed_item["dispatch_error"] = (
-                    f"branch snapshot stale: merge-gate verification now passes on {target_ref}"
-                )
+                if refreshed_is_missing_target:
+                    refreshed_item["dispatch_error"] = (
+                        "branch snapshot stale: referenced verification targets no longer exist "
+                        f"on {target_ref}"
+                    )
+                else:
+                    refreshed_item["dispatch_error"] = (
+                        f"branch snapshot stale: merge-gate verification now passes on {target_ref}"
+                    )
                 refreshed_item["blockers"] = ["branch_snapshot_stale"]
                 refreshed_item["blocker"] = {
                     "reason": "branch_snapshot_stale",
@@ -6209,6 +6244,80 @@ def _mainline_verification_commands_for_work_order(work_order: dict[str, Any]) -
         seen.add(normalized)
         commands.append(display)
     return commands
+
+
+def _mainline_candidate_repo_paths_for_work_order(work_order: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+
+    def _append(raw: Any) -> None:
+        text = str(raw or "").strip()
+        if not text:
+            return
+        target = text.split("::", 1)[0].strip()
+        normalized = _normalize_claim(target)
+        if not normalized or any(token in normalized for token in ("*", "?", "[", "]", "{", "}")):
+            return
+        if normalized in seen:
+            return
+        seen.add(normalized)
+        paths.append(normalized)
+
+    for entry in work_order.get("file_scope", []) or []:
+        _append(entry)
+    for entry in work_order.get("changed_paths", []) or []:
+        _append(entry)
+    for command in _mainline_verification_commands_for_work_order(work_order):
+        for target in _pytest_command_targets(command):
+            _append(target)
+    return paths
+
+
+def _mainline_missing_repo_paths_for_work_order(
+    work_order: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> list[str]:
+    root = repo_root.resolve()
+    missing: list[str] = []
+    for candidate in _mainline_candidate_repo_paths_for_work_order(work_order):
+        resolved = (root / candidate).resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        if not resolved.exists():
+            missing.append(candidate)
+    return missing
+
+
+def _work_order_should_reclassify_branch_stale_verification_target_missing(
+    work_order: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> bool:
+    if not isinstance(work_order, dict):
+        return False
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return False
+    if _optional_text(work_order.get("failure_reason")).lower() != "verification_target_missing":
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    if not _work_order_has_concrete_deliverable(work_order):
+        return False
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and (
+        bool(metadata.get("mainline_verification_passed"))
+        or bool(metadata.get("mainline_verification_target_missing"))
+    ):
+        return False
+    candidate_paths = _mainline_candidate_repo_paths_for_work_order(work_order)
+    if not candidate_paths:
+        return False
+    missing_paths = _mainline_missing_repo_paths_for_work_order(work_order, repo_root=repo_root)
+    return bool(missing_paths) and len(missing_paths) == len(candidate_paths)
 
 
 def _work_order_should_reclassify_branch_stale_merge_gate_failure(
