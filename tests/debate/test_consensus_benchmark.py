@@ -193,7 +193,7 @@ SCENARIOS = [
         name="well_grounded_claim",
         claim="Our system can handle 10k RPS with sub-50ms latency",
         description="Strong evidence on both sides; PE should show high grounding",
-        prover_responses=[DECOMPOSE_RESPONSE, CHALLENGE_RESPONSE],
+        prover_responses=[DECOMPOSE_RESPONSE, CHALLENGE_RESPONSE, CHALLENGE_EMPTY],
         estimator_responses=[ESTIMATE_RESPONSE_CALIBRATED, REESTIMATE_RESPONSE],
         majority_votes=[
             MajorityVote("agent_1", True, 0.8),
@@ -249,8 +249,8 @@ class TestConsensusModeBenchmark:
     async def test_prover_estimator_produces_valid_result(self, scenario: BenchmarkScenario):
         """PE engine produces a structurally valid result with scores in range."""
         engine = ProverEstimatorEngine(
-            prover=_mock_agent(scenario.prover_responses),
-            estimator=_mock_agent(scenario.estimator_responses),
+            prover=_mock_agent(list(scenario.prover_responses)),
+            estimator=_mock_agent(list(scenario.estimator_responses)),
             max_challenge_rounds=2,
         )
         result = await engine.run(scenario.claim)
@@ -275,8 +275,8 @@ class TestConsensusModeBenchmark:
     async def test_pe_grounding_exceeds_majority_quality(self, scenario: BenchmarkScenario):
         """PE grounding score provides a richer quality signal than majority quality."""
         engine = ProverEstimatorEngine(
-            prover=_mock_agent(scenario.prover_responses),
-            estimator=_mock_agent(scenario.estimator_responses),
+            prover=_mock_agent(list(scenario.prover_responses)),
+            estimator=_mock_agent(list(scenario.estimator_responses)),
             max_challenge_rounds=2,
         )
         pe_result = await engine.run(scenario.claim)
@@ -293,8 +293,8 @@ class TestConsensusModeBenchmark:
         """PE flags obfuscation; majority consensus has no such capability."""
         obfuscation_scenario = SCENARIOS[1]  # obfuscation_present
         engine = ProverEstimatorEngine(
-            prover=_mock_agent(obfuscation_scenario.prover_responses),
-            estimator=_mock_agent(obfuscation_scenario.estimator_responses),
+            prover=_mock_agent(list(obfuscation_scenario.prover_responses)),
+            estimator=_mock_agent(list(obfuscation_scenario.estimator_responses)),
             max_challenge_rounds=2,
         )
         pe_result = await engine.run(obfuscation_scenario.claim)
@@ -312,8 +312,8 @@ class TestConsensusModeBenchmark:
     async def test_pe_provides_subclaim_decomposition(self, scenario: BenchmarkScenario):
         """PE provides granular subclaim-level analysis that majority lacks."""
         engine = ProverEstimatorEngine(
-            prover=_mock_agent(scenario.prover_responses),
-            estimator=_mock_agent(scenario.estimator_responses),
+            prover=_mock_agent(list(scenario.prover_responses)),
+            estimator=_mock_agent(list(scenario.estimator_responses)),
             max_challenge_rounds=2,
         )
         pe_result = await engine.run(scenario.claim)
