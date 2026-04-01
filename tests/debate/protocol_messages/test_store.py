@@ -1365,17 +1365,26 @@ class TestAsyncProtocolMessageStoreClass:
         store.close()
 
     async def test_cleanup_old(self):
-        # Use days=1 with a 2-day-old message to avoid the source's
-        # cutoff.replace(day=cutoff.day - days) month boundary bug.
-        # This works as long as today's date >= 2 (which is always true
-        # except on the 1st of the month).
         store = fresh_async_store()
-        now = datetime.now(timezone.utc)
-        old_ts = now - timedelta(days=2)
-        store._sync_store.record_sync(make_message(debate_id="d-aclean", ts=old_ts))
-        store._sync_store.record_sync(make_message(debate_id="d-aclean"))
-        n = await store.cleanup_old(days=1)
+        fixed_now = datetime(2026, 4, 1, 12, 0, 0, tzinfo=timezone.utc)
+        old_ts = fixed_now - timedelta(days=2)
+        recent_ts = fixed_now - timedelta(hours=12)
+        store._sync_store.record_sync(make_message(debate_id="d-aclean-old", ts=old_ts))
+        store._sync_store.record_sync(make_message(debate_id="d-aclean-recent", ts=recent_ts))
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                if tz is None:
+                    return fixed_now.replace(tzinfo=None)
+                return fixed_now.astimezone(tz)
+
+        with patch("aragora.debate.protocol_messages.store.datetime", FixedDateTime):
+            n = await store.cleanup_old(days=1)
+
         assert n == 1
+        remaining = await store.query(QueryFilters())
+        assert [message.debate_id for message in remaining] == ["d-aclean-recent"]
         store.close()
 
     def test_db_path_property(self):
