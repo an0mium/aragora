@@ -15,6 +15,13 @@ DIRECT_RE = re.compile(
 )
 
 NAMESPACE_CONTRACTS = {
+    "features": {
+        "file": "sdk/typescript/src/namespaces/features.ts",
+        "endpoints": [
+            ("get", "/api/v1/features"),
+            ("get", "/api/v1/features/{param}"),
+        ],
+    },
     "decisions": {
         "file": "sdk/typescript/src/namespaces/decisions.ts",
         "endpoints": [

@@ -607,7 +607,7 @@ class FeaturesHandler(BaseHandler):
         "/api/v1/features/discover",
         "/api/v1/features/endpoints",
         "/api/v1/features/handlers",
-        "/api/v1/features/*",
+        "/api/v1/features/{feature_id}",
         "/api/features",
         "/api/features/all",
         "/api/features/available",
@@ -615,7 +615,7 @@ class FeaturesHandler(BaseHandler):
         "/api/features/discover",
         "/api/features/endpoints",
         "/api/features/handlers",
-        "/api/features/*",
+        "/api/features/{feature_id}",
     ]
 
     # Default feature preferences (all toggleable features)

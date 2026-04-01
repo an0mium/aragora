@@ -122,6 +122,10 @@ def _disable_rate_limit(monkeypatch):
 class TestCanHandle:
     """Tests for route matching via can_handle()."""
 
+    def test_routes_inventory_includes_parameterized_feature_id(self, handler):
+        assert "/api/v1/features/{feature_id}" in handler.ROUTES
+        assert "/api/features/{feature_id}" in handler.ROUTES
+
     def test_features_root(self, handler):
         assert handler.can_handle("/api/features")
 
