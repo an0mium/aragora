@@ -178,6 +178,35 @@ def _looks_like_non_actionable_explicit_spec_work_order(
     return True
 
 
+def _looks_like_umbrella_explicit_spec_work_order(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+    siblings: list[BoundedWorkOrder],
+) -> bool:
+    normalized_title = " ".join(str(item.title or "").strip().lower().split())
+    normalized_description = " ".join(str(item.description or "").strip().lower().split())
+    normalized_goals = {
+        " ".join(str(value or "").strip().lower().split())
+        for value in (spec.refined_goal, spec.raw_goal)
+        if str(value or "").strip()
+    }
+    if not normalized_goals:
+        return False
+    if normalized_title not in normalized_goals and normalized_description not in normalized_goals:
+        return False
+    item_scope = {path.strip() for path in item.file_scope if path.strip()}
+    for sibling in siblings:
+        if sibling is item:
+            continue
+        sibling_scope = {path.strip() for path in sibling.file_scope if path.strip()}
+        if item_scope != sibling_scope:
+            continue
+        sibling_title = " ".join(str(sibling.title or "").strip().lower().split())
+        if sibling_title and sibling_title != normalized_title:
+            return True
+    return False
+
+
 def _ensure_work_order_scope(
     item: BoundedWorkOrder,
     spec: SwarmSpec,
@@ -2058,6 +2087,11 @@ class SwarmSupervisor:
             item
             for item in work_orders
             if not _looks_like_non_actionable_explicit_spec_work_order(item, spec)
+        ]
+        filtered_work_orders = [
+            item
+            for item in filtered_work_orders
+            if not _looks_like_umbrella_explicit_spec_work_order(item, spec, filtered_work_orders)
         ]
         if filtered_work_orders:
             dropped = len(work_orders) - len(filtered_work_orders)
