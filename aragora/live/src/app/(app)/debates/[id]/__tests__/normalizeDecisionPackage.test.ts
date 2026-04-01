@@ -78,6 +78,7 @@ describe('normalizeDecisionPackage', () => {
           { action: 'Monitor logs.', priority: 'medium' },
         ],
         receipt: {
+          receipt_id: 'receipt-42',
           checksum: 'abc123',
           created_at: '2026-03-25T12:34:56Z',
         },
@@ -99,6 +100,7 @@ describe('normalizeDecisionPackage', () => {
       { action: 'Monitor logs.', priority: 'medium' },
     ]);
     expect(normalized.receipt).toEqual({
+      receipt_id: 'receipt-42',
       hash: 'abc123',
       timestamp: '2026-03-25T12:34:56Z',
       signers: [],

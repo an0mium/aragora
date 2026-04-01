@@ -143,6 +143,7 @@ describe('DebateDetailClient bridge actions', () => {
             duration_seconds: 42,
             final_answer: 'Bridge it.',
             receipt: {
+              receipt_id: 'receipt-123',
               hash: 'sha256:test-receipt',
               timestamp: '2026-03-26T20:00:00Z',
               signers: ['sig-1'],
@@ -216,6 +217,15 @@ describe('DebateDetailClient bridge actions', () => {
     expect(screen.getByRole('link', { name: 'COMPARE' })).toHaveAttribute(
       'href',
       '/debates/compare?left=debate-123',
+    );
+  });
+
+  it('deep-links to the exact receipt when the package includes a receipt id', async () => {
+    render(<DebateDetailClient />);
+
+    expect(await screen.findByRole('link', { name: 'VIEW RECEIPTS' })).toHaveAttribute(
+      'href',
+      '/receipts?id=receipt-123',
     );
   });
 

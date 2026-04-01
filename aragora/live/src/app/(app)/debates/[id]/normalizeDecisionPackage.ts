@@ -33,6 +33,7 @@ export interface DecisionPackageReceiptCostSummary {
 }
 
 export interface DecisionPackageReceipt {
+  receipt_id?: string;
   hash: string;
   timestamp: string;
   signers: string[];
@@ -274,11 +275,13 @@ function normalizeReceipt(
   const obj = asObject(value);
   if (!obj) return null;
 
+  const receiptId = asString(obj.receipt_id);
   const hash = asString(obj.hash, asString(obj.checksum));
   const timestamp = asString(obj.timestamp, asString(obj.created_at, fallbackTimestamp));
   if (!hash || !timestamp) return null;
 
   return {
+    ...(receiptId ? { receipt_id: receiptId } : {}),
     hash,
     timestamp,
     signers: asStringArray(obj.signers),
