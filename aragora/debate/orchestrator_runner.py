@@ -1715,8 +1715,13 @@ async def _auto_execute_plan(
         )
         from aragora.pipeline.decision_plan import DecisionPlanFactory
         from aragora.pipeline.decision_plan.core import ApprovalMode
-        from aragora.pipeline.executor import PlanExecutor
+        from aragora.pipeline.executor import PlanExecutor, get_plan, store_plan
         from aragora.pipeline.risk_register import RiskLevel
+        from aragora.server.decision_integrity_utils import (
+            ensure_decision_plan_backbone_run,
+            execute_decision_plan_with_backbone,
+            sync_decision_plan_backbone_receipt,
+        )
 
         approval_mode_map = {
             "always": ApprovalMode.ALWAYS,
@@ -1819,11 +1824,27 @@ async def _auto_execute_plan(
             approval_mode=approval_mode_map.get(approval_mode_str, ApprovalMode.RISK_BASED),
             max_auto_risk=risk_level_map.get(max_risk_str, RiskLevel.LOW),
         )
+        plan_metadata = dict(getattr(plan, "metadata", {}) or {})
+        for key in ("backbone_entrypoint", "backbone_run_id", "source_id", "source_surface"):
+            plan_metadata.pop(key, None)
+        source_id = str(result.debate_id or getattr(plan, "debate_id", "") or plan.id)
+        plan_metadata["source_surface"] = "arena_auto_execute"
+        plan_metadata["source_id"] = source_id
+        plan.metadata = plan_metadata
+        run_id = ensure_decision_plan_backbone_run(
+            plan,
+            auth_context=getattr(arena, "auth_context", None),
+            source_surface="arena_auto_execute",
+            source_id=source_id,
+        )
+        store_plan(plan)
+        sync_decision_plan_backbone_receipt(plan, append_event=False)
 
         # Store plan reference on result metadata
         if not isinstance(result.metadata, dict):
             result.metadata = {}
         result.metadata["decision_plan_id"] = plan.id
+        result.metadata["decision_plan_run_id"] = run_id
         result.metadata["decision_plan_status"] = (
             plan.status.value if hasattr(plan.status, "value") else str(plan.status)
         )
@@ -1831,7 +1852,21 @@ async def _auto_execute_plan(
         # Execute if auto-approved or no approval needed
         if not plan.requires_human_approval:
             executor = PlanExecutor(execution_mode=execution_mode)  # type: ignore[arg-type]
-            outcome = await executor.execute(plan)
+            launch, outcome = await execute_decision_plan_with_backbone(
+                plan,
+                executor=executor,
+                auth_context=getattr(arena, "auth_context", None),
+                execution_mode=execution_mode,
+            )
+            refreshed_plan = get_plan(plan.id) or plan
+            result.metadata["decision_plan_status"] = (
+                refreshed_plan.status.value
+                if hasattr(refreshed_plan.status, "value")
+                else str(refreshed_plan.status)
+            )
+            result.metadata["decision_plan_run_id"] = launch.get("run_id") or run_id
+            result.metadata["execution_id"] = launch.get("execution_id")
+            result.metadata["correlation_id"] = launch.get("correlation_id")
             result.metadata["plan_outcome"] = {
                 "success": outcome.success,
                 "tasks_completed": outcome.tasks_completed,

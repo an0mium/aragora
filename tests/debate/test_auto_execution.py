@@ -22,7 +22,6 @@ from aragora.debate.execution_safety import ExecutionSafetyDecision
 from aragora.debate.orchestrator_runner import _auto_execute_plan
 from aragora.pipeline.decision_plan import DecisionPlanFactory
 from aragora.pipeline.decision_plan.core import ApprovalMode, PlanStatus
-from aragora.pipeline.executor import PlanExecutor
 from aragora.pipeline.risk_register import RiskLevel
 
 
@@ -142,6 +141,7 @@ def _make_arena(**overrides) -> MagicMock:
             MagicMock(model="gpt-4.1", agent_type="openai-api"),
         ],
     )
+    arena.auth_context = overrides.get("auth_context")
     return arena
 
 
@@ -156,7 +156,25 @@ def _make_mock_plan(
     plan.id = plan_id
     plan.status = MagicMock(value=status_value)
     plan.requires_human_approval = requires_approval
+    plan.metadata = {}
     return plan
+
+
+@pytest.fixture(autouse=True)
+def patch_backbone_create_helpers():
+    """Patch backbone create-time helpers so auto-execution tests stay isolated."""
+    with (
+        patch("aragora.pipeline.executor.store_plan"),
+        patch(
+            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            return_value="run-auto-1",
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+    ):
+        yield
 
 
 # ===========================================================================
@@ -179,6 +197,7 @@ class TestAutoExecutePlan:
 
             assert updated.metadata["decision_plan_id"] == "plan-abc"
             assert updated.metadata["decision_plan_status"] == "approved"
+            assert updated.metadata["decision_plan_run_id"] == "run-auto-1"
 
     @pytest.mark.asyncio
     async def test_plan_stored_in_metadata(self):
@@ -204,43 +223,67 @@ class TestAutoExecutePlan:
 
         with (
             patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
-            patch.object(PlanExecutor, "execute", new_callable=AsyncMock) as mock_exec,
+            patch(
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(),
+            ) as mock_execute,
         ):
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
 
-            mock_exec.assert_not_called()
+            mock_execute.assert_not_awaited()
             assert "plan_outcome" not in updated.metadata
 
     @pytest.mark.asyncio
     async def test_execution_runs_when_auto_approved(self):
         """Executor IS called when plan does not require human approval."""
         mock_plan = _make_mock_plan(requires_approval=False)
+        refreshed_plan = _make_mock_plan(
+            plan_id="plan-abc",
+            status_value="completed",
+            requires_approval=False,
+        )
 
         mock_outcome = MagicMock()
         mock_outcome.success = True
         mock_outcome.tasks_completed = 3
         mock_outcome.tasks_total = 3
+        launch = {
+            "run_id": "run-auto-2",
+            "execution_id": "exec-auto-2",
+            "correlation_id": "corr-auto-2",
+        }
 
         with (
             patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
+            patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
             patch(
-                "aragora.pipeline.executor.PlanExecutor",
-            ) as mock_executor_cls,
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(return_value=(launch, mock_outcome)),
+            ) as mock_execute,
+            patch("aragora.pipeline.executor.get_plan", return_value=refreshed_plan),
         ):
             mock_executor_instance = MagicMock()
-            mock_executor_instance.execute = AsyncMock(return_value=mock_outcome)
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
 
-            mock_executor_instance.execute.assert_awaited_once_with(mock_plan)
+            mock_execute.assert_awaited_once_with(
+                mock_plan,
+                executor=mock_executor_instance,
+                auth_context=None,
+                execution_mode="workflow",
+            )
             assert updated.metadata["plan_outcome"]["success"] is True
             assert updated.metadata["plan_outcome"]["tasks_completed"] == 3
             assert updated.metadata["plan_outcome"]["tasks_total"] == 3
+            assert updated.metadata["decision_plan_status"] == "completed"
+            assert updated.metadata["decision_plan_run_id"] == "run-auto-2"
+            assert updated.metadata["execution_id"] == "exec-auto-2"
+            assert updated.metadata["correlation_id"] == "corr-auto-2"
 
     @pytest.mark.asyncio
     async def test_auto_execution_emits_gate_telemetry_labels(self):
@@ -267,9 +310,12 @@ class TestAutoExecutePlan:
             patch("aragora.server.metrics.track_execution_gate_decision") as track_gate_metrics,
             patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
             patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
+            patch(
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(return_value=({"run_id": "run-auto-1"}, mock_outcome)),
+            ),
         ):
             mock_executor_instance = MagicMock()
-            mock_executor_instance.execute = AsyncMock(return_value=mock_outcome)
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena()
@@ -309,12 +355,13 @@ class TestAutoExecutePlan:
 
         with (
             patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
+            patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
             patch(
-                "aragora.pipeline.executor.PlanExecutor",
-            ) as mock_executor_cls,
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(side_effect=RuntimeError("Connection lost")),
+            ),
         ):
             mock_executor_instance = MagicMock()
-            mock_executor_instance.execute = AsyncMock(side_effect=RuntimeError("Connection lost"))
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena()
@@ -501,12 +548,13 @@ class TestExecutionModePassthrough:
 
         with (
             patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
+            patch("aragora.pipeline.executor.PlanExecutor") as mock_executor_cls,
             patch(
-                "aragora.pipeline.executor.PlanExecutor",
-            ) as mock_executor_cls,
+                "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+                new=AsyncMock(return_value=({"run_id": "run-auto-1"}, mock_outcome)),
+            ) as mock_execute,
         ):
             mock_executor_instance = MagicMock()
-            mock_executor_instance.execute = AsyncMock(return_value=mock_outcome)
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena(auto_execution_mode=mode)
@@ -514,6 +562,43 @@ class TestExecutionModePassthrough:
             await _auto_execute_plan(arena, result)
 
             mock_executor_cls.assert_called_once_with(execution_mode=mode)
+            assert mock_execute.await_args.kwargs["execution_mode"] == mode
+
+    @pytest.mark.asyncio
+    async def test_reserved_metadata_is_scrubbed_before_backbone_seed(self):
+        """Reserved backbone metadata from the debate result should be overridden."""
+        mock_plan = _make_mock_plan(requires_approval=True)
+        mock_plan.metadata = {
+            "custom": "value",
+            "source_surface": "spoofed",
+            "source_id": "spoofed-id",
+            "backbone_run_id": "run-spoofed",
+            "backbone_entrypoint": "spoofed.entrypoint",
+        }
+
+        with (
+            patch.object(DecisionPlanFactory, "from_debate_result", return_value=mock_plan),
+            patch(
+                "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+                return_value="run-auto-3",
+            ) as mock_seed,
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
+
+        assert mock_plan.metadata["custom"] == "value"
+        assert mock_plan.metadata["source_surface"] == "arena_auto_execute"
+        assert mock_plan.metadata["source_id"] == "test-debate-123"
+        assert "backbone_run_id" not in mock_plan.metadata
+        assert "backbone_entrypoint" not in mock_plan.metadata
+        mock_seed.assert_called_once_with(
+            mock_plan,
+            auth_context=None,
+            source_surface="arena_auto_execute",
+            source_id="test-debate-123",
+        )
+        assert updated.metadata["decision_plan_run_id"] == "run-auto-3"
 
 
 # ===========================================================================

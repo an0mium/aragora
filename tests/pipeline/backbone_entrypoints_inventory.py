@@ -218,9 +218,14 @@ ENTRYPOINT_INVENTORY: Final[tuple[BackboneEntrypoint, ...]] = (
         file_path="aragora/debate/orchestrator_runner.py",
         qualname="_auto_execute_plan",
         lifecycle="mixed",
-        coverage="legacy_bypass",
-        wiring_mode="direct_execute",
-        signals=("decision_plan_factory", "plan_executor_execute"),
+        coverage="green",
+        wiring_mode="manual_seed",
+        signals=(
+            "decision_plan_factory",
+            "ensure_decision_plan_backbone_run",
+            "execute_decision_plan_with_backbone",
+            "store_plan",
+        ),
     ),
     BackboneEntrypoint(
         file_path="aragora/debate/hook_handlers.py",
