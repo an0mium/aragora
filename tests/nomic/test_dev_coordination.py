@@ -2598,6 +2598,114 @@ def test_archive_duplicate_waiting_conflict_work_orders_discards_scope_less_same
     assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
+def test_archive_non_actionable_explicit_spec_work_orders_discards_validation_placeholder(
+    store: DevCoordinationStore,
+) -> None:
+    keeper = store.create_supervisor_run(
+        goal="Define the founder-facing PMF scorecard.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "pmf-scorecard",
+                "title": "Define the founder-facing PMF scorecard.",
+                "status": "waiting_conflict",
+                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+    placeholder = store.create_supervisor_run(
+        goal="## Validation\n\n- Changed files stay within the allowed scope",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "proj-001",
+                "title": "Validation Changes",
+                "description": "## Validation\n\n- Changed files stay within the allowed scope",
+                "status": "waiting_conflict",
+                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", keeper["run_id"]),
+        )
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", placeholder["run_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    archived = store.archive_non_actionable_explicit_spec_work_orders()
+    placeholder_refreshed = store.get_supervisor_run(placeholder["run_id"])
+    keeper_refreshed = store.get_supervisor_run(keeper["run_id"])
+
+    assert archived == 1
+    assert placeholder_refreshed is not None
+    assert keeper_refreshed is not None
+    assert placeholder_refreshed["work_orders"][0]["status"] == "discarded"
+    assert (
+        placeholder_refreshed["work_orders"][0]["metadata"]["archived_due_to"]
+        == "non_actionable_explicit_spec_work_order"
+    )
+    assert (
+        placeholder_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == keeper["run_id"]
+    )
+    assert keeper_refreshed["work_orders"][0]["status"] == "waiting_conflict"
+
+
+def test_archive_non_actionable_explicit_spec_work_orders_preserves_placeholder_without_real_sibling(
+    store: DevCoordinationStore,
+) -> None:
+    placeholder = store.create_supervisor_run(
+        goal="## Validation\n\n- Changed files stay within the allowed scope",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "proj-001",
+                "title": "Validation Changes",
+                "description": "## Validation\n\n- Changed files stay within the allowed scope",
+                "status": "waiting_conflict",
+                "file_scope": ["ROADMAP.md", "docs/plans/**", "docs/strategy/**"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", placeholder["run_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    archived = store.archive_non_actionable_explicit_spec_work_orders()
+    placeholder_refreshed = store.get_supervisor_run(placeholder["run_id"])
+
+    assert archived == 0
+    assert placeholder_refreshed is not None
+    assert placeholder_refreshed["work_orders"][0]["status"] == "waiting_conflict"
+
+
 def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocked_only_by_broader_waiting_conflict(
     repo: Path,
     store: DevCoordinationStore,
