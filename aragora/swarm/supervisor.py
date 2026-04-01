@@ -136,6 +136,77 @@ def _narrow_scope_to_explicit_paths(
     return item
 
 
+_NON_ACTIONABLE_EXPLICIT_SPEC_TITLES = {
+    "validation changes",
+    "acceptance criteria changes",
+    "stop conditions changes",
+    "scope changes",
+    "goal changes",
+    "context changes",
+    "source issue context changes",
+}
+
+
+def _looks_like_non_actionable_explicit_spec_work_order(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+) -> bool:
+    title = " ".join(str(item.title or "").strip().lower().split())
+    description = " ".join(str(item.description or "").strip().lower().split())
+    if title not in _NON_ACTIONABLE_EXPLICIT_SPEC_TITLES and not description.startswith("## "):
+        return False
+    if any(
+        _is_concrete_repo_path(path)
+        for path in (
+            *SwarmSpec.infer_file_scope_hints(item.title or ""),
+            *SwarmSpec.infer_file_scope_hints(item.description or ""),
+        )
+    ):
+        return False
+    expected_tests = [str(test).strip() for test in item.expected_tests if str(test).strip()]
+    if expected_tests:
+        return False
+    success_tests = item.success_criteria.get("tests")
+    if isinstance(success_tests, str) and success_tests.strip():
+        return False
+    if isinstance(success_tests, list) and any(str(test).strip() for test in success_tests):
+        return False
+    scope_key = {path.strip() for path in item.file_scope if path.strip()}
+    spec_scope = {path.strip() for path in spec.file_scope_hints if path.strip()}
+    if scope_key and spec_scope and scope_key != spec_scope:
+        return False
+    return True
+
+
+def _looks_like_umbrella_explicit_spec_work_order(
+    item: BoundedWorkOrder,
+    spec: SwarmSpec,
+    siblings: list[BoundedWorkOrder],
+) -> bool:
+    normalized_title = " ".join(str(item.title or "").strip().lower().split())
+    normalized_description = " ".join(str(item.description or "").strip().lower().split())
+    normalized_goals = {
+        " ".join(str(value or "").strip().lower().split())
+        for value in (spec.refined_goal, spec.raw_goal)
+        if str(value or "").strip()
+    }
+    if not normalized_goals:
+        return False
+    if normalized_title not in normalized_goals and normalized_description not in normalized_goals:
+        return False
+    item_scope = {path.strip() for path in item.file_scope if path.strip()}
+    for sibling in siblings:
+        if sibling is item:
+            continue
+        sibling_scope = {path.strip() for path in sibling.file_scope if path.strip()}
+        if item_scope != sibling_scope:
+            continue
+        sibling_title = " ".join(str(sibling.title or "").strip().lower().split())
+        if sibling_title and sibling_title != normalized_title:
+            return True
+    return False
+
+
 def _ensure_work_order_scope(
     item: BoundedWorkOrder,
     spec: SwarmSpec,
@@ -831,6 +902,35 @@ class SwarmSupervisor:
         ]
         if expected_tests:
             item["expected_tests"] = expected_tests
+        item["review_status"] = "pending"
+        for key in (
+            "dispatch_error",
+            "resource_error",
+            "blocking_question",
+            "failure_reason",
+            "blocker",
+            "conflicts",
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+        ):
+            item.pop(key, None)
+        item.pop("blockers", None)
         metadata = getattr(lease, "metadata", {}) or {}
         worker_pid = metadata.get("worker_pid")
         try:
@@ -1982,6 +2082,26 @@ class SwarmSupervisor:
                 "acceptance_criteria": list(spec.acceptance_criteria),
                 "constraints": list(spec.constraints),
             }
+
+        filtered_work_orders = [
+            item
+            for item in work_orders
+            if not _looks_like_non_actionable_explicit_spec_work_order(item, spec)
+        ]
+        filtered_work_orders = [
+            item
+            for item in filtered_work_orders
+            if not _looks_like_umbrella_explicit_spec_work_order(item, spec, filtered_work_orders)
+        ]
+        if filtered_work_orders:
+            dropped = len(work_orders) - len(filtered_work_orders)
+            if dropped:
+                logger.info(
+                    "Dropped %d non-actionable explicit spec work orders from %d total payloads",
+                    dropped,
+                    len(work_orders),
+                )
+            work_orders = filtered_work_orders
 
         return work_orders
 
@@ -3850,12 +3970,11 @@ class SwarmSupervisor:
         """Kill a running worker process by PID."""
         import signal
 
-        raw_pid = item.get("pid")
-        if raw_pid is None:
+        if "pid" not in item:
             return
-        try:
-            pid = int(raw_pid)
-        except (TypeError, ValueError):
+        pid = WorkerLauncher._normalized_pid(item.get("pid"))
+        if pid is None:
+            item.pop("pid", None)
             return
         try:
             import os as _os

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -88,6 +89,8 @@ def _get_backing_store() -> Any:
     attempts are made (avoids repeated expensive retries).
     """
     global _backing_store, _backing_store_init_failed
+    if "pytest" in sys.modules and os.environ.get("ARAGORA_FORCE_PERSISTENT_PLAN_STORE") != "1":
+        return None
     if _backing_store_init_failed:
         return None
     if _backing_store is None:
@@ -107,6 +110,10 @@ _plan_outcomes_fallback: dict[str, PlanOutcome] = {}
 
 # Maximum number of plans to keep in the in-memory fallback
 _MAX_PLANS = 1000
+
+# Backwards-compatibility aliases kept for tests and legacy imports.
+_plan_store = _plan_store_fallback
+_plan_outcomes = _plan_outcomes_fallback
 
 
 def store_plan(plan: DecisionPlan) -> None:

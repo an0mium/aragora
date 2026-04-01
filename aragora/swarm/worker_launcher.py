@@ -494,11 +494,7 @@ class WorkerLauncher:
         """Capture lightweight progress state for a dispatched worker."""
         worktree_path = str(work_order.get("worktree_path", "")).strip()
         initial_head = str(work_order.get("initial_head", "")).strip()
-        raw_pid = work_order.get("pid")
-        try:
-            pid = int(raw_pid) if raw_pid is not None else None
-        except (TypeError, ValueError):
-            pid = None
+        pid = self._normalized_pid(work_order.get("pid"))
 
         snapshot: dict[str, Any] = {
             "pid_alive": self._is_pid_running(pid) if pid is not None else False,
@@ -694,6 +690,11 @@ class WorkerLauncher:
                 Capability.CODE_EXEC,
                 "managed session wrapper is required for code execution lanes",
             )
+
+        # When the caller (e.g. boss loop) has already authorized the run,
+        # skip the per-launch approval flow entirely.
+        if not self.config.require_explicit_approval:
+            return "", ""
 
         target_resource = str(Path(worktree_path).resolve())
         payload = {
@@ -2119,12 +2120,7 @@ class WorkerLauncher:
         finally:
             cleanup_pid = worker.pid
             if cleanup_pid is None:
-                raw_pid = session_meta.get("pid")
-                if raw_pid is not None:
-                    try:
-                        cleanup_pid = int(raw_pid)
-                    except (TypeError, ValueError):
-                        pass
+                cleanup_pid = self._normalized_pid(session_meta.get("pid"))
             if cleanup_pid is not None:
                 self._wait_for_pid_exit_sync(cleanup_pid)
             self._cleanup_session_artifacts(worker.worktree_path)

@@ -348,9 +348,7 @@ case "$MODE" in
       echo
       echo "=== ${profile} ==="
       if [[ "$FORCE_LOGIN" -ne 1 ]] && already_logged_in "$profile"; then
-        local skip_email
-        skip_email="$(get_profile_email "$profile")"
-        echo "Already logged in and verified; skipping. ($skip_email)"
+        echo "Already logged in and verified; skipping. ($(get_profile_email "$profile"))"
         continue
       fi
       login_profile_manual_code "$profile"
