@@ -1863,7 +1863,7 @@ class IdeaToExecutionPipeline:
                 try:
                     from aragora.explainability.builder import ExplanationBuilder
 
-                    explanation = ExplanationBuilder().build(debate_result)
+                    explanation = await ExplanationBuilder().build(debate_result)
                     explanation_summary = {
                         "conclusion": getattr(explanation, "conclusion", ""),
                         "confidence": getattr(explanation, "confidence", 0.0),

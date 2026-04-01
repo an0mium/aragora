@@ -13,6 +13,7 @@ Also covers: event emission, error recovery, receipt generation, dry-run mode.
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -165,6 +166,53 @@ class TestRunIdeation:
             sr = await pipeline._run_ideation("pipe-1", "Test debate", config)
 
         assert sr.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_debate_path_awaits_explanation_builder(self, pipeline, config):
+        """Await the async explainability builder and surface its summary."""
+        mock_result = MagicMock()
+        mock_result.argument_graph = {
+            "nodes": [{"id": "n1", "label": "proposal", "node_type": "proposal"}]
+        }
+        mock_arena = MagicMock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+        explanation = SimpleNamespace(
+            conclusion="Choose OAuth2",
+            confidence=0.91,
+            evidence=["doc-1", "doc-2"],
+            vote_pivots=["critic-1"],
+            counterfactuals=["Use password auth"],
+        )
+        build_mock = AsyncMock(return_value=explanation)
+
+        with (
+            patch(
+                "aragora.pipeline.idea_to_execution.Arena",
+                return_value=mock_arena,
+                create=True,
+            ) as mock_cls,
+            patch("aragora.explainability.builder.ExplanationBuilder.build", build_mock),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.debate.orchestrator": MagicMock(Arena=mock_cls),
+                    "aragora.debate.models": MagicMock(
+                        DebateProtocol=MagicMock(),
+                        Environment=MagicMock(),
+                    ),
+                },
+            ),
+        ):
+            sr = await pipeline._run_ideation("pipe-1", "Test debate", config)
+
+        build_mock.assert_awaited_once_with(mock_result)
+        assert sr.output["explanation"] == {
+            "conclusion": "Choose OAuth2",
+            "confidence": 0.91,
+            "evidence_count": 2,
+            "vote_pivots": ["critic-1"],
+            "counterfactuals": ["Use password auth"],
+        }
 
 
 # =============================================================================
