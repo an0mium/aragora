@@ -369,13 +369,12 @@ class TestHandleArchiveMessage:
     """Tests for handle_archive_message."""
 
     @pytest.mark.asyncio
-    async def test_archive_success(self, mock_service):
+    async def test_archive_requires_receipt(self, mock_service):
         data = {"provider": "outlook"}
         result = await handle_archive_message(data=data, message_id="msg-1", user_id="u1")
-        assert _status(result) == 200
-        body = _body(result)
-        assert body["data"]["action"] == "archive"
-        assert body["data"]["message_id"] == "msg-1"
+        assert _status(result) == 428
+        assert "decision receipt" in _body(result).get("error", "").lower()
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_archive_missing_message_id(self):
@@ -383,23 +382,26 @@ class TestHandleArchiveMessage:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_archive_message_id_from_body(self, mock_service):
+    async def test_archive_message_id_from_body_still_requires_receipt(self, mock_service):
         data = {"message_id": "msg-body-1"}
         result = await handle_archive_message(data=data, message_id="")
-        assert _status(result) == 200
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_archive_service_failure(self, mock_service):
+    async def test_archive_does_not_fall_through_on_service_failure(self, mock_service):
         mock_service.archive.return_value = MockActionResult(success=False, error="fail")
         data = {"provider": "gmail"}
         result = await handle_archive_message(data=data, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_archive_exception(self, mock_service):
+    async def test_archive_does_not_fall_through_on_service_exception(self, mock_service):
         mock_service.archive.side_effect = OSError("disk")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_archive_can_create_trusted_receipt(self, wedge_service):
@@ -695,11 +697,11 @@ class TestHandleStarMessage:
     """Tests for handle_star_message."""
 
     @pytest.mark.asyncio
-    async def test_star_success(self, mock_service):
+    async def test_star_requires_receipt(self, mock_service):
         result = await handle_star_message(data={}, message_id="msg-1")
-        assert _status(result) == 200
-        body = _body(result)
-        assert body["data"]["action"] == "star"
+        assert _status(result) == 428
+        assert "decision receipt" in _body(result).get("error", "").lower()
+        mock_service.star.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_star_missing_message_id(self):
@@ -707,16 +709,18 @@ class TestHandleStarMessage:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_star_service_failure(self, mock_service):
+    async def test_star_does_not_fall_through_on_service_failure(self, mock_service):
         mock_service.star.return_value = MockActionResult(success=False, error="fail")
         result = await handle_star_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.star.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_star_exception(self, mock_service):
+    async def test_star_does_not_fall_through_on_service_exception(self, mock_service):
         mock_service.star.side_effect = KeyError("bad")
         result = await handle_star_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.star.assert_not_awaited()
 
 
 # ===========================================================================
@@ -805,13 +809,12 @@ class TestHandleAddLabel:
     """Tests for handle_add_label."""
 
     @pytest.mark.asyncio
-    async def test_add_label_success(self, mock_service):
+    async def test_add_label_requires_receipt(self, mock_service):
         data = {"labels": ["urgent", "flagged"]}
         result = await handle_add_label(data=data, message_id="msg-1")
-        assert _status(result) == 200
-        body = _body(result)
-        assert body["data"]["action"] == "add_labels"
-        assert body["data"]["labels"] == ["urgent", "flagged"]
+        assert _status(result) == 428
+        assert "decision receipt" in _body(result).get("error", "").lower()
+        mock_service._get_connector.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_add_label_missing_message_id(self):
@@ -820,23 +823,25 @@ class TestHandleAddLabel:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_add_label_missing_labels(self):
+    async def test_add_label_missing_labels_requires_receipt_first(self):
         result = await handle_add_label(data={}, message_id="msg-1")
-        assert _status(result) == 400
-        assert "labels" in _body(result).get("error", "").lower()
+        assert _status(result) == 428
+        assert "decision receipt" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_add_label_empty_labels(self):
+    async def test_add_label_empty_labels_requires_receipt_first(self):
         result = await handle_add_label(data={"labels": []}, message_id="msg-1")
-        assert _status(result) == 400
+        assert _status(result) == 428
 
     @pytest.mark.asyncio
-    async def test_add_label_connector_exception(self, mock_service):
+    async def test_add_label_does_not_fall_through_on_connector_exception(self, mock_service):
         connector = await mock_service._get_connector("gmail", "u1")
         connector.modify_message.side_effect = ValueError("bad")
+        mock_service._get_connector.reset_mock()
         data = {"labels": ["urgent"]}
         result = await handle_add_label(data=data, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service._get_connector.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_add_label_receipt_label_mismatch_returns_400(self, wedge_service):
@@ -1313,13 +1318,18 @@ class TestDefaultProvider:
     """Verify handlers default to gmail when provider is not specified."""
 
     @pytest.mark.asyncio
-    async def test_archive_defaults_to_gmail(self, mock_service):
-        await handle_archive_message(data={}, message_id="msg-1")
-        call_kwargs = mock_service.archive.call_args
-        assert (
-            call_kwargs.kwargs.get("provider") == "gmail"
-            or call_kwargs[1].get("provider") == "gmail"
-        )
+    async def test_archive_create_receipt_defaults_to_gmail(self, wedge_service):
+        service, _store, _connector = wedge_service
+        with patch(
+            "aragora.server.handlers.inbox.email_actions.get_inbox_trust_wedge_service_instance",
+            return_value=service,
+        ):
+            result = await handle_archive_message(
+                data={"create_receipt": True},
+                message_id="msg-1",
+            )
+        assert _status(result) == 200
+        assert _body(result)["data"]["intent"]["provider"] == "gmail"
 
     @pytest.mark.asyncio
     async def test_trash_defaults_to_gmail(self, mock_service):
@@ -1359,13 +1369,19 @@ class TestUserIdPropagation:
         )
 
     @pytest.mark.asyncio
-    async def test_archive_propagates_user_id(self, mock_service):
-        await handle_archive_message(data={}, message_id="msg-1", user_id="user-42")
-        call_kwargs = mock_service.archive.call_args
-        assert (
-            call_kwargs.kwargs.get("user_id") == "user-42"
-            or call_kwargs[1].get("user_id") == "user-42"
-        )
+    async def test_archive_create_receipt_propagates_user_id(self, wedge_service):
+        service, _store, _connector = wedge_service
+        with patch(
+            "aragora.server.handlers.inbox.email_actions.get_inbox_trust_wedge_service_instance",
+            return_value=service,
+        ):
+            result = await handle_archive_message(
+                data={"create_receipt": True},
+                message_id="msg-1",
+                user_id="user-42",
+            )
+        assert _status(result) == 200
+        assert _body(result)["data"]["intent"]["user_id"] == "user-42"
 
     @pytest.mark.asyncio
     async def test_batch_archive_propagates_user_id(self, mock_service):
@@ -1416,43 +1432,50 @@ class TestExceptionCoverage:
     async def test_value_error(self, mock_service):
         mock_service.archive.side_effect = ValueError("bad value")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_key_error(self, mock_service):
         mock_service.archive.side_effect = KeyError("missing")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_type_error(self, mock_service):
         mock_service.archive.side_effect = TypeError("wrong type")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_attribute_error(self, mock_service):
         mock_service.archive.side_effect = AttributeError("no attr")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_os_error(self, mock_service):
         mock_service.archive.side_effect = OSError("disk full")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_connection_error(self, mock_service):
         mock_service.archive.side_effect = ConnectionError("refused")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_runtime_error(self, mock_service):
         mock_service.archive.side_effect = RuntimeError("unexpected")
         result = await handle_archive_message(data={}, message_id="msg-1")
-        assert _status(result) == 500
+        assert _status(result) == 428
+        mock_service.archive.assert_not_awaited()
 
 
 # ===========================================================================
