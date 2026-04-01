@@ -1088,6 +1088,10 @@ class DecisionReceipt:
         large_roster_runtime = metadata.get("large_roster_runtime")
         if isinstance(large_roster_runtime, dict):
             config_used["large_roster_runtime"] = large_roster_runtime
+        explainability: dict[str, Any] | None = None
+        live_explainability = metadata.get("live_explainability")
+        if isinstance(live_explainability, dict):
+            explainability = {"live_explainability": live_explainability}
 
         # Determine verdict from consensus
         if result.consensus_reached and result.confidence >= 0.7:
@@ -1142,6 +1146,7 @@ class DecisionReceipt:
             consensus_proof=consensus,
             provenance_chain=provenance,
             agent_responses=agent_responses,
+            explainability=explainability,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
             config_used=config_used,
@@ -1724,6 +1729,7 @@ class DecisionReceipt:
             cost_summary=data.get("cost_summary"),
             settlement_metadata=data.get("settlement_metadata"),
             settlement_status=data.get("settlement_status"),
+            explainability=data.get("explainability"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),
