@@ -1918,9 +1918,6 @@ class DevCoordinationStore:
 
             grouped_waiting_by_goal: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}
             for record in records:
-                goal_key = _canonical_goal_key(record.get("goal"))
-                if not goal_key:
-                    continue
                 for item in record["work_orders"]:
                     if not isinstance(item, dict):
                         continue
@@ -1931,7 +1928,10 @@ class DevCoordinationStore:
                         lease_status=lease_status_by_id.get(_optional_text(item.get("lease_id"))),
                     ):
                         continue
-                    grouped_waiting_by_goal.setdefault(goal_key, []).append((record, item))
+                    group_key = _superseded_waiting_conflict_group_key(item, run=record)
+                    if not group_key:
+                        continue
+                    grouped_waiting_by_goal.setdefault(group_key, []).append((record, item))
 
             changed_run_ids: set[str] = set()
             for siblings in grouped_waiting_by_goal.values():
@@ -6372,6 +6372,22 @@ def _duplicate_waiting_conflict_group_key(
     if not goal_key:
         return None
     return ("goal", goal_key, scope_key)
+
+
+def _superseded_waiting_conflict_group_key(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> str | None:
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict):
+        tranche_lane_id = _optional_text(metadata.get("tranche_lane_id"))
+        if tranche_lane_id:
+            return f"lane:{tranche_lane_id}"
+    goal_key = _canonical_goal_key(run.get("goal"))
+    if not goal_key:
+        return None
+    return f"goal:{goal_key}"
 
 
 def _duplicate_work_order_leasing_failed_priority(
