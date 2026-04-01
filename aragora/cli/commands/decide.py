@@ -13,7 +13,33 @@ import logging
 import sys
 from typing import Any, Literal, cast
 
+from aragora.server.decision_integrity_utils import execute_decision_plan_with_backbone
+
 logger = logging.getLogger(__name__)
+
+
+def _seed_cli_backbone_run(
+    plan: Any,
+    *,
+    source_surface: str,
+    source_id: str,
+) -> str:
+    """Seed a RunLedger for CLI-created plans and mirror receipt state."""
+    from aragora.pipeline.executor import store_plan
+    from aragora.server.decision_integrity_utils import (
+        ensure_decision_plan_backbone_run,
+        sync_decision_plan_backbone_receipt,
+    )
+
+    run_id = ensure_decision_plan_backbone_run(
+        plan,
+        auth_context=None,
+        source_surface=source_surface,
+        source_id=source_id,
+    )
+    store_plan(plan)
+    sync_decision_plan_backbone_receipt(plan, append_event=False)
+    return run_id
 
 
 async def run_decide(
@@ -54,7 +80,7 @@ async def run_decide(
         ApprovalMode,
         DecisionPlanFactory,
     )
-    from aragora.pipeline.executor import PlanExecutor, store_plan
+    from aragora.pipeline.executor import PlanExecutor
 
     result: dict[str, Any] = {}
 
@@ -145,8 +171,13 @@ async def run_decide(
             budget_limit_usd=budget_limit,
             approval_mode=approval_mode,
         )
-        store_plan(plan)
+        run_id = _seed_cli_backbone_run(
+            plan,
+            source_surface="cli_decide_spec",
+            source_id=str(spec_path),
+        )
         result["plan"] = plan
+        result["run_id"] = run_id
         result["spec_file"] = str(spec_path)
 
         if verbose:
@@ -182,12 +213,19 @@ async def run_decide(
             approval_mode=approval_mode,
             implementation_profile=implementation_profile,
         )
-        store_plan(plan)
+        run_id = _seed_cli_backbone_run(
+            plan,
+            source_surface="cli_decide",
+            source_id=str(getattr(debate_result, "debate_id", "") or task),
+        )
         result["plan"] = plan
+        result["run_id"] = run_id
 
     if verbose:
         print(f"[decide] Plan created: {plan.id[:12]}...")
         print(f"[decide] Plan status: {plan.status.value}")
+        if result.get("run_id"):
+            print(f"[decide] Run: {result['run_id']}")
         if plan.risk_register:
             print(f"[decide] Risk summary: {plan.risk_register.summary}")
 
@@ -214,12 +252,22 @@ async def run_decide(
     executor = PlanExecutor(execution_mode=_mode)
 
     try:
-        outcome = await executor.execute(plan, execution_mode=_mode)
+        launch, outcome = await execute_decision_plan_with_backbone(
+            plan,
+            executor=executor,
+            auth_context=None,
+            execution_mode=_mode,
+        )
         result["outcome"] = outcome
+        result["run_id"] = launch.get("run_id") or result.get("run_id")
+        result["execution_id"] = launch.get("execution_id")
+        result["correlation_id"] = launch.get("correlation_id")
 
         if verbose:
             print(f"[decide] Execution complete. Success: {outcome.success}")
             print(f"[decide] Tasks: {outcome.tasks_completed}/{outcome.tasks_total}")
+            if result.get("execution_id"):
+                print(f"[decide] Execution: {result['execution_id']}")
             if outcome.receipt_id:
                 print(f"[decide] Receipt: {outcome.receipt_id[:12]}...")
             if outcome.lessons:
@@ -787,12 +835,23 @@ def cmd_plans_execute(args: argparse.Namespace) -> None:
     print(f"Executing plan {plan.id[:12]}...")
 
     try:
-        outcome = asyncio.run(executor.execute(plan, execution_mode=execution_mode))
+        launch, outcome = asyncio.run(
+            execute_decision_plan_with_backbone(
+                plan,
+                executor=executor,
+                auth_context=None,
+                execution_mode=execution_mode,
+            )
+        )
         print()
         print("Execution complete:")
         print(f"  Success: {outcome.success}")
         print(f"  Tasks: {outcome.tasks_completed}/{outcome.tasks_total}")
         print(f"  Duration: {outcome.duration_seconds:.1f}s")
+        if launch.get("run_id"):
+            print(f"  Run: {launch['run_id']}")
+        if launch.get("execution_id"):
+            print(f"  Execution: {launch['execution_id']}")
         if outcome.receipt_id:
             print(f"  Receipt: {outcome.receipt_id}")
         if outcome.error:

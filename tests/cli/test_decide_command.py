@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 def _make_args(**overrides):
@@ -94,3 +97,154 @@ def test_cmd_decide_normalizes_execution_mode_alias() -> None:
     kwargs = mock_run_decide.call_args.kwargs
     assert kwargs["execution_mode"] == "workflow"
     assert kwargs["implementation_profile"]["execution_mode"] == "workflow"
+
+
+@pytest.mark.asyncio
+async def test_run_decide_seeds_backbone_run_for_spec_dry_run(tmp_path) -> None:
+    """Spec-driven dry runs should still seed a backbone run."""
+    from aragora.cli.commands.decide import run_decide
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"title":"Spec"}')
+
+    plan = MagicMock()
+    plan.id = "plan-cli-1"
+    plan.status = SimpleNamespace(value="approved")
+    plan.risk_register = None
+    plan.requires_human_approval = False
+
+    with (
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_specification",
+            return_value=plan,
+        ),
+        patch(
+            "aragora.cli.commands.decide._seed_cli_backbone_run",
+            return_value="run-cli-1",
+        ) as mock_seed,
+    ):
+        result = await run_decide(
+            task="Ship the feature",
+            agents_str="claude,gemini",
+            dry_run=True,
+            spec_file=str(spec_path),
+        )
+
+    assert result["plan"] is plan
+    assert result["run_id"] == "run-cli-1"
+    assert result["dry_run"] is True
+    mock_seed.assert_called_once_with(
+        plan,
+        source_surface="cli_decide_spec",
+        source_id=str(spec_path),
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_decide_executes_via_backbone_helper(tmp_path) -> None:
+    """run_decide should execute plans through the backbone helper and surface IDs."""
+    from aragora.cli.commands.decide import run_decide
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"title":"Spec"}')
+
+    plan = MagicMock()
+    plan.id = "plan-cli-2"
+    plan.status = SimpleNamespace(value="approved")
+    plan.risk_register = None
+    plan.requires_human_approval = False
+
+    outcome = MagicMock()
+    outcome.success = True
+    outcome.tasks_completed = 2
+    outcome.tasks_total = 2
+    outcome.receipt_id = "receipt-1"
+    outcome.lessons = []
+    launch = {
+        "run_id": "run-cli-2",
+        "execution_id": "exec-cli-2",
+        "correlation_id": "corr-cli-2",
+    }
+    executor = MagicMock()
+
+    with (
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_specification",
+            return_value=plan,
+        ),
+        patch(
+            "aragora.cli.commands.decide._seed_cli_backbone_run",
+            return_value="run-cli-2",
+        ),
+        patch("aragora.pipeline.executor.PlanExecutor", return_value=executor),
+        patch(
+            "aragora.cli.commands.decide.execute_decision_plan_with_backbone",
+            new=AsyncMock(return_value=(launch, outcome)),
+        ) as mock_execute,
+    ):
+        result = await run_decide(
+            task="Ship the feature",
+            agents_str="claude,gemini",
+            dry_run=False,
+            spec_file=str(spec_path),
+            execution_mode="hybrid",
+        )
+
+    assert result["plan"] is plan
+    assert result["outcome"] is outcome
+    assert result["run_id"] == "run-cli-2"
+    assert result["execution_id"] == "exec-cli-2"
+    assert result["correlation_id"] == "corr-cli-2"
+    mock_execute.assert_awaited_once_with(
+        plan,
+        executor=executor,
+        auth_context=None,
+        execution_mode="hybrid",
+    )
+
+
+def test_cmd_plans_execute_routes_through_backbone_helper() -> None:
+    """plans execute should use the backbone helper rather than direct executor execution."""
+    from aragora.cli.commands import decide as decide_cmd
+
+    args = argparse.Namespace(
+        plan_id="plan-cli-3",
+        execution_mode=None,
+        computer_use=False,
+        hybrid=True,
+    )
+    plan = MagicMock()
+    plan.id = "plan-cli-3"
+    outcome = MagicMock()
+    outcome.success = True
+    outcome.tasks_completed = 3
+    outcome.tasks_total = 3
+    outcome.duration_seconds = 1.5
+    outcome.receipt_id = None
+    outcome.error = None
+    launch = {
+        "run_id": "run-cli-3",
+        "execution_id": "exec-cli-3",
+        "correlation_id": "corr-cli-3",
+    }
+    executor = MagicMock()
+
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=plan),
+        patch("aragora.pipeline.executor.PlanExecutor", return_value=executor),
+        patch.object(
+            decide_cmd,
+            "execute_decision_plan_with_backbone",
+            return_value="coro",
+        ) as mock_execute,
+        patch.object(decide_cmd.asyncio, "run", return_value=(launch, outcome)),
+        patch("builtins.print"),
+    ):
+        decide_cmd.cmd_plans_execute(args)
+
+    mock_execute.assert_called_once_with(
+        plan,
+        executor=executor,
+        auth_context=None,
+        execution_mode="hybrid",
+    )

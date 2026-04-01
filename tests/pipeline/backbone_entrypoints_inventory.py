@@ -202,17 +202,17 @@ ENTRYPOINT_INVENTORY: Final[tuple[BackboneEntrypoint, ...]] = (
         file_path="aragora/cli/commands/decide.py",
         qualname="run_decide",
         lifecycle="mixed",
-        coverage="legacy_bypass",
-        wiring_mode="direct_execute",
-        signals=("decision_plan_factory", "plan_executor_execute", "store_plan"),
+        coverage="green",
+        wiring_mode="canonical_queue",
+        signals=("decision_plan_factory", "execute_decision_plan_with_backbone"),
     ),
     BackboneEntrypoint(
         file_path="aragora/cli/commands/decide.py",
         qualname="cmd_plans_execute",
         lifecycle="execute",
-        coverage="legacy_bypass",
-        wiring_mode="direct_execute",
-        signals=("plan_executor_execute",),
+        coverage="green",
+        wiring_mode="canonical_queue",
+        signals=("execute_decision_plan_with_backbone",),
     ),
     BackboneEntrypoint(
         file_path="aragora/debate/orchestrator_runner.py",
@@ -252,6 +252,9 @@ INTERNAL_BACKBONE_HELPERS: Final[dict[str, str]] = {
     ),
     "aragora/pipeline/unified_orchestrator.py::UnifiedOrchestrator._create_backbone_run": (
         "internal orchestrator run-seeding helper"
+    ),
+    "aragora/cli/commands/decide.py::_seed_cli_backbone_run": (
+        "internal CLI helper for run-ledger seeding and receipt sync"
     ),
 }
 
