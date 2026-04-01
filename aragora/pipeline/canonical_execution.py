@@ -13,6 +13,14 @@ from typing import Any
 
 from aragora.core_types import DebateResult
 from aragora.implement.types import ImplementPlan, ImplementTask
+from aragora.pipeline.backbone_contracts import (
+    BackboneStage,
+    IntakeBundle,
+    RunLedger,
+    SpecBundle,
+    build_goal_refs_from_implement_plan,
+)
+from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlanFactory
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 
@@ -185,6 +193,176 @@ def _build_design_hash(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _backbone_entrypoint(plan: Any) -> str:
+    metadata = getattr(plan, "metadata", None)
+    source_surface = (
+        str(metadata.get("source_surface", "")).strip() if isinstance(metadata, dict) else ""
+    )
+    return f"canonical_execution.{source_surface or 'queue_plan_execution'}"
+
+
+def _build_backbone_intake(plan: Any, *, auth_context: Any | None) -> IntakeBundle:
+    metadata = getattr(plan, "metadata", None)
+    source_surface = (
+        str(metadata.get("source_surface", "")).strip() if isinstance(metadata, dict) else ""
+    )
+    source_id = str(metadata.get("source_id", "")).strip() if isinstance(metadata, dict) else ""
+    taint_flags = (
+        [str(flag).strip() for flag in metadata.get("taint_flags", []) if str(flag).strip()]
+        if isinstance(metadata, dict) and isinstance(metadata.get("taint_flags"), list | tuple)
+        else []
+    )
+    context_refs: list[dict[str, Any]] = []
+    for kind in ("pipeline_id", "canvas_id"):
+        if isinstance(metadata, dict):
+            resource_id = str(metadata.get(kind, "")).strip()
+            if resource_id:
+                context_refs.append({"kind": kind.removesuffix("_id"), "id": resource_id})
+    if source_id:
+        context_refs.append({"kind": "source", "id": source_id})
+    scheduled_by = str(getattr(auth_context, "user_id", "") or "").strip()
+    trust_tiers = ["authenticated-user"] if scheduled_by else ["service-authored"]
+    origin_metadata: dict[str, Any] = {
+        "debate_id": str(getattr(plan, "debate_id", "") or "").strip(),
+        "source_surface": source_surface or "queue_plan_execution",
+    }
+    if source_id:
+        origin_metadata["source_id"] = source_id
+    if scheduled_by:
+        origin_metadata["scheduled_by"] = scheduled_by
+    return IntakeBundle(
+        source_kind=source_surface or "canonical_execution",
+        raw_intent=str(getattr(plan, "task", "") or "").strip(),
+        context_refs=context_refs,
+        trust_tiers=trust_tiers,
+        origin_metadata=origin_metadata,
+        taint_flags=taint_flags,
+    )
+
+
+def _extract_spec_bundle(plan: Any) -> SpecBundle | None:
+    metadata = getattr(plan, "metadata", None)
+    if not isinstance(metadata, dict):
+        return None
+    spec_payload = metadata.get("spec_bundle")
+    if not isinstance(spec_payload, dict):
+        return None
+    payload = dict(spec_payload)
+    payload.pop("missing_required_fields", None)
+    payload.pop("is_execution_grade", None)
+    try:
+        return SpecBundle(**payload)
+    except TypeError:
+        logger.debug("Ignoring malformed spec bundle on plan %s", getattr(plan, "id", ""))
+        return None
+
+
+def _ensure_backbone_run(
+    plan: Any,
+    *,
+    auth_context: Any | None,
+    execution_mode: str,
+    runtime: BackboneRuntime,
+) -> str:
+    metadata = getattr(plan, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+        setattr(plan, "metadata", metadata)
+
+    run_id = (
+        str(metadata.get("backbone_run_id", "") or "").strip() or f"run-{uuid.uuid4().hex[:12]}"
+    )
+    entrypoint = _backbone_entrypoint(plan)
+    BackboneRuntime.ensure_plan_metadata(plan, run_id, entrypoint)
+
+    existing_run = runtime.get_run(run_id)
+    goal_refs = build_goal_refs_from_implement_plan(getattr(plan, "implement_plan", None))
+    source_surface = str(metadata.get("source_surface", "") or "").strip()
+    source_id = str(metadata.get("source_id", "") or "").strip()
+    scheduled_by = str(getattr(auth_context, "user_id", "") or "").strip()
+    run_metadata: dict[str, Any] = {
+        "execution_mode": execution_mode,
+        "source_surface": source_surface or "queue_plan_execution",
+    }
+    if source_id:
+        run_metadata["source_id"] = source_id
+    if scheduled_by:
+        run_metadata["scheduled_by"] = scheduled_by
+    for key in ("pipeline_id", "canvas_id"):
+        value = str(metadata.get(key, "") or "").strip()
+        if value:
+            run_metadata[key] = value
+
+    if existing_run is None:
+        intake_bundle = _build_backbone_intake(plan, auth_context=auth_context)
+        spec_bundle = _extract_spec_bundle(plan)
+        run = RunLedger(
+            run_id=run_id,
+            entrypoint=entrypoint,
+            status="plan_ready",
+            intake_bundle=intake_bundle,
+            spec_bundle=spec_bundle,
+            goal_refs=goal_refs,
+            plan_id=str(getattr(plan, "id", "") or "").strip(),
+            debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
+            taint_flags=list(intake_bundle.taint_flags)
+            + (list(spec_bundle.taint_flags) if spec_bundle is not None else []),
+            metadata=run_metadata,
+        )
+        runtime.create_run(run)
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.INTAKE,
+            status="completed",
+            details={
+                "source_surface": source_surface or "queue_plan_execution",
+                "context_ref_count": len(intake_bundle.context_refs),
+            },
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.SPECIFICATION,
+            status="completed" if spec_bundle is not None else "skipped",
+            artifact_ref="spec_bundle" if spec_bundle is not None else "",
+            details={
+                "has_spec_bundle": spec_bundle is not None,
+                "is_execution_grade": spec_bundle.is_execution_grade if spec_bundle else False,
+            },
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.GOALS,
+            status="completed" if goal_refs else "skipped",
+            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+            details={"goal_refs_count": len(goal_refs)},
+        )
+        runtime.append_stage_event(
+            run_id,
+            BackboneStage.PLAN,
+            status="completed",
+            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+            details={
+                "plan_status": getattr(getattr(plan, "status", None), "value", str(plan.status)),
+                "approval_mode": getattr(
+                    getattr(plan, "approval_mode", None),
+                    "value",
+                    str(getattr(plan, "approval_mode", "")),
+                ),
+            },
+        )
+    else:
+        runtime.update_run(
+            run_id,
+            status="plan_ready",
+            goal_refs=goal_refs,
+            plan_id=str(getattr(plan, "id", "") or "").strip(),
+            debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
+            metadata=run_metadata,
+        )
+
+    return run_id
+
+
 def build_decision_plan_from_orchestration(
     *,
     subject_id: str,
@@ -284,12 +462,32 @@ def queue_plan_execution(
     from aragora.pipeline.executor import store_plan
     from aragora.pipeline.plan_store import get_plan_store
 
+    store = get_plan_store()
+    runtime = BackboneRuntime(store)
     normalized_mode = normalize_execution_mode(execution_mode) or "workflow"
     execution_id = f"exec-{uuid.uuid4().hex[:12]}"
     correlation_id = f"corr-{uuid.uuid4().hex[:12]}"
-    store = get_plan_store()
+
+    existing_metadata = getattr(plan, "metadata", None)
+    existing_run_id = (
+        str(existing_metadata.get("backbone_run_id", "") or "").strip()
+        if isinstance(existing_metadata, dict)
+        else ""
+    )
+    BackboneRuntime.ensure_plan_metadata(
+        plan,
+        existing_run_id or f"run-{uuid.uuid4().hex[:12]}",
+        _backbone_entrypoint(plan),
+    )
     store.create(plan)
     store_plan(plan)
+    run_id = _ensure_backbone_run(
+        plan,
+        auth_context=auth_context,
+        execution_mode=normalized_mode,
+        runtime=runtime,
+    )
+    runtime.sync_plan_receipt_to_run(plan, append_event=False)
     store.create_execution_record(
         execution_id=execution_id,
         plan_id=plan.id,
@@ -297,12 +495,29 @@ def queue_plan_execution(
         correlation_id=correlation_id,
         status="queued",
         metadata={
+            "backbone_run_id": run_id,
             "execution_mode": normalized_mode,
             "scheduled_by": getattr(auth_context, "user_id", None),
         },
     )
+    runtime.record_execution_stage(
+        run_id,
+        status="queued",
+        artifact_ref=execution_id,
+        run_status="execution_queued",
+        execution_id=execution_id,
+        metadata={
+            "execution_mode": normalized_mode,
+            "scheduled_by": getattr(auth_context, "user_id", None),
+        },
+        details={
+            "correlation_id": correlation_id,
+            "plan_id": str(getattr(plan, "id", "") or "").strip(),
+        },
+    )
     return {
         "plan_id": plan.id,
+        "run_id": run_id,
         "execution_id": execution_id,
         "correlation_id": correlation_id,
         "execution_mode": normalized_mode,

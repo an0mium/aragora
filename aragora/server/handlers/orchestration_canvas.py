@@ -668,6 +668,7 @@ class OrchestrationCanvasHandler(SecureHandler):
 
             return json_response(
                 {
+                    "run_id": launch.get("run_id"),
                     "execution_id": launch["execution_id"],
                     "plan_id": plan.id,
                     "correlation_id": launch["correlation_id"],

@@ -2420,6 +2420,7 @@ class CanvasPipelineHandler:
         return json_response(
             {
                 "pipeline_id": pipeline_id,
+                "run_id": launch.get("run_id"),
                 "execution_id": launch["execution_id"],
                 "plan_id": plan.id,
                 "correlation_id": launch["correlation_id"],

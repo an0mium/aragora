@@ -179,6 +179,7 @@ class PipelineExecuteHandler(BaseHandler):
                 "status": "started",
                 "runtime": "decision_plan",
                 "plan_id": plan.id,
+                "run_id": launch.get("run_id"),
                 "execution_id": launch["execution_id"],
                 "correlation_id": launch["correlation_id"],
                 "record_status": launch["status"],
@@ -201,6 +202,7 @@ class PipelineExecuteHandler(BaseHandler):
                 "status": "started",
                 "runtime": "decision_plan",
                 "plan_id": plan.id,
+                "run_id": launch.get("run_id"),
                 "execution_id": launch["execution_id"],
                 "correlation_id": launch["correlation_id"],
             },
@@ -223,6 +225,8 @@ class PipelineExecuteHandler(BaseHandler):
             if isinstance(graph_nodes, dict):
                 for node_id, node in graph_nodes.items():
                     node_data = getattr(node, "data", node) if not isinstance(node, dict) else node
+                    if not isinstance(node_data, dict):
+                        continue
                     stage = node_data.get("stage", "")
                     if stage == "orchestration":
                         nodes.append({"id": node_id, **node_data})
@@ -319,6 +323,7 @@ class PipelineExecuteHandler(BaseHandler):
                     {
                         "runtime": "decision_plan",
                         "plan_id": plan.id,
+                        "run_id": launch.get("run_id"),
                         "execution_id": launch["execution_id"],
                         "correlation_id": launch["correlation_id"],
                         "record_status": launch["status"],

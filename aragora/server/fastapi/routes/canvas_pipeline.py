@@ -986,6 +986,7 @@ async def execute_pipeline(
                 "status": "executing",
                 "runtime": "decision_plan",
                 "plan_id": plan.id,
+                "run_id": launch.get("run_id"),
                 "execution_id": launch["execution_id"],
                 "correlation_id": launch["correlation_id"],
                 "agent_tasks": len(agent_tasks),
