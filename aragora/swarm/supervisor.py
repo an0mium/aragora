@@ -1547,6 +1547,18 @@ class SwarmSupervisor:
             return None
         return ("goal", goal_key, scope)
 
+    @staticmethod
+    def _scope_signature_contains(
+        container: tuple[str, ...],
+        containee: tuple[str, ...],
+    ) -> bool:
+        if not container or not containee:
+            return False
+        return all(
+            any(_path_in_scope(path, scope_pattern) for scope_pattern in container)
+            for path in containee
+        )
+
     def _suppress_duplicate_open_work_orders(
         self,
         goal: str,
@@ -1563,35 +1575,81 @@ class SwarmSupervisor:
             "timed_out",
             "failed",
         }
+        goal_key = self._normalized_goal_signature(goal)
         existing_by_group: dict[tuple[str, str, tuple[str, ...]], str] = {}
+        existing_overlap_candidates: list[tuple[str, str, str, tuple[str, ...]]] = []
         for task in self.store.list_developer_tasks(open_only=True, limit=1000):
             if str(getattr(task, "status", "")).strip().lower() not in active_duplicate_statuses:
                 continue
             if self._task_has_concrete_deliverable(task):
                 continue
+            task_goal = self._normalized_goal_signature(str(getattr(task, "goal", "") or ""))
+            task_metadata = getattr(task, "metadata", {}) or {}
+            task_scope = self._normalized_scope_signature(
+                list(getattr(task, "allowed_paths", []) or [])
+            )
+            task_lane = str(task_metadata.get("tranche_lane_id") or "").strip()
+            task_key = str(getattr(task, "task_key", "")).strip()
             group_key = self._duplicate_open_work_order_group_key(
                 str(getattr(task, "goal", "") or ""),
                 list(getattr(task, "allowed_paths", []) or []),
-                getattr(task, "metadata", {}) or {},
+                task_metadata,
             )
             if not group_key or group_key in existing_by_group:
+                if task_scope and task_key and task_goal:
+                    existing_overlap_candidates.append((task_key, task_goal, task_lane, task_scope))
                 continue
-            existing_by_group[group_key] = str(getattr(task, "task_key", "")).strip()
+            existing_by_group[group_key] = task_key
+            if task_scope and task_key and task_goal:
+                existing_overlap_candidates.append((task_key, task_goal, task_lane, task_scope))
 
-        if not existing_by_group:
+        if not existing_by_group and not existing_overlap_candidates:
             return
 
         now = datetime.now(UTC).isoformat()
         for item in work_orders:
             if str(item.get("status", "")).strip().lower() == "discarded":
                 continue
+            item_scope = self._normalized_scope_signature(
+                [str(path) for path in item.get("file_scope", []) if str(path).strip()]
+            )
+            item_lane = str((item.get("metadata") or {}).get("tranche_lane_id") or "").strip()
             group_key = self._duplicate_open_work_order_group_key(
                 goal,
                 [str(path) for path in item.get("file_scope", []) if str(path).strip()],
                 dict(item.get("metadata") or {}),
             )
             canonical_task_key = existing_by_group.get(group_key) if group_key else None
+            if not canonical_task_key and item_scope:
+                for (
+                    task_key,
+                    existing_goal,
+                    existing_lane,
+                    existing_scope,
+                ) in existing_overlap_candidates:
+                    same_lane = bool(item_lane and existing_lane and item_lane == existing_lane)
+                    same_goal = bool(goal_key and existing_goal == goal_key)
+                    if not same_lane and not same_goal:
+                        continue
+                    if self._scope_signature_contains(existing_scope, item_scope) or (
+                        self._scope_signature_contains(item_scope, existing_scope)
+                    ):
+                        canonical_task_key = task_key
+                        break
             if not group_key or not canonical_task_key:
+                if group_key:
+                    existing_by_group.setdefault(
+                        group_key, str(item.get("work_order_id", "")).strip()
+                    )
+                if item_scope and goal_key:
+                    existing_overlap_candidates.append(
+                        (
+                            str(item.get("work_order_id", "")).strip(),
+                            goal_key,
+                            item_lane,
+                            item_scope,
+                        )
+                    )
                 continue
             metadata = dict(item.get("metadata") or {})
             metadata.update(

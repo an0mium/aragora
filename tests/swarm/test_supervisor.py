@@ -431,6 +431,115 @@ def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_i
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_discards_same_goal_contained_scope_duplicate_open_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "Broader ADR lane",
+                "status": "waiting_conflict",
+                "file_scope": ["docs/ADR/"],
+            }
+        ],
+    )
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Narrow ADR lane",
+                description="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+                file_scope=["docs/ADR/019-standardized-health-check-endpoints.md"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+            refined_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        ),
+        refresh_scaling=False,
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
+    assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
+def test_start_run_preserves_same_goal_non_overlapping_scope_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    store.create_supervisor_run(
+        goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "existing",
+                "title": "ADR lane",
+                "status": "waiting_conflict",
+                "file_scope": ["docs/ADR/019-standardized-health-check-endpoints.md"],
+            }
+        ],
+    )
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_2",
+                title="Deploy truth table lane",
+                description="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+                file_scope=["docs/deploy-truth-table.md"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+            refined_goal="Write an ADR for standardizing health check endpoints across all deploy surfaces.",
+        ),
+        refresh_scaling=False,
+    )
+
+    assert run.work_orders[0]["status"] == "queued"
+
+
 def test_start_run_passes_acceptance_and_constraints_to_decomposer(
     repo: Path, store: DevCoordinationStore
 ) -> None:
