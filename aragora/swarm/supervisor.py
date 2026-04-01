@@ -2483,15 +2483,37 @@ class SwarmSupervisor:
                 "completed_at": None,
             }
         )
-        item.pop("pid", None)
-        item.pop("blockers", None)
-        item.pop("dispatched_at", None)
-        item.pop("last_observed_at", None)
-        item.pop("last_progress_at", None)
-        item.pop("progress_fingerprint", None)
-        item.pop("failure_reason", None)
-        item.pop("blocking_question", None)
-        item.pop("blocker", None)
+        # A fallback retry is a fresh attempt in the same lease/worktree. It
+        # must not inherit terminal artifacts from the failed worker.
+        for key in (
+            "pid",
+            "blockers",
+            "dispatched_at",
+            "last_observed_at",
+            "last_progress_at",
+            "progress_fingerprint",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "worker_outcome",
+            "confidence",
+            "initial_head",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+        ):
+            item.pop(key, None)
         return True
 
     @staticmethod

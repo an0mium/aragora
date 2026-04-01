@@ -2725,6 +2725,23 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     run.work_orders[0]["target_agent"] = "claude"
     run.work_orders[0]["reviewer_agent"] = "codex"
     run.work_orders[0]["pid"] = 777
+    run.work_orders[0]["worker_outcome"] = "crash_with_salvage"
+    run.work_orders[0]["confidence"] = 0.84
+    run.work_orders[0]["initial_head"] = "old-base"
+    run.work_orders[0]["head_sha"] = "old-head"
+    run.work_orders[0]["commit_shas"] = ["old-commit"]
+    run.work_orders[0]["changed_paths"] = ["README.md"]
+    run.work_orders[0]["diff"] = "diff --git a/README.md b/README.md"
+    run.work_orders[0]["diff_lines"] = 12
+    run.work_orders[0]["stdout_tail"] = "old stdout"
+    run.work_orders[0]["stderr_tail"] = "old stderr"
+    run.work_orders[0]["tests_run"] = ["python -m pytest tests/swarm/test_supervisor.py -q"]
+    run.work_orders[0]["verification_results"] = [{"command": "pytest", "passed": True}]
+    run.work_orders[0]["merge_gate"] = {"checks_passed": True}
+    run.work_orders[0]["verification_missing_reason"] = "missing_verification_plan"
+    run.work_orders[0]["pr_url"] = "https://github.com/synaptent/aragora/pull/9999"
+    run.work_orders[0]["adopted_pr"] = "https://github.com/synaptent/aragora/pull/9999"
+    run.work_orders[0]["scope_violation"] = {"violations": [{"path": "README.md"}]}
     store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
 
     completed = await supervisor.collect_finished_results(run.run_id)
@@ -2741,6 +2758,26 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     assert work_order["metadata"]["last_failure_reason"] == "agent_capacity"
     assert work_order["metadata"]["attempted_agents"] == ["claude"]
     assert work_order["lease_id"] == run.work_orders[0]["lease_id"]
+    for cleared_key in (
+        "worker_outcome",
+        "confidence",
+        "initial_head",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "diff",
+        "diff_lines",
+        "stdout_tail",
+        "stderr_tail",
+        "tests_run",
+        "verification_results",
+        "merge_gate",
+        "verification_missing_reason",
+        "pr_url",
+        "adopted_pr",
+        "scope_violation",
+    ):
+        assert cleared_key not in work_order
     breaker = refreshed["metadata"][WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["claude"]
     assert breaker["status"] == "open"
     assert breaker["failure_count"] == breaker["failure_threshold"]
