@@ -1082,6 +1082,37 @@ class SlackOAuthHandler(SecureHandler):
                 get_slack_workspace_store,
             )
 
+            store = get_slack_workspace_store()
+            existing_workspace = store.get(workspace_id)
+            existing_tenant_id = (
+                str(getattr(existing_workspace, "tenant_id", "") or "").strip() or None
+            )
+            requested_tenant_id = str(tenant_id or "").strip() or None
+            if (
+                existing_tenant_id
+                and requested_tenant_id
+                and existing_tenant_id != requested_tenant_id
+            ):
+                logger.warning(
+                    "Rejecting Slack workspace %s tenant rebind from %s to %s",
+                    workspace_id,
+                    existing_tenant_id,
+                    requested_tenant_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="install",
+                        success=False,
+                        user_id=installed_by or "",
+                        error="Workspace is already linked to a different tenant",
+                    )
+                return error_response(
+                    "Workspace is already linked to a different tenant",
+                    409,
+                )
+
             workspace = SlackWorkspace(
                 workspace_id=workspace_id,
                 workspace_name=workspace_name,
@@ -1090,13 +1121,12 @@ class SlackOAuthHandler(SecureHandler):
                 installed_at=time.time(),
                 installed_by=installed_by,
                 scopes=scope.split(",") if scope else [],
-                tenant_id=tenant_id,
+                tenant_id=requested_tenant_id or existing_tenant_id,
                 is_active=True,
                 refresh_token=refresh_token,
                 token_expires_at=token_expires_at,
             )
 
-            store = get_slack_workspace_store()
             if not store.save(workspace):
                 # Audit log save failure
                 audit = _get_oauth_audit_logger()

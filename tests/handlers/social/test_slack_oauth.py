@@ -690,6 +690,90 @@ class TestCallback:
         assert "My Team" in html
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_cross_tenant_workspace_rebind(
+        self, handler, mock_workspace, mock_workspace_store, mock_state_store
+    ):
+        mock_workspace.tenant_id = "tenant-2"
+        mock_state_store.validate_and_consume.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch("aragora.storage.slack_workspace_store.SlackWorkspace") as mock_workspace_cls,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 409
+        body = _body(result)
+        assert "different tenant" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
+        mock_workspace_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_callback_preserves_existing_tenant_when_state_has_no_tenant(
+        self, handler, mock_workspace_store, mock_state_store
+    ):
+        mock_state_store.validate_and_consume.return_value = {
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch("aragora.storage.slack_workspace_store.SlackWorkspace") as mock_workspace_cls,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 200
+        assert mock_workspace_cls.call_args.kwargs["tenant_id"] == "tenant-1"
+        mock_workspace_store.save.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_callback_slack_api_error(self, handler):
         mock_client, _ = _make_httpx_mock({"ok": False, "error": "invalid_code"})
 
@@ -915,6 +999,7 @@ class TestCallback:
         )
 
         mock_ws_store = MagicMock()
+        mock_ws_store.get.return_value = None
         mock_ws_store.save.return_value = True
 
         with (
@@ -948,6 +1033,7 @@ class TestCallback:
         state_obj = MagicMock()
         state_obj.metadata = {"tenant_id": "t-obj", "provider": "slack"}
         mock_state_store.validate_and_consume.return_value = state_obj
+        mock_workspace_store.get.return_value = None
 
         mock_client, _ = _make_httpx_mock(
             {
