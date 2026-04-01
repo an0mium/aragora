@@ -35,9 +35,9 @@ from aragora.pipeline.backbone_contracts import (
     RunLedger,
     RunStageEvent,
     SpecBundle,
-    TaintChecker,
     build_goal_refs_from_implement_plan,
 )
+from aragora.pipeline.backbone_runtime import BackboneRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,7 @@ class UnifiedOrchestrator:
         code_task_factory: Any | None = None,
         # Provider routing
         provider_router: Any | None = None,
+        backbone_runtime: BackboneRuntime | None = None,
     ) -> None:
         self._input_extension = input_extension
         self._researcher = researcher
@@ -171,12 +172,13 @@ class UnifiedOrchestrator:
         self._spec_extractor = spec_extractor
         self._code_task_factory = code_task_factory
         self._provider_router = provider_router
+        self._backbone_runtime = backbone_runtime
 
-    @staticmethod
-    def _backbone_store() -> Any:
-        from aragora.pipeline.plan_store import get_plan_store
-
-        return get_plan_store()
+    @property
+    def backbone_runtime(self) -> BackboneRuntime:
+        if self._backbone_runtime is None:
+            self._backbone_runtime = BackboneRuntime()
+        return self._backbone_runtime
 
     def _create_backbone_run(self, result: OrchestratorResult, cfg: OrchestratorConfig) -> None:
         intake = IntakeBundle(
@@ -206,7 +208,7 @@ class UnifiedOrchestrator:
                 details={"prompt_length": len(result.prompt), "domain": cfg.domain or "general"},
             )
         )
-        self._backbone_store().create_run(run)
+        self.backbone_runtime.create_run(run)
 
     def _append_backbone_event(
         self,
@@ -217,14 +219,12 @@ class UnifiedOrchestrator:
         artifact_ref: str = "",
         details: dict[str, Any] | None = None,
     ) -> None:
-        self._backbone_store().append_run_stage_event(
+        self.backbone_runtime.append_stage_event(
             result.run_id,
-            RunStageEvent.create(
-                stage,
-                status=status,
-                artifact_ref=artifact_ref,
-                details=details,
-            ),
+            stage,
+            status=status,
+            artifact_ref=artifact_ref,
+            details=details,
         )
 
     def _update_backbone_run(
@@ -267,16 +267,11 @@ class UnifiedOrchestrator:
         if metadata is not None:
             update_kwargs["metadata"] = metadata
         if update_kwargs:
-            self._backbone_store().update_run(result.run_id, **update_kwargs)
+            self.backbone_runtime.update_run(result.run_id, **update_kwargs)
 
     @staticmethod
     def _ensure_plan_backbone_metadata(plan: Any, run_id: str) -> None:
-        metadata = getattr(plan, "metadata", None)
-        if not isinstance(metadata, dict):
-            metadata = {}
-            setattr(plan, "metadata", metadata)
-        metadata.setdefault("backbone_run_id", run_id)
-        metadata.setdefault("backbone_entrypoint", "unified_orchestrator.run")
+        BackboneRuntime.ensure_plan_metadata(plan, run_id, "unified_orchestrator.run")
 
     async def _attach_backbone_receipt(
         self,
@@ -284,59 +279,7 @@ class UnifiedOrchestrator:
         plan: Any,
         outcome: Any,
     ) -> str:
-        from aragora.blockchain.receipt_settlement import ReceiptSettlementService
-        from aragora.gauntlet.receipt_models import DecisionReceipt
-        from aragora.pipeline.canonical_execution import build_decision_receipt_payload
-
-        receipt_payload = build_decision_receipt_payload(plan, outcome)
-        if not isinstance(receipt_payload, dict):
-            return ""
-
-        run = self._backbone_store().get_run(result.run_id)
-        taint_summary = TaintChecker.collect_taint_summary(
-            intake=getattr(run, "intake_bundle", None),
-            spec=getattr(run, "spec_bundle", None),
-            deliberation=getattr(run, "deliberation_bundle", None),
-            verification=getattr(run, "receipt_envelope", None),
-        )
-        metadata = getattr(plan, "metadata", None)
-        gate = metadata.get("execution_gate", {}) if isinstance(metadata, dict) else {}
-        envelope = ReceiptEnvelope.from_decision_receipt(
-            receipt_payload,
-            policy_gate_result=dict(gate or {}),
-            taint_summary=taint_summary,
-        )
-        self._update_backbone_run(
-            result,
-            receipt_id=envelope.receipt_id,
-            receipt_envelope=envelope,
-        )
-        self._append_backbone_event(
-            result,
-            BackboneStage.RECEIPT,
-            status="completed",
-            artifact_ref=envelope.receipt_id,
-            details={"source": "decision_plan_execution"},
-        )
-
-        try:
-            settled_receipt = await ReceiptSettlementService().anchor_receipt(
-                DecisionReceipt.from_dict(receipt_payload)
-            )
-            attestation = getattr(settled_receipt, "settlement_status", None)
-            if isinstance(attestation, dict):
-                self._update_backbone_run(result, attestation=attestation)
-                self._append_backbone_event(
-                    result,
-                    BackboneStage.ATTESTATION,
-                    status="completed",
-                    artifact_ref=envelope.receipt_id,
-                    details=attestation,
-                )
-        except Exception:
-            logger.debug("Backbone attestation shadow-mode failed", exc_info=True)
-
-        return envelope.receipt_id
+        return await self.backbone_runtime.attach_execution_receipt(result.run_id, plan, outcome)
 
     def _attach_backbone_feedback(
         self,
@@ -350,13 +293,10 @@ class UnifiedOrchestrator:
             result.pipeline_outcome,
             receipt_ref=receipt_ref or result.run_id,
         )
-        self._update_backbone_run(result, feedback_record=record)
-        self._append_backbone_event(
-            result,
-            BackboneStage.FEEDBACK,
-            status="completed",
+        self.backbone_runtime.attach_feedback_record(
+            result.run_id,
+            record,
             artifact_ref=record.receipt_ref,
-            details={"next_action": record.next_action_recommendation},
         )
 
     async def run(
@@ -669,12 +609,7 @@ class UnifiedOrchestrator:
 
         # --- Stage 5b: Trust/Taint Execution Gate ---
         if result.decision_plan is not None:
-            from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
-
-            execution_gate = evaluate_plan_execution_gate(
-                result.decision_plan,
-                plan_store=self._backbone_store(),
-            )
+            execution_gate = self.backbone_runtime.evaluate_execution_gate(result.decision_plan)
             metadata = getattr(result.decision_plan, "metadata", None)
             if isinstance(metadata, dict):
                 metadata["execution_gate"] = execution_gate.gate

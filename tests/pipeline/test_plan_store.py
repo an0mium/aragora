@@ -446,7 +446,7 @@ class TestPlanStoreBackboneRuns:
         assert len(events) == 1
         assert events[0].artifact_ref == "plan-1"
 
-    def test_update_status_syncs_backbone_receipt_envelope(self, store: PlanStore) -> None:
+    def test_update_status_does_not_sync_backbone_receipt_envelope(self, store: PlanStore) -> None:
         store.create_run(
             RunLedger(run_id="run-receipt", entrypoint="prompt_engine.run", status="plan_ready")
         )
@@ -465,12 +465,8 @@ class TestPlanStoreBackboneRuns:
 
         assert updated is True
         assert run is not None
-        assert run.receipt_envelope is not None
-        assert run.metadata["plan_receipt_state"] == "approved"
-        assert any(
-            event.stage == BackboneStage.RECEIPT.value and event.status == "approved"
-            for event in run.stage_events
-        )
+        assert run.receipt_envelope is None
+        assert "plan_receipt_state" not in run.metadata
 
 
 class TestPlanStoreExecutionClaims:

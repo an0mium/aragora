@@ -20,17 +20,10 @@ import asyncio
 import logging
 import threading
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 import uuid
 
-from aragora.pipeline.backbone_contracts import (
-    BackboneStage,
-    OutcomeFeedbackRecord,
-    ReceiptEnvelope,
-    RunStageEvent,
-    TaintChecker,
-)
+from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan import PlanOutcome, PlanStatus
 
 if TYPE_CHECKING:
@@ -52,9 +45,11 @@ class ExecutionBridge:
         self,
         plan_store: PlanStore | None = None,
         executor: PlanExecutor | None = None,
+        backbone_runtime: BackboneRuntime | None = None,
     ) -> None:
         self._plan_store = plan_store
         self._executor = executor
+        self._backbone_runtime = backbone_runtime
 
     @property
     def plan_store(self) -> PlanStore:
@@ -72,152 +67,18 @@ class ExecutionBridge:
             self._executor = PlanExecutor()
         return self._executor
 
+    @property
+    def backbone_runtime(self) -> BackboneRuntime:
+        if self._backbone_runtime is None:
+            self._backbone_runtime = BackboneRuntime(self.plan_store)
+        return self._backbone_runtime
+
     @staticmethod
     def _extract_backbone_run_id(plan: Any) -> str:
         metadata = getattr(plan, "metadata", None)
         if not isinstance(metadata, dict):
             return ""
         return str(metadata.get("backbone_run_id", "") or "").strip()
-
-    def _record_execution_stage(
-        self,
-        run_id: str,
-        *,
-        status: str,
-        artifact_ref: str = "",
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        if not run_id:
-            return
-        self.plan_store.append_run_stage_event(
-            run_id,
-            RunStageEvent.create(
-                BackboneStage.EXECUTION,
-                status=status,
-                artifact_ref=artifact_ref,
-                details=details,
-            ),
-        )
-
-    def _build_feedback_record(
-        self,
-        plan: Any,
-        outcome: PlanOutcome,
-        *,
-        receipt_ref: str,
-        execution_mode: str,
-    ) -> OutcomeFeedbackRecord:
-        quality_score = 1.0 if outcome.success else 0.25
-        pipeline_like = SimpleNamespace(
-            pipeline_id=plan.id,
-            run_type="decision_plan_execution",
-            domain=(
-                plan.metadata.get("domain", "")
-                if isinstance(getattr(plan, "metadata", None), dict)
-                else ""
-            ),
-            overall_quality_score=quality_score,
-            spec_completeness=1.0 if outcome.success else 0.5,
-            execution_succeeded=outcome.success,
-            tests_passed=int(getattr(outcome, "tests_passed", 0) or 0),
-            tests_failed=int(getattr(outcome, "tests_failed", 0) or 0),
-            files_changed=int(getattr(outcome, "files_changed", 0) or 0),
-            human_interventions=0,
-            rollback_triggered=bool(getattr(outcome, "rollback_triggered", False)),
-            total_duration_s=outcome.duration_seconds,
-        )
-        next_action = ""
-        if not outcome.success and int(getattr(outcome, "tests_failed", 0) or 0) > 0:
-            next_action = "run_bug_fix_loop"
-        return OutcomeFeedbackRecord.from_pipeline_outcome(
-            pipeline_like,
-            receipt_ref=receipt_ref or plan.id,
-            next_action_recommendation=next_action,
-        )
-
-    async def _attach_backbone_receipt_and_feedback(
-        self,
-        *,
-        run_id: str,
-        plan: Any,
-        outcome: PlanOutcome,
-        execution_mode: str,
-    ) -> None:
-        from aragora.blockchain.receipt_settlement import ReceiptSettlementService
-        from aragora.gauntlet.receipt_models import DecisionReceipt
-        from aragora.pipeline.canonical_execution import build_decision_receipt_payload
-
-        run = self.plan_store.get_run(run_id)
-        receipt_payload = build_decision_receipt_payload(plan, outcome)
-        receipt_ref = str(getattr(outcome, "receipt_id", "") or plan.id)
-
-        if isinstance(receipt_payload, dict):
-            taint_summary = TaintChecker.collect_taint_summary(
-                intake=getattr(run, "intake_bundle", None),
-                spec=getattr(run, "spec_bundle", None),
-                deliberation=getattr(run, "deliberation_bundle", None),
-                verification=getattr(run, "receipt_envelope", None),
-            )
-            metadata = getattr(plan, "metadata", None)
-            gate = metadata.get("execution_gate", {}) if isinstance(metadata, dict) else {}
-            envelope = ReceiptEnvelope.from_decision_receipt(
-                receipt_payload,
-                policy_gate_result=dict(gate or {}),
-                taint_summary=taint_summary,
-            )
-            receipt_ref = envelope.receipt_id or receipt_ref
-            self.plan_store.update_run(
-                run_id,
-                receipt_id=receipt_ref,
-                receipt_envelope=envelope,
-            )
-            self.plan_store.append_run_stage_event(
-                run_id,
-                RunStageEvent.create(
-                    BackboneStage.RECEIPT,
-                    status="completed",
-                    artifact_ref=receipt_ref,
-                    details={"source": "decision_plan_execution"},
-                ),
-            )
-            try:
-                settled_receipt = await ReceiptSettlementService().anchor_receipt(
-                    DecisionReceipt.from_dict(receipt_payload)
-                )
-                attestation = getattr(settled_receipt, "settlement_status", None)
-                if isinstance(attestation, dict):
-                    self.plan_store.update_run(run_id, attestation=attestation)
-                    self.plan_store.append_run_stage_event(
-                        run_id,
-                        RunStageEvent.create(
-                            BackboneStage.ATTESTATION,
-                            status="completed",
-                            artifact_ref=receipt_ref,
-                            details=attestation,
-                        ),
-                    )
-            except Exception:
-                logger.debug("Backbone shadow attestation failed", exc_info=True)
-
-        feedback_record = self._build_feedback_record(
-            plan,
-            outcome,
-            receipt_ref=receipt_ref,
-            execution_mode=execution_mode,
-        )
-        self.plan_store.update_run(run_id, feedback_record=feedback_record)
-        self.plan_store.append_run_stage_event(
-            run_id,
-            RunStageEvent.create(
-                BackboneStage.FEEDBACK,
-                status="completed",
-                artifact_ref=receipt_ref,
-                details={
-                    "next_action": feedback_record.next_action_recommendation,
-                    "execution_mode": execution_mode,
-                },
-            ),
-        )
 
     async def execute_approved_plan(
         self,
@@ -266,9 +127,7 @@ class ExecutionBridge:
         resolved_correlation_id = correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
         backbone_run_id = self._extract_backbone_run_id(plan)
 
-        from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
-
-        gate_decision = evaluate_plan_execution_gate(plan, plan_store=store)
+        gate_decision = self.backbone_runtime.evaluate_execution_gate(plan)
         if not gate_decision.allow_execution:
             blocked_status = (
                 "pending_approval" if gate_decision.requires_human_approval else "blocked"
@@ -293,16 +152,13 @@ class ExecutionBridge:
                     metadata={"execution_gate": gate_decision.gate},
                 )
             if backbone_run_id:
-                store.update_run(
-                    backbone_run_id,
-                    status=blocked_status,
-                    execution_id=resolved_execution_id,
-                    metadata={"execution_gate": gate_decision.gate},
-                )
-                self._record_execution_stage(
+                self.backbone_runtime.record_execution_stage(
                     backbone_run_id,
                     status=blocked_status,
                     artifact_ref=resolved_execution_id,
+                    run_status=blocked_status,
+                    execution_id=resolved_execution_id,
+                    metadata={"execution_gate": gate_decision.gate},
                     details={"plan_id": plan.id, "reason_codes": gate_decision.reason_codes},
                 )
             raise ValueError(
@@ -361,19 +217,16 @@ class ExecutionBridge:
                 },
             )
         if backbone_run_id:
-            store.update_run(
+            self.backbone_runtime.record_execution_stage(
                 backbone_run_id,
-                status="execution_running",
+                status="running",
+                artifact_ref=resolved_execution_id,
+                run_status="execution_running",
                 execution_id=resolved_execution_id,
                 metadata={
                     "execution_mode": execution_mode or "default",
                     "execution_gate": gate_decision.gate,
                 },
-            )
-            self._record_execution_stage(
-                backbone_run_id,
-                status="running",
-                artifact_ref=resolved_execution_id,
                 details={
                     "plan_id": plan.id,
                     "execution_mode": execution_mode or "default",
@@ -405,16 +258,13 @@ class ExecutionBridge:
                 },
             )
             if backbone_run_id:
-                store.update_run(
-                    backbone_run_id,
-                    status="execution_failed",
-                    execution_id=resolved_execution_id,
-                    metadata={"execution_terminal_state": "failed"},
-                )
-                self._record_execution_stage(
+                self.backbone_runtime.record_execution_stage(
                     backbone_run_id,
                     status="failed",
                     artifact_ref=resolved_execution_id,
+                    run_status="execution_failed",
+                    execution_id=resolved_execution_id,
+                    metadata={"execution_terminal_state": "failed"},
                     details={"error": str(exc), "plan_id": plan.id},
                 )
             raise
@@ -422,6 +272,8 @@ class ExecutionBridge:
         # Persist final status
         final_status = PlanStatus.COMPLETED if outcome.success else PlanStatus.FAILED
         store.update_status(plan_id, final_status)
+        updated_plan = store.get(plan_id) or plan
+        self.backbone_runtime.sync_plan_receipt_to_run(updated_plan, append_event=True)
         failure_error = None
         if not outcome.success:
             failure_error = {
@@ -442,19 +294,16 @@ class ExecutionBridge:
             },
         )
         if backbone_run_id:
-            store.update_run(
+            self.backbone_runtime.record_execution_stage(
                 backbone_run_id,
-                status="execution_succeeded" if outcome.success else "execution_failed",
+                status="succeeded" if outcome.success else "failed",
+                artifact_ref=resolved_execution_id,
+                run_status="execution_succeeded" if outcome.success else "execution_failed",
                 execution_id=resolved_execution_id,
                 metadata={
                     "execution_terminal_state": "succeeded" if outcome.success else "failed",
                     "execution_duration_seconds": outcome.duration_seconds,
                 },
-            )
-            self._record_execution_stage(
-                backbone_run_id,
-                status="succeeded" if outcome.success else "failed",
-                artifact_ref=resolved_execution_id,
                 details={
                     "plan_id": plan.id,
                     "duration_seconds": outcome.duration_seconds,
@@ -462,11 +311,22 @@ class ExecutionBridge:
                     "tasks_total": outcome.tasks_total,
                 },
             )
-            await self._attach_backbone_receipt_and_feedback(
-                run_id=backbone_run_id,
-                plan=plan,
-                outcome=outcome,
+            receipt_ref = await self.backbone_runtime.attach_execution_receipt(
+                backbone_run_id,
+                updated_plan,
+                outcome,
+            )
+            feedback_record = self.backbone_runtime.build_feedback_record(
+                updated_plan,
+                outcome,
+                receipt_ref=receipt_ref,
                 execution_mode=str(execution_mode or "default"),
+            )
+            self.backbone_runtime.attach_feedback_record(
+                backbone_run_id,
+                feedback_record,
+                artifact_ref=receipt_ref,
+                details={"execution_mode": str(execution_mode or "default")},
             )
 
         logger.info(
@@ -519,9 +379,7 @@ class ExecutionBridge:
         plan = self.plan_store.get(plan_id)
         backbone_run_id = self._extract_backbone_run_id(plan) if plan is not None else ""
         if plan is not None:
-            from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
-
-            gate_decision = evaluate_plan_execution_gate(plan, plan_store=self.plan_store)
+            gate_decision = self.backbone_runtime.evaluate_execution_gate(plan)
             if not gate_decision.allow_execution:
                 blocked_status = (
                     "pending_approval" if gate_decision.requires_human_approval else "blocked"
@@ -540,16 +398,13 @@ class ExecutionBridge:
                     },
                 )
                 if backbone_run_id:
-                    self.plan_store.update_run(
-                        backbone_run_id,
-                        status=blocked_status,
-                        execution_id=record_execution_id,
-                        metadata={"execution_gate": gate_decision.gate},
-                    )
-                    self._record_execution_stage(
+                    self.backbone_runtime.record_execution_stage(
                         backbone_run_id,
                         status=blocked_status,
                         artifact_ref=record_execution_id,
+                        run_status=blocked_status,
+                        execution_id=record_execution_id,
+                        metadata={"execution_gate": gate_decision.gate},
                         details={"plan_id": plan.id, "reason_codes": gate_decision.reason_codes},
                     )
                 logger.warning(
@@ -571,16 +426,13 @@ class ExecutionBridge:
                 },
             )
             if backbone_run_id:
-                self.plan_store.update_run(
-                    backbone_run_id,
-                    status="execution_queued",
-                    execution_id=record_execution_id,
-                    metadata={"execution_mode": execution_mode or "default"},
-                )
-                self._record_execution_stage(
+                self.backbone_runtime.record_execution_stage(
                     backbone_run_id,
                     status="queued",
                     artifact_ref=record_execution_id,
+                    run_status="execution_queued",
+                    execution_id=record_execution_id,
+                    metadata={"execution_mode": execution_mode or "default"},
                     details={
                         "plan_id": plan.id,
                         "execution_mode": execution_mode or "default",

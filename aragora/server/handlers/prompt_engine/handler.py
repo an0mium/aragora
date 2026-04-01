@@ -26,6 +26,7 @@ from aragora.pipeline.backbone_contracts import (
     SpecBundle,
     build_goal_refs_from_implement_plan,
 )
+from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.pipeline.executor import ExecutionMode
 
@@ -360,6 +361,7 @@ class PromptEngineHandler(SecureHandler):
 
         context = data.get("context")
         store = get_plan_store()
+        runtime = BackboneRuntime(store)
         run_id = f"run-{uuid.uuid4().hex[:12]}"
         initial_taint_flags = self._derive_backbone_taint_flags(context)
         initial_intake = IntakeBundle(
@@ -400,7 +402,7 @@ class PromptEngineHandler(SecureHandler):
                 },
             )
         )
-        store.create_run(run)
+        runtime.create_run(run)
 
         conductor = self._make_conductor(data)
 
@@ -444,7 +446,7 @@ class PromptEngineHandler(SecureHandler):
                 "stages_completed": list(result.stages_completed),
             },
         )
-        store.update_run(
+        runtime.update_run(
             run_id,
             status="spec_ready",
             intake_bundle=canonical_intake,
@@ -458,37 +460,31 @@ class PromptEngineHandler(SecureHandler):
                 }
             },
         )
-        store.append_run_stage_event(
+        runtime.append_stage_event(
             run_id,
-            RunStageEvent.create(
-                BackboneStage.INTENT,
-                status="completed",
-                details={
-                    "intent_type": result.intent.to_dict().get("intent_type"),
-                    "ambiguity_count": len(getattr(result.intent, "ambiguities", []) or []),
-                },
-            ),
+            BackboneStage.INTENT,
+            status="completed",
+            details={
+                "intent_type": result.intent.to_dict().get("intent_type"),
+                "ambiguity_count": len(getattr(result.intent, "ambiguities", []) or []),
+            },
         )
         if "research" in result.stages_completed or result.research is not None:
-            store.append_run_stage_event(
+            runtime.append_stage_event(
                 run_id,
-                RunStageEvent.create(
-                    BackboneStage.RESEARCH,
-                    status="completed" if result.research is not None else "skipped",
-                ),
+                BackboneStage.RESEARCH,
+                status="completed" if result.research is not None else "skipped",
             )
-        store.append_run_stage_event(
+        runtime.append_stage_event(
             run_id,
-            RunStageEvent.create(
-                BackboneStage.SPECIFICATION,
-                status="completed",
-                artifact_ref="spec_bundle",
-                details={
-                    "execution_grade": spec_bundle.is_execution_grade,
-                    "missing_required_fields": list(spec_bundle.missing_required_fields),
-                    "validation_passed": bool(getattr(validation, "passed", False)),
-                },
-            ),
+            BackboneStage.SPECIFICATION,
+            status="completed",
+            artifact_ref="spec_bundle",
+            details={
+                "execution_grade": spec_bundle.is_execution_grade,
+                "missing_required_fields": list(spec_bundle.missing_required_fields),
+                "validation_passed": bool(getattr(validation, "passed", False)),
+            },
         )
 
         payload = {
@@ -512,7 +508,6 @@ class PromptEngineHandler(SecureHandler):
         from aragora.pipeline.decision_plan.core import ApprovalMode, PlanStatus
         from aragora.pipeline.executor import store_plan
         from aragora.pipeline.execution_bridge import get_execution_bridge
-        from aragora.pipeline.receipt_gate import evaluate_plan_execution_gate
 
         plan_metadata = dict(plan_request["metadata"] or {})
         plan_metadata["backbone_run_id"] = run_id
@@ -531,18 +526,16 @@ class PromptEngineHandler(SecureHandler):
                 fail_closed_spec_validation=True,
             )
         except ValueError as exc:
-            store.append_run_stage_event(
+            runtime.append_stage_event(
                 run_id,
-                RunStageEvent.create(
-                    BackboneStage.PLAN,
-                    status="blocked",
-                    details={
-                        "reason": "spec_not_execution_grade",
-                        "missing_required_fields": list(spec_bundle.missing_required_fields),
-                    },
-                ),
+                BackboneStage.PLAN,
+                status="blocked",
+                details={
+                    "reason": "spec_not_execution_grade",
+                    "missing_required_fields": list(spec_bundle.missing_required_fields),
+                },
             )
-            store.update_run(
+            runtime.update_run(
                 run_id,
                 status="spec_ready",
                 metadata={"decision_plan_error": str(exc)},
@@ -555,7 +548,7 @@ class PromptEngineHandler(SecureHandler):
             payload["timing"]["request_total_duration_ms"] = round(elapsed_ms(request_start), 2)
             return json_response(payload, status=422)
 
-        execution_gate_decision = evaluate_plan_execution_gate(plan, plan_store=store)
+        execution_gate_decision = runtime.evaluate_execution_gate(plan)
         if execution_gate_decision.requires_human_approval:
             plan.approval_mode = ApprovalMode.ALWAYS
             plan.status = PlanStatus.AWAITING_APPROVAL
@@ -564,6 +557,7 @@ class PromptEngineHandler(SecureHandler):
             plan.metadata["execution_gate"] = execution_gate_decision.gate
 
         store.create(plan)
+        runtime.sync_plan_receipt_to_run(plan, append_event=False)
         store_plan(plan)
         payload["decision_plan"] = plan.to_dict()
         goal_refs = build_goal_refs_from_implement_plan(plan.implement_plan)
@@ -576,7 +570,7 @@ class PromptEngineHandler(SecureHandler):
             if plan.requires_human_approval and not plan.is_approved
             else "plan_ready"
         )
-        store.update_run(
+        runtime.update_run(
             run_id,
             status=run_status,
             plan_id=plan.id,
@@ -590,38 +584,32 @@ class PromptEngineHandler(SecureHandler):
                 "execution_gate": execution_gate_decision.gate,
             },
         )
-        store.append_run_stage_event(
+        runtime.append_stage_event(
             run_id,
-            RunStageEvent.create(
-                BackboneStage.GOALS,
-                status="completed" if goal_refs else "skipped",
-                artifact_ref=plan.id,
-                details={"goal_refs_count": len(goal_refs)},
-            ),
+            BackboneStage.GOALS,
+            status="completed" if goal_refs else "skipped",
+            artifact_ref=plan.id,
+            details={"goal_refs_count": len(goal_refs)},
         )
-        store.append_run_stage_event(
+        runtime.append_stage_event(
             run_id,
-            RunStageEvent.create(
-                BackboneStage.PLAN,
-                status="completed",
-                artifact_ref=plan.id,
-                details={
-                    "plan_status": plan.status.value,
-                    "approval_mode": plan.approval_mode.value,
-                    "requires_human_approval": plan.requires_human_approval,
-                    "execution_gate_reasons": list(execution_gate_decision.reason_codes),
-                },
-            ),
+            BackboneStage.PLAN,
+            status="completed",
+            artifact_ref=plan.id,
+            details={
+                "plan_status": plan.status.value,
+                "approval_mode": plan.approval_mode.value,
+                "requires_human_approval": plan.requires_human_approval,
+                "execution_gate_reasons": list(execution_gate_decision.reason_codes),
+            },
         )
         if receipt_id:
-            store.append_run_stage_event(
+            runtime.append_stage_event(
                 run_id,
-                RunStageEvent.create(
-                    BackboneStage.RECEIPT,
-                    status=str(decision_receipt.get("state", "created") or "created"),
-                    artifact_ref=receipt_id,
-                    details={"source": "decision_plan_receipt"},
-                ),
+                BackboneStage.RECEIPT,
+                status=str(decision_receipt.get("state", "created") or "created"),
+                artifact_ref=receipt_id,
+                details={"source": "decision_plan_receipt"},
             )
 
         execution_id = ""
@@ -637,7 +625,7 @@ class PromptEngineHandler(SecureHandler):
                     or (plan.requires_human_approval and not plan.is_approved)
                     else "blocked"
                 )
-                store.update_run(
+                runtime.update_run(
                     run_id,
                     status=run_status,
                     metadata={
@@ -646,17 +634,15 @@ class PromptEngineHandler(SecureHandler):
                         "execution_gate": execution_gate_decision.gate,
                     },
                 )
-                store.append_run_stage_event(
+                runtime.append_stage_event(
                     run_id,
-                    RunStageEvent.create(
-                        BackboneStage.EXECUTION,
-                        status=run_status,
-                        artifact_ref=plan.id,
-                        details={
-                            "requires_human_approval": run_status == "pending_approval",
-                            "execution_gate_reasons": list(execution_gate_decision.reason_codes),
-                        },
-                    ),
+                    BackboneStage.EXECUTION,
+                    status=run_status,
+                    artifact_ref=plan.id,
+                    details={
+                        "requires_human_approval": run_status == "pending_approval",
+                        "execution_gate_reasons": list(execution_gate_decision.reason_codes),
+                    },
                 )
                 payload["execution"] = {
                     "status": run_status,
@@ -672,7 +658,7 @@ class PromptEngineHandler(SecureHandler):
                     else None
                 )
                 run_status = "execution_requested"
-                store.update_run(
+                runtime.update_run(
                     run_id,
                     status=run_status,
                     metadata={
@@ -680,14 +666,12 @@ class PromptEngineHandler(SecureHandler):
                         "execution_requested": True,
                     },
                 )
-                store.append_run_stage_event(
+                runtime.append_stage_event(
                     run_id,
-                    RunStageEvent.create(
-                        BackboneStage.EXECUTION,
-                        status="requested",
-                        artifact_ref=plan.id,
-                        details={"execution_mode": execution_mode or "default"},
-                    ),
+                    BackboneStage.EXECUTION,
+                    status="requested",
+                    artifact_ref=plan.id,
+                    details={"execution_mode": execution_mode or "default"},
                 )
                 bridge.schedule_execution(
                     plan.id,
@@ -702,7 +686,7 @@ class PromptEngineHandler(SecureHandler):
                 if record:
                     execution_payload["record"] = record
                     execution_id = str(record.get("execution_id", "") or "").strip()
-                    store.update_run(
+                    runtime.update_run(
                         run_id,
                         status="execution_scheduled",
                         execution_id=execution_id,
@@ -712,14 +696,12 @@ class PromptEngineHandler(SecureHandler):
                             )
                         },
                     )
-                    store.append_run_stage_event(
+                    runtime.append_stage_event(
                         run_id,
-                        RunStageEvent.create(
-                            BackboneStage.EXECUTION,
-                            status=str(record.get("status", "queued") or "queued"),
-                            artifact_ref=execution_id,
-                            details={"execution_mode": execution_mode or "default"},
-                        ),
+                        BackboneStage.EXECUTION,
+                        status=str(record.get("status", "queued") or "queued"),
+                        artifact_ref=execution_id,
+                        details={"execution_mode": execution_mode or "default"},
                     )
                     run_status = "execution_scheduled"
                 payload["execution"] = execution_payload

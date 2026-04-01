@@ -25,7 +25,6 @@ from typing import Any, Iterable, Sequence
 import uuid
 
 from aragora.pipeline.backbone_contracts import (
-    BackboneStage,
     DeliberationBundle,
     IntakeBundle,
     OutcomeFeedbackRecord,
@@ -33,7 +32,6 @@ from aragora.pipeline.backbone_contracts import (
     RunLedger,
     RunStageEvent,
     SpecBundle,
-    TaintChecker,
 )
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
@@ -391,7 +389,6 @@ class PlanStore:
                 ),
             )
             conn.commit()
-            self._attach_backbone_receipt_for_plan(plan, append_event=False)
             logger.info("Stored plan %s for debate %s", plan.id, plan.debate_id)
         finally:
             conn.close()
@@ -531,7 +528,6 @@ class PlanStore:
                         plan = self.get(plan_id)
                         if plan is not None:
                             sync_plan_receipt_state(plan, on_status=status)
-                            self._attach_backbone_receipt_for_plan(plan, append_event=True)
                     except Exception as exc:  # noqa: BLE001 - do not mask status update
                         logger.warning(
                             "Failed to synchronize decision receipt for plan %s: %s",
@@ -614,7 +610,6 @@ class PlanStore:
                         plan = self.get(plan_id)
                         if plan is not None:
                             sync_plan_receipt_state(plan, on_status=new_status)
-                            self._attach_backbone_receipt_for_plan(plan, append_event=True)
                     except Exception as exc:  # noqa: BLE001 - do not mask status update
                         logger.warning(
                             "Failed to synchronize decision receipt for plan %s: %s",
@@ -1104,80 +1099,6 @@ class PlanStore:
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
-
-    def _attach_backbone_receipt_for_plan(
-        self,
-        plan: DecisionPlan,
-        *,
-        append_event: bool = False,
-    ) -> None:
-        metadata = plan.metadata if isinstance(plan.metadata, dict) else {}
-        run_id = str(metadata.get("backbone_run_id", "") or "").strip()
-        if not run_id:
-            return
-
-        receipt_meta = metadata.get("decision_receipt")
-        receipt_id = ""
-        if isinstance(receipt_meta, dict):
-            receipt_id = str(receipt_meta.get("receipt_id", "") or "").strip()
-        if not receipt_id:
-            receipt_id = str(metadata.get("decision_receipt_id", "") or "").strip()
-        if not receipt_id:
-            return
-
-        try:
-            from aragora.pipeline.receipt_store_facade import get_receipt_store_facade
-
-            canonical = get_receipt_store_facade().get_canonical(receipt_id)
-        except Exception:  # noqa: BLE001 - best-effort ledger enrichment
-            logger.debug("Backbone receipt fetch failed for %s", receipt_id, exc_info=True)
-            return
-
-        if not isinstance(canonical, dict):
-            return
-        receipt_payload = canonical.get("receipt_data")
-        if isinstance(receipt_payload, dict):
-            receipt_payload = dict(receipt_payload)
-            receipt_payload.setdefault("receipt_id", receipt_id)
-            receipt_payload.setdefault("signature", canonical.get("signature"))
-            receipt_payload.setdefault("signature_key_id", canonical.get("signature_key_id"))
-            receipt_payload.setdefault("signed_at", canonical.get("signed_at"))
-            receipt_payload.setdefault("signature_algorithm", canonical.get("signature_algorithm"))
-            receipt_payload["state"] = canonical.get("state", receipt_payload.get("state"))
-        else:
-            receipt_payload = canonical
-        if not isinstance(receipt_payload, dict):
-            return
-
-        run = self.get_run(run_id)
-        taint_summary = TaintChecker.collect_taint_summary(
-            intake=getattr(run, "intake_bundle", None),
-            spec=getattr(run, "spec_bundle", None),
-            deliberation=getattr(run, "deliberation_bundle", None),
-            verification=getattr(run, "receipt_envelope", None),
-        )
-        gate = metadata.get("execution_gate")
-        envelope = ReceiptEnvelope.from_decision_receipt(
-            receipt_payload,
-            policy_gate_result=dict(gate or {}) if isinstance(gate, dict) else {},
-            taint_summary=taint_summary,
-        )
-        self.update_run(
-            run_id,
-            receipt_id=receipt_id,
-            receipt_envelope=envelope,
-            metadata={"plan_receipt_state": str(receipt_payload.get("state", "")).lower()},
-        )
-        if append_event:
-            self.append_run_stage_event(
-                run_id,
-                RunStageEvent.create(
-                    BackboneStage.RECEIPT,
-                    status=str(receipt_payload.get("state", "created") or "created").lower(),
-                    artifact_ref=receipt_id,
-                    details={"source": "plan_status_transition", "plan_id": plan.id},
-                ),
-            )
 
     @staticmethod
     def _row_to_plan(row: sqlite3.Row) -> DecisionPlan:

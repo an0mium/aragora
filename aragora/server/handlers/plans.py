@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.pipeline.decision_plan.core import DecisionPlan
 
+from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -270,7 +271,9 @@ class PlansHandler(BaseHandler):
             plan.metadata["estimated_duration"] = str(estimated_duration)
 
         store = _get_plan_store()
+        runtime = BackboneRuntime(store)
         store.create(plan)
+        runtime.sync_plan_receipt_to_run(plan, append_event=False)
 
         logger.info("Created plan %s for debate %s", plan.id, plan.debate_id)
         _fire_plan_notification("created", plan)
@@ -303,6 +306,7 @@ class PlansHandler(BaseHandler):
             )
 
         approver_id = getattr(user, "user_id", "unknown") if user else "unknown"
+        runtime = BackboneRuntime(store)
 
         body = self.get_json_body() or {}
         reason = body.get("reason", "")
@@ -310,6 +314,8 @@ class PlansHandler(BaseHandler):
 
         plan.approve(approver_id, reason=str(reason), conditions=conditions)
         store.update_status(plan_id, PlanStatus.APPROVED, approved_by=approver_id)
+        plan = store.get(plan_id) or plan
+        runtime.sync_plan_receipt_to_run(plan, append_event=True)
 
         logger.info("Plan %s approved by %s", plan_id, approver_id)
         _fire_plan_notification("approved", plan, approved_by=approver_id)
@@ -369,6 +375,7 @@ class PlansHandler(BaseHandler):
             return error_response("reason is required for rejection", 400)
 
         rejecter_id = getattr(user, "user_id", "unknown") if user else "unknown"
+        runtime = BackboneRuntime(store)
 
         plan.reject(rejecter_id, reason=str(reason))
         store.update_status(
@@ -377,6 +384,8 @@ class PlansHandler(BaseHandler):
             approved_by=rejecter_id,
             rejection_reason=str(reason),
         )
+        plan = store.get(plan_id) or plan
+        runtime.sync_plan_receipt_to_run(plan, append_event=True)
 
         logger.info("Plan %s rejected by %s: %s", plan_id, rejecter_id, reason)
         _fire_plan_notification("rejected", plan, rejected_by=rejecter_id, reason=str(reason))
