@@ -1218,6 +1218,28 @@ class TestRedisWebhookConfigStore:
         assert call_args[0][1] == 86400  # TTL
         store.close()
 
+    def test_with_mocked_redis_register_encrypts_cached_secret(self, tmp_path):
+        """Redis cache entries should not store decrypted webhook secrets."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        with patch(
+            "aragora.storage.webhook_config_store._encrypt_secret",
+            return_value="ENCRYPTED-SECRET",
+        ) as mock_encrypt:
+            webhook = store.register(url="https://example.com", events=["debate_end"])
+
+        payload = json.loads(mock_redis.setex.call_args[0][2])
+        assert payload["id"] == webhook.id
+        assert payload["secret"] == "ENCRYPTED-SECRET"
+        assert any(call.args == (webhook.secret,) for call in mock_encrypt.call_args_list)
+        store.close()
+
     def test_with_mocked_redis_get_cache_hit(self, tmp_path):
         """Test get returns from Redis cache when available."""
         db_path = tmp_path / "test.db"
@@ -1238,6 +1260,32 @@ class TestRedisWebhookConfigStore:
         assert retrieved is not None
         assert retrieved.url == "https://example.com"
         mock_redis.get.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_get_cache_hit_decrypts_cached_secret(self, tmp_path):
+        """Redis cache hits should decrypt cached secrets before returning them."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+        payload = webhook.to_dict(include_secret=True)
+        payload["secret"] = "ENCRYPTED-SECRET"
+        mock_redis.get.return_value = json.dumps(payload)
+
+        with patch(
+            "aragora.storage.webhook_config_store._decrypt_secret",
+            return_value=webhook.secret,
+        ) as mock_decrypt:
+            retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.secret == webhook.secret
+        mock_decrypt.assert_called_once_with("ENCRYPTED-SECRET")
         store.close()
 
     def test_with_mocked_redis_get_cache_miss(self, tmp_path):

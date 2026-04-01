@@ -786,6 +786,24 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def _redis_key(self, webhook_id: str) -> str:
         return f"{self.REDIS_PREFIX}:{webhook_id}"
 
+    @staticmethod
+    def _serialize_for_cache(webhook: WebhookConfig) -> str:
+        """Serialize cache entries without storing decrypted secrets in Redis."""
+        payload = webhook.to_dict(include_secret=True)
+        secret = str(payload.get("secret") or "").strip()
+        if secret:
+            payload["secret"] = _encrypt_secret(secret)
+        return json.dumps(payload)
+
+    @staticmethod
+    def _deserialize_from_cache(payload: str) -> WebhookConfig:
+        """Deserialize cache entries, decrypting cached secrets when present."""
+        data = json.loads(payload)
+        secret = str(data.get("secret") or "").strip()
+        if secret:
+            data["secret"] = _decrypt_secret(secret)
+        return WebhookConfig(**data)
+
     def register(
         self,
         url: str,
@@ -809,7 +827,9 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         redis = self._get_redis()
         if redis:
             try:
-                redis.setex(self._redis_key(webhook.id), self.REDIS_TTL, webhook.to_json())
+                redis.setex(
+                    self._redis_key(webhook.id), self.REDIS_TTL, self._serialize_for_cache(webhook)
+                )
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug("Redis cache update failed: %s", e)
 
@@ -823,7 +843,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 data = redis.get(self._redis_key(webhook_id))
                 if data:
-                    return WebhookConfig.from_json(data)
+                    return self._deserialize_from_cache(data)
             except (
                 _RedisError,
                 ConnectionError,
@@ -840,7 +860,9 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         # Populate Redis cache if found
         if webhook and redis:
             try:
-                redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
+                redis.setex(
+                    self._redis_key(webhook_id), self.REDIS_TTL, self._serialize_for_cache(webhook)
+                )
             except (_RedisError, ConnectionError, TimeoutError) as e:
                 logger.debug("Redis cache population failed (connection issue): %s", e)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
@@ -894,7 +916,11 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             redis = self._get_redis()
             if redis:
                 try:
-                    redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
+                    redis.setex(
+                        self._redis_key(webhook_id),
+                        self.REDIS_TTL,
+                        self._serialize_for_cache(webhook),
+                    )
                 except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                     logger.debug("Redis cache update failed: %s", e)
 
