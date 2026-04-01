@@ -4887,6 +4887,54 @@ def test_pre_reap_salvage_skips_live_workers(repo: Path, store: DevCoordinationS
     assert not updated["work_orders"][0].get("commit_shas")
 
 
+def test_pre_reap_salvage_ignores_invalid_pid_probe(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    """Invalid PID metadata must not hit os.kill(0) or process-group probes."""
+    session_path = repo / "wt-invalid-pid-test"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-invalid-pid",
+        agent="codex",
+        branch="codex/swarm-invalid-pid",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="invalid pid test",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=False,
+        subtasks=[SubTask(id="wo-1", title="T", description="D", file_scope=["t.py"])],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, lifecycle=lifecycle, decomposer=decomposer
+    )
+
+    spec = SwarmSpec(raw_goal="invalid pid test", file_scope_hints=["t.py"])
+    run = supervisor.start_run(spec=spec)
+    record = store.get_supervisor_run(run.run_id)
+    record["work_orders"][0]["status"] = "dispatched"
+    record["work_orders"][0]["pid"] = 0
+    record["work_orders"][0]["worktree_path"] = str(repo)
+    store.update_supervisor_run(run.run_id, work_orders=record["work_orders"])
+
+    with (
+        patch("os.kill") as mock_kill,
+        patch.object(
+            supervisor, "_build_dead_worker_salvage_result", return_value=None
+        ) as mock_salvage,
+    ):
+        supervisor._collect_finished_workers_sync(run.run_id)
+
+    mock_kill.assert_not_called()
+    mock_salvage.assert_called_once()
+
+
 def test_pre_reap_salvage_handles_missing_worktree(repo: Path, store: DevCoordinationStore) -> None:
     """Pre-reap salvage should handle missing worktree paths gracefully."""
     session_path = repo / "wt-missing-test"
