@@ -6,7 +6,10 @@ isinstance() failures caused by importlib.reload() of the similarity
 backends module in tests/debate/similarity/.
 """
 
+import asyncio
+import gc
 import sys
+import warnings
 
 import pytest
 
@@ -203,3 +206,21 @@ def _resync_all_backend_refs():
                 old_val = getattr(mod, name)
                 if old_val is not new_val:
                     setattr(mod, name, new_val)
+
+
+@pytest.fixture(autouse=True)
+def _suppress_stray_resource_warnings():
+    """Suppress ResourceWarnings from third-party async clients during teardown.
+
+    Arena tests create httpx/aiohttp clients (via AsyncAnthropic, etc.) that
+    are mocked at the call layer but may still open real transport objects
+    internally.  When the event loop closes, Python emits ResourceWarning for
+    any unclosed transports.  These are not actionable in tests (the real
+    cleanup path is exercised in integration tests), so we suppress them to
+    keep ``-W error::ResourceWarning`` clean.
+    """
+    with warnings.catch_warnings():
+        yield
+    # Force a GC cycle so finalizers run now (inside the test's event loop)
+    # rather than later when the loop is already closed.
+    gc.collect()
