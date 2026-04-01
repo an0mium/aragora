@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -177,6 +177,22 @@ def reset_rate_limiter():
 
     mod._pipeline_limiter = RateLimiter(requests_per_minute=60)
     yield
+
+
+@pytest.fixture(autouse=True)
+def patch_backbone_create_helpers():
+    """Patch backbone create-time helpers so tests stay local and deterministic."""
+    with (
+        patch(
+            "aragora.server.handlers.decisions.pipeline.ensure_decision_plan_backbone_run",
+            return_value="run-decision-pipeline",
+        ),
+        patch(
+            "aragora.server.handlers.decisions.pipeline.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -755,22 +771,26 @@ class TestRejectPlan:
 class TestExecutePlan:
     """Tests for executing an approved decision plan."""
 
-    def _patch_executor(self, outcome=None, side_effect=None):
-        """Helper to create patched PlanExecutor with AsyncMock execute."""
+    def _patch_executor(self):
+        """Helper to create a patched PlanExecutor constructor."""
         mock_executor_inst = MagicMock()
-        mock_executor_inst.execute = AsyncMock(
-            return_value=outcome,
-            side_effect=side_effect,
-        )
         mock_executor_cls = MagicMock(return_value=mock_executor_inst)
         return mock_executor_cls, mock_executor_inst
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_success(self, mock_get, handler):
-        plan = _MockPlan(id="dp-001")
-        mock_get.return_value = plan
+        plan = _MockPlan(id="dp-001", status=_PlanStatus.APPROVED)
+        refreshed_plan = _MockPlan(id="dp-001", status=_PlanStatus.COMPLETED)
+        mock_get.side_effect = [plan, refreshed_plan]
         outcome = _MockOutcome(success=True)
-        executor_cls, _ = self._patch_executor(outcome=outcome)
+        launch = {
+            "run_id": "run-dp-001",
+            "execution_id": "exec-dp-001",
+            "correlation_id": "corr-dp-001",
+        }
+        executor_cls, executor_inst = self._patch_executor()
+        mock_loop = MagicMock()
+        mock_loop.run_until_complete.return_value = (launch, outcome)
 
         h = _make_http_handler({"execution_mode": "workflow"})
         with (
@@ -779,12 +799,25 @@ class TestExecutePlan:
                 "aragora.server.handlers.decisions.pipeline.normalize_execution_mode",
                 return_value="workflow",
             ),
+            patch(
+                "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+                return_value="coro",
+            ) as mock_execute,
+            patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
         ):
             result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
         assert body["outcome"]["success"] is True
+        assert body["run_id"] == "run-dp-001"
+        assert body["execution_id"] == "exec-dp-001"
+        assert body["correlation_id"] == "corr-dp-001"
+        assert body["plan"]["status"] == "completed"
+        executor_cls.assert_called_once_with(parallel_execution=False, max_parallel=None)
+        kwargs = mock_execute.call_args.kwargs
+        assert kwargs["executor"] is executor_inst
+        assert kwargs["execution_mode"] == "workflow"
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_not_found(self, mock_get, handler):
@@ -842,45 +875,91 @@ class TestExecutePlan:
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_permission_error(self, mock_get, handler):
-        mock_get.return_value = _MockPlan()
-        executor_cls, _ = self._patch_executor(side_effect=PermissionError("denied"))
+        mock_get.return_value = _MockPlan(status=_PlanStatus.APPROVED)
+        executor_cls, _ = self._patch_executor()
+        mock_loop = MagicMock()
+        mock_loop.run_until_complete.side_effect = PermissionError("denied")
 
         h = _make_http_handler({})
-        with patch("aragora.pipeline.executor.PlanExecutor", executor_cls):
+        with (
+            patch("aragora.pipeline.executor.PlanExecutor", executor_cls),
+            patch(
+                "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+                return_value="coro",
+            ),
+            patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
+        ):
             result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
         assert _status(result) == 403
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_value_error_conflict(self, mock_get, handler):
-        mock_get.return_value = _MockPlan()
-        executor_cls, _ = self._patch_executor(side_effect=ValueError("not approved"))
+        mock_get.return_value = _MockPlan(status=_PlanStatus.APPROVED)
+        executor_cls, _ = self._patch_executor()
+        mock_loop = MagicMock()
+        mock_loop.run_until_complete.side_effect = ValueError("not approved")
 
         h = _make_http_handler({})
-        with patch("aragora.pipeline.executor.PlanExecutor", executor_cls):
+        with (
+            patch("aragora.pipeline.executor.PlanExecutor", executor_cls),
+            patch(
+                "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+                return_value="coro",
+            ),
+            patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
+        ):
             result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
         assert _status(result) == 409
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_no_execution_mode(self, mock_get, handler):
         """Execution mode is optional - defaults to None."""
-        plan = _MockPlan()
-        mock_get.return_value = plan
+        plan = _MockPlan(status=_PlanStatus.APPROVED)
+        mock_get.side_effect = [plan, plan]
         outcome = _MockOutcome()
-        executor_cls, _ = self._patch_executor(outcome=outcome)
+        executor_cls, executor_inst = self._patch_executor()
+        mock_loop = MagicMock()
+        mock_loop.run_until_complete.return_value = (
+            {
+                "run_id": "run-dp-002",
+                "execution_id": "exec-dp-002",
+                "correlation_id": "corr-dp-002",
+            },
+            outcome,
+        )
 
         h = _make_http_handler({})
-        with patch("aragora.pipeline.executor.PlanExecutor", executor_cls):
+        with (
+            patch("aragora.pipeline.executor.PlanExecutor", executor_cls),
+            patch(
+                "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+                return_value="coro",
+            ) as mock_execute,
+            patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
+        ):
             result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
         assert _status(result) == 200
+        kwargs = mock_execute.call_args.kwargs
+        assert kwargs["execution_mode"] is None
+        assert kwargs["executor"] is executor_inst
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_valid_modes(self, mock_get, handler):
         """All valid execution modes should pass validation."""
         for mode in ("workflow", "hybrid", "fabric", "computer_use"):
-            plan = _MockPlan()
-            mock_get.return_value = plan
+            plan = _MockPlan(status=_PlanStatus.APPROVED)
+            mock_get.side_effect = [plan, plan]
             outcome = _MockOutcome()
-            executor_cls, _ = self._patch_executor(outcome=outcome)
+            executor_cls, _ = self._patch_executor()
+            mock_loop = MagicMock()
+            mock_loop.run_until_complete.return_value = (
+                {
+                    "run_id": f"run-{mode}",
+                    "execution_id": f"exec-{mode}",
+                    "correlation_id": f"corr-{mode}",
+                },
+                outcome,
+            )
 
             h = _make_http_handler({"execution_mode": mode})
             with (
@@ -889,6 +968,11 @@ class TestExecutePlan:
                     "aragora.server.handlers.decisions.pipeline.normalize_execution_mode",
                     return_value=mode,
                 ),
+                patch(
+                    "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+                    return_value="coro",
+                ),
+                patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
             ):
                 result = handler.handle_post("/api/v1/decisions/plans/dp-001/execute", {}, h)
             assert _status(result) == 200, f"Mode {mode} should be valid"

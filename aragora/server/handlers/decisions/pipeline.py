@@ -27,6 +27,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.resilience import get_circuit_breaker
+from aragora.server.decision_integrity_utils import (
+    ensure_decision_plan_backbone_run,
+    execute_decision_plan_with_backbone,
+    sync_decision_plan_backbone_receipt,
+)
 
 from ..base import (
     HandlerResult,
@@ -48,6 +53,9 @@ _pipeline_cb = None
 
 # Rate limiter (60 requests per minute for pipeline ops)
 _pipeline_limiter = RateLimiter(requests_per_minute=60)
+_RESERVED_BACKBONE_METADATA_KEYS = frozenset(
+    {"backbone_entrypoint", "backbone_run_id", "source_id", "source_surface"}
+)
 
 
 def _get_circuit_breaker():  # type: ignore[no-untyped-def]
@@ -163,6 +171,13 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
             payload["thread_id_by_platform"] = normalized_map
 
     return payload or None
+
+
+def _sanitize_plan_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Remove request-controlled keys reserved for backbone wiring."""
+    return {
+        key: value for key, value in metadata.items() if key not in _RESERVED_BACKBONE_METADATA_KEYS
+    }
 
 
 # RBAC permission keys
@@ -435,6 +450,8 @@ class DecisionPipelineHandler(SecureHandler):
             metadata = {}
         elif not isinstance(metadata, dict):
             return error_response("metadata must be an object", 400)
+        else:
+            metadata = _sanitize_plan_metadata(metadata)
 
         # Pass operational mode through to metadata for downstream consumption
         request_mode = body.get("mode")
@@ -456,10 +473,18 @@ class DecisionPipelineHandler(SecureHandler):
             implementation_profile=implementation_profile,
         )
 
+        run_id = ensure_decision_plan_backbone_run(
+            plan,
+            auth_context=user,
+            source_surface="decision_pipeline",
+            source_id=str(debate_id),
+        )
+
         # Store it
         from aragora.pipeline.executor import store_plan
 
         store_plan(plan)
+        sync_decision_plan_backbone_receipt(plan, append_event=False)
 
         # Notify approvers if human approval is required
         if plan.requires_human_approval:
@@ -527,6 +552,7 @@ class DecisionPipelineHandler(SecureHandler):
             {
                 "success": True,
                 "plan": plan.to_dict(),
+                "run_id": run_id,
             },
             status=201,
         )
@@ -681,15 +707,18 @@ class DecisionPipelineHandler(SecureHandler):
             permissions=permissions,
         )
 
-        executor = PlanExecutor(max_parallel=max_parallel)
+        executor = PlanExecutor(
+            parallel_execution=bool(parallel_execution),
+            max_parallel=max_parallel,
+        )
 
         try:
-            outcome = get_event_loop_safe().run_until_complete(
-                executor.execute(
+            launch, outcome = get_event_loop_safe().run_until_complete(
+                execute_decision_plan_with_backbone(
                     plan,
+                    executor=executor,
                     auth_context=auth_context,
                     execution_mode=execution_mode_typed,
-                    parallel_execution=parallel_execution,
                 )
             )
         except PermissionError as e:
@@ -697,6 +726,8 @@ class DecisionPipelineHandler(SecureHandler):
             return error_response("Permission denied", 403)
         except ValueError:
             return error_response("Conflict", 409)
+
+        refreshed_plan = get_plan(plan_id) or plan
 
         logger.info(
             "Plan %s execution completed: success=%s",
@@ -707,8 +738,11 @@ class DecisionPipelineHandler(SecureHandler):
         return json_response(
             {
                 "success": True,
-                "plan": plan.to_dict(),
+                "plan": refreshed_plan.to_dict(),
                 "outcome": outcome.to_dict(),
+                "run_id": launch.get("run_id"),
+                "execution_id": launch.get("execution_id"),
+                "correlation_id": launch.get("correlation_id"),
             }
         )
 

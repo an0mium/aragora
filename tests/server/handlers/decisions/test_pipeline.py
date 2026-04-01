@@ -7,6 +7,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from aragora.pipeline.decision_plan import DecisionPlan, PlanStatus
 from aragora.server.handlers.base import error_response
 from aragora.server.handlers.decisions.pipeline import (
@@ -31,6 +33,22 @@ def _parse_body(result) -> dict:
     if isinstance(body, bytes):
         return json.loads(body.decode("utf-8"))
     return json.loads(body)
+
+
+@pytest.fixture(autouse=True)
+def patch_backbone_create_helpers():
+    """Patch create-time backbone helpers so validation tests stay local and deterministic."""
+    with (
+        patch(
+            "aragora.server.handlers.decisions.pipeline.ensure_decision_plan_backbone_run",
+            return_value="run-decision-pipeline",
+        ),
+        patch(
+            "aragora.server.handlers.decisions.pipeline.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+    ):
+        yield
 
 
 def test_handle_post_create_requires_create_permission() -> None:
@@ -198,7 +216,7 @@ def test_create_plan_rejects_non_object_metadata() -> None:
 
 
 def test_execute_plan_accepts_execution_overrides() -> None:
-    """Execute endpoint should forward execution overrides to PlanExecutor."""
+    """Execute endpoint should route execution through the backbone helper."""
     handler = DecisionPipelineHandler({})
     request = _make_http_handler(
         {
@@ -221,27 +239,38 @@ def test_execute_plan_accepts_execution_overrides() -> None:
     mock_outcome = MagicMock()
     mock_outcome.success = True
     mock_outcome.to_dict.return_value = {"success": True}
+    launch = {
+        "run_id": "run-plan-1",
+        "execution_id": "exec-plan-1",
+        "correlation_id": "corr-plan-1",
+    }
 
     mock_executor = MagicMock()
-    mock_executor.execute.return_value = "coro"
 
     mock_loop = MagicMock()
-    mock_loop.run_until_complete.return_value = mock_outcome
+    mock_loop.run_until_complete.return_value = (launch, mock_outcome)
 
     with (
         patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
         patch(
             "aragora.pipeline.executor.PlanExecutor", return_value=mock_executor
         ) as mock_exec_cls,
+        patch(
+            "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+            return_value="coro",
+        ) as mock_execute,
         patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
     ):
         result = handler._handle_execute_plan("plan-1", request, user)
 
     assert result.status_code == 200
-    mock_exec_cls.assert_called_once_with(max_parallel=4)
-    kwargs = mock_executor.execute.call_args.kwargs
+    payload = _parse_body(result)
+    assert payload["run_id"] == "run-plan-1"
+    assert payload["execution_id"] == "exec-plan-1"
+    mock_exec_cls.assert_called_once_with(parallel_execution=True, max_parallel=4)
+    kwargs = mock_execute.call_args.kwargs
     assert kwargs["execution_mode"] == "hybrid"
-    assert kwargs["parallel_execution"] is True
+    assert kwargs["executor"] is mock_executor
 
 
 def test_execute_plan_rejects_invalid_execution_mode() -> None:
@@ -297,23 +326,100 @@ def test_execute_plan_normalizes_execution_mode_alias() -> None:
     mock_outcome = MagicMock()
     mock_outcome.success = True
     mock_outcome.to_dict.return_value = {"success": True}
+    launch = {
+        "run_id": "run-plan-2",
+        "execution_id": "exec-plan-2",
+        "correlation_id": "corr-plan-2",
+    }
 
     mock_executor = MagicMock()
-    mock_executor.execute.return_value = "coro"
 
     mock_loop = MagicMock()
-    mock_loop.run_until_complete.return_value = mock_outcome
+    mock_loop.run_until_complete.return_value = (launch, mock_outcome)
 
     with (
         patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
         patch("aragora.pipeline.executor.PlanExecutor", return_value=mock_executor),
+        patch(
+            "aragora.server.handlers.decisions.pipeline.execute_decision_plan_with_backbone",
+            return_value="coro",
+        ) as mock_execute,
         patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
     ):
         result = handler._handle_execute_plan("plan-1", request, user)
 
     assert result.status_code == 200
-    kwargs = mock_executor.execute.call_args.kwargs
+    kwargs = mock_execute.call_args.kwargs
     assert kwargs["execution_mode"] == "workflow"
+
+
+def test_create_plan_seeds_backbone_run_and_scrubs_reserved_metadata() -> None:
+    """Create-plan should seed a backbone run and ignore spoofed backbone metadata."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "debate_id": "deb-123",
+            "metadata": {
+                "custom": "value",
+                "source_surface": "spoofed",
+                "source_id": "spoofed-id",
+                "backbone_run_id": "run-spoofed",
+                "backbone_entrypoint": "spoofed.entrypoint",
+            },
+            "mode": "architect",
+        }
+    )
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+    mock_plan.debate_id = "deb-123"
+    mock_plan.requires_human_approval = False
+    mock_plan.status = SimpleNamespace(value="approved")
+    mock_plan.to_dict.return_value = {"id": "plan-1"}
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = object()
+    user = SimpleNamespace(user_id="user-1")
+
+    with (
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch(
+            "aragora.server.handlers.decisions.pipeline._load_debate_result",
+            return_value=object(),
+        ),
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+            return_value=mock_plan,
+        ) as mock_build,
+        patch("aragora.pipeline.executor.store_plan"),
+        patch(
+            "aragora.server.handlers.decisions.pipeline.ensure_decision_plan_backbone_run",
+            return_value="run-plan-3",
+        ) as mock_seed,
+        patch(
+            "aragora.server.handlers.decisions.pipeline.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ) as mock_sync,
+    ):
+        result = handler._handle_create_plan(request, user)
+
+    assert result.status_code == 201
+    payload = _parse_body(result)
+    assert payload["run_id"] == "run-plan-3"
+    metadata = mock_build.call_args.kwargs["metadata"]
+    assert metadata["custom"] == "value"
+    assert metadata["operational_mode"] == "architect"
+    assert "source_surface" not in metadata
+    assert "source_id" not in metadata
+    assert "backbone_run_id" not in metadata
+    assert "backbone_entrypoint" not in metadata
+    mock_seed.assert_called_once_with(
+        mock_plan,
+        auth_context=user,
+        source_surface="decision_pipeline",
+        source_id="deb-123",
+    )
+    mock_sync.assert_called_once_with(mock_plan, append_event=False)
 
 
 def test_create_plan_normalizes_profile_execution_mode_alias() -> None:
