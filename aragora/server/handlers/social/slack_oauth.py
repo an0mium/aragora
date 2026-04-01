@@ -1589,6 +1589,17 @@ class SlackOAuthHandler(SecureHandler):
 
             # Update stored tokens
             new_access_token = data.get("access_token")
+            if not str(new_access_token or "").strip():
+                logger.error("Token refresh returned no access token for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: missing access token",
+                    )
+                return error_response("Invalid token refresh response", 502)
             new_refresh_token = data.get("refresh_token", workspace.refresh_token)
             expires_in = data.get("expires_in")
             new_expires_at = time.time() + expires_in if expires_in else None
