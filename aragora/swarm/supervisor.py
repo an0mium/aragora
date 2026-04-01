@@ -778,8 +778,21 @@ class SwarmSupervisor:
             pid_value = None
         if pid_value and pid_value > 0:
             item["pid"] = pid_value
-            if str(item.get("status", "")).strip() == "leased":
-                item["status"] = "dispatched"
+            item["status"] = "dispatched"
+            return
+
+        # Rebinding onto an active lease with no worker PID means the lease is
+        # live but not yet dispatched. Drop stale dispatch-only state from the
+        # replaced lease so the lane can launch cleanly on the next iteration.
+        item["status"] = "leased"
+        for key in (
+            "pid",
+            "dispatched_at",
+            "last_observed_at",
+            "last_progress_at",
+            "progress_fingerprint",
+        ):
+            item.pop(key, None)
 
     def _prune_stale_conflicts(
         self,

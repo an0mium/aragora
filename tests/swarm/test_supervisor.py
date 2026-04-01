@@ -548,6 +548,94 @@ def test_refresh_run_rebinds_released_work_order_to_new_active_lease(
     assert work_order["owner_session_id"] == "swarm-rebound-lease"
 
 
+def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-rebound-dispatched"
+    session_path.mkdir()
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    old_lease = store.claim_lease(
+        task_id="wo-rebound-dispatched",
+        title="Rebind dispatched lane",
+        owner_agent="codex",
+        owner_session_id="swarm-rebound-dispatched",
+        branch="codex/swarm-rebound-dispatched",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-rebound-dispatched",
+            "work_order_id": "wo-rebound-dispatched",
+            "task_key": "run-rebound-dispatched:wo-rebound-dispatched",
+            "worker_pid": 12345,
+        },
+    )
+    store.release_lease(old_lease.lease_id)
+    new_lease = store.claim_lease(
+        task_id="wo-rebound-dispatched",
+        title="Rebind dispatched lane",
+        owner_agent="codex",
+        owner_session_id="swarm-rebound-dispatched",
+        branch="codex/swarm-rebound-dispatched",
+        worktree_path=str(session_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        metadata={
+            "supervisor_run_id": "run-rebound-dispatched",
+            "work_order_id": "wo-rebound-dispatched",
+            "task_key": "run-rebound-dispatched:wo-rebound-dispatched",
+        },
+    )
+    run_record = store.create_supervisor_run(
+        goal="rebind stale dispatched lease",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "rebind stale dispatched lease"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-rebound-dispatched",
+                "title": "Rebind dispatched lane",
+                "description": "Rebind dispatched lane",
+                "status": "dispatched",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "lease_id": old_lease.lease_id,
+                "owner_session_id": "swarm-rebound-dispatched",
+                "task_key": "run-rebound-dispatched:wo-rebound-dispatched",
+                "branch": "codex/swarm-rebound-dispatched",
+                "worktree_path": str(session_path),
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "pid": 12345,
+                "dispatched_at": "2026-03-31T12:00:00+00:00",
+                "last_observed_at": "2026-03-31T12:01:00+00:00",
+                "last_progress_at": "2026-03-31T12:01:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "old-head",
+                    "changed_paths": ["aragora/swarm/supervisor.py"],
+                    "diff_lines": 5,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"] == new_lease.lease_id
+    assert work_order["owner_session_id"] == "swarm-rebound-dispatched"
+    for cleared_key in (
+        "pid",
+        "dispatched_at",
+        "last_observed_at",
+        "last_progress_at",
+        "progress_fingerprint",
+    ):
+        assert cleared_key not in work_order
+
+
 def test_refresh_run_respects_dispatched_workers_as_active(
     repo: Path, store: DevCoordinationStore
 ) -> None:
