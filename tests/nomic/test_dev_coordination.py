@@ -1974,6 +1974,79 @@ def test_archive_superseded_waiting_conflict_work_orders_discards_cross_run_cont
     assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
 
 
+def test_archive_superseded_waiting_conflict_work_orders_discards_cross_run_contained_same_lane_with_goal_drift(
+    store: DevCoordinationStore,
+) -> None:
+    older = store.create_supervisor_run(
+        goal="Tighten the design partner motion into a bounded founder sales artifact.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "proj-001",
+                "title": "Narrow docs lane",
+                "status": "waiting_conflict",
+                "file_scope": ["docs/outreach/**", "docs/plans/**", "docs/strategy/**"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "tranche_lane_id": "proj-001",
+                },
+            }
+        ],
+    )
+    newer = store.create_supervisor_run(
+        goal="Connect the results page to backend endpoints with truthful live-state behavior.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "proj-001",
+                "title": "Broader docs lane",
+                "status": "waiting_conflict",
+                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "tranche_lane_id": "proj-001",
+                },
+            }
+        ],
+    )
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", older["run_id"]),
+        )
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-02T00:00:00+00:00", "2000-01-02T00:00:00+00:00", newer["run_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    archived = store.archive_superseded_waiting_conflict_work_orders(grace_period_hours=24.0)
+    older_refreshed = store.get_supervisor_run(older["run_id"])
+    newer_refreshed = store.get_supervisor_run(newer["run_id"])
+
+    assert archived == 1
+    assert older_refreshed is not None
+    assert newer_refreshed is not None
+    assert older_refreshed["work_orders"][0]["status"] == "discarded"
+    assert (
+        older_refreshed["work_orders"][0]["metadata"]["archive_reason"]
+        == "cross_run_contained_waiting_conflict_sibling"
+    )
+    assert older_refreshed["work_orders"][0]["metadata"]["canonical_run_id"] == newer["run_id"]
+    assert older_refreshed["work_orders"][0]["metadata"]["canonical_work_order_id"] == "proj-001"
+    assert newer_refreshed["work_orders"][0]["status"] == "waiting_conflict"
+
+
 def test_archive_superseded_waiting_conflict_work_orders_discards_glob_and_trailing_slash_variants(
     store: DevCoordinationStore,
 ) -> None:
