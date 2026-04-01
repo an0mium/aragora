@@ -2841,6 +2841,78 @@ def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_lane_blocke
     )
 
 
+def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_docs_only_lane_after_scope_truth_narrowing(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    (repo / "docs" / "ADR").mkdir(parents=True, exist_ok=True)
+
+    store.create_supervisor_run(
+        goal="Keep the broader docs planning lane open.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "broad-docs",
+                "title": "Broad docs lane",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "file_scope": ["docs"],
+            }
+        ],
+    )
+    candidate = store.create_supervisor_run(
+        goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={
+            "raw_goal": "Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            "refined_goal": "Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            "acceptance_criteria": ["ADR committed under docs/ADR"],
+            "constraints": ["Documentation only"],
+        },
+        work_orders=[
+            {
+                "work_order_id": "docs-only-adr",
+                "title": "Improve Developer Track",
+                "description": "Enhance capabilities in the Developer track. Key folders: sdk/, docs/, tests/sdk/.",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Which overlapping lane should finish first?",
+                "blocker": {
+                    "reason": "waiting_conflict",
+                    "question": "Which overlapping lane should finish first?",
+                },
+                "blockers": ["waiting_conflict"],
+                "file_scope": ["sdk/", "docs/", "tests/sdk/"],
+                "metadata": {
+                    "acceptance_criteria": ["ADR committed under docs/ADR"],
+                    "constraints": ["Documentation only"],
+                    "source": "nomic_subtask",
+                },
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_narrowed_waiting_conflict_work_orders(grace_period_hours=0.0)
+    refreshed = store.get_supervisor_run(candidate["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "queued"
+    assert work_order["file_scope"] == ["docs/ADR"]
+    assert work_order["blockers"] == []
+    assert work_order["conflicts"] == []
+    assert "failure_reason" not in work_order
+    assert work_order["metadata"]["waiting_conflict_requeue_reason"] == (
+        "narrowed_scope_cleared_container_only_blockers"
+    )
+
+
 def test_rehabilitate_narrowed_waiting_conflict_work_orders_preserves_real_overlap(
     repo: Path,
     store: DevCoordinationStore,

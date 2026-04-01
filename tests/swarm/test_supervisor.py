@@ -1704,6 +1704,47 @@ def test_start_run_narrows_explicit_spec_broad_scope_when_description_names_spec
     assert run.work_orders[0]["file_scope"] == ["docs/plans/phase0b_campaign_manifest.yaml"]
 
 
+def test_start_run_narrows_docs_only_scope_to_doc_hints(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    (repo / "docs" / "ADR").mkdir(parents=True, exist_ok=True)
+
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Improve Developer Track",
+                description="Enhance capabilities in the Developer track. Key folders: sdk/, docs/, tests/sdk/.",
+                file_scope=["sdk/", "docs/", "tests/sdk/"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            refined_goal="Write the worker-model ADR with canonical command, deploy mapping, and compatibility notes.",
+            acceptance_criteria=["ADR committed under docs/ADR"],
+            constraints=["Documentation only"],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert run.work_orders[0]["file_scope"] == ["docs/ADR"]
+
+
 def test_start_run_drops_non_actionable_explicit_spec_validation_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:

@@ -7095,6 +7095,10 @@ def _is_concrete_repo_path_hint(path: str, *, repo_root: Path | None) -> bool:
 def _waiting_conflict_inference_text(work_order: dict[str, Any], run: dict[str, Any]) -> str:
     spec = run.get("spec")
     metadata = work_order.get("metadata")
+    spec_acceptance = spec.get("acceptance_criteria") if isinstance(spec, dict) else []
+    spec_constraints = spec.get("constraints") if isinstance(spec, dict) else []
+    metadata_acceptance = metadata.get("acceptance_criteria") if isinstance(metadata, dict) else []
+    metadata_constraints = metadata.get("constraints") if isinstance(metadata, dict) else []
     parts = [
         run.get("goal"),
         spec.get("raw_goal") if isinstance(spec, dict) else None,
@@ -7103,6 +7107,14 @@ def _waiting_conflict_inference_text(work_order: dict[str, Any], run: dict[str, 
         work_order.get("description"),
         metadata.get("description") if isinstance(metadata, dict) else None,
     ]
+    if isinstance(spec_acceptance, list):
+        parts.extend(spec_acceptance)
+    if isinstance(spec_constraints, list):
+        parts.extend(spec_constraints)
+    if isinstance(metadata_acceptance, list):
+        parts.extend(metadata_acceptance)
+    if isinstance(metadata_constraints, list):
+        parts.extend(metadata_constraints)
     return " ".join(str(part).strip() for part in parts if str(part or "").strip())
 
 
@@ -7133,6 +7145,53 @@ def _explicit_scope_paths_for_waiting_conflict(
     return explicit_paths
 
 
+def _docs_only_scope_hints_for_waiting_conflict(
+    work_order: dict[str, Any],
+    *,
+    run: dict[str, Any],
+) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    metadata = work_order.get("metadata") or {}
+    constraints = metadata.get("constraints") if isinstance(metadata, dict) else []
+    if not isinstance(constraints, list) or not any(
+        "documentation only" in str(item).strip().lower() for item in constraints
+    ):
+        spec = run.get("spec")
+        spec_constraints = spec.get("constraints") if isinstance(spec, dict) else []
+        if not isinstance(spec_constraints, list) or not any(
+            "documentation only" in str(item).strip().lower() for item in spec_constraints
+        ):
+            return []
+
+    original_scope = [
+        _canonical_scope_pattern(str(path))
+        for path in work_order.get("file_scope", []) or []
+        if _canonical_scope_pattern(str(path))
+    ]
+    if not original_scope:
+        return []
+
+    doc_hints: list[str] = []
+    for path in SwarmSpec.infer_file_scope_hints(_waiting_conflict_inference_text(work_order, run)):
+        clean = _canonical_scope_pattern(path)
+        if not clean.startswith("docs"):
+            continue
+        if any(
+            scope == clean or clean.startswith(f"{scope}/") or scope.startswith(f"{clean}/")
+            for scope in original_scope
+        ):
+            doc_hints.append(clean)
+    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
+        doc_hints = [hint for hint in doc_hints if hint != "docs"]
+    collapsed = _collapse_scope_patterns(doc_hints)
+    if collapsed:
+        return collapsed
+    if any(scope == "docs" or scope.startswith("docs/") for scope in original_scope):
+        return ["docs"]
+    return []
+
+
 def _narrow_waiting_conflict_scope_from_explicit_paths(
     work_order: dict[str, Any],
     *,
@@ -7151,27 +7210,29 @@ def _narrow_waiting_conflict_scope_from_explicit_paths(
         run=run,
         repo_root=repo_root,
     )
-    if not explicit_paths:
-        return []
+    if explicit_paths:
+        narrowed_scope: list[str] = []
+        replaced = False
+        for scope in original_scope:
+            contains_explicit = any(_path_matches_glob(path, scope) for path in explicit_paths)
+            if (
+                contains_explicit
+                and scope not in explicit_paths
+                and not _is_concrete_repo_path_hint(
+                    scope,
+                    repo_root=repo_root,
+                )
+            ):
+                replaced = True
+                continue
+            narrowed_scope.append(scope)
+        if replaced:
+            return _collapse_scope_patterns(narrowed_scope + explicit_paths)
 
-    narrowed_scope: list[str] = []
-    replaced = False
-    for scope in original_scope:
-        contains_explicit = any(_path_matches_glob(path, scope) for path in explicit_paths)
-        if (
-            contains_explicit
-            and scope not in explicit_paths
-            and not _is_concrete_repo_path_hint(
-                scope,
-                repo_root=repo_root,
-            )
-        ):
-            replaced = True
-            continue
-        narrowed_scope.append(scope)
-    if not replaced:
-        return []
-    return _collapse_scope_patterns(narrowed_scope + explicit_paths)
+    docs_only_scope = _docs_only_scope_hints_for_waiting_conflict(work_order, run=run)
+    if docs_only_scope and tuple(docs_only_scope) != tuple(original_scope):
+        return docs_only_scope
+    return []
 
 
 def _waiting_conflict_sibling_can_be_ignored(
