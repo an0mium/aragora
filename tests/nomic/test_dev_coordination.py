@@ -6067,6 +6067,84 @@ def test_reclassify_branch_stale_merge_gate_failures_when_mainline_passes(
     )
 
 
+def test_reclassify_branch_stale_verification_target_missing_when_paths_absent_on_main(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Reclassify stale branch paths after repo layout drift",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-target-missing",
+                "title": "Budget gate lane",
+                "status": "changes_requested",
+                "review_status": "changes_requested",
+                "failure_reason": "verification_target_missing",
+                "worker_outcome": "merge_gate_failed",
+                "receipt_id": "receipt-target-missing",
+                "branch": "codex/old-layout",
+                "commit_shas": ["abc12345"],
+                "file_scope": ["src/orchestrator/hardened.py", "src/orchestrator/budget_gate.py"],
+                "changed_paths": [
+                    "src/orchestrator/hardened.py",
+                    "src/orchestrator/budget_gate.py",
+                ],
+                "expected_tests": ["python -m pytest tests/orchestrator/test_budget_gate.py -q"],
+                "tests_run": ["python -m pytest tests/orchestrator/test_budget_gate.py -q"],
+                "verification_results": [
+                    {
+                        "command": "python -m pytest tests/orchestrator/test_budget_gate.py -q",
+                        "passed": False,
+                        "exit_code": 4,
+                        "stdout": "",
+                        "stderr": "ERROR: file or directory not found: tests/orchestrator/test_budget_gate.py",
+                        "duration_seconds": 1.0,
+                    }
+                ],
+                "dispatch_error": (
+                    "merge gate blocked: verification failed: "
+                    "python -m pytest tests/orchestrator/test_budget_gate.py -q "
+                    "(exit 4) - ERROR: file or directory not found: "
+                    "tests/orchestrator/test_budget_gate.py"
+                ),
+                "metadata": {"task_key": "run-stale:wo-target-missing"},
+            }
+        ],
+    )
+
+    with patch.object(
+        DevCoordinationStore,
+        "_resolve_verification_worktree",
+        side_effect=AssertionError("stale target-missing reclassification should not replay"),
+    ):
+        reclassified = store.reclassify_branch_stale_merge_gate_failures(
+            task_keys=["run-stale:wo-target-missing"]
+        )
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert reclassified == 1
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "changes_requested"
+    assert item["review_status"] == "changes_requested"
+    assert item["worker_outcome"] == "branch_snapshot_stale"
+    assert item["failure_reason"] == "branch_snapshot_stale"
+    assert item["metadata"]["mainline_verification_target_missing"] is True
+    assert item["metadata"]["mainline_missing_paths"] == [
+        "src/orchestrator/hardened.py",
+        "src/orchestrator/budget_gate.py",
+        "tests/orchestrator/test_budget_gate.py",
+    ]
+    assert "no longer exist on main" in item["dispatch_error"]
+    assert item["blocking_question"] == (
+        "Should this deliverable be rebased, regenerated, or otherwise refreshed on current main before review?"
+    )
+
+
 def test_reconcile_merge_gate_failed_work_orders_normalizes_existing_results(
     store: DevCoordinationStore,
 ) -> None:
