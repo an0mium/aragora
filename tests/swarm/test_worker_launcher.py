@@ -1200,6 +1200,27 @@ class TestCollectDetachedResult:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_returns_none_if_active_lock_exists_without_usable_pid(self, tmp_path: Path):
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff") as mock_diff,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-no-pid",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=None,
+            )
+
+        assert result is None
+        mock_running.assert_not_called()
+        mock_diff.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_uses_session_meta_pid_to_defer_when_marker_missing(self):
         with (
             patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680}),

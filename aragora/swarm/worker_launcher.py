@@ -1185,6 +1185,11 @@ class WorkerLauncher:
             observed_pid = cls._normalized_pid(session_meta.get("pid"))
         missing_terminal_marker = session_exit_code is None
 
+        if missing_terminal_marker and observed_pid is None:
+            active_lock = Path(worktree_path) / ".codex_session_active"
+            if active_lock.exists():
+                return None
+
         if (
             missing_terminal_marker
             and observed_pid is not None
