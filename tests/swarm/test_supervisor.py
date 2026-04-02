@@ -1050,6 +1050,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker
                 "receipt_id": "receipt-stale",
                 "worker_outcome": "completed",
                 "completed_at": "2026-03-31T12:02:00+00:00",
+                "exit_code": 143,
                 "head_sha": "old-head",
                 "commit_shas": ["abc123"],
                 "changed_paths": ["aragora/swarm/supervisor.py"],
@@ -1086,6 +1087,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker
         "receipt_id",
         "worker_outcome",
         "completed_at",
+        "exit_code",
         "head_sha",
         "commit_shas",
         "changed_paths",
@@ -1171,6 +1173,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
                 "receipt_id": "receipt-stale",
                 "worker_outcome": "completed",
                 "completed_at": "2026-03-31T12:02:00+00:00",
+                "exit_code": 143,
                 "head_sha": "old-head",
                 "commit_shas": ["abc123"],
                 "changed_paths": ["aragora/swarm/supervisor.py"],
@@ -1196,6 +1199,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
     assert work_order["owner_session_id"] == "swarm-rebound-active-dispatched"
     assert work_order["target_agent"] == "claude"
     assert work_order["pid"] == 67890
+    assert "exit_code" not in work_order
     assert work_order["review_status"] == "pending"
     for cleared_key in (
         "receipt_id",

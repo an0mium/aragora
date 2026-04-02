@@ -970,6 +970,7 @@ class SwarmSupervisor:
             "confidence",
             "worker_outcome",
             "completed_at",
+            "exit_code",
             "head_sha",
             "commit_shas",
             "changed_paths",
