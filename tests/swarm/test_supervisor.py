@@ -511,6 +511,58 @@ def test_start_run_discards_specific_pytest_child_when_broader_explicit_spec_exi
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_preserves_dependent_validation_work_order_in_same_batch(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    goal = "Add codex runner probe parser coverage to swarm CLI tests."
+    spec = SwarmSpec(
+        raw_goal=goal,
+        refined_goal=goal,
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for parser.py",
+                "description": "Write tests only for codex runner probe parsing.",
+                "file_scope": ["tests/cli/test_swarm_command.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "approval_required": True,
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "description": "Run the acceptance tests and fix any failures.",
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+                "dependency_ids": ["micro-task-1"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "approval_required": True,
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued"]
+    assert (
+        run.work_orders[1].get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+    )
+
+
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
     repo: Path, store: DevCoordinationStore
 ) -> None:
