@@ -202,7 +202,10 @@ def validate_params(
 # =============================================================================
 
 
-def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable], Callable]:
+def handle_errors(
+    context: str | Callable[..., Any],
+    default_status: int = 500,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]] | Callable[..., Any]:
     """
     Decorator for consistent exception handling with tracing.
 
@@ -223,7 +226,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
     """
     import asyncio
 
-    def decorator(func: Callable) -> Callable:
+    def build_wrapper(func: Callable[..., Any], operation: str) -> Callable[..., Any]:
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
@@ -235,13 +238,13 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     logger.error(
                         "[%s] Error in %s: %s: %s",
                         trace_id,
-                        context,
+                        operation,
                         type(e).__name__,
                         e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
-                    message = safe_error_message(e, context)
+                    message = safe_error_message(e, operation)
                     return error_response(
                         message,
                         status=status,
@@ -260,13 +263,13 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     logger.error(
                         "[%s] Error in %s: %s: %s",
                         trace_id,
-                        context,
+                        operation,
                         type(e).__name__,
                         e,
                         exc_info=True,
                     )
                     status = map_exception_to_status(e, default_status)
-                    message = safe_error_message(e, context)
+                    message = safe_error_message(e, operation)
                     return error_response(
                         message,
                         status=status,
@@ -274,6 +277,13 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                     )
 
             return wrapper
+
+    if callable(context):
+        operation = getattr(context, "__name__", "handler operation")
+        return build_wrapper(context, operation)
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        return build_wrapper(func, context)
 
     return decorator
 
