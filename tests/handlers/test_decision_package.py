@@ -12,7 +12,7 @@ Validates that:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -170,6 +170,66 @@ class TestPackageJSON:
 
         body = json.loads(result.body)
         assert body["argument_map"] is None
+
+    def test_receipt_lookup_uses_canonical_debate_id(self, handler):
+        h, storage = handler
+        debate = _make_debate(debate_id="debate-123")
+        storage.get_debate.return_value = debate
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "rcpt-123"
+        mock_receipt.verdict = "APPROVED"
+        mock_receipt.confidence = 0.85
+        mock_receipt.risk_level = "LOW"
+        mock_receipt.risk_score = 0.1
+        mock_receipt.checksum = "abc123"
+        mock_receipt.created_at = "2026-02-15T00:00:00Z"
+
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
+            mock_store = MagicMock()
+            mock_store.get_by_gauntlet.side_effect = (
+                lambda gauntlet_id: mock_receipt if gauntlet_id == "debate-123" else None
+            )
+            mock_get_store.return_value = mock_store
+
+            result = h._handle_json("debate-123")
+
+        assert result.status_code == 200
+        import json
+
+        body = json.loads(result.body)
+        assert body["receipt"]["receipt_id"] == "rcpt-123"
+        mock_store.get_by_gauntlet.assert_called_once_with("debate-123")
+
+    def test_receipt_lookup_falls_back_to_legacy_prefixed_id(self, handler):
+        h, storage = handler
+        debate = _make_debate(debate_id="123")
+        storage.get_debate.return_value = debate
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "rcpt-legacy"
+        mock_receipt.verdict = "APPROVED"
+        mock_receipt.confidence = 0.85
+        mock_receipt.risk_level = "LOW"
+        mock_receipt.risk_score = 0.1
+        mock_receipt.checksum = "legacy123"
+        mock_receipt.created_at = "2026-02-15T00:00:00Z"
+
+        with patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store:
+            mock_store = MagicMock()
+            mock_store.get_by_gauntlet.side_effect = (
+                lambda gauntlet_id: mock_receipt if gauntlet_id == "debate-123" else None
+            )
+            mock_get_store.return_value = mock_store
+
+            result = h._handle_json("123")
+
+        assert result.status_code == 200
+        import json
+
+        body = json.loads(result.body)
+        assert body["receipt"]["receipt_id"] == "rcpt-legacy"
+        assert mock_store.get_by_gauntlet.call_args_list == [call("123"), call("debate-123")]
 
 
 class TestPackageMarkdown:

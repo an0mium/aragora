@@ -175,6 +175,15 @@ def _extract_receipt_cost_maps(
     return total_cost, per_agent_cost, per_agent_tokens
 
 
+def _receipt_lookup_candidates(debate_id: str) -> list[str]:
+    """Return canonical then legacy receipt lookup keys for a debate."""
+
+    candidates = [debate_id]
+    if debate_id and not debate_id.startswith("debate-"):
+        candidates.append(f"debate-{debate_id}")
+    return candidates
+
+
 def _generate_next_steps(
     verdict: str,
     confidence: float,
@@ -424,7 +433,11 @@ class DecisionPackageHandler(BaseHandler):
             from aragora.storage.receipt_store import get_receipt_store
 
             store = get_receipt_store()
-            receipt = store.get_by_gauntlet(f"debate-{debate_id}")
+            receipt = None
+            for gauntlet_id in _receipt_lookup_candidates(debate_id):
+                receipt = store.get_by_gauntlet(gauntlet_id)
+                if receipt:
+                    break
             if receipt:
                 receipt_created_at = str(receipt.created_at) if receipt.created_at else None
                 receipt_cost_summary = getattr(receipt, "cost_summary", None)
