@@ -1295,6 +1295,12 @@ def _first_receipt_id_from_run(run_dict: dict[str, Any]) -> str | None:
     return None
 
 
+def _backbone_dispatch_status(result: dict[str, Any]) -> str:
+    """Preserve the dispatch status when mirroring it into the backbone ledger."""
+    status = str(result.get("status", "")).strip().lower()
+    return status or "failed"
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
@@ -2996,7 +3002,7 @@ class BossLoop:
             try:
                 runtime.update_run(
                     backbone_run_id,
-                    status="completed" if result.get("status") == "completed" else "failed",
+                    status=_backbone_dispatch_status(result),
                     execution_id=result.get("run_id"),
                     receipt_id=result.get("receipt_id"),
                 )
