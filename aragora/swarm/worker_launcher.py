@@ -21,6 +21,7 @@ import sys
 import time
 from typing import Any
 
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.security.capability_gate import (
     Capability,
     CapabilityApprovalRequiredError,
@@ -169,6 +170,7 @@ class LaunchConfig:
     # Security: dangerous CLI flags are OFF by default (Crux 1 fix).
     allow_claude_dangerously_skip_permissions: bool = False
     allow_codex_full_auto: bool = False
+    execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS
 
 
 class WorkerLauncher:
@@ -621,7 +623,10 @@ class WorkerLauncher:
     ) -> list[str]:
         if agent == "claude":
             cmd = [self.config.claude_path, "-p", prompt]
-            if self.config.allow_claude_dangerously_skip_permissions:
+            if (
+                self.config.allow_claude_dangerously_skip_permissions
+                and self.config.execution_mode == ExecutionMode.AUTONOMOUS
+            ):
                 cmd.append("--dangerously-skip-permissions")
             if self.config.claude_model:
                 cmd.extend(["--model", self.config.claude_model])
@@ -636,7 +641,10 @@ class WorkerLauncher:
             # Use stdin ("-") for prompts to avoid OS arg length limits.
             # Long prompts with issue bodies + file lists can exceed ARG_MAX.
             cmd = [self.config.codex_path, "exec", "-"]
-            if self.config.allow_codex_full_auto:
+            if (
+                self.config.allow_codex_full_auto
+                and self.config.execution_mode == ExecutionMode.AUTONOMOUS
+            ):
                 cmd.append("--full-auto")
             if self.config.codex_model:
                 cmd.extend(["--model", self.config.codex_model])
@@ -647,7 +655,10 @@ class WorkerLauncher:
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
         cmd = [self.config.claude_path, "-p", prompt]
-        if self.config.allow_claude_dangerously_skip_permissions:
+        if (
+            self.config.allow_claude_dangerously_skip_permissions
+            and self.config.execution_mode == ExecutionMode.AUTONOMOUS
+        ):
             cmd.append("--dangerously-skip-permissions")
         if self.config.claude_profile:
             profile_script = self.config.claude_profile_script or str(

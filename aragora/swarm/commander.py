@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.config import SwarmCommanderConfig
 from aragora.swarm.interrogator import SwarmInterrogator
 from aragora.swarm.reconciler import SwarmReconciler
@@ -244,6 +245,7 @@ class SwarmCommander:
         worker_env: dict[str, str] | None = None,
         allow_claude_dangerously_skip_permissions: bool = False,
         allow_codex_full_auto: bool = False,
+        execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS,
     ) -> SupervisorRun:
         """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
 
@@ -282,6 +284,7 @@ class SwarmCommander:
                 ),
                 allow_claude_dangerously_skip_permissions=allow_claude_dangerously_skip_permissions,
                 allow_codex_full_auto=allow_codex_full_auto,
+                execution_mode=execution_mode,
             )
         )
         supervisor = SwarmSupervisor(repo_root=repo_path or Path.cwd(), launcher=launcher)

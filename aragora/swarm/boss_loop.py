@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
     extract_run_worker_outcome,
@@ -1055,6 +1056,7 @@ class BossLoopConfig:
     # Security: opt-in flags for dangerous worker CLI behavior (Crux 1).
     allow_claude_dangerously_skip_permissions: bool = False
     allow_codex_full_auto: bool = False
+    execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS
 
     # Reporting
     status_report_interval: int = 5  # every N iterations
@@ -1112,6 +1114,7 @@ async def dispatch_bounded_spec(
     worker_env: dict[str, str] | None = None,
     allow_claude_dangerously_skip_permissions: bool = False,
     allow_codex_full_auto: bool = False,
+    execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS,
 ) -> dict[str, Any]:
     # Auto-detect Claude profile from environment if no runner specified
     if selected_runner is None:
@@ -1168,6 +1171,7 @@ async def dispatch_bounded_spec(
             worker_env=worker_env,
             allow_claude_dangerously_skip_permissions=allow_claude_dangerously_skip_permissions,
             allow_codex_full_auto=allow_codex_full_auto,
+            execution_mode=execution_mode,
         )
         run_dict = run.to_dict()
         run_status = str(run_dict.get("status", "")).strip().lower()
@@ -2897,6 +2901,7 @@ class BossLoop:
                 worker_env=refinement_worker_env or None,
                 allow_claude_dangerously_skip_permissions=self.config.allow_claude_dangerously_skip_permissions,
                 allow_codex_full_auto=self.config.allow_codex_full_auto,
+                execution_mode=self.config.execution_mode,
             )
         finally:
             if claimed_runner_id:

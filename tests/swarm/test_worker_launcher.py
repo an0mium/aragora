@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.worker_launcher import (
     LaunchConfig,
     WorkerLauncher,
@@ -1453,4 +1454,60 @@ class TestSafeExecutionDefaults:
         monkeypatch.setattr(os, "geteuid", lambda: 1000)
         launcher = WorkerLauncher(LaunchConfig())
         cmd = launcher._build_agent_command("unknown_agent", "test prompt")
+        assert "--dangerously-skip-permissions" not in cmd
+
+
+class TestExecutionModeGating:
+    """ExecutionMode gates dangerous CLI flags: only AUTONOMOUS allows them."""
+
+    def test_launch_config_defaults_autonomous(self):
+        config = LaunchConfig()
+        assert config.execution_mode == ExecutionMode.AUTONOMOUS
+
+    def test_interactive_blocks_dangerous_permissions(self, monkeypatch):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        config = LaunchConfig(
+            execution_mode=ExecutionMode.INTERACTIVE,
+            allow_claude_dangerously_skip_permissions=True,
+        )
+        launcher = WorkerLauncher(config)
+        cmd = launcher._build_agent_command("claude", "test")
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_autonomous_allows_dangerous_permissions(self, monkeypatch):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        config = LaunchConfig(
+            execution_mode=ExecutionMode.AUTONOMOUS,
+            allow_claude_dangerously_skip_permissions=True,
+        )
+        launcher = WorkerLauncher(config)
+        cmd = launcher._build_agent_command("claude", "test")
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_interactive_blocks_full_auto(self):
+        config = LaunchConfig(
+            execution_mode=ExecutionMode.INTERACTIVE,
+            allow_codex_full_auto=True,
+        )
+        launcher = WorkerLauncher(config)
+        cmd = launcher._build_agent_command("codex", "test")
+        assert "--full-auto" not in cmd
+
+    def test_autonomous_allows_full_auto(self):
+        config = LaunchConfig(
+            execution_mode=ExecutionMode.AUTONOMOUS,
+            allow_codex_full_auto=True,
+        )
+        launcher = WorkerLauncher(config)
+        cmd = launcher._build_agent_command("codex", "test")
+        assert "--full-auto" in cmd
+
+    def test_interactive_blocks_unknown_agent_dangerous_permissions(self, monkeypatch):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        config = LaunchConfig(
+            execution_mode=ExecutionMode.INTERACTIVE,
+            allow_claude_dangerously_skip_permissions=True,
+        )
+        launcher = WorkerLauncher(config)
+        cmd = launcher._build_agent_command("unknown_agent", "test")
         assert "--dangerously-skip-permissions" not in cmd
