@@ -39,6 +39,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
+
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
 if TYPE_CHECKING:
@@ -823,6 +825,7 @@ class NomicPipelineBridge:
             executor=executor,
             auth_context=None,
             execution_mode=mode,
+            safety_mode=SafetyMode.AUTONOMOUS,
         )
 
         logger.info(

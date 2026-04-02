@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 from aragora.implement.types import ImplementPlan, ImplementTask
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
 from aragora.pipeline.decision_plan.memory import PlanOutcome
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.server.decision_integrity_utils import (
     build_decision_integrity_payload,
     extract_execution_overrides,
@@ -116,6 +117,7 @@ async def test_build_payload_executes_hybrid(monkeypatch):
         )
 
     assert mock_execute.await_count == 1
+    assert mock_execute.await_args.kwargs["safety_mode"] == ExecutionMode.AUTONOMOUS
     assert payload is not None
     assert payload["execution"]["status"] == "completed"
     assert payload["run_id"] == "run-di-1"
@@ -123,3 +125,102 @@ async def test_build_payload_executes_hybrid(monkeypatch):
     assert payload["execution"]["execution_id"] == "exec-di-1"
     assert payload["execution_mode"] == "execute"
     assert payload["execution_engine"] == "hybrid"
+
+
+@pytest.mark.asyncio
+async def test_build_payload_uses_interactive_safety_mode_when_auth_context_present(monkeypatch):
+    monkeypatch.setenv("ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION", "1")
+
+    class DummyResult:
+        debate_id = "debate-2"
+        task = "Implement guardrails"
+        final_answer = "Add safety checks"
+        confidence = 0.9
+        consensus_reached = True
+        rounds_used = 1
+        participants = ["agent-a"]
+
+        def to_dict(self):
+            return {
+                "debate_id": self.debate_id,
+                "task": self.task,
+                "final_answer": self.final_answer,
+                "confidence": self.confidence,
+                "consensus_reached": self.consensus_reached,
+                "rounds_used": self.rounds_used,
+                "participants": self.participants,
+            }
+
+    task = ImplementTask(
+        id="task-1",
+        description="Add safety checks",
+        files=["guardrails.py"],
+        complexity="simple",
+    )
+    implement_plan = ImplementPlan(design_hash="hash456", tasks=[task])
+    package_payload = {"debate_id": "debate-2", "plan": implement_plan.to_dict()}
+    package = SimpleNamespace(plan=implement_plan, to_dict=lambda: package_payload)
+
+    monkeypatch.setattr(
+        "aragora.pipeline.decision_integrity.build_decision_integrity_package",
+        AsyncMock(return_value=package),
+    )
+
+    plan = DecisionPlan(
+        debate_id="debate-2",
+        task="Implement guardrails",
+        implement_plan=implement_plan,
+        approval_mode=ApprovalMode.NEVER,
+        status=PlanStatus.APPROVED,
+    )
+    monkeypatch.setattr(
+        "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+        lambda *args, **kwargs: plan,
+    )
+
+    outcome = PlanOutcome(
+        plan_id=plan.id,
+        debate_id=plan.debate_id,
+        task=plan.task,
+        success=True,
+    )
+    launch = {
+        "run_id": "run-di-2",
+        "execution_id": "exec-di-2",
+        "correlation_id": "corr-di-2",
+        "execution_mode": "workflow",
+    }
+    arena = SimpleNamespace(
+        auth_context=SimpleNamespace(user_id="user-1"),
+        continuum_memory=None,
+        knowledge_mound=None,
+    )
+
+    with (
+        patch(
+            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            return_value="run-di-2",
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.execute_decision_plan_with_backbone",
+            new=AsyncMock(return_value=(launch, outcome)),
+        ) as mock_execute,
+    ):
+        payload = await build_decision_integrity_payload(
+            result=DummyResult(),
+            debate_id="debate-2",
+            arena=arena,
+            decision_integrity={
+                "include_plan": True,
+                "execution_mode": "execute",
+                "execution_engine": "workflow",
+                "notify_origin": False,
+            },
+        )
+
+    assert payload is not None
+    assert mock_execute.await_args.kwargs["safety_mode"] == ExecutionMode.INTERACTIVE

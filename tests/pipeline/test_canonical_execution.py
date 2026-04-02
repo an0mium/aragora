@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -13,6 +14,7 @@ from aragora.pipeline.canonical_execution import (
     build_decision_plan_from_orchestration,
     queue_plan_execution,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
 
 
@@ -88,6 +90,7 @@ class TestQueuePlanExecution:
         assert run.metadata["source_surface"] == "canvas_pipeline"
         assert run.metadata["pipeline_id"] == "pipe-123"
         assert run.metadata["scheduled_by"] == "user-1"
+        assert run.metadata["safety_mode"] == ExecutionMode.INTERACTIVE.value
         assert run.goal_refs[0]["id"] == "task-1"
         assert run.goal_refs[1]["dependencies"] == ["task-1"]
         assert any(
@@ -104,6 +107,7 @@ class TestQueuePlanExecution:
         )
         assert record is not None
         assert record["metadata"]["backbone_run_id"] == launch["run_id"]
+        assert record["metadata"]["safety_mode"] == ExecutionMode.INTERACTIVE.value
 
     def test_queue_plan_execution_reuses_existing_backbone_run(
         self,
@@ -156,3 +160,41 @@ class TestQueuePlanExecution:
         assert stored_plan.metadata["backbone_run_id"] == launch["run_id"]
         assert record is not None
         assert record["metadata"]["backbone_run_id"] == launch["run_id"]
+
+    def test_queue_plan_execution_accepts_explicit_interactive_safety_mode(
+        self,
+        store: PlanStore,
+    ) -> None:
+        plan, _tasks = _build_plan(source_surface="cli_decide")
+
+        launch = queue_plan_execution(
+            plan,
+            execution_mode="workflow",
+            safety_mode=ExecutionMode.INTERACTIVE,
+        )
+        run = store.get_run(launch["run_id"])
+        record = store.get_execution_record(launch["execution_id"])
+
+        assert run is not None
+        assert run.metadata["safety_mode"] == ExecutionMode.INTERACTIVE.value
+        assert record is not None
+        assert record["metadata"]["safety_mode"] == ExecutionMode.INTERACTIVE.value
+
+    def test_queue_plan_execution_fail_closes_interactive_backbone_write(
+        self,
+        store: PlanStore,
+    ) -> None:
+        plan, _tasks = _build_plan(source_surface="cli_decide")
+
+        with patch(
+            "aragora.pipeline.canonical_execution.BackboneRuntime.append_stage_event",
+            return_value=False,
+        ):
+            with pytest.raises(RuntimeError, match="backbone run"):
+                queue_plan_execution(
+                    plan,
+                    auth_context=SimpleNamespace(user_id="user-1"),
+                    execution_mode="workflow",
+                )
+
+        assert store.list_execution_records() == []

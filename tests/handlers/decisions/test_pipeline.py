@@ -19,6 +19,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.execution_mode import ExecutionMode
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -818,6 +820,7 @@ class TestExecutePlan:
         kwargs = mock_execute.call_args.kwargs
         assert kwargs["executor"] is executor_inst
         assert kwargs["execution_mode"] == "workflow"
+        assert kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_plan_not_found(self, mock_get, handler):
@@ -942,6 +945,7 @@ class TestExecutePlan:
         kwargs = mock_execute.call_args.kwargs
         assert kwargs["execution_mode"] is None
         assert kwargs["executor"] is executor_inst
+        assert kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
 
     @patch("aragora.pipeline.executor.get_plan")
     def test_execute_valid_modes(self, mock_get, handler):

@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.decision_plan import ApprovalMode, PlanStatus
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
 from aragora.prompt_engine.spec_validator import ValidationResult
 from aragora.prompt_engine.types import RiskItem, SpecFile, Specification
@@ -440,7 +442,11 @@ class TestRunPipeline:
         )
         req.path = "/api/prompt-engine/run"
 
-        result = handler.handle_POST(req)
+        with patch(
+            "aragora.server.handlers.prompt_engine.handler.BackboneRuntime.sync_plan_receipt_to_run",
+            return_value=True,
+        ):
+            result = handler.handle_POST(req)
         parsed = _parse(result)
 
         assert parsed["status"] == 200
@@ -451,6 +457,84 @@ class TestRunPipeline:
         mock_get_plan_store.return_value.create.assert_called_once()
         mock_store_plan.assert_called_once()
         mock_get_execution_bridge.return_value.schedule_execution.assert_called_once()
+        schedule_kwargs = mock_get_execution_bridge.return_value.schedule_execution.call_args.kwargs
+        assert schedule_kwargs["execution_mode"] == "workflow"
+        assert schedule_kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
+
+    @patch("aragora.pipeline.execution_bridge.get_execution_bridge")
+    @patch("aragora.prompt_engine.SpecValidator")
+    @patch("aragora.prompt_engine.PromptConductor")
+    @patch("aragora.prompt_engine.ConductorConfig")
+    def test_run_returns_503_when_backbone_write_fails(
+        self,
+        mock_config_cls: MagicMock,
+        mock_conductor_cls: MagicMock,
+        mock_validator_cls: MagicMock,
+        mock_get_execution_bridge: MagicMock,
+        handler: PromptEngineHandler,
+    ) -> None:
+        spec = Specification(
+            title="Execution-grade spec",
+            problem_statement="Problem",
+            proposed_solution="Ship the change",
+            constraints=["Constraint"],
+            success_criteria=["Criterion"],
+            file_changes=[
+                SpecFile(path="aragora/server/example.py", action="modify", description="Patch")
+            ],
+            risks=[
+                RiskItem(
+                    description="Regression risk",
+                    likelihood="medium",
+                    impact="medium",
+                    mitigation="Rollback quickly",
+                )
+            ],
+            confidence=0.95,
+        )
+        mock_intent = MagicMock()
+        mock_intent.to_dict.return_value = {"raw_prompt": "test", "intent_type": "feature"}
+        mock_result = MagicMock(
+            specification=spec,
+            intent=mock_intent,
+            questions=[],
+            research=None,
+            auto_approved=False,
+            stages_completed=["decompose", "specify"],
+            timing=_FakeTiming(),
+        )
+        mock_conductor_cls.return_value.run = AsyncMock(return_value=mock_result)
+
+        validation = ValidationResult(role_results={}, passed=True, overall_confidence=0.95)
+        mock_validator = mock_validator_cls.return_value
+        mock_validator.validate_heuristic.return_value = validation
+        mock_validator.last_operation_timings = []
+        mock_config_cls.return_value = MagicMock()
+        mock_config_cls.from_profile.return_value = MagicMock()
+        handler.require_permission_or_error = MagicMock(return_value=(MagicMock(), None))
+
+        req = _make_handler_request(
+            {
+                "prompt": "Build something",
+                "decision_plan": {
+                    "create": True,
+                    "schedule_execution": True,
+                    "approval_mode": ApprovalMode.NEVER.value,
+                },
+            }
+        )
+        req.path = "/api/prompt-engine/run"
+
+        with patch(
+            "aragora.server.handlers.prompt_engine.handler.BackboneRuntime.update_run",
+            return_value=False,
+        ):
+            result = handler.handle_POST(req)
+
+        parsed = _parse(result)
+        assert parsed["status"] == 503
+        assert parsed["data"]["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
+        mock_get_execution_bridge.return_value.schedule_execution.assert_not_called()
 
     @patch("aragora.pipeline.plan_store.get_plan_store")
     @patch("aragora.prompt_engine.SpecValidator")

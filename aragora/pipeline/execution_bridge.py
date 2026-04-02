@@ -23,8 +23,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 import uuid
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError
 from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan import PlanOutcome, PlanStatus
+from aragora.pipeline.execution_mode import (
+    ExecutionMode as SafetyMode,
+    resolve_safety_mode,
+)
 
 if TYPE_CHECKING:
     from aragora.pipeline.executor import ExecutionMode, PlanExecutor
@@ -80,12 +85,126 @@ class ExecutionBridge:
             return ""
         return str(metadata.get("backbone_run_id", "") or "").strip()
 
+    @staticmethod
+    def _metadata_safety_mode(metadata: Any) -> SafetyMode | None:
+        if not isinstance(metadata, dict):
+            return None
+        raw_value = metadata.get("safety_mode")
+        if raw_value in (None, ""):
+            return None
+        try:
+            return resolve_safety_mode(raw_value)
+        except ValueError:
+            logger.debug("Ignoring invalid persisted safety_mode: %s", raw_value)
+            return None
+
+    def _resolve_execution_safety_mode(
+        self,
+        explicit_mode: SafetyMode | None,
+        *,
+        auth_context: AuthorizationContext | None = None,
+        execution_id: str | None = None,
+        backbone_run_id: str = "",
+    ) -> SafetyMode:
+        if explicit_mode is not None or auth_context is not None:
+            return resolve_safety_mode(explicit_mode, auth_context=auth_context)
+
+        if execution_id:
+            record = self.plan_store.get_execution_record(execution_id)
+            persisted_mode = self._metadata_safety_mode(
+                record.get("metadata") if isinstance(record, dict) else None
+            )
+            if persisted_mode is not None:
+                return persisted_mode
+
+        if backbone_run_id:
+            run = self.backbone_runtime.get_run(backbone_run_id)
+            persisted_mode = self._metadata_safety_mode(
+                getattr(run, "metadata", None) if run is not None else None
+            )
+            if persisted_mode is not None:
+                return persisted_mode
+
+        return resolve_safety_mode(explicit_mode, auth_context=auth_context)
+
+    @staticmethod
+    def _backbone_required(safety_mode: SafetyMode) -> bool:
+        return safety_mode == SafetyMode.INTERACTIVE
+
+    def _backbone_failure(
+        self,
+        safety_mode: SafetyMode,
+        message: str,
+        *,
+        exc: Exception | None = None,
+    ) -> None:
+        if self._backbone_required(safety_mode):
+            raise BackbonePersistenceError(message) from exc
+        if exc is not None:
+            logger.warning("%s: %s", message, exc)
+            return
+        logger.warning("%s", message)
+
+    def _ensure_backbone_write(
+        self,
+        ok: bool,
+        *,
+        safety_mode: SafetyMode,
+        message: str,
+    ) -> None:
+        if not ok:
+            self._backbone_failure(safety_mode, message)
+
+    def _ensure_backbone_run(
+        self,
+        backbone_run_id: str,
+        *,
+        plan_id: str,
+        safety_mode: SafetyMode,
+    ) -> None:
+        if backbone_run_id:
+            return
+        self._backbone_failure(
+            safety_mode,
+            f"Interactive execution requires a backbone run for plan {plan_id}",
+        )
+
+    def _ensure_execution_record(
+        self,
+        execution_id: str,
+        *,
+        safety_mode: SafetyMode,
+        message: str,
+    ) -> None:
+        self._ensure_backbone_write(
+            self.plan_store.get_execution_record(execution_id) is not None,
+            safety_mode=safety_mode,
+            message=message,
+        )
+
+    def _ensure_receipt_recorded(
+        self,
+        backbone_run_id: str,
+        *,
+        receipt_id: str,
+        safety_mode: SafetyMode,
+    ) -> None:
+        if not backbone_run_id or not receipt_id:
+            return
+        run = self.backbone_runtime.get_run(backbone_run_id)
+        self._ensure_backbone_write(
+            run is not None and str(getattr(run, "receipt_id", "") or "").strip() == receipt_id,
+            safety_mode=safety_mode,
+            message=f"Failed to persist execution receipt {receipt_id} for backbone run {backbone_run_id}",
+        )
+
     async def execute_approved_plan(
         self,
         plan_id: str,
         *,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
+        safety_mode: SafetyMode | None = None,
         execution_id: str | None = None,
         correlation_id: str | None = None,
     ) -> PlanOutcome:
@@ -126,6 +245,17 @@ class ExecutionBridge:
         resolved_execution_id = execution_id or f"exec-{uuid.uuid4().hex[:12]}"
         resolved_correlation_id = correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
         backbone_run_id = self._extract_backbone_run_id(plan)
+        resolved_safety_mode = self._resolve_execution_safety_mode(
+            safety_mode,
+            auth_context=auth_context,
+            execution_id=resolved_execution_id,
+            backbone_run_id=backbone_run_id,
+        )
+        self._ensure_backbone_run(
+            backbone_run_id,
+            plan_id=plan.id,
+            safety_mode=resolved_safety_mode,
+        )
 
         gate_decision = self.backbone_runtime.evaluate_execution_gate(plan)
         if not gate_decision.allow_execution:
@@ -141,25 +271,49 @@ class ExecutionBridge:
                     status=blocked_status,
                     metadata={
                         "execution_mode": execution_mode or "default",
+                        "safety_mode": resolved_safety_mode.value,
                         "backbone_run_id": backbone_run_id or None,
                         "execution_gate": gate_decision.gate,
                     },
                 )
             else:
-                store.update_execution_record(
-                    resolved_execution_id,
-                    status=blocked_status,
-                    metadata={"execution_gate": gate_decision.gate},
+                self._ensure_backbone_write(
+                    store.update_execution_record(
+                        resolved_execution_id,
+                        status=blocked_status,
+                        metadata={
+                            "execution_gate": gate_decision.gate,
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                    ),
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to update blocked execution record {resolved_execution_id}",
                 )
+            self._ensure_execution_record(
+                resolved_execution_id,
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to persist blocked execution record {resolved_execution_id}",
+            )
             if backbone_run_id:
-                self.backbone_runtime.record_execution_stage(
-                    backbone_run_id,
-                    status=blocked_status,
-                    artifact_ref=resolved_execution_id,
-                    run_status=blocked_status,
-                    execution_id=resolved_execution_id,
-                    metadata={"execution_gate": gate_decision.gate},
-                    details={"plan_id": plan.id, "reason_codes": gate_decision.reason_codes},
+                self._ensure_backbone_write(
+                    self.backbone_runtime.record_execution_stage(
+                        backbone_run_id,
+                        status=blocked_status,
+                        artifact_ref=resolved_execution_id,
+                        run_status=blocked_status,
+                        execution_id=resolved_execution_id,
+                        metadata={
+                            "execution_gate": gate_decision.gate,
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                        details={
+                            "plan_id": plan.id,
+                            "reason_codes": gate_decision.reason_codes,
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                    ),
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to record blocked execution stage for backbone run {backbone_run_id}",
                 )
             raise ValueError(
                 f"Plan {plan_id} blocked by execution gate ({', '.join(gate_decision.reason_codes)})"
@@ -202,37 +356,54 @@ class ExecutionBridge:
                 status="running",
                 metadata={
                     "execution_mode": execution_mode or "default",
+                    "safety_mode": resolved_safety_mode.value,
                     "started_by": getattr(auth_context, "user_id", None),
                     "backbone_run_id": backbone_run_id or None,
                     "execution_gate": gate_decision.gate,
                 },
             )
         else:
-            store.update_execution_record(
-                resolved_execution_id,
-                status="running",
-                metadata={
-                    "execution_mode": execution_mode or "default",
-                    "started_by": getattr(auth_context, "user_id", None),
-                    "backbone_run_id": backbone_run_id or None,
-                    "execution_gate": gate_decision.gate,
-                },
+            self._ensure_backbone_write(
+                store.update_execution_record(
+                    resolved_execution_id,
+                    status="running",
+                    metadata={
+                        "execution_mode": execution_mode or "default",
+                        "safety_mode": resolved_safety_mode.value,
+                        "started_by": getattr(auth_context, "user_id", None),
+                        "backbone_run_id": backbone_run_id or None,
+                        "execution_gate": gate_decision.gate,
+                    },
+                ),
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to update running execution record {resolved_execution_id}",
             )
+        self._ensure_execution_record(
+            resolved_execution_id,
+            safety_mode=resolved_safety_mode,
+            message=f"Failed to persist running execution record {resolved_execution_id}",
+        )
         if backbone_run_id:
-            self.backbone_runtime.record_execution_stage(
-                backbone_run_id,
-                status="running",
-                artifact_ref=resolved_execution_id,
-                run_status="execution_running",
-                execution_id=resolved_execution_id,
-                metadata={
-                    "execution_mode": execution_mode or "default",
-                    "execution_gate": gate_decision.gate,
-                },
-                details={
-                    "plan_id": plan.id,
-                    "execution_mode": execution_mode or "default",
-                },
+            self._ensure_backbone_write(
+                self.backbone_runtime.record_execution_stage(
+                    backbone_run_id,
+                    status="running",
+                    artifact_ref=resolved_execution_id,
+                    run_status="execution_running",
+                    execution_id=resolved_execution_id,
+                    metadata={
+                        "execution_mode": execution_mode or "default",
+                        "execution_gate": gate_decision.gate,
+                        "safety_mode": resolved_safety_mode.value,
+                    },
+                    details={
+                        "plan_id": plan.id,
+                        "execution_mode": execution_mode or "default",
+                        "safety_mode": resolved_safety_mode.value,
+                    },
+                ),
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to record running execution stage for backbone run {backbone_run_id}",
             )
 
         logger.info("Executing plan %s (debate: %s)", plan_id, plan.debate_id)
@@ -246,28 +417,44 @@ class ExecutionBridge:
         except Exception as exc:  # noqa: BLE001 - intentional broad catch to record failure before re-raising
             logger.error("Plan %s execution failed: %s", plan_id, exc)
             store.update_status(plan_id, PlanStatus.FAILED)
-            store.update_execution_record(
-                resolved_execution_id,
-                status="failed",
-                error={
-                    "type": type(exc).__name__,
-                    "message": str(exc),
-                    "at": datetime.now(timezone.utc).isoformat(),
-                },
-                metadata={
-                    "execution_mode": execution_mode or "default",
-                    "terminal_state": "failed",
-                },
+            self._ensure_backbone_write(
+                store.update_execution_record(
+                    resolved_execution_id,
+                    status="failed",
+                    error={
+                        "type": type(exc).__name__,
+                        "message": str(exc),
+                        "at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    metadata={
+                        "execution_mode": execution_mode or "default",
+                        "safety_mode": resolved_safety_mode.value,
+                        "terminal_state": "failed",
+                    },
+                ),
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to record failed execution {resolved_execution_id}",
             )
             if backbone_run_id:
-                self.backbone_runtime.record_execution_stage(
-                    backbone_run_id,
-                    status="failed",
-                    artifact_ref=resolved_execution_id,
-                    run_status="execution_failed",
-                    execution_id=resolved_execution_id,
-                    metadata={"execution_terminal_state": "failed"},
-                    details={"error": str(exc), "plan_id": plan.id},
+                self._ensure_backbone_write(
+                    self.backbone_runtime.record_execution_stage(
+                        backbone_run_id,
+                        status="failed",
+                        artifact_ref=resolved_execution_id,
+                        run_status="execution_failed",
+                        execution_id=resolved_execution_id,
+                        metadata={
+                            "execution_terminal_state": "failed",
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                        details={
+                            "error": str(exc),
+                            "plan_id": plan.id,
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                    ),
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to record failed execution stage for backbone run {backbone_run_id}",
                 )
             raise
 
@@ -275,7 +462,20 @@ class ExecutionBridge:
         final_status = PlanStatus.COMPLETED if outcome.success else PlanStatus.FAILED
         store.update_status(plan_id, final_status)
         updated_plan = store.get(plan_id) or plan
-        self.backbone_runtime.sync_plan_receipt_to_run(updated_plan, append_event=True)
+        if getattr(updated_plan, "metadata", None):
+            receipt_synced = self.backbone_runtime.sync_plan_receipt_to_run(
+                updated_plan,
+                append_event=True,
+            )
+            if isinstance(getattr(updated_plan, "metadata", None), dict) and (
+                updated_plan.metadata.get("decision_receipt")
+                or updated_plan.metadata.get("decision_receipt_id")
+            ):
+                self._ensure_backbone_write(
+                    receipt_synced,
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to sync plan receipt for backbone run {backbone_run_id or plan.id}",
+                )
         failure_error = None
         if not outcome.success:
             failure_error = {
@@ -283,40 +483,56 @@ class ExecutionBridge:
                 "message": outcome.error or "Execution returned unsuccessful outcome",
                 "at": datetime.now(timezone.utc).isoformat(),
             }
-        store.update_execution_record(
-            resolved_execution_id,
-            status="succeeded" if outcome.success else "failed",
-            error=failure_error,
-            metadata={
-                "execution_mode": execution_mode or "default",
-                "duration_seconds": outcome.duration_seconds,
-                "tasks_completed": outcome.tasks_completed,
-                "tasks_total": outcome.tasks_total,
-                "terminal_state": "succeeded" if outcome.success else "failed",
-            },
-        )
-        if backbone_run_id:
-            self.backbone_runtime.record_execution_stage(
-                backbone_run_id,
+        self._ensure_backbone_write(
+            store.update_execution_record(
+                resolved_execution_id,
                 status="succeeded" if outcome.success else "failed",
-                artifact_ref=resolved_execution_id,
-                run_status="execution_succeeded" if outcome.success else "execution_failed",
-                execution_id=resolved_execution_id,
+                error=failure_error,
                 metadata={
-                    "execution_terminal_state": "succeeded" if outcome.success else "failed",
-                    "execution_duration_seconds": outcome.duration_seconds,
-                },
-                details={
-                    "plan_id": plan.id,
+                    "execution_mode": execution_mode or "default",
+                    "safety_mode": resolved_safety_mode.value,
                     "duration_seconds": outcome.duration_seconds,
                     "tasks_completed": outcome.tasks_completed,
                     "tasks_total": outcome.tasks_total,
+                    "terminal_state": "succeeded" if outcome.success else "failed",
                 },
+            ),
+            safety_mode=resolved_safety_mode,
+            message=f"Failed to finalize execution record {resolved_execution_id}",
+        )
+        if backbone_run_id:
+            self._ensure_backbone_write(
+                self.backbone_runtime.record_execution_stage(
+                    backbone_run_id,
+                    status="succeeded" if outcome.success else "failed",
+                    artifact_ref=resolved_execution_id,
+                    run_status="execution_succeeded" if outcome.success else "execution_failed",
+                    execution_id=resolved_execution_id,
+                    metadata={
+                        "execution_terminal_state": "succeeded" if outcome.success else "failed",
+                        "execution_duration_seconds": outcome.duration_seconds,
+                        "safety_mode": resolved_safety_mode.value,
+                    },
+                    details={
+                        "plan_id": plan.id,
+                        "duration_seconds": outcome.duration_seconds,
+                        "tasks_completed": outcome.tasks_completed,
+                        "tasks_total": outcome.tasks_total,
+                        "safety_mode": resolved_safety_mode.value,
+                    },
+                ),
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to record terminal execution stage for backbone run {backbone_run_id}",
             )
             receipt_ref = await self.backbone_runtime.attach_execution_receipt(
                 backbone_run_id,
                 updated_plan,
                 outcome,
+            )
+            self._ensure_receipt_recorded(
+                backbone_run_id,
+                receipt_id=str(getattr(outcome, "receipt_id", "") or "").strip(),
+                safety_mode=resolved_safety_mode,
             )
             feedback_record = self.backbone_runtime.build_feedback_record(
                 updated_plan,
@@ -324,11 +540,18 @@ class ExecutionBridge:
                 receipt_ref=receipt_ref,
                 execution_mode=str(execution_mode or "default"),
             )
-            self.backbone_runtime.attach_feedback_record(
-                backbone_run_id,
-                feedback_record,
-                artifact_ref=receipt_ref,
-                details={"execution_mode": str(execution_mode or "default")},
+            self._ensure_backbone_write(
+                self.backbone_runtime.attach_feedback_record(
+                    backbone_run_id,
+                    feedback_record,
+                    artifact_ref=receipt_ref,
+                    details={
+                        "execution_mode": str(execution_mode or "default"),
+                        "safety_mode": resolved_safety_mode.value,
+                    },
+                ),
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to persist feedback record for backbone run {backbone_run_id}",
             )
 
         logger.info(
@@ -370,17 +593,25 @@ class ExecutionBridge:
         *,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
+        safety_mode: SafetyMode | None = None,
     ) -> None:
         """Schedule plan execution as a background asyncio task.
 
-        Non-blocking: returns immediately. Errors are logged, not raised.
+        Non-blocking: returns immediately. Autonomous errors are logged; interactive
+        preflight failures raise so user-triggered execution remains fail-closed.
         """
 
         record_execution_id = f"exec-{uuid.uuid4().hex[:12]}"
         record_correlation_id = f"corr-{uuid.uuid4().hex[:12]}"
+        resolved_safety_mode = resolve_safety_mode(safety_mode, auth_context=auth_context)
         plan = self.plan_store.get(plan_id)
         backbone_run_id = self._extract_backbone_run_id(plan) if plan is not None else ""
         if plan is not None:
+            self._ensure_backbone_run(
+                backbone_run_id,
+                plan_id=plan.id,
+                safety_mode=resolved_safety_mode,
+            )
             gate_decision = self.backbone_runtime.evaluate_execution_gate(plan)
             if not gate_decision.allow_execution:
                 blocked_status = (
@@ -394,20 +625,37 @@ class ExecutionBridge:
                     status=blocked_status,
                     metadata={
                         "execution_mode": execution_mode or "default",
+                        "safety_mode": resolved_safety_mode.value,
                         "scheduled_by": getattr(auth_context, "user_id", None),
                         "backbone_run_id": backbone_run_id or None,
                         "execution_gate": gate_decision.gate,
                     },
                 )
+                self._ensure_execution_record(
+                    record_execution_id,
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to persist blocked execution record {record_execution_id}",
+                )
                 if backbone_run_id:
-                    self.backbone_runtime.record_execution_stage(
-                        backbone_run_id,
-                        status=blocked_status,
-                        artifact_ref=record_execution_id,
-                        run_status=blocked_status,
-                        execution_id=record_execution_id,
-                        metadata={"execution_gate": gate_decision.gate},
-                        details={"plan_id": plan.id, "reason_codes": gate_decision.reason_codes},
+                    self._ensure_backbone_write(
+                        self.backbone_runtime.record_execution_stage(
+                            backbone_run_id,
+                            status=blocked_status,
+                            artifact_ref=record_execution_id,
+                            run_status=blocked_status,
+                            execution_id=record_execution_id,
+                            metadata={
+                                "execution_gate": gate_decision.gate,
+                                "safety_mode": resolved_safety_mode.value,
+                            },
+                            details={
+                                "plan_id": plan.id,
+                                "reason_codes": gate_decision.reason_codes,
+                                "safety_mode": resolved_safety_mode.value,
+                            },
+                        ),
+                        safety_mode=resolved_safety_mode,
+                        message=f"Failed to record blocked scheduling stage for backbone run {backbone_run_id}",
                     )
                 logger.warning(
                     "Execution scheduling blocked for plan %s: %s",
@@ -423,22 +671,36 @@ class ExecutionBridge:
                 status="queued",
                 metadata={
                     "execution_mode": execution_mode or "default",
+                    "safety_mode": resolved_safety_mode.value,
                     "scheduled_by": getattr(auth_context, "user_id", None),
                     "backbone_run_id": backbone_run_id or None,
                 },
             )
+            self._ensure_execution_record(
+                record_execution_id,
+                safety_mode=resolved_safety_mode,
+                message=f"Failed to persist queued execution record {record_execution_id}",
+            )
             if backbone_run_id:
-                self.backbone_runtime.record_execution_stage(
-                    backbone_run_id,
-                    status="queued",
-                    artifact_ref=record_execution_id,
-                    run_status="execution_queued",
-                    execution_id=record_execution_id,
-                    metadata={"execution_mode": execution_mode or "default"},
-                    details={
-                        "plan_id": plan.id,
-                        "execution_mode": execution_mode or "default",
-                    },
+                self._ensure_backbone_write(
+                    self.backbone_runtime.record_execution_stage(
+                        backbone_run_id,
+                        status="queued",
+                        artifact_ref=record_execution_id,
+                        run_status="execution_queued",
+                        execution_id=record_execution_id,
+                        metadata={
+                            "execution_mode": execution_mode or "default",
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                        details={
+                            "plan_id": plan.id,
+                            "execution_mode": execution_mode or "default",
+                            "safety_mode": resolved_safety_mode.value,
+                        },
+                    ),
+                    safety_mode=resolved_safety_mode,
+                    message=f"Failed to record queued scheduling stage for backbone run {backbone_run_id}",
                 )
 
         async def _run() -> None:
@@ -447,6 +709,7 @@ class ExecutionBridge:
                     plan_id,
                     auth_context=auth_context,
                     execution_mode=execution_mode,
+                    safety_mode=resolved_safety_mode,
                     execution_id=record_execution_id,
                     correlation_id=record_correlation_id,
                 )

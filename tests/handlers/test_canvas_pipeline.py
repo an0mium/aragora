@@ -14,10 +14,11 @@ import asyncio
 import json
 import sys
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
     _pipeline_objects,
@@ -1187,3 +1188,42 @@ class TestExecutePipeline:
             saved_pipeline["live_state"]["orchestration"]["active_nodes"][0]["label"]
             == "Build cache"
         )
+
+    @pytest.mark.asyncio
+    async def test_handle_execute_backbone_failure_returns_503(self, handler, mock_store):
+        pipeline = {
+            "pipeline_id": "pipe-backbone",
+            "name": "Pipeline Backbone",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "complete",
+                "orchestration": "complete",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Build cache"}},
+                ],
+                "edges": [],
+            },
+        }
+        mock_store.get.return_value = pipeline
+
+        fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
+        fake_execution.build_decision_plan_from_orchestration = lambda **_: (
+            types.SimpleNamespace(id="plan-1"),
+            [{"id": "t1"}],
+        )
+
+        def _raise_backbone(*_, **__):
+            raise BackbonePersistenceError("run ledger unavailable")
+
+        fake_execution.queue_plan_execution = _raise_backbone
+        fake_execution.execute_queued_plan = AsyncMock()
+
+        with patch.dict(sys.modules, {"aragora.pipeline.canonical_execution": fake_execution}):
+            result = await handler.handle_execute("pipe-backbone", {})
+
+        body = _body(result)
+        assert result.status_code == 503
+        assert body["error"] == FAIL_CLOSED_BACKBONE_MESSAGE

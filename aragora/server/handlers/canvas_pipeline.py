@@ -35,6 +35,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
 
 logger = logging.getLogger(__name__)
@@ -653,7 +658,7 @@ class CanvasPipelineHandler:
                 return error_response("Authentication required", status=401)
 
             auth_ctx = AuthorizationContext(
-                user_id=user_ctx.user_id,
+                user_id=user_ctx.user_id or "unknown",
                 user_email=user_ctx.email,
                 org_id=user_ctx.org_id,
                 workspace_id=None,
@@ -2317,7 +2322,15 @@ class CanvasPipelineHandler:
             },
             execution_mode="workflow",
         )
-        launch = queue_plan_execution(plan, execution_mode="workflow")
+        try:
+            launch = queue_plan_execution(
+                plan,
+                execution_mode="workflow",
+                safety_mode=SafetyMode.INTERACTIVE,
+            )
+        except BackbonePersistenceError as exc:
+            logger.warning("Canvas pipeline execution blocked for %s: %s", pipeline_id, exc)
+            return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
         existing.pop("live_state", None)
         existing["execution"] = {
             **launch,

@@ -9,7 +9,7 @@ import logging
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from aragora.core_types import DebateResult
 from aragora.implement.types import ImplementPlan, ImplementTask
@@ -20,9 +20,17 @@ from aragora.pipeline.backbone_contracts import (
     SpecBundle,
     build_goal_refs_from_implement_plan,
 )
+from aragora.pipeline.backbone_errors import BackbonePersistenceError
 from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlanFactory
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
+from aragora.pipeline.execution_mode import (
+    ExecutionMode as SafetyMode,
+    resolve_safety_mode,
+)
+
+if TYPE_CHECKING:
+    from aragora.pipeline.executor import ExecutionMode
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +93,14 @@ def _extract_files(node: dict[str, Any]) -> list[str]:
     return deduped
 
 
-def _derive_complexity(node: dict[str, Any], *, task_type: str) -> str:
+def _derive_complexity(
+    node: dict[str, Any],
+    *,
+    task_type: str,
+) -> Literal["simple", "moderate", "complex"]:
     raw = str(node.get("complexity", "") or "").strip().lower()
     if raw in {"simple", "moderate", "complex"}:
-        return raw
+        return cast(Literal["simple", "moderate", "complex"], raw)
     if task_type in {"human", "verification"}:
         return "simple"
     if task_type == "computer_use":
@@ -257,11 +269,46 @@ def _extract_spec_bundle(plan: Any) -> SpecBundle | None:
         return None
 
 
+def _backbone_write_failed(
+    safety_mode: SafetyMode,
+    message: str,
+    *,
+    exc: Exception | None = None,
+) -> None:
+    if safety_mode == SafetyMode.INTERACTIVE:
+        raise BackbonePersistenceError(message) from exc
+    if exc is not None:
+        logger.warning("%s: %s", message, exc)
+        return
+    logger.warning("%s", message)
+
+
+def _ensure_backbone_write(
+    ok: bool,
+    *,
+    safety_mode: SafetyMode,
+    message: str,
+) -> None:
+    if not ok:
+        _backbone_write_failed(safety_mode, message)
+
+
+def _plan_has_backbone_receipt(plan: Any) -> bool:
+    metadata = getattr(plan, "metadata", None)
+    if not isinstance(metadata, dict):
+        return False
+    receipt_meta = metadata.get("decision_receipt")
+    if isinstance(receipt_meta, dict) and str(receipt_meta.get("receipt_id", "") or "").strip():
+        return True
+    return bool(str(metadata.get("decision_receipt_id", "") or "").strip())
+
+
 def _ensure_backbone_run(
     plan: Any,
     *,
     auth_context: Any | None,
     execution_mode: str,
+    safety_mode: SafetyMode,
     runtime: BackboneRuntime,
 ) -> str:
     metadata = getattr(plan, "metadata", None)
@@ -282,6 +329,7 @@ def _ensure_backbone_run(
     scheduled_by = str(getattr(auth_context, "user_id", "") or "").strip()
     run_metadata: dict[str, Any] = {
         "execution_mode": execution_mode,
+        "safety_mode": safety_mode.value,
         "source_surface": source_surface or "queue_plan_execution",
     }
     if source_id:
@@ -309,56 +357,101 @@ def _ensure_backbone_run(
             + (list(spec_bundle.taint_flags) if spec_bundle is not None else []),
             metadata=run_metadata,
         )
-        runtime.create_run(run)
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.INTAKE,
-            status="completed",
-            details={
-                "source_surface": source_surface or "queue_plan_execution",
-                "context_ref_count": len(intake_bundle.context_refs),
-            },
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.SPECIFICATION,
-            status="completed" if spec_bundle is not None else "skipped",
-            artifact_ref="spec_bundle" if spec_bundle is not None else "",
-            details={
-                "has_spec_bundle": spec_bundle is not None,
-                "is_execution_grade": spec_bundle.is_execution_grade if spec_bundle else False,
-            },
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.GOALS,
-            status="completed" if goal_refs else "skipped",
-            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
-            details={"goal_refs_count": len(goal_refs)},
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.PLAN,
-            status="completed",
-            artifact_ref=str(getattr(plan, "id", "") or "").strip(),
-            details={
-                "plan_status": getattr(getattr(plan, "status", None), "value", str(plan.status)),
-                "approval_mode": getattr(
-                    getattr(plan, "approval_mode", None),
-                    "value",
-                    str(getattr(plan, "approval_mode", "")),
+        try:
+            runtime.create_run(run)
+            _ensure_backbone_write(
+                runtime.get_run(run_id) is not None,
+                safety_mode=safety_mode,
+                message=f"Failed to persist backbone run {run_id}",
+            )
+            _ensure_backbone_write(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.INTAKE,
+                    status="completed",
+                    details={
+                        "source_surface": source_surface or "queue_plan_execution",
+                        "context_ref_count": len(intake_bundle.context_refs),
+                    },
                 ),
-            },
-        )
+                safety_mode=safety_mode,
+                message=f"Failed to record intake stage for backbone run {run_id}",
+            )
+            _ensure_backbone_write(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.SPECIFICATION,
+                    status="completed" if spec_bundle is not None else "skipped",
+                    artifact_ref="spec_bundle" if spec_bundle is not None else "",
+                    details={
+                        "has_spec_bundle": spec_bundle is not None,
+                        "is_execution_grade": spec_bundle.is_execution_grade
+                        if spec_bundle
+                        else False,
+                    },
+                ),
+                safety_mode=safety_mode,
+                message=f"Failed to record specification stage for backbone run {run_id}",
+            )
+            _ensure_backbone_write(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.GOALS,
+                    status="completed" if goal_refs else "skipped",
+                    artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+                    details={"goal_refs_count": len(goal_refs)},
+                ),
+                safety_mode=safety_mode,
+                message=f"Failed to record goal stage for backbone run {run_id}",
+            )
+            _ensure_backbone_write(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.PLAN,
+                    status="completed",
+                    artifact_ref=str(getattr(plan, "id", "") or "").strip(),
+                    details={
+                        "plan_status": getattr(
+                            getattr(plan, "status", None),
+                            "value",
+                            str(plan.status),
+                        ),
+                        "approval_mode": getattr(
+                            getattr(plan, "approval_mode", None),
+                            "value",
+                            str(getattr(plan, "approval_mode", "")),
+                        ),
+                    },
+                ),
+                safety_mode=safety_mode,
+                message=f"Failed to record plan stage for backbone run {run_id}",
+            )
+        except Exception as exc:
+            _backbone_write_failed(
+                safety_mode,
+                f"Failed to seed backbone run {run_id}",
+                exc=exc,
+            )
     else:
-        runtime.update_run(
-            run_id,
-            status="plan_ready",
-            goal_refs=goal_refs,
-            plan_id=str(getattr(plan, "id", "") or "").strip(),
-            debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
-            metadata=run_metadata,
-        )
+        try:
+            _ensure_backbone_write(
+                runtime.update_run(
+                    run_id,
+                    status="plan_ready",
+                    goal_refs=goal_refs,
+                    plan_id=str(getattr(plan, "id", "") or "").strip(),
+                    debate_id=str(getattr(plan, "debate_id", "") or "").strip(),
+                    metadata=run_metadata,
+                ),
+                safety_mode=safety_mode,
+                message=f"Failed to update backbone run {run_id}",
+            )
+        except Exception as exc:
+            _backbone_write_failed(
+                safety_mode,
+                f"Failed to update backbone run {run_id}",
+                exc=exc,
+            )
 
     return run_id
 
@@ -457,6 +550,7 @@ def queue_plan_execution(
     *,
     auth_context: Any | None = None,
     execution_mode: str | None = None,
+    safety_mode: SafetyMode | None = None,
 ) -> dict[str, Any]:
     """Persist a plan and queue a durable execution record."""
     from aragora.pipeline.executor import store_plan
@@ -465,6 +559,7 @@ def queue_plan_execution(
     store = get_plan_store()
     runtime = BackboneRuntime(store)
     normalized_mode = normalize_execution_mode(execution_mode) or "workflow"
+    resolved_safety_mode = resolve_safety_mode(safety_mode, auth_context=auth_context)
     execution_id = f"exec-{uuid.uuid4().hex[:12]}"
     correlation_id = f"corr-{uuid.uuid4().hex[:12]}"
 
@@ -488,9 +583,17 @@ def queue_plan_execution(
         plan,
         auth_context=auth_context,
         execution_mode=normalized_mode,
+        safety_mode=resolved_safety_mode,
         runtime=runtime,
     )
-    runtime.sync_plan_receipt_to_run(plan, append_event=False)
+    if _plan_has_backbone_receipt(plan):
+        _ensure_backbone_write(
+            runtime.sync_plan_receipt_to_run(plan, append_event=False),
+            safety_mode=resolved_safety_mode,
+            message=f"Failed to sync stored plan receipt to backbone run {run_id}",
+        )
+    else:
+        runtime.sync_plan_receipt_to_run(plan, append_event=False)
     store.create_execution_record(
         execution_id=execution_id,
         plan_id=plan.id,
@@ -500,23 +603,35 @@ def queue_plan_execution(
         metadata={
             "backbone_run_id": run_id,
             "execution_mode": normalized_mode,
+            "safety_mode": resolved_safety_mode.value,
             "scheduled_by": getattr(auth_context, "user_id", None),
         },
     )
-    runtime.record_execution_stage(
-        run_id,
-        status="queued",
-        artifact_ref=execution_id,
-        run_status="execution_queued",
-        execution_id=execution_id,
-        metadata={
-            "execution_mode": normalized_mode,
-            "scheduled_by": getattr(auth_context, "user_id", None),
-        },
-        details={
-            "correlation_id": correlation_id,
-            "plan_id": str(getattr(plan, "id", "") or "").strip(),
-        },
+    _ensure_backbone_write(
+        store.get_execution_record(execution_id) is not None,
+        safety_mode=resolved_safety_mode,
+        message=f"Failed to persist queued execution record {execution_id}",
+    )
+    _ensure_backbone_write(
+        runtime.record_execution_stage(
+            run_id,
+            status="queued",
+            artifact_ref=execution_id,
+            run_status="execution_queued",
+            execution_id=execution_id,
+            metadata={
+                "execution_mode": normalized_mode,
+                "safety_mode": resolved_safety_mode.value,
+                "scheduled_by": getattr(auth_context, "user_id", None),
+            },
+            details={
+                "correlation_id": correlation_id,
+                "plan_id": str(getattr(plan, "id", "") or "").strip(),
+                "safety_mode": resolved_safety_mode.value,
+            },
+        ),
+        safety_mode=resolved_safety_mode,
+        message=f"Failed to record queued execution stage for backbone run {run_id}",
     )
     return {
         "plan_id": plan.id,
@@ -524,6 +639,7 @@ def queue_plan_execution(
         "execution_id": execution_id,
         "correlation_id": correlation_id,
         "execution_mode": normalized_mode,
+        "safety_mode": resolved_safety_mode.value,
         "status": "queued",
         "scheduled_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -578,7 +694,7 @@ async def execute_queued_plan(
     outcome = await bridge.execute_approved_plan(
         plan.id,
         auth_context=auth_context,
-        execution_mode=normalized_mode,
+        execution_mode=cast(ExecutionMode | None, normalized_mode),
         execution_id=execution_id,
         correlation_id=correlation_id,
     )

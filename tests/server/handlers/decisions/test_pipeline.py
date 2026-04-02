@@ -9,7 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.pipeline.decision_plan import DecisionPlan, PlanStatus
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.server.handlers.base import error_response
 from aragora.server.handlers.decisions.pipeline import (
     DECISION_CREATE_PERMISSION,
@@ -270,6 +272,7 @@ def test_execute_plan_accepts_execution_overrides() -> None:
     mock_exec_cls.assert_called_once_with(parallel_execution=True, max_parallel=4)
     kwargs = mock_execute.call_args.kwargs
     assert kwargs["execution_mode"] == "hybrid"
+    assert kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
     assert kwargs["executor"] is mock_executor
 
 
@@ -351,6 +354,29 @@ def test_execute_plan_normalizes_execution_mode_alias() -> None:
     assert result.status_code == 200
     kwargs = mock_execute.call_args.kwargs
     assert kwargs["execution_mode"] == "workflow"
+    assert kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
+
+
+def test_execute_plan_backbone_failure_returns_503() -> None:
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"execution_mode": "workflow"})
+    user = SimpleNamespace(user_id="user-1", role="member", roles=["member"], permissions=[])
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.side_effect = BackbonePersistenceError("run ledger unavailable")
+
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
+        patch("aragora.pipeline.executor.PlanExecutor"),
+        patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
+    ):
+        result = handler._handle_execute_plan("plan-1", request, user)
+
+    assert result.status_code == 503
+    assert _parse_body(result)["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
 
 
 def test_create_plan_seeds_backbone_run_and_scrubs_reserved_metadata() -> None:

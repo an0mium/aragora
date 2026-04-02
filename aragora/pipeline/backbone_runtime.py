@@ -157,13 +157,14 @@ class BackboneRuntime:
             metadata={"plan_receipt_state": str(receipt_payload.get("state", "")).lower()},
         )
         if append_event:
-            self.append_stage_event(
+            appended = self.append_stage_event(
                 run_id,
                 BackboneStage.RECEIPT,
                 status=str(receipt_payload.get("state", "created") or "created").lower(),
                 artifact_ref=receipt_id,
                 details={"source": "plan_status_transition", "plan_id": getattr(plan, "id", "")},
             )
+            return updated and appended
         return updated
 
     def record_execution_stage(
@@ -187,10 +188,13 @@ class BackboneRuntime:
             update_kwargs["execution_id"] = execution_id
         if metadata:
             update_kwargs["metadata"] = metadata
+        updated = True
         if update_kwargs:
-            self.update_run(run_id, **update_kwargs)
+            updated = self.update_run(run_id, **update_kwargs)
+            if not updated:
+                return False
 
-        return self.append_stage_event(
+        return updated and self.append_stage_event(
             run_id,
             BackboneStage.EXECUTION,
             status=status,
@@ -307,11 +311,13 @@ class BackboneRuntime:
     ) -> bool:
         if not run_id:
             return False
-        self.update_run(run_id, feedback_record=feedback_record)
+        updated = self.update_run(run_id, feedback_record=feedback_record)
+        if not updated:
+            return False
         payload = {"next_action": feedback_record.next_action_recommendation}
         if details:
             payload.update(details)
-        return self.append_stage_event(
+        return updated and self.append_stage_event(
             run_id,
             BackboneStage.FEEDBACK,
             status="completed",
