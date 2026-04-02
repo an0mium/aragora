@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 let mockStoreState: Record<string, unknown>;
 
@@ -62,6 +62,10 @@ describe('Onboarding backend selection', () => {
     };
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('OnboardingFlow creates the first debate against the selected backend', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -94,6 +98,47 @@ describe('Onboarding backend selection', () => {
         'https://api.aragora.ai/api/v1/debates',
         expect.objectContaining({ method: 'POST' }),
       );
+    });
+  });
+
+  it('QuickDebatePanel polls the debate detail endpoint until completion', async () => {
+    jest.useFakeTimers();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'debate-quick' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'debate-quick',
+          status: 'completed',
+          final_answer: 'Ship the feature incrementally.',
+        }),
+      });
+
+    render(<QuickDebatePanel />);
+    fireEvent.click(screen.getByText('START DEBATE'));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.aragora.ai/api/v1/debates',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.aragora.ai/api/v1/debates/debate-quick',
+      );
+      expect(mockStoreState.setDebateStatus).toHaveBeenCalledWith('completed');
     });
   });
 
