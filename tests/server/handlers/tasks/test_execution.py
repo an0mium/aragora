@@ -356,6 +356,20 @@ class TestHandleDispatchers:
         result = handler.handle_post("/api/v2/other", {}, mock_http_handler)
         assert result is None
 
+    def test_handle_post_create_via_tasks_root(
+        self, handler: TaskExecutionHandler, mock_http_handler
+    ):
+        mock_http_handler.rfile.read.return_value = b'{"goal":"Ship it","type":"analysis"}'
+        mock_http_handler.headers["Content-Length"] = str(
+            len(mock_http_handler.rfile.read.return_value)
+        )
+        result = handler.handle_post("/api/v2/tasks", {}, mock_http_handler)
+        assert result is not None
+        data, status, _h = result
+        assert status == 201
+        assert data["goal"] == "Ship it"
+        assert data["type"] == "analysis"
+
     def test_handle_post_unknown_sub_path(self, handler: TaskExecutionHandler, mock_http_handler):
         result = handler.handle_post("/api/v2/tasks/something/weird", {}, mock_http_handler)
         assert result is not None

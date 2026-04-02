@@ -6,7 +6,8 @@ that bridge debate decisions to concrete execution. This is the Phase V
 centerpiece that turns "debate a decision" into "implement a decision."
 
 Routes:
-    POST /api/v2/tasks/execute     - Submit a task for execution
+    POST /api/v2/tasks             - Submit a task for execution
+    POST /api/v2/tasks/execute     - Legacy alias for task submission
     GET  /api/v2/tasks/<task_id>   - Get task status
     GET  /api/v2/tasks             - List tasks (with optional status filter)
     POST /api/v2/tasks/<task_id>/approve - Approve a human checkpoint
@@ -180,7 +181,8 @@ class TaskExecutionHandler(BaseHandler):
     """HTTP handler for task execution endpoints.
 
     Supports:
-        POST /api/v2/tasks/execute       - Submit a new task
+        POST /api/v2/tasks              - Submit a new task
+        POST /api/v2/tasks/execute      - Legacy alias for task submission
         GET  /api/v2/tasks/<task_id>      - Retrieve task status
         GET  /api/v2/tasks               - List tasks (optional ?status= filter)
         POST /api/v2/tasks/<task_id>/approve - Approve a human checkpoint
@@ -246,6 +248,13 @@ class TaskExecutionHandler(BaseHandler):
             return perm_err
 
         parts = path.rstrip("/").split("/")
+
+        # POST /api/v2/tasks
+        if len(parts) == 4 and parts[3] == "tasks":
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("Invalid JSON body", 400)
+            return self._handle_execute(body)
 
         # POST /api/v2/tasks/execute
         if len(parts) == 5 and parts[3] == "tasks" and parts[4] == "execute":

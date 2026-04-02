@@ -24,6 +24,7 @@ class TestSyncParityRoutes:
             mock_request.return_value = {"ok": True}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
 
+            client.tasks.create(goal="Should we ship?", type="analysis")
             client.audit.get_resource_history("debate", "deb_123")
             client.selection.get_scorer("elo-scorer")
             client.selection.get_team_selector("diversity-selector")
@@ -54,6 +55,11 @@ class TestSyncParityRoutes:
             client.marketplace.get_marketplace_status()
 
             expected_calls = [
+                call(
+                    "POST",
+                    "/api/v2/tasks",
+                    json={"goal": "Should we ship?", "type": "analysis"},
+                ),
                 call(
                     "GET",
                     "/api/v1/audit/resource/deb_123/history",
@@ -137,6 +143,7 @@ class TestAsyncParityRoutes:
                 orchestration = AsyncOrchestrationAPI(client)
                 marketplace = AsyncMarketplaceAPI(client)
 
+                await tasks.create(goal="Should we ship?", type="analysis")
                 await audit.get_resource_history("debate", "deb_123")
                 await selection.get_scorer("elo-scorer")
                 await selection.get_team_selector("diversity-selector")
@@ -167,6 +174,11 @@ class TestAsyncParityRoutes:
                 await marketplace.get_marketplace_status()
 
                 expected_calls = [
+                    call(
+                        "POST",
+                        "/api/v2/tasks",
+                        json={"goal": "Should we ship?", "type": "analysis"},
+                    ),
                     call(
                         "GET",
                         "/api/v1/audit/resource/deb_123/history",

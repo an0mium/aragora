@@ -27,7 +27,7 @@ class TasksAPI:
         Returns:
             Dict with created task details.
         """
-        return self._client.request("POST", "/api/v1/tasks", json=kwargs)
+        return self._client.request("POST", "/api/v2/tasks", json=kwargs)
 
     def get(self, task_id: str) -> dict[str, Any]:
         """Get a task by ID."""
@@ -54,7 +54,7 @@ class AsyncTasksAPI:
 
     async def create(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new task."""
-        return await self._client.request("POST", "/api/v1/tasks", json=kwargs)
+        return await self._client.request("POST", "/api/v2/tasks", json=kwargs)
 
     async def get(self, task_id: str) -> dict[str, Any]:
         """Get a task by ID."""
