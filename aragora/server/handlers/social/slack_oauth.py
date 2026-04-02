@@ -342,7 +342,12 @@ class SlackOAuthHandler(SecureHandler):
                     authenticated_tenant_id,
                 )
             return authenticated_tenant_id
-        return requested_tenant_id
+        if requested_tenant_id:
+            logger.warning(
+                "Ignoring unauthenticated Slack OAuth tenant_id=%s during install flow",
+                requested_tenant_id,
+            )
+        return None
 
     def _is_workspace_access_denied(
         self,

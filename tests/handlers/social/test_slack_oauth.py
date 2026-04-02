@@ -362,7 +362,7 @@ class TestInstall:
         assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
-    async def test_with_tenant_id(self, handler, mock_state_store):
+    async def test_unauthenticated_install_ignores_tenant_id(self, handler, mock_state_store):
         result = await handler.handle(
             "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
         )
@@ -370,7 +370,7 @@ class TestInstall:
         mock_state_store.generate.assert_called_once()
         call_kwargs = mock_state_store.generate.call_args
         metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
-        assert metadata["tenant_id"] == "t-123"
+        assert metadata["tenant_id"] is None
 
     @pytest.mark.asyncio
     async def test_authenticated_install_prefers_auth_tenant(

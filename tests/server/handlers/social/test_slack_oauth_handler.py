@@ -231,6 +231,28 @@ class TestSlackOAuthInstall:
         assert found, "tenant_id not stored in state"
 
     @pytest.mark.asyncio
+    async def test_unauthenticated_install_ignores_tenant_id(
+        self, oauth_handler, oauth_state_store
+    ):
+        """Unauthenticated dev installs must not bind arbitrary tenant scope."""
+        with (
+            patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "test-client-id"),
+            patch("aragora.server.handlers.social.slack_oauth.ARAGORA_ENV", "test"),
+        ):
+            result = await oauth_handler.handle(
+                "GET",
+                "/api/integrations/slack/install",
+                query_params={"tenant_id": "tenant-001"},
+            )
+
+        assert result.status_code == 302
+        found = any(
+            data.metadata and data.metadata.get("tenant_id") is None
+            for data in oauth_state_store._states.values()
+        )
+        assert found, "unauthenticated install should not persist tenant_id"
+
+    @pytest.mark.asyncio
     async def test_install_cleans_old_states(self, oauth_handler, oauth_state_store):
         """Test install cleans up expired states."""
         # Add old state
