@@ -299,6 +299,29 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _store_kwargs_for(target: Any, method_name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Trim kwargs to the store method's supported signature when needed."""
+
+    method = getattr(target, method_name, None)
+    if method is None:
+        return kwargs
+
+    try:
+        params = signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return kwargs
+
+    if any(param.kind is inspect.Parameter.VAR_KEYWORD for param in params):
+        return kwargs
+
+    supported = {
+        name
+        for name, param in signature(method).parameters.items()
+        if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    return {key: value for key, value in kwargs.items() if key in supported}
+
+
 async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict[str, Any] | None]:
     """Consume one receipt-share access, preferring atomic store support."""
     consume_result = None
@@ -503,22 +526,33 @@ async def list_receipts(
     request: Request,
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
+    debate_id: str | None = Query(None, description="Filter by debate ID"),
     verdict: str | None = Query(None, description="Filter by verdict"),
     store=Depends(get_receipt_store),
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
     try:
         filter_kwargs: dict[str, Any] = {}
+        if debate_id:
+            filter_kwargs["debate_id"] = debate_id
         if verdict:
             filter_kwargs["verdict"] = verdict
 
         if hasattr(store, "list_recent"):
+            list_recent_kwargs = _store_kwargs_for(
+                store,
+                "list_recent",
+                {
+                    "limit": limit,
+                    "offset": offset,
+                    "debate_id": debate_id,
+                    "verdict": verdict,
+                },
+            )
             results = await _call_store_method(
                 store,
                 "list_recent",
-                limit=limit,
-                offset=offset,
-                verdict=verdict,
+                **list_recent_kwargs,
             )
         elif hasattr(store, "list"):
             results = await _call_store_method(
@@ -538,7 +572,15 @@ async def list_receipts(
             results = []
 
         if hasattr(store, "count"):
-            total = await _call_store_method(store, "count", verdict=verdict)
+            count_kwargs = _store_kwargs_for(
+                store,
+                "count",
+                {
+                    "debate_id": debate_id,
+                    "verdict": verdict,
+                },
+            )
+            total = await _call_store_method(store, "count", **count_kwargs)
         else:
             total = len(results)
 

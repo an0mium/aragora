@@ -173,6 +173,22 @@ class TestListReceipts:
         response = client.get("/api/v2/receipts?verdict=APPROVED")
         assert response.status_code == 200
 
+    def test_list_receipts_with_debate_id_filter(self, client, mock_receipt_store):
+        """List receipts forwards the onboarding debate_id filter to the store."""
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
+        assert response.status_code == 200
+
+        mock_receipt_store.list_recent.assert_called_with(
+            limit=50,
+            offset=0,
+            debate_id="debate-123",
+            verdict=None,
+        )
+        mock_receipt_store.count.assert_called_with(
+            debate_id="debate-123",
+            verdict=None,
+        )
+
     def test_list_receipts_with_data(self, client, mock_receipt_store, sample_receipt_dict):
         """List receipts returns receipt summaries."""
         mock_receipt_store.list_recent.return_value = [sample_receipt_dict]
@@ -191,29 +207,42 @@ class TestListReceipts:
         """List receipts should support the durable store's list(...) API."""
 
         class StorageBackedStore:
+            def __init__(self):
+                self.list_kwargs = None
+                self.count_kwargs = None
+
             def list(self, **kwargs):
+                self.list_kwargs = kwargs
                 return [sample_stored_receipt]
 
             def count(self, **kwargs):
+                self.count_kwargs = kwargs
                 return 1
 
+        store = StorageBackedStore()
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
             "user_store": None,
             "rbac_checker": MagicMock(),
             "decision_service": MagicMock(),
-            "receipt_store": StorageBackedStore(),
+            "receipt_store": store,
         }
         client = TestClient(app, raise_server_exceptions=False)
 
-        response = client.get("/api/v2/receipts")
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
         assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
         assert data["receipts"][0]["input_summary"] == "Test input content"
         assert data["receipts"][0]["findings_count"] == 1
+        assert store.list_kwargs == {
+            "limit": 50,
+            "offset": 0,
+            "debate_id": "debate-123",
+        }
+        assert store.count_kwargs["debate_id"] == "debate-123"
 
     def test_list_receipts_validation_limit_bounds(self, client):
         """Pagination limit must be between 1 and 100."""
