@@ -218,7 +218,15 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/learning/unknown") is False
 
     def test_unversioned_route(self, handler):
-        assert handler.can_handle("/api/learning/cycles") is False
+        assert handler.can_handle("/api/learning/cycles") is True
+
+    @pytest.mark.asyncio
+    async def test_unversioned_route_dispatches(self, handler, nomic_dir, mock_http):
+        (nomic_dir / "replays").mkdir()
+        result = await handler.handle("/api/learning/cycles", {}, mock_http)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["cycles"] == []
 
     def test_empty_path(self, handler):
         assert handler.can_handle("") is False

@@ -54,26 +54,31 @@ class TestTrainingHandlerCanHandle:
     def test_can_handle_sft_export(self):
         """Should handle SFT export path."""
         handler = TrainingHandler({})
+        assert handler.can_handle("/api/training/export/sft") is True
         assert handler.can_handle("/api/v1/training/export/sft") is True
 
     def test_can_handle_dpo_export(self):
         """Should handle DPO export path."""
         handler = TrainingHandler({})
+        assert handler.can_handle("/api/training/export/dpo") is True
         assert handler.can_handle("/api/v1/training/export/dpo") is True
 
     def test_can_handle_gauntlet_export(self):
         """Should handle Gauntlet export path."""
         handler = TrainingHandler({})
+        assert handler.can_handle("/api/training/export/gauntlet") is True
         assert handler.can_handle("/api/v1/training/export/gauntlet") is True
 
     def test_can_handle_stats(self):
         """Should handle stats path."""
         handler = TrainingHandler({})
+        assert handler.can_handle("/api/training/stats") is True
         assert handler.can_handle("/api/v1/training/stats") is True
 
     def test_can_handle_formats(self):
         """Should handle formats path."""
         handler = TrainingHandler({})
+        assert handler.can_handle("/api/training/formats") is True
         assert handler.can_handle("/api/v1/training/formats") is True
 
     def test_cannot_handle_unknown_path(self):
@@ -209,6 +214,9 @@ class TestTrainingHandlerHandle:
     def test_handle_formats_dispatches_correctly(self):
         """Should dispatch formats path to handle_formats."""
         handler = TrainingHandler({})
+        legacy_result = handler.handle("/api/training/formats", {}, None)
+        assert legacy_result is not None
+        assert legacy_result.status_code == 200
         result = handler.handle("/api/v1/training/formats", {}, None)
         assert result is not None
         assert result.status_code == 200
