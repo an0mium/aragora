@@ -8,6 +8,18 @@ interface NextStepsPanelProps {
   debateId: string;
 }
 
+interface DebatePackageArgument {
+  agent?: string;
+  round?: number;
+  content?: string;
+}
+
+interface DebatePackageResponse {
+  question?: string;
+  final_answer?: string;
+  arguments?: DebatePackageArgument[];
+}
+
 export function NextStepsPanel({ debateId }: NextStepsPanelProps) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -16,9 +28,31 @@ export function NextStepsPanel({ debateId }: NextStepsPanelProps) {
     setSaveStatus('loading');
     setSaveError(null);
     try {
-      await apiFetch('/api/v1/knowledge/from-debate', {
+      const debatePackage = await apiFetch<DebatePackageResponse>(
+        `/api/v1/debates/${encodeURIComponent(debateId)}/package`,
+      );
+      const messages = Array.isArray(debatePackage.arguments)
+        ? debatePackage.arguments
+            .map((argument) => ({
+              agent: argument.agent || 'unknown',
+              round: typeof argument.round === 'number' ? argument.round : 0,
+              content: argument.content?.trim() || '',
+            }))
+            .filter((argument) => argument.content.length > 0)
+        : [];
+
+      if (messages.length === 0) {
+        throw new Error('No debate transcript available to save');
+      }
+
+      await apiFetch('/api/v1/knowledge/mound/extraction/debate', {
         method: 'POST',
-        body: JSON.stringify({ debate_id: debateId }),
+        body: JSON.stringify({
+          debate_id: debateId,
+          messages,
+          consensus_text: debatePackage.final_answer?.trim() || undefined,
+          topic: debatePackage.question?.trim() || undefined,
+        }),
       });
       setSaveStatus('success');
     } catch (err) {
