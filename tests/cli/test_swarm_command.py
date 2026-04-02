@@ -187,6 +187,48 @@ class TestSwarmParser:
         assert args.probe_limit == 2
         assert args.json is True
 
+    def test_swarm_runner_probe_codex_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "codex",
+                "--probe-limit",
+                "3",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "runner"
+        assert args.swarm_goal == "probe"
+        assert args.runner_type == "codex"
+        assert args.probe_limit == 3
+        assert args.json is True
+
+    def test_swarm_runner_probe_codex_parser_no_json(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "codex",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "runner"
+        assert args.swarm_goal == "probe"
+        assert args.runner_type == "codex"
+        assert args.json is False
+
     def test_swarm_audit_issues_parser(self):
         from aragora.cli.parser import build_parser
 
@@ -1523,6 +1565,66 @@ class TestSwarmCommand:
         assert '"attempted": 1' in out
         assert '"passed": 1' in out
         assert '"probe_status": "passed"' in out
+
+    def test_cmd_swarm_runner_probe_codex_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="runner",
+            swarm_goal="probe",
+            runner_type="codex",
+            probe_limit=1,
+            json=True,
+        )
+        inspection = SimpleNamespace(
+            runner_id="codex-runner-456",
+            profile="codex-mini",
+            to_dict=lambda: {
+                "runner_id": "codex-runner-456",
+                "runner_type": "codex",
+                "profile": "codex-mini",
+                "auth_mode": "api_key",
+                "availability": "available",
+            },
+        )
+        probe = SimpleNamespace(
+            status="passed",
+            to_runner_fields=lambda: {
+                "probe_status": "passed",
+                "probe_checked_at": "2026-03-09T12:10:00+00:00",
+                "probe_detail": "Live prompt probe succeeded.",
+                "probe_latency_seconds": 0.8,
+                "probe_ttl_seconds": 3600,
+            },
+        )
+
+        with (
+            patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
+        ):
+            discover.return_value = [inspection]
+            auth_ctx.return_value = object()
+            registry_cls.return_value.resolve_boss_routing.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    "selected_runners": [],
+                    "selected_runner_ids": [],
+                    "blocked_reason": None,
+                }
+            )
+            registry_cls.return_value.record_probe.return_value = {
+                "runner_id": "codex-runner-456",
+                "runner_type": "codex",
+                "profile": "codex-mini",
+                "probe_status": "passed",
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"action": "probe"' in out
+        assert '"attempted": 1' in out
+        assert '"passed": 1' in out
+        assert '"probe_status": "passed"' in out
+        assert '"runner_type": "codex"' in out
 
     def test_cmd_swarm_runner_maintain_json(self, capsys):
         args = _swarm_args(
