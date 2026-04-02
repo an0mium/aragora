@@ -20,11 +20,13 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     DecisionPlan,
     PlanStatus,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.server.handlers.plans import PlansHandler
 
 
@@ -709,7 +711,10 @@ class TestApprovePlan:
         }
         with (
             patch("aragora.server.handlers.plans._fire_plan_notification"),
-            patch("aragora.pipeline.canonical_execution.queue_plan_execution", return_value=launch),
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=launch,
+            ) as mock_queue,
             patch(
                 "aragora.pipeline.canonical_execution.schedule_coroutine",
                 side_effect=_close_scheduled_coroutine,
@@ -723,6 +728,12 @@ class TestApprovePlan:
         assert body["run_id"] == "run-approve-1"
         assert body["execution_id"] == "exec-approve-1"
         assert body["correlation_id"] == "corr-approve-1"
+        mock_queue.assert_called_once_with(
+            plan,
+            auth_context=ANY,
+            execution_mode=None,
+            safety_mode=ExecutionMode.INTERACTIVE,
+        )
 
     def test_approve_plan_auto_execute_failure_still_approves(
         self, handler, mock_store, http_post_factory
@@ -745,6 +756,29 @@ class TestApprovePlan:
         assert _status(result) == 200
         assert body["status"] == "approved"
         assert body["execution_scheduled"] is False
+
+    def test_approve_plan_auto_execute_backbone_failure_is_explicit(
+        self, handler, mock_store, http_post_factory
+    ):
+        plan = _make_plan(id="dp-autobackbone", status=PlanStatus.AWAITING_APPROVAL)
+        mock_store.get.return_value = plan
+
+        http_handler = http_post_factory(body={"auto_execute": True})
+
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                side_effect=BackbonePersistenceError("run ledger unavailable"),
+            ),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-autobackbone/approve", {}, http_handler)
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["status"] == "approved"
+        assert body["execution_scheduled"] is False
+        assert body["execution_error"] == FAIL_CLOSED_BACKBONE_MESSAGE
 
     def test_approve_plan_with_conditions(self, handler, mock_store, http_post_factory):
         plan = _make_plan(id="dp-cond", status=PlanStatus.AWAITING_APPROVAL)
@@ -991,6 +1025,23 @@ class TestExecutePlan:
 
         assert _status(result) == 500
 
+    def test_execute_plan_backbone_failure_returns_503(
+        self, handler, mock_store, http_post_factory
+    ):
+        plan = _make_plan(id="dp-backbonefail", status=PlanStatus.APPROVED)
+        mock_store.get.return_value = plan
+
+        http_handler = http_post_factory(body={})
+
+        with patch(
+            "aragora.pipeline.canonical_execution.queue_plan_execution",
+            side_effect=BackbonePersistenceError("run ledger unavailable"),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-backbonefail/execute", {}, http_handler)
+
+        assert _status(result) == 503
+        assert _body(result)["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
+
     def test_execute_plan_with_execution_mode(self, handler, mock_store, http_post_factory):
         plan = _make_plan(id="dp-mode", status=PlanStatus.APPROVED)
         mock_store.get.return_value = plan
@@ -1022,6 +1073,7 @@ class TestExecutePlan:
             plan,
             auth_context=ANY,
             execution_mode="dry_run",
+            safety_mode=ExecutionMode.INTERACTIVE,
         )
 
     def test_execute_plan_unversioned(self, handler, mock_store, http_post_factory):

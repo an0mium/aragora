@@ -61,6 +61,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.canvas_pipeline import attach_unified_live_state
 
@@ -904,7 +909,16 @@ async def execute_pipeline(
             metadata={"pipeline_id": pipeline_id},
             execution_mode="workflow",
         )
-        launch = queue_plan_execution(plan, auth_context=auth, execution_mode="workflow")
+        try:
+            launch = queue_plan_execution(
+                plan,
+                auth_context=auth,
+                execution_mode="workflow",
+                safety_mode=SafetyMode.INTERACTIVE,
+            )
+        except BackbonePersistenceError as exc:
+            logger.warning("FastAPI canvas execution blocked for %s: %s", pipeline_id, exc)
+            raise HTTPException(status_code=503, detail=FAIL_CLOSED_BACKBONE_MESSAGE) from exc
         data_dict["execution"] = {
             **launch,
             "runtime": "decision_plan",
@@ -1077,19 +1091,27 @@ async def list_templates() -> PipelineTemplatesResponse:
         templates_raw = _list_templates()
         templates = [
             PipelineTemplateItem(
-                id=getattr(t, "name", "")
-                if not isinstance(t, dict)
-                else t.get("id", t.get("name", "")),
-                name=getattr(t, "display_name", getattr(t, "name", ""))
-                if not isinstance(t, dict)
-                else t.get("name", ""),
-                description=getattr(t, "description", "")
-                if not isinstance(t, dict)
-                else t.get("description", ""),
+                id=str(
+                    getattr(t, "name", "")
+                    if not isinstance(t, dict)
+                    else t.get("id", t.get("name", ""))
+                ),
+                name=str(
+                    getattr(t, "display_name", getattr(t, "name", ""))
+                    if not isinstance(t, dict)
+                    else t.get("name", "")
+                ),
+                description=str(
+                    getattr(t, "description", "")
+                    if not isinstance(t, dict)
+                    else t.get("description", "")
+                ),
                 stages=getattr(t, "tags", []) if not isinstance(t, dict) else t.get("stages", []),
-                category=getattr(t, "category", "general")
-                if not isinstance(t, dict)
-                else t.get("category", "general"),
+                category=str(
+                    getattr(t, "category", "general")
+                    if not isinstance(t, dict)
+                    else t.get("category", "general")
+                ),
             )
             for t in templates_raw
         ]
@@ -1534,19 +1556,19 @@ async def get_pipeline_agents(pipeline_id: str) -> AgentListResponse:
         if isinstance(a, dict):
             agents.append(
                 AgentAssignment(
-                    agent_id=a.get("id", a.get("agent_id", "")),
-                    agent_name=a.get("name", a.get("agent_name", "")),
-                    role=a.get("role", "executor"),
-                    status=a.get("status", "pending"),
+                    agent_id=str(a.get("id", a.get("agent_id", ""))),
+                    agent_name=str(a.get("name", a.get("agent_name", ""))),
+                    role=str(a.get("role", "executor")),
+                    status=str(a.get("status", "pending")),
                 )
             )
         else:
             agents.append(
                 AgentAssignment(
-                    agent_id=getattr(a, "id", getattr(a, "agent_id", str(a))),
-                    agent_name=getattr(a, "name", getattr(a, "agent_name", str(a))),
-                    role=getattr(a, "role", "executor"),
-                    status=getattr(a, "status", "pending"),
+                    agent_id=str(getattr(a, "id", getattr(a, "agent_id", str(a)))),
+                    agent_name=str(getattr(a, "name", getattr(a, "agent_name", str(a)))),
+                    role=str(getattr(a, "role", "executor")),
+                    status=str(getattr(a, "status", "pending")),
                 )
             )
 

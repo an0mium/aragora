@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, patch
 from aragora.implement.types import ImplementPlan, ImplementTask
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
 from aragora.pipeline.decision_plan.memory import PlanOutcome
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.server.decision_integrity_utils import (
     _normalize_execution_request_for_safety_mode,
     build_decision_integrity_payload,
     extract_execution_overrides,
 )
-from aragora.pipeline.execution_mode import ExecutionMode
 
 
 def test_extract_execution_overrides_computer_use():
@@ -139,6 +139,7 @@ async def test_build_payload_executes_hybrid(monkeypatch):
         )
 
     assert mock_execute.await_count == 1
+    assert mock_execute.await_args.kwargs["safety_mode"] == ExecutionMode.AUTONOMOUS
     assert payload is not None
     assert payload["execution"]["status"] == "completed"
     assert payload["run_id"] == "run-di-1"

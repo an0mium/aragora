@@ -21,6 +21,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.server.handlers.debates.implementation import (
     ImplementationOperationsMixin,
     _check_execution_budget,
@@ -591,6 +593,10 @@ class TestApprovalFlow:
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
             patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
+            patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
             ),
@@ -631,6 +637,10 @@ class TestApprovalFlow:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
@@ -706,6 +716,10 @@ class TestApprovalFlow:
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
             patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
+            patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
             ),
@@ -744,6 +758,10 @@ class TestApprovalFlow:
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
             patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
+            patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
             ),
@@ -777,6 +795,10 @@ class TestApprovalFlow:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="computer-use-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
@@ -835,6 +857,10 @@ class TestWorkflowBackbone:
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
             patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
+            patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
             ),
@@ -865,6 +891,53 @@ class TestWorkflowBackbone:
         assert body["workflow_execution"]["run_id"] == "run-workflow-1"
         assert body["workflow_execution"]["execution_id"] == "exec-workflow-1"
         assert body["workflow_execution"]["outcome"]["success"] is True
+        assert mock_execute.call_args.kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
+
+    def test_execute_workflow_backbone_failure_returns_503(
+        self, handler, mock_storage, mock_package
+    ):
+        handler._body = {"execution_mode": "workflow_execute"}
+
+        from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
+        from aragora.pipeline.decision_plan.core import ApprovalRecord
+
+        plan = DecisionPlan(
+            debate_id="debate-001",
+            task="Should we use microservices?",
+            approval_mode=ApprovalMode.NEVER,
+            status=PlanStatus.APPROVED,
+            approval_record=ApprovalRecord(approved=True, approver_id="system"),
+        )
+
+        with (
+            patch("aragora.server.handlers.debates.implementation.run_async") as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation._persist_receipt",
+                return_value=None,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+                return_value=plan,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-workflow-err",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+            patch.dict("os.environ", {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"}),
+        ):
+            mock_run.side_effect = [
+                mock_package,
+                BackbonePersistenceError("run ledger unavailable"),
+            ]
+            result = handler._create_decision_integrity(None, "debate-001")
+
+        body, status = parse_result(result)
+        assert status == 503
+        assert body["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
 
 
 # =============================================================================
@@ -892,6 +965,10 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="computer-use-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
@@ -938,6 +1015,10 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="workflow-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
@@ -998,6 +1079,10 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="computer-use-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
@@ -1065,6 +1150,10 @@ class TestExecuteMode:
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
             patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="computer-use-coro",
+            ) as mock_execute,
+            patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
             ),
@@ -1110,6 +1199,54 @@ class TestExecuteMode:
         assert body["execution"]["outcome"]["success"] is True
         assert body["execution"]["progress"]["total_steps"] >= 0
         assert mock_executor_cls.called is True
+        assert mock_execute.call_args.kwargs["safety_mode"] == ExecutionMode.INTERACTIVE
+
+    def test_execute_approved_computer_use_backbone_failure_returns_503(
+        self, handler, mock_storage, mock_package, mock_approval_request
+    ):
+        handler._body = {"execution_mode": "execute", "execution_engine": "computer_use"}
+
+        from aragora.autonomous.loop_enhancement import ApprovalStatus
+
+        mock_approval_request.status = ApprovalStatus.APPROVED
+
+        mock_flow = MagicMock()
+        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
+
+        with (
+            patch("aragora.server.handlers.debates.implementation.run_async") as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation._persist_receipt",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.get_approval_flow",
+                return_value=mock_flow,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.get_permission_checker",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-cu-err",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+            patch("aragora.pipeline.executor.PlanExecutor"),
+            patch.dict("os.environ", {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"}),
+        ):
+            mock_run.side_effect = [
+                mock_package,
+                mock_approval_request,
+                BackbonePersistenceError("run ledger unavailable"),
+            ]
+            result = handler._create_decision_integrity(None, "debate-001")
+
+        body, status = parse_result(result)
+        assert status == 503
+        assert body["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
 
     def test_execute_auto_approved(
         self, handler, mock_storage, mock_package, mock_approval_request
@@ -1131,6 +1268,10 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
             ) as mock_run,
+            patch(
+                "aragora.server.handlers.debates.implementation.execute_decision_plan_with_backbone",
+                return_value="computer-use-coro",
+            ) as mock_execute,
             patch(
                 "aragora.server.handlers.debates.implementation._persist_receipt",
                 return_value=None,
