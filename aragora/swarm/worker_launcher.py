@@ -539,6 +539,10 @@ class WorkerLauncher:
         }
         if not worktree_path:
             return snapshot
+        if pid is None:
+            session_meta = self._read_session_meta(worktree_path)
+            pid = self._normalized_pid(session_meta.get("pid"))
+            snapshot["pid_alive"] = self._is_pid_running(pid) if pid is not None else False
 
         head_sha = await self._git_output(worktree_path, "rev-parse", "HEAD")
         diff = await self._collect_diff(worktree_path)
