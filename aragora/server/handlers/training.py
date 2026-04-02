@@ -97,6 +97,12 @@ class TrainingHandler(BaseHandler):
     """Handler for training data export endpoints."""
 
     _ROUTE_MAP = {
+        "/api/training/export/sft": "handle_export_sft",
+        "/api/training/export/dpo": "handle_export_dpo",
+        "/api/training/export/gauntlet": "handle_export_gauntlet",
+        "/api/training/stats": "handle_stats",
+        "/api/training/formats": "handle_formats",
+        "/api/training/jobs": "handle_list_jobs",
         "/api/v1/training/export/sft": "handle_export_sft",
         "/api/v1/training/export/dpo": "handle_export_dpo",
         "/api/v1/training/export/gauntlet": "handle_export_gauntlet",
@@ -106,6 +112,12 @@ class TrainingHandler(BaseHandler):
     }
 
     ROUTES = [
+        "/api/training/export/sft",
+        "/api/training/export/dpo",
+        "/api/training/export/gauntlet",
+        "/api/training/stats",
+        "/api/training/formats",
+        "/api/training/jobs",
         "/api/v1/training/export/sft",
         "/api/v1/training/export/dpo",
         "/api/v1/training/export/gauntlet",
@@ -116,6 +128,12 @@ class TrainingHandler(BaseHandler):
 
     # Dynamic routes that need special handling
     JOB_ROUTES = [
+        "/api/training/jobs/*/export",
+        "/api/training/jobs/*/start",
+        "/api/training/jobs/*/complete",
+        "/api/training/jobs/*/metrics",
+        "/api/training/jobs/*/artifacts",
+        "/api/training/jobs/*",
         "/api/v1/training/jobs/*/export",
         "/api/v1/training/jobs/*/start",
         "/api/v1/training/jobs/*/complete",
@@ -135,12 +153,22 @@ class TrainingHandler(BaseHandler):
         )
         self._export_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _normalize_route_path(path: str) -> str:
+        """Map legacy unversioned training routes to the canonical v1 path."""
+        if path == "/api/training/jobs" or path.startswith("/api/training/jobs/"):
+            return path.replace("/api/training/jobs", "/api/v1/training/jobs", 1)
+        if path.startswith("/api/training/"):
+            return path.replace("/api/training/", "/api/v1/training/", 1)
+        return path
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        if path in self._ROUTE_MAP:
+        normalized_path = self._normalize_route_path(path)
+        if normalized_path in self._ROUTE_MAP:
             return True
         # Check job routes (dynamic patterns)
-        if path.startswith("/api/v1/training/jobs/"):
+        if normalized_path.startswith("/api/v1/training/jobs/"):
             return True
         return False
 
@@ -152,15 +180,17 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route training requests to appropriate methods."""
+        normalized_path = self._normalize_route_path(path)
+
         # Check static routes first
-        method_name = self._ROUTE_MAP.get(path)
+        method_name = self._ROUTE_MAP.get(normalized_path)
         if method_name and hasattr(self, method_name):
-            result = getattr(self, method_name)(path, query_params, handler)
+            result = getattr(self, method_name)(normalized_path, query_params, handler)
             return cast(HandlerResult | None, result)
 
         # Handle job-specific routes
-        if path.startswith("/api/v1/training/jobs/"):
-            return self._handle_job_route(path, query_params, handler)
+        if normalized_path.startswith("/api/v1/training/jobs/"):
+            return self._handle_job_route(normalized_path, query_params, handler)
 
         return None
 

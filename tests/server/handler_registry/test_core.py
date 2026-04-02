@@ -256,6 +256,33 @@ class TestRouteIndex:
         prefixes = [p for p, _, _ in idx._prefix_routes]
         assert "/api/v1/decisions/plans" in prefixes
 
+    def test_get_handler_resolves_legacy_training_learning_and_evidence_paths(self, monkeypatch):
+        """Legacy /api/* aliases should continue to dispatch through the route index."""
+        from aragora.server.handlers.features.evidence import EvidenceHandler
+        from aragora.server.handlers.memory.learning import LearningHandler
+        from aragora.server.handlers.training import TrainingHandler
+
+        monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "0")
+
+        idx = RouteIndex()
+        mixin = MagicMock()
+        mixin._evidence_handler = EvidenceHandler({})
+        mixin._learning_handler = LearningHandler({})
+        mixin._training_handler = TrainingHandler({})
+
+        handlers = [
+            ("_evidence_handler", EvidenceHandler),
+            ("_learning_handler", LearningHandler),
+            ("_training_handler", TrainingHandler),
+        ]
+
+        idx.build(mixin, handlers)
+
+        with patch("aragora.server.versioning.strip_version_prefix", side_effect=lambda p: p):
+            assert idx.get_handler("/api/evidence")[0] == "_evidence_handler"
+            assert idx.get_handler("/api/learning/cycles")[0] == "_learning_handler"
+            assert idx.get_handler("/api/training/stats")[0] == "_training_handler"
+
 
 class TestGetRouteIndex:
     """Tests for global route index singleton."""
