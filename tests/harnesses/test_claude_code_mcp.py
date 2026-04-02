@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.harnesses.claude_code import ClaudeCodeConfig, ClaudeCodeHarness
+from aragora.pipeline.execution_mode import ExecutionMode
 
 
 @pytest.fixture
@@ -101,6 +102,68 @@ class TestAllowedTools:
         """No duplicate tools in the list."""
         allowed = ClaudeCodeHarness._get_allowed_tools()
         assert len(allowed) == len(set(allowed))
+
+
+class TestExecutionModeGating:
+    @pytest.mark.asyncio
+    async def test_execute_implementation_adds_yes_in_autonomous_mode(self, tmp_path):
+        harness = ClaudeCodeHarness(
+            ClaudeCodeConfig(
+                use_mcp_tools=False,
+                execution_mode=ExecutionMode.AUTONOMOUS,
+                timeout_seconds=60,
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"done", b""))
+        mock_proc.returncode = 0
+        mock_proc.kill = MagicMock()
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+            await harness.execute_implementation(tmp_path, "fix the bug")
+
+        cmd_args = [str(arg) for arg in mock_exec.call_args[0]]
+        assert "--yes" in cmd_args
+
+    @pytest.mark.asyncio
+    async def test_execute_implementation_omits_yes_in_interactive_mode(self, tmp_path):
+        harness = ClaudeCodeHarness(
+            ClaudeCodeConfig(
+                use_mcp_tools=False,
+                execution_mode=ExecutionMode.INTERACTIVE,
+                timeout_seconds=60,
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"done", b""))
+        mock_proc.returncode = 0
+        mock_proc.kill = MagicMock()
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+            await harness.execute_implementation(tmp_path, "fix the bug")
+
+        cmd_args = [str(arg) for arg in mock_exec.call_args[0]]
+        assert "--yes" not in cmd_args
+
+    @pytest.mark.asyncio
+    async def test_execute_implementation_accepts_string_execution_mode(self, tmp_path):
+        harness = ClaudeCodeHarness(
+            ClaudeCodeConfig(
+                use_mcp_tools=False,
+                execution_mode=" autonomous ",
+                timeout_seconds=60,
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"done", b""))
+        mock_proc.returncode = 0
+        mock_proc.kill = MagicMock()
+
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec:
+            await harness.execute_implementation(tmp_path, "fix the bug")
+
+        cmd_args = [str(arg) for arg in mock_exec.call_args[0]]
+        assert "--yes" in cmd_args
 
 
 class TestMCPConfigGeneration:

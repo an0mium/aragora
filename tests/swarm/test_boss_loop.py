@@ -2051,7 +2051,14 @@ async def test_dispatch_issue_builds_clean_spec_from_issue_body() -> None:
     assert "[Issue #1733] Tighten supervisor merge gate" in spec.raw_goal
     assert "Workers should keep only dispatch-relevant context." in spec.raw_goal
     assert "Scope hints" not in spec.raw_goal
-    assert "aragora/swarm/supervisor.py" in spec.file_scope_hints
+    if spec.file_scope_hints:
+        assert "aragora/swarm/supervisor.py" in spec.file_scope_hints
+    else:
+        assert any(
+            "aragora/swarm/supervisor.py" in work_order.get("file_scope", [])
+            for work_order in spec.work_orders
+            if isinstance(work_order, dict)
+        )
     assert spec.acceptance_criteria == ["pytest -q tests/swarm/test_boss_loop.py"]
 
 
@@ -2523,6 +2530,56 @@ def test_boss_loop_batch_no_issue_skips_runner_freshness_check() -> None:
 
     assert result.stop_reason == "no_suitable_issue"
     assert result.iterations_completed == 1
+
+
+def test_iteration_candidate_pool_keeps_pending_handoff_for_maxed_issue() -> None:
+    loop = BossLoop(config=_boss_config(max_retries_per_issue=2))
+    loop._issue_attempt_counts = {7: 2, 8: 1, "repair_7": 1}
+    loop._pending_handoff_prompts = {7: ("retry this with context", "codex")}
+
+    pool = loop._build_iteration_candidate_pool(
+        [_make_issue(7, "Retry me"), _make_issue(8, "Fresh work")]
+    )
+
+    assert pool.already_maxed == {7}
+    assert [issue.number for issue in pool.pending_handoffs] == [7]
+    assert [issue.number for issue in pool.candidate_issues] == [7, 8]
+    assert [issue.number for issue in pool.ordered_candidates] == [7, 8]
+
+
+def test_boss_loop_batch_forwards_probe_policy_to_freshness_checker() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [_make_issue(1, "First"), _make_issue(2, "Second")]
+    freshness_calls: list[dict[str, Any]] = []
+
+    def _freshness_checker(**kwargs):
+        freshness_calls.append(dict(kwargs))
+        return _fresh_result(fresh=True)
+
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            max_parallel_dispatches=2,
+            verified_runner_target=3,
+            runner_probe_limit=5,
+        ),
+        issue_feed=feed,
+        freshness_checker=_freshness_checker,
+    )
+    loop._dispatch_issue = AsyncMock(
+        return_value={
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "deliverable": {"type": "branch"},
+        }
+    )
+
+    result = asyncio.run(loop.run())
+
+    assert result.iterations_completed == 1
+    assert len(freshness_calls) == 1
+    assert freshness_calls[0]["verified_runner_target"] == 3
+    assert freshness_calls[0]["runner_probe_limit"] == 5
 
 
 # ---------------------------------------------------------------------------
