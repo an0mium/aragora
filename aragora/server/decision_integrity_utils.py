@@ -139,6 +139,17 @@ def _extract_spec_bundle(plan: Any) -> Any | None:
         return None
 
 
+def _normalize_execution_request_for_safety_mode(
+    execution_mode: str,
+    *,
+    safety_mode: SafetyMode,
+) -> str:
+    """Downgrade interactive execution requests to approval-first semantics."""
+    if safety_mode == SafetyMode.INTERACTIVE and execution_mode == "execute":
+        return "request_approval"
+    return execution_mode
+
+
 def ensure_decision_plan_backbone_run(
     plan: Any,
     *,
@@ -342,6 +353,13 @@ async def build_decision_integrity_payload(
         execution_engine = execution_mode
         execution_mode = "execute"
 
+    auth_context = getattr(arena, "auth_context", None)
+    safety_mode = resolve_safety_mode(None, auth_context=auth_context)
+    execution_mode = _normalize_execution_request_for_safety_mode(
+        execution_mode,
+        safety_mode=safety_mode,
+    )
+
     workflow_mode = execution_mode in {"workflow", "workflow_execute", "execute_workflow"}
     execute_workflow = execution_mode in {"workflow_execute", "execute_workflow"}
 
@@ -392,7 +410,6 @@ async def build_decision_integrity_payload(
     continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
     cross_debate_memory = getattr(arena, "cross_debate_memory", None) if include_context else None
     knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
-    auth_context = getattr(arena, "auth_context", None)
     context_envelope = None
     if auth_context is not None:
         try:
@@ -625,13 +642,12 @@ async def build_decision_integrity_payload(
                     parallel_execution=parallel_execution,
                     execution_mode=engine,  # type: ignore[arg-type]
                 )
-                resolved_safety_mode = resolve_safety_mode(None, auth_context=auth_context)
                 launch, outcome = await execute_decision_plan_with_backbone(
                     plan,
                     executor=executor,
                     auth_context=auth_context,
                     execution_mode=engine,
-                    safety_mode=resolved_safety_mode,
+                    safety_mode=safety_mode,
                 )
                 if notifier and notify_origin:
                     await notifier.send_completion_summary()
