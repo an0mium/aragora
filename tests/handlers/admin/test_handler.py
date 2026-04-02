@@ -534,11 +534,11 @@ class TestRoutes:
     def test_nomic_circuit_breakers_reset_route_present(self):
         assert "/api/v1/admin/nomic/circuit-breakers/reset" in AdminHandler.ROUTES
 
-    def test_security_routes_present(self):
-        assert "/api/v1/admin/security/audit" in AdminHandler.ROUTES
-        assert "/api/v1/admin/security/compliance" in AdminHandler.ROUTES
-        assert "/api/v1/admin/security/scan" in AdminHandler.ROUTES
-        assert "/api/v1/admin/security/threats" in AdminHandler.ROUTES
+    def test_security_placeholder_routes_absent(self):
+        assert "/api/v1/admin/security/audit" not in AdminHandler.ROUTES
+        assert "/api/v1/admin/security/compliance" not in AdminHandler.ROUTES
+        assert "/api/v1/admin/security/scan" not in AdminHandler.ROUTES
+        assert "/api/v1/admin/security/threats" not in AdminHandler.ROUTES
 
 
 # ===========================================================================

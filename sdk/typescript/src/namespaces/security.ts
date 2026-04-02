@@ -1,14 +1,13 @@
 /**
  * Security Namespace API
  *
- * Provides security status, health checks, and key management.
+ * Provides security status, health checks, and key rotation management.
  *
  * Features:
  * - Overall security status monitoring
- * - Security health checks and scans
- * - Encryption key management (create, rotate, revoke)
- * - Audit logging and compliance
- * - Threat detection and resolution
+ * - Security health checks
+ * - Encryption key inventory
+ * - Key rotation operations
  */
 
 // =============================================================================
@@ -194,10 +193,9 @@ interface SecurityClientInterface {
  *
  * Provides methods for:
  * - Overall security status monitoring
- * - Security health checks and scans
- * - Encryption key management (create, rotate, revoke)
- * - Audit logging and compliance
- * - Threat detection and resolution
+ * - Security health checks
+ * - Encryption key inventory
+ * - Key rotation operations
  *
  * @example
  * ```typescript
@@ -209,19 +207,12 @@ interface SecurityClientInterface {
  *   console.log('Security issues detected!');
  * }
  *
- * // Run a security scan
- * const { id: scanId } = await client.security.runSecurityScan();
- * const scan = await client.security.getScanStatus(scanId);
- *
- * // Manage encryption keys
+ * // Inspect encryption keys
  * const keys = await client.security.listKeys();
- * const newKey = await client.security.createKey({
- *   name: 'production-key',
- *   algorithm: 'AES-256-GCM',
- * });
  *
- * // Check for threats
- * const { threats } = await client.security.listThreats({ status: 'active' });
+ * // Rotate the active key when needed
+ * const rotation = await client.security.rotateKey({ reason: 'scheduled-maintenance' });
+ * console.log(rotation.success);
  * ```
  */
 export class SecurityAPI {
@@ -254,27 +245,6 @@ export class SecurityAPI {
     return this.client.request('GET', '/api/v1/admin/security/health');
   }
 
-  /**
-   * Trigger a security scan.
-   *
-   * Initiates a comprehensive security scan of the system.
-   *
-   * @returns The scan ID and initial status
-   */
-  async runSecurityScan(): Promise<SecurityScan> {
-    return this.client.request('POST', '/api/v1/admin/security/scan');
-  }
-
-  /**
-   * Get the status of a security scan.
-   *
-   * @param scanId - The scan identifier
-   * @returns Scan status, progress, and findings
-   */
-  async getScanStatus(scanId: string): Promise<SecurityScan> {
-    return this.client.request('GET', `/api/v1/admin/security/scan/${scanId}`);
-  }
-
   // ===========================================================================
   // Key Management
   // ===========================================================================
@@ -286,58 +256,6 @@ export class SecurityAPI {
    */
   async listKeys(): Promise<{ keys: SecurityKey[] }> {
     return this.client.request('GET', '/api/v1/admin/security/keys');
-  }
-
-  /**
-   * Get details of a specific key.
-   *
-   * @param keyId - The key identifier
-   * @returns Key details including status and metadata
-   */
-  async getKey(keyId: string): Promise<SecurityKey> {
-    return this.client.request('GET', `/api/v1/admin/security/keys/${keyId}`);
-  }
-
-  /**
-   * Create a new encryption key.
-   *
-   * @param request - Key creation parameters
-   * @param request.name - Name for the key
-   * @param request.algorithm - Encryption algorithm (default: AES-256-GCM)
-   * @param request.expires_in_days - Optional expiration in days
-   * @param request.metadata - Optional metadata
-   * @returns Created key details
-   */
-  async createKey(request: CreateKeyRequest): Promise<SecurityKey> {
-    const body: Record<string, unknown> = {
-      name: request.name,
-      algorithm: request.algorithm ?? 'AES-256-GCM',
-    };
-    if (request.expires_in_days !== undefined) {
-      body.expires_in_days = request.expires_in_days;
-    }
-    if (request.metadata !== undefined) {
-      body.metadata = request.metadata;
-    }
-    return this.client.request('POST', '/api/v1/admin/security/keys', { body });
-  }
-
-  /**
-   * Revoke an encryption key.
-   *
-   * @param keyId - The key identifier
-   * @param options - Revocation options
-   * @param options.reason - Optional reason for revocation
-   * @returns Confirmation of revocation
-   */
-  async revokeKey(
-    keyId: string,
-    options?: RevokeKeyRequest
-  ): Promise<{ revoked: boolean; key_id: string; revoked_at: string }> {
-    const body = options?.reason ? { reason: options.reason } : undefined;
-    return this.client.request('POST', `/api/v1/admin/security/keys/${keyId}/revoke`, {
-      body,
-    });
   }
 
   /**
@@ -354,93 +272,5 @@ export class SecurityAPI {
   async rotateKey(request?: RotateKeyRequest): Promise<RotateKeyResult> {
     const body = request ? { ...request } : undefined;
     return this.client.request('POST', '/api/v1/admin/security/rotate-key', { body });
-  }
-
-  // ===========================================================================
-  // Audit & Compliance
-  // ===========================================================================
-
-  /**
-   * Get security audit log entries.
-   *
-   * @param options - Filtering and pagination options
-   * @param options.limit - Maximum entries to return (default: 50)
-   * @param options.offset - Pagination offset (default: 0)
-   * @param options.event_type - Filter by event type
-   * @param options.since - Filter events after this timestamp (ISO format)
-   * @param options.until - Filter events before this timestamp (ISO format)
-   * @returns Audit log entries and total count
-   */
-  async getAuditLog(options?: {
-    limit?: number;
-    offset?: number;
-    event_type?: string;
-    since?: string;
-    until?: string;
-  }): Promise<{ entries: AuditLogEntry[]; total: number }> {
-    const params: Record<string, unknown> = {
-      limit: options?.limit ?? 50,
-      offset: options?.offset ?? 0,
-    };
-    if (options?.event_type) {
-      params.event_type = options.event_type;
-    }
-    if (options?.since) {
-      params.since = options.since;
-    }
-    if (options?.until) {
-      params.until = options.until;
-    }
-    return this.client.request('GET', '/api/v1/admin/security/audit', { params });
-  }
-
-  /**
-   * Get compliance status for security standards.
-   *
-   * Returns compliance status for various standards (SOC2, GDPR, etc.)
-   */
-  async getComplianceStatus(): Promise<{ standards: ComplianceStatus[] }> {
-    return this.client.request('GET', '/api/v1/admin/security/compliance');
-  }
-
-  // ===========================================================================
-  // Threat Detection
-  // ===========================================================================
-
-  /**
-   * List detected threats.
-   *
-   * @param options - Filtering options
-   * @param options.limit - Maximum threats to return (default: 50)
-   * @param options.status - Filter by status (active/resolved/dismissed)
-   * @returns List of detected threats
-   */
-  async listThreats(options?: {
-    limit?: number;
-    status?: ThreatStatus;
-  }): Promise<{ threats: SecurityThreat[]; total: number }> {
-    const params: Record<string, unknown> = {
-      limit: options?.limit ?? 50,
-    };
-    if (options?.status) {
-      params.status = options.status;
-    }
-    return this.client.request('GET', '/api/v1/admin/security/threats', { params });
-  }
-
-  /**
-   * Mark a threat as resolved.
-   *
-   * @param threatId - The threat identifier
-   * @param resolution - Description of how the threat was resolved
-   * @returns Confirmation of resolution
-   */
-  async resolveThreat(
-    threatId: string,
-    resolution: string
-  ): Promise<{ resolved: boolean; threat_id: string; resolved_at: string }> {
-    return this.client.request('POST', `/api/v1/admin/security/threats/${threatId}/resolve`, {
-      body: { resolution },
-    });
   }
 }
