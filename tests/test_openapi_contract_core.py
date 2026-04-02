@@ -12,6 +12,7 @@ CORE_ENDPOINTS = {
     "/api/v1/plugins": {"get"},
     "/api/v1/plugins/{name}/run": {"post"},
     "/api/v1/auth/oauth/providers": {"get"},
+    "/api/v1/gauntlet/{gauntlet_id}/receipt/verify": {"post"},
     "/api/v1/knowledge/mound/governance/roles": {"post"},
 }
 
@@ -72,3 +73,11 @@ def test_pipeline_canvas_endpoint_methods() -> None:
         assert expected_methods.issubset(methods), (
             f"{path} missing methods: {expected_methods - methods}"
         )
+
+
+def test_gauntlet_receipt_verify_prefers_named_post_contract() -> None:
+    """Canonical OpenAPI should expose the explicit POST receipt-verify path, not a generic GET."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    assert "/api/v1/gauntlet/{gauntlet_id}/receipt/verify" in paths
+    assert "/api/v1/gauntlet/{param}/receipt/verify" not in paths

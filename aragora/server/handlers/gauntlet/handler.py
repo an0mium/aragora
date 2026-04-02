@@ -226,6 +226,9 @@ class GauntletHandler(
         if normalized.startswith("/api/receipts/") and method == "GET":
             return True
 
+        if normalized.startswith("/api/gauntlet/") and normalized.endswith("/receipt/verify"):
+            return method == "POST"
+
         # When called without method (e.g., from route index), just check path prefix
         if method == "GET" and normalized.startswith("/api/gauntlet/"):
             return True

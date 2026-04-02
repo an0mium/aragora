@@ -2845,11 +2845,17 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/gauntlet/{param}/receipt", params=params)
 
-    def request_get_api_v1_gauntlet_by_param_receipt_verify(
-        self, param, params: dict[str, Any] | None = None
+    def request_post_api_v1_gauntlet_by_gauntlet_id_receipt_verify(
+        self,
+        gauntlet_id,
+        body: Any | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._client.request(
-            "GET", f"/api/v1/gauntlet/{param}/receipt/verify", params=params
+            "POST",
+            f"/api/v1/gauntlet/{gauntlet_id}/receipt/verify",
+            json=body,
+            params=params,
         )
 
     def request_get_api_v1_genesis_events(
@@ -8374,11 +8380,17 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/gauntlet/{param}/receipt", params=params)
 
-    async def request_get_api_v1_gauntlet_by_param_receipt_verify(
-        self, param, params: dict[str, Any] | None = None
+    async def request_post_api_v1_gauntlet_by_gauntlet_id_receipt_verify(
+        self,
+        gauntlet_id,
+        body: Any | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return await self._client.request(
-            "GET", f"/api/v1/gauntlet/{param}/receipt/verify", params=params
+            "POST",
+            f"/api/v1/gauntlet/{gauntlet_id}/receipt/verify",
+            json=body,
+            params=params,
         )
 
     async def request_get_api_v1_genesis_events(

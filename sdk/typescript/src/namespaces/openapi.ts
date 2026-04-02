@@ -2598,8 +2598,8 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/receipt`, { params });
   }
 
-  async requestGetApiV1GauntletByParamReceiptVerify(param: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/receipt/verify`, { params });
+  async requestPostApiV1GauntletByGauntletIdReceiptVerify(gauntlet_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/gauntlet/${encodeURIComponent(gauntlet_id)}/receipt/verify`, { body, params });
   }
 
   async requestGetApiV1GenesisDescendants(params?: Record<string, unknown>): Promise<unknown> {

@@ -243,6 +243,72 @@ GAUNTLET_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/v1/gauntlet/{gauntlet_id}/receipt/verify": {
+        "post": {
+            "tags": ["Gauntlet", "Receipts"],
+            "summary": "Verify decision receipt",
+            "operationId": "verifyGauntletReceipt",
+            "description": "Verify the cryptographic signature and integrity of a signed decision receipt.",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the gauntlet run that produced the receipt",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["receipt", "signature", "signature_metadata"],
+                            "properties": {
+                                "receipt": {
+                                    "type": "object",
+                                    "description": "Serialized decision receipt payload",
+                                },
+                                "signature": {
+                                    "type": "string",
+                                    "description": "Base64-encoded receipt signature",
+                                },
+                                "signature_metadata": {
+                                    "type": "object",
+                                    "required": ["algorithm", "key_id", "timestamp"],
+                                    "properties": {
+                                        "algorithm": {"type": "string"},
+                                        "key_id": {"type": "string"},
+                                        "timestamp": {"type": "string", "format": "date-time"},
+                                    },
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Verification result with detailed status",
+                    {
+                        "gauntlet_id": {"type": "string"},
+                        "receipt_id": {"type": "string"},
+                        "verified": {"type": "boolean"},
+                        "signature_valid": {"type": "boolean"},
+                        "integrity_valid": {"type": "boolean"},
+                        "id_match": {"type": "boolean"},
+                        "errors": {"type": "array", "items": {"type": "string"}},
+                        "warnings": {"type": "array", "items": {"type": "string"}},
+                        "verified_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/v1/gauntlet/{gauntlet_id}/compare/{other_id}": {
         "get": {
             "tags": ["Gauntlet"],
