@@ -278,6 +278,8 @@ async def execute_decision_plan_with_backbone(
     executor: Any,
     auth_context: Any | None,
     execution_mode: str | None,
+    parallel_execution: bool | None = None,
+    max_parallel: int | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """Queue and execute a decision plan through ExecutionBridge with a supplied executor."""
     from aragora.pipeline.canonical_execution import queue_plan_execution
@@ -294,6 +296,8 @@ async def execute_decision_plan_with_backbone(
         plan.id,
         auth_context=auth_context,
         execution_mode=str(launch.get("execution_mode", execution_mode or "")) or None,
+        parallel_execution=parallel_execution,
+        max_parallel=max_parallel,
         execution_id=str(launch.get("execution_id", "") or ""),
         correlation_id=str(launch.get("correlation_id", "") or ""),
     )
@@ -593,6 +597,7 @@ async def build_decision_integrity_payload(
 
                 engine: str = execution_engine or ("workflow" if workflow_mode else "hybrid")
                 parallel_execution = bool(cfg.get("parallel_execution", False))
+                max_parallel = cfg.get("max_parallel")
 
                 notifier = None
                 if engine == "hybrid":
@@ -616,6 +621,8 @@ async def build_decision_integrity_payload(
                     executor=executor,
                     auth_context=auth_context,
                     execution_mode=engine,
+                    parallel_execution=parallel_execution,
+                    max_parallel=max_parallel,
                 )
                 if notifier and notify_origin:
                     await notifier.send_completion_summary()

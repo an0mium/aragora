@@ -253,6 +253,24 @@ class TestExecutionBridgeExecute:
         assert call_kwargs.kwargs.get("execution_mode") == "hybrid"
 
     @pytest.mark.asyncio
+    async def test_execute_passes_parallel_overrides(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create(approved_plan)
+
+        await bridge.execute_approved_plan(
+            approved_plan.id,
+            execution_mode="workflow",
+            parallel_execution=True,
+            max_parallel=4,
+        )
+
+        bridge.executor.execute.assert_called_once()
+        call_kwargs = bridge.executor.execute.call_args
+        assert call_kwargs.kwargs.get("parallel_execution") is True
+        assert call_kwargs.kwargs.get("max_parallel") == 4
+
+    @pytest.mark.asyncio
     async def test_execute_approved_plan_is_claimed_exactly_once(
         self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
     ) -> None:

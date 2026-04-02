@@ -271,6 +271,8 @@ def test_execute_plan_accepts_execution_overrides() -> None:
     kwargs = mock_execute.call_args.kwargs
     assert kwargs["execution_mode"] == "hybrid"
     assert kwargs["executor"] is mock_executor
+    assert kwargs["parallel_execution"] is True
+    assert kwargs["max_parallel"] == 4
 
 
 def test_execute_plan_rejects_invalid_execution_mode() -> None:

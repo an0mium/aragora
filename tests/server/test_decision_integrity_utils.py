@@ -7,6 +7,7 @@ from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatu
 from aragora.pipeline.decision_plan.memory import PlanOutcome
 from aragora.server.decision_integrity_utils import (
     build_decision_integrity_payload,
+    execute_decision_plan_with_backbone,
     extract_execution_overrides,
 )
 
@@ -123,3 +124,46 @@ async def test_build_payload_executes_hybrid(monkeypatch):
     assert payload["execution"]["execution_id"] == "exec-di-1"
     assert payload["execution_mode"] == "execute"
     assert payload["execution_engine"] == "hybrid"
+
+
+@pytest.mark.asyncio
+async def test_execute_decision_plan_with_backbone_forwards_parallel_overrides():
+    plan = SimpleNamespace(id="plan-1")
+    executor = object()
+    launch = {
+        "run_id": "run-1",
+        "execution_id": "exec-1",
+        "correlation_id": "corr-1",
+        "execution_mode": "workflow",
+    }
+    outcome = object()
+    bridge = SimpleNamespace(execute_approved_plan=AsyncMock(return_value=outcome))
+
+    with (
+        patch(
+            "aragora.pipeline.canonical_execution.queue_plan_execution",
+            return_value=launch,
+        ),
+        patch("aragora.pipeline.execution_bridge.ExecutionBridge", return_value=bridge),
+        patch("aragora.pipeline.plan_store.get_plan_store", return_value=object()),
+    ):
+        observed_launch, observed_outcome = await execute_decision_plan_with_backbone(
+            plan,
+            executor=executor,
+            auth_context=None,
+            execution_mode="workflow",
+            parallel_execution=True,
+            max_parallel=4,
+        )
+
+    assert observed_launch == launch
+    assert observed_outcome is outcome
+    bridge.execute_approved_plan.assert_awaited_once_with(
+        "plan-1",
+        auth_context=None,
+        execution_mode="workflow",
+        parallel_execution=True,
+        max_parallel=4,
+        execution_id="exec-1",
+        correlation_id="corr-1",
+    )

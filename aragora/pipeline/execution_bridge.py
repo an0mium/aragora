@@ -86,6 +86,8 @@ class ExecutionBridge:
         *,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
+        parallel_execution: bool | None = None,
+        max_parallel: int | None = None,
         execution_id: str | None = None,
         correlation_id: str | None = None,
     ) -> PlanOutcome:
@@ -101,6 +103,8 @@ class ExecutionBridge:
             plan_id: ID of the plan to execute.
             auth_context: Optional RBAC context for permission checks.
             execution_mode: Override default execution mode.
+            parallel_execution: Override the plan/executor parallel execution setting.
+            max_parallel: Override the plan/executor max parallelism setting.
 
         Returns:
             PlanOutcome with execution results.
@@ -238,6 +242,8 @@ class ExecutionBridge:
         try:
             outcome = await self.executor.execute(
                 plan,
+                parallel_execution=parallel_execution,
+                max_parallel=max_parallel,
                 auth_context=auth_context,
                 execution_mode=execution_mode,
             )

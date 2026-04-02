@@ -719,6 +719,8 @@ class DecisionPipelineHandler(SecureHandler):
                     executor=executor,
                     auth_context=auth_context,
                     execution_mode=execution_mode_typed,
+                    parallel_execution=parallel_execution,
+                    max_parallel=max_parallel,
                 )
             )
         except PermissionError as e:

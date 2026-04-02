@@ -352,6 +352,7 @@ class PlanExecutor:
         plan: DecisionPlan,
         *,
         parallel_execution: bool | None = None,
+        max_parallel: int | None = None,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
         on_task_complete: Any | None = None,
@@ -361,6 +362,7 @@ class PlanExecutor:
         Args:
             plan: An approved DecisionPlan.
             parallel_execution: Whether to execute tasks in parallel.
+            max_parallel: Max concurrent tasks when parallel execution is enabled.
             auth_context: Authorization context for the requesting user.
                 If provided, permission checks are enforced.
                 If None, execution proceeds (for internal/system calls).
@@ -452,9 +454,10 @@ class PlanExecutor:
             else:
                 parallel_execution = self._parallel_execution
 
-        max_parallel = self._max_parallel
-        if profile and profile.max_parallel is not None:
-            max_parallel = profile.max_parallel
+        if max_parallel is None:
+            max_parallel = self._max_parallel
+            if profile and profile.max_parallel is not None:
+                max_parallel = profile.max_parallel
 
         # Determine execution mode
         mode = (
