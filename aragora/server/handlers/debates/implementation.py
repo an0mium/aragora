@@ -141,6 +141,13 @@ def _serialize_approval(approval_request: Any) -> dict[str, Any]:
     }
 
 
+def _normalize_interactive_execution_mode(execution_mode: str) -> str:
+    """Interactive decision-integrity requests must stop after approval creation."""
+    if execution_mode == "execute":
+        return "request_approval"
+    return execution_mode
+
+
 # ---------------------------------------------------------------------------
 # Parsed request config
 # ---------------------------------------------------------------------------
@@ -391,6 +398,7 @@ class ImplementationOperationsMixin:
 
         payload = self.read_json_body(handler) or {}
         rc = _parse_request(payload, self.ctx)
+        rc.execution_mode = _normalize_interactive_execution_mode(rc.execution_mode)
 
         # Build the decision integrity package
         package, response_payload = self._build_integrity_package(debate, debate_id, rc, handler)

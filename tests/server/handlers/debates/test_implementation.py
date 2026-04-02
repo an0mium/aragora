@@ -40,6 +40,19 @@ def parse_result(result):
     return body, result.status_code
 
 
+def make_run_async_side_effect(*results: Any):
+    """Return canned run_async results while closing intercepted coroutines."""
+    remaining = iter(results)
+
+    def _side_effect(awaitable: Any) -> Any:
+        close = getattr(awaitable, "close", None)
+        if callable(close):
+            close()
+        return next(remaining)
+
+    return _side_effect
+
+
 # =============================================================================
 # Mock handler that composes the mixin under test
 # =============================================================================
@@ -721,7 +734,7 @@ class TestApprovalFlow:
                 return_value=mock_flow,
             ),
         ):
-            mock_run.side_effect = [mock_package, mock_approval_request]
+            mock_run.side_effect = make_run_async_side_effect(mock_package, mock_approval_request)
             result = handler._create_decision_integrity(None, "debate-001")
 
         _, status = parse_result(result)
@@ -873,12 +886,12 @@ class TestWorkflowBackbone:
 
 
 class TestExecuteMode:
-    """Tests for _create_decision_integrity with execution_mode=execute."""
+    """Tests for interactive execute requests on the decision-integrity route."""
 
-    def test_env_var_not_set_returns_403(
+    def test_execute_is_downgraded_to_request_approval(
         self, handler, mock_storage, mock_package, mock_approval_request
     ):
-        """Execute mode blocked when env var is not set."""
+        """Interactive execute requests must stop after approval creation."""
         handler._body = {"execution_mode": "execute"}
 
         from aragora.autonomous.loop_enhancement import ApprovalStatus
@@ -906,52 +919,6 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.get_permission_checker",
             ),
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "0"},
-            ),
-        ):
-            mock_run.side_effect = [mock_package, mock_approval_request]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 403
-        assert "disabled" in body.get("error", "").lower()
-
-    def test_execute_approved_sequential(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """Approved execution runs HybridExecutor sequentially."""
-        handler._body = {"execution_mode": "execute"}
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.APPROVED
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        mock_task_result = MagicMock()
-        mock_task_result.to_dict.return_value = {"task_id": "t1", "success": True}
-
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_plan",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
             patch(
                 "aragora.server.handlers.debates.implementation.HybridExecutor",
             ) as mock_executor_cls,
@@ -960,162 +927,23 @@ class TestExecuteMode:
                 {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
             ),
         ):
-            mock_executor = MagicMock()
-            mock_executor.execute_plan = AsyncMock(return_value=[mock_task_result])
-            mock_executor_cls.return_value = mock_executor
-
-            # Calls: build_package, request_approval, execute_plan
-            mock_run.side_effect = [
-                mock_package,
-                mock_approval_request,
-                [mock_task_result],
-            ]
+            mock_run.side_effect = make_run_async_side_effect(mock_package, mock_approval_request)
             result = handler._create_decision_integrity(None, "debate-001")
 
         body, status = parse_result(result)
         assert status == 200
-        assert body["execution"]["status"] == "completed"
-        assert len(body["execution"]["results"]) == 1
-        assert body["execution"]["results"][0]["success"] is True
+        assert body["execution_mode"] == "request_approval"
+        assert body["execution_engine"] == "hybrid"
+        assert body["approval"]["id"] == "approval-001"
+        assert "execution" not in body
+        assert mock_executor_cls.called is False
+        assert mock_run.call_count == 2
 
-    def test_execute_approved_parallel(
+    def test_execute_auto_approved_stays_approval_only(
         self, handler, mock_storage, mock_package, mock_approval_request
     ):
-        """Parallel execution uses execute_plan_parallel."""
-        handler._body = {"execution_mode": "execute", "parallel_execution": True}
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.APPROVED
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        mock_task_result = MagicMock()
-        mock_task_result.to_dict.return_value = {"task_id": "t1", "success": True}
-
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_plan",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.HybridExecutor",
-            ) as mock_executor_cls,
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
-            ),
-        ):
-            mock_executor = MagicMock()
-            mock_executor.execute_plan_parallel = AsyncMock(return_value=[mock_task_result])
-            mock_executor_cls.return_value = mock_executor
-
-            mock_run.side_effect = [
-                mock_package,
-                mock_approval_request,
-                [mock_task_result],
-            ]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 200
-        assert body["execution"]["status"] == "completed"
-
-    def test_execute_approved_computer_use(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """Approved computer-use execution queues through the backbone wrapper."""
+        """AUTO_APPROVED execute requests must not trigger same-request execution."""
         handler._body = {"execution_mode": "execute", "execution_engine": "computer_use"}
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.APPROVED
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        mock_outcome = MagicMock()
-        mock_outcome.to_dict.return_value = {"success": True}
-        mock_outcome.tasks_total = 5
-        mock_outcome.tasks_completed = 3
-        mock_outcome.duration_seconds = 1.2
-        launch = {
-            "run_id": "run-cu-1",
-            "execution_id": "exec-cu-1",
-            "correlation_id": "corr-cu-1",
-            "execution_mode": "computer_use",
-        }
-
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
-                return_value="run-cu-1",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
-                return_value=True,
-            ),
-            patch(
-                "aragora.pipeline.executor.PlanExecutor",
-            ) as mock_executor_cls,
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
-            ),
-        ):
-            mock_executor = MagicMock()
-            mock_executor_cls.return_value = mock_executor
-
-            mock_run.side_effect = [
-                mock_package,
-                mock_approval_request,
-                (launch, mock_outcome),
-            ]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 200
-        assert body["execution"]["status"] == "completed"
-        assert body["execution"]["mode"] == "computer_use"
-        assert body["execution"]["run_id"] == "run-cu-1"
-        assert body["execution"]["execution_id"] == "exec-cu-1"
-        assert body["execution"]["outcome"]["success"] is True
-        assert body["execution"]["progress"]["total_steps"] >= 0
-        assert mock_executor_cls.called is True
-
-    def test_execute_auto_approved(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """AUTO_APPROVED status also triggers execution."""
-        handler._body = {"execution_mode": "execute"}
 
         from aragora.autonomous.loop_enhancement import ApprovalStatus
 
@@ -1124,9 +952,6 @@ class TestExecuteMode:
         mock_flow = MagicMock()
         mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
 
-        mock_task_result = MagicMock()
-        mock_task_result.to_dict.return_value = {"task_id": "t1", "success": True}
-
         with (
             patch(
                 "aragora.server.handlers.debates.implementation.run_async",
@@ -1148,56 +973,9 @@ class TestExecuteMode:
             patch(
                 "aragora.server.handlers.debates.implementation.HybridExecutor",
             ) as mock_executor_cls,
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
-            ),
-        ):
-            mock_executor = MagicMock()
-            mock_executor_cls.return_value = mock_executor
-
-            mock_run.side_effect = [
-                mock_package,
-                mock_approval_request,
-                [mock_task_result],
-            ]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 200
-        assert body["execution"]["status"] == "completed"
-
-    def test_execute_pending_approval_returns_pending(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """Pending approval returns pending_approval execution status."""
-        handler._body = {"execution_mode": "execute"}
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.PENDING
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        with (
             patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_plan",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
+                "aragora.pipeline.executor.PlanExecutor",
+            ) as mock_plan_executor_cls,
             patch.dict(
                 "os.environ",
                 {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
@@ -1208,100 +986,13 @@ class TestExecuteMode:
 
         body, status = parse_result(result)
         assert status == 200
-        assert body["execution"]["status"] == "pending_approval"
-        assert body["execution"]["approval_id"] == "approval-001"
-
-    def test_budget_exceeded_returns_402(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """Budget exceeded returns 402 Payment Required."""
-        handler._body = {"execution_mode": "execute"}
-        handler.ctx["cost_tracker"] = MagicMock()
-        handler.ctx["cost_tracker"].check_debate_budget.return_value = {
-            "allowed": False,
-            "message": "Budget limit reached",
-        }
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.APPROVED
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_plan",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
-            ),
-        ):
-            mock_run.side_effect = [mock_package, mock_approval_request]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 402
-        assert "budget" in body.get("error", "").lower()
-
-    def test_execute_no_plan_returns_400(
-        self, handler, mock_storage, mock_package, mock_approval_request
-    ):
-        """Execute with no plan available returns 400."""
-        handler._body = {"execution_mode": "execute"}
-        mock_package.plan = None
-
-        from aragora.autonomous.loop_enhancement import ApprovalStatus
-
-        mock_approval_request.status = ApprovalStatus.APPROVED
-
-        mock_flow = MagicMock()
-        mock_flow.request_approval = AsyncMock(return_value=mock_approval_request)
-
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.run_async",
-            ) as mock_run,
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_receipt",
-                return_value=None,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation._persist_plan",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_approval_flow",
-                return_value=mock_flow,
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.get_permission_checker",
-            ),
-            patch.dict(
-                "os.environ",
-                {"ARAGORA_ENABLE_IMPLEMENTATION_EXECUTION": "1"},
-            ),
-        ):
-            mock_run.side_effect = [mock_package, mock_approval_request]
-            result = handler._create_decision_integrity(None, "debate-001")
-
-        body, status = parse_result(result)
-        assert status == 400
-        assert "plan" in body.get("error", "").lower()
+        assert body["execution_mode"] == "request_approval"
+        assert body["execution_engine"] == "computer_use"
+        assert body["approval"]["status"] == ApprovalStatus.AUTO_APPROVED.value
+        assert "execution" not in body
+        assert mock_executor_cls.called is False
+        assert mock_plan_executor_cls.called is False
+        assert mock_run.call_count == 2
 
 
 # =============================================================================
