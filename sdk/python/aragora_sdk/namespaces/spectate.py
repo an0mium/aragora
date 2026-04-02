@@ -19,7 +19,7 @@ class SpectateAPI:
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
-        >>> stream = client.spectate.connect_sse("debate-123")
+        >>> snapshot = client.spectate.connect_sse("debate-123")
     """
 
     def __init__(self, client: AragoraClient):
@@ -27,12 +27,16 @@ class SpectateAPI:
 
     def connect_sse(self, debate_id: str) -> dict[str, Any]:
         """
-        Connect to SSE stream for a debate.
+        Request the debate-filtered spectate stream endpoint.
 
-        Returns connection details including the stream URL.
-        Use the stream URL with an SSE client for real-time events.
+        The server currently returns a buffered JSON preview by default and can
+        emit a finite SSE snapshot when requested at the HTTP layer.
         """
-        return self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""
@@ -59,7 +63,7 @@ class AsyncSpectateAPI:
 
     Example:
         >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-        ...     stream = await client.spectate.connect_sse("debate-123")
+        ...     snapshot = await client.spectate.connect_sse("debate-123")
     """
 
     def __init__(self, client: AragoraAsyncClient):
@@ -67,11 +71,16 @@ class AsyncSpectateAPI:
 
     async def connect_sse(self, debate_id: str) -> dict[str, Any]:
         """
-        Connect to SSE stream for a debate.
+        Request the debate-filtered spectate stream endpoint.
 
-        Returns connection details including the stream URL.
+        The server currently returns a buffered JSON preview by default and can
+        emit a finite SSE snapshot when requested at the HTTP layer.
         """
-        return await self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return await self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     async def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""
