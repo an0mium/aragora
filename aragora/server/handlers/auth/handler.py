@@ -16,6 +16,7 @@ Endpoints:
 - GET /api/v1/api-keys - List API keys (alias)
 - POST /api/v1/api-keys - Generate API key (alias)
 - DELETE /api/v1/api-keys/:prefix - Revoke API key by prefix (alias)
+- POST /api/auth/mfa - Compatibility MFA action endpoint
 - GET /api/auth/sessions - List active sessions for current user
 - DELETE /api/auth/sessions/:id - Revoke a specific session
 """
@@ -73,6 +74,7 @@ from .api_keys import (
     handle_revoke_api_key_prefix,
 )
 from .mfa import (
+    handle_mfa_combined,
     handle_mfa_setup,
     handle_mfa_enable,
     handle_mfa_disable,
@@ -325,6 +327,9 @@ class AuthHandler(SecureHandler):
 
         if path == "/api/auth/mfa/disable" and method == "POST":
             return self._handle_mfa_disable(handler)
+
+        if path == "/api/auth/mfa" and method == "POST":
+            return self._handle_mfa_combined(handler)
 
         if path == "/api/auth/mfa" and method == "DELETE":
             return self._handle_mfa_disable(handler)
@@ -1020,6 +1025,10 @@ class AuthHandler(SecureHandler):
     def _handle_mfa_disable(self, handler: Any) -> HandlerResult:
         """Disable MFA for the user."""
         return handle_mfa_disable(self, handler)
+
+    def _handle_mfa_combined(self, handler: Any) -> HandlerResult:
+        """Run the compatibility MFA action endpoint."""
+        return handle_mfa_combined(self, handler)
 
     @rate_limit(requests_per_minute=5, limiter_name="mfa_verify")
     def _handle_mfa_verify(self, handler: Any) -> HandlerResult:
