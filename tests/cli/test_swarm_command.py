@@ -187,6 +187,26 @@ class TestSwarmParser:
         assert args.probe_limit == 2
         assert args.json is True
 
+    def test_swarm_runner_probe_parser_accepts_codex_runner_type(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "codex",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "runner"
+        assert args.swarm_goal == "probe"
+        assert args.runner_type == "codex"
+        assert args.json is True
+
     def test_swarm_audit_issues_parser(self):
         from aragora.cli.parser import build_parser
 
