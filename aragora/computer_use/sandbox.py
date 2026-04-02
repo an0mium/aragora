@@ -71,6 +71,9 @@ class SandboxConfig:
     seccomp_profile: str | None = None
     process_user: str | None = None
     process_group: str | None = None
+    # Use SYS_ADMIN capability instead of narrower DAC_OVERRIDE+SYS_PTRACE.
+    # Only enable if Playwright fails with the narrower set.
+    sandbox_use_sys_admin: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -176,8 +179,11 @@ class DockerSandboxProvider(SandboxProvider):
                 "no-new-privileges:true",
                 "--cap-drop",
                 "ALL",
-                "--cap-add",
-                "SYS_ADMIN",
+                *(
+                    ["--cap-add", "SYS_ADMIN"]
+                    if config.sandbox_use_sys_admin
+                    else ["--cap-add", "DAC_OVERRIDE", "--cap-add", "SYS_PTRACE"]
+                ),
                 "-v",
                 f"{instance.temp_dir}:/workspace:rw",
                 "-e",
