@@ -180413,6 +180413,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Request password reset (compatibility)",
+        "operationId": "requestPasswordResetCompat",
+        "description": "Legacy compatibility alias for requesting a password reset email.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset request accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/forgot-password": {
@@ -180478,6 +180527,59 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Reset password (compatibility)",
+        "operationId": "resetPasswordCompat",
+        "description": "Legacy compatibility alias for resetting a password with a token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "new_password"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/reset-password": {
@@ -180673,6 +180775,174 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication",
+          "MFA"
+        ],
+        "summary": "Run a compatibility MFA action",
+        "operationId": "runMfaCompatibilityAction",
+        "description": "Compatibility endpoint that dispatches MFA setup, enable, disable, verify, and backup-code regeneration by action.",
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "action"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "setup",
+                      "enable",
+                      "disable",
+                      "verify",
+                      "backup-codes"
+                    ]
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "pending_token": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compatibility MFA action completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "secret": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "provisioning_uri": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "qr_code_uri": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "backup_codes": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessions_invalidated": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "disabled": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "tokens": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "access_token": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "refresh_token": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "token_type": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "expires_in": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "user": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "backup_codes_remaining": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "warning": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/mfa": {
@@ -180998,6 +181268,54 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify email address (compatibility)",
+        "operationId": "verifyEmailCompat",
+        "description": "Legacy compatibility alias for verifying an email address with a token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/verify-email": {
@@ -181063,6 +181381,36 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend verification email (compatibility)",
+        "operationId": "resendVerificationEmailCompat",
+        "description": "Legacy compatibility alias for resending the verification email.",
+        "deprecated": true,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Verification email resent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/verify-email/resend": {
@@ -181128,6 +181476,52 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend verification email via legacy alias",
+        "operationId": "resendVerificationCompat",
+        "description": "Legacy compatibility alias for resending an email verification message.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email resent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/resend-verification": {
@@ -181193,6 +181587,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Set up organization (compatibility)",
+        "operationId": "setupOrganizationCompat",
+        "description": "Legacy compatibility alias for creating the first organization after signup.",
+        "deprecated": true,
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/setup-organization": {
@@ -181258,6 +181701,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Invite team member (compatibility)",
+        "operationId": "inviteTeamMemberCompat",
+        "description": "Legacy compatibility alias for inviting a team member.",
+        "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/invite": {
@@ -181388,6 +181880,47 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Accept invite (compatibility)",
+        "operationId": "acceptInviteCompat",
+        "description": "Legacy compatibility alias for accepting an invitation token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/accept-invite": {

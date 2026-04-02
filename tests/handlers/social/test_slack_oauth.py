@@ -362,7 +362,7 @@ class TestInstall:
         assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
-    async def test_with_tenant_id(self, handler, mock_state_store):
+    async def test_unauthenticated_install_ignores_tenant_id(self, handler, mock_state_store):
         result = await handler.handle(
             "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
         )
@@ -370,7 +370,7 @@ class TestInstall:
         mock_state_store.generate.assert_called_once()
         call_kwargs = mock_state_store.generate.call_args
         metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
-        assert metadata["tenant_id"] == "t-123"
+        assert metadata["tenant_id"] is None
 
     @pytest.mark.asyncio
     async def test_authenticated_install_prefers_auth_tenant(
@@ -836,6 +836,34 @@ class TestCallback:
         assert _status(result) == 200
         assert mock_workspace_cls.call_args.kwargs["tenant_id"] == "tenant-1"
         mock_workspace_store.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_callback_rejects_state_from_other_provider(
+        self, handler, mock_state_store, mock_workspace_store
+    ):
+        mock_state_store.validate_and_consume.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "google",
+            "created_at": time.time(),
+        }
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 400
+        body = _body(result)
+        assert "invalid or expired state token" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_callback_slack_api_error(self, handler):

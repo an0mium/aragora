@@ -38,6 +38,7 @@ from aragora.harnesses.base import (
     SessionContext,
     SessionResult,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class ClaudeCodeConfig(HarnessConfig):
     # Claude Code CLI settings
     claude_code_path: str = "claude"  # Path to claude CLI
     model: str = "claude-sonnet-4-20250514"  # Model to use
+    execution_mode: ExecutionMode = ExecutionMode.INTERACTIVE
 
     # Analysis settings
     max_thinking_tokens: int = 10000
@@ -58,9 +60,6 @@ class ClaudeCodeConfig(HarnessConfig):
     # Output parsing
     parse_structured_output: bool = True
     extract_code_blocks: bool = True
-
-    # Execution safety mode — AUTONOMOUS adds --yes, INTERACTIVE omits it
-    execution_mode: str = "autonomous"  # "autonomous" or "interactive"
 
     # System prompt injection for context-aware implementation
     append_system_prompt: str | None = None  # Appended to Claude Code's system prompt
@@ -533,8 +532,8 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
             "-p",  # Non-interactive mode (no --print, allows file edits)
             prompt,
         ]
-        if str(self.config.execution_mode).strip().lower() == "autonomous":
-            cmd.append("--yes")  # Auto-approve file edits in autonomous mode only
+        if self.config.execution_mode == ExecutionMode.AUTONOMOUS:
+            cmd.append("--yes")  # Auto-approve file edits in autonomous lanes only
 
         if self.config.model:
             cmd.extend(["--model", self.config.model])

@@ -28,6 +28,7 @@ from aragora.harnesses.base import (
     SessionContext,
     SessionResult,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.harnesses.claude_code import (
     ClaudeCodeConfig,
     ClaudeCodeHarness,
@@ -528,6 +529,7 @@ class TestClaudeCodeConfig:
 
         assert config.claude_code_path == "claude"
         assert "claude" in config.model
+        assert config.execution_mode == ExecutionMode.INTERACTIVE
         assert config.max_thinking_tokens == 10000
         assert config.parse_structured_output is True
 

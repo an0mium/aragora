@@ -205,7 +205,7 @@ def validate_params(
 def handle_errors(
     context: str | Callable[..., Any],
     default_status: int = 500,
-) -> Callable[[Callable], Callable] | Callable:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]] | Callable[..., Any]:
     """
     Decorator for consistent exception handling with tracing.
 
@@ -227,66 +227,71 @@ def handle_errors(
     """
     import asyncio
 
-    def _build_decorator(context_label: str) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            if asyncio.iscoroutinefunction(func):
+    if not isinstance(default_status, int):
+        raise TypeError("default_status must be an int")
 
-                @wraps(func)
-                async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                    trace_id = generate_trace_id()
-                    try:
-                        return await func(*args, **kwargs)
-                    except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
-                        logger.error(
-                            "[%s] Error in %s: %s: %s",
-                            trace_id,
-                            context_label,
-                            type(e).__name__,
-                            e,
-                            exc_info=True,
-                        )
-                        status = map_exception_to_status(e, default_status)
-                        message = safe_error_message(e, context_label)
-                        return error_response(
-                            message,
-                            status=status,
-                            headers={"X-Trace-Id": trace_id},
-                        )
+    def build_wrapper(func: Callable[..., Any], operation: str) -> Callable[..., Any]:
+        if asyncio.iscoroutinefunction(func):
 
-                return async_wrapper
-            else:
+            @wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                trace_id = generate_trace_id()
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
+                    logger.error(
+                        "[%s] Error in %s: %s: %s",
+                        trace_id,
+                        operation,
+                        type(e).__name__,
+                        e,
+                        exc_info=True,
+                    )
+                    status = map_exception_to_status(e, default_status)
+                    message = safe_error_message(e, operation)
+                    return error_response(
+                        message,
+                        status=status,
+                        headers={"X-Trace-Id": trace_id},
+                    )
 
-                @wraps(func)
-                def wrapper(*args: Any, **kwargs: Any) -> Any:
-                    trace_id = generate_trace_id()
-                    try:
-                        return func(*args, **kwargs)
-                    except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
-                        logger.error(
-                            "[%s] Error in %s: %s: %s",
-                            trace_id,
-                            context_label,
-                            type(e).__name__,
-                            e,
-                            exc_info=True,
-                        )
-                        status = map_exception_to_status(e, default_status)
-                        message = safe_error_message(e, context_label)
-                        return error_response(
-                            message,
-                            status=status,
-                            headers={"X-Trace-Id": trace_id},
-                        )
+            return async_wrapper
+        else:
 
-                return wrapper
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                trace_id = generate_trace_id()
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:  # noqa: BLE001 - generic handler decorator: wraps arbitrary handlers, must catch all to return proper HTTP error responses
+                    logger.error(
+                        "[%s] Error in %s: %s: %s",
+                        trace_id,
+                        operation,
+                        type(e).__name__,
+                        e,
+                        exc_info=True,
+                    )
+                    status = map_exception_to_status(e, default_status)
+                    message = safe_error_message(e, operation)
+                    return error_response(
+                        message,
+                        status=status,
+                        headers={"X-Trace-Id": trace_id},
+                    )
 
-        return decorator
+            return wrapper
 
     if callable(context):
-        func = context
-        return _build_decorator(getattr(func, "__name__", "operation"))(func)
+        operation = getattr(context, "__name__", "handler operation")
+        return build_wrapper(context, operation)
+    if not isinstance(context, str):
+        raise TypeError("context must be a string or callable")
 
-    return _build_decorator(str(context))
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        return build_wrapper(func, context)
+
+    return decorator
 
 
 def auto_error_response(

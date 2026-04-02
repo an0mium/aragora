@@ -651,9 +651,13 @@ Follow existing code style and tests.""",
         allowing file modifications that show up in git diff.
         """
         from aragora.harnesses.claude_code import ClaudeCodeConfig, ClaudeCodeHarness
+        from aragora.pipeline.execution_mode import ExecutionMode
 
         timeout = self._get_task_timeout(task)
-        config = ClaudeCodeConfig(timeout_seconds=timeout)
+        config = ClaudeCodeConfig(
+            timeout_seconds=timeout,
+            execution_mode=ExecutionMode.AUTONOMOUS,
+        )
         harness = ClaudeCodeHarness(config=config)
 
         memory_context = await self._fetch_memory_context(task.description)

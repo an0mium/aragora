@@ -461,6 +461,12 @@ class ParallelInitializer:
                 timeout=10.0,
                 required=False,
             ),
+            InitTask(
+                name="spectate_bridge",
+                func=self._start_spectate_bridge,
+                timeout=5.0,
+                required=False,
+            ),
         ]
 
         return await run_phase("finalize", tasks)
@@ -744,6 +750,25 @@ class ParallelInitializer:
             result["error"] = "Cache pre-warming failed"
 
         self._results["cache_prewarm"] = result
+        return result
+
+    async def _start_spectate_bridge(self) -> dict[str, Any]:
+        """Start the spectate WebSocket bridge for landing page live demos."""
+        result: dict[str, Any] = {"enabled": False}
+        try:
+            from aragora.spectate.ws_bridge import get_spectate_bridge
+
+            bridge = get_spectate_bridge()
+            bridge.start()
+            result["enabled"] = bridge.running
+            if bridge.running:
+                logger.info("[parallel_init] SpectateWebSocketBridge started")
+        except ImportError:
+            logger.debug("[parallel_init] Spectate bridge module not available")
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("[parallel_init] SpectateWebSocketBridge failed: %s", e)
+            result["error"] = str(e)
+        self._results["spectate_bridge"] = result
         return result
 
     async def _run_health_checks(self) -> dict[str, Any]:

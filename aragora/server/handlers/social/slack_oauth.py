@@ -342,7 +342,12 @@ class SlackOAuthHandler(SecureHandler):
                     authenticated_tenant_id,
                 )
             return authenticated_tenant_id
-        return requested_tenant_id
+        if requested_tenant_id:
+            logger.warning(
+                "Ignoring unauthenticated Slack OAuth tenant_id=%s during install flow",
+                requested_tenant_id,
+            )
+        return None
 
     def _is_workspace_access_denied(
         self,
@@ -958,14 +963,20 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Invalid or expired state token", 400)
 
         state_redirect_uri: str | None = None
+        state_provider: str | None = None
         if isinstance(state_data, dict):
             tenant_id = state_data.get("tenant_id")
             state_redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
+            state_provider = str(state_data.get("provider", "") or "").strip() or None
         else:
             metadata = getattr(state_data, "metadata", None)
             tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
             if isinstance(metadata, dict):
                 state_redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
+                state_provider = str(metadata.get("provider", "") or "").strip() or None
+
+        if state_provider != "slack":
+            return error_response("Invalid or expired state token", 400)
 
         client_id = _get_slack_client_id()
         client_secret = _get_slack_client_secret()

@@ -255,10 +255,12 @@ class DebugLoop:
                 ClaudeCodeHarness,
             )
             from aragora.harnesses.base import HarnessError
+            from aragora.pipeline.execution_mode import ExecutionMode
 
             config = ClaudeCodeConfig(
                 timeout_seconds=self.config.agent_timeout,
                 use_mcp_tools=False,
+                execution_mode=ExecutionMode.AUTONOMOUS,
             )
             harness = ClaudeCodeHarness(config)
 

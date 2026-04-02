@@ -984,8 +984,7 @@ class SwarmSupervisor:
         expected_tests = [
             str(test).strip() for test in getattr(lease, "expected_tests", []) if str(test).strip()
         ]
-        if expected_tests:
-            item["expected_tests"] = expected_tests
+        item["expected_tests"] = expected_tests
         item["review_status"] = "pending"
         for key in (
             "dispatch_error",

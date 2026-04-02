@@ -364,6 +364,15 @@ class TestHandleErrorsSync:
 
         assert my_handler.__name__ == "my_handler"
 
+    def test_bare_decorator_supports_sync_handlers(self):
+        @handle_errors
+        def bad():
+            raise ValueError("nope")
+
+        result = bad()
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+
 
 # ============================================================================
 # handle_errors (async)
@@ -402,6 +411,19 @@ class TestHandleErrorsAsync:
             pass
 
         assert my_async_handler.__name__ == "my_async_handler"
+
+    def test_bare_decorator_supports_async_handlers(self):
+        @handle_errors
+        async def bad():
+            raise ValueError("nope")
+
+        result = asyncio.run(bad())
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+
+    def test_invalid_context_type_raises_type_error(self):
+        with pytest.raises(TypeError, match="context must be a string or callable"):
+            handle_errors(123)  # type: ignore[arg-type]
 
 
 # ============================================================================

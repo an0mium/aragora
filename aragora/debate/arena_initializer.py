@@ -237,7 +237,15 @@ class ArenaInitializer:
             logger.debug("[airlock] Wrapped %s agents with resilience layer", len(agents))
 
         hooks = event_hooks or {}
-        spectator = spectator or SpectatorStream(enabled=False)
+        # Enable spectator if the bridge is running (allows landing page live demos)
+        if spectator is None:
+            try:
+                from aragora.spectate.ws_bridge import get_spectate_bridge
+
+                bridge = get_spectate_bridge()
+                spectator = SpectatorStream(enabled=bridge.running)
+            except (ImportError, RuntimeError):
+                spectator = SpectatorStream(enabled=False)
         agent_weights = agent_weights or {}
         circuit_breaker = circuit_breaker or CircuitBreaker()
 

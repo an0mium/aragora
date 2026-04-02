@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.harnesses.claude_code import ClaudeCodeConfig, ClaudeCodeHarness
+from aragora.pipeline.execution_mode import ExecutionMode
 
 
 @pytest.fixture
@@ -77,6 +78,48 @@ class TestMCPConfigInCommand:
                 cmd_args = [str(a) for a in mock_exec.call_args[0]]
                 assert "--mcp-config" not in cmd_args
                 assert "--allowedTools" not in cmd_args
+
+    @pytest.mark.asyncio
+    async def test_execute_implementation_omits_yes_in_interactive_mode(self, tmp_path):
+        config = ClaudeCodeConfig(
+            use_mcp_tools=False,
+            execution_mode=ExecutionMode.INTERACTIVE,
+        )
+        harness = ClaudeCodeHarness(config=config)
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"done", b""))
+        mock_proc.returncode = 0
+        mock_proc.kill = MagicMock()
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+            patch("asyncio.wait_for", return_value=(b"done", b"")),
+        ):
+            await harness.execute_implementation(tmp_path, "fix the bug")
+
+        cmd_args = [str(a) for a in mock_exec.call_args[0]]
+        assert "--yes" not in cmd_args
+
+    @pytest.mark.asyncio
+    async def test_execute_implementation_adds_yes_in_autonomous_mode(self, tmp_path):
+        config = ClaudeCodeConfig(
+            use_mcp_tools=False,
+            execution_mode=ExecutionMode.AUTONOMOUS,
+        )
+        harness = ClaudeCodeHarness(config=config)
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"done", b""))
+        mock_proc.returncode = 0
+        mock_proc.kill = MagicMock()
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+            patch("asyncio.wait_for", return_value=(b"done", b"")),
+        ):
+            await harness.execute_implementation(tmp_path, "fix the bug")
+
+        cmd_args = [str(a) for a in mock_exec.call_args[0]]
+        assert cmd_args.count("--yes") == 1
 
 
 class TestAllowedTools:

@@ -1120,7 +1120,7 @@ class SelfImprovePipeline:
             if isinstance(track, str):
                 track_str = track
             elif hasattr(track, "value"):
-                track_str = track.value
+                track_str = str(getattr(track, "value", "core") or "core")
             else:
                 track_str = "core"
 
@@ -1839,12 +1839,14 @@ class SelfImprovePipeline:
 
             from pathlib import Path as P
             from aragora.harnesses.claude_code import ClaudeCodeHarness, ClaudeCodeConfig
+            from aragora.pipeline.execution_mode import ExecutionMode
 
             config = ClaudeCodeConfig(
                 timeout_seconds=int(
                     min(self.config.budget_limit_usd * 60, 600)  # Budget → timeout
                 ),
                 use_mcp_tools=False,  # Keep it simple for now
+                execution_mode=ExecutionMode.AUTONOMOUS,
             )
             harness = ClaudeCodeHarness(config)
             prompt = instruction.to_agent_prompt()

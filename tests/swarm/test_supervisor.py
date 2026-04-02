@@ -974,6 +974,7 @@ def test_refresh_run_rebinds_released_work_order_to_new_active_lease(
     assert work_order["status"] == "leased"
     assert work_order["lease_id"] == new_lease.lease_id
     assert work_order["owner_session_id"] == "swarm-rebound-lease"
+    assert work_order["expected_tests"] == []
 
 
 def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker_pid(

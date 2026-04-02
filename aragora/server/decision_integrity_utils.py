@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any
 import uuid
 
+from aragora.pipeline.execution_mode import (
+    ExecutionMode as SafetyMode,
+    resolve_safety_mode,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,6 +134,30 @@ def _extract_spec_bundle(plan: Any) -> Any | None:
     except (ImportError, TypeError):
         logger.debug("Ignoring malformed spec bundle on plan %s", getattr(plan, "id", ""))
         return None
+
+
+def _normalize_execution_request_for_safety_mode(
+    execution_mode: Any,
+    *,
+    safety_mode: SafetyMode,
+) -> str:
+    """Downgrade interactive execution requests to approval-first semantics."""
+    if not isinstance(safety_mode, SafetyMode):
+        raise TypeError("safety_mode must be an ExecutionMode")
+
+    if isinstance(execution_mode, SafetyMode):
+        normalized = execution_mode.value
+    elif isinstance(execution_mode, str):
+        normalized = execution_mode.strip().lower()
+    else:
+        normalized = ""
+
+    if not normalized:
+        normalized = "plan_only"
+
+    if safety_mode == SafetyMode.INTERACTIVE and normalized == "execute":
+        return "request_approval"
+    return normalized
 
 
 def ensure_decision_plan_backbone_run(
@@ -328,6 +357,13 @@ async def build_decision_integrity_payload(
         execution_engine = execution_mode
         execution_mode = "execute"
 
+    auth_context = getattr(arena, "auth_context", None)
+    safety_mode = resolve_safety_mode(None, auth_context=auth_context)
+    execution_mode = _normalize_execution_request_for_safety_mode(
+        execution_mode,
+        safety_mode=safety_mode,
+    )
+
     workflow_mode = execution_mode in {"workflow", "workflow_execute", "execute_workflow"}
     execute_workflow = execution_mode in {"workflow_execute", "execute_workflow"}
 
@@ -378,7 +414,6 @@ async def build_decision_integrity_payload(
     continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
     cross_debate_memory = getattr(arena, "cross_debate_memory", None) if include_context else None
     knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
-    auth_context = getattr(arena, "auth_context", None)
     context_envelope = None
     if auth_context is not None:
         try:
