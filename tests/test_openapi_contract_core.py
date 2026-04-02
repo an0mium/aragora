@@ -35,6 +35,13 @@ PIPELINE_CANVAS_ENDPOINTS = {
     "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {"post"},
 }
 
+ABSENT_ADMIN_SECURITY_PLACEHOLDERS = {
+    "/api/v1/admin/security/audit",
+    "/api/v1/admin/security/compliance",
+    "/api/v1/admin/security/scan",
+    "/api/v1/admin/security/threats",
+}
+
 
 def test_core_endpoints_present() -> None:
     """Core endpoints must exist in the OpenAPI schema."""
@@ -72,3 +79,11 @@ def test_pipeline_canvas_endpoint_methods() -> None:
         assert expected_methods.issubset(methods), (
             f"{path} missing methods: {expected_methods - methods}"
         )
+
+
+def test_admin_security_placeholder_endpoints_absent() -> None:
+    """Undocumented admin security placeholder routes must not leak into the schema."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    unexpected = sorted(path for path in ABSENT_ADMIN_SECURITY_PLACEHOLDERS if path in paths)
+    assert not unexpected, f"Unexpected admin security placeholders present: {unexpected}"

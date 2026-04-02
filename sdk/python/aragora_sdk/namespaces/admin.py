@@ -205,22 +205,6 @@ class AdminAPI:
         """Reset all circuit breakers."""
         return self._client.request("POST", "/api/v1/admin/circuit-breakers/reset")
 
-    def get_security_audit(self) -> dict[str, Any]:
-        """Get security audit report."""
-        return self._client.request("GET", "/api/v1/admin/security/audit")
-
-    def get_security_compliance(self) -> dict[str, Any]:
-        """Get security compliance status."""
-        return self._client.request("GET", "/api/v1/admin/security/compliance")
-
-    def run_security_scan(self) -> dict[str, Any]:
-        """Run a security scan."""
-        return self._client.request("POST", "/api/v1/admin/security/scan")
-
-    def list_security_threats(self) -> dict[str, Any]:
-        """List detected security threats."""
-        return self._client.request("GET", "/api/v1/admin/security/threats")
-
     # ===========================================================================
     # Emergency Access
     # ===========================================================================
@@ -319,9 +303,7 @@ class AdminAPI:
 
     def update_organization(self, org_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update an organization."""
-        return self._client.request(
-            "PUT", f"/api/v1/admin/organizations/{org_id}", json=kwargs
-        )
+        return self._client.request("PUT", f"/api/v1/admin/organizations/{org_id}", json=kwargs)
 
     # ===========================================================================
     # User Management
@@ -343,15 +325,11 @@ class AdminAPI:
 
     def deactivate_user(self, user_id: str) -> dict[str, Any]:
         """Deactivate a user."""
-        return self._client.request(
-            "POST", f"/api/v1/admin/users/{user_id}/deactivate"
-        )
+        return self._client.request("POST", f"/api/v1/admin/users/{user_id}/deactivate")
 
     def impersonate_user(self, user_id: str) -> dict[str, Any]:
         """Impersonate a user."""
-        return self._client.request(
-            "POST", f"/api/v1/admin/users/{user_id}/impersonate"
-        )
+        return self._client.request("POST", f"/api/v1/admin/users/{user_id}/impersonate")
 
     def unlock_user(self, user_id: str) -> dict[str, Any]:
         """Unlock a locked user account."""
@@ -387,13 +365,9 @@ class AdminAPI:
 
     def get_credit_account(self, org_id: str) -> dict[str, Any]:
         """Get credit account for an organization."""
-        return self._client.request(
-            "GET", f"/api/v1/admin/organizations/{org_id}/credits"
-        )
+        return self._client.request("GET", f"/api/v1/admin/organizations/{org_id}/credits")
 
-    def list_credit_transactions(
-        self, org_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    def list_credit_transactions(self, org_id: str, **kwargs: Any) -> dict[str, Any]:
         """List credit transactions for an organization."""
         return self._client.request(
             "GET",
@@ -401,9 +375,7 @@ class AdminAPI:
             params=kwargs if kwargs else None,
         )
 
-    def adjust_credits(
-        self, org_id: str, amount: float, reason: str
-    ) -> dict[str, Any]:
+    def adjust_credits(self, org_id: str, amount: float, reason: str) -> dict[str, Any]:
         """Adjust credit balance for an organization."""
         return self._client.request(
             "POST",
@@ -419,41 +391,13 @@ class AdminAPI:
         )
 
     # ===========================================================================
-    # Security Keys & Scans
+    # Security Maintenance
     # ===========================================================================
-
-    def get_security_key(self, key_id: str) -> dict[str, Any]:
-        """Get a specific security key by ID."""
-        return self._client.request(
-            "GET", f"/api/v1/admin/security/keys/{key_id}"
-        )
-
-    def revoke_security_key(self, key_id: str) -> dict[str, Any]:
-        """Revoke a specific security key."""
-        return self._client.request(
-            "POST", f"/api/v1/admin/security/keys/{key_id}/revoke"
-        )
 
     def rotate_security_key(self, key_type: str) -> dict[str, Any]:
         """Rotate a security key by type."""
         return self._client.request(
             "POST", "/api/v1/admin/security/rotate-key", json={"key_type": key_type}
-        )
-
-    def get_security_scan(self, scan_id: str) -> dict[str, Any]:
-        """Get a specific security scan result."""
-        return self._client.request(
-            "GET", f"/api/v1/admin/security/scan/{scan_id}"
-        )
-
-    def resolve_security_threat(
-        self, threat_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
-        """Resolve a security threat."""
-        return self._client.request(
-            "POST",
-            f"/api/v1/admin/security/threats/{threat_id}/resolve",
-            json=kwargs if kwargs else None,
         )
 
     def get_rotation_status(self) -> dict[str, Any]:
@@ -470,9 +414,7 @@ class AdminAPI:
 
     def get_system_health_component(self, component: str) -> dict[str, Any]:
         """Get health status for a specific component."""
-        return self._client.request(
-            "GET", f"/api/v1/admin/system-health/{component}"
-        )
+        return self._client.request("GET", f"/api/v1/admin/system-health/{component}")
 
     def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""
@@ -585,22 +527,6 @@ class AsyncAdminAPI:
         """Reset all circuit breakers."""
         return await self._client.request("POST", "/api/v1/admin/circuit-breakers/reset")
 
-    async def get_security_audit(self) -> dict[str, Any]:
-        """Get security audit report."""
-        return await self._client.request("GET", "/api/v1/admin/security/audit")
-
-    async def get_security_compliance(self) -> dict[str, Any]:
-        """Get security compliance status."""
-        return await self._client.request("GET", "/api/v1/admin/security/compliance")
-
-    async def run_security_scan(self) -> dict[str, Any]:
-        """Run a security scan."""
-        return await self._client.request("POST", "/api/v1/admin/security/scan")
-
-    async def list_security_threats(self) -> dict[str, Any]:
-        """List detected security threats."""
-        return await self._client.request("GET", "/api/v1/admin/security/threats")
-
     # ===========================================================================
     # Emergency Access
     # ===========================================================================
@@ -689,15 +615,11 @@ class AsyncAdminAPI:
 
     async def deactivate_user(self, user_id: str) -> dict[str, Any]:
         """Deactivate a user."""
-        return await self._client.request(
-            "POST", f"/api/v1/admin/users/{user_id}/deactivate"
-        )
+        return await self._client.request("POST", f"/api/v1/admin/users/{user_id}/deactivate")
 
     async def impersonate_user(self, user_id: str) -> dict[str, Any]:
         """Impersonate a user."""
-        return await self._client.request(
-            "POST", f"/api/v1/admin/users/{user_id}/impersonate"
-        )
+        return await self._client.request("POST", f"/api/v1/admin/users/{user_id}/impersonate")
 
     async def unlock_user(self, user_id: str) -> dict[str, Any]:
         """Unlock a locked user account."""
@@ -733,13 +655,9 @@ class AsyncAdminAPI:
 
     async def get_credit_account(self, org_id: str) -> dict[str, Any]:
         """Get credit account for an organization."""
-        return await self._client.request(
-            "GET", f"/api/v1/admin/organizations/{org_id}/credits"
-        )
+        return await self._client.request("GET", f"/api/v1/admin/organizations/{org_id}/credits")
 
-    async def list_credit_transactions(
-        self, org_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    async def list_credit_transactions(self, org_id: str, **kwargs: Any) -> dict[str, Any]:
         """List credit transactions for an organization."""
         return await self._client.request(
             "GET",
@@ -747,9 +665,7 @@ class AsyncAdminAPI:
             params=kwargs if kwargs else None,
         )
 
-    async def adjust_credits(
-        self, org_id: str, amount: float, reason: str
-    ) -> dict[str, Any]:
+    async def adjust_credits(self, org_id: str, amount: float, reason: str) -> dict[str, Any]:
         """Adjust credit balance for an organization."""
         return await self._client.request(
             "POST",
@@ -765,41 +681,13 @@ class AsyncAdminAPI:
         )
 
     # ===========================================================================
-    # Security Keys & Scans
+    # Security Maintenance
     # ===========================================================================
-
-    async def get_security_key(self, key_id: str) -> dict[str, Any]:
-        """Get a specific security key by ID."""
-        return await self._client.request(
-            "GET", f"/api/v1/admin/security/keys/{key_id}"
-        )
-
-    async def revoke_security_key(self, key_id: str) -> dict[str, Any]:
-        """Revoke a specific security key."""
-        return await self._client.request(
-            "POST", f"/api/v1/admin/security/keys/{key_id}/revoke"
-        )
 
     async def rotate_security_key(self, key_type: str) -> dict[str, Any]:
         """Rotate a security key by type."""
         return await self._client.request(
             "POST", "/api/v1/admin/security/rotate-key", json={"key_type": key_type}
-        )
-
-    async def get_security_scan(self, scan_id: str) -> dict[str, Any]:
-        """Get a specific security scan result."""
-        return await self._client.request(
-            "GET", f"/api/v1/admin/security/scan/{scan_id}"
-        )
-
-    async def resolve_security_threat(
-        self, threat_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
-        """Resolve a security threat."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/admin/security/threats/{threat_id}/resolve",
-            json=kwargs if kwargs else None,
         )
 
     async def get_rotation_status(self) -> dict[str, Any]:
@@ -816,9 +704,7 @@ class AsyncAdminAPI:
 
     async def get_system_health_component(self, component: str) -> dict[str, Any]:
         """Get health status for a specific component."""
-        return await self._client.request(
-            "GET", f"/api/v1/admin/system-health/{component}"
-        )
+        return await self._client.request("GET", f"/api/v1/admin/system-health/{component}")
 
     async def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""
