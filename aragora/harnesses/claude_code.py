@@ -61,9 +61,6 @@ class ClaudeCodeConfig(HarnessConfig):
     parse_structured_output: bool = True
     extract_code_blocks: bool = True
 
-    # Execution safety mode — AUTONOMOUS adds --yes, INTERACTIVE omits it
-    execution_mode: str = "autonomous"  # "autonomous" or "interactive"
-
     # System prompt injection for context-aware implementation
     append_system_prompt: str | None = None  # Appended to Claude Code's system prompt
     inject_claude_md: bool = True  # Auto-read CLAUDE.md from repo root

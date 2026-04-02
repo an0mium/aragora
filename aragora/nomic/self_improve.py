@@ -1120,7 +1120,7 @@ class SelfImprovePipeline:
             if isinstance(track, str):
                 track_str = track
             elif hasattr(track, "value"):
-                track_str = track.value
+                track_str = str(getattr(track, "value", "core") or "core")
             else:
                 track_str = "core"
 
