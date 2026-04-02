@@ -1839,12 +1839,14 @@ class SelfImprovePipeline:
 
             from pathlib import Path as P
             from aragora.harnesses.claude_code import ClaudeCodeHarness, ClaudeCodeConfig
+            from aragora.pipeline.execution_mode import ExecutionMode
 
             config = ClaudeCodeConfig(
                 timeout_seconds=int(
                     min(self.config.budget_limit_usd * 60, 600)  # Budget → timeout
                 ),
                 use_mcp_tools=False,  # Keep it simple for now
+                execution_mode=ExecutionMode.AUTONOMOUS,
             )
             harness = ClaudeCodeHarness(config)
             prompt = instruction.to_agent_prompt()
