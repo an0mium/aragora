@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+export const SPECIALTY_PROJECT_TEST_IGNORE = [
+  '**/accessibility.spec.ts',
+  '**/visual-regression.spec.ts',
+  '**/mobile/mobile-audit.spec.ts',
+] as const;
+
 /**
  * Playwright configuration for Aragora Live Dashboard E2E tests.
  * @see https://playwright.dev/docs/test-configuration
@@ -68,26 +74,31 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
 
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
 
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
 
     // Test against mobile viewports (for responsiveness)
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
     {
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
 
     // Accessibility tests - run with: npx playwright test --project=accessibility
