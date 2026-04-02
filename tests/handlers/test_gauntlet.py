@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
+from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.gauntlet import (
     GauntletHandler,
     _gauntlet_runs,
@@ -311,25 +312,46 @@ class TestGauntletComparison:
         """Handler can handle compare endpoint."""
         assert handler.can_handle("/api/v1/gauntlet/abc-123/compare/def-456", method="GET")
 
-    def test_compare_requires_two_ids(self, handler, mock_http_handler):
-        """Compare endpoint requires two valid gauntlet IDs."""
-        result = handler.handle(
-            "/api/v1/gauntlet/id1/compare/id2",
-            {},
-            mock_http_handler,
-        )
-        assert result is not None
+    @pytest.mark.asyncio
+    async def test_compare_requires_two_ids(self, handler, mock_http_handler):
+        """Compare endpoint rejects invalid gauntlet IDs before dispatch."""
+        mock_http_handler.command = "GET"
+        mock_http_handler.path = "/api/v1/gauntlet/id1/compare/id2"
 
-    def test_compare_returns_diff(self, handler, mock_http_handler):
-        """Compare endpoint returns difference analysis."""
-        # Setup: would need mocked gauntlet runs
-        # This tests the routing, integration tests verify content
-        result = handler.handle(
-            "/api/v1/gauntlet/run1/compare/run2",
-            {},
-            mock_http_handler,
-        )
+        with (
+            patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "require_permission_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "_compare_results") as mock_compare,
+        ):
+            result = await handler.handle(mock_http_handler.path, {}, mock_http_handler)
+
+        mock_compare.assert_not_called()
         assert result is not None
+        assert result.status_code == 400
+        assert b"Invalid gauntlet ID" in result.body
+
+    @pytest.mark.asyncio
+    async def test_compare_returns_diff(self, handler, mock_http_handler):
+        """Compare endpoint routes valid IDs into comparison handling."""
+        gauntlet_id = "gauntlet-20260402030148-a1b2c3"
+        compare_id = "gauntlet-20260402030149-d4e5f6"
+        mock_http_handler.command = "GET"
+        mock_http_handler.path = f"/api/v1/gauntlet/{gauntlet_id}/compare/{compare_id}"
+        expected = HandlerResult(
+            status_code=200,
+            content_type="application/json",
+            body=b'{"diff": true}',
+        )
+
+        with (
+            patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "require_permission_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "_compare_results", return_value=expected) as mock_compare,
+        ):
+            result = await handler.handle(mock_http_handler.path, {}, mock_http_handler)
+
+        mock_compare.assert_called_once_with(gauntlet_id, compare_id, {})
+        assert result is expected
 
 
 # ============================================================================
