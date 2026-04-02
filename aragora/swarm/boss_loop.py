@@ -106,6 +106,16 @@ class BossIterationStatus:
         return result
 
 
+@dataclass(slots=True)
+class BossIterationCandidatePool:
+    """Shared issue-selection inputs for a single boss-loop iteration."""
+
+    already_maxed: set[int]
+    pending_handoffs: list[GitHubIssue]
+    candidate_issues: list[GitHubIssue]
+    ordered_candidates: list[GitHubIssue]
+
+
 @dataclass
 class BossLoopResult:
     """Final result of a Boss loop run."""
@@ -484,7 +494,7 @@ class BossLoop:
         self._failed_issues: list[dict[str, Any]] = []
         self._iteration_statuses: list[BossIterationStatus] = []
         self._consecutive_failures = 0
-        self._issue_attempt_counts: dict[int, int] = {}
+        self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
 
@@ -698,6 +708,31 @@ class BossLoop:
             self._pending_handoff_prompts.pop(issue_number, None)
 
         return candidates
+
+    def _build_iteration_candidate_pool(
+        self, issues: list[GitHubIssue]
+    ) -> BossIterationCandidatePool:
+        already_maxed = {
+            int(num)
+            for num, count in self._issue_attempt_counts.items()
+            if isinstance(num, int) and count >= self.config.max_retries_per_issue
+        }
+        pending_handoffs = self._pending_handoff_candidates(issues)
+        pending_issue_numbers = {issue.number for issue in pending_handoffs}
+        candidate_issues = [
+            issue
+            for issue in issues
+            if issue.number in pending_issue_numbers or issue.number not in already_maxed
+        ]
+        ordered_candidates = pending_handoffs + [
+            issue for issue in candidate_issues if issue.number not in pending_issue_numbers
+        ]
+        return BossIterationCandidatePool(
+            already_maxed=already_maxed,
+            pending_handoffs=pending_handoffs,
+            candidate_issues=candidate_issues,
+            ordered_candidates=ordered_candidates,
+        )
 
     def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
         reasons = [
@@ -1133,6 +1168,29 @@ class BossLoop:
             return [await self._run_iteration(iteration, on_status=on_status)]
         return await self._run_iteration_batch(iteration, on_status=on_status)
 
+    def _runner_freshness_kwargs(self) -> dict[str, Any]:
+        return {
+            "freshness_ttl_seconds": self.config.freshness_ttl_seconds,
+            "registry_path": self.config.registry_path,
+            "env": self._env,
+            "requested_runner_type": self._requested_runner_type_for_freshness(),
+            "allowed_profiles": self.config.allowed_runner_profiles,
+            "rotation_interval_seconds": self.config.runner_rotation_interval_seconds,
+            "verified_runner_target": self.config.verified_runner_target,
+            "runner_probe_limit": self.config.runner_probe_limit,
+        }
+
+    def _check_runner_freshness(self) -> tuple[Any, dict[str, Any]]:
+        freshness = self._freshness_checker(**self._runner_freshness_kwargs())
+        if hasattr(freshness, "to_dict"):
+            raw_freshness = freshness.to_dict()
+            freshness_dict = dict(raw_freshness) if isinstance(raw_freshness, dict) else {}
+        elif isinstance(freshness, dict):
+            freshness_dict = dict(freshness)
+        else:
+            freshness_dict = {}
+        return freshness, freshness_dict
+
     async def _run_iteration(
         self,
         iteration: int,
@@ -1164,21 +1222,17 @@ class BossLoop:
 
         # Step 2: Select eligible issue
         # Skip issues that have exceeded retry limits
-        already_maxed = {
-            num
-            for num, count in self._issue_attempt_counts.items()
-            if count >= self.config.max_retries_per_issue
-        }
-        pending_handoffs = self._pending_handoff_candidates(issues)
-        pending_issue_numbers = {issue.number for issue in pending_handoffs}
-        candidate_issues = [
-            i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
-        ]
-        if pending_handoffs:
-            selected = pending_handoffs[0]
+        candidate_pool = self._build_iteration_candidate_pool(issues)
+        selected: GitHubIssue | None
+        if candidate_pool.pending_handoffs:
+            selected = candidate_pool.pending_handoffs[0]
         elif self.config.issue_number is not None:
             target_issue = next(
-                (issue for issue in candidate_issues if issue.number == self.config.issue_number),
+                (
+                    issue
+                    for issue in candidate_pool.candidate_issues
+                    if issue.number == self.config.issue_number
+                ),
                 None,
             )
             selected = (
@@ -1192,7 +1246,7 @@ class BossLoop:
             )
         else:
             selected = select_eligible_issue(
-                candidate_issues,
+                candidate_pool.candidate_issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
                 use_value_ranking=self.config.use_value_ranking,
@@ -1207,7 +1261,8 @@ class BossLoop:
                 needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
                 next_actions = [
                     "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
+                    "Issues checked: "
+                    f"{len(issues)}, already maxed retries: {len(candidate_pool.already_maxed)}",
                 ]
             return BossIterationStatus(
                 iteration=iteration,
@@ -1223,17 +1278,7 @@ class BossLoop:
             )
 
         # Step 3: Check runner freshness only when there is eligible work to dispatch
-        freshness = self._freshness_checker(
-            freshness_ttl_seconds=self.config.freshness_ttl_seconds,
-            registry_path=self.config.registry_path,
-            env=self._env,
-            requested_runner_type=self._requested_runner_type_for_freshness(),
-            allowed_profiles=self.config.allowed_runner_profiles,
-            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
-            verified_runner_target=self.config.verified_runner_target,
-            runner_probe_limit=self.config.runner_probe_limit,
-        )
-        freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
+        freshness, freshness_dict = self._check_runner_freshness()
 
         if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
             blocked_reason = (
@@ -1331,21 +1376,9 @@ class BossLoop:
                 )
             ]
 
-        already_maxed = {
-            num
-            for num, count in self._issue_attempt_counts.items()
-            if count >= self.config.max_retries_per_issue
-        }
-        pending_handoffs = self._pending_handoff_candidates(issues)
-        pending_issue_numbers = {issue.number for issue in pending_handoffs}
-        candidate_issues = [
-            i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
-        ]
-        ordered_candidates = pending_handoffs + [
-            issue for issue in candidate_issues if issue.number not in pending_issue_numbers
-        ]
+        candidate_pool = self._build_iteration_candidate_pool(issues)
         selected_issues = self._select_issues_for_iteration(
-            ordered_candidates,
+            candidate_pool.ordered_candidates,
             limit=None,
         )
 
@@ -1358,7 +1391,8 @@ class BossLoop:
                 needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
                 next_actions = [
                     "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
+                    "Issues checked: "
+                    f"{len(issues)}, already maxed retries: {len(candidate_pool.already_maxed)}",
                 ]
             return [
                 BossIterationStatus(
@@ -1375,15 +1409,7 @@ class BossLoop:
                 )
             ]
 
-        freshness = self._freshness_checker(
-            freshness_ttl_seconds=self.config.freshness_ttl_seconds,
-            registry_path=self.config.registry_path,
-            env=self._env,
-            requested_runner_type=self._requested_runner_type_for_freshness(),
-            allowed_profiles=self.config.allowed_runner_profiles,
-            rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
-        )
-        freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
+        freshness, freshness_dict = self._check_runner_freshness()
 
         if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
             blocked_reason = (

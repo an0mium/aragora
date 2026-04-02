@@ -38,8 +38,21 @@ from aragora.harnesses.base import (
     SessionContext,
     SessionResult,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_execution_mode(value: ExecutionMode | str) -> ExecutionMode | None:
+    if isinstance(value, ExecutionMode):
+        return value
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    try:
+        return ExecutionMode(normalized)
+    except ValueError:
+        return None
 
 
 @dataclass
@@ -60,7 +73,7 @@ class ClaudeCodeConfig(HarnessConfig):
     extract_code_blocks: bool = True
 
     # Execution safety mode — AUTONOMOUS adds --yes, INTERACTIVE omits it
-    execution_mode: str = "autonomous"  # "autonomous" or "interactive"
+    execution_mode: ExecutionMode | str = ExecutionMode.AUTONOMOUS
 
     # System prompt injection for context-aware implementation
     append_system_prompt: str | None = None  # Appended to Claude Code's system prompt
@@ -533,7 +546,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
             "-p",  # Non-interactive mode (no --print, allows file edits)
             prompt,
         ]
-        if str(self.config.execution_mode).strip().lower() == "autonomous":
+        if _normalize_execution_mode(self.config.execution_mode) == ExecutionMode.AUTONOMOUS:
             cmd.append("--yes")  # Auto-approve file edits in autonomous mode only
 
         if self.config.model:
