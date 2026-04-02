@@ -145,7 +145,8 @@ class ProviderRouter:
     ) -> None:
         """Convenience method to record a debate outcome.
 
-        Delegates to the underlying ProviderMetricsStore.
+        Delegates to the underlying ProviderMetricsStore and refreshes any
+        cached routing decision derived from stale metrics.
         """
         self._store.record_debate_outcome(
             provider,
@@ -155,6 +156,7 @@ class ProviderRouter:
             consensus_reached=consensus_reached,
             failed=failed,
         )
+        self._optimizer.invalidate_cache()
 
     def get_provider_hints(self) -> dict[str, float]:
         """Return a provider_name -> quality_score mapping for TeamSelector integration.

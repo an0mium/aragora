@@ -424,6 +424,20 @@ class TestProviderRouter:
         assert m is not None
         assert m.total_debates == 1
 
+    def test_record_outcome_invalidates_cached_selection(self) -> None:
+        router = ProviderRouter()
+        for _ in range(5):
+            router.record_outcome("cheap", cost=0.02, quality=0.60)
+            router.record_outcome("balanced", cost=0.08, quality=0.80)
+            router.record_outcome("quality", cost=0.30, quality=0.95)
+
+        assert router.optimizer.select_provider(SelectionStrategy.QUALITY_OPTIMIZED) == "quality"
+
+        for _ in range(20):
+            router.record_outcome("quality", cost=0.30, quality=0.05, failed=True)
+
+        assert router.optimizer.select_provider(SelectionStrategy.QUALITY_OPTIMIZED) == "balanced"
+
     def test_get_status(self) -> None:
         router = ProviderRouter()
         status = router.get_status()
