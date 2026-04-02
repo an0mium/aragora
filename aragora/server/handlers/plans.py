@@ -30,6 +30,10 @@ from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
+_RESERVED_BACKBONE_METADATA_KEYS = frozenset(
+    {"backbone_entrypoint", "backbone_run_id", "source_id", "source_surface"}
+)
+
 
 def _fire_plan_notification(event: str, plan: Any, **kwargs: Any) -> None:
     """Fire-and-forget plan lifecycle notification.
@@ -89,6 +93,13 @@ def _get_plan_store():
     from aragora.pipeline.plan_store import get_plan_store
 
     return get_plan_store()
+
+
+def _sanitize_plan_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Remove request-controlled keys reserved for backbone wiring."""
+    return {
+        key: value for key, value in metadata.items() if key not in _RESERVED_BACKBONE_METADATA_KEYS
+    }
 
 
 class PlansHandler(BaseHandler):
@@ -216,6 +227,10 @@ class PlansHandler(BaseHandler):
     def _create_plan(self, query_params: dict[str, Any]) -> HandlerResult:
         """Create a new decision plan."""
         from aragora.pipeline.decision_plan.core import ApprovalMode, DecisionPlan, PlanStatus
+        from aragora.server.decision_integrity_utils import (
+            ensure_decision_plan_backbone_run,
+            sync_decision_plan_backbone_receipt,
+        )
 
         body = self.get_json_body()
         if body is None:
@@ -242,6 +257,8 @@ class PlansHandler(BaseHandler):
         metadata = body.get("metadata", {})
         if not isinstance(metadata, dict):
             metadata = {}
+        else:
+            metadata = _sanitize_plan_metadata(metadata)
 
         # Action items from request body
         action_items = body.get("action_items", [])
@@ -271,14 +288,22 @@ class PlansHandler(BaseHandler):
             plan.metadata["estimated_duration"] = str(estimated_duration)
 
         store = _get_plan_store()
-        runtime = BackboneRuntime(store)
+        user = self.get_current_user(self._current_handler) if self._current_handler else None
+        run_id = ensure_decision_plan_backbone_run(
+            plan,
+            auth_context=user,
+            source_surface="plans_api",
+            source_id=str(debate_id),
+        )
         store.create(plan)
-        runtime.sync_plan_receipt_to_run(plan, append_event=False)
+        sync_decision_plan_backbone_receipt(plan, append_event=False)
 
         logger.info("Created plan %s for debate %s", plan.id, plan.debate_id)
         _fire_plan_notification("created", plan)
 
-        return json_response(self._plan_detail(plan), status=201)
+        response = self._plan_detail(plan)
+        response["run_id"] = run_id
+        return json_response(response, status=201)
 
     # -------------------------------------------------------------------------
     # POST /api/v1/plans/{plan_id}/approve
@@ -323,26 +348,57 @@ class PlansHandler(BaseHandler):
         # Optionally trigger execution on approval
         auto_execute = body.get("auto_execute", False)
         execution_scheduled = False
+        launch: dict[str, Any] | None = None
         if auto_execute:
             try:
-                from aragora.pipeline.execution_bridge import get_execution_bridge
+                from aragora.pipeline.canonical_execution import (
+                    execute_queued_plan,
+                    queue_plan_execution,
+                    schedule_coroutine,
+                )
 
-                bridge = get_execution_bridge()
-                bridge.schedule_execution(plan_id)
+                launch = queue_plan_execution(
+                    plan,
+                    auth_context=user,
+                    execution_mode=body.get("execution_mode"),
+                )
+                schedule_coroutine(
+                    execute_queued_plan(
+                        plan,
+                        execution_id=str(launch["execution_id"]),
+                        correlation_id=str(launch["correlation_id"]),
+                        auth_context=user,
+                        execution_mode=str(launch.get("execution_mode", "") or "").strip() or None,
+                    ),
+                    name=f"plan-approve-exec-{plan_id[:8]}",
+                )
                 execution_scheduled = True
-                logger.info("Auto-execution scheduled for plan %s", plan_id)
-            except (ImportError, RuntimeError, AttributeError) as exc:
+                logger.info(
+                    "Auto-execution queued for plan %s (execution_id=%s)",
+                    plan_id,
+                    launch.get("execution_id"),
+                )
+                _fire_plan_notification("execution_started", plan)
+            except (ImportError, RuntimeError, AttributeError, ValueError, TypeError) as exc:
                 logger.warning("Auto-execution scheduling failed for plan %s: %s", plan_id, exc)
 
-        return json_response(
-            {
-                "plan_id": plan_id,
-                "status": "approved",
-                "approved_by": approver_id,
-                "message": f"Plan {plan_id} approved successfully",
-                "execution_scheduled": execution_scheduled,
-            }
-        )
+        response: dict[str, Any] = {
+            "plan_id": plan_id,
+            "status": "approved",
+            "approved_by": approver_id,
+            "message": f"Plan {plan_id} approved successfully",
+            "execution_scheduled": execution_scheduled,
+        }
+        if launch:
+            response.update(
+                {
+                    "run_id": launch.get("run_id"),
+                    "execution_id": launch.get("execution_id"),
+                    "correlation_id": launch.get("correlation_id"),
+                    "record_status": launch.get("status"),
+                }
+            )
+        return json_response(response)
 
     # -------------------------------------------------------------------------
     # POST /api/v1/plans/{plan_id}/reject
@@ -441,14 +497,28 @@ class PlansHandler(BaseHandler):
         execution_mode = body.get("execution_mode")
 
         try:
-            from aragora.pipeline.execution_bridge import get_execution_bridge
+            from aragora.pipeline.canonical_execution import (
+                execute_queued_plan,
+                queue_plan_execution,
+                schedule_coroutine,
+            )
 
-            bridge = get_execution_bridge()
-            bridge.schedule_execution(
-                plan_id,
+            launch = queue_plan_execution(
+                plan,
+                auth_context=user,
                 execution_mode=execution_mode,
             )
-        except (ImportError, RuntimeError, AttributeError) as exc:
+            schedule_coroutine(
+                execute_queued_plan(
+                    plan,
+                    execution_id=str(launch["execution_id"]),
+                    correlation_id=str(launch["correlation_id"]),
+                    auth_context=user,
+                    execution_mode=str(launch.get("execution_mode", "") or "").strip() or None,
+                ),
+                name=f"plan-execute-{plan_id[:8]}",
+            )
+        except (ImportError, RuntimeError, AttributeError, ValueError, TypeError) as exc:
             logger.error("Failed to schedule execution for plan %s: %s", plan_id, exc)
             return error_response(f"Failed to schedule execution: {exc}", 500)
 
@@ -460,6 +530,10 @@ class PlansHandler(BaseHandler):
                 "plan_id": plan_id,
                 "status": "executing",
                 "message": f"Execution of plan {plan_id} has been scheduled",
+                "run_id": launch.get("run_id"),
+                "execution_id": launch.get("execution_id"),
+                "correlation_id": launch.get("correlation_id"),
+                "record_status": launch.get("status"),
             },
             status=202,
         )

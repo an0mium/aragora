@@ -677,6 +677,8 @@ def check_runner_freshness(
     requested_runner_type: str | None = None,
     allowed_profiles: set[str] | None = None,
     rotation_interval_seconds: float = 1800.0,
+    verified_runner_target: int | None = None,
+    runner_probe_limit: int | None = None,
 ) -> RunnerFreshnessResult:
     """Verify that at least one registered runner is fresh and eligible.
 
@@ -710,6 +712,7 @@ def check_runner_freshness(
         )
 
     registry = LocalRunnerRegistry(path=registry_path) if registry_path else LocalRunnerRegistry()
+    allowed_profile_set = set(allowed_profiles or configured_claude_runner_profiles(env))
     discovered: list[Any] = []
     if requested_runner_type:
         discovered = refresh_discovered_runners(
@@ -718,8 +721,8 @@ def check_runner_freshness(
             owner_context=owner_context,
             env=env,
             repo_root=Path.cwd(),
+            profiles=allowed_profile_set or None,
         )
-    allowed_profile_set = set(allowed_profiles or configured_claude_runner_profiles(env))
     routing = registry.resolve_boss_routing(
         owner_context=owner_context,
         requested_runner_type=requested_runner_type,
@@ -735,18 +738,24 @@ def check_runner_freshness(
         "results": [],
     }
     if requested_runner_type == "claude":
-        try:
-            verified_target = max(
-                0, int(str((env or os.environ).get("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "2")))
-            )
-        except ValueError:
-            verified_target = 2
-        try:
-            probe_limit = max(
-                1, int(str((env or os.environ).get("ARAGORA_BOSS_RUNNER_PROBE_LIMIT", "1")))
-            )
-        except ValueError:
-            probe_limit = 1
+        if verified_runner_target is None:
+            try:
+                verified_target = max(
+                    0, int(str((env or os.environ).get("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "2")))
+                )
+            except ValueError:
+                verified_target = 2
+        else:
+            verified_target = max(0, int(verified_runner_target))
+        if runner_probe_limit is None:
+            try:
+                probe_limit = max(
+                    1, int(str((env or os.environ).get("ARAGORA_BOSS_RUNNER_PROBE_LIMIT", "1")))
+                )
+            except ValueError:
+                probe_limit = 1
+        else:
+            probe_limit = max(1, int(runner_probe_limit))
         selected_verified = len(
             [
                 item
@@ -1015,6 +1024,9 @@ class BossLoopConfig:
     default_reviewer_agent: str | None = None
     allowed_runner_profiles: set[str] | None = None
     runner_rotation_interval_seconds: float = 1800.0
+    verified_runner_target: int | None = None
+    runner_probe_limit: int | None = None
+    dispatch_max_ticks: int = 720
     max_parallel_dispatches: int = 1
 
     # Autonomy: when True, treat needs_human with a deliverable as completed
@@ -2027,6 +2039,8 @@ class BossLoop:
             requested_runner_type=self._requested_runner_type_for_freshness(),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
+            verified_runner_target=self.config.verified_runner_target,
+            runner_probe_limit=self.config.runner_probe_limit,
         )
         freshness_dict = freshness.to_dict() if hasattr(freshness, "to_dict") else dict(freshness)
 
@@ -2871,7 +2885,7 @@ class BossLoop:
                 spec,
                 target_branch=self.config.target_branch,
                 budget_limit_usd=self.config.budget_limit_usd,
-                max_ticks=360,
+                max_ticks=self.config.dispatch_max_ticks,
                 wait_for_completion=self.config.max_iterations > 1,
                 default_target_agent=requested_target_agent,
                 default_reviewer_agent=self.config.default_reviewer_agent,

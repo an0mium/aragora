@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -84,6 +84,12 @@ def _make_plan(**overrides: Any) -> DecisionPlan:
     return DecisionPlan(**defaults)
 
 
+def _close_scheduled_coroutine(coro, *, name: str | None = None):
+    """Close scheduled background coroutines in tests to avoid warnings."""
+    coro.close()
+    return {"scheduled": name}
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -123,6 +129,22 @@ def http_post_factory():
         return MockHTTPHandler(body=body, method="POST")
 
     return _create
+
+
+@pytest.fixture(autouse=True)
+def patch_plan_backbone_helpers():
+    """Keep plan handler tests isolated from the shared RunLedger store."""
+    with (
+        patch(
+            "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+            return_value="run-plan-1",
+        ),
+        patch(
+            "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ),
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +398,36 @@ class TestCreatePlan:
         body = _body(result)
         assert body["debate_id"] == "dbt-001"
         assert body["task"] == "Design rate limiter"
+        assert body["run_id"] == "run-plan-1"
         mock_store.create.assert_called_once()
+
+    def test_create_plan_scrubs_reserved_backbone_metadata(
+        self, handler, mock_store, http_post_factory
+    ):
+        http_handler = http_post_factory(
+            body={
+                "debate_id": "dbt-001",
+                "task": "Design rate limiter",
+                "metadata": {
+                    "custom": "keep-me",
+                    "source_surface": "spoofed",
+                    "source_id": "spoofed-id",
+                    "backbone_run_id": "run-spoofed",
+                    "backbone_entrypoint": "spoofed.entrypoint",
+                },
+            }
+        )
+
+        with patch("aragora.server.handlers.plans._fire_plan_notification"):
+            result = handler.handle_post("/api/v1/plans", {}, http_handler)
+
+        assert _status(result) == 201
+        stored_plan = mock_store.create.call_args.args[0]
+        assert stored_plan.metadata["custom"] == "keep-me"
+        assert "source_surface" not in stored_plan.metadata
+        assert "source_id" not in stored_plan.metadata
+        assert "backbone_run_id" not in stored_plan.metadata
+        assert "backbone_entrypoint" not in stored_plan.metadata
 
     def test_create_plan_missing_body(self, handler, mock_store):
         http_handler = MockHTTPHandler(method="POST")
@@ -649,17 +700,29 @@ class TestApprovePlan:
 
         http_handler = http_post_factory(body={"auto_execute": True})
 
-        mock_bridge = MagicMock()
-        with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            with patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=mock_bridge,
-            ):
-                result = handler.handle_post("/api/v1/plans/dp-auto/approve", {}, http_handler)
+        launch = {
+            "run_id": "run-approve-1",
+            "execution_id": "exec-approve-1",
+            "correlation_id": "corr-approve-1",
+            "status": "queued",
+            "execution_mode": "workflow",
+        }
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch("aragora.pipeline.canonical_execution.queue_plan_execution", return_value=launch),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=_close_scheduled_coroutine,
+            ),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-auto/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
         assert body["execution_scheduled"] is True
+        assert body["run_id"] == "run-approve-1"
+        assert body["execution_id"] == "exec-approve-1"
+        assert body["correlation_id"] == "corr-approve-1"
 
     def test_approve_plan_auto_execute_failure_still_approves(
         self, handler, mock_store, http_post_factory
@@ -669,13 +732,14 @@ class TestApprovePlan:
 
         http_handler = http_post_factory(body={"auto_execute": True})
 
-        with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            # The import inside the handler method will raise, caught by the handler
-            with patch.dict(
-                "sys.modules",
-                {"aragora.pipeline.execution_bridge": None},
-            ):
-                result = handler.handle_post("/api/v1/plans/dp-autofail/approve", {}, http_handler)
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                side_effect=RuntimeError("queue unavailable"),
+            ),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-autofail/approve", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 200
@@ -837,18 +901,30 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        mock_bridge = MagicMock()
-        with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            with patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=mock_bridge,
-            ):
-                result = handler.handle_post("/api/v1/plans/dp-exec/execute", {}, http_handler)
+        launch = {
+            "run_id": "run-exec-1",
+            "execution_id": "exec-exec-1",
+            "correlation_id": "corr-exec-1",
+            "status": "queued",
+            "execution_mode": "workflow",
+        }
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch("aragora.pipeline.canonical_execution.queue_plan_execution", return_value=launch),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=_close_scheduled_coroutine,
+            ),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-exec/execute", {}, http_handler)
 
         body = _body(result)
         assert _status(result) == 202
         assert body["status"] == "executing"
         assert body["plan_id"] == "dp-exec"
+        assert body["run_id"] == "run-exec-1"
+        assert body["execution_id"] == "exec-exec-1"
+        assert body["correlation_id"] == "corr-exec-1"
 
     def test_execute_plan_not_found(self, handler, mock_store, http_post_factory):
         mock_store.get.return_value = None
@@ -908,8 +984,8 @@ class TestExecutePlan:
         http_handler = http_post_factory(body={})
 
         with patch(
-            "aragora.pipeline.execution_bridge.get_execution_bridge",
-            side_effect=RuntimeError("Bridge unavailable"),
+            "aragora.pipeline.canonical_execution.queue_plan_execution",
+            side_effect=RuntimeError("Queue unavailable"),
         ):
             result = handler.handle_post("/api/v1/plans/dp-bridgefail/execute", {}, http_handler)
 
@@ -921,16 +997,32 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={"execution_mode": "dry_run"})
 
-        mock_bridge = MagicMock()
-        with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            with patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=mock_bridge,
-            ):
-                result = handler.handle_post("/api/v1/plans/dp-mode/execute", {}, http_handler)
+        launch = {
+            "run_id": "run-mode-1",
+            "execution_id": "exec-mode-1",
+            "correlation_id": "corr-mode-1",
+            "status": "queued",
+            "execution_mode": "dry_run",
+        }
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=launch,
+            ) as mock_queue,
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=_close_scheduled_coroutine,
+            ),
+        ):
+            result = handler.handle_post("/api/v1/plans/dp-mode/execute", {}, http_handler)
 
         assert _status(result) == 202
-        mock_bridge.schedule_execution.assert_called_once_with("dp-mode", execution_mode="dry_run")
+        mock_queue.assert_called_once_with(
+            plan,
+            auth_context=ANY,
+            execution_mode="dry_run",
+        )
 
     def test_execute_plan_unversioned(self, handler, mock_store, http_post_factory):
         plan = _make_plan(id="dp-uexec", status=PlanStatus.APPROVED)
@@ -938,13 +1030,24 @@ class TestExecutePlan:
 
         http_handler = http_post_factory(body={})
 
-        mock_bridge = MagicMock()
-        with patch("aragora.server.handlers.plans._fire_plan_notification"):
-            with patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=mock_bridge,
-            ):
-                result = handler.handle_post("/api/plans/dp-uexec/execute", {}, http_handler)
+        with (
+            patch("aragora.server.handlers.plans._fire_plan_notification"),
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value={
+                    "run_id": "run-uexec-1",
+                    "execution_id": "exec-uexec-1",
+                    "correlation_id": "corr-uexec-1",
+                    "status": "queued",
+                    "execution_mode": "workflow",
+                },
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=_close_scheduled_coroutine,
+            ),
+        ):
+            result = handler.handle_post("/api/plans/dp-uexec/execute", {}, http_handler)
 
         assert _status(result) == 202
 

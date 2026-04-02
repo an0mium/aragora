@@ -259,16 +259,33 @@ class TestPersistPlan:
         """Plan is wrapped and stored successfully."""
         mock_plan = MagicMock()
         mock_decision_plan = MagicMock()
+        mock_decision_plan.id = "plan-123"
+        mock_decision_plan.metadata = {}
 
         with (
             patch("aragora.pipeline.executor.store_plan") as mock_store,
             patch("aragora.pipeline.decision_plan.DecisionPlanFactory") as mock_factory,
+            patch(
+                "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+                return_value="run-123",
+            ) as mock_seed,
+            patch(
+                "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ) as mock_sync,
         ):
             mock_factory.from_implement_plan.return_value = mock_decision_plan
             _persist_plan(mock_plan, "debate-001")
 
         mock_factory.from_implement_plan.assert_called_once_with(mock_plan, debate_id="debate-001")
+        mock_seed.assert_called_once_with(
+            mock_decision_plan,
+            auth_context=None,
+            source_surface="debates_decision_integrity_plan_only",
+            source_id="debate-001",
+        )
         mock_store.assert_called_once_with(mock_decision_plan)
+        mock_sync.assert_called_once_with(mock_decision_plan, append_event=False)
 
     def test_exception_handled_gracefully(self):
         """Store exception does not propagate."""

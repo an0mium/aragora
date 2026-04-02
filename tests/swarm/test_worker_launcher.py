@@ -1283,6 +1283,10 @@ class TestSnapshotProgress:
 
         assert snapshot["stdout_tail"] == long_stdout[-4000:]
         assert snapshot["stderr_tail"] == long_stderr[-4000:]
+        assert snapshot["stdout_size"] == len(long_stdout)
+        assert snapshot["stderr_size"] == len(long_stderr)
+        assert snapshot["stdout_mtime_ns"] > 0
+        assert snapshot["stderr_mtime_ns"] > 0
 
 
 class TestCollectChangedPaths:

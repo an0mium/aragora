@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from aragora.debate.hooks import HookManager, HookType, HookPriority, create_hook_manager
 from aragora.debate.hook_handlers import HookHandlerRegistry, create_hook_handler_registry
@@ -20,6 +21,76 @@ class TestHookHandlerRegistry:
         registry = HookHandlerRegistry(hook_manager=manager, subsystems={})
         assert registry.registered_count == 0
         assert not registry.is_registered
+
+
+class TestDecisionPlanAutoCreateHandlers:
+    """Test POST_DEBATE auto-plan creation wiring."""
+
+    @pytest.mark.asyncio
+    async def test_auto_plan_creation_seeds_backbone_run_and_emits_event(self) -> None:
+        manager = create_hook_manager()
+        arena_config = SimpleNamespace(
+            auto_create_plan=True,
+            plan_min_confidence=0.7,
+            plan_approval_mode="risk_based",
+            plan_budget_limit_usd=5.0,
+        )
+        stream_emitter = Mock()
+        create_hook_handler_registry(
+            manager,
+            arena_config=arena_config,
+            stream_emitter=stream_emitter,
+        )
+
+        mock_plan = Mock()
+        mock_plan.id = "plan-123"
+        mock_plan.debate_id = "debate-123"
+        mock_plan.status = Mock(value="awaiting_approval")
+        mock_plan.risk_register = None
+
+        result = SimpleNamespace(
+            confidence=0.95,
+            consensus_reached=True,
+            debate_id="debate-123",
+            task="Choose a delivery plan",
+        )
+        ctx = SimpleNamespace(
+            debate_id="debate-123",
+            auth_context=SimpleNamespace(user_id="user-123"),
+        )
+
+        with (
+            patch(
+                "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+                return_value=mock_plan,
+            ),
+            patch(
+                "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+                return_value="run-hook-1",
+            ) as mock_seed,
+            patch("aragora.pipeline.executor.store_plan") as mock_store,
+            patch(
+                "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ) as mock_sync,
+        ):
+            await manager.trigger(HookType.POST_DEBATE, ctx=ctx, result=result)
+
+        mock_seed.assert_called_once_with(
+            mock_plan,
+            auth_context=ctx.auth_context,
+            source_surface="hook_auto_plan_creation",
+            source_id="debate-123",
+        )
+        mock_store.assert_called_once_with(mock_plan)
+        mock_sync.assert_called_once_with(mock_plan, append_event=False)
+        stream_emitter.emit.assert_called_once()
+        event_name, payload = stream_emitter.emit.call_args.args
+        assert event_name == "decision_plan_created"
+        assert payload["plan_id"] == "plan-123"
+        assert payload["run_id"] == "run-hook-1"
+        assert result.plan_id == "plan-123"
+        assert result.decision_plan_run_id == "run-hook-1"
 
     def test_register_all_empty(self) -> None:
         """register_all with no subsystems registers nothing."""

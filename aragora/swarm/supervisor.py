@@ -1007,7 +1007,10 @@ class SwarmSupervisor:
             "dispatched_at",
             "last_observed_at",
             "last_progress_at",
+            "first_output_at",
+            "last_output_at",
             "progress_fingerprint",
+            "output_fingerprint",
         ):
             item.pop(key, None)
 
@@ -1163,7 +1166,10 @@ class SwarmSupervisor:
             "scope_violation",
             "last_observed_at",
             "last_progress_at",
+            "first_output_at",
+            "last_output_at",
             "progress_fingerprint",
+            "output_fingerprint",
         ):
             item.pop(key, None)
         item.pop("blockers", None)
@@ -1368,10 +1374,19 @@ class SwarmSupervisor:
                 item["dispatched_at"] = dispatch_time
                 item["last_observed_at"] = dispatch_time
                 item["last_progress_at"] = dispatch_time
+                item["first_output_at"] = None
+                item["last_output_at"] = None
                 item["progress_fingerprint"] = {
                     "head_sha": worker.initial_head,
                     "changed_paths": [],
                     "diff_lines": 0,
+                }
+                item["output_fingerprint"] = {
+                    "stdout_size": 0,
+                    "stderr_size": 0,
+                    "stdout_mtime_ns": 0,
+                    "stderr_mtime_ns": 0,
+                    "has_output": False,
                 }
                 # Persist worker PID in lease metadata so reap_stale_leases
                 # can detect dead processes even if this supervisor dies.
@@ -1559,6 +1574,15 @@ class SwarmSupervisor:
                 stdout=str(progress.get("stdout_tail", "")),
                 stderr=str(progress.get("stderr_tail", "")),
             ):
+                changed = True
+            output_fingerprint = self._output_fingerprint(progress)
+            if output_fingerprint != self._output_fingerprint(item.get("output_fingerprint")):
+                item["output_fingerprint"] = output_fingerprint
+                if output_fingerprint["has_output"]:
+                    if not item.get("first_output_at"):
+                        item["first_output_at"] = observed_at
+                    item["last_output_at"] = observed_at
+                    item["last_progress_at"] = observed_at
                 changed = True
             progress_fingerprint = self._progress_fingerprint(progress)
             if progress_fingerprint != self._progress_fingerprint(item.get("progress_fingerprint")):
@@ -2926,7 +2950,10 @@ class SwarmSupervisor:
             "dispatched_at",
             "last_observed_at",
             "last_progress_at",
+            "first_output_at",
+            "last_output_at",
             "progress_fingerprint",
+            "output_fingerprint",
             "failure_reason",
             "blocking_question",
             "blocker",
@@ -3737,6 +3764,21 @@ class SwarmSupervisor:
                 str(path).strip() for path in payload.get("changed_paths", []) if str(path).strip()
             ),
             "diff_lines": int(payload.get("diff_lines", 0) or 0),
+        }
+
+    @staticmethod
+    def _output_fingerprint(source: Any) -> dict[str, Any]:
+        payload = dict(source or {})
+        stdout_tail = str(payload.get("stdout_tail", "")).strip()
+        stderr_tail = str(payload.get("stderr_tail", "")).strip()
+        stdout_size = int(payload.get("stdout_size", 0) or 0)
+        stderr_size = int(payload.get("stderr_size", 0) or 0)
+        return {
+            "stdout_size": stdout_size,
+            "stderr_size": stderr_size,
+            "stdout_mtime_ns": int(payload.get("stdout_mtime_ns", 0) or 0),
+            "stderr_mtime_ns": int(payload.get("stderr_mtime_ns", 0) or 0),
+            "has_output": bool(stdout_tail or stderr_tail or stdout_size or stderr_size),
         }
 
     def _no_progress_timeout_seconds(self) -> float:

@@ -637,6 +637,69 @@ class TestRunnerFreshness:
         assert result.fresh is True
         inspector_factory.assert_called_with("claude", env=ANY, profile="max-01")
 
+    def test_runner_freshness_uses_explicit_profile_pool_and_probe_policy(self, tmp_path):
+        registry_path = tmp_path / "runners.json"
+        now = datetime.now(UTC).isoformat()
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-01",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        class _Inspector:
+            def inspect(self) -> MagicMock:
+                inspection = MagicMock()
+                inspection.available = True
+                inspection.auth_mode = "subscription"
+                inspection.runner_id = "claude-runner-1"
+                inspection.to_dict.return_value = {
+                    "runner_id": "claude-runner-1",
+                    "profile": "max-01",
+                    "available": True,
+                    "auth_mode": "subscription",
+                }
+                return inspection
+
+        with (
+            patch(
+                "aragora.swarm.runner_registry.refresh_discovered_runners",
+                return_value=[],
+            ) as refresh_mock,
+            patch("aragora.swarm.runner_registry.make_runner_inspector", return_value=_Inspector()),
+        ):
+            result = check_runner_freshness(
+                freshness_ttl_seconds=3600.0,
+                registry_path=str(registry_path),
+                env={"ARAGORA_USER_ID": "user-1", "ARAGORA_WORKSPACE_ID": "ws-1"},
+                requested_runner_type="claude",
+                allowed_profiles={"max-01"},
+                verified_runner_target=0,
+                runner_probe_limit=4,
+            )
+
+        assert result.fresh is True
+        assert result.details["probe"]["verified_target"] == 0
+        refresh_mock.assert_called_once()
+        assert refresh_mock.call_args.kwargs["profiles"] == {"max-01"}
+
     def test_runner_freshness_probes_toward_verified_target(self, tmp_path, monkeypatch):
         registry_path = tmp_path / "runners.json"
         now = datetime.now(UTC).isoformat()
@@ -2064,6 +2127,31 @@ async def test_dispatch_issue_preserves_pending_handoff_on_pre_run_failure() -> 
         "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
         "codex",
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_uses_configured_dispatch_max_ticks() -> None:
+    issue = _make_issue(1706, "Use configured max ticks")
+    loop = BossLoop(config=_boss_config(max_iterations=1, dispatch_max_ticks=777))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert dispatch_mock.await_args.kwargs["max_ticks"] == 777
 
 
 @pytest.mark.asyncio

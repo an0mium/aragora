@@ -670,11 +670,20 @@ def discover_runner_inspections(
     config: LaunchConfig | None = None,
     env: dict[str, str] | None = None,
     repo_root: str | Path | None = None,
+    profiles: set[str] | list[str] | tuple[str, ...] | None = None,
 ) -> list[RunnerInspection]:
     normalized = _normalized_runner_type(runner_type)
     if normalized == "claude":
-        profiles = configured_claude_runner_profiles(env)
-        if profiles:
+        explicit_profiles: list[str] = []
+        if profiles is not None:
+            candidates = sorted(profiles) if isinstance(profiles, set) else list(profiles)
+            for item in candidates:
+                normalized_profile = _text(item)
+                if normalized_profile and normalized_profile not in explicit_profiles:
+                    explicit_profiles.append(normalized_profile)
+        else:
+            explicit_profiles = configured_claude_runner_profiles(env)
+        if explicit_profiles:
             return [
                 make_runner_inspector(
                     normalized,
@@ -683,7 +692,7 @@ def discover_runner_inspections(
                     profile=profile,
                     repo_root=repo_root,
                 ).inspect()
-                for profile in profiles
+                for profile in explicit_profiles
             ]
     return [
         make_runner_inspector(
@@ -703,6 +712,7 @@ def refresh_discovered_runners(
     config: LaunchConfig | None = None,
     env: dict[str, str] | None = None,
     repo_root: str | Path | None = None,
+    profiles: set[str] | list[str] | tuple[str, ...] | None = None,
 ) -> list[RunnerInspection]:
     if owner_context is None:
         return []
@@ -711,6 +721,7 @@ def refresh_discovered_runners(
         config=config,
         env=env,
         repo_root=repo_root,
+        profiles=profiles,
     )
     for inspection in inspections:
         registry.refresh(

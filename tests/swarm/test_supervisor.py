@@ -4195,7 +4195,8 @@ async def test_collect_finished_results_persists_log_tails_without_git_progress(
     assert updated is not None
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "dispatched"
-    assert work_order["last_progress_at"] == old_progress
+    assert work_order["last_progress_at"] != old_progress
+    assert work_order["first_output_at"] == work_order["last_output_at"]
     assert work_order["stdout_tail"] == "still validating\n"
     assert work_order["stderr_tail"] == "warning line\n"
 

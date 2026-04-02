@@ -938,8 +938,6 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     no_dispatch = bool(getattr(args, "no_dispatch", False))
     watch = bool(getattr(args, "watch", False))
     claude_runner_profiles = _optional_text(getattr(args, "claude_runner_profiles", None))
-    if claude_runner_profiles:
-        os.environ["ARAGORA_CLAUDE_RUNNER_PROFILES"] = claude_runner_profiles
     allowed_runner_profiles = _parse_csv_set(claude_runner_profiles)
     runner_rotation_interval = float(getattr(args, "runner_rotation_interval", 1800.0) or 1800.0)
     interval_seconds = float(getattr(args, "interval_seconds", 5.0) or 5.0)
@@ -1014,6 +1012,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 runner_type,
                 env=os.environ,
                 repo_root=Path.cwd(),
+                profiles=allowed_runner_profiles or None,
             )
             owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             payloads = [
@@ -1035,6 +1034,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 runner_type,
                 env=os.environ,
                 repo_root=Path.cwd(),
+                profiles=allowed_runner_profiles or None,
             )
             owner_context = authorization_context_with_defaults(repo_root=Path.cwd())
             payloads = [
@@ -1061,12 +1061,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     owner_context=owner_context,
                     env=os.environ,
                     repo_root=Path.cwd(),
+                    profiles=allowed_runner_profiles or None,
                 )
                 if owner_context is not None
                 else discover_runner_inspections(
                     runner_type,
                     env=os.environ,
                     repo_root=Path.cwd(),
+                    profiles=allowed_runner_profiles or None,
                 )
             )
             payload = _build_runner_report_payload(
@@ -1086,6 +1088,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 runner_type,
                 env=os.environ,
                 repo_root=Path.cwd(),
+                profiles=allowed_runner_profiles or None,
             )
             routing_before = (
                 registry.resolve_boss_routing(
@@ -1137,12 +1140,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     owner_context=owner_context,
                     env=os.environ,
                     repo_root=Path.cwd(),
+                    profiles=allowed_runner_profiles or None,
                 )
                 if owner_context is not None
                 else discover_runner_inspections(
                     runner_type,
                     env=os.environ,
                     repo_root=Path.cwd(),
+                    profiles=allowed_runner_profiles or None,
                 )
             )
             routing_before = (
@@ -1207,6 +1212,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 runner_type,
                 env=os.environ,
                 repo_root=Path.cwd(),
+                profiles=allowed_runner_profiles or None,
             )
             inspection_payloads = [item.to_dict() for item in inspections]
             payload = (

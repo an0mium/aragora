@@ -124,7 +124,7 @@ def test_full_auto_continues_when_needs_human_has_deliverable() -> None:
     ):
         status = asyncio.run(loop._run_iteration(1))
 
-    assert status.worker_status == "completed"
+    assert status.worker_status == "needs_human"
     assert status.stop_reason is None
     assert "Auto-continuing" in status.next_actions[0]
 
@@ -158,7 +158,7 @@ def test_full_auto_skips_needs_human_without_deliverable() -> None:
 
 def test_run_iteration_passes_profile_pool_and_rotation_to_freshness_checker() -> None:
     feed = MagicMock()
-    feed.fetch.return_value = []
+    feed.fetch.return_value = [_issue()]
     captured: dict[str, object] = {}
 
     def _freshness_checker(**kwargs):
@@ -172,16 +172,21 @@ def test_run_iteration_passes_profile_pool_and_rotation_to_freshness_checker() -
             default_target_agent="claude",
             allowed_runner_profiles={"max-02", "max-03"},
             runner_rotation_interval_seconds=900.0,
+            verified_runner_target=0,
+            runner_probe_limit=3,
         ),
         issue_feed=feed,
         freshness_checker=_freshness_checker,
     )
 
-    asyncio.run(loop._run_iteration(1))
+    with patch.object(loop, "_dispatch_issue", AsyncMock(return_value={"status": "completed"})):
+        asyncio.run(loop._run_iteration(1))
 
     assert captured["requested_runner_type"] == "claude"
     assert captured["allowed_profiles"] == {"max-02", "max-03"}
     assert captured["rotation_interval_seconds"] == 900.0
+    assert captured["verified_runner_target"] == 0
+    assert captured["runner_probe_limit"] == 3
 
 
 def test_boss_loop_can_dispatch_multiple_issues_in_one_iteration() -> None:

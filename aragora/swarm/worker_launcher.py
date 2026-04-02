@@ -503,14 +503,34 @@ class WorkerLauncher:
             "diff_lines": 0,
             "stdout_tail": "",
             "stderr_tail": "",
+            "stdout_size": 0,
+            "stderr_size": 0,
+            "stdout_mtime_ns": 0,
+            "stderr_mtime_ns": 0,
         }
         if not worktree_path:
             return snapshot
 
         head_sha = await self._git_output(worktree_path, "rev-parse", "HEAD")
         diff = await self._collect_diff(worktree_path)
+        stdout_path = Path(worktree_path) / ".swarm_worker_stdout.log"
+        stderr_path = Path(worktree_path) / ".swarm_worker_stderr.log"
         stdout_tail = self._tail_text(self._read_log_file(worktree_path, "stdout"))
         stderr_tail = self._tail_text(self._read_log_file(worktree_path, "stderr"))
+        try:
+            stdout_stat = stdout_path.stat()
+            stdout_size = int(stdout_stat.st_size)
+            stdout_mtime_ns = int(stdout_stat.st_mtime_ns)
+        except OSError:
+            stdout_size = 0
+            stdout_mtime_ns = 0
+        try:
+            stderr_stat = stderr_path.stat()
+            stderr_size = int(stderr_stat.st_size)
+            stderr_mtime_ns = int(stderr_stat.st_mtime_ns)
+        except OSError:
+            stderr_size = 0
+            stderr_mtime_ns = 0
         changed_paths = await self._collect_changed_paths(
             worktree_path,
             initial_head=initial_head,
@@ -523,6 +543,10 @@ class WorkerLauncher:
                 "diff_lines": diff.count("\n") if diff else 0,
                 "stdout_tail": stdout_tail,
                 "stderr_tail": stderr_tail,
+                "stdout_size": stdout_size,
+                "stderr_size": stderr_size,
+                "stdout_mtime_ns": stdout_mtime_ns,
+                "stderr_mtime_ns": stderr_mtime_ns,
             }
         )
         return snapshot

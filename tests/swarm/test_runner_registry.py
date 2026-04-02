@@ -356,6 +356,40 @@ class TestClaudeRunnerInspector:
 
         assert [item.profile for item in inspections] == ["max-01", "max-02"]
 
+    def test_discover_runner_inspections_prefers_explicit_profiles(self, monkeypatch) -> None:
+        def _factory(
+            runner_type: str,
+            *,
+            config=None,
+            env=None,
+            profile=None,
+            repo_root=None,
+        ):
+            class _Inspector:
+                def inspect(self_nonlocal) -> CodexRunnerInspection:
+                    return CodexRunnerInspection(
+                        runner_id=f"{runner_type}:{profile}",
+                        runner_type=runner_type,
+                        availability="available",
+                        available=True,
+                        auth_mode="subscription",
+                        command_path="/tmp/fake",
+                        capabilities={"supports_exec": True},
+                        owner_binding={},
+                        profile=profile,
+                    )
+
+            return _Inspector()
+
+        monkeypatch.setattr("aragora.swarm.runner_registry.make_runner_inspector", _factory)
+        inspections = discover_runner_inspections(
+            "claude",
+            env={"ARAGORA_CLAUDE_RUNNER_PROFILES": "max-09,max-10"},
+            profiles={"max-01", "max-02"},
+        )
+
+        assert [item.profile for item in inspections] == ["max-01", "max-02"]
+
 
 class TestLocalRunnerRegistry:
     def test_registration_persists_owner_binding_and_freshness(self, tmp_path: Path) -> None:

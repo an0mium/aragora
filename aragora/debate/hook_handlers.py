@@ -1204,6 +1204,10 @@ class HookHandlerRegistry:
                     DecisionPlanFactory,
                 )
                 from aragora.pipeline.executor import store_plan
+                from aragora.server.decision_integrity_utils import (
+                    ensure_decision_plan_backbone_run,
+                    sync_decision_plan_backbone_receipt,
+                )
 
                 # Get approval mode from config
                 approval_mode = ApprovalMode.RISK_BASED
@@ -1225,9 +1229,22 @@ class HookHandlerRegistry:
                     approval_mode=approval_mode,
                     metadata={"auto_created": True},
                 )
+                debate_id = str(
+                    getattr(ctx, "debate_id", None)
+                    or getattr(result, "debate_id", None)
+                    or getattr(plan, "debate_id", "")
+                    or ""
+                ).strip()
+                run_id = ensure_decision_plan_backbone_run(
+                    plan,
+                    auth_context=getattr(ctx, "auth_context", None) if ctx else None,
+                    source_surface="hook_auto_plan_creation",
+                    source_id=debate_id or plan.id,
+                )
 
                 # Store it
                 store_plan(plan)
+                sync_decision_plan_backbone_receipt(plan, append_event=False)
 
                 # Schedule async KM enrichment (best-effort, non-blocking)
                 import asyncio
@@ -1282,6 +1299,7 @@ class HookHandlerRegistry:
                             {
                                 "plan_id": plan.id,
                                 "debate_id": debate_id,
+                                "run_id": run_id,
                                 "status": plan.status.value,
                                 "requires_approval": plan.status.value == "awaiting_approval",
                                 "confidence": confidence,
@@ -1299,6 +1317,7 @@ class HookHandlerRegistry:
                 # Attach plan_id to result for downstream consumers
                 if hasattr(result, "__dict__"):
                     result.plan_id = plan.id
+                    result.decision_plan_run_id = run_id
 
             except ImportError as e:
                 logger.debug("Decision plan creation unavailable: %s", e)
