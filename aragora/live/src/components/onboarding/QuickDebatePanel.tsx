@@ -73,13 +73,17 @@ export function QuickDebatePanel() {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {
-        const res = await fetch(
-          `${apiBase}/api/v1/debates/${debateId}/status`
-        );
+        const res = await fetch(`${apiBase}/api/v1/debates/${debateId}`);
         if (!res.ok) continue;
         const data = await res.json();
         if (data.status === 'completed') {
-          setResult(data.verdict || data.final_answer || 'Debate completed.');
+          setResult(
+            data.verdict ||
+              data.final_answer ||
+              data.consensus?.final_answer ||
+              data.consensus?.conclusion ||
+              'Debate completed.'
+          );
           setDebateStatus('completed');
           updateProgress({ firstDebateCompleted: true, receiptViewed: true });
           return;
