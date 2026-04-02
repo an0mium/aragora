@@ -15,6 +15,8 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from aragora.core_types import Critique, DebateResult, Vote
@@ -982,6 +984,76 @@ class TestRecordPlanOutcome:
         call_kwargs = mock_memory.store.call_args[1]
         # Failure with ok verification → base importance 0.8
         assert call_kwargs["importance"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_updates_debate_memory_outcome_via_async_wrapper(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        result = _make_result()
+        plan = DecisionPlanFactory.from_debate_result(result)
+
+        mock_entry = MagicMock()
+        mock_entry.id = "mem-async"
+        mock_memory = SimpleNamespace(
+            store=AsyncMock(return_value=mock_entry),
+            update_outcome_async=AsyncMock(return_value=0.25),
+            update_outcome=MagicMock(),
+        )
+
+        outcome = PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=True,
+            tasks_completed=3,
+            tasks_total=4,
+            verification_passed=4,
+            verification_total=4,
+        )
+
+        await record_plan_outcome(plan, outcome, continuum_memory=mock_memory)
+
+        mock_memory.update_outcome_async.assert_awaited_once_with(
+            id=f"debate:{plan.debate_id}",
+            success=True,
+            agent_prediction_error=pytest.approx(0.25),
+        )
+        mock_memory.update_outcome.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_updates_debate_memory_outcome_with_sync_fallback(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        result = _make_result()
+        plan = DecisionPlanFactory.from_debate_result(result)
+
+        mock_entry = MagicMock()
+        mock_entry.id = "mem-sync"
+        mock_update = MagicMock(return_value=0.75)
+        mock_memory = SimpleNamespace(
+            store=AsyncMock(return_value=mock_entry),
+            update_outcome_async=None,
+            update_outcome=mock_update,
+        )
+
+        outcome = PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=False,
+            tasks_completed=1,
+            tasks_total=4,
+            verification_passed=1,
+            verification_total=4,
+        )
+
+        await record_plan_outcome(plan, outcome, continuum_memory=mock_memory)
+
+        mock_update.assert_called_once_with(
+            id=f"debate:{plan.debate_id}",
+            success=False,
+            agent_prediction_error=pytest.approx(0.75),
+        )
 
     @pytest.mark.asyncio
     async def test_writes_to_knowledge_mound(self):

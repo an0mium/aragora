@@ -6,6 +6,7 @@ Stability: STABLE
 
 from __future__ import annotations
 
+import inspect
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -190,12 +191,13 @@ async def record_plan_outcome(
             # Update the original debate memory entry with outcome data
             if plan.debate_result and plan.debate_result.debate_id:
                 try:
-                    continuum_memory.update_outcome(
+                    await _update_debate_memory_outcome(
+                        continuum_memory,
                         id=f"debate:{plan.debate_result.debate_id}",
                         success=outcome.success,
                         agent_prediction_error=1.0 - outcome.completion_rate,
                     )
-                except (KeyError, ValueError, OSError):
+                except (KeyError, ValueError, OSError, RuntimeError, TypeError):
                     logger.debug("Failed to update debate memory outcome", exc_info=True)
 
         except (OSError, ConnectionError, RuntimeError, TypeError, ValueError, AttributeError) as e:
@@ -288,6 +290,36 @@ async def record_plan_outcome(
     plan.memory_written = len(results["errors"]) == 0
 
     return results
+
+
+async def _update_debate_memory_outcome(
+    continuum_memory: Any,
+    *,
+    id: str,
+    success: bool,
+    agent_prediction_error: float,
+) -> None:
+    """Prefer async outcome updates but keep sync ContinuumMemory compatibility."""
+    update_async = getattr(continuum_memory, "update_outcome_async", None)
+    if callable(update_async):
+        await update_async(
+            id=id,
+            success=success,
+            agent_prediction_error=agent_prediction_error,
+        )
+        return
+
+    update_sync = getattr(continuum_memory, "update_outcome", None)
+    if not callable(update_sync):
+        return
+
+    maybe_awaitable = update_sync(
+        id=id,
+        success=success,
+        agent_prediction_error=agent_prediction_error,
+    )
+    if inspect.isawaitable(maybe_awaitable):
+        await maybe_awaitable
 
 
 def _extract_debate_content(debate_result: Any) -> str:
