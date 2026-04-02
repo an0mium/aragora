@@ -45,25 +45,40 @@ class LearningHandler(SecureHandler):
     Requires authentication and memory:read permission (RBAC).
     """
 
+    _LEGACY_PREFIX = "/api/learning"
+    _VERSIONED_PREFIX = "/api/v1/learning"
+
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
-    ROUTES = [
+    _VERSIONED_ROUTES = [
         "/api/v1/learning/cycles",
         "/api/v1/learning/patterns",
         "/api/v1/learning/agent-evolution",
         "/api/v1/learning/insights",
     ]
+    ROUTES = _VERSIONED_ROUTES + [
+        route.replace("/api/v1/learning", "/api/learning", 1) for route in _VERSIONED_ROUTES
+    ]
+
+    @classmethod
+    def _normalize_path(cls, path: str) -> str:
+        """Map legacy unversioned learning aliases to the canonical v1 path."""
+        if path == cls._LEGACY_PREFIX or path.startswith(f"{cls._LEGACY_PREFIX}/"):
+            return f"{cls._VERSIONED_PREFIX}{path[len(cls._LEGACY_PREFIX):]}"
+        return path
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        return self._normalize_path(path) in self._VERSIONED_ROUTES
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
+        path = self._normalize_path(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _learning_limiter.is_allowed(client_ip):

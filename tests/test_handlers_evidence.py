@@ -199,6 +199,10 @@ class TestCanHandle:
         """Test handler matches /api/evidence."""
         assert evidence_handler.can_handle("/api/v1/evidence")
 
+    def test_can_handle_legacy_evidence_root(self, evidence_handler):
+        """Test handler also matches the legacy unversioned alias."""
+        assert evidence_handler.can_handle("/api/evidence")
+
     def test_can_handle_evidence_id(self, evidence_handler):
         """Test handler matches /api/evidence/:id."""
         assert evidence_handler.can_handle("/api/v1/evidence/ev-123")
@@ -242,6 +246,14 @@ class TestListEvidence:
         assert result.status_code == 200
         assert "evidence" in parse_body(result)
         assert "total" in parse_body(result)
+
+    def test_list_evidence_legacy_alias(self, evidence_handler, mock_evidence_store, mock_handler):
+        """Test the legacy unversioned alias dispatches to the same handler."""
+        result = evidence_handler.handle("/api/evidence", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        assert "evidence" in parse_body(result)
 
     def test_list_evidence_with_pagination(
         self, evidence_handler, mock_evidence_store, mock_handler

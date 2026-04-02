@@ -212,6 +212,10 @@ class TestLearningRouting:
         """Test handler recognizes patterns route."""
         assert handler.can_handle("/api/v1/learning/patterns")
 
+    def test_can_handle_legacy_patterns_route(self, handler):
+        """Test handler recognizes the legacy unversioned alias."""
+        assert handler.can_handle("/api/learning/patterns")
+
     def test_can_handle_evolution_route(self, handler):
         """Test handler recognizes agent-evolution route."""
         assert handler.can_handle("/api/v1/learning/agent-evolution")
@@ -335,6 +339,15 @@ class TestGetPatterns:
         assert "failed_patterns" in data
         assert "recurring_themes" in data
         assert "agent_specializations" in data
+
+    @pytest.mark.asyncio
+    async def test_get_patterns_legacy_alias(self, handler):
+        """Legacy unversioned requests should hit the same patterns endpoint."""
+        result = await handler.handle("/api/learning/patterns", {}, None)
+        data = json.loads(result.body)
+
+        assert result.status_code == 200
+        assert "successful_patterns" in data
 
     @pytest.mark.asyncio
     async def test_patterns_from_risk_register(self, handler):

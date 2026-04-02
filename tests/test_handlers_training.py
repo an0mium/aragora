@@ -120,6 +120,10 @@ class TestTrainingRouteHandling:
         """Test can_handle recognizes formats path."""
         assert training_handler.can_handle("/api/v1/training/formats") is True
 
+    def test_can_handle_legacy_formats(self, training_handler):
+        """Test can_handle recognizes the legacy formats alias."""
+        assert training_handler.can_handle("/api/training/formats") is True
+
     def test_cannot_handle_unknown_path(self, training_handler):
         """Test can_handle rejects unknown paths."""
         assert training_handler.can_handle("/api/v1/training/unknown") is False
@@ -129,6 +133,14 @@ class TestTrainingRouteHandling:
         """Test handle returns None for unrecognized paths."""
         result = training_handler.handle("/api/training/unknown", {}, mock_handler)
         assert result is None
+
+    def test_handle_routes_legacy_formats_alias(self, training_handler, mock_handler):
+        """Legacy unversioned formats requests should dispatch successfully."""
+        result = training_handler.handle("/api/training/formats", {}, mock_handler)
+        body, status = parse_result(result)
+
+        assert status == 200
+        assert "formats" in body
 
 
 # ============================================================================

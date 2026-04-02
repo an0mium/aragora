@@ -65,6 +65,9 @@ _evidence_write_limiter = RateLimiter(requests_per_minute=10)
 class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for evidence-related API endpoints."""
 
+    _LEGACY_PREFIX = "/api/evidence"
+    _VERSIONED_PREFIX = "/api/v1/evidence"
+
     # Routes this handler responds to
     routes = [
         "GET /api/evidence",
@@ -79,15 +82,27 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     # Static routes for exact matching
     ROUTES = [
+        "/api/evidence",
+        "/api/evidence/statistics",
+        "/api/evidence/search",
+        "/api/evidence/collect",
         "/api/v1/evidence",
         "/api/v1/evidence/statistics",
         "/api/v1/evidence/search",
         "/api/v1/evidence/collect",
     ]
 
+    @classmethod
+    def _normalize_path(cls, path: str) -> str:
+        """Map legacy unversioned evidence aliases to the canonical v1 path."""
+        if path == cls._LEGACY_PREFIX or path.startswith(f"{cls._LEGACY_PREFIX}/"):
+            return f"{cls._VERSIONED_PREFIX}{path[len(cls._LEGACY_PREFIX):]}"
+        return path
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/evidence")
+        path = self._normalize_path(path)
+        return path == self._VERSIONED_PREFIX or path.startswith(f"{self._VERSIONED_PREFIX}/")
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
@@ -225,6 +240,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     @handle_errors("evidence retrieval")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
+        path = self._normalize_path(path)
+
         # Rate limit check for read operations
         client_ip = get_client_ip(handler)
         rate_key = client_ip
@@ -272,6 +289,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests for evidence endpoints."""
+        path = self._normalize_path(path)
+
         # Rate limit check for write operations
         client_ip = get_client_ip(handler)
         rate_key = client_ip
@@ -316,6 +335,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle DELETE requests for evidence endpoints."""
+        path = self._normalize_path(path)
+
         # Rate limit check for delete operations (uses write limiter)
         client_ip = get_client_ip(handler)
         rate_key = client_ip
