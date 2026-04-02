@@ -299,6 +299,39 @@ describe('AragoraClient', () => {
     });
   });
 
+  describe('admin security', () => {
+    it('should rotate admin security keys via the canonical route', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              success: true,
+              dry_run: false,
+              old_key_version: 6,
+              new_key_version: 7,
+              stores_processed: ['receipts'],
+              records_reencrypted: 42,
+              failed_records: 0,
+              duration_seconds: 1.2,
+              errors: [],
+            })
+          ),
+      });
+
+      const result = await client.rotateSecurityKey('encryption');
+
+      expect(result.new_key_version).toBe(7);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/v1/admin/security/rotate-key',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ key_type: 'encryption' }),
+        })
+      );
+    });
+  });
+
   describe('error handling', () => {
     it('should handle 401 errors', async () => {
       mockFetch.mockResolvedValueOnce({

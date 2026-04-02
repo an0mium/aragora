@@ -6300,15 +6300,15 @@ export class AragoraClient {
   /**
    * Get security health check (admin only).
    */
-  async getAdminSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }> {
-    return this.request<{ healthy: boolean; checks: Record<string, boolean> }>('GET', '/api/v1/admin/security/health');
+  async getAdminSecurityHealth(): Promise<import('./namespaces/admin').SecurityHealthResponse> {
+    return this.request<import('./namespaces/admin').SecurityHealthResponse>('GET', '/api/v1/admin/security/health');
   }
 
   /**
    * List security keys (admin only).
    */
-  async listSecurityKeys(): Promise<{ keys: import('./namespaces/admin').SecurityKey[] }> {
-    return this.request<{ keys: import('./namespaces/admin').SecurityKey[] }>('GET', '/api/v1/admin/security/keys');
+  async listSecurityKeys(): Promise<import('./namespaces/admin').SecurityKeyList> {
+    return this.request<import('./namespaces/admin').SecurityKeyList>('GET', '/api/v1/admin/security/keys');
   }
 
   /**
@@ -6412,8 +6412,10 @@ export class AragoraClient {
   /**
    * Rotate a security key (admin only).
    */
-  async rotateSecurityKey(keyType: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/security/keys/${keyType}/rotate`);
+  async rotateSecurityKey(keyType: string): Promise<import('./namespaces/admin').RotateKeyResult> {
+    return this.request<import('./namespaces/admin').RotateKeyResult>('POST', '/api/v1/admin/security/rotate-key', {
+      body: { key_type: keyType },
+    });
   }
 
   // ===========================================================================

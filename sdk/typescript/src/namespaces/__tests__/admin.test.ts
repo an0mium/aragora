@@ -496,57 +496,76 @@ describe('AdminAPI Namespace', () => {
   describe('Security Operations', () => {
     it('should get security status', async () => {
       const mockStatus = {
-        encryption_enabled: true,
-        mfa_enforcement: 'required',
-        audit_logging: true,
-        key_rotation_due: false,
-        last_security_scan: '2024-01-15T10:00:00Z',
-        vulnerabilities_found: 0,
+        crypto_available: true,
+        active_key_id: 'key_active',
+        key_version: 7,
+        key_age_days: 61,
+        rotation_recommended: true,
+        rotation_required: false,
+        total_keys: 2,
       };
       mockClient.getAdminSecurityStatus.mockResolvedValue(mockStatus);
 
       const result = await api.getSecurityStatus();
 
       expect(mockClient.getAdminSecurityStatus).toHaveBeenCalled();
-      expect(result.encryption_enabled).toBe(true);
-      expect(result.mfa_enforcement).toBe('required');
+      expect(result.crypto_available).toBe(true);
+      expect(result.rotation_recommended).toBe(true);
     });
 
     it('should rotate security key', async () => {
-      const mockResult = { success: true, new_key_id: 'key_new_123' };
+      const mockResult = {
+        success: true,
+        dry_run: false,
+        old_key_version: 6,
+        new_key_version: 7,
+        stores_processed: ['receipts'],
+        records_reencrypted: 42,
+        failed_records: 0,
+        duration_seconds: 1.2,
+        errors: [],
+      };
       mockClient.rotateSecurityKey.mockResolvedValue(mockResult);
 
       const result = await api.rotateSecurityKey('encryption');
 
       expect(mockClient.rotateSecurityKey).toHaveBeenCalledWith('encryption');
-      expect(result.new_key_id).toBe('key_new_123');
+      expect(result.new_key_version).toBe(7);
     });
 
     it('should get security health', async () => {
       const mockHealth = {
-        healthy: true,
+        status: 'degraded',
         checks: {
-          encryption: true,
-          key_rotation: true,
-          audit_logging: true,
-          mfa: true,
-          rate_limiting: true,
+          crypto_available: true,
+          service_initialized: true,
+          active_key: true,
+          key_age_days: 61,
+          key_rotation_scheduler: {
+            status: 'healthy',
+            total_rotations: 5,
+          },
         },
+        issues: [],
+        warnings: ['Key is 61 days old, rotation recommended'],
       };
       mockClient.getAdminSecurityHealth.mockResolvedValue(mockHealth);
 
       const result = await api.getSecurityHealth();
 
       expect(mockClient.getAdminSecurityHealth).toHaveBeenCalled();
-      expect(result.healthy).toBe(true);
+      expect(result.status).toBe('degraded');
+      expect(result.warnings).toHaveLength(1);
     });
 
     it('should list security keys', async () => {
       const mockKeys = {
         keys: [
-          { id: 'k1', type: 'encryption', status: 'active', created_at: '2024-01-01' },
-          { id: 'k2', type: 'signing', status: 'active', created_at: '2024-01-01' },
+          { key_id: 'k1', version: 7, is_active: true, created_at: '2024-01-01', age_days: 10 },
+          { key_id: 'k2', version: 6, is_active: false, created_at: '2023-12-01', age_days: 41 },
         ],
+        active_key_id: 'k1',
+        total_keys: 2,
       };
       mockClient.listSecurityKeys.mockResolvedValue(mockKeys);
 
@@ -554,6 +573,7 @@ describe('AdminAPI Namespace', () => {
 
       expect(mockClient.listSecurityKeys).toHaveBeenCalled();
       expect(result.keys).toHaveLength(2);
+      expect(result.active_key_id).toBe('k1');
     });
   });
 });

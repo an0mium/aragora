@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-SecurityLevel = Literal["healthy", "degraded", "critical"]
+SecurityLevel = Literal["healthy", "degraded", "unhealthy"]
 KeyStatus = Literal["active", "expired", "revoked"]
 CheckStatus = Literal["ok", "warning", "error"]
 
@@ -35,8 +35,8 @@ class SecurityAPI:
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
         >>> status = client.security.get_status()
-        >>> if status['overall'] != 'healthy':
-        ...     print("Security issues detected!")
+        >>> if status.get("rotation_required"):
+        ...     print("Active encryption key needs rotation")
         >>> health = client.security.get_health_checks()
     """
 
@@ -49,12 +49,11 @@ class SecurityAPI:
 
     def get_status(self) -> dict[str, Any]:
         """
-        Get overall security status.
+        Get encryption status and key rotation metadata.
 
         Returns:
-            Dict with overall status (healthy/degraded/critical),
-            encryption_enabled, audit_logging_enabled, mfa_enabled,
-            last_security_scan, active_threats, and metadata.
+            Dict with crypto availability, active key metadata,
+            rotation recommendations, and total key count.
         """
         return self._client._request("GET", "/api/v1/admin/security/status")
 
@@ -66,11 +65,8 @@ class SecurityAPI:
         """
         Get security health checks.
 
-        Runs checks on all security components and returns their status.
-
         Returns:
-            Dict with list of health checks, each containing component,
-            status (ok/warning/error), message, and last_checked timestamp.
+            Dict with overall status plus keyed checks, issues, and warnings.
         """
         return self._client._request("GET", "/api/v1/admin/security/health")
 
@@ -106,8 +102,7 @@ class SecurityAPI:
         List all security keys.
 
         Returns:
-            Dict with list of keys, each containing id, name, algorithm,
-            created_at, expires_at, and status (active/expired/revoked).
+            Dict with key summaries plus active_key_id and total_keys.
         """
         return self._client._request("GET", "/api/v1/admin/security/keys")
 
@@ -176,6 +171,9 @@ class SecurityAPI:
 
     def rotate_key(
         self,
+        dry_run: bool | None = None,
+        stores: list[str] | None = None,
+        force: bool | None = None,
         key_id: str | None = None,
         algorithm: str | None = None,
         reason: str | None = None,
@@ -183,17 +181,25 @@ class SecurityAPI:
         """
         Rotate an encryption key.
 
-        Creates a new key and deprecates the old one.
-
         Args:
-            key_id: Optional specific key to rotate.
-            algorithm: Optional new algorithm to use.
-            reason: Optional reason for rotation.
+            dry_run: Preview changes without executing them.
+            stores: Specific stores to re-encrypt.
+            force: Force rotation even if the active key is recent.
+            key_id: Deprecated compatibility field forwarded as-is.
+            algorithm: Deprecated compatibility field forwarded as-is.
+            reason: Deprecated compatibility field forwarded as-is.
 
         Returns:
-            Dict with success status, new_key_id, old_key_id, and rotated_at.
+            Dict with success, dry_run, version metadata, processed stores,
+            re-encryption counts, duration, and errors.
         """
         data: dict[str, Any] = {}
+        if dry_run is not None:
+            data["dry_run"] = dry_run
+        if stores is not None:
+            data["stores"] = stores
+        if force is not None:
+            data["force"] = force
         if key_id is not None:
             data["key_id"] = key_id
         if algorithm is not None:
@@ -304,7 +310,7 @@ class AsyncSecurityAPI:
     Example:
         >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
         ...     status = await client.security.get_status()
-        ...     print(f"Security status: {status['overall']}")
+        ...     print(f"Active key: {status.get('active_key_id')}")
     """
 
     def __init__(self, client: AragoraAsyncClient) -> None:
@@ -315,7 +321,7 @@ class AsyncSecurityAPI:
     # =========================================================================
 
     async def get_status(self) -> dict[str, Any]:
-        """Get overall security status."""
+        """Get encryption status and key rotation metadata."""
         return await self._client._request("GET", "/api/v1/admin/security/status")
 
     # =========================================================================
@@ -323,7 +329,7 @@ class AsyncSecurityAPI:
     # =========================================================================
 
     async def get_health_checks(self) -> dict[str, Any]:
-        """Get security health checks."""
+        """Get overall status plus keyed checks, issues, and warnings."""
         return await self._client._request("GET", "/api/v1/admin/security/health")
 
     async def run_security_scan(self) -> dict[str, Any]:
@@ -339,7 +345,7 @@ class AsyncSecurityAPI:
     # =========================================================================
 
     async def list_keys(self) -> dict[str, Any]:
-        """List all security keys."""
+        """List key summaries plus active_key_id and total_keys."""
         return await self._client._request("GET", "/api/v1/admin/security/keys")
 
     async def get_key(self, key_id: str) -> dict[str, Any]:
@@ -379,12 +385,21 @@ class AsyncSecurityAPI:
 
     async def rotate_key(
         self,
+        dry_run: bool | None = None,
+        stores: list[str] | None = None,
+        force: bool | None = None,
         key_id: str | None = None,
         algorithm: str | None = None,
         reason: str | None = None,
     ) -> dict[str, Any]:
-        """Rotate an encryption key."""
+        """Rotate an encryption key using the live handler request shape."""
         data: dict[str, Any] = {}
+        if dry_run is not None:
+            data["dry_run"] = dry_run
+        if stores is not None:
+            data["stores"] = stores
+        if force is not None:
+            data["force"] = force
         if key_id is not None:
             data["key_id"] = key_id
         if algorithm is not None:

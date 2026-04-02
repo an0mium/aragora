@@ -6,6 +6,13 @@
  */
 
 import type { PaginationParams } from '../types';
+import type {
+  SecurityHealthResponse as SecurityNamespaceHealthResponse,
+  SecurityKeySummary as SecurityNamespaceKey,
+  SecurityKeyList as SecurityNamespaceKeyList,
+  SecurityStatus as SecurityNamespaceStatus,
+  RotateKeyResult as SecurityNamespaceRotateKeyResult,
+} from './security';
 
 // Admin-specific types
 export interface Organization {
@@ -74,23 +81,11 @@ export interface NomicStatus {
   health: 'healthy' | 'degraded' | 'unhealthy';
 }
 
-export interface SecurityStatus {
-  encryption_enabled: boolean;
-  mfa_enforcement: 'none' | 'optional' | 'required';
-  audit_logging: boolean;
-  key_rotation_due: boolean;
-  last_security_scan: string | null;
-  vulnerabilities_found: number;
-}
-
-export interface SecurityKey {
-  id: string;
-  type: string;
-  created_at: string;
-  expires_at?: string;
-  last_rotated?: string;
-  status: 'active' | 'rotating' | 'expired';
-}
+export type SecurityStatus = SecurityNamespaceStatus;
+export type SecurityHealthResponse = SecurityNamespaceHealthResponse;
+export type SecurityKey = SecurityNamespaceKey;
+export type SecurityKeyList = SecurityNamespaceKeyList;
+export type RotateKeyResult = SecurityNamespaceRotateKeyResult;
 
 /**
  * Interface for the internal client methods used by AdminAPI.
@@ -110,9 +105,9 @@ interface AdminClientInterface {
   adjustCreditBalance(orgId: string, data: { amount: number; reason: string }): Promise<Record<string, unknown>>;
   getExpiringCredits(orgId: string): Promise<Record<string, unknown>>;
   getAdminSecurityStatus(): Promise<SecurityStatus>;
-  rotateSecurityKey(keyType: string): Promise<Record<string, unknown>>;
-  getAdminSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }>;
-  listSecurityKeys(): Promise<{ keys: SecurityKey[] }>;
+  rotateSecurityKey(keyType: string): Promise<RotateKeyResult>;
+  getAdminSecurityHealth(): Promise<SecurityHealthResponse>;
+  listSecurityKeys(): Promise<SecurityKeyList>;
 }
 
 /**
@@ -332,21 +327,21 @@ export class AdminAPI {
   /**
    * Rotate a security key.
    */
-  async rotateSecurityKey(keyType: string): Promise<Record<string, unknown>> {
+  async rotateSecurityKey(keyType: string): Promise<RotateKeyResult> {
     return this.client.rotateSecurityKey(keyType);
   }
 
   /**
    * Get security health check results.
    */
-  async getSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }> {
+  async getSecurityHealth(): Promise<SecurityHealthResponse> {
     return this.client.getAdminSecurityHealth();
   }
 
   /**
    * List all security keys.
    */
-  async listSecurityKeys(): Promise<{ keys: SecurityKey[] }> {
+  async listSecurityKeys(): Promise<SecurityKeyList> {
     return this.client.listSecurityKeys();
   }
 

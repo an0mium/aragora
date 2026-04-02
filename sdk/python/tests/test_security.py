@@ -13,11 +13,13 @@ class TestSecurityStatus:
     def test_get_status(self, client: AragoraClient, mock_request) -> None:
         """Get overall security status."""
         mock_request.return_value = {
-            "overall": "healthy",
-            "encryption_enabled": True,
-            "audit_logging_enabled": True,
-            "mfa_enabled": True,
-            "active_threats": 0,
+            "crypto_available": True,
+            "active_key_id": "key_active",
+            "key_version": 7,
+            "key_age_days": 61,
+            "rotation_recommended": True,
+            "rotation_required": False,
+            "total_keys": 2,
         }
 
         result = client.security.get_status()
@@ -29,8 +31,8 @@ class TestSecurityStatus:
             json=None,
             headers=None,
         )
-        assert result["overall"] == "healthy"
-        assert result["encryption_enabled"] is True
+        assert result["crypto_available"] is True
+        assert result["rotation_recommended"] is True
 
 
 class TestSecurityHealthChecks:
@@ -39,18 +41,15 @@ class TestSecurityHealthChecks:
     def test_get_health_checks(self, client: AragoraClient, mock_request) -> None:
         """Get security health checks."""
         mock_request.return_value = {
-            "checks": [
-                {
-                    "component": "encryption",
-                    "status": "ok",
-                    "last_checked": "2024-01-15T10:00:00Z",
-                },
-                {
-                    "component": "auth",
-                    "status": "ok",
-                    "last_checked": "2024-01-15T10:00:00Z",
-                },
-            ]
+            "status": "degraded",
+            "checks": {
+                "crypto_available": True,
+                "service_initialized": True,
+                "active_key": True,
+                "key_age_days": 61,
+            },
+            "issues": [],
+            "warnings": ["Key is 61 days old, rotation recommended"],
         }
 
         result = client.security.get_health_checks()
@@ -62,8 +61,9 @@ class TestSecurityHealthChecks:
             json=None,
             headers=None,
         )
-        assert len(result["checks"]) == 2
-        assert result["checks"][0]["status"] == "ok"
+        assert result["status"] == "degraded"
+        assert result["checks"]["active_key"] is True
+        assert len(result["warnings"]) == 1
 
     def test_run_security_scan(self, client: AragoraClient, mock_request) -> None:
         """Trigger a security scan."""
@@ -112,12 +112,15 @@ class TestSecurityKeys:
         mock_request.return_value = {
             "keys": [
                 {
-                    "id": "key_1",
-                    "name": "primary",
-                    "algorithm": "AES-256-GCM",
-                    "status": "active",
+                    "key_id": "key_1",
+                    "version": 7,
+                    "is_active": True,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "age_days": 61,
                 },
-            ]
+            ],
+            "active_key_id": "key_1",
+            "total_keys": 1,
         }
 
         result = client.security.list_keys()
@@ -130,7 +133,8 @@ class TestSecurityKeys:
             headers=None,
         )
         assert len(result["keys"]) == 1
-        assert result["keys"][0]["status"] == "active"
+        assert result["keys"][0]["is_active"] is True
+        assert result["active_key_id"] == "key_1"
 
     def test_get_key(self, client: AragoraClient, mock_request) -> None:
         """Get key details."""
@@ -194,22 +198,29 @@ class TestSecurityKeys:
         """Rotate a key."""
         mock_request.return_value = {
             "success": True,
-            "new_key_id": "key_new",
-            "old_key_id": "key_old",
-            "rotated_at": "2024-01-15T10:00:00Z",
+            "dry_run": True,
+            "old_key_version": 6,
+            "new_key_version": 7,
+            "stores_processed": ["receipts"],
+            "records_reencrypted": 0,
+            "failed_records": 0,
+            "duration_seconds": 0.1,
+            "errors": [],
         }
 
         result = client.security.rotate_key(
-            key_id="key_old",
-            algorithm="AES-256-GCM",
-            reason="Scheduled rotation",
+            dry_run=True,
+            stores=["receipts"],
+            force=False,
         )
 
         call_kwargs = mock_request.call_args[1]
         call_json = call_kwargs["json"]
-        assert call_json["key_id"] == "key_old"
-        assert call_json["reason"] == "Scheduled rotation"
+        assert call_json["dry_run"] is True
+        assert call_json["stores"] == ["receipts"]
+        assert call_json["force"] is False
         assert result["success"] is True
+        assert result["new_key_version"] == 7
 
 
 class TestSecurityAudit:
@@ -298,39 +309,55 @@ class TestAsyncSecurity:
     @pytest.mark.asyncio
     async def test_async_get_status(self, mock_async_request) -> None:
         """Get status asynchronously."""
-        mock_async_request.return_value = {"overall": "healthy"}
+        mock_async_request.return_value = {"crypto_available": True, "active_key_id": "key_active"}
 
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
             result = await client.security.get_status()
 
-            assert result["overall"] == "healthy"
+            assert result["crypto_available"] is True
 
     @pytest.mark.asyncio
     async def test_async_get_health_checks(self, mock_async_request) -> None:
         """Get health checks asynchronously."""
-        mock_async_request.return_value = {"checks": [{"status": "ok"}]}
+        mock_async_request.return_value = {
+            "status": "healthy",
+            "checks": {"crypto_available": True},
+        }
 
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
             result = await client.security.get_health_checks()
 
-            assert len(result["checks"]) == 1
+            assert result["status"] == "healthy"
 
     @pytest.mark.asyncio
     async def test_async_list_keys(self, mock_async_request) -> None:
         """List keys asynchronously."""
-        mock_async_request.return_value = {"keys": [{"id": "key_1"}]}
+        mock_async_request.return_value = {
+            "keys": [
+                {
+                    "key_id": "key_1",
+                    "version": 7,
+                    "is_active": True,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "age_days": 1,
+                }
+            ],
+            "active_key_id": "key_1",
+            "total_keys": 1,
+        }
 
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
             result = await client.security.list_keys()
 
             assert len(result["keys"]) == 1
+            assert result["active_key_id"] == "key_1"
 
     @pytest.mark.asyncio
     async def test_async_rotate_key(self, mock_async_request) -> None:
         """Rotate key asynchronously."""
-        mock_async_request.return_value = {"success": True, "new_key_id": "key_new"}
+        mock_async_request.return_value = {"success": True, "new_key_version": 7}
 
         async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.security.rotate_key(key_id="key_old")
+            result = await client.security.rotate_key(dry_run=True, stores=["receipts"])
 
             assert result["success"] is True

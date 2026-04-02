@@ -18,7 +18,7 @@
 /**
  * Security level indicating overall security posture.
  */
-export type SecurityLevel = 'healthy' | 'degraded' | 'critical';
+export type SecurityLevel = 'healthy' | 'degraded' | 'unhealthy';
 
 /**
  * Status of a security key.
@@ -39,23 +39,31 @@ export type ThreatStatus = 'active' | 'resolved' | 'dismissed';
  * Overall security status response.
  */
 export interface SecurityStatus {
-  overall: SecurityLevel;
-  encryption_enabled: boolean;
-  audit_logging_enabled: boolean;
-  mfa_enabled: boolean;
-  last_security_scan?: string;
-  active_threats: number;
-  metadata?: Record<string, unknown>;
+  crypto_available: boolean;
+  active_key_id?: string | null;
+  key_version?: number;
+  key_age_days?: number;
+  key_created_at?: string | null;
+  rotation_recommended?: boolean;
+  rotation_required?: boolean;
+  total_keys?: number;
+  warning?: string;
+  error?: string;
 }
 
 /**
- * Individual security health check result.
+ * Individual security health check value.
  */
-export interface SecurityHealthCheck {
-  component: string;
-  status: CheckStatus;
-  message?: string;
-  last_checked: string;
+export type SecurityHealthCheck = boolean | number | string | null | Record<string, unknown>;
+
+/**
+ * Security health check response.
+ */
+export interface SecurityHealthResponse {
+  status: SecurityLevel;
+  checks: Record<string, SecurityHealthCheck>;
+  issues: string[];
+  warnings: string[];
 }
 
 /**
@@ -72,11 +80,37 @@ export interface SecurityKey {
 }
 
 /**
+ * Security key summary returned by the live list endpoint.
+ */
+export interface SecurityKeySummary {
+  key_id: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  age_days: number;
+}
+
+/**
+ * Security key list response.
+ */
+export interface SecurityKeyList {
+  keys: SecurityKeySummary[];
+  active_key_id: string | null;
+  total_keys: number;
+}
+
+/**
  * Request body for key rotation.
  */
 export interface RotateKeyRequest {
+  dry_run?: boolean;
+  stores?: string[];
+  force?: boolean;
+  /** @deprecated Forwarded for compatibility but ignored by the live handler. */
   key_id?: string;
+  /** @deprecated Forwarded for compatibility but ignored by the live handler. */
   algorithm?: string;
+  /** @deprecated Forwarded for compatibility but ignored by the live handler. */
   reason?: string;
 }
 
@@ -85,9 +119,14 @@ export interface RotateKeyRequest {
  */
 export interface RotateKeyResult {
   success: boolean;
-  new_key_id: string;
-  old_key_id: string;
-  rotated_at: string;
+  dry_run: boolean;
+  old_key_version: number | null;
+  new_key_version: number | null;
+  stores_processed: string[];
+  records_reencrypted: number;
+  failed_records: number;
+  duration_seconds: number | null;
+  errors: string[];
 }
 
 /**
@@ -205,8 +244,8 @@ interface SecurityClientInterface {
  *
  * // Get security status
  * const status = await client.security.getStatus();
- * if (status.overall !== 'healthy') {
- *   console.log('Security issues detected!');
+ * if (status.rotation_required) {
+ *   console.log('Active encryption key needs rotation');
  * }
  *
  * // Run a security scan
@@ -234,8 +273,8 @@ export class SecurityAPI {
   /**
    * Get overall security status.
    *
-   * Returns the overall security posture including encryption status,
-   * audit logging status, MFA status, and active threat count.
+   * Returns encryption availability plus active key metadata and
+   * rotation recommendations from the live admin security handler.
    */
   async getStatus(): Promise<SecurityStatus> {
     return this.client.request('GET', '/api/v1/admin/security/status');
@@ -248,9 +287,9 @@ export class SecurityAPI {
   /**
    * Get security health checks.
    *
-   * Runs checks on all security components and returns their status.
+   * Returns the aggregate status plus a keyed checks map, issues, and warnings.
    */
-  async getHealthChecks(): Promise<{ checks: SecurityHealthCheck[] }> {
+  async getHealthChecks(): Promise<SecurityHealthResponse> {
     return this.client.request('GET', '/api/v1/admin/security/health');
   }
 
@@ -282,9 +321,9 @@ export class SecurityAPI {
   /**
    * List all security keys.
    *
-   * Returns a list of encryption keys with their status and metadata.
+   * Returns the active key ID, total key count, and lightweight key summaries.
    */
-  async listKeys(): Promise<{ keys: SecurityKey[] }> {
+  async listKeys(): Promise<SecurityKeyList> {
     return this.client.request('GET', '/api/v1/admin/security/keys');
   }
 
@@ -343,13 +382,14 @@ export class SecurityAPI {
   /**
    * Rotate an encryption key.
    *
-   * Creates a new key and deprecates the old one.
+   * The live handler accepts `dry_run`, `stores`, and `force`, and returns
+   * version-based rotation metadata plus re-encryption counts.
    *
    * @param request - Rotation parameters
-   * @param request.key_id - Optional specific key to rotate
-   * @param request.algorithm - Optional new algorithm to use
-   * @param request.reason - Optional reason for rotation
-   * @returns Rotation result with new and old key IDs
+   * @param request.dry_run - Preview the rotation without executing it
+   * @param request.stores - Specific stores to re-encrypt
+   * @param request.force - Force rotation even if the key is recent
+   * @returns Rotation result with version metadata and re-encryption counts
    */
   async rotateKey(request?: RotateKeyRequest): Promise<RotateKeyResult> {
     const body = request ? { ...request } : undefined;
