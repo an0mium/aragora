@@ -77,6 +77,26 @@ class WorkspaceCrudMixin:
         name = body.get("name")
         if not name:
             return m.error_response("name is required", 400)
+        description = str(body.get("description") or "")
+        settings = body.get("settings") if isinstance(body.get("settings"), dict) else {}
+        default_vertical = str(
+            settings.get("defaultVertical", body.get("default_vertical", "")) or ""
+        )
+        compliance_frameworks = settings.get(
+            "complianceFrameworks", body.get("compliance_frameworks", [])
+        )
+        if compliance_frameworks is None:
+            compliance_frameworks = []
+        if not isinstance(compliance_frameworks, list):
+            return m.error_response("complianceFrameworks must be a list", 400)
+
+        try:
+            agent_limit = int(settings.get("agentLimit", body.get("agent_limit", 10)))
+            documents_quota = int(
+                settings.get("documentsQuota", body.get("documents_quota", 10000))
+            )
+        except (TypeError, ValueError):
+            return m.error_response("agentLimit and documentsQuota must be integers", 400)
 
         # SECURITY: Always use authenticated user's org_id to prevent cross-tenant access
         org_id = auth_ctx.org_id
@@ -101,8 +121,13 @@ class WorkspaceCrudMixin:
             manager.create_workspace(
                 organization_id=org_id,
                 name=name,
+                description=description,
                 created_by=auth_ctx.user_id,
                 initial_members=initial_members,
+                default_vertical=default_vertical,
+                compliance_frameworks=compliance_frameworks,
+                agent_limit=agent_limit,
+                documents_quota=documents_quota,
             )
         )
 
@@ -129,6 +154,85 @@ class WorkspaceCrudMixin:
                 "message": "Workspace created successfully",
             },
             status=201,
+        )
+
+    @rate_limit(requests_per_minute=30, limiter_name="workspace_update")
+    @require_permission("workspace:write")
+    @handle_errors("update workspace")
+    @log_request("update workspace")
+    def _handle_update_workspace(
+        self, handler: HTTPRequestHandler, workspace_id: str
+    ) -> HandlerResult:
+        """Update workspace metadata used by the live workspace manager."""
+        m = _mod()
+        user_store = self._get_user_store()
+        auth_ctx = m.extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return m.error_response("Not authenticated", 401)
+
+        rbac_error = self._check_rbac_permission(handler, m.PERM_WORKSPACE_WRITE, auth_ctx)
+        if rbac_error:
+            return rbac_error
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return m.error_response("Invalid JSON body", 400)
+
+        settings = body.get("settings") if isinstance(body.get("settings"), dict) else {}
+        update_kwargs: dict[str, Any] = {}
+
+        if "name" in body:
+            update_kwargs["name"] = body.get("name")
+        if "description" in body:
+            update_kwargs["description"] = body.get("description")
+
+        default_vertical = settings.get("defaultVertical", body.get("default_vertical"))
+        if default_vertical is not None:
+            update_kwargs["default_vertical"] = default_vertical
+
+        compliance_frameworks = settings.get(
+            "complianceFrameworks", body.get("compliance_frameworks")
+        )
+        if compliance_frameworks is not None:
+            if not isinstance(compliance_frameworks, list):
+                return m.error_response("complianceFrameworks must be a list", 400)
+            update_kwargs["compliance_frameworks"] = compliance_frameworks
+
+        agent_limit = settings.get("agentLimit", body.get("agent_limit"))
+        if agent_limit is not None:
+            try:
+                update_kwargs["agent_limit"] = int(agent_limit)
+            except (TypeError, ValueError):
+                return m.error_response("agentLimit must be an integer", 400)
+
+        documents_quota = settings.get("documentsQuota", body.get("documents_quota"))
+        if documents_quota is not None:
+            try:
+                update_kwargs["documents_quota"] = int(documents_quota)
+            except (TypeError, ValueError):
+                return m.error_response("documentsQuota must be an integer", 400)
+
+        if not update_kwargs:
+            return m.error_response("No supported workspace fields to update", 400)
+
+        manager = self._get_isolation_manager()
+        try:
+            workspace = self._run_async(
+                manager.update_workspace(
+                    workspace_id=workspace_id,
+                    actor=auth_ctx.user_id,
+                    **update_kwargs,
+                )
+            )
+        except m.AccessDeniedException as e:
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
+
+        return m.json_response(
+            {
+                "workspace": workspace.to_dict(),
+                "message": "Workspace updated successfully",
+            }
         )
 
     @api_endpoint(

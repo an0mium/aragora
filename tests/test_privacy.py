@@ -64,12 +64,22 @@ class TestDataIsolationManager:
             organization_id="org_123",
             name="Test Workspace",
             created_by="user_1",
+            description="Workspace for live contract coverage",
+            default_vertical="software",
+            compliance_frameworks=["OWASP"],
+            agent_limit=20,
+            documents_quota=5000,
         )
 
         assert workspace.id is not None
         assert workspace.organization_id == "org_123"
         assert workspace.name == "Test Workspace"
         assert workspace.created_by == "user_1"
+        assert workspace.description == "Workspace for live contract coverage"
+        assert workspace.default_vertical == "software"
+        assert workspace.compliance_frameworks == ["OWASP"]
+        assert workspace.agent_limit == 20
+        assert workspace.documents_quota == 5000
         assert "user_1" in workspace.members
 
     @pytest.mark.asyncio
@@ -262,13 +272,63 @@ class TestDataIsolationManager:
             organization_id="org_123",
             name="Test Workspace",
             created_by="user_1",
+            description="Workspace description",
+            default_vertical="software",
+            compliance_frameworks=["OWASP", "CWE"],
+            agent_limit=25,
+            documents_quota=20000,
         )
+        workspace.document_count = 42
 
         data = workspace.to_dict()
         assert data["id"] == workspace.id
         assert data["organization_id"] == "org_123"
         assert data["name"] == "Test Workspace"
+        assert data["description"] == "Workspace description"
+        assert data["created_by"] == "user_1"
+        assert data["default_vertical"] == "software"
+        assert data["compliance_frameworks"] == ["OWASP", "CWE"]
+        assert data["agent_limit"] == 25
+        assert data["documents_quota"] == 20000
+        assert data["documents_used"] == 42
         assert data["member_count"] == 1
+        assert data["members"]["user_1"]["added_by"] == "user_1"
+        assert data["members"]["user_1"]["permissions"] == [
+            "read",
+            "write",
+            "delete",
+            "admin",
+            "export",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_update_workspace(self, isolation_manager):
+        """Test updating workspace metadata used by the live manager."""
+        workspace = await isolation_manager.create_workspace(
+            organization_id="org_123",
+            name="Original Workspace",
+            created_by="user_1",
+        )
+        original_updated_at = workspace.updated_at
+
+        updated = await isolation_manager.update_workspace(
+            workspace_id=workspace.id,
+            actor="user_1",
+            name="Renamed Workspace",
+            description="Updated description",
+            default_vertical="legal",
+            compliance_frameworks=["GDPR", "CCPA"],
+            agent_limit=50,
+            documents_quota=75000,
+        )
+
+        assert updated.name == "Renamed Workspace"
+        assert updated.description == "Updated description"
+        assert updated.default_vertical == "legal"
+        assert updated.compliance_frameworks == ["GDPR", "CCPA"]
+        assert updated.agent_limit == 50
+        assert updated.documents_quota == 75000
+        assert updated.updated_at >= original_updated_at
 
 
 # =============================================================================

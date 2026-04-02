@@ -154,23 +154,35 @@ class MockWorkspace:
 
     id: str = "ws-123"
     name: str = "Test Workspace"
+    description: str = ""
     organization_id: str = "org-123"
     created_by: str = "user-123"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     members: list[str] = field(default_factory=list)
     member_roles: dict[str, str] = field(default_factory=dict)
     rbac_profile: str = "lite"
+    default_vertical: str = ""
+    compliance_frameworks: list[str] = field(default_factory=list)
+    agent_limit: int = 10
+    documents_quota: int = 10000
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
+            "description": self.description,
             "organization_id": self.organization_id,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
             "members": self.members,
             "member_roles": self.member_roles,
             "rbac_profile": self.rbac_profile,
+            "default_vertical": self.default_vertical,
+            "compliance_frameworks": self.compliance_frameworks,
+            "agent_limit": self.agent_limit,
+            "documents_quota": self.documents_quota,
         }
 
 
@@ -277,13 +289,23 @@ class MockDataIsolationManager:
         name: str,
         created_by: str,
         initial_members: list[str] | None = None,
+        description: str = "",
+        default_vertical: str = "",
+        compliance_frameworks: list[str] | None = None,
+        agent_limit: int = 10,
+        documents_quota: int = 10000,
     ) -> MockWorkspace:
         ws = MockWorkspace(
             id=f"ws-{len(self.workspaces) + 1}",
             name=name,
+            description=description,
             organization_id=organization_id,
             created_by=created_by,
             members=initial_members or [created_by],
+            default_vertical=default_vertical,
+            compliance_frameworks=list(compliance_frameworks or []),
+            agent_limit=agent_limit,
+            documents_quota=documents_quota,
         )
         self.workspaces[ws.id] = ws
         return ws
@@ -317,6 +339,23 @@ class MockDataIsolationManager:
                 actor=actor,
                 action="read",
             )
+        return ws
+
+    async def update_workspace(self, workspace_id: str, actor: str, **kwargs) -> MockWorkspace:
+        if actor in self.access_denied_users:
+            from aragora.privacy import AccessDeniedException
+
+            raise AccessDeniedException(
+                f"Access denied for user {actor}",
+                workspace_id=workspace_id,
+                actor=actor,
+                action="update",
+            )
+        ws = await self.get_workspace(workspace_id, actor)
+        for key, value in kwargs.items():
+            if hasattr(ws, key):
+                setattr(ws, key, value)
+        ws.updated_at = datetime.now(timezone.utc)
         return ws
 
     async def delete_workspace(
@@ -825,6 +864,43 @@ class TestWorkspaceCRUD:
         assert get_status(result) == 200
         body = get_body(result)
         assert "deleted" in body.get("message", "").lower()
+
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
+    def test_update_workspace_success(self, mock_extract, workspace_handler, auth_context):
+        """Test successful workspace update."""
+        mock_extract.return_value = auth_context
+        mock_handler = create_mock_handler(
+            "PATCH",
+            {
+                "name": "Renamed Workspace",
+                "description": "Updated description",
+                "settings": {
+                    "defaultVertical": "legal",
+                    "complianceFrameworks": ["GDPR"],
+                    "agentLimit": 20,
+                    "documentsQuota": 5000,
+                },
+            },
+        )
+
+        with patch.object(workspace_handler, "_check_rbac_permission", return_value=None):
+            result = workspace_handler.handle_patch("/api/v1/workspaces/ws-123", {}, mock_handler)
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert body["workspace"]["name"] == "Renamed Workspace"
+        assert body["workspace"]["description"] == "Updated description"
+        assert body["workspace"]["default_vertical"] == "legal"
+
+    @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
+    def test_update_workspace_requires_authentication(self, mock_extract, workspace_handler):
+        """Test that workspace update requires authentication."""
+        mock_extract.return_value = MockAuthContext(is_authenticated=False)
+        mock_handler = create_mock_handler("PATCH", {"name": "Renamed Workspace"})
+
+        result = workspace_handler.handle_patch("/api/v1/workspaces/ws-123", {}, mock_handler)
+
+        assert get_status(result) == 401
 
     @patch("aragora.server.handlers.workspace_module.extract_user_from_request")
     def test_delete_workspace_requires_authentication(self, mock_extract, workspace_handler):

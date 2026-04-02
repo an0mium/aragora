@@ -172,7 +172,9 @@ class Workspace:
     id: str
     organization_id: str
     name: str
+    description: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""
 
     # Encryption
@@ -185,6 +187,10 @@ class Workspace:
     # Settings
     retention_days: int = 90
     sensitivity_level: str = "internal"
+    default_vertical: str = ""
+    compliance_frameworks: list[str] = field(default_factory=list)
+    agent_limit: int = 10
+    documents_quota: int = 10000
 
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -208,11 +214,27 @@ class Workspace:
             "id": self.id,
             "organization_id": self.organization_id,
             "name": self.name,
+            "description": self.description,
             "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "created_by": self.created_by,
             "encrypted": self.encrypted,
             "member_count": len(self.members),
+            "members": {
+                user_id: {
+                    "permissions": [permission.value for permission in member.permissions],
+                    "added_at": member.added_at.isoformat(),
+                    "added_by": member.added_by,
+                }
+                for user_id, member in self.members.items()
+            },
             "retention_days": self.retention_days,
             "sensitivity_level": self.sensitivity_level,
+            "default_vertical": self.default_vertical,
+            "compliance_frameworks": self.compliance_frameworks,
+            "agent_limit": self.agent_limit,
+            "documents_quota": self.documents_quota,
+            "documents_used": self.document_count,
             "document_count": self.document_count,
             "storage_bytes": self.storage_bytes,
         }
@@ -387,6 +409,11 @@ class DataIsolationManager:
         name: str,
         created_by: str,
         initial_members: list[str] | None = None,
+        description: str = "",
+        default_vertical: str = "",
+        compliance_frameworks: list[str] | None = None,
+        agent_limit: int = 10,
+        documents_quota: int = 10000,
     ) -> Workspace:
         """
         Create a new isolated workspace.
@@ -402,11 +429,19 @@ class DataIsolationManager:
         """
         workspace_id = str(uuid4())
 
+        created_at = datetime.now(timezone.utc)
         workspace = Workspace(
             id=workspace_id,
             organization_id=organization_id,
             name=name,
+            description=description,
+            created_at=created_at,
+            updated_at=created_at,
             created_by=created_by,
+            default_vertical=default_vertical,
+            compliance_frameworks=list(compliance_frameworks or []),
+            agent_limit=agent_limit,
+            documents_quota=documents_quota,
         )
 
         # Add creator as admin
@@ -589,6 +624,7 @@ class DataIsolationManager:
             permissions=permissions,
             added_by=added_by,
         )
+        workspace.updated_at = datetime.now(timezone.utc)
 
         logger.info("Added member %s to workspace %s", user_id, workspace_id)
 
@@ -609,6 +645,7 @@ class DataIsolationManager:
         workspace = self._workspaces[workspace_id]
         if user_id in workspace.members:
             del workspace.members[user_id]
+            workspace.updated_at = datetime.now(timezone.utc)
             logger.info("Removed member %s from workspace %s", user_id, workspace_id)
 
     async def list_members(
@@ -694,6 +731,51 @@ class DataIsolationManager:
         )
 
         logger.info("Deleted workspace %s", workspace_id)
+
+    async def update_workspace(
+        self,
+        workspace_id: str,
+        actor: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        default_vertical: str | None = None,
+        compliance_frameworks: list[str] | None = None,
+        agent_limit: int | None = None,
+        documents_quota: int | None = None,
+    ) -> Workspace:
+        """Update a workspace's editable metadata and settings."""
+        await self.require_access(
+            workspace_id,
+            actor,
+            WorkspacePermission.WRITE,
+            "update_workspace",
+        )
+
+        workspace = self._workspaces.get(workspace_id)
+        if not workspace:
+            raise AccessDeniedException(
+                f"Workspace not found: {workspace_id}",
+                workspace_id=workspace_id,
+                actor=actor,
+                action="update_workspace",
+            )
+
+        if name is not None:
+            workspace.name = name
+        if description is not None:
+            workspace.description = description
+        if default_vertical is not None:
+            workspace.default_vertical = default_vertical
+        if compliance_frameworks is not None:
+            workspace.compliance_frameworks = list(compliance_frameworks)
+        if agent_limit is not None:
+            workspace.agent_limit = agent_limit
+        if documents_quota is not None:
+            workspace.documents_quota = documents_quota
+
+        workspace.updated_at = datetime.now(timezone.utc)
+        return workspace
 
     async def encrypt_data(
         self,

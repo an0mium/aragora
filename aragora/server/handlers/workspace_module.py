@@ -14,6 +14,7 @@ Endpoints:
 - POST /api/workspaces - Create a new workspace
 - GET /api/workspaces - List workspaces
 - GET /api/workspaces/{id} - Get workspace details
+- PATCH /api/workspaces/{id} - Update workspace metadata and settings
 - DELETE /api/workspaces/{id} - Delete workspace
 - POST /api/workspaces/{id}/members - Add member to workspace
 - DELETE /api/workspaces/{id}/members/{user_id} - Remove member
@@ -486,6 +487,14 @@ class WorkspaceHandler(
         """Route PUT requests."""
         return self.handle(path, query_params, handler, method="PUT")
 
+    @handle_errors("workspace update")
+    @require_permission("workspace:write")
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
+    ) -> HandlerResult | None:
+        """Route PATCH requests."""
+        return self.handle(path, query_params, handler, method="PATCH")
+
     # =========================================================================
     # Routing Methods
     # =========================================================================
@@ -525,6 +534,14 @@ class WorkspaceHandler(
             if not valid:
                 return error_response(err, 400)
             return self._handle_get_workspace(handler, workspace_id)
+
+        # PATCH/PUT /api/workspaces/{id}
+        if len(parts) == 3 and method in {"PATCH", "PUT"}:
+            workspace_id = parts[2]
+            valid, err = _validate_workspace_id(workspace_id)
+            if not valid:
+                return error_response(err, 400)
+            return self._handle_update_workspace(handler, workspace_id)
 
         # DELETE /api/workspaces/{id}
         if len(parts) == 3 and method == "DELETE":

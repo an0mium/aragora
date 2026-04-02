@@ -131,6 +131,7 @@ def handler(mock_workspace_module):
             self._mock_isolation_manager.create_workspace = AsyncMock()
             self._mock_isolation_manager.list_workspaces = AsyncMock(return_value=[])
             self._mock_isolation_manager.get_workspace = AsyncMock()
+            self._mock_isolation_manager.update_workspace = AsyncMock()
             self._mock_isolation_manager.delete_workspace = AsyncMock()
             self._mock_user_store = MagicMock()
             self._mock_audit_log = MagicMock()
@@ -142,10 +143,16 @@ def handler(mock_workspace_module):
             ws_mock.to_dict.return_value = {
                 "id": "ws-new-001",
                 "name": "Test Workspace",
+                "description": "Workspace description",
                 "organization_id": "test-org-001",
                 "created_by": "test-user-001",
+                "default_vertical": "software",
+                "compliance_frameworks": ["OWASP"],
+                "agent_limit": 10,
+                "documents_quota": 10000,
             }
             self._mock_isolation_manager.create_workspace.return_value = ws_mock
+            self._mock_isolation_manager.update_workspace.return_value = ws_mock
             self._default_workspace = ws_mock
 
         def _get_user_store(self):
@@ -251,6 +258,29 @@ class TestCreateWorkspace:
 
         call_kwargs = handler._mock_isolation_manager.create_workspace.call_args.kwargs
         assert call_kwargs["initial_members"] == ["user-a", "user-b"]
+
+    def test_create_workspace_passes_live_settings(self, handler, make_handler_request):
+        req = make_handler_request(
+            method="POST",
+            body={
+                "name": "WS",
+                "description": "Workspace description",
+                "settings": {
+                    "defaultVertical": "software",
+                    "complianceFrameworks": ["OWASP", "CWE"],
+                    "agentLimit": 25,
+                    "documentsQuota": 50000,
+                },
+            },
+        )
+        handler._handle_create_workspace(req)
+
+        call_kwargs = handler._mock_isolation_manager.create_workspace.call_args.kwargs
+        assert call_kwargs["description"] == "Workspace description"
+        assert call_kwargs["default_vertical"] == "software"
+        assert call_kwargs["compliance_frameworks"] == ["OWASP", "CWE"]
+        assert call_kwargs["agent_limit"] == 25
+        assert call_kwargs["documents_quota"] == 50000
 
     def test_create_workspace_default_members_empty(self, handler, make_handler_request):
         req = make_handler_request(method="POST", body={"name": "WS"})
@@ -757,6 +787,75 @@ class TestDeleteWorkspace:
 
         call_kwargs = handler._mock_isolation_manager.delete_workspace.call_args.kwargs
         assert call_kwargs["workspace_id"] == "ws-target"
+
+
+# ===========================================================================
+# PATCH /api/v1/workspaces/{workspace_id} - Update Workspace
+# ===========================================================================
+
+
+class TestUpdateWorkspace:
+    """Test the _handle_update_workspace endpoint."""
+
+    def test_update_workspace_success(self, handler, make_handler_request):
+        req = make_handler_request(
+            path="/api/v1/workspaces/ws-1",
+            method="PATCH",
+            body={
+                "name": "Renamed Workspace",
+                "description": "Updated description",
+                "settings": {
+                    "defaultVertical": "legal",
+                    "complianceFrameworks": ["GDPR", "CCPA"],
+                    "agentLimit": 50,
+                    "documentsQuota": 75000,
+                },
+            },
+        )
+        result = handler._handle_update_workspace(req, "ws-1")
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["workspace"]["id"] == "ws-new-001"
+        assert body["message"] == "Workspace updated successfully"
+
+    def test_update_workspace_passes_live_contract_fields(self, handler, make_handler_request):
+        req = make_handler_request(
+            path="/api/v1/workspaces/ws-target",
+            method="PATCH",
+            body={
+                "name": "Renamed Workspace",
+                "description": "Updated description",
+                "settings": {
+                    "defaultVertical": "legal",
+                    "complianceFrameworks": ["GDPR", "CCPA"],
+                    "agentLimit": 50,
+                    "documentsQuota": 75000,
+                },
+            },
+        )
+        handler._handle_update_workspace(req, "ws-target")
+
+        call_kwargs = handler._mock_isolation_manager.update_workspace.call_args.kwargs
+        assert call_kwargs["workspace_id"] == "ws-target"
+        assert call_kwargs["actor"] == "test-user-001"
+        assert call_kwargs["name"] == "Renamed Workspace"
+        assert call_kwargs["description"] == "Updated description"
+        assert call_kwargs["default_vertical"] == "legal"
+        assert call_kwargs["compliance_frameworks"] == ["GDPR", "CCPA"]
+        assert call_kwargs["agent_limit"] == 50
+        assert call_kwargs["documents_quota"] == 75000
+
+    def test_update_workspace_requires_supported_fields(self, handler, make_handler_request):
+        req = make_handler_request(
+            path="/api/v1/workspaces/ws-1",
+            method="PATCH",
+            body={"settings": {"documentsUsed": 99}},
+        )
+        result = handler._handle_update_workspace(req, "ws-1")
+
+        assert _status(result) == 400
+        assert "supported workspace fields" in _error(result)
 
     def test_delete_workspace_passes_deleted_by(self, handler, make_handler_request):
         req = make_handler_request(method="DELETE")
