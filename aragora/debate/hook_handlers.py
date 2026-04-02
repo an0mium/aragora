@@ -1293,7 +1293,6 @@ class HookHandlerRegistry:
                 stream_emitter = self.subsystems.get("stream_emitter")
                 if stream_emitter and hasattr(stream_emitter, "emit"):
                     try:
-                        debate_id = getattr(ctx, "debate_id", None) if ctx else None
                         stream_emitter.emit(
                             "decision_plan_created",
                             {

@@ -499,6 +499,17 @@ class SwarmSupervisor:
             item.setdefault("lease_id", None)
             item.setdefault("receipt_id", None)
             item.setdefault("review_status", "pending")
+            if default_target_agent:
+                metadata = dict(item.get("metadata") or {})
+                metadata.setdefault(
+                    "requested_target_agent",
+                    str(default_target_agent).strip().lower(),
+                )
+                requested_reviewer_agent = str(item.get("reviewer_agent", "")).strip().lower()
+                if requested_reviewer_agent:
+                    metadata.setdefault("requested_reviewer_agent", requested_reviewer_agent)
+                metadata.setdefault("sticky_target_agent", True)
+                item["metadata"] = metadata
             if normalized_worker_env:
                 metadata = dict(item.get("metadata") or {})
                 metadata["worker_env"] = normalized_worker_env
@@ -2883,8 +2894,22 @@ class SwarmSupervisor:
         worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
     ) -> bool:
         current_agent = str(item.get("target_agent", "")).strip().lower()
+        metadata = dict(item.get("metadata") or {})
+        requested_target_agent = str(metadata.get("requested_target_agent", "")).strip().lower()
+        sticky_target_agent = bool(metadata.get("sticky_target_agent", False))
         fallback_agent = self._alternate_agent(current_agent)
         if not fallback_agent:
+            return False
+        if sticky_target_agent and requested_target_agent == current_agent:
+            metadata.update(
+                {
+                    "last_failure_reason": reason,
+                    "last_failure_detail": detail[:1000],
+                    "fallback_suppressed_reason": "sticky_requested_target_agent",
+                    "fallback_suppressed_agent": fallback_agent,
+                }
+            )
+            item["metadata"] = metadata
             return False
         if worker_type_circuit_breakers is not None and self._worker_type_circuit_breaker_is_open(
             worker_type_circuit_breakers,
@@ -2892,7 +2917,6 @@ class SwarmSupervisor:
         ):
             return False
 
-        metadata = dict(item.get("metadata") or {})
         attempted_agents = [
             str(agent).strip().lower()
             for agent in metadata.get("attempted_agents", [])

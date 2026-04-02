@@ -3413,6 +3413,72 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
 
 @pytest.mark.asyncio
+async def test_dispatch_workers_keeps_explicit_target_agent_sticky(repo: Path) -> None:
+    store = DevCoordinationStore(repo_root=repo)
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("codex CLI not found"))
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="sticky target test",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="sticky-dispatch-task",
+                title="Sticky dispatch test",
+                description="Preserve explicitly requested target agent on launch failure",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(
+        spec=SwarmSpec(raw_goal="sticky target test", refined_goal="sticky target test"),
+        default_target_agent="codex",
+        refresh_scaling=False,
+    )
+    lease = store.claim_lease(
+        task_id=run.work_orders[0]["work_order_id"],
+        title="Sticky dispatch test",
+        owner_agent="codex",
+        owner_session_id="sticky-dispatch-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+    )
+    run.work_orders[0]["status"] = "leased"
+    run.work_orders[0]["worktree_path"] = str(repo)
+    run.work_orders[0]["branch"] = "main"
+    run.work_orders[0]["lease_id"] = lease.lease_id
+    run.work_orders[0]["owner_session_id"] = "sticky-dispatch-session"
+    store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
+
+    launched = await supervisor.dispatch_workers(run.run_id)
+
+    assert launched == []
+    updated = store.get_supervisor_run(run.run_id)
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] in {"dispatch_failed", "needs_human"}
+    assert work_order["target_agent"] == "codex"
+    assert work_order["reviewer_agent"] == "claude"
+    assert work_order["dispatch_error"] == "codex CLI not found"
+    assert work_order["metadata"]["requested_target_agent"] == "codex"
+    assert work_order["metadata"]["requested_reviewer_agent"] == "claude"
+    assert work_order["metadata"]["sticky_target_agent"] is True
+    assert work_order["metadata"]["fallback_suppressed_reason"] == "sticky_requested_target_agent"
+    assert work_order["metadata"]["fallback_suppressed_agent"] == "claude"
+    assert "attempted_agents" not in work_order["metadata"]
+
+
+@pytest.mark.asyncio
 async def test_dispatch_workers_trips_and_skips_worker_type_circuit_breaker(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -3772,6 +3838,99 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     assert breaker["last_failure_reason"] == "agent_capacity"
     assert breaker["last_failure_detail"] == "Credit balance is too low"
     assert store.status_summary()["counts"]["active_leases"] == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_keeps_explicit_target_agent_sticky_on_capacity_failure(
+    repo: Path,
+) -> None:
+    store = DevCoordinationStore(repo_root=repo)
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        path=repo,
+        branch="swarm-sticky-capacity",
+        session_id="dispatch-sess-sticky",
+        agent="codex",
+        created=True,
+        reconcile_status=None,
+        payload={},
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(
+        return_value=[
+            WorkerProcess(
+                work_order_id="sticky-task",
+                agent="codex",
+                worktree_path=str(repo),
+                branch="swarm-sticky-capacity",
+                pid=778,
+                session_id="dispatch-sess-sticky",
+                lease_id="lease-1",
+                exit_code=1,
+                completed_at="2026-03-06T00:00:00+00:00",
+                stdout="Credit balance is too low\n",
+                stderr="",
+            )
+        ]
+    )
+    mock_launcher.collect_detached_finished = AsyncMock(return_value=None)
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="sticky-task",
+                title="Sticky target test",
+                description="Preserve explicitly requested target agent",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        launcher=mock_launcher,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(
+        spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"),
+        default_target_agent="codex",
+        max_concurrency=4,
+        managed_dir_pattern=".worktrees/phase0b-{agent}",
+    )
+    run.work_orders[0]["status"] = "dispatched"
+    run.work_orders[0]["target_agent"] = "codex"
+    run.work_orders[0]["reviewer_agent"] = "claude"
+    run.work_orders[0]["pid"] = 778
+    store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
+
+    completed = await supervisor.collect_finished_results(run.run_id)
+
+    assert len(completed) == 1
+    refreshed = store.get_supervisor_run(run.run_id)
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "failed"
+    assert work_order["target_agent"] == "codex"
+    assert work_order["reviewer_agent"] == "claude"
+    assert work_order["failure_reason"] == "worker_crash"
+    assert work_order["metadata"]["requested_target_agent"] == "codex"
+    assert work_order["metadata"]["requested_reviewer_agent"] == "claude"
+    assert work_order["metadata"]["sticky_target_agent"] is True
+    assert work_order["metadata"]["fallback_suppressed_reason"] == "sticky_requested_target_agent"
+    assert work_order["metadata"]["fallback_suppressed_agent"] == "claude"
+    assert "attempted_agents" not in work_order["metadata"]
+    breaker = refreshed["metadata"][WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["codex"]
+    assert breaker["status"] == "open"
+    assert breaker["last_failure_reason"] == "agent_capacity"
+    assert breaker["last_failure_detail"] == "Credit balance is too low"
 
 
 def test_reset_worker_type_circuit_breaker_preserves_run_metadata(
