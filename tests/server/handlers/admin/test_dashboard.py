@@ -115,6 +115,7 @@ class TestDashboardRouting:
     def test_can_handle_quality_metrics_route(self, handler):
         """Can handle quality metrics route."""
         assert handler.can_handle("/api/v1/dashboard/quality-metrics") is True
+        assert handler.can_handle("/api/dashboard/quality-metrics") is True
 
     def test_cannot_handle_unknown_route(self, handler):
         """Cannot handle unknown routes."""
@@ -164,6 +165,26 @@ class TestDashboardRouting:
                 with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
                     with patch.object(handler, "check_permission"):
                         await handler.handle("/api/v1/dashboard/quality-metrics", {}, mock_handler)
+
+                        mock_method.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_unversioned_quality_metrics(self, handler):
+        """Handle routes unversioned quality metrics path correctly."""
+        mock_handler = MagicMock()
+        mock_auth_context = MagicMock()
+
+        with patch.object(handler, "_get_quality_metrics") as mock_method:
+            mock_method.return_value = {"data": {}}
+
+            with patch(
+                "aragora.server.handlers.admin.dashboard._dashboard_limiter"
+            ) as mock_limiter:
+                mock_limiter.is_allowed.return_value = True
+
+                with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
+                    with patch.object(handler, "check_permission"):
+                        await handler.handle("/api/dashboard/quality-metrics", {}, mock_handler)
 
                         mock_method.assert_called_once()
 

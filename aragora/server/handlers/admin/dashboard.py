@@ -81,6 +81,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
 
     ROUTES = [
         "/api/dashboard/debates",
+        "/api/dashboard/quality-metrics",
         "/api/v1/dashboard",
         "/api/v1/dashboard/overview",
         "/api/v1/dashboard/debates",
@@ -209,7 +210,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
             query = query_params.get("q") or ""
             return self._search_dashboard(query)
 
-        if path == "/api/v1/dashboard/quality-metrics":
+        if path in ("/api/dashboard/quality-metrics", "/api/v1/dashboard/quality-metrics"):
             # Additional permission check for metrics endpoints
             try:
                 self.check_permission(auth_context, PERM_ADMIN_METRICS_READ)

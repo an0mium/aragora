@@ -597,6 +597,16 @@ class TestHandleRouteDispatch:
         assert "evolution" in body
 
     @pytest.mark.asyncio
+    async def test_unversioned_quality_metrics_endpoint(self, handler, mock_http):
+        """GET /api/dashboard/quality-metrics returns quality data."""
+        result = await handler.handle("/api/dashboard/quality-metrics", {}, mock_http)
+        assert _status(result) == 200
+        body = _body(result)
+        assert "calibration" in body
+        assert "performance" in body
+        assert "evolution" in body
+
+    @pytest.mark.asyncio
     async def test_unmatched_path_returns_none(self, handler, mock_http):
         """Handle returns None for unmatched path."""
         result = await handler.handle("/api/v1/totally-unknown", {}, mock_http)
