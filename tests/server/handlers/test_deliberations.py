@@ -39,6 +39,7 @@ class TestDeliberationsHandler:
 
     def test_routes_include_active(self):
         handler = self._make_handler()
+        assert "/api/v1/deliberations" in handler.ROUTES
         assert "/api/v1/deliberations/active" in handler.ROUTES
 
     def test_routes_include_stats(self):
@@ -79,6 +80,23 @@ class TestDeliberationsHandler:
     # -------------------------------------------------------------------------
     # Request handling tests
     # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_handle_request_dashboard_list_route(self):
+        handler = self._make_handler()
+        request = self._make_request(path="/api/v1/deliberations")
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "_get_dashboard_deliberations",
+                new_callable=AsyncMock,
+                return_value=({"deliberations": [], "count": 0}, 200),
+            ) as mock_get:
+                result = await handler.handle_request(request)
+
+                mock_get.assert_called_once_with(request)
+                assert result[1] == 200
 
     @pytest.mark.asyncio
     async def test_handle_request_active_route(self):
@@ -191,6 +209,59 @@ class TestDeliberationsHandler:
         assert status == 200
         assert result["count"] == 2
         assert len(result["deliberations"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_dashboard_deliberations_maps_legacy_shape(self):
+        handler = self._make_handler()
+        request = self._make_request(path="/api/v1/deliberations")
+
+        with patch.object(
+            handler,
+            "_get_active_deliberations",
+            new_callable=AsyncMock,
+            return_value=(
+                {
+                    "deliberations": [
+                        {
+                            "id": "d1",
+                            "task": "Restore live tracker parity",
+                            "status": "consensus_forming",
+                            "agents": ["claude", "gpt4"],
+                            "current_round": 3,
+                            "total_rounds": 5,
+                            "consensus_score": 0.71,
+                            "started_at": "2026-04-02T18:00:00+00:00",
+                        }
+                    ],
+                    "count": 1,
+                    "timestamp": "2026-04-02T18:01:00+00:00",
+                },
+                200,
+            ),
+        ):
+            result, status = await handler._get_dashboard_deliberations(request)
+
+        assert status == 200
+        assert result["count"] == 1
+        assert result["timestamp"] == "2026-04-02T18:01:00+00:00"
+        assert result["deliberations"] == [
+            {
+                "id": "d1",
+                "question": "Restore live tracker parity",
+                "status": "in_progress",
+                "started_at": "2026-04-02T18:00:00+00:00",
+                "completed_at": None,
+                "current_round": 3,
+                "max_rounds": 5,
+                "agents": [
+                    {"id": "claude", "name": "claude"},
+                    {"id": "gpt4", "name": "gpt4"},
+                ],
+                "consensus_confidence": 0.71,
+                "final_answer": None,
+                "consensus_reached": None,
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_get_active_deliberations_error(self):

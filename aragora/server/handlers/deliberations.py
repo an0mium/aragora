@@ -7,6 +7,7 @@ Provides endpoints for the vetted decisionmaking dashboard:
 - WebSocket stream for real-time updates
 
 Usage:
+    GET    /api/v1/deliberations           - Compatibility list of active vetted decisionmaking sessions
     GET    /api/v1/deliberations/active    - List active vetted decisionmaking sessions
     GET    /api/v1/deliberations/stats     - Get aggregate statistics
     GET    /api/v1/deliberations/{id}      - Get vetted decisionmaking details
@@ -76,6 +77,7 @@ class DeliberationsHandler(BaseHandler):
     """
 
     ROUTES = [
+        "/api/v1/deliberations",
         "/api/v1/deliberations/active",
         "/api/v1/deliberations/stats",
         "/api/v1/deliberations/stream",
@@ -145,6 +147,12 @@ class DeliberationsHandler(BaseHandler):
         path = request.path
         method = request.method
 
+        # Compatibility list route used by the live control-plane dashboard
+        if path == "/api/v1/deliberations" and method == "GET":
+            if rbac_error := self._check_rbac_permission(request, "analytics.read"):
+                return rbac_error
+            return await self._get_dashboard_deliberations(request)
+
         # Active deliberations - requires analytics.read
         if path == "/api/v1/deliberations/active" and method == "GET":
             if rbac_error := self._check_rbac_permission(request, "analytics.read"):
@@ -187,6 +195,22 @@ class DeliberationsHandler(BaseHandler):
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error fetching deliberations: %s", e)
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
+
+    async def _get_dashboard_deliberations(self, request: Any) -> tuple[dict[str, Any], int]:
+        """Return active deliberations in the shape expected by the dashboard tracker."""
+        payload, status = await self._get_active_deliberations(request)
+        if status != 200:
+            return payload, status
+
+        deliberations = [
+            self._format_dashboard_deliberation(deliberation)
+            for deliberation in payload.get("deliberations", [])
+        ]
+        return {
+            "deliberations": deliberations,
+            "count": len(deliberations),
+            "timestamp": payload.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        }, 200
 
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
         """Fetch active vetted decisionmaking sessions from the debate store."""
@@ -248,6 +272,60 @@ class DeliberationsHandler(BaseHandler):
             "updated_at": debate.get("updated_at", debate.get("started_at", "")),
             "message_count": len(messages),
             "votes": debate.get("votes", {}),
+        }
+
+    def _format_dashboard_deliberation(self, deliberation: dict[str, Any]) -> dict[str, Any]:
+        """Map deliberation data to the control-plane dashboard's legacy shape."""
+        raw_agents = deliberation.get("agents", [])
+        agents: list[dict[str, Any]] = []
+        if isinstance(raw_agents, list):
+            for agent in raw_agents:
+                if isinstance(agent, str):
+                    agents.append({"id": agent, "name": agent})
+                    continue
+                if isinstance(agent, dict):
+                    agent_id = agent.get("id") or agent.get("name") or ""
+                    if agent_id:
+                        agents.append(
+                            {
+                                "id": agent_id,
+                                "name": agent.get("name", agent_id),
+                            }
+                        )
+
+        status = str(deliberation.get("status", "initializing"))
+        dashboard_status = {
+            "initializing": "pending",
+            "pending": "pending",
+            "active": "in_progress",
+            "consensus_forming": "in_progress",
+            "complete": "completed",
+            "completed": "completed",
+            "failed": "failed",
+            "error": "failed",
+        }.get(status, "pending")
+
+        consensus_confidence = deliberation.get("consensus_confidence")
+        if consensus_confidence is None:
+            consensus_confidence = deliberation.get("consensus_score")
+
+        return {
+            "id": deliberation.get("id", ""),
+            "question": deliberation.get("question")
+            or deliberation.get("task")
+            or deliberation.get("content")
+            or "",
+            "status": dashboard_status,
+            "started_at": deliberation.get("started_at") or deliberation.get("created_at"),
+            "completed_at": deliberation.get("completed_at"),
+            "current_round": deliberation.get("current_round", 0),
+            "max_rounds": deliberation.get("max_rounds")
+            or deliberation.get("total_rounds")
+            or DEFAULT_ROUNDS,
+            "agents": agents,
+            "consensus_confidence": consensus_confidence,
+            "final_answer": deliberation.get("final_answer") or deliberation.get("answer"),
+            "consensus_reached": deliberation.get("consensus_reached"),
         }
 
     async def _get_stats(self, request: Any) -> tuple[dict[str, Any], int]:

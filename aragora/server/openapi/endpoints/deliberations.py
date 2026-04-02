@@ -43,6 +43,69 @@ def _deliberation_schema() -> dict[str, Any]:
     }
 
 
+def _dashboard_deliberation_schema() -> dict[str, Any]:
+    """Compatibility schema used by the live control-plane dashboard."""
+    return {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Unique deliberation identifier"},
+            "question": {
+                "type": "string",
+                "description": "Decision question rendered in the control-plane tracker",
+            },
+            "status": {
+                "type": "string",
+                "enum": ["pending", "in_progress", "completed", "failed"],
+                "description": "Dashboard-friendly status for tracker cards",
+            },
+            "started_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the deliberation started",
+            },
+            "completed_at": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": True,
+                "description": "When the deliberation completed, if available",
+            },
+            "current_round": {
+                "type": "integer",
+                "description": "Current round number",
+            },
+            "max_rounds": {
+                "type": "integer",
+                "description": "Configured maximum round count",
+            },
+            "agents": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                    },
+                },
+                "description": "Participant list normalized for dashboard cards",
+            },
+            "consensus_confidence": {
+                "type": "number",
+                "description": "Current consensus confidence, if available",
+            },
+            "final_answer": {
+                "type": "string",
+                "nullable": True,
+                "description": "Final answer or synthesis, when available",
+            },
+            "consensus_reached": {
+                "type": "boolean",
+                "nullable": True,
+                "description": "Whether consensus was explicitly reached",
+            },
+        },
+    }
+
+
 def _stats_schema() -> dict[str, Any]:
     """Deliberation statistics schema."""
     return {
@@ -88,6 +151,39 @@ DELIBERATIONS_ENDPOINTS = {
     # =========================================================================
     # GET Endpoints - Query and Monitoring
     # =========================================================================
+    "/api/v1/deliberations": {
+        "get": {
+            "tags": ["Deliberations"],
+            "summary": "List active deliberations for the control-plane dashboard",
+            "operationId": "listDashboardDeliberations",
+            "description": "Compatibility alias for the live control-plane dashboard. Returns active deliberations in the tracker-friendly shape expected by the existing UI.",
+            "responses": {
+                "200": {
+                    "description": "List of active deliberations in dashboard shape",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "count": {
+                                        "type": "integer",
+                                        "description": "Number of active deliberations",
+                                    },
+                                    "deliberations": {
+                                        "type": "array",
+                                        "items": _dashboard_deliberation_schema(),
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Insufficient permissions"},
+            },
+            "security": [{"bearerAuth": []}],
+        }
+    },
     "/api/v1/deliberations/active": {
         "get": {
             "tags": ["Deliberations"],

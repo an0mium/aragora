@@ -152,6 +152,7 @@ Active AI debate sessions and stats.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/v1/deliberations` | Compatibility list for the control-plane tracker |
 | GET | `/api/v1/deliberations/active` | List active deliberations |
 | GET | `/api/v1/deliberations/stats` | Deliberation statistics |
 | GET | `/api/v1/deliberations/{id}` | Get deliberation details |

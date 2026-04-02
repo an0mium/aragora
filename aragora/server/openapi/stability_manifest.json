@@ -454,6 +454,7 @@
     "GET /api/v1/decisions/{param}",
     "GET /api/v1/decisions/{param}/explain",
     "GET /api/v1/decisions/{param}/status",
+    "GET /api/v1/deliberations",
     "GET /api/v1/deliberations/active",
     "GET /api/v1/deliberations/stats",
     "GET /api/v1/deliberations/stream",

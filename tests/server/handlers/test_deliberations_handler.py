@@ -64,6 +64,7 @@ class TestDeliberationsHandlerInit:
 
     def test_handler_routes(self, handler):
         """Should define correct routes."""
+        assert "/api/v1/deliberations" in handler.ROUTES
         assert "/api/v1/deliberations/active" in handler.ROUTES
         assert "/api/v1/deliberations/stats" in handler.ROUTES
         assert "/api/v1/deliberations/stream" in handler.ROUTES
@@ -77,6 +78,40 @@ class TestDeliberationsHandlerInit:
 
 class TestActiveDeliberations:
     """Tests for active deliberations endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_dashboard_deliberations_compat_route(self, handler, mock_request):
+        """Bare deliberations route returns dashboard-friendly active sessions."""
+        register_deliberation(
+            "test-compat-123",
+            {
+                "task": "Investigate a live integration mismatch",
+                "status": "active",
+                "agents": ["claude", "gpt4"],
+                "current_round": 2,
+                "total_rounds": 4,
+                "consensus_score": 0.64,
+            },
+        )
+
+        mock_request.path = "/api/v1/deliberations"
+        mock_request.method = "GET"
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result, status = await handler.handle_request(mock_request)
+
+        assert status == 200
+        assert result["count"] == 1
+        deliberation = result["deliberations"][0]
+        assert deliberation["id"] == "test-compat-123"
+        assert deliberation["question"] == "Investigate a live integration mismatch"
+        assert deliberation["status"] == "in_progress"
+        assert deliberation["max_rounds"] == 4
+        assert deliberation["consensus_confidence"] == 0.64
+        assert deliberation["agents"] == [
+            {"id": "claude", "name": "claude"},
+            {"id": "gpt4", "name": "gpt4"},
+        ]
 
     @pytest.mark.asyncio
     async def test_get_active_deliberations_empty(self, handler, mock_request):
