@@ -1999,7 +1999,7 @@ class TestWorkspaceStatus:
                 None,
             )
 
-        assert _status(result) == 403
+        assert _status(result) == 404
 
     @pytest.mark.asyncio
     async def test_store_import_error_returns_503(self, handler):
@@ -2415,7 +2415,7 @@ class TestRefreshToken:
                 None,
             )
 
-        assert _status(result) == 403
+        assert _status(result) == 404
 
 
 # ============================================================================

@@ -1469,7 +1469,7 @@ class SlackOAuthHandler(SecureHandler):
             if not workspace:
                 return error_response(f"Workspace {workspace_id} not found", 404)
             if self._is_workspace_access_denied(workspace, auth_context):
-                return error_response("Workspace access denied", 403)
+                return error_response(f"Workspace {workspace_id} not found", 404)
 
             current_time = time.time()
 
@@ -1536,7 +1536,7 @@ class SlackOAuthHandler(SecureHandler):
             if not workspace:
                 return error_response(f"Workspace {workspace_id} not found", 404)
             if self._is_workspace_access_denied(workspace, auth_context):
-                return error_response("Workspace access denied", 403)
+                return error_response(f"Workspace {workspace_id} not found", 404)
 
             if not workspace.refresh_token:
                 return error_response("No refresh token available. Re-installation required.", 400)
