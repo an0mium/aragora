@@ -62,12 +62,12 @@ function OAuthCallbackContent() {
       // SECURITY: Parse tokens from URL fragment (primary) - fragments are NOT sent to servers
       // Query params are a fallback but should be avoided as they leak via logs, referer headers, etc.
       let tokenString = window.location.hash.substring(1); // Remove leading '#'
-      logger.debug('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+      logger.debug('[OAuth Callback] Hash fragment present:', !!tokenString);
 
       // Fallback to query params (less secure, but some OAuth flows may use them)
       if (!tokenString) {
         tokenString = window.location.search.substring(1);
-        logger.debug('[OAuth Callback] Query params fallback:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
+        logger.debug('[OAuth Callback] Query params fallback present:', !!tokenString);
         if (tokenString) {
           logger.warn('[OAuth Callback] Tokens received via query params - this is less secure than fragments');
         }
@@ -89,7 +89,7 @@ function OAuthCallbackContent() {
 
       if (accessToken && refreshToken) {
         try {
-          logger.debug('[OAuth Callback] Calling setTokens with access_token:', accessToken.substring(0, 20) + '...');
+          logger.debug('[OAuth Callback] Processing OAuth token pair');
           // Pass AbortSignal so in-flight retries cancel on unmount
           // Pass server-provided expiry if available
           await setTokens(accessToken, refreshToken, controller.signal, expiresIn ? parseInt(expiresIn, 10) : undefined);
