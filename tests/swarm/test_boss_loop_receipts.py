@@ -79,6 +79,12 @@ class TestBossLoopOperationalReceipts:
                 "runner_type": "claude",
                 "cost_class": "subscription",
                 "fallback_reason": None,
+                "publish_result": {
+                    "published": True,
+                    "action": "pr_created",
+                    "pr_url": "https://github.com/org/repo/pull/42",
+                },
+                "postprocess_promoted_from_status": "needs_human",
             },
         }
 
@@ -89,6 +95,8 @@ class TestBossLoopOperationalReceipts:
         assert receipt.metadata["requested_target_agent"] == "claude"
         assert receipt.metadata["runner_id"] == "claude-runner-1"
         assert receipt.metadata["cost_class"] == "subscription"
+        assert receipt.metadata["publish_result"]["action"] == "pr_created"
+        assert receipt.metadata["postprocess_promoted_from_status"] == "needs_human"
 
 
 class TestLaneCompletionReceiptSchema:

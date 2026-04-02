@@ -1042,7 +1042,7 @@ class BossLoop:
     ) -> dict[str, Any] | None:
         if not self.config.auto_publish_deliverables:
             return None
-        if str(worker_result.get("status", "")).strip() != "completed":
+        if str(worker_result.get("status", "")).strip() not in {"completed", "needs_human"}:
             return None
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
@@ -1126,6 +1126,87 @@ class BossLoop:
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
         return dict(publish_result)
 
+    @staticmethod
+    def _apply_postprocess_metadata(worker_result: dict[str, Any]) -> dict[str, Any]:
+        receipt_metadata = worker_result.get("receipt_metadata")
+        if not isinstance(receipt_metadata, dict):
+            receipt_metadata = {}
+            worker_result["receipt_metadata"] = receipt_metadata
+
+        postprocess: dict[str, Any] = {}
+        publish_result = worker_result.get("publish_result")
+        if isinstance(publish_result, dict):
+            normalized_publish = dict(publish_result)
+            receipt_metadata["publish_result"] = normalized_publish
+            postprocess["publish_result"] = normalized_publish
+        issue_resolution = worker_result.get("issue_resolution")
+        if isinstance(issue_resolution, dict):
+            normalized_resolution = dict(issue_resolution)
+            receipt_metadata["issue_resolution"] = normalized_resolution
+            postprocess["issue_resolution"] = normalized_resolution
+        for key in (
+            "postprocess_promoted_from_status",
+            "postprocess_promoted_from_outcome",
+        ):
+            value = receipt_metadata.get(key)
+            if value is not None:
+                postprocess[key] = value
+        return postprocess
+
+    @staticmethod
+    def _promote_published_deliverable(worker_result: dict[str, Any]) -> bool:
+        publish_result = worker_result.get("publish_result")
+        if not isinstance(publish_result, dict):
+            return False
+        if not bool(publish_result.get("published")):
+            return False
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return False
+        deliverable_type = str(deliverable.get("type", "")).strip().lower()
+        if deliverable_type not in {"pr", "adopted_pr"}:
+            return False
+        if str(worker_result.get("status", "")).strip() != "needs_human":
+            return False
+
+        prior_status = str(worker_result.get("status", "")).strip()
+        prior_outcome = str(worker_result.get("outcome", "")).strip()
+        worker_result["status"] = "completed"
+        worker_result["outcome"] = "pr_adopted"
+        receipt_metadata = worker_result.get("receipt_metadata")
+        if not isinstance(receipt_metadata, dict):
+            receipt_metadata = {}
+            worker_result["receipt_metadata"] = receipt_metadata
+        receipt_metadata["postprocess_promoted_from_status"] = prior_status or None
+        receipt_metadata["postprocess_promoted_from_outcome"] = prior_outcome or None
+        return True
+
+    @staticmethod
+    def _published_pr_followup(worker_result: dict[str, Any]) -> str | None:
+        publish_result = worker_result.get("publish_result")
+        if not isinstance(publish_result, dict):
+            return None
+        pr_url = str(
+            publish_result.get("pr_url")
+            or worker_result.get("pr_url")
+            or (
+                worker_result.get("deliverable", {}).get("pr_url")
+                if isinstance(worker_result.get("deliverable"), dict)
+                else ""
+            )
+            or ""
+        ).strip()
+        if not pr_url:
+            return None
+        action = str(publish_result.get("action", "")).strip()
+        if action in {"existing_pr", "discovered_after_push"}:
+            return (
+                f"Auto-continuing: existing PR {pr_url} captures the deliverable for human review."
+            )
+        if action == "pr_created":
+            return f"Auto-continuing: published PR {pr_url} for human review."
+        return f"Auto-continuing: deliverable is available at {pr_url} for human review."
+
     def _postprocess_issue_result(
         self,
         issue: GitHubIssue,
@@ -1137,6 +1218,8 @@ class BossLoop:
         issue_resolution = self._maybe_auto_close_already_done_issue(issue, worker_result)
         if issue_resolution is not None:
             worker_result["issue_resolution"] = issue_resolution
+        self._apply_postprocess_metadata(worker_result)
+        self._promote_published_deliverable(worker_result)
         return worker_result
 
     def _log_value_outcome(
@@ -1968,6 +2051,7 @@ class BossLoop:
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
+            next_action = self._published_pr_followup(worker_result) or "Proceeding to next issue."
             self._append_iteration_metrics(
                 iteration=iteration,
                 issue_number=issue_number,
@@ -1983,7 +2067,7 @@ class BossLoop:
                 worker_status="completed",
                 stop_reason=None,
                 needs_human_reasons=[],
-                next_actions=["Proceeding to next issue."],
+                next_actions=[next_action],
                 elapsed_seconds=elapsed_seconds,
             )
 
@@ -2493,7 +2577,26 @@ class BossLoop:
             selected_runner=selected_runner,
             requested_target_agent=requested_target_agent,
         )
+        dispatch_status = _backbone_dispatch_status(result)
         result = self._postprocess_issue_result(issue, result)
+        postprocess_metadata = self._apply_postprocess_metadata(result)
+        if (
+            backbone_run_id
+            and runtime is not None
+            and (_backbone_dispatch_status(result) != dispatch_status or bool(postprocess_metadata))
+        ):
+            try:
+                runtime.update_run(
+                    backbone_run_id,
+                    status=_backbone_dispatch_status(result),
+                    execution_id=result.get("run_id"),
+                    receipt_id=result.get("receipt_id"),
+                    metadata={"boss_postprocess": postprocess_metadata}
+                    if postprocess_metadata
+                    else {},
+                )
+            except Exception:
+                pass  # Never block autonomous dispatch
         if result.get("status") == "failed":
             error = str(result.get("error", "")).strip()
             if error:

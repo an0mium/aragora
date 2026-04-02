@@ -2943,6 +2943,84 @@ async def test_dispatch_preserves_needs_human_backbone_status():
 
 
 @pytest.mark.asyncio
+async def test_dispatch_records_postprocessed_publish_metadata_in_backbone():
+    """Backbone ledger should capture autonomous publish follow-up metadata."""
+    issue = _make_issue(45, "Backbone publish wiring")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "agent_type": "codex",
+    }
+
+    updated_calls: list[dict[str, Any]] = []
+
+    class MockRuntime:
+        def create_run(self, ledger):
+            return None
+
+        def update_run(self, run_id, **kw):
+            updated_calls.append({"run_id": run_id, **kw})
+
+    fake_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "run_id": "run-45",
+        "receipt_id": "receipt-45",
+        "deliverable": {
+            "type": "branch",
+            "branch": "codex/issue-45",
+            "commit_shas": ["abc123"],
+        },
+    }
+
+    with (
+        patch(
+            "aragora.pipeline.backbone_runtime.BackboneRuntime",
+            MockRuntime,
+        ),
+        patch(
+            "aragora.pipeline.backbone_contracts.RunLedger",
+            side_effect=lambda **kw: SimpleNamespace(**kw),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ),
+        patch(
+            "aragora.swarm.tranche_integrate.publish_lane_deliverable",
+            return_value={
+                "published": True,
+                "action": "pr_created",
+                "branch": "codex/issue-45",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2045",
+            },
+        ),
+        patch("aragora.ralph.github_control.GitHubControl"),
+        patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    assert result["outcome"] == "pr_adopted"
+    assert len(updated_calls) == 2
+    assert updated_calls[-1]["status"] == "completed"
+    assert updated_calls[-1]["metadata"]["boss_postprocess"]["publish_result"]["action"] == (
+        "pr_created"
+    )
+    assert (
+        updated_calls[-1]["metadata"]["boss_postprocess"]["postprocess_promoted_from_status"]
+        == "needs_human"
+    )
+
+
+@pytest.mark.asyncio
 async def test_dispatch_preserves_running_backbone_status():
     """Backbone ledger should preserve in-flight dispatch outcomes."""
     issue = _make_issue(44, "Backbone running wiring")
