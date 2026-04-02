@@ -189,7 +189,9 @@ class ExecutionBridge:
                 f"Plan {plan_id} is not in an executable state ({current.status.value})"
             )
 
-        plan.status = PlanStatus.EXECUTING
+        # The store is already claimed atomically above. Keep the local plan in
+        # its pre-execution status so PlanExecutor can perform its own
+        # transition and bookkeeping without tripping its duplicate-state guard.
         plan.execution_started_at = datetime.now()
         if store.get_execution_record(resolved_execution_id) is None:
             store.create_execution_record(
