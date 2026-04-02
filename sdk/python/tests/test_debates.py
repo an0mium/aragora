@@ -297,6 +297,66 @@ class TestDebatesAdvancedFeatures:
             client.close()
 
 
+class TestDebatesSharingRoutes:
+    """Tests for debate sharing and public viewer helpers."""
+
+    def test_share_and_public_routes_use_versioned_surface(self) -> None:
+        """Sync helpers should target the routed `/api/v1` surface."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"ok": True}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.debates.share("deb_123", expires_in=3600)
+            client.debates.revoke_share("deb_123")
+            client.debates.get_public_spectate("deb_123")
+            client.debates.get_public_debate("deb_123")
+            client.debates.get_public_debate_og("deb_123")
+
+            expected_calls = [
+                (("POST", "/api/v1/debates/deb_123/share"), {"json": {"expires_in": 3600}}),
+                (("POST", "/api/v1/debates/deb_123/share/revoke"), {}),
+                (("GET", "/api/v1/debates/deb_123/spectate/public"), {}),
+                (("GET", "/api/v1/debates/public/deb_123"), {}),
+                (("GET", "/api/v1/debates/public/deb_123/og"), {}),
+            ]
+
+            assert mock_request.call_count == len(expected_calls)
+            for actual_call, (args, kwargs) in zip(
+                mock_request.call_args_list, expected_calls, strict=True
+            ):
+                assert actual_call.args == args
+                assert actual_call.kwargs == kwargs
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_share_and_public_routes_use_versioned_surface(self) -> None:
+        """Async helpers should target the routed `/api/v1` surface."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"ok": True}
+
+            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+                await client.debates.share("deb_123", expires_in=3600)
+                await client.debates.revoke_share("deb_123")
+                await client.debates.get_public_spectate("deb_123")
+                await client.debates.get_public_debate("deb_123")
+                await client.debates.get_public_debate_og("deb_123")
+
+                expected_calls = [
+                    (("POST", "/api/v1/debates/deb_123/share"), {"json": {"expires_in": 3600}}),
+                    (("POST", "/api/v1/debates/deb_123/share/revoke"), {}),
+                    (("GET", "/api/v1/debates/deb_123/spectate/public"), {}),
+                    (("GET", "/api/v1/debates/public/deb_123"), {}),
+                    (("GET", "/api/v1/debates/public/deb_123/og"), {}),
+                ]
+
+                assert mock_request.call_count == len(expected_calls)
+                for actual_call, (args, kwargs) in zip(
+                    mock_request.call_args_list, expected_calls, strict=True
+                ):
+                    assert actual_call.args == args
+                    assert actual_call.kwargs == kwargs
+
+
 class TestDebatesAnalysis:
     """Tests for debate analysis methods."""
 

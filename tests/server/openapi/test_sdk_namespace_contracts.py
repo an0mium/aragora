@@ -120,3 +120,24 @@ def test_sdk_namespace_contract(namespace: str, openapi_endpoints: set[tuple[str
 
     missing_in_spec = sorted(expected - openapi_endpoints)
     assert not missing_in_spec, f"{namespace} missing endpoints in OpenAPI spec: {missing_in_spec}"
+
+
+def test_typescript_debates_share_routes_match_live_surface() -> None:
+    """Debates namespace should call the routed versioned share/public endpoints."""
+    file_path = _repo_root() / "sdk/typescript/src/namespaces/debates.ts"
+    assert file_path.exists(), "SDK debates namespace file missing"
+
+    content = file_path.read_text()
+    sdk_endpoints = _extract_sdk_endpoints(content)
+    expected = {
+        ("post", "/api/v1/debates/{param}/share"),
+        ("post", "/api/v1/debates/{param}/share/revoke"),
+        ("get", "/api/v1/debates/{param}/spectate/public"),
+        ("get", "/api/v1/debates/public/{param}"),
+        ("get", "/api/v1/debates/public/{param}/og"),
+    }
+
+    missing_in_sdk = sorted(expected - sdk_endpoints)
+    assert not missing_in_sdk, (
+        f"debates namespace missing live share/public endpoints: {missing_in_sdk}"
+    )

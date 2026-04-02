@@ -53,7 +53,7 @@ describe('Parity Compatibility Routes', () => {
     });
   });
 
-  it('maps debate share and package compatibility routes', async () => {
+  it('maps debate share/public routes to the live versioned surface and keeps package compatibility routes', async () => {
     const api = new DebatesAPI(mockClient as any);
     mockClient.request.mockResolvedValue({});
 
@@ -62,13 +62,13 @@ describe('Parity Compatibility Routes', () => {
     await api.getPackage('debate-1');
     await api.getPackageMarkdown('debate/1');
 
-    expect(mockClient.request).toHaveBeenNthCalledWith(1, 'POST', '/api/debates/debate-1/share');
-    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/debates/debate-1/spectate/public');
+    expect(mockClient.request).toHaveBeenNthCalledWith(1, 'POST', '/api/v1/debates/debate-1/share');
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/v1/debates/debate-1/spectate/public');
     expect(mockClient.request).toHaveBeenNthCalledWith(3, 'GET', '/api/debates/debate-1/package');
     expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/debates/debate%2F1/package/markdown');
   });
 
-  it('maps debate diagnostics and share revoke compatibility routes', async () => {
+  it('maps debate diagnostics compatibility and live share revoke routes', async () => {
     const api = new DebatesAPI(mockClient as any);
     mockClient.request.mockResolvedValue({});
 
@@ -76,7 +76,7 @@ describe('Parity Compatibility Routes', () => {
     await api.revokeShare('debate/1');
 
     expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/debates/debate%2F1/diagnostics');
-    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'POST', '/api/debates/debate%2F1/share/revoke');
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'POST', '/api/v1/debates/debate%2F1/share/revoke');
   });
 
   it('maps github PR review compatibility route', async () => {

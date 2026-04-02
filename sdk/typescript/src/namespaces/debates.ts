@@ -2718,7 +2718,7 @@ export class DebatesAPI {
   async share(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'POST',
-      `/api/debates/${encodeURIComponent(debateId)}/share`
+      `/api/v1/debates/${encodeURIComponent(debateId)}/share`
     );
   }
 
@@ -2728,7 +2728,7 @@ export class DebatesAPI {
   async revokeShare(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'POST',
-      `/api/debates/${encodeURIComponent(debateId)}/share/revoke`
+      `/api/v1/debates/${encodeURIComponent(debateId)}/share/revoke`
     );
   }
 
@@ -2738,7 +2738,7 @@ export class DebatesAPI {
   async getPublicSpectate(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'GET',
-      `/api/debates/${encodeURIComponent(debateId)}/spectate/public`
+      `/api/v1/debates/${encodeURIComponent(debateId)}/spectate/public`
     );
   }
 
@@ -2748,7 +2748,7 @@ export class DebatesAPI {
   async getPublicDebate(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'GET',
-      `/api/debates/public/${encodeURIComponent(debateId)}`
+      `/api/v1/debates/public/${encodeURIComponent(debateId)}`
     );
   }
 
@@ -2758,7 +2758,7 @@ export class DebatesAPI {
   async getPublicDebateOg(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request(
       'GET',
-      `/api/debates/public/${encodeURIComponent(debateId)}/og`
+      `/api/v1/debates/public/${encodeURIComponent(debateId)}/og`
     );
   }
 

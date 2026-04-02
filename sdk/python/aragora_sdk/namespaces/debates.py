@@ -630,7 +630,7 @@ class DebatesAPI:
         Returns:
             Dict with share URL and token.
         """
-        return self._client.request("POST", f"/api/debates/{debate_id}/share", json=kwargs)
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/share", json=kwargs)
 
     def revoke_share(self, debate_id: str) -> dict[str, Any]:
         """
@@ -642,7 +642,7 @@ class DebatesAPI:
         Returns:
             Dict with revocation confirmation.
         """
-        return self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/share/revoke")
 
     def get_shared(self, share_token: str) -> dict[str, Any]:
         """View a publicly shared debate by share token."""
@@ -658,7 +658,7 @@ class DebatesAPI:
         Returns:
             Dict with public spectate data (no auth required).
         """
-        return self._client.request("GET", f"/api/debates/{debate_id}/spectate/public")
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/spectate/public")
 
     def get_public_debate(self, debate_id: str) -> dict[str, Any]:
         """Get a publicly shared debate by ID (no auth required).
@@ -669,7 +669,7 @@ class DebatesAPI:
         Returns:
             Dict with public debate data including verdict and consensus.
         """
-        return self._client.request("GET", f"/api/debates/public/{debate_id}")
+        return self._client.request("GET", f"/api/v1/debates/public/{debate_id}")
 
     def get_public_debate_og(self, debate_id: str) -> dict[str, Any]:
         """Get Open Graph metadata for a publicly shared debate.
@@ -680,7 +680,7 @@ class DebatesAPI:
         Returns:
             Dict with OG metadata (title, description, image) for social previews.
         """
-        return self._client.request("GET", f"/api/debates/public/{debate_id}/og")
+        return self._client.request("GET", f"/api/v1/debates/public/{debate_id}/og")
 
     # ========== One-Click Debate ==========
 
@@ -1557,11 +1557,11 @@ class AsyncDebatesAPI:
 
     async def share(self, debate_id: str, **kwargs: Any) -> dict[str, Any]:
         """Create a shareable link for a debate."""
-        return await self._client.request("POST", f"/api/debates/{debate_id}/share", json=kwargs)
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/share", json=kwargs)
 
     async def revoke_share(self, debate_id: str) -> dict[str, Any]:
         """Revoke a shared debate link."""
-        return await self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/share/revoke")
 
     async def get_shared(self, share_token: str) -> dict[str, Any]:
         """View a publicly shared debate by share token."""
@@ -1569,15 +1569,15 @@ class AsyncDebatesAPI:
 
     async def get_public_spectate(self, debate_id: str) -> dict[str, Any]:
         """Get the public spectate view for a debate."""
-        return await self._client.request("GET", f"/api/debates/{debate_id}/spectate/public")
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/spectate/public")
 
     async def get_public_debate(self, debate_id: str) -> dict[str, Any]:
         """Get a publicly shared debate by ID (no auth required)."""
-        return await self._client.request("GET", f"/api/debates/public/{debate_id}")
+        return await self._client.request("GET", f"/api/v1/debates/public/{debate_id}")
 
     async def get_public_debate_og(self, debate_id: str) -> dict[str, Any]:
         """Get Open Graph metadata for a publicly shared debate."""
-        return await self._client.request("GET", f"/api/debates/public/{debate_id}/og")
+        return await self._client.request("GET", f"/api/v1/debates/public/{debate_id}/og")
 
     # ========== One-Click Debate ==========
 
