@@ -93,6 +93,7 @@ class MockWebhookStore:
         name: str | None = None,
         description: str | None = None,
         user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         webhook = _make_webhook(
             webhook_id=f"wh-{len(self._webhooks) + 1:03d}",

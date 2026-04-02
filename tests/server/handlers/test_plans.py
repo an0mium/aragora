@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -509,8 +509,22 @@ class TestExecutePlan:
             ),
             patch.object(handler, "get_json_body", return_value={}),
             patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=MagicMock(),
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value={
+                    "run_id": "run-001",
+                    "execution_id": "exec-001",
+                    "correlation_id": "corr-001",
+                    "status": "queued",
+                    "execution_mode": "default",
+                },
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.execute_queued_plan",
+                new=AsyncMock(),
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=lambda coro, name=None: getattr(coro, "close", lambda: None)(),
             ),
             patch(
                 "aragora.server.handlers.plans._fire_plan_notification",
