@@ -379,3 +379,129 @@ class TestExecutionSafetyGate:
         assert result.plan is not None
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
+
+
+class TestBackboneWiring:
+    """Tests for backbone ledger wiring in PostDebateCoordinator."""
+
+    def test_post_debate_wires_backbone_when_run_id_present(self):
+        """Coordinator should wire to backbone when debate has backbone_run_id."""
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+
+        debate_result = _make_debate_result(confidence=0.9)
+        debate_result.metadata = {"backbone_run_id": "boss-run-123-issue42"}
+
+        appended_events: list[dict] = []
+        updated_calls: list[dict] = []
+
+        class MockRuntime:
+            def append_stage_event(self, run_id, stage, *, status, artifact_ref=""):
+                appended_events.append(
+                    {
+                        "run_id": run_id,
+                        "stage": stage,
+                        "status": status,
+                        "artifact_ref": artifact_ref,
+                    }
+                )
+
+            def update_run(self, run_id, **kw):
+                updated_calls.append({"run_id": run_id, **kw})
+
+        fake_plan = {"id": "plan-abc", "steps": []}
+
+        with (
+            patch.object(coordinator, "_step_create_plan", return_value=fake_plan),
+            patch(
+                "aragora.pipeline.backbone_runtime.BackboneRuntime",
+                MockRuntime,
+            ),
+        ):
+            result = coordinator.run("d1", debate_result, confidence=0.9)
+
+        assert result.plan is not None
+        assert len(appended_events) == 1
+        assert appended_events[0]["run_id"] == "boss-run-123-issue42"
+        assert appended_events[0]["stage"] == "plan"
+        assert appended_events[0]["status"] == "created"
+        assert appended_events[0]["artifact_ref"] == "plan-abc"
+        assert len(updated_calls) == 1
+        assert updated_calls[0]["plan_id"] == "plan-abc"
+
+    def test_backbone_skipped_when_no_run_id(self):
+        """Without backbone_run_id in metadata, no backbone calls should happen."""
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+        debate_result = _make_debate_result(confidence=0.9)
+        debate_result.metadata = {}
+
+        fake_plan = {"id": "plan-xyz", "steps": []}
+
+        with (
+            patch.object(coordinator, "_step_create_plan", return_value=fake_plan),
+            patch(
+                "aragora.pipeline.backbone_runtime.BackboneRuntime",
+            ) as mock_rt_cls,
+        ):
+            result = coordinator.run("d1", debate_result, confidence=0.9)
+
+        assert result.plan is not None
+        # BackboneRuntime should never be instantiated
+        mock_rt_cls.assert_not_called()
+
+    def test_backbone_failure_does_not_block_pipeline(self):
+        """Backbone runtime errors must not prevent post-debate pipeline from completing."""
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+        debate_result = _make_debate_result(confidence=0.9)
+        debate_result.metadata = {"backbone_run_id": "boss-run-999-issue7"}
+
+        class CrashingRuntime:
+            def append_stage_event(self, *a, **kw):
+                raise RuntimeError("backbone unavailable")
+
+            def update_run(self, *a, **kw):
+                raise RuntimeError("backbone unavailable")
+
+        fake_plan = {"id": "plan-crash", "steps": []}
+
+        with (
+            patch.object(coordinator, "_step_create_plan", return_value=fake_plan),
+            patch(
+                "aragora.pipeline.backbone_runtime.BackboneRuntime",
+                CrashingRuntime,
+            ),
+        ):
+            # Should NOT raise despite backbone failures
+            result = coordinator.run("d1", debate_result, confidence=0.9)
+
+        assert result.plan is not None
+        assert result.plan["id"] == "plan-crash"

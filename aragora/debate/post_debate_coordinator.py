@@ -249,6 +249,23 @@ class PostDebateCoordinator:
         if self.config.auto_create_plan and confidence >= self.config.plan_min_confidence:
             result.plan = self._step_create_plan(debate_id, debate_result, task, result.explanation)
 
+        # Wire backbone ledger when upstream provided a backbone_run_id
+        backbone_run_id = (getattr(debate_result, "metadata", {}) or {}).get("backbone_run_id")
+        if backbone_run_id and result.plan:
+            try:
+                from aragora.pipeline.backbone_runtime import BackboneRuntime
+
+                runtime = BackboneRuntime()
+                runtime.append_stage_event(
+                    backbone_run_id,
+                    "plan",
+                    status="created",
+                    artifact_ref=str(result.plan.get("id", "")),
+                )
+                runtime.update_run(backbone_run_id, plan_id=str(result.plan.get("id", "")))
+            except Exception:
+                logger.debug("Backbone wiring skipped for post-debate plan")
+
         # Step 2.5: Gauntlet adversarial validation
         if self.config.auto_gauntlet_validate and confidence >= self.config.gauntlet_min_confidence:
             result.gauntlet_result = self._step_gauntlet_validate(
