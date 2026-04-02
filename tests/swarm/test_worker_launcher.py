@@ -684,6 +684,40 @@ class TestWait:
         mock_verify.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_wait_preserves_detached_logs_on_timeout(self, tmp_path: Path):
+        launcher = WorkerLauncher(
+            LaunchConfig(timeout_seconds=0.01, auto_commit=False, detach=True)
+        )
+        worktree = tmp_path / "wt-detached-timeout"
+        worktree.mkdir()
+        (worktree / ".swarm_worker_stdout.log").write_text("partial stdout\n", encoding="utf-8")
+        (worktree / ".swarm_worker_stderr.log").write_text("partial stderr\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="wo-detached-timeout",
+            agent="codex",
+            worktree_path=str(worktree),
+            branch="main",
+            pid=200,
+        )
+        launcher._workers["wo-detached-timeout"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock()
+        launcher._processes["wo-detached-timeout"] = mock_proc
+
+        with patch.object(WorkerLauncher, "_collect_diff", return_value=""):
+            result = await launcher.wait("wo-detached-timeout")
+
+        assert result.exit_code == -1
+        assert result.stdout == "partial stdout\n"
+        assert "partial stderr" in result.stderr
+        assert "Timed out after 0.01s" in result.stderr
+        mock_proc.kill.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_wait_unknown_raises(self):
         launcher = WorkerLauncher()
         with pytest.raises(KeyError, match="No running worker"):

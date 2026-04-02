@@ -388,7 +388,16 @@ class WorkerLauncher:
                 ]
                 worker.stderr = "\n".join(stderr_parts)
             else:
-                worker.stderr = f"Timed out after {effective_timeout}s"
+                worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
+                stderr_parts = [
+                    part
+                    for part in [
+                        self._read_log_file(worker.worktree_path, "stderr").strip(),
+                        f"Timed out after {effective_timeout}s",
+                    ]
+                    if part
+                ]
+                worker.stderr = "\n".join(stderr_parts)
             logger.warning("Worker %s timed out", work_order_id)
 
         worker.completed_at = datetime.now(UTC).isoformat()
