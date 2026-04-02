@@ -2874,6 +2874,25 @@ class BossLoop:
             else self._requested_target_agent_for_issue(issue.number)
         )
 
+        # --- Backbone ledger: register dispatch intent ---
+        backbone_run_id = None
+        runtime = None
+        try:
+            from aragora.pipeline.backbone_runtime import BackboneRuntime
+            from aragora.pipeline.backbone_contracts import RunLedger
+
+            runtime = BackboneRuntime()
+            ledger = RunLedger(
+                run_id=f"boss-{self.run_id}-issue{issue.number}",
+                entrypoint="boss_loop",
+                status="dispatching",
+                metadata={"issue_number": issue.number, "issue_title": issue.title},
+            )
+            runtime.create_run(ledger)
+            backbone_run_id = ledger.run_id
+        except Exception:
+            pass  # Never block autonomous dispatch
+
         claimed_runner_id: str | None = None
         selected_runner, claimed_runner_id = self._claim_runner_for_dispatch(
             freshness,
@@ -2906,6 +2925,18 @@ class BossLoop:
         finally:
             if claimed_runner_id:
                 self._release_runner_claim(claimed_runner_id)
+
+        # --- Backbone ledger: record dispatch outcome ---
+        if backbone_run_id and runtime is not None:
+            try:
+                runtime.update_run(
+                    backbone_run_id,
+                    status="completed" if result.get("status") == "completed" else "failed",
+                    execution_id=result.get("run_id"),
+                    receipt_id=result.get("receipt_id"),
+                )
+            except Exception:
+                pass  # Never block autonomous dispatch
         if pending_handoff is not None:
             dispatch_started = bool(result.get("run") or result.get("run_id"))
             if result.get("status") != "failed" or dispatch_started:
