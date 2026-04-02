@@ -291,6 +291,132 @@ class GitHubControl:
             detail=stderr or "gh pr merge failed",
         )
 
+    def upsert_issue_comment(
+        self,
+        *,
+        repo: str,
+        issue_number: int,
+        body: str,
+        marker: str,
+    ) -> dict[str, Any]:
+        normalized_repo = _optional_text(repo)
+        normalized_body = str(body or "").strip()
+        normalized_marker = str(marker or "").strip()
+        if not normalized_repo:
+            return {
+                "commented": False,
+                "action": "skipped",
+                "detail": "Repository slug is required.",
+                "repo": None,
+                "issue_number": issue_number,
+            }
+        if issue_number <= 0:
+            return {
+                "commented": False,
+                "action": "skipped",
+                "detail": "Issue number must be positive.",
+                "repo": normalized_repo,
+                "issue_number": issue_number,
+            }
+        if not normalized_body:
+            return {
+                "commented": False,
+                "action": "skipped",
+                "detail": "Comment body is required.",
+                "repo": normalized_repo,
+                "issue_number": issue_number,
+            }
+
+        full_body = normalized_body
+        if normalized_marker and normalized_marker not in full_body:
+            full_body = f"{full_body}\n\n{normalized_marker}"
+
+        comment_id: int | None = None
+        comment_url: str | None = None
+        list_result = self._run_gh(
+            [
+                "api",
+                f"repos/{normalized_repo}/issues/{issue_number}/comments?per_page=100",
+            ],
+            raise_on_error=False,
+            timeout=20,
+        )
+        if list_result.returncode == 0:
+            payload = _parse_json_payload(list_result.stdout)
+            comments = payload if isinstance(payload, list) else []
+            for raw_comment in comments:
+                if not isinstance(raw_comment, dict):
+                    continue
+                if normalized_marker and normalized_marker not in str(raw_comment.get("body", "")):
+                    continue
+                raw_id = raw_comment.get("id")
+                try:
+                    comment_id = int(str(raw_id))
+                except (TypeError, ValueError):
+                    comment_id = None
+                comment_url = _optional_text(raw_comment.get("html_url")) or _optional_text(
+                    raw_comment.get("url")
+                )
+                if comment_id is not None:
+                    break
+
+        action = "created"
+        request_args = [
+            "api",
+            "--method",
+            "POST",
+            f"repos/{normalized_repo}/issues/{issue_number}/comments",
+            "-f",
+            f"body={full_body}",
+        ]
+        if comment_id is not None:
+            action = "updated"
+            request_args = [
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{normalized_repo}/issues/comments/{comment_id}",
+                "-f",
+                f"body={full_body}",
+            ]
+
+        request_result = self._run_gh(
+            request_args,
+            raise_on_error=False,
+            timeout=30,
+        )
+        detail = (request_result.stderr or request_result.stdout or "").strip()
+        if request_result.returncode != 0:
+            return {
+                "commented": False,
+                "action": "comment_failed",
+                "detail": detail or "gh issue comment failed",
+                "repo": normalized_repo,
+                "issue_number": issue_number,
+                "comment_url": comment_url,
+            }
+
+        payload = _parse_json_payload(request_result.stdout)
+        if isinstance(payload, dict):
+            comment_url = _optional_text(payload.get("html_url")) or _optional_text(
+                payload.get("url")
+            )
+            raw_id = payload.get("id")
+            try:
+                comment_id = int(str(raw_id))
+            except (TypeError, ValueError):
+                pass
+
+        return {
+            "commented": True,
+            "action": action,
+            "detail": detail or f"Issue comment {action}.",
+            "repo": normalized_repo,
+            "issue_number": issue_number,
+            "comment_id": comment_id,
+            "comment_url": comment_url,
+        }
+
     def _pr_view(self, pr_ref: str) -> dict[str, Any]:
         result = self._run_gh(
             [
@@ -414,6 +540,15 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _parse_json_payload(text: str | None) -> Any | None:
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
 
 
 def _extract_first_github_url(text: str | None) -> str | None:

@@ -55,6 +55,100 @@ class TestGitHubControlPRCreation:
             control.create_pr_for_branch("codex/test", "main")
 
 
+class TestGitHubControlIssueComments:
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_upsert_issue_comment_creates_new_comment(self, mock_run, tmp_path: Path) -> None:
+        mock_run.side_effect = [
+            _completed_process(stdout=json.dumps([])),
+            _completed_process(
+                stdout=json.dumps(
+                    {
+                        "id": 91,
+                        "html_url": "https://github.com/org/repo/issues/42#issuecomment-91",
+                    }
+                )
+            ),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.upsert_issue_comment(
+            repo="org/repo",
+            issue_number=42,
+            body="Boss loop published a PR.",
+            marker="<!-- aragora-boss-loop-publish -->",
+        )
+
+        assert result["commented"] is True
+        assert result["action"] == "created"
+        assert result["comment_id"] == 91
+        create_cmd = mock_run.call_args_list[1].args[0]
+        assert create_cmd[:4] == ["gh", "api", "--method", "POST"]
+        assert create_cmd[4] == "repos/org/repo/issues/42/comments"
+        assert any("aragora-boss-loop-publish" in arg for arg in create_cmd)
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_upsert_issue_comment_updates_existing_marker_comment(
+        self, mock_run, tmp_path: Path
+    ) -> None:
+        mock_run.side_effect = [
+            _completed_process(
+                stdout=json.dumps(
+                    [
+                        {
+                            "id": 77,
+                            "body": "Prior update\n\n<!-- aragora-boss-loop-publish -->",
+                            "html_url": "https://github.com/org/repo/issues/42#issuecomment-77",
+                        }
+                    ]
+                )
+            ),
+            _completed_process(
+                stdout=json.dumps(
+                    {
+                        "id": 77,
+                        "html_url": "https://github.com/org/repo/issues/42#issuecomment-77",
+                    }
+                )
+            ),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.upsert_issue_comment(
+            repo="org/repo",
+            issue_number=42,
+            body="Boss loop reused the existing PR.",
+            marker="<!-- aragora-boss-loop-publish -->",
+        )
+
+        assert result["commented"] is True
+        assert result["action"] == "updated"
+        assert result["comment_id"] == 77
+        update_cmd = mock_run.call_args_list[1].args[0]
+        assert update_cmd[:4] == ["gh", "api", "--method", "PATCH"]
+        assert update_cmd[4] == "repos/org/repo/issues/comments/77"
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_upsert_issue_comment_returns_failure_on_create_error(
+        self, mock_run, tmp_path: Path
+    ) -> None:
+        mock_run.side_effect = [
+            _completed_process(stdout=json.dumps([])),
+            _completed_process(returncode=1, stderr="comment write failed"),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        result = control.upsert_issue_comment(
+            repo="org/repo",
+            issue_number=42,
+            body="Boss loop published a PR.",
+            marker="<!-- aragora-boss-loop-publish -->",
+        )
+
+        assert result["commented"] is False
+        assert result["action"] == "comment_failed"
+        assert "comment write failed" in result["detail"]
+
+
 class TestGitHubControlGateSnapshots:
     @patch("aragora.ralph.github_control.subprocess.run")
     def test_fetch_gate_snapshot_detects_merged_pr(self, mock_run, tmp_path: Path) -> None:

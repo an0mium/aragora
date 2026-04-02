@@ -61,6 +61,7 @@ _ALREADY_DONE_MARKERS = (
     "nothing to commit",
     "there's nothing to commit",
 )
+_BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
 
 
 # ---------------------------------------------------------------------------
@@ -1127,6 +1128,110 @@ class BossLoop:
         return dict(publish_result)
 
     @staticmethod
+    def _published_pr_url(worker_result: dict[str, Any]) -> str | None:
+        publish_result = worker_result.get("publish_result")
+        pr_url = str(
+            publish_result.get("pr_url")
+            if isinstance(publish_result, dict) and publish_result.get("pr_url")
+            else worker_result.get("pr_url")
+            or (
+                worker_result.get("deliverable", {}).get("pr_url")
+                if isinstance(worker_result.get("deliverable"), dict)
+                else ""
+            )
+            or ""
+        ).strip()
+        return pr_url or None
+
+    @staticmethod
+    def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
+        publish_result = worker_result.get("publish_result")
+        if not isinstance(publish_result, dict):
+            return None
+        if not bool(publish_result.get("published")):
+            return None
+        pr_url = BossLoop._published_pr_url(worker_result)
+        if pr_url is None:
+            return None
+        branch = str(
+            publish_result.get("branch")
+            or (
+                worker_result.get("deliverable", {}).get("branch")
+                if isinstance(worker_result.get("deliverable"), dict)
+                else ""
+            )
+            or ""
+        ).strip()
+        action = str(publish_result.get("action", "")).strip()
+        detail = str(publish_result.get("detail", "")).strip()
+        lines = [
+            "Aragora boss loop published a deliverable for human review.",
+            "",
+            f"- PR: {pr_url}",
+        ]
+        if branch:
+            lines.append(f"- Branch: `{branch}`")
+        if action:
+            lines.append(f"- Publish action: `{action}`")
+        if detail:
+            lines.append(f"- Detail: {detail}")
+        lines.extend(
+            [
+                "",
+                "This status comment is updated in place on boss-loop retries.",
+                _BOSS_PUBLISH_COMMENT_MARKER,
+            ]
+        )
+        return "\n".join(lines)
+
+    def _maybe_comment_published_deliverable(
+        self,
+        issue: GitHubIssue,
+        worker_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        comment = self._published_deliverable_comment(worker_result)
+        if comment is None:
+            return None
+        repo_slug = self._repo_slug_for_issue(issue)
+        if repo_slug is None:
+            return {
+                "commented": False,
+                "action": "skipped",
+                "reason": "missing_repo_slug",
+                "issue_number": issue.number,
+            }
+        try:
+            from aragora.ralph.github_control import GitHubControl
+
+            result = GitHubControl(repo_root=Path.cwd().resolve()).upsert_issue_comment(
+                repo=repo_slug,
+                issue_number=issue.number,
+                body=comment,
+                marker=_BOSS_PUBLISH_COMMENT_MARKER,
+            )
+        except Exception as exc:
+            logger.warning("Boss publish comment failed for issue #%s: %s", issue.number, exc)
+            return {
+                "commented": False,
+                "action": "comment_failed",
+                "reason": type(exc).__name__,
+                "issue_number": issue.number,
+                "repo": repo_slug,
+            }
+        if not isinstance(result, dict):
+            return {
+                "commented": False,
+                "action": "comment_failed",
+                "reason": "invalid_comment_result",
+                "issue_number": issue.number,
+                "repo": repo_slug,
+            }
+        normalized = dict(result)
+        normalized["issue_number"] = issue.number
+        normalized["repo"] = repo_slug
+        return normalized
+
+    @staticmethod
     def _apply_postprocess_metadata(worker_result: dict[str, Any]) -> dict[str, Any]:
         receipt_metadata = worker_result.get("receipt_metadata")
         if not isinstance(receipt_metadata, dict):
@@ -1139,6 +1244,11 @@ class BossLoop:
             normalized_publish = dict(publish_result)
             receipt_metadata["publish_result"] = normalized_publish
             postprocess["publish_result"] = normalized_publish
+        issue_comment_result = worker_result.get("issue_comment_result")
+        if isinstance(issue_comment_result, dict):
+            normalized_comment = dict(issue_comment_result)
+            receipt_metadata["issue_comment_result"] = normalized_comment
+            postprocess["issue_comment_result"] = normalized_comment
         issue_resolution = worker_result.get("issue_resolution")
         if isinstance(issue_resolution, dict):
             normalized_resolution = dict(issue_resolution)
@@ -1186,16 +1296,7 @@ class BossLoop:
         publish_result = worker_result.get("publish_result")
         if not isinstance(publish_result, dict):
             return None
-        pr_url = str(
-            publish_result.get("pr_url")
-            or worker_result.get("pr_url")
-            or (
-                worker_result.get("deliverable", {}).get("pr_url")
-                if isinstance(worker_result.get("deliverable"), dict)
-                else ""
-            )
-            or ""
-        ).strip()
+        pr_url = BossLoop._published_pr_url(worker_result)
         if not pr_url:
             return None
         action = str(publish_result.get("action", "")).strip()
@@ -1215,6 +1316,9 @@ class BossLoop:
         publish_result = self._maybe_publish_deliverable(issue, worker_result)
         if publish_result is not None:
             worker_result["publish_result"] = publish_result
+        issue_comment_result = self._maybe_comment_published_deliverable(issue, worker_result)
+        if issue_comment_result is not None:
+            worker_result["issue_comment_result"] = issue_comment_result
         issue_resolution = self._maybe_auto_close_already_done_issue(issue, worker_result)
         if issue_resolution is not None:
             worker_result["issue_resolution"] = issue_resolution

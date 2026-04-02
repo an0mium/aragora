@@ -100,6 +100,7 @@ def register_pr(
     registry: PullRequestRegistry,
     *,
     creator: str = "tranche-integrate",
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     normalized_pr_url = str(pr_url or "").strip()
     normalized_branch = str(branch or "").strip()
@@ -110,7 +111,10 @@ def register_pr(
     if isinstance(existing, dict) and str(existing.get("pr_url", "")).strip() == normalized_pr_url:
         return existing
 
-    entry = registry.register(normalized_branch, normalized_pr_url, creator=creator)
+    register_kwargs: dict[str, Any] = {"creator": creator}
+    if metadata:
+        register_kwargs["metadata"] = dict(metadata)
+    entry = registry.register(normalized_branch, normalized_pr_url, **register_kwargs)
     if hasattr(entry, "__dict__"):
         return dict(entry.__dict__)
     if isinstance(entry, dict):
@@ -120,6 +124,41 @@ def register_pr(
         "pr_url": normalized_pr_url,
         "creator": creator,
     }
+
+
+def _publish_registry_metadata(
+    artifact: Any,
+    *,
+    manifest_id: str,
+    branch: str,
+) -> dict[str, Any]:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    result: dict[str, Any] = {
+        "manifest_id": _optional_text(manifest_id),
+        "branch": _optional_text(branch),
+        "receipt_id": _optional_text(metadata.get("receipt_id")),
+        "lane_id": _optional_text(getattr(artifact, "lane_id", None)),
+        "commit_shas": _artifact_commit_shas(artifact),
+    }
+    return {key: value for key, value in result.items() if value not in (None, [], "")}
+
+
+def _active_registry_pr_for_branch(
+    registry: PullRequestRegistry | Any,
+    branch: str,
+) -> str | None:
+    existing = registry.get(branch)
+    if not isinstance(existing, dict):
+        return None
+    status = str(existing.get("status", "active")).strip().lower()
+    if status and status != "active":
+        return None
+    pr_url = _optional_text(existing.get("pr_url"))
+    if not pr_url or not _looks_like_pr_url(pr_url):
+        return None
+    return pr_url
 
 
 def classify_check_results(checks: list[GitHubCheck | dict[str, Any]]) -> str:
@@ -277,7 +316,17 @@ def execute_lane_merge(
         required_checks_green=required_checks_green,
         allow_admin=allow_admin,
     )
-    result = merge_call.to_dict() if hasattr(merge_call, "to_dict") else dict(merge_call)
+    if hasattr(merge_call, "to_dict"):
+        result = dict(merge_call.to_dict())
+    elif isinstance(merge_call, dict):
+        result = dict(merge_call)
+    else:
+        result = {
+            "merged": bool(getattr(merge_call, "merged", False)),
+            "action": _optional_text(getattr(merge_call, "action", None)) or "merge_failed",
+            "used_admin": bool(getattr(merge_call, "used_admin", False)),
+            "detail": _optional_text(getattr(merge_call, "detail", None)) or "",
+        }
     result["pr_url"] = str(pr_url or "").strip() or None
     result["branch"] = _optional_text(branch)
     if result.get("merged") and branch:
@@ -305,9 +354,31 @@ def publish_lane_deliverable(
             "detail": "Lane artifact has no branch deliverable to publish.",
         }
 
+    registry_metadata = _publish_registry_metadata(
+        artifact,
+        manifest_id=manifest_id,
+        branch=branch,
+    )
+    registry_pr = _active_registry_pr_for_branch(registry, branch)
+    if registry_pr:
+        _persist_published_pr(
+            artifact,
+            manifest_id=manifest_id,
+            pr_url=registry_pr,
+            branch=branch,
+            artifact_store=artifact_store,
+        )
+        return {
+            "published": True,
+            "action": "existing_pr",
+            "branch": branch,
+            "pr_url": registry_pr,
+            "detail": "Active PR registry entry reused for lane branch.",
+        }
+
     existing_pr = discover_lane_pr(artifact, github=github, repo_root=repo_root)
     if existing_pr:
-        register_pr(existing_pr, branch, registry)
+        register_pr(existing_pr, branch, registry, metadata=registry_metadata)
         _persist_published_pr(
             artifact,
             manifest_id=manifest_id,
@@ -351,7 +422,7 @@ def publish_lane_deliverable(
 
     discovered_pr = _optional_text(github.find_pr_for_branch(branch))
     if discovered_pr:
-        register_pr(discovered_pr, branch, registry)
+        register_pr(discovered_pr, branch, registry, metadata=registry_metadata)
         _persist_published_pr(
             artifact,
             manifest_id=manifest_id,
@@ -386,7 +457,7 @@ def publish_lane_deliverable(
         )
         return failure
 
-    register_pr(created_pr, branch, registry)
+    register_pr(created_pr, branch, registry, metadata=registry_metadata)
     _persist_published_pr(
         artifact,
         manifest_id=manifest_id,

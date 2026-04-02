@@ -186,9 +186,14 @@ def test_auto_publish_promotes_branch_deliverable_to_pr_metadata() -> None:
                 "pr_url": "https://github.com/synaptent/aragora/pull/1919",
             },
         ) as publish_mock,
-        patch("aragora.ralph.github_control.GitHubControl"),
+        patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
         patch("aragora.swarm.pr_registry.PullRequestRegistry"),
     ):
+        github_control_cls.return_value.upsert_issue_comment.return_value = {
+            "commented": True,
+            "action": "created",
+            "comment_url": "https://github.com/synaptent/aragora/issues/101#issuecomment-1",
+        }
         result = loop._postprocess_issue_result(_issue(), worker_result)
 
     assert result["status"] == "completed"
@@ -200,10 +205,13 @@ def test_auto_publish_promotes_branch_deliverable_to_pr_metadata() -> None:
     assert result["receipt_metadata"]["publish_result"]["pr_url"] == (
         "https://github.com/synaptent/aragora/pull/1919"
     )
+    assert result["issue_comment_result"]["action"] == "created"
+    assert result["receipt_metadata"]["issue_comment_result"]["commented"] is True
     assert result["receipt_metadata"]["postprocess_promoted_from_status"] == "needs_human"
     assert result["receipt_metadata"]["postprocess_promoted_from_outcome"] == "blocked"
     assert publish_mock.call_args.kwargs["target_branch"] == "release/2026.04"
     assert publish_mock.call_args.args[0].branch == "codex/issue-101"
+    github_control_cls.return_value.upsert_issue_comment.assert_called_once()
 
 
 def test_auto_close_marks_already_done_issue_resolved() -> None:

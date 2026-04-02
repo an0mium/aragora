@@ -579,11 +579,62 @@ def test_publish_lane_deliverable_pushes_branch_and_creates_pr() -> None:
     assert result["pr_url"] == "https://github.com/org/repo/pull/77"
     assert artifact.metadata["deliverable"]["pr_url"] == "https://github.com/org/repo/pull/77"
     assert "https://github.com/org/repo/pull/77" in artifact.urls
-    registry.register.assert_called_once_with(
-        "feat-branch",
-        "https://github.com/org/repo/pull/77",
-        creator="tranche-integrate",
+    register_call = registry.register.call_args
+    assert register_call.args[:2] == ("feat-branch", "https://github.com/org/repo/pull/77")
+    assert register_call.kwargs["creator"] == "tranche-integrate"
+    assert register_call.kwargs["metadata"] == {
+        "manifest_id": "m1",
+        "branch": "feat-branch",
+        "lane_id": "lane-a",
+        "commit_shas": ["abc123"],
+    }
+    artifact_store.save.assert_called_once()
+
+
+def test_publish_lane_deliverable_reuses_active_registry_pr_without_push() -> None:
+    artifact = _make_artifact(
+        status="completed",
+        metadata={
+            "branch": "feat-branch",
+            "receipt_id": "receipt-123",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-branch",
+                "commit_shas": ["abc123"],
+            },
+        },
     )
+    github = MagicMock()
+    registry = MagicMock(spec=PullRequestRegistry)
+    registry.get.return_value = {
+        "branch": "feat-branch",
+        "pr_url": "https://github.com/org/repo/pull/88",
+        "status": "active",
+        "metadata": {"manifest_id": "m1"},
+    }
+    artifact_store = MagicMock()
+
+    result = publish_lane_deliverable(
+        artifact,
+        manifest_id="m1",
+        github=github,
+        registry=registry,
+        repo_root=Path("/tmp/repo"),
+        target_branch="main",
+        artifact_store=artifact_store,
+    )
+
+    assert result == {
+        "published": True,
+        "action": "existing_pr",
+        "branch": "feat-branch",
+        "pr_url": "https://github.com/org/repo/pull/88",
+        "detail": "Active PR registry entry reused for lane branch.",
+    }
+    github.find_pr_for_branch.assert_not_called()
+    github.create_pr_for_branch.assert_not_called()
+    registry.register.assert_not_called()
+    assert artifact.metadata["deliverable"]["pr_url"] == "https://github.com/org/repo/pull/88"
     artifact_store.save.assert_called_once()
 
 

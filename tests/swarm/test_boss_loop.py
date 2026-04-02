@@ -3002,9 +3002,14 @@ async def test_dispatch_records_postprocessed_publish_metadata_in_backbone():
                 "pr_url": "https://github.com/synaptent/aragora/pull/2045",
             },
         ),
-        patch("aragora.ralph.github_control.GitHubControl"),
+        patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
         patch("aragora.swarm.pr_registry.PullRequestRegistry"),
     ):
+        github_control_cls.return_value.upsert_issue_comment.return_value = {
+            "commented": True,
+            "action": "created",
+            "comment_url": "https://github.com/synaptent/aragora/issues/45#issuecomment-1",
+        }
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
@@ -3013,6 +3018,9 @@ async def test_dispatch_records_postprocessed_publish_metadata_in_backbone():
     assert updated_calls[-1]["status"] == "completed"
     assert updated_calls[-1]["metadata"]["boss_postprocess"]["publish_result"]["action"] == (
         "pr_created"
+    )
+    assert updated_calls[-1]["metadata"]["boss_postprocess"]["issue_comment_result"]["action"] == (
+        "created"
     )
     assert (
         updated_calls[-1]["metadata"]["boss_postprocess"]["postprocess_promoted_from_status"]

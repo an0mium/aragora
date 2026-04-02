@@ -84,6 +84,11 @@ class TestBossLoopOperationalReceipts:
                     "action": "pr_created",
                     "pr_url": "https://github.com/org/repo/pull/42",
                 },
+                "issue_comment_result": {
+                    "commented": True,
+                    "action": "created",
+                    "comment_url": "https://github.com/org/repo/issues/42#issuecomment-1",
+                },
                 "postprocess_promoted_from_status": "needs_human",
             },
         }
@@ -96,6 +101,7 @@ class TestBossLoopOperationalReceipts:
         assert receipt.metadata["runner_id"] == "claude-runner-1"
         assert receipt.metadata["cost_class"] == "subscription"
         assert receipt.metadata["publish_result"]["action"] == "pr_created"
+        assert receipt.metadata["issue_comment_result"]["commented"] is True
         assert receipt.metadata["postprocess_promoted_from_status"] == "needs_human"
 
 
