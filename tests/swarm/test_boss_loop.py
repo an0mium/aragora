@@ -129,7 +129,7 @@ class TestGitHubIssueFeed:
             result.stderr = ""
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
         feed = GitHubIssueFeed(repo="synaptent/aragora")
         issues = feed.fetch()
 
@@ -147,7 +147,7 @@ class TestGitHubIssueFeed:
             result.stderr = "gh: not found"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
         feed = GitHubIssueFeed()
         issues = feed.fetch()
         assert issues == []
@@ -160,7 +160,7 @@ class TestGitHubIssueFeed:
             result.stderr = ""
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
         feed = GitHubIssueFeed()
         assert feed.fetch() == []
 
@@ -170,7 +170,7 @@ class TestGitHubIssueFeed:
         def _run(cmd, **kwargs):
             raise FileNotFoundError("gh not found")
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
         feed = GitHubIssueFeed()
         assert feed.fetch() == []
 
@@ -185,7 +185,7 @@ class TestGitHubIssueFeed:
             result.stderr = ""
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
         feed = GitHubIssueFeed(repo="org/repo", label_filter="boss-ready", limit=10)
         feed.fetch()
 
@@ -262,7 +262,7 @@ Acceptance Criteria:
             result.stderr = "failed"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         result = run_pre_dispatch_validation_commands(
             ["python -m pytest tests/swarm/test_boss_loop.py -q"],
             cwd=Path.cwd(),
@@ -2620,7 +2620,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "aragora/swarm/boss_loop.py\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == ["tests/swarm/test_boss_loop.py"]
 
@@ -2636,7 +2636,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "tests/swarm/test_queue.py\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == ["tests/swarm/test_queue.py"]
 
@@ -2650,7 +2650,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "aragora/swarm/boss_loop.py\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == []
 
@@ -2663,7 +2663,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "docs/STATUS.md\nREADME.md\nsetup.cfg\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == []
 
@@ -2680,7 +2680,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "aragora/swarm/boss_loop.py\ntests/swarm/test_boss_loop.py\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == ["tests/swarm/test_boss_loop.py"]
 
@@ -2694,7 +2694,7 @@ class TestDiscoverFocusedTests:
             result.stderr = "fatal: not a git repository"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == []
 
@@ -2704,7 +2704,7 @@ class TestDiscoverFocusedTests:
         def _run(cmd, **kwargs):
             raise FileNotFoundError("git not found")
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert paths == []
 
@@ -2719,7 +2719,7 @@ class TestDiscoverFocusedTests:
             result.stdout = ""
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         discover_focused_tests(tmp_path, base_ref="origin/develop")
         assert any("origin/develop..HEAD" in c for c in captured[0])
 
@@ -2736,7 +2736,7 @@ class TestDiscoverFocusedTests:
             result.stdout = "aragora/swarm/boss_loop.py\naragora/cli/parser.py\n"
             return result
 
-        monkeypatch.setattr("aragora.swarm.boss_loop.subprocess.run", _run)
+        monkeypatch.setattr("aragora.swarm.boss_validation.subprocess.run", _run)
         paths = discover_focused_tests(tmp_path)
         assert "tests/swarm/test_boss_loop.py" in paths
         assert "tests/cli/test_parser.py" in paths
