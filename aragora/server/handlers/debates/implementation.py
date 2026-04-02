@@ -53,11 +53,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_receipt_store_get: Callable[[], Any] | None
+_receipt_store_get: Callable[[], Any] | None = None
 try:
-    from aragora.storage.receipt_store import get_receipt_store as _receipt_store_get
+    from aragora.storage.receipt_store import (
+        get_receipt_store as _imported_receipt_store_get,
+    )
 except (ImportError, AttributeError):
-    _receipt_store_get = None
+    pass
+else:
+    _receipt_store_get = _imported_receipt_store_get
 
 
 def get_receipt_store() -> Any:

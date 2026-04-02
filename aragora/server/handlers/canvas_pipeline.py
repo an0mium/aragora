@@ -769,7 +769,7 @@ class CanvasPipelineHandler:
             return {"error": "Internal routing error", "code": "INTERNAL_ERROR"}
         return target(body)
 
-    @handle_errors
+    @handle_errors("canvas pipeline save")
     def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch PUT requests — save canvas state.
 
