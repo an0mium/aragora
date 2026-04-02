@@ -838,6 +838,34 @@ class TestCallback:
         mock_workspace_store.save.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_state_from_other_provider(
+        self, handler, mock_state_store, mock_workspace_store
+    ):
+        mock_state_store.validate_and_consume.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "google",
+            "created_at": time.time(),
+        }
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 400
+        body = _body(result)
+        assert "invalid or expired state token" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_callback_slack_api_error(self, handler):
         mock_client, _ = _make_httpx_mock({"ok": False, "error": "invalid_code"})
 

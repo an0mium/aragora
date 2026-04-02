@@ -330,7 +330,7 @@ class TestSlackOAuthCallback:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata=None,
+            metadata={"provider": "slack"},
         )
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
@@ -352,7 +352,7 @@ class TestSlackOAuthCallback:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata=None,
+            metadata={"provider": "slack"},
         )
 
         with patch("aragora.server.handlers.social.slack_oauth.SLACK_CLIENT_ID", "id"):
@@ -378,7 +378,7 @@ class TestSlackOAuthCallback:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata=None,
+            metadata={"provider": "slack"},
         )
 
         mock_response = MagicMock()
@@ -410,7 +410,7 @@ class TestSlackOAuthCallback:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata={"tenant_id": "tenant-001"},
+            metadata={"tenant_id": "tenant-001", "provider": "slack"},
         )
 
         mock_response = MagicMock()
@@ -459,7 +459,7 @@ class TestSlackOAuthCallback:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata={"tenant_id": "tenant-001"},
+            metadata={"tenant_id": "tenant-001", "provider": "slack"},
         )
 
         mock_response = MagicMock()
