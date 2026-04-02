@@ -13,6 +13,7 @@ Handles MFA-related endpoints:
 from __future__ import annotations
 
 import hashlib
+import io
 import json as json_module
 import logging
 import secrets as py_secrets
@@ -36,6 +37,135 @@ except ImportError:
     audit_security = None
 
 logger = logging.getLogger(__name__)
+
+
+class _BodyReplayRequest:
+    """Proxy request handler that replays a captured request body."""
+
+    def __init__(self, original, body: bytes):
+        self._original = original
+        self.rfile = io.BytesIO(body)
+
+    def __getattr__(self, name: str):
+        return getattr(self._original, name)
+
+
+def _read_json_body_with_replay(
+    handler_instance: "AuthHandler", handler
+) -> tuple[dict | None, bytes]:
+    """Read JSON once while preserving the body for delegated handlers."""
+    max_size = handler_instance.MAX_BODY_SIZE
+    try:
+        content_length = int(handler.headers.get("Content-Length", 0))
+        is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
+
+        if content_length > max_size:
+            return None, b""
+
+        if content_length > 0:
+            body = handler.rfile.read(content_length)
+        elif is_chunked or content_length == 0:
+            body = handler.rfile.read(max_size)
+        else:
+            body = b""
+
+        if not body:
+            return {}, b""
+        if len(body) > max_size:
+            return None, b""
+        return json_module.loads(body), body
+    except (json_module.JSONDecodeError, TypeError, ValueError):
+        return None, b""
+
+
+def _normalize_mfa_action(raw_action: object) -> str | None:
+    """Normalize compatibility action names to the supported MFA handlers."""
+    if not isinstance(raw_action, str):
+        return None
+
+    action = raw_action.strip().lower().replace("_", "-").replace(" ", "-")
+    aliases = {
+        "setup": "setup",
+        "enable": "enable",
+        "disable": "disable",
+        "verify": "verify",
+        "backup-codes": "backup-codes",
+        "backupcodes": "backup-codes",
+        "regenerate-backup-codes": "backup-codes",
+    }
+    return aliases.get(action)
+
+
+def _decode_handler_body(result: HandlerResult) -> dict[str, object] | None:
+    """Decode a JSON handler response body when possible."""
+    try:
+        payload = json_module.loads(result.body.decode("utf-8")) if result.body else {}
+    except (UnicodeDecodeError, json_module.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _normalize_mfa_combined_response(action: str, result: HandlerResult) -> HandlerResult:
+    """Normalize action-specific MFA responses into the compatibility shape."""
+    if result.status_code >= 400:
+        return result
+
+    payload = _decode_handler_body(result)
+    if payload is None or "error" in payload:
+        return result
+
+    normalized: dict[str, object] = {
+        "status": action,
+        "message": payload.get("message"),
+    }
+
+    if action == "setup":
+        provisioning_uri = payload.get("provisioning_uri")
+        normalized.update(
+            {
+                "secret": payload.get("secret"),
+                "provisioning_uri": provisioning_uri,
+                "qr_code_uri": provisioning_uri,
+            }
+        )
+    elif action == "enable":
+        normalized.update(
+            {
+                "backup_codes": payload.get("backup_codes"),
+                "warning": payload.get("warning"),
+                "sessions_invalidated": payload.get("sessions_invalidated"),
+            }
+        )
+    elif action == "disable":
+        normalized["disabled"] = True
+    elif action == "verify":
+        tokens = payload.get("tokens")
+        if isinstance(tokens, dict):
+            normalized.update(
+                {
+                    "tokens": tokens,
+                    "access_token": tokens.get("access_token"),
+                    "refresh_token": tokens.get("refresh_token"),
+                    "token_type": tokens.get("token_type"),
+                    "expires_in": tokens.get("expires_in"),
+                }
+            )
+        normalized.update(
+            {
+                "user": payload.get("user"),
+                "warning": payload.get("warning"),
+                "backup_codes_remaining": payload.get("backup_codes_remaining"),
+            }
+        )
+    elif action == "backup-codes":
+        normalized.update(
+            {
+                "backup_codes": payload.get("backup_codes"),
+                "warning": payload.get("warning"),
+            }
+        )
+
+    return json_response(normalized, status=result.status_code, headers=result.headers)
 
 
 def _enumerate_users_for_compliance(user_store) -> list:
@@ -77,6 +207,104 @@ def extract_user_from_request(handler, user_store):
     from . import handler as auth_handler_module
 
     return auth_handler_module.extract_user_from_request(handler, user_store)
+
+
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa",
+    summary="Run a compatibility MFA action",
+    description=(
+        "Compatibility endpoint that dispatches MFA setup, enable, disable, "
+        "verify, and backup-code regeneration by action."
+    ),
+    tags=["Authentication", "MFA"],
+    request_body={
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["action"],
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["setup", "enable", "disable", "verify", "backup-codes"],
+                        },
+                        "code": {"type": "string"},
+                        "password": {"type": "string"},
+                        "pending_token": {"type": "string"},
+                        "method": {"type": "string"},
+                    },
+                }
+            }
+        },
+    },
+    responses={
+        "200": {
+            "description": "Compatibility MFA action completed",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["status"],
+                        "properties": {
+                            "status": {"type": "string"},
+                            "message": {"type": ["string", "null"]},
+                            "secret": {"type": ["string", "null"]},
+                            "provisioning_uri": {"type": ["string", "null"]},
+                            "qr_code_uri": {"type": ["string", "null"]},
+                            "backup_codes": {
+                                "type": ["array", "null"],
+                                "items": {"type": "string"},
+                            },
+                            "sessions_invalidated": {"type": ["boolean", "null"]},
+                            "disabled": {"type": ["boolean", "null"]},
+                            "tokens": {"type": ["object", "null"], "additionalProperties": True},
+                            "access_token": {"type": ["string", "null"]},
+                            "refresh_token": {"type": ["string", "null"]},
+                            "token_type": {"type": ["string", "null"]},
+                            "expires_in": {"type": ["integer", "null"]},
+                            "user": {"type": ["object", "null"], "additionalProperties": True},
+                            "backup_codes_remaining": {"type": ["integer", "null"]},
+                            "warning": {"type": ["string", "null"]},
+                        },
+                        "additionalProperties": True,
+                    }
+                }
+            },
+        },
+        "400": {"description": "Invalid action or request payload"},
+        "401": {"description": "Unauthorized or pending token invalid"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+    auth_required=False,
+)
+@handle_errors("MFA compatibility")
+@log_request("MFA compatibility")
+def handle_mfa_combined(handler_instance: "AuthHandler", handler) -> HandlerResult:
+    """Dispatch the legacy combined MFA endpoint to the concrete MFA handlers."""
+    body, raw_body = _read_json_body_with_replay(handler_instance, handler)
+    if body is None:
+        return error_response("Invalid JSON body", 400)
+
+    action = _normalize_mfa_action(body.get("action"))
+    if action is None:
+        return error_response(
+            "Unsupported MFA action. Expected one of: setup, enable, disable, verify, backup-codes",
+            400,
+        )
+
+    replay_handler = _BodyReplayRequest(handler, raw_body)
+    action_handlers = {
+        "setup": handle_mfa_setup,
+        "enable": handle_mfa_enable,
+        "disable": handle_mfa_disable,
+        "verify": handle_mfa_verify,
+        "backup-codes": handle_mfa_backup_codes,
+    }
+    result = action_handlers[action](handler_instance, replay_handler)
+    return _normalize_mfa_combined_response(action, result)
 
 
 @api_endpoint(
@@ -696,6 +924,7 @@ def handle_mfa_compliance(handler_instance: "AuthHandler", handler) -> HandlerRe
 
 
 __all__ = [
+    "handle_mfa_combined",
     "handle_mfa_setup",
     "handle_mfa_enable",
     "handle_mfa_disable",

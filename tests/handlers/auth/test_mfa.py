@@ -25,6 +25,7 @@ import pytest
 
 from aragora.server.handlers.auth.mfa import (
     handle_mfa_backup_codes,
+    handle_mfa_combined,
     handle_mfa_disable,
     handle_mfa_enable,
     handle_mfa_setup,
@@ -1169,6 +1170,73 @@ class TestMFABackupCodes:
 
 
 # =========================================================================
+# handle_mfa_combined
+# =========================================================================
+
+
+class TestMFACombined:
+    """POST /api/auth/mfa compatibility endpoint."""
+
+    @patch("aragora.server.handlers.auth.mfa.handle_mfa_setup")
+    def test_setup_normalizes_setup_payload(self, mock_setup, handler_instance, http):
+        from aragora.server.handlers.base import json_response
+
+        hi, _ = handler_instance
+        mock_setup.return_value = json_response(
+            {
+                "secret": "secret-123",
+                "provisioning_uri": "otpauth://aragora/setup",
+                "message": "Scan the provisioning URI",
+            }
+        )
+
+        result = handle_mfa_combined(hi, http(body={"action": "setup"}))
+        body = _body(result)
+
+        assert _status(result) == 200
+        assert body["status"] == "setup"
+        assert body["secret"] == "secret-123"
+        assert body["provisioning_uri"] == "otpauth://aragora/setup"
+        assert body["qr_code_uri"] == "otpauth://aragora/setup"
+
+    @patch("aragora.server.handlers.auth.mfa.handle_mfa_verify")
+    def test_verify_flattens_nested_tokens(self, mock_verify, handler_instance, http):
+        from aragora.server.handlers.base import json_response
+
+        hi, _ = handler_instance
+        mock_verify.return_value = json_response(
+            {
+                "message": "MFA verification successful",
+                "tokens": {
+                    "access_token": "access-123",
+                    "refresh_token": "refresh-456",
+                    "token_type": "bearer",
+                    "expires_in": 3600,
+                },
+                "user": {"id": "user-001"},
+            }
+        )
+
+        result = handle_mfa_combined(
+            hi, http(body={"action": "verify", "code": "123456", "pending_token": "pt"})
+        )
+        body = _body(result)
+
+        assert _status(result) == 200
+        assert body["status"] == "verify"
+        assert body["access_token"] == "access-123"
+        assert body["refresh_token"] == "refresh-456"
+        assert body["tokens"]["token_type"] == "bearer"
+        assert body["user"]["id"] == "user-001"
+
+    def test_invalid_action_returns_400(self, handler_instance, http):
+        hi, _ = handler_instance
+        result = handle_mfa_combined(hi, http(body={"action": "rotate"}))
+        assert _status(result) == 400
+        assert "Unsupported MFA action" in _body(result)["error"]
+
+
+# =========================================================================
 # Cross-cutting / integration-style tests
 # =========================================================================
 
@@ -1298,6 +1366,7 @@ class TestModuleExports:
     def test_all_exports(self):
         from aragora.server.handlers.auth import mfa
 
+        assert "handle_mfa_combined" in mfa.__all__
         assert "handle_mfa_setup" in mfa.__all__
         assert "handle_mfa_enable" in mfa.__all__
         assert "handle_mfa_disable" in mfa.__all__
@@ -1308,4 +1377,4 @@ class TestModuleExports:
     def test_all_exports_count(self):
         from aragora.server.handlers.auth import mfa
 
-        assert len(mfa.__all__) == 6
+        assert len(mfa.__all__) == 7

@@ -989,6 +989,13 @@ class TestMFA:
         _run(handler.handle("/api/auth/mfa", {}, http, "DELETE"))
         mock_fn.assert_called_once()
 
+    @patch("aragora.server.handlers.auth.handler.handle_mfa_combined")
+    def test_mfa_combined_post(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="POST")
+        _run(handler.handle("/api/auth/mfa", {}, http, "POST"))
+        mock_fn.assert_called_once()
+
     @patch("aragora.server.handlers.auth.handler.handle_mfa_verify")
     def test_mfa_verify(self, mock_fn, handler):
         mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
