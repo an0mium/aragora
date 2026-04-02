@@ -58,9 +58,7 @@ async def main() -> None:
     ]
 
     # Build context from knowledge retrieval
-    context = "\n".join(
-        f"- {item.title}: {item.content}" for item in results.items
-    )
+    context = "\n".join(f"- {item.title}: {item.content}" for item in results.items)
 
     # Set up debate with knowledge context
     env = Environment(
@@ -78,7 +76,7 @@ async def main() -> None:
     arena = Arena(env, agents, protocol)
     result = await arena.run()
 
-    print(f"\nDebate completed:")
+    print("\nDebate completed:")
     print(f"  Consensus: {result.consensus_reached}")
     print(f"  Confidence: {result.confidence:.2f}")
     print(f"  Answer: {result.final_answer}")

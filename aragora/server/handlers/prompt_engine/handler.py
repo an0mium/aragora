@@ -77,6 +77,7 @@ class PromptEngineHandler(SecureHandler):
             return None
         return self._handle_get(path, query_params)
 
+    @handle_errors
     def handle_post(
         self,
         path: str,

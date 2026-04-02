@@ -181,6 +181,7 @@ class SharedInboxHandler(BaseHandler):
 
         return None
 
+    @handle_errors
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -224,6 +225,7 @@ class SharedInboxHandler(BaseHandler):
 
         return None
 
+    @handle_errors
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -240,6 +242,7 @@ class SharedInboxHandler(BaseHandler):
             return self._run_async(self.handle_patch_routing_rule(body, rules_parts[0]))
         return None
 
+    @handle_errors
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

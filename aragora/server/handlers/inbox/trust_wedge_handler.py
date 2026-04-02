@@ -8,6 +8,7 @@ from typing import Any
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
 from aragora.server.validation.query_params import safe_query_int
 
+from aragora.server.handlers.utils.decorators import handle_errors
 from .email_actions import (
     _content_hash_from_payload,
     _receipt_response_payload,
@@ -86,6 +87,7 @@ class InboxTrustWedgeHandler(BaseHandler):
             return error_response("Receipt not found", 404)
         return json_response(envelope.to_dict())
 
+    @handle_errors
     def _handle_post(
         self,
         path: str,

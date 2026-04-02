@@ -110,6 +110,7 @@ class UncertaintyHandler(BaseHandler):
         """Route POST requests to appropriate handler method."""
         return await self._handle_post(path, query_params, handler)
 
+    @handle_errors
     async def _handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:

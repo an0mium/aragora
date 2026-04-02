@@ -25,7 +25,7 @@ from pathlib import Path
 # Allow running as a standalone script from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from aragora_debate import Arena, DebateConfig, ReceiptBuilder, StyledMockAgent
+from aragora_debate import Arena, DebateConfig, StyledMockAgent
 
 
 # ----------------------------------------------------------------
@@ -72,6 +72,7 @@ index 3a4b5c6..7d8e9f0 100644
 # ----------------------------------------------------------------
 # Build review agents with code-review-specific proposals
 # ----------------------------------------------------------------
+
 
 def build_review_agents() -> list[StyledMockAgent]:
     """Create agents with code-review-focused proposals and critiques."""
@@ -213,8 +214,7 @@ async def main() -> None:
     if result.votes:
         print("--- Review Votes ---")
         for vote in result.votes:
-            print(f"  [{vote.agent}] -> {vote.choice} "
-                  f"(confidence: {vote.confidence:.0%})")
+            print(f"  [{vote.agent}] -> {vote.choice} (confidence: {vote.confidence:.0%})")
         print()
 
     # ----------------------------------------------------------------

@@ -643,12 +643,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         return None
 
     @require_permission("workflows:write")
+    @handle_errors
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle PUT requests (same as PATCH for workflows)."""
         return self.handle_patch(path, query_params, handler)
 
+    @handle_errors
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

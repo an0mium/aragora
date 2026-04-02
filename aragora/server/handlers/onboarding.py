@@ -36,6 +36,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.storage.repositories.onboarding import get_onboarding_repository
+from aragora.server.handlers.utils.decorators import handle_errors
 
 logger = logging.getLogger(__name__)
 
@@ -1580,6 +1581,7 @@ class OnboardingHandler(BaseHandler):
             organization_id=organization_id,
         )
 
+    @handle_errors
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:
@@ -1598,6 +1600,7 @@ class OnboardingHandler(BaseHandler):
             organization_id=organization_id,
         )
 
+    @handle_errors
     async def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult:

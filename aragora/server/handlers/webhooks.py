@@ -428,6 +428,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         },
         auth_required=True,
     )
+    @handle_errors
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -490,6 +491,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         },
         auth_required=True,
     )
+    @handle_errors
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

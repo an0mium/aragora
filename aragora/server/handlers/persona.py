@@ -506,6 +506,7 @@ class PersonaHandler(BaseHandler):
     # =========================================================================
 
     @require_permission("persona:delete")
+    @handle_errors
     def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle DELETE requests for persona endpoints."""
         path = strip_version_prefix(path)

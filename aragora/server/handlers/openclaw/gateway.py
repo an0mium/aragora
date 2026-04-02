@@ -313,6 +313,7 @@ class OpenClawGatewayHandler(
 
     @track_handler("gateway/openclaw", method="DELETE")
     @require_permission("openclaw:delete")
+    @handle_errors
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

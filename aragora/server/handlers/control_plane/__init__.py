@@ -58,6 +58,7 @@ from aragora.server.handlers.utils.decorators import has_permission
 from aragora.observability.metrics import track_handler
 
 from .agents import AgentHandlerMixin
+from aragora.server.handlers.utils.decorators import handle_errors
 from .coordination import CoordinationHandlerMixin
 from .tasks import TaskHandlerMixin
 from .health import HealthHandlerMixin
@@ -372,6 +373,7 @@ class ControlPlaneHandler(
     @track_handler("control-plane/main", method="POST")
     @user_rate_limit(action="agent_call")
     @rate_limit(requests_per_minute=60, limiter_name="control_plane_post")
+    @handle_errors
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -535,6 +537,7 @@ class ControlPlaneHandler(
     # =========================================================================
 
     @track_handler("control-plane/main", method="DELETE")
+    @handle_errors
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -563,6 +566,7 @@ class ControlPlaneHandler(
     # =========================================================================
 
     @track_handler("control-plane/main", method="PATCH")
+    @handle_errors
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

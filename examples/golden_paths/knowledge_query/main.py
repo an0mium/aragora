@@ -28,7 +28,6 @@ import asyncio
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 
 # Allow running as a standalone script from the repo root.
@@ -47,6 +46,7 @@ from aragora_debate import Arena, DebateConfig, StyledMockAgent
 @dataclass
 class KnowledgeItem:
     """A knowledge item with content, source, and importance score."""
+
     id: str
     title: str
     content: str
@@ -59,6 +59,7 @@ class KnowledgeItem:
 @dataclass
 class QueryResult:
     """Result of a knowledge store query."""
+
     items: list[KnowledgeItem]
     total_count: int
     query: str
@@ -113,6 +114,7 @@ class MockKnowledgeStore:
 # ----------------------------------------------------------------
 # Seed the knowledge store with sample organizational data
 # ----------------------------------------------------------------
+
 
 def seed_knowledge_store() -> MockKnowledgeStore:
     """Create and populate a knowledge store with sample data."""
@@ -216,6 +218,7 @@ def seed_knowledge_store() -> MockKnowledgeStore:
 # Main
 # ----------------------------------------------------------------
 
+
 async def main() -> None:
     print("=" * 64)
     print("  Aragora Golden Path: Knowledge-Enriched Debate")
@@ -233,7 +236,7 @@ async def main() -> None:
     # Step 2: Query for relevant knowledge
     # ----------------------------------------------------------------
     query = "What are our key business metrics and growth strategy?"
-    print(f"Query: \"{query}\"")
+    print(f'Query: "{query}"')
     print()
 
     results = await store.query(query, limit=4)

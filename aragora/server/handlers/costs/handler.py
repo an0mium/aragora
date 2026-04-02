@@ -32,6 +32,7 @@ from .helpers import (
     _get_implementation_time,
 )
 from . import models as _models
+from aragora.server.handlers.utils.decorators import handle_errors
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ class CostHandler:
         """Route GET requests through the aiohttp-style handlers used by direct routes."""
         return self._run_async(self._dispatch_registry_request("GET", path, query_params, handler))
 
+    @handle_errors
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

@@ -340,6 +340,7 @@ class SCIMHandler(BaseHandler):
         return None
 
     @require_permission("debates:delete")
+    @handle_errors
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
