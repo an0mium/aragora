@@ -31,6 +31,12 @@ from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
+from aragora.docs_only import (
+    canonical_docs_container_scope,
+    infer_docs_safe_hints,
+    is_docs_safe_path,
+    is_docs_safe_top_level_file,
+)
 from aragora.nomic.event_bus import EventBus
 from aragora.nomic.global_work_queue import GlobalWorkQueue, WorkItem, WorkStatus, WorkType
 from aragora.worktree.fleet import FleetCoordinationStore
@@ -7139,8 +7145,6 @@ def _docs_only_scope_hints_for_waiting_conflict(
     *,
     run: dict[str, Any],
 ) -> list[str]:
-    from aragora.swarm.spec import SwarmSpec
-
     metadata = work_order.get("metadata") or {}
     constraints = metadata.get("constraints") if isinstance(metadata, dict) else []
     if not isinstance(constraints, list) or not any(
@@ -7161,24 +7165,36 @@ def _docs_only_scope_hints_for_waiting_conflict(
     if not original_scope:
         return []
 
-    doc_hints: list[str] = []
-    for path in SwarmSpec.infer_file_scope_hints(_waiting_conflict_inference_text(work_order, run)):
-        clean = _canonical_scope_pattern(path)
-        if not clean.startswith("docs"):
-            continue
+    def _scope_supports_docs_only_hint(path: str) -> bool:
         if any(
-            scope == clean or clean.startswith(f"{scope}/") or scope.startswith(f"{clean}/")
+            scope == path or path.startswith(f"{scope}/") or scope.startswith(f"{path}/")
             for scope in original_scope
         ):
+            return True
+        if not is_docs_safe_top_level_file(path):
+            return False
+        return any(canonical_docs_container_scope(scope) == "docs" for scope in original_scope)
+
+    doc_hints: list[str] = []
+    for path in infer_docs_safe_hints(_waiting_conflict_inference_text(work_order, run)):
+        clean = _canonical_scope_pattern(path)
+        if _scope_supports_docs_only_hint(clean):
             doc_hints.append(clean)
-    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
-        doc_hints = [hint for hint in doc_hints if hint != "docs"]
+    if any(
+        is_docs_safe_path(hint) and canonical_docs_container_scope(hint) is None
+        for hint in doc_hints
+    ):
+        doc_hints = [hint for hint in doc_hints if canonical_docs_container_scope(hint) is None]
     collapsed = _collapse_scope_patterns(doc_hints)
     if collapsed:
         return collapsed
-    if any(scope == "docs" or scope.startswith("docs/") for scope in original_scope):
-        return ["docs"]
-    return []
+    return list(
+        dict.fromkeys(
+            scope
+            for scope in (canonical_docs_container_scope(path) for path in original_scope)
+            if scope is not None
+        )
+    )
 
 
 def _narrow_waiting_conflict_scope_from_explicit_paths(

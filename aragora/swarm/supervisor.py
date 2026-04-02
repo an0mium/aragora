@@ -20,6 +20,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.approval import ApprovalLevel, ApprovalPolicy
+from aragora.docs_only import (
+    canonical_docs_container_scope,
+    infer_docs_safe_hints,
+    is_docs_safe_path,
+    is_docs_safe_top_level_file,
+)
 from aragora.nomic.dev_coordination import (
     DevCoordinationStore,
     FileScopeViolationError,
@@ -83,6 +89,14 @@ def _is_concrete_repo_path(path: str) -> bool:
         return False
     name = clean.rsplit("/", 1)[-1]
     return "." in name
+
+
+def _docs_only_scope_supports_hint(path: str, original_scope: list[str]) -> bool:
+    if any(_path_in_scope(path, scope) or _path_in_scope(scope, path) for scope in original_scope):
+        return True
+    if not is_docs_safe_top_level_file(path):
+        return False
+    return any(canonical_docs_container_scope(scope) == "docs" for scope in original_scope)
 
 
 def _narrow_scope_to_explicit_paths(
@@ -162,21 +176,24 @@ def _narrow_docs_only_scope(
         )
     )
     doc_hints: list[str] = []
-    for path in SwarmSpec.infer_file_scope_hints(inference_text):
+    for path in infer_docs_safe_hints(inference_text):
         clean = path.strip().removeprefix("./").rstrip("/")
-        if not clean.startswith("docs"):
-            continue
-        if any(
-            _path_in_scope(clean, scope) or _path_in_scope(scope, clean) for scope in original_scope
-        ):
+        if _docs_only_scope_supports_hint(clean, original_scope):
             doc_hints.append(clean)
-    if any(hint != "docs" and hint.startswith("docs/") for hint in doc_hints):
-        doc_hints = [hint for hint in doc_hints if hint != "docs"]
-    narrowed_scope = list(dict.fromkeys(doc_hints))
-    if not narrowed_scope and any(
-        scope == "docs" or scope.startswith("docs/") for scope in original_scope
+    if any(
+        is_docs_safe_path(hint) and canonical_docs_container_scope(hint) is None
+        for hint in doc_hints
     ):
-        narrowed_scope = ["docs"]
+        doc_hints = [hint for hint in doc_hints if canonical_docs_container_scope(hint) is None]
+    narrowed_scope = list(dict.fromkeys(doc_hints))
+    if not narrowed_scope:
+        narrowed_scope = list(
+            dict.fromkeys(
+                scope
+                for scope in (canonical_docs_container_scope(path) for path in original_scope)
+                if scope is not None
+            )
+        )
     if not narrowed_scope or tuple(narrowed_scope) == tuple(original_scope):
         return item
 
@@ -3650,26 +3667,9 @@ class SwarmSupervisor:
             "blocked_reasons": blocked_reasons,
         }
 
-    _DOCS_SAFE_PREFIXES = ("docs/", "docs-site/")
-    _DOCS_SAFE_FILENAMES = frozenset(
-        {
-            "CHANGELOG.md",
-            "CODE_OF_CONDUCT.md",
-            "CONTRIBUTING.md",
-            "LICENSE",
-            "LICENSE.md",
-        }
-    )
-
     @staticmethod
     def _is_docs_only_path(path: Any) -> bool:
-        normalized = str(path or "").strip().removeprefix("./")
-        if not normalized:
-            return False
-        if any(normalized.startswith(prefix) for prefix in SwarmSupervisor._DOCS_SAFE_PREFIXES):
-            return True
-        basename = normalized.rsplit("/", 1)[-1] if "/" in normalized else normalized
-        return basename in SwarmSupervisor._DOCS_SAFE_FILENAMES
+        return is_docs_safe_path(path)
 
     @classmethod
     def _work_order_is_docs_only(cls, item: dict[str, Any]) -> bool:

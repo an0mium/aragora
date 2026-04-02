@@ -1812,6 +1812,48 @@ def test_start_run_narrows_docs_only_scope_to_doc_hints(
     assert run.work_orders[0]["file_scope"] == ["docs/ADR"]
 
 
+def test_start_run_narrows_docs_only_scope_to_docs_safe_top_level_file(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="subtask_1",
+                title="Improve Developer Track",
+                description=(
+                    "Enhance release notes coverage. Key folders: sdk/, docs/, tests/sdk/. "
+                    "Update CHANGELOG.md."
+                ),
+                file_scope=["sdk/", "docs/", "tests/sdk/"],
+            )
+        ],
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Refresh CHANGELOG entry for the docs-safe release note.",
+            refined_goal="Refresh CHANGELOG entry for the docs-safe release note.",
+            acceptance_criteria=["Update CHANGELOG.md"],
+            constraints=["Documentation only"],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert run.work_orders[0]["file_scope"] == ["CHANGELOG.md"]
+
+
 def test_start_run_drops_non_actionable_explicit_spec_validation_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:

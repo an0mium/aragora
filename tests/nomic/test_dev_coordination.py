@@ -2800,6 +2800,81 @@ def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_docs_only_l
     )
 
 
+def test_rehabilitate_narrowed_waiting_conflict_work_orders_requeues_docs_safe_top_level_file(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    (repo / "CHANGELOG.md").write_text("release notes\n", encoding="utf-8")
+
+    store.create_supervisor_run(
+        goal="Keep the broader docs planning lane open.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "broad-docs",
+                "title": "Broad docs lane",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "file_scope": ["docs"],
+            }
+        ],
+    )
+    candidate = store.create_supervisor_run(
+        goal="Refresh CHANGELOG entry for the docs-safe release note.",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={
+            "raw_goal": "Refresh CHANGELOG entry for the docs-safe release note.",
+            "refined_goal": "Refresh CHANGELOG entry for the docs-safe release note.",
+            "acceptance_criteria": ["Update CHANGELOG.md"],
+            "constraints": ["Documentation only"],
+        },
+        work_orders=[
+            {
+                "work_order_id": "docs-only-changelog",
+                "title": "Improve Developer Track",
+                "description": (
+                    "Enhance release notes coverage. Key folders: sdk/, docs/, tests/sdk/. "
+                    "Update CHANGELOG.md."
+                ),
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Which overlapping lane should finish first?",
+                "blocker": {
+                    "reason": "waiting_conflict",
+                    "question": "Which overlapping lane should finish first?",
+                },
+                "blockers": ["waiting_conflict"],
+                "file_scope": ["sdk/", "docs/", "tests/sdk/"],
+                "metadata": {
+                    "acceptance_criteria": ["Update CHANGELOG.md"],
+                    "constraints": ["Documentation only"],
+                    "source": "nomic_subtask",
+                },
+            }
+        ],
+    )
+
+    updated = store.rehabilitate_narrowed_waiting_conflict_work_orders(grace_period_hours=0.0)
+    refreshed = store.get_supervisor_run(candidate["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "queued"
+    assert work_order["file_scope"] == ["CHANGELOG.md"]
+    assert work_order["blockers"] == []
+    assert work_order["conflicts"] == []
+    assert "failure_reason" not in work_order
+    assert work_order["metadata"]["waiting_conflict_requeue_reason"] == (
+        "narrowed_scope_cleared_container_only_blockers"
+    )
+
+
 def test_rehabilitate_narrowed_waiting_conflict_work_orders_preserves_real_overlap(
     repo: Path,
     store: DevCoordinationStore,
