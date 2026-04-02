@@ -429,6 +429,89 @@ class TestGetDashboardDebate:
         assert _status(result) == 200
         assert body["debate_id"] == "test/special%id"
 
+    def test_returns_package_backed_detail_for_completed_debate(self):
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "question": "Should we launch the dashboard detail page?",
+            "status": "completed",
+            "agents": ["claude", "gpt-4"],
+            "messages": [],
+            "created_at": "2026-03-31T10:00:00Z",
+            "result": {
+                "confidence": 0.91,
+                "consensus_reached": True,
+                "final_answer": "Ship the package-backed detail page.",
+                "explanation_summary": "The debate converged on shipping the richer detail view.",
+                "participants": ["claude", "gpt-4"],
+                "rounds": 2,
+                "total_cost_usd": 0.12,
+                "per_agent_cost": {"claude": 0.05, "gpt-4": 0.07},
+            },
+        }
+        h = TestableHandler(storage=storage)
+
+        result = h._get_dashboard_debate("debate-123")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["id"] == "debate-123"
+        assert body["debate_id"] == "debate-123"
+        assert body["question"] == "Should we launch the dashboard detail page?"
+        assert body["task"] == "Should we launch the dashboard detail page?"
+        assert body["summary"] == "The debate converged on shipping the richer detail view."
+        assert body["consensus"]["reached"] is True
+        assert body["consensus"]["verdict"] == "APPROVED"
+        assert body["package_available"] is True
+        assert body["detail_source"] == "decision_package"
+        assert body["cost"]["total_cost_usd"] == 0.12
+
+    def test_returns_storage_backed_detail_for_in_progress_debate(self):
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "question": "Should we keep streaming the live debate?",
+            "status": "in_progress",
+            "agents": ["claude", "gpt-4"],
+            "messages": [
+                {
+                    "agent": "claude",
+                    "role": "proposal",
+                    "content": "Keep streaming while the debate is active.",
+                    "round": 1,
+                }
+            ],
+            "created_at": "2026-03-31T11:00:00Z",
+            "result": {
+                "confidence": 0.55,
+                "final_answer": "Streaming is still underway.",
+                "participants": ["claude", "gpt-4"],
+            },
+        }
+        h = TestableHandler(storage=storage)
+
+        result = h._get_dashboard_debate("debate-live")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["id"] == "debate-live"
+        assert body["status"] == "in_progress"
+        assert body["task"] == "Should we keep streaming the live debate?"
+        assert body["summary"] == "Streaming is still underway."
+        assert body["arguments"][0]["content"] == "Keep streaming while the debate is active."
+        assert body["consensus"]["reached"] is False
+        assert body["package_available"] is False
+        assert body["detail_source"] == "storage_fallback"
+
+    def test_missing_storage_debate_returns_404(self):
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = TestableHandler(storage=storage)
+
+        result = h._get_dashboard_debate("missing-debate")
+
+        assert _status(result) == 404
+        body = _body(result)
+        assert "not found" in body.get("error", "").lower()
+
 
 # ===========================================================================
 # Tests: _get_dashboard_stats

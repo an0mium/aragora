@@ -121855,14 +121855,50 @@ export interface operations {
                 content: {
                     "application/json": {
                         id?: string;
+                        debate_id?: string;
+                        question?: string;
                         task?: string;
                         status?: string;
+                        verdict?: string;
+                        confidence?: number;
+                        consensus_reached?: boolean;
                         rounds?: number;
                         agents?: string[];
+                        participants?: string[];
                         /** Format: date-time */
                         created_at?: string;
-                        consensus?: Record<string, never>;
+                        consensus?: {
+                            reached?: boolean;
+                            confidence?: number;
+                            verdict?: string;
+                            [name: string]: unknown;
+                        };
                         summary?: string;
+                        final_answer?: string;
+                        explanation_summary?: string;
+                        duration_seconds?: number;
+                        package_available?: boolean;
+                        detail_source?: string;
+                        arguments?: {
+                            agent?: string;
+                            round?: number;
+                            position?: string;
+                            content?: string;
+                            [name: string]: unknown;
+                        }[];
+                        receipt?: Record<string, unknown>;
+                        cost?: {
+                            total_cost_usd?: number;
+                            per_agent_cost?: Record<string, unknown>;
+                            [name: string]: unknown;
+                        };
+                        cost_breakdown?: {
+                            agent?: string;
+                            cost_usd?: number;
+                            [name: string]: unknown;
+                        }[];
+                        argument_map?: Record<string, unknown>;
+                        next_steps?: string[];
                     };
                 };
             };

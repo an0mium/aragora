@@ -478,11 +478,45 @@ class TestHandleRouteDispatch:
 
     @pytest.mark.asyncio
     async def test_debate_detail_endpoint(self, handler, mock_http):
-        """GET /api/v1/dashboard/debates/{id} returns debate detail stub."""
+        """GET /api/v1/dashboard/debates/{id} returns a minimal detail payload without storage."""
         result = await handler.handle("/api/v1/dashboard/debates/d1", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "d1"
+
+    @pytest.mark.asyncio
+    async def test_debate_detail_endpoint_returns_package_backed_data(self, mock_http):
+        """GET /api/v1/dashboard/debates/{id} returns package-backed detail for completed debates."""
+        storage = MagicMock()
+        storage.get_debate.return_value = {
+            "question": "Should we show the real debate package in the dashboard?",
+            "status": "completed",
+            "agents": ["claude", "gpt-4"],
+            "messages": [],
+            "created_at": "2026-03-31T12:00:00Z",
+            "result": {
+                "confidence": 0.88,
+                "consensus_reached": True,
+                "final_answer": "Yes, show the real package payload.",
+                "explanation_summary": "The dashboard should render the same detail data as the package endpoint.",
+                "participants": ["claude", "gpt-4"],
+                "rounds": 3,
+            },
+        }
+        handler = DashboardHandler(ctx={"storage": storage})
+
+        result = await handler.handle("/api/v1/dashboard/debates/debate-42", {}, mock_http)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["debate_id"] == "debate-42"
+        assert (
+            body["summary"]
+            == "The dashboard should render the same detail data as the package endpoint."
+        )
+        assert body["consensus"]["reached"] is True
+        assert body["package_available"] is True
+        assert body["detail_source"] == "decision_package"
 
     @pytest.mark.asyncio
     async def test_stats_endpoint(self, handler, mock_http):

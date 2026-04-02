@@ -203,6 +203,356 @@ class DashboardViewsMixin:
 
         return json_response({"debates": debates, "total": total})
 
+    @staticmethod
+    def _coerce_dashboard_int(value: Any, fallback: int = 0) -> int:
+        """Best-effort integer coercion for dashboard detail payloads."""
+        if isinstance(value, bool):
+            return fallback
+        if isinstance(value, int):
+            return max(value, 0)
+        if isinstance(value, float):
+            return max(int(value), 0)
+        if isinstance(value, str):
+            try:
+                return max(int(value), 0)
+            except ValueError:
+                return fallback
+        return fallback
+
+    @staticmethod
+    def _coerce_dashboard_float(value: Any, fallback: float = 0.0) -> float:
+        """Best-effort float coercion for dashboard detail payloads."""
+        if isinstance(value, bool):
+            return fallback
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return fallback
+        return fallback
+
+    @staticmethod
+    def _normalize_dashboard_string_list(values: Any) -> list[str]:
+        """Keep only string entries from list-like values."""
+        if not isinstance(values, list):
+            return []
+        return [item for item in values if isinstance(item, str)]
+
+    def _build_dashboard_arguments(self, messages: Any) -> tuple[list[dict[str, Any]], int]:
+        """Convert stored debate messages into dashboard-friendly argument entries."""
+        if not isinstance(messages, list):
+            return [], 0
+
+        arguments: list[dict[str, Any]] = []
+        rounds = 0
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+
+            round_num = self._coerce_dashboard_int(message.get("round"))
+            rounds = max(rounds, round_num)
+
+            agent = (
+                message.get("agent") or message.get("author") or message.get("role") or "unknown"
+            )
+            if not isinstance(agent, str):
+                agent = str(agent)
+
+            position = message.get("position") or message.get("role") or ""
+            if not isinstance(position, str):
+                position = str(position)
+
+            content = message.get("content", "")
+            if not isinstance(content, str):
+                content = str(content)
+
+            arguments.append(
+                {
+                    "agent": agent,
+                    "round": round_num,
+                    "position": position,
+                    "content": content,
+                }
+            )
+
+        return arguments, rounds
+
+    def _build_dashboard_cost_breakdown(self, per_agent_cost: Any) -> list[dict[str, Any]]:
+        """Convert per-agent cost maps into the dashboard's array form."""
+        if not isinstance(per_agent_cost, dict):
+            return []
+
+        breakdown: list[dict[str, Any]] = []
+        for agent, cost in per_agent_cost.items():
+            if not isinstance(agent, str):
+                continue
+            breakdown.append(
+                {
+                    "agent": agent,
+                    "cost_usd": self._coerce_dashboard_float(cost),
+                }
+            )
+        return breakdown
+
+    def _derive_dashboard_verdict(
+        self, status: str, consensus_reached: bool, confidence: float
+    ) -> str:
+        """Infer a coarse verdict when only debate storage data is available."""
+        normalized_status = status.lower()
+        if normalized_status == "timeout":
+            return "TIMEOUT"
+        if consensus_reached and confidence >= 0.7:
+            return "APPROVED"
+        if consensus_reached:
+            return "APPROVED_WITH_CONDITIONS"
+        if normalized_status in {"pending", "running", "in_progress", "queued"}:
+            return "IN_PROGRESS"
+        return "NEEDS_REVIEW"
+
+    def _normalize_dashboard_detail(
+        self,
+        detail: dict[str, Any],
+        *,
+        debate_id: str,
+        package_available: bool,
+        detail_source: str,
+    ) -> dict[str, Any]:
+        """Add stable aliases and defaults for dashboard debate detail responses."""
+        normalized = dict(detail)
+        normalized["debate_id"] = debate_id
+        normalized["id"] = debate_id
+
+        question = normalized.get("question")
+        if not isinstance(question, str):
+            question = str(question or "")
+
+        task = normalized.get("task")
+        if not isinstance(task, str) or not task:
+            task = question
+
+        participants = self._normalize_dashboard_string_list(normalized.get("participants"))
+        if not participants:
+            participants = self._normalize_dashboard_string_list(normalized.get("agents"))
+
+        status = normalized.get("status", "unknown")
+        if not isinstance(status, str):
+            status = str(status)
+
+        confidence = self._coerce_dashboard_float(normalized.get("confidence"))
+        consensus_reached = bool(normalized.get("consensus_reached", False))
+
+        verdict = normalized.get("verdict")
+        if not isinstance(verdict, str) or not verdict:
+            verdict = self._derive_dashboard_verdict(status, consensus_reached, confidence)
+
+        final_answer = normalized.get("final_answer", "")
+        if not isinstance(final_answer, str):
+            final_answer = str(final_answer or "")
+
+        explanation_summary = normalized.get("explanation_summary", "")
+        if not isinstance(explanation_summary, str):
+            explanation_summary = str(explanation_summary or "")
+
+        summary = normalized.get("summary")
+        if not isinstance(summary, str) or not summary:
+            summary = explanation_summary or final_answer or question
+
+        rounds = self._coerce_dashboard_int(normalized.get("rounds"))
+
+        created_at = normalized.get("created_at")
+        if created_at is not None and not isinstance(created_at, str):
+            created_at = str(created_at)
+
+        duration_seconds = self._coerce_dashboard_float(normalized.get("duration_seconds"))
+
+        cost = normalized.get("cost")
+        if not isinstance(cost, dict):
+            cost = {}
+        per_agent_cost = cost.get("per_agent_cost")
+        if not isinstance(per_agent_cost, dict):
+            per_agent_cost = {}
+        total_cost_usd = self._coerce_dashboard_float(cost.get("total_cost_usd"))
+
+        normalized.update(
+            {
+                "question": question,
+                "task": task,
+                "participants": participants,
+                "agents": participants,
+                "status": status,
+                "confidence": confidence,
+                "consensus_reached": consensus_reached,
+                "verdict": verdict,
+                "final_answer": final_answer,
+                "explanation_summary": explanation_summary,
+                "summary": summary,
+                "rounds": rounds,
+                "created_at": created_at,
+                "duration_seconds": duration_seconds,
+                "cost": {
+                    "total_cost_usd": total_cost_usd,
+                    "per_agent_cost": per_agent_cost,
+                },
+                "cost_breakdown": normalized.get("cost_breakdown")
+                if isinstance(normalized.get("cost_breakdown"), list)
+                else self._build_dashboard_cost_breakdown(per_agent_cost),
+                "arguments": normalized.get("arguments")
+                if isinstance(normalized.get("arguments"), list)
+                else [],
+                "next_steps": normalized.get("next_steps")
+                if isinstance(normalized.get("next_steps"), list)
+                else [],
+                "receipt": normalized.get("receipt")
+                if isinstance(normalized.get("receipt"), dict) or normalized.get("receipt") is None
+                else None,
+                "argument_map": normalized.get("argument_map")
+                if isinstance(normalized.get("argument_map"), dict)
+                else None,
+                "consensus": {
+                    "reached": consensus_reached,
+                    "confidence": confidence,
+                    "verdict": verdict,
+                },
+                "package_available": package_available,
+                "detail_source": detail_source,
+            }
+        )
+        return normalized
+
+    def _build_minimal_dashboard_detail(self, debate_id: str) -> dict[str, Any]:
+        """Return a minimal, non-error payload when storage is unavailable."""
+        return self._normalize_dashboard_detail(
+            {
+                "question": "",
+                "status": "unknown",
+                "participants": [],
+                "rounds": 0,
+                "arguments": [],
+                "receipt": None,
+                "cost": {"total_cost_usd": 0.0, "per_agent_cost": {}},
+                "cost_breakdown": [],
+                "next_steps": [],
+            },
+            debate_id=debate_id,
+            package_available=False,
+            detail_source="minimal_fallback",
+        )
+
+    def _build_storage_backed_dashboard_detail(
+        self, debate_id: str, debate: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build dashboard detail directly from stored debate data."""
+        result_data = debate.get("result")
+        if not isinstance(result_data, dict):
+            result_data = {}
+
+        arguments, derived_rounds = self._build_dashboard_arguments(debate.get("messages"))
+        participants = self._normalize_dashboard_string_list(result_data.get("participants"))
+        if not participants:
+            participants = self._normalize_dashboard_string_list(debate.get("agents"))
+
+        status = debate.get("status", "unknown")
+        if not isinstance(status, str):
+            status = str(status)
+
+        confidence = self._coerce_dashboard_float(
+            result_data.get("confidence"),
+            fallback=self._coerce_dashboard_float(debate.get("confidence")),
+        )
+        consensus_reached = bool(
+            result_data.get("consensus_reached", debate.get("consensus_reached", False))
+        )
+
+        final_answer = result_data.get("final_answer", "")
+        if not isinstance(final_answer, str):
+            final_answer = str(final_answer or "")
+
+        explanation_summary = result_data.get("explanation_summary", "")
+        if not isinstance(explanation_summary, str):
+            explanation_summary = str(explanation_summary or "")
+
+        per_agent_cost = result_data.get("per_agent_cost")
+        if not isinstance(per_agent_cost, dict):
+            per_agent_cost = {}
+
+        question = debate.get("question", "")
+        if not isinstance(question, str):
+            question = str(question or "")
+
+        created_at = debate.get("created_at") or result_data.get("created_at")
+        if created_at is not None and not isinstance(created_at, str):
+            created_at = str(created_at)
+
+        return self._normalize_dashboard_detail(
+            {
+                "question": question,
+                "status": status,
+                "confidence": confidence,
+                "consensus_reached": consensus_reached,
+                "verdict": self._derive_dashboard_verdict(status, consensus_reached, confidence),
+                "final_answer": final_answer,
+                "explanation_summary": explanation_summary,
+                "participants": participants,
+                "rounds": self._coerce_dashboard_int(
+                    result_data.get("rounds"), fallback=derived_rounds
+                ),
+                "arguments": arguments,
+                "receipt": None,
+                "cost": {
+                    "total_cost_usd": self._coerce_dashboard_float(
+                        result_data.get("total_cost_usd")
+                    ),
+                    "per_agent_cost": per_agent_cost,
+                },
+                "cost_breakdown": self._build_dashboard_cost_breakdown(per_agent_cost),
+                "argument_map": None,
+                "next_steps": [],
+                "created_at": created_at,
+                "duration_seconds": self._coerce_dashboard_float(
+                    result_data.get("duration_seconds"),
+                    fallback=self._coerce_dashboard_float(debate.get("duration_seconds")),
+                ),
+            },
+            debate_id=debate_id,
+            package_available=False,
+            detail_source="storage_fallback",
+        )
+
+    def _load_dashboard_detail_package(self, storage: Any, debate_id: str) -> dict[str, Any] | None:
+        """Try to reuse the existing decision-package assembler for completed debates."""
+        try:
+            from aragora.server.handlers.debates.decision_package import DecisionPackageHandler
+
+            package, err = DecisionPackageHandler(ctx={"storage": storage})._assemble_package(
+                debate_id
+            )
+            if err is None and isinstance(package, dict):
+                return self._normalize_dashboard_detail(
+                    package,
+                    debate_id=debate_id,
+                    package_available=True,
+                    detail_source="decision_package",
+                )
+            if err is not None:
+                logger.debug(
+                    "Dashboard debate detail falling back for %s: package unavailable (%s)",
+                    debate_id,
+                    err.status_code,
+                )
+        except (
+            ImportError,
+            KeyError,
+            ValueError,
+            OSError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+        ) as exc:
+            logger.debug("Dashboard debate detail package load failed for %s: %s", debate_id, exc)
+        return None
+
     @api_endpoint(
         method="GET",
         path="/api/v1/dashboard/debates/{debate_id}",
@@ -218,10 +568,33 @@ class DashboardViewsMixin:
         },
     )
     def _get_dashboard_debate(self, debate_id: str) -> HandlerResult:
-        """Return a single debate summary entry."""
+        """Return dashboard debate detail, preferring decision-package data when available."""
         if not debate_id:
             return error_response("debate_id is required", 400)
-        return json_response({"debate_id": debate_id})
+
+        try:
+            storage = self.get_storage()
+            if not storage:
+                return json_response(self._build_minimal_dashboard_detail(debate_id))
+
+            get_debate = getattr(storage, "get_debate", None)
+            if not callable(get_debate):
+                return json_response(self._build_minimal_dashboard_detail(debate_id))
+
+            debate = get_debate(debate_id)
+            if debate is None:
+                return error_response("Debate not found", 404)
+            if not isinstance(debate, dict):
+                return json_response(self._build_minimal_dashboard_detail(debate_id))
+
+            package_detail = self._load_dashboard_detail_package(storage, debate_id)
+            if package_detail is not None:
+                return json_response(package_detail)
+
+            return json_response(self._build_storage_backed_dashboard_detail(debate_id, debate))
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+            logger.warning("Dashboard debate detail error: %s: %s", type(e).__name__, e)
+            return json_response(self._build_minimal_dashboard_detail(debate_id))
 
     @api_endpoint(
         method="GET",
