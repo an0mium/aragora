@@ -80,6 +80,10 @@ class TestGauntletHandlerRouting:
         """Handler can handle GET /api/v1/gauntlet/results."""
         assert handler.can_handle("/api/v1/gauntlet/results", method="GET")
 
+    def test_can_handle_receipt_lookup_by_receipt_id(self, handler):
+        """Handler can handle GET /api/v1/gauntlet/receipts/:id."""
+        assert handler.can_handle("/api/v1/gauntlet/receipts/receipt-123", method="GET")
+
     def test_can_handle_gauntlet_id(self, handler):
         """Handler can handle GET /api/v1/gauntlet/:id."""
         assert handler.can_handle("/api/v1/gauntlet/abc-123", method="GET")
@@ -763,3 +767,134 @@ class TestGauntletReceiptsList:
         assert result is not None
         # Legacy route should get deprecation header
         assert result.headers.get("Deprecation") == "true"
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_receipt_lookup_by_receipt_id(self, handler, mock_http_handler):
+        """Receipt-by-ID lookups should not fall through to gauntlet status routing."""
+        mock_http_handler.command = "GET"
+        mock_http_handler.path = "/api/v1/gauntlet/receipts/receipt-123"
+
+        with (
+            patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "require_permission_or_error", return_value=(None, None)),
+            patch.object(
+                handler,
+                "_get_receipt_by_id",
+                new=AsyncMock(
+                    return_value=MagicMock(
+                        status_code=200,
+                        body=b'{"receipt_id":"receipt-123"}',
+                        headers={},
+                    )
+                ),
+            ) as mock_get_receipt,
+            patch.object(handler, "_get_status", new=AsyncMock()) as mock_get_status,
+        ):
+            result = await handler.handle(
+                "/api/v1/gauntlet/receipts/receipt-123",
+                {},
+                mock_http_handler,
+            )
+
+        mock_get_receipt.assert_awaited_once_with("receipt-123")
+        mock_get_status.assert_not_called()
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_receipt_export_verify_and_stream_by_receipt_id(
+        self, handler, mock_http_handler
+    ):
+        """Export/verify/stream receipt routes should dispatch through receipt handlers."""
+        route_to_handler = {
+            "/api/v1/gauntlet/receipts/receipt-123/export": "_export_receipt_by_id",
+            "/api/v1/gauntlet/receipts/receipt-123/verify": "_verify_receipt_by_id",
+            "/api/v1/gauntlet/receipts/receipt-123/stream": "_stream_receipt_by_id",
+        }
+
+        for path, method_name in route_to_handler.items():
+            mock_http_handler.command = "GET"
+            mock_http_handler.path = path
+
+            with (
+                patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+                patch.object(handler, "require_permission_or_error", return_value=(None, None)),
+                patch.object(
+                    handler,
+                    method_name,
+                    new=AsyncMock(
+                        return_value=MagicMock(
+                            status_code=200,
+                            body=b"{}",
+                            headers={},
+                        )
+                    ),
+                ) as mock_method,
+            ):
+                result = await handler.handle(path, {"format": "json"}, mock_http_handler)
+
+            if method_name == "_export_receipt_by_id":
+                mock_method.assert_awaited_once_with("receipt-123", {"format": "json"})
+            else:
+                mock_method.assert_awaited_once_with("receipt-123")
+            assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_get_receipt_by_id_returns_stored_receipt(self, handler):
+        """Receipt-by-ID lookup returns the persisted receipt payload."""
+        import json
+
+        mock_store = MagicMock()
+        mock_store.get.return_value = MagicMock(
+            receipt_id="receipt-123",
+            gauntlet_id="gauntlet-123",
+            to_full_dict=MagicMock(
+                return_value={"receipt_id": "receipt-123", "gauntlet_id": "gauntlet-123"}
+            ),
+        )
+        mock_store.get_by_gauntlet.return_value = None
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = await handler._get_receipt_by_id("receipt-123")
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["receipt_id"] == "receipt-123"
+        assert body["gauntlet_id"] == "gauntlet-123"
+
+    @pytest.mark.asyncio
+    async def test_verify_receipt_by_id_returns_combined_results(self, handler):
+        """Receipt-by-ID verification reuses persisted receipt integrity + signature checks."""
+        import json
+
+        mock_store = MagicMock()
+        mock_store.get.return_value = MagicMock(
+            receipt_id="receipt-123",
+            gauntlet_id="gauntlet-123",
+        )
+        mock_store.get_by_gauntlet.return_value = None
+        signature_result = MagicMock(error=None)
+        signature_result.to_dict.return_value = {
+            "receipt_id": "receipt-123",
+            "is_valid": True,
+        }
+        mock_store.verify_signature.return_value = signature_result
+        mock_store.verify_integrity.return_value = {
+            "receipt_id": "receipt-123",
+            "integrity_valid": True,
+        }
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = await handler._verify_receipt_by_id("receipt-123")
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["receipt_id"] == "receipt-123"
+        assert body["gauntlet_id"] == "gauntlet-123"
+        assert body["signature"]["is_valid"] is True
+        assert body["integrity"]["integrity_valid"] is True

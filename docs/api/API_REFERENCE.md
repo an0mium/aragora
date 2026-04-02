@@ -976,10 +976,11 @@ User feedback and NPS collection under `/api/v1/feedback`.
 | `POST /api/workflow/patterns/:id/instantiate` | Create template from pattern | NEW |
 | `GET /api/gauntlet/receipts` | List gauntlet receipts | NEW |
 | `GET /api/gauntlet/receipts/:id` | Get receipt details | NEW |
-| `GET /api/gauntlet/receipts/:id/verify` | Verify receipt integrity | NEW |
+| `GET /api/gauntlet/receipts/:id/verify` | Verify persisted receipt integrity + signature | NEW |
 | `GET /api/gauntlet/receipts/:id/export` | Export receipt (JSON/HTML/MD/SARIF) | NEW |
-| `POST /api/gauntlet/receipts/:id/share` | Create shareable receipt link | NEW |
-| `GET /api/gauntlet/receipts/stats` | Get receipt statistics | NEW |
+| `GET /api/gauntlet/receipts/:id/stream` | Stream receipt export as NDJSON | NEW |
+| `POST /api/v2/receipts/:id/share` | Create shareable receipt link | NEW |
+| `GET /api/v2/receipts/stats` | Get receipt statistics | NEW |
 | `POST /api/v1/explainability/batch` | Create batch explanation job | NEW |
 | `GET /api/v1/explainability/batch/:id/status` | Get batch job status | NEW |
 | `GET /api/v1/explainability/batch/:id/results` | Get batch job results | NEW |
@@ -6494,10 +6495,17 @@ Authorization: Bearer <token>
 **Response:**
 ```json
 {
-  "valid": true,
-  "hash": "sha256:a1b2c3d4e5f6...",
-  "computed_hash": "sha256:a1b2c3d4e5f6...",
-  "verification_timestamp": "2026-01-20T11:00:00Z"
+  "receipt_id": "receipt-789",
+  "gauntlet_id": "gauntlet-789",
+  "signature": {
+    "receipt_id": "receipt-789",
+    "is_valid": true,
+    "verified_at": 1768926000.0
+  },
+  "integrity": {
+    "receipt_id": "receipt-789",
+    "integrity_valid": true
+  }
 }
 ```
 
@@ -6530,10 +6538,19 @@ Authorization: Bearer <token>
 }
 ```
 
+### Stream Receipt Export
+
+```http
+GET /api/gauntlet/receipts/{receipt_id}/stream
+Authorization: Bearer <token>
+```
+
+**Response:** one NDJSON line containing the full receipt payload.
+
 ### Create Shareable Link
 
 ```http
-POST /api/gauntlet/receipts/{receipt_id}/share
+POST /api/v2/receipts/{receipt_id}/share
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -6555,7 +6572,7 @@ Content-Type: application/json
 ### Get Receipt Statistics
 
 ```http
-GET /api/gauntlet/receipts/stats
+GET /api/v2/receipts/stats
 Authorization: Bearer <token>
 ```
 

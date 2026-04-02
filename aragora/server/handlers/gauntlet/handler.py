@@ -51,6 +51,10 @@ class GauntletHandler(
         "/api/gauntlet/personas",
         "/api/gauntlet/results",
         "/api/gauntlet/receipts",
+        "/api/gauntlet/receipts/*",
+        "/api/gauntlet/receipts/*/export",
+        "/api/gauntlet/receipts/*/verify",
+        "/api/gauntlet/receipts/*/stream",
         "/api/gauntlet/*/receipt/verify",
         "/api/gauntlet/*/receipt",
         "/api/gauntlet/*/heatmap",
@@ -60,6 +64,10 @@ class GauntletHandler(
         "/api/v1/gauntlet/run",
         "/api/v1/gauntlet/personas",
         "/api/v1/gauntlet/results",
+        "/api/v1/gauntlet/receipts/*",
+        "/api/v1/gauntlet/receipts/*/export",
+        "/api/v1/gauntlet/receipts/*/verify",
+        "/api/v1/gauntlet/receipts/*/stream",
         "/api/v1/gauntlet/*/receipt/verify",
         "/api/v1/gauntlet/*/receipt",
         "/api/v1/gauntlet/*/heatmap",
@@ -129,6 +137,21 @@ class GauntletHandler(
 
         This method handles routes that include dynamic segments like {gauntlet_id}.
         """
+        # GET /api/gauntlet/receipts/{receipt_id}[/{action}]
+        if path.startswith("/api/gauntlet/receipts/") and method == "GET":
+            suffix = path[len("/api/gauntlet/receipts/") :].strip("/")
+            if suffix:
+                parts = suffix.split("/")
+                receipt_id = parts[0]
+                if len(parts) == 1:
+                    return await self._get_receipt_by_id(receipt_id)
+                if len(parts) == 2 and parts[1] == "export":
+                    return await self._export_receipt_by_id(receipt_id, query_params)
+                if len(parts) == 2 and parts[1] == "verify":
+                    return await self._verify_receipt_by_id(receipt_id)
+                if len(parts) == 2 and parts[1] == "stream":
+                    return await self._stream_receipt_by_id(receipt_id)
+
         # GET /api/receipts/{receipt_id}/anchor-status
         if (
             path.endswith("/anchor-status")

@@ -50,8 +50,241 @@ async def _call_nonblocking(target: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
+    """Extract only constructor-supported DecisionReceipt fields."""
+    if isinstance(receipt, dict):
+        nested = receipt.get("data")
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        else:
+            payload = dict(receipt)
+        plain = receipt
+    else:
+        nested = getattr(receipt, "data", None)
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        elif hasattr(receipt, "to_dict"):
+            plain_value = receipt.to_dict()
+            payload = dict(plain_value) if isinstance(plain_value, dict) else {}
+        else:
+            payload = {}
+        plain = receipt.to_dict() if hasattr(receipt, "to_dict") else {}
+
+    if isinstance(plain, dict):
+        for key in ("receipt_id", "gauntlet_id", "timestamp", "checksum"):
+            payload.setdefault(key, plain.get(key))
+
+    if not payload:
+        return {}
+
+    try:
+        from aragora.export.decision_receipt import DecisionReceipt
+
+        allowed_fields = inspect.signature(DecisionReceipt).parameters
+        return {key: value for key, value in payload.items() if key in allowed_fields}
+    except (ImportError, ValueError, TypeError):
+        return payload
+
+
 class GauntletReceiptsMixin:
     """Mixin providing gauntlet receipt methods."""
+
+    async def _load_persisted_receipt(self, receipt_id: str) -> Any | None:
+        """Resolve a stored receipt by receipt ID, falling back to gauntlet ID."""
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+        except ImportError:
+            return None
+
+        store = get_receipt_store()
+        receipt = await _call_nonblocking(store, "get", receipt_id)
+        if receipt is None:
+            receipt = await _call_nonblocking(store, "get_by_gauntlet", receipt_id)
+        return receipt
+
+    async def _get_receipt_by_id(self, receipt_id: str) -> HandlerResult:
+        """Get a persisted receipt by receipt ID (or matching gauntlet ID)."""
+        receipt = await self._load_persisted_receipt(receipt_id)
+        if receipt is None:
+            return error_response("Receipt not found", 404)
+
+        if hasattr(receipt, "to_full_dict"):
+            return json_response(receipt.to_full_dict())
+        if hasattr(receipt, "to_dict"):
+            return json_response(receipt.to_dict())
+        return json_response(receipt)
+
+    async def _export_receipt_by_id(
+        self, receipt_id: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
+        """Export a persisted receipt in the legacy gauntlet receipt-by-id shape."""
+        receipt = await self._load_persisted_receipt(receipt_id)
+        if receipt is None:
+            return error_response("Receipt not found", 404)
+
+        resolved_receipt_id = str(getattr(receipt, "receipt_id", receipt_id))
+        export_format = get_string_param(query_params, "format", "json").lower()
+        if export_format == "markdown":
+            export_format = "md"
+        download = get_string_param(query_params, "download", "false").lower() == "true"
+
+        try:
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            decision_receipt = DecisionReceipt.from_dict(_extract_decision_receipt_payload(receipt))
+
+            if export_format == "json":
+                body = decision_receipt.to_json(indent=2).encode("utf-8")
+                headers = (
+                    {
+                        "Content-Disposition": f"attachment; filename=receipt-{resolved_receipt_id}.json"
+                    }
+                    if download
+                    else None
+                )
+                return HandlerResult(
+                    status_code=200,
+                    content_type="application/json; charset=utf-8",
+                    body=body,
+                    headers=headers,
+                )
+
+            if export_format == "html":
+                body = decision_receipt.to_html().encode("utf-8")
+                headers = (
+                    {
+                        "Content-Disposition": f"attachment; filename=receipt-{resolved_receipt_id}.html"
+                    }
+                    if download
+                    else None
+                )
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/html; charset=utf-8",
+                    body=body,
+                    headers=headers,
+                )
+
+            if export_format == "md":
+                body = decision_receipt.to_markdown().encode("utf-8")
+                headers = (
+                    {
+                        "Content-Disposition": f"attachment; filename=receipt-{resolved_receipt_id}.md"
+                    }
+                    if download
+                    else None
+                )
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/markdown; charset=utf-8",
+                    body=body,
+                    headers=headers,
+                )
+
+            if export_format == "sarif":
+                body = decision_receipt.to_sarif_json().encode("utf-8")
+                return HandlerResult(
+                    status_code=200,
+                    content_type="application/sarif+json",
+                    body=body,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="receipt-{resolved_receipt_id}.sarif"'
+                    },
+                )
+
+            if export_format == "csv":
+                body = decision_receipt.to_csv().encode("utf-8")
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/csv; charset=utf-8",
+                    body=body,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="receipt-{resolved_receipt_id}.csv"'
+                    },
+                )
+
+            if export_format == "pdf":
+                try:
+                    return HandlerResult(
+                        status_code=200,
+                        content_type="application/pdf",
+                        body=decision_receipt.to_pdf(),
+                        headers={
+                            "Content-Disposition": f'attachment; filename="receipt-{resolved_receipt_id}.pdf"'
+                        },
+                    )
+                except ImportError:
+                    return error_response(
+                        "PDF export requires weasyprint. Install with: pip install weasyprint",
+                        501,
+                    )
+
+            return error_response(
+                "Unsupported format: expected json, html, md, pdf, sarif, or csv",
+                400,
+            )
+        except (ImportError, KeyError, OSError, TypeError, ValueError) as exc:
+            logger.exception("Failed to export receipt %s: %s", receipt_id, exc)
+            return error_response("Receipt export failed", 500)
+
+    async def _verify_receipt_by_id(self, receipt_id: str) -> HandlerResult:
+        """Verify a persisted receipt's integrity and signature."""
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+        except ImportError:
+            return error_response("Receipt store unavailable", 404)
+
+        receipt = await self._load_persisted_receipt(receipt_id)
+        if receipt is None:
+            return error_response("Receipt not found", 404)
+
+        store = get_receipt_store()
+        resolved_receipt_id = str(getattr(receipt, "receipt_id", receipt_id))
+        signature_result = await _call_nonblocking(store, "verify_signature", resolved_receipt_id)
+        integrity_result = await _call_nonblocking(store, "verify_integrity", resolved_receipt_id)
+
+        signature_error = getattr(signature_result, "error", None)
+        integrity_error = (
+            integrity_result.get("error") if isinstance(integrity_result, dict) else None
+        )
+        if signature_error and "not found" in signature_error.lower():
+            return error_response("Receipt not found", 404)
+        if integrity_error and "not found" in integrity_error.lower():
+            return error_response("Receipt not found", 404)
+
+        return json_response(
+            {
+                "receipt_id": resolved_receipt_id,
+                "gauntlet_id": getattr(receipt, "gauntlet_id", None),
+                "signature": signature_result.to_dict()
+                if hasattr(signature_result, "to_dict")
+                else signature_result,
+                "integrity": integrity_result,
+            }
+        )
+
+    async def _stream_receipt_by_id(self, receipt_id: str) -> HandlerResult:
+        """Return a single-line NDJSON export for legacy receipt stream consumers."""
+        receipt = await self._load_persisted_receipt(receipt_id)
+        if receipt is None:
+            return error_response("Receipt not found", 404)
+
+        try:
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            decision_receipt = DecisionReceipt.from_dict(_extract_decision_receipt_payload(receipt))
+            body = (json.dumps(decision_receipt.to_dict(), default=str) + "\n").encode("utf-8")
+            return HandlerResult(
+                status_code=200,
+                content_type="application/x-ndjson",
+                body=body,
+                headers={
+                    "X-Receipt-Id": str(getattr(receipt, "receipt_id", receipt_id)),
+                },
+            )
+        except (ImportError, KeyError, OSError, TypeError, ValueError) as exc:
+            logger.exception("Failed to stream receipt %s: %s", receipt_id, exc)
+            return error_response("Receipt export failed", 500)
 
     @api_endpoint(
         method="GET",
