@@ -31,6 +31,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from .openapi_decorator import api_endpoint, ok_response, query_param
 from .secure import SecureHandler
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -289,6 +290,35 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
     # Endpoint: GET /api/v1/analytics/spend/summary
     # ------------------------------------------------------------------
 
+    @api_endpoint(
+        path="/api/v1/analytics/spend/summary",
+        method="GET",
+        summary="Get spend analytics summary",
+        tags=["Analytics"],
+        parameters=[
+            query_param("workspace_id", "Workspace identifier", required=False),
+            query_param("org_id", "Organization identifier", required=False),
+        ],
+        responses=ok_response(
+            "Spend summary",
+            {
+                "type": "object",
+                "properties": {
+                    "total_spend_usd": {"type": "string"},
+                    "total_api_calls": {"type": "integer"},
+                    "total_tokens": {"type": "integer"},
+                    "budget_limit_usd": {"type": "number"},
+                    "budget_spent_usd": {"type": "number"},
+                    "utilization_pct": {"type": "number"},
+                    "trend_direction": {
+                        "type": "string",
+                        "enum": ["stable", "increasing", "decreasing"],
+                    },
+                    "avg_cost_per_decision": {"type": "number"},
+                },
+            },
+        ),
+    )
     @handle_errors("get spend summary")
     def _get_summary(
         self,
@@ -371,6 +401,36 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
     # Endpoint: GET /api/v1/analytics/spend/trends
     # ------------------------------------------------------------------
 
+    @api_endpoint(
+        path="/api/v1/analytics/spend/trends",
+        method="GET",
+        summary="Get spend analytics trends",
+        tags=["Analytics"],
+        parameters=[
+            query_param("org_id", "Organization identifier", required=False),
+            query_param(
+                "period",
+                'Aggregation period ("daily", "weekly", or "monthly")',
+                required=False,
+            ),
+            query_param("days", "Number of points to return", schema_type="integer", default=30),
+        ],
+        responses=ok_response(
+            "Spend trend data",
+            {
+                "type": "object",
+                "properties": {
+                    "org_id": {"type": "string"},
+                    "period": {"type": "string"},
+                    "days": {"type": "integer"},
+                    "data_points": {
+                        "type": "array",
+                        "items": {"type": "object", "additionalProperties": True},
+                    },
+                },
+            },
+        ),
+    )
     @handle_errors("get spend trends")
     def _get_trends(
         self,
@@ -416,6 +476,36 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
     # Endpoint: GET /api/v1/analytics/spend/by-agent
     # ------------------------------------------------------------------
 
+    @api_endpoint(
+        path="/api/v1/analytics/spend/by-agent",
+        method="GET",
+        summary="Get spend by agent",
+        tags=["Analytics"],
+        parameters=[
+            query_param("workspace_id", "Workspace identifier", required=False),
+        ],
+        responses=ok_response(
+            "Per-agent spend breakdown",
+            {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "total_usd": {"type": "string"},
+                    "agents": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "agent_name": {"type": "string"},
+                                "cost_usd": {"type": "string"},
+                                "percentage": {"type": "number"},
+                            },
+                        },
+                    },
+                },
+            },
+        ),
+    )
     @handle_errors("get spend by agent")
     def _get_by_agent(
         self,
@@ -478,6 +568,36 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
     # Endpoint: GET /api/v1/analytics/spend/by-decision
     # ------------------------------------------------------------------
 
+    @api_endpoint(
+        path="/api/v1/analytics/spend/by-decision",
+        method="GET",
+        summary="Get spend by decision",
+        tags=["Analytics"],
+        parameters=[
+            query_param("workspace_id", "Workspace identifier", required=False),
+            query_param("limit", "Maximum decisions to return", schema_type="integer", default=20),
+        ],
+        responses=ok_response(
+            "Per-decision spend breakdown",
+            {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "decisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "cost_usd": {"type": "string"},
+                            },
+                        },
+                    },
+                    "count": {"type": "integer"},
+                },
+            },
+        ),
+    )
     @handle_errors("get spend by decision")
     def _get_by_decision(
         self,
@@ -534,6 +654,33 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
     # Endpoint: GET /api/v1/analytics/spend/budget
     # ------------------------------------------------------------------
 
+    @api_endpoint(
+        path="/api/v1/analytics/spend/budget",
+        method="GET",
+        summary="Get spend budget status",
+        tags=["Analytics"],
+        parameters=[
+            query_param("org_id", "Organization identifier", required=False),
+        ],
+        responses=ok_response(
+            "Budget utilization summary",
+            {
+                "type": "object",
+                "properties": {
+                    "org_id": {"type": "string"},
+                    "budgets": {
+                        "type": "array",
+                        "items": {"type": "object", "additionalProperties": True},
+                    },
+                    "total_budget_usd": {"type": "number"},
+                    "total_spent_usd": {"type": "number"},
+                    "total_remaining_usd": {"type": "number"},
+                    "utilization_pct": {"type": "number"},
+                    "forecast_exhaustion_days": {"type": ["number", "null"]},
+                },
+            },
+        ),
+    )
     @handle_errors("get spend budget")
     def _get_budget(
         self,

@@ -7,12 +7,20 @@ endpoints, ensuring contract consistency across SDK surfaces.
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+SPEND_ANALYTICS_ENDPOINTS = {
+    ("GET", "/api/v1/analytics/spend/summary"),
+    ("GET", "/api/v1/analytics/spend/trends"),
+    ("GET", "/api/v1/analytics/spend/by-agent"),
+    ("GET", "/api/v1/analytics/spend/by-decision"),
+    ("GET", "/api/v1/analytics/spend/budget"),
+}
 
 # =========================================================================
 # Canonical endpoint definitions (source of truth: server handler routes)
@@ -195,6 +203,27 @@ class TestDashboardContractParity:
         ts_paths = _extract_ts_paths(ts_file)
         assert len(ts_paths) >= 35, (
             f"Expected at least 35 TypeScript SDK endpoints, got {len(ts_paths)}"
+        )
+
+    def test_generated_openapi_covers_spend_analytics_endpoints(self):
+        """Generated OpenAPI schema includes spend analytics dashboard routes."""
+        from aragora.server.openapi import generate_openapi_schema
+
+        paths = generate_openapi_schema()["paths"]
+        missing = {endpoint for endpoint in SPEND_ANALYTICS_ENDPOINTS if endpoint[1] not in paths}
+        assert not missing, (
+            "Generated OpenAPI schema is missing spend analytics endpoints:\n"
+            + "\n".join(f"  {method} {path}" for method, path in sorted(missing))
+        )
+
+    def test_exported_openapi_covers_spend_analytics_endpoints(self):
+        """Checked-in OpenAPI export includes spend analytics dashboard routes."""
+        spec = json.loads((ROOT / "docs/api/openapi.json").read_text())
+        paths = spec["paths"]
+        missing = {endpoint for endpoint in SPEND_ANALYTICS_ENDPOINTS if endpoint[1] not in paths}
+        assert not missing, (
+            "docs/api/openapi.json is missing spend analytics endpoints:\n"
+            + "\n".join(f"  {method} {path}" for method, path in sorted(missing))
         )
 
 

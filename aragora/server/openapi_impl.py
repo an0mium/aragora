@@ -971,9 +971,37 @@ def _deduplicate_ambiguous_paths(paths: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _merge_runtime_decorator_endpoints(paths: dict[str, Any]) -> dict[str, Any]:
+    """Merge decorator-registered endpoints after handlers are imported.
+
+    ``ALL_ENDPOINTS`` is assembled at module import time, but some handlers
+    register ``@api_endpoint`` metadata only when the handler module itself is
+    imported. Importing ``ALL_HANDLERS`` here ensures those registrations are
+    visible before schema generation finalizes.
+    """
+
+    try:
+        from aragora.server.handlers import ALL_HANDLERS as _ALL_HANDLERS  # noqa: F401
+        from aragora.server.handlers.openapi_decorator import get_registered_endpoints_dict
+    except ImportError:
+        return paths
+    except (AttributeError, RuntimeError, ValueError) as exc:
+        logger.warning("Failed to load runtime decorator endpoints: %s", exc)
+        return paths
+
+    decorator_paths = get_registered_endpoints_dict()
+    for path, methods in decorator_paths.items():
+        if path in paths:
+            paths[path] = {**methods, **paths[path]}
+        else:
+            paths[path] = methods
+    return paths
+
+
 def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
-    paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
+    paths = _merge_runtime_decorator_endpoints(copy.deepcopy(ALL_ENDPOINTS))
+    paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
     paths = _filter_unhandled_paths(paths)
     paths = _autogenerate_missing_paths(paths)
     paths = _align_legacy_paths_with_versioned(paths)

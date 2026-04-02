@@ -154,6 +154,7 @@ if TYPE_CHECKING:
     from .analytics_dashboard import AnalyticsDashboardHandler
     from ._analytics_metrics_impl import AnalyticsMetricsHandler
     from .outcome_analytics import OutcomeAnalyticsHandler
+    from .spend_analytics_dashboard import SpendAnalyticsDashboardHandler
     from .ap_automation import APAutomationHandler
     from .ar_automation import ARAutomationHandler
     from .audit_trail import AuditTrailHandler
@@ -877,6 +878,7 @@ __all__ = [
     "PlaygroundHandler",
     "ReceiptExportHandler",
     "ReceiptsHandler",
+    "SpendAnalyticsDashboardHandler",
     "SkillMarketplaceHandler",
     "SMESuccessDashboardHandler",
     "SMEWorkflowsHandler",
