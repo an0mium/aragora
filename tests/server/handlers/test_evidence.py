@@ -131,6 +131,11 @@ class TestEvidenceHandlerRouting:
         from aragora.server.handlers.features.evidence import EvidenceHandler
 
         handler = EvidenceHandler({})
+        assert handler.can_handle("/api/evidence") is True
+        assert handler.can_handle("/api/evidence/123") is True
+        assert handler.can_handle("/api/evidence/statistics") is True
+        assert handler.can_handle("/api/evidence/debate/d-123") is True
+        assert handler.can_handle("/api/evidence/search") is True
         assert handler.can_handle("/api/v1/evidence") is True
         assert handler.can_handle("/api/v1/evidence/123") is True
         assert handler.can_handle("/api/v1/evidence/statistics") is True
