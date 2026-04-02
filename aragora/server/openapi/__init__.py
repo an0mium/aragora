@@ -1,7 +1,7 @@
 """
 OpenAPI Schema Generator for Aragora API.
 
-This module provides OpenAPI 3.0 specification generation and export.
+This module provides OpenAPI 3.1 specification generation and export.
 The original implementation is preserved in the parent module for
 backward compatibility.
 

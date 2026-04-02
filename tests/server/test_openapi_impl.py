@@ -189,6 +189,13 @@ class TestOpenAPISchemaContent:
                     f"Missing/invalid stability for {method} {path}"
                 )
 
+    def test_legacy_aliases_keep_canonical_path_param_names(self, openapi_schema):
+        """Legacy aliases should use the same descriptive param names as v1 routes."""
+        assert "/api/decisions/{request_id}" in openapi_schema["paths"]
+        assert "/api/playbooks/{id}" in openapi_schema["paths"]
+        assert "/api/decisions/{param}" not in openapi_schema["paths"]
+        assert "/api/playbooks/{param}" not in openapi_schema["paths"]
+
 
 # ---------------------------------------------------------------------------
 # Test Class: Tag Inference

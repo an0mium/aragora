@@ -2,9 +2,9 @@
 API documentation endpoint handlers.
 
 Endpoints:
-- GET /api/openapi - OpenAPI 3.0 JSON specification
-- GET /api/openapi.json - OpenAPI 3.0 JSON specification
-- GET /api/openapi.yaml - OpenAPI 3.0 YAML specification
+- GET /api/openapi - OpenAPI 3.1 JSON specification
+- GET /api/openapi.json - OpenAPI 3.1 JSON specification
+- GET /api/openapi.yaml - OpenAPI 3.1 YAML specification
 - GET /api/postman.json - Postman collection export
 - GET /api/docs - Swagger UI interactive documentation
 - GET /api/redoc - ReDoc API documentation viewer
@@ -103,7 +103,7 @@ class DocsHandler(BaseHandler):
             format: Output format - 'json' or 'yaml'
 
         Returns:
-            OpenAPI 3.0 schema in requested format.
+            OpenAPI 3.1 schema in requested format.
         """
         try:
             from aragora.server.openapi import handle_openapi_request
