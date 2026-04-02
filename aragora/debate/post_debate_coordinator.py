@@ -28,8 +28,11 @@ import logging
 import os
 import re
 import threading
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
+
+from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 
 logger = logging.getLogger(__name__)
 # Per-step timeout for async callables run from the sync coordinator.
@@ -238,6 +241,14 @@ class PostDebateCoordinator:
         """
         result = PostDebateResult(debate_id=debate_id)
 
+        # Create a RunLedger entry for backbone traceability
+        ledger = RunLedger(
+            run_id=f"post-debate-{uuid.uuid4().hex[:12]}",
+            entrypoint="post_debate_coordinator",
+            debate_id=debate_id,
+        )
+        self._ledger = ledger
+
         # Step 0: Collect cost data (always attempted, used by downstream steps)
         result.cost_breakdown = self._step_collect_cost_data(debate_id, debate_result)
 
@@ -248,6 +259,17 @@ class PostDebateCoordinator:
         # Step 2: Create decision plan
         if self.config.auto_create_plan and confidence >= self.config.plan_min_confidence:
             result.plan = self._step_create_plan(debate_id, debate_result, task, result.explanation)
+            if result.plan is not None:
+                plan_obj = result.plan.get("plan")
+                plan_id = str(getattr(plan_obj, "plan_id", "")) if plan_obj else ""
+                ledger.plan_id = plan_id
+                ledger.add_event(
+                    RunStageEvent.create(
+                        BackboneStage.PLAN,
+                        status="plan_created",
+                        details={"debate_id": debate_id, "plan_id": plan_id},
+                    )
+                )
 
         # Step 2.5: Gauntlet adversarial validation
         if self.config.auto_gauntlet_validate and confidence >= self.config.gauntlet_min_confidence:
@@ -291,6 +313,14 @@ class PostDebateCoordinator:
 
         # Step 4: Execute plan if approved
         if self.config.auto_execute_plan and result.plan:
+            plan_id = ledger.plan_id
+            ledger.add_event(
+                RunStageEvent.create(
+                    BackboneStage.EXECUTION,
+                    status="execution_requested",
+                    details={"debate_id": debate_id, "plan_id": plan_id},
+                )
+            )
             if self._is_execution_blocked(result.execution_gate):
                 result.execution_result = {
                     "skipped": True,
@@ -299,6 +329,13 @@ class PostDebateCoordinator:
                 }
             else:
                 result.execution_result = self._step_execute_plan(result.plan, result.explanation)
+            ledger.add_event(
+                RunStageEvent.create(
+                    BackboneStage.EXECUTION,
+                    status="execution_completed",
+                    details={"debate_id": debate_id, "plan_id": plan_id},
+                )
+            )
 
         # Step 4.5: Create draft PR for code-related debates
         if (

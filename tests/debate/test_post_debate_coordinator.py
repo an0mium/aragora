@@ -379,3 +379,100 @@ class TestExecutionSafetyGate:
         assert result.plan is not None
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
+
+
+class TestRunLedgerIntegration:
+    """Test that PostDebateCoordinator creates and populates a RunLedger."""
+
+    def test_ledger_created_on_run(self):
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=False,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+        coordinator.run("d1", _make_debate_result())
+
+        ledger = coordinator._ledger
+        assert ledger is not None
+        assert ledger.entrypoint == "post_debate_coordinator"
+        assert ledger.debate_id == "d1"
+        assert ledger.run_id.startswith("post-debate-")
+
+    def test_ledger_plan_created_event(self):
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+
+        plan_obj = MagicMock()
+        plan_obj.plan_id = "plan-123"
+        with patch.object(coordinator, "_step_create_plan", return_value={"plan": plan_obj}):
+            coordinator.run("d1", _make_debate_result(), confidence=0.9)
+
+        ledger = coordinator._ledger
+        assert ledger.plan_id == "plan-123"
+        plan_events = [e for e in ledger.stage_events if e.status == "plan_created"]
+        assert len(plan_events) == 1
+        assert plan_events[0].stage == "plan"
+        assert plan_events[0].details["debate_id"] == "d1"
+        assert plan_events[0].details["plan_id"] == "plan-123"
+
+    def test_ledger_execution_events(self):
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=True,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+
+        plan_obj = MagicMock()
+        plan_obj.plan_id = "plan-456"
+        plan_obj.status = "approved"
+
+        with patch.object(coordinator, "_step_create_plan", return_value={"plan": plan_obj}):
+            with patch.object(coordinator, "_step_execute_plan", return_value={"ok": True}):
+                coordinator.run("d1", _make_debate_result(), confidence=0.9)
+
+        ledger = coordinator._ledger
+        statuses = [e.status for e in ledger.stage_events]
+        assert "execution_requested" in statuses
+        assert "execution_completed" in statuses
+        exec_events = [e for e in ledger.stage_events if e.stage == "execution"]
+        assert len(exec_events) == 2
+        for ev in exec_events:
+            assert ev.details["debate_id"] == "d1"
+            assert ev.details["plan_id"] == "plan-456"
+
+    def test_ledger_no_plan_event_when_plan_none(self):
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            plan_min_confidence=0.5,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+
+        with patch.object(coordinator, "_step_create_plan", return_value=None):
+            coordinator.run("d1", _make_debate_result(), confidence=0.9)
+
+        ledger = coordinator._ledger
+        plan_events = [e for e in ledger.stage_events if e.status == "plan_created"]
+        assert len(plan_events) == 0
