@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 let mockStoreState: Record<string, unknown>;
 
@@ -95,6 +95,50 @@ describe('Onboarding backend selection', () => {
         expect.objectContaining({ method: 'POST' }),
       );
     });
+  });
+
+  it('QuickDebatePanel polls debate details from the selected backend', async () => {
+    jest.useFakeTimers();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'debate-quick' }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'concluded',
+        conclusion: 'archive',
+      }),
+    });
+
+    render(<QuickDebatePanel />);
+    fireEvent.click(screen.getByText('START DEBATE'));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.aragora.ai/api/v1/debates',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.aragora.ai/api/v1/debates/debate-quick'
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockStoreState.setDebateStatus).toHaveBeenCalledWith('completed');
+    });
+
+    jest.useRealTimers();
   });
 
   it('TryDebateStep runs playground debates against the selected backend', async () => {

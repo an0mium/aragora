@@ -14,6 +14,21 @@ const DEFAULT_QUESTIONS: Record<string, string> = {
   compliance: 'Are we meeting GDPR requirements for our customer data handling?',
 };
 
+const COMPLETED_STATUSES = new Set(['completed', 'concluded', 'archived']);
+const FAILED_STATUSES = new Set(['failed', 'cancelled']);
+
+function getDebateResultText(data: Record<string, unknown>): string {
+  const result =
+    data.verdict ??
+    data.final_answer ??
+    data.winning_proposal ??
+    data.conclusion;
+
+  return typeof result === 'string' && result.trim()
+    ? result
+    : 'Debate completed.';
+}
+
 export function QuickDebatePanel() {
   const apiBase = getRuntimeBackendConfig().config.api;
   const selectedTemplate = useOnboardingStore((s) => s.selectedTemplate);
@@ -73,18 +88,19 @@ export function QuickDebatePanel() {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {
-        const res = await fetch(
-          `${apiBase}/api/v1/debates/${debateId}/status`
-        );
+        const res = await fetch(`${apiBase}/api/v1/debates/${debateId}`);
         if (!res.ok) continue;
-        const data = await res.json();
-        if (data.status === 'completed') {
-          setResult(data.verdict || data.final_answer || 'Debate completed.');
+        const data = (await res.json()) as Record<string, unknown>;
+        const status =
+          typeof data.status === 'string' ? data.status.toLowerCase() : '';
+
+        if (COMPLETED_STATUSES.has(status)) {
+          setResult(getDebateResultText(data));
           setDebateStatus('completed');
           updateProgress({ firstDebateCompleted: true, receiptViewed: true });
           return;
         }
-        if (data.status === 'failed') {
+        if (FAILED_STATUSES.has(status)) {
           setDebateStatus('error');
           setDebateError('Debate failed. You can skip this step.');
           return;
