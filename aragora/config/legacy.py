@@ -188,8 +188,8 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     (non-empty, non-whitespace) value found. Strips whitespace from the result.
 
     Priority order:
-    1. AWS Secrets Manager (if ARAGORA_USE_SECRETS_MANAGER=true)
-    2. Environment variables
+    1. Environment variables
+    2. AWS Secrets Manager (if enabled and env vars are unset)
 
     Args:
         *env_vars: Environment variable names to check (in order of preference)
@@ -205,7 +205,14 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
         >>> api_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         >>> optional_key = get_api_key("BACKUP_KEY", required=False)
     """
-    # Try AWS Secrets Manager first (if enabled)
+    # Prefer already-exported env vars to avoid unnecessary secrets-manager
+    # network lookups on hot paths like agent construction and demo flows.
+    for var in env_vars:
+        value = os.getenv(var)
+        if value and value.strip():
+            return value.strip()
+
+    # Fall back to AWS Secrets Manager only when env vars are not populated.
     try:
         from aragora.config.secrets import get_secret
 
@@ -214,13 +221,7 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
             if value and value.strip():
                 return value.strip()
     except ImportError:
-        pass  # secrets module not available, fall through to env vars
-
-    # Fall back to environment variables
-    for var in env_vars:
-        value = os.getenv(var)
-        if value and value.strip():
-            return value.strip()
+        pass  # secrets module not available, fall through to required check
 
     if required:
         var_names = " or ".join(env_vars)

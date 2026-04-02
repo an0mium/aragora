@@ -288,6 +288,37 @@ class TestGetApiKey:
             result = get_api_key("FIRST_KEY_LEGACY", "SECOND_KEY_LEGACY")
             assert result == "first-value"
 
+    def test_env_value_short_circuits_secret_lookup(self):
+        """Environment variables should satisfy lookups without AWS calls."""
+        from aragora.config.legacy import get_api_key
+
+        with (
+            patch.dict(os.environ, {"TEST_API_KEY_LEGACY": "sk-env-first"}),
+            patch(
+                "aragora.config.secrets.get_secret",
+                side_effect=RuntimeError("get_secret should not be called"),
+            ),
+        ):
+            result = get_api_key("TEST_API_KEY_LEGACY")
+
+        assert result == "sk-env-first"
+
+    def test_falls_back_to_secret_lookup_when_env_missing(self):
+        """AWS-backed secrets still work when env vars are absent."""
+        from aragora.config.legacy import get_api_key
+
+        env_clean = {k: v for k, v in os.environ.items() if k != "TEST_API_KEY_LEGACY"}
+        with (
+            patch.dict(os.environ, env_clean, clear=True),
+            patch(
+                "aragora.config.secrets.get_secret", return_value="sk-from-secret"
+            ) as mock_secret,
+        ):
+            result = get_api_key("TEST_API_KEY_LEGACY")
+
+        assert result == "sk-from-secret"
+        mock_secret.assert_called_once_with("TEST_API_KEY_LEGACY")
+
 
 class TestValidateDbPath:
     """Test validate_db_path security function."""

@@ -27,14 +27,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_secret_cache():
-    """Prevent SecretManager cached API keys from polluting tests.
-
-    When tests in other directories trigger SecretManager initialization with real
-    API keys, those keys get cached. get_api_key() checks get_secret() BEFORE
-    os.environ, so patch.dict("os.environ", ...) never takes effect if cached
-    keys exist. Patching get_secret to return None forces get_api_key to fall
-    through to os.environ where test patches work correctly.
-    """
+    """Prevent SecretManager cache state from leaking across embedding tests."""
     from aragora.config.secrets import reset_secret_manager
 
     reset_secret_manager()
