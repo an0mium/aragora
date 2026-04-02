@@ -137,14 +137,27 @@ def _extract_spec_bundle(plan: Any) -> Any | None:
 
 
 def _normalize_execution_request_for_safety_mode(
-    execution_mode: str,
+    execution_mode: Any,
     *,
     safety_mode: SafetyMode,
 ) -> str:
     """Downgrade interactive execution requests to approval-first semantics."""
-    if safety_mode == SafetyMode.INTERACTIVE and execution_mode == "execute":
+    if not isinstance(safety_mode, SafetyMode):
+        raise TypeError("safety_mode must be an ExecutionMode")
+
+    if isinstance(execution_mode, SafetyMode):
+        normalized = execution_mode.value
+    elif isinstance(execution_mode, str):
+        normalized = execution_mode.strip().lower()
+    else:
+        normalized = ""
+
+    if not normalized:
+        normalized = "plan_only"
+
+    if safety_mode == SafetyMode.INTERACTIVE and normalized == "execute":
         return "request_approval"
-    return execution_mode
+    return normalized
 
 
 def ensure_decision_plan_backbone_run(

@@ -532,9 +532,6 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
             "-p",  # Non-interactive mode (no --print, allows file edits)
             prompt,
         ]
-        if str(self.config.execution_mode).strip().lower() == "autonomous":
-            cmd.append("--yes")  # Auto-approve file edits in autonomous mode only
-
         if self.config.execution_mode == ExecutionMode.AUTONOMOUS:
             cmd.append("--yes")  # Auto-approve file edits in autonomous lanes only
 

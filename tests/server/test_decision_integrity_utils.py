@@ -7,9 +7,11 @@ from aragora.implement.types import ImplementPlan, ImplementTask
 from aragora.pipeline.decision_plan import ApprovalMode, DecisionPlan, PlanStatus
 from aragora.pipeline.decision_plan.memory import PlanOutcome
 from aragora.server.decision_integrity_utils import (
+    _normalize_execution_request_for_safety_mode,
     build_decision_integrity_payload,
     extract_execution_overrides,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 
 
 def test_extract_execution_overrides_computer_use():
@@ -24,6 +26,26 @@ def test_extract_execution_overrides_hybrid():
     assert text == "implement update docs"
     assert overrides["execution_mode"] == "execute"
     assert overrides["execution_engine"] == "hybrid"
+
+
+def test_normalize_execution_request_defaults_invalid_mode_to_plan_only():
+    assert (
+        _normalize_execution_request_for_safety_mode(
+            None,
+            safety_mode=ExecutionMode.AUTONOMOUS,
+        )
+        == "plan_only"
+    )
+
+
+def test_normalize_execution_request_downgrades_interactive_execute():
+    assert (
+        _normalize_execution_request_for_safety_mode(
+            "execute",
+            safety_mode=ExecutionMode.INTERACTIVE,
+        )
+        == "request_approval"
+    )
 
 
 @pytest.mark.asyncio

@@ -119,7 +119,7 @@ class TestMCPConfigInCommand:
             await harness.execute_implementation(tmp_path, "fix the bug")
 
         cmd_args = [str(a) for a in mock_exec.call_args[0]]
-        assert "--yes" in cmd_args
+        assert cmd_args.count("--yes") == 1
 
 
 class TestAllowedTools:

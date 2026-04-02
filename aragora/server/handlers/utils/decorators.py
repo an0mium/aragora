@@ -226,6 +226,9 @@ def handle_errors(
     """
     import asyncio
 
+    if not isinstance(default_status, int):
+        raise TypeError("default_status must be an int")
+
     def build_wrapper(func: Callable[..., Any], operation: str) -> Callable[..., Any]:
         if asyncio.iscoroutinefunction(func):
 
@@ -281,6 +284,8 @@ def handle_errors(
     if callable(context):
         operation = getattr(context, "__name__", "handler operation")
         return build_wrapper(context, operation)
+    if not isinstance(context, str):
+        raise TypeError("context must be a string or callable")
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         return build_wrapper(func, context)

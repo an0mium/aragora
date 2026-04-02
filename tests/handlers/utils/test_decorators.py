@@ -421,6 +421,10 @@ class TestHandleErrorsAsync:
         assert isinstance(result, HandlerResult)
         assert result.status_code == 400
 
+    def test_invalid_context_type_raises_type_error(self):
+        with pytest.raises(TypeError, match="context must be a string or callable"):
+            handle_errors(123)  # type: ignore[arg-type]
+
 
 # ============================================================================
 # auto_error_response
