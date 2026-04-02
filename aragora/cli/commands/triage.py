@@ -18,6 +18,7 @@ import os
 import sys
 import warnings
 from enum import Enum
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -627,12 +628,15 @@ def _print_run_footer(
 ) -> None:
     """Print a compact diagnostics-aware run footer."""
     message_suppressed = int(
-        meta.get(
-            "message_suppressed_diagnostics_count",
-            meta.get("suppressed_diagnostics_count", 0),
+        cast(
+            Any,
+            meta.get(
+                "message_suppressed_diagnostics_count",
+                meta.get("suppressed_diagnostics_count", 0),
+            ),
         )
     )
-    global_suppressed = int(meta.get("global_suppressed_diagnostics_count", 0))
+    global_suppressed = int(cast(Any, meta.get("global_suppressed_diagnostics_count", 0)))
     summary_parts = [
         f"processed={len(decisions)}",
         f"fast={meta.get('fast_tier_count', 0)}",
@@ -850,6 +854,7 @@ def _show_review_queue(*, limit: int = 20, include_reviewed: bool = False) -> No
 def _run_fast_label(*, batch: int = 20, single_receipt_id: str | None = None) -> None:
     """Fast g/b/s labeling loop."""
     store = _get_store()
+    items: list[dict[str, object]]
 
     if single_receipt_id:
         items = [{"receipt_id": single_receipt_id}]
@@ -864,11 +869,11 @@ def _run_fast_label(*, batch: int = 20, single_receipt_id: str | None = None) ->
             {
                 "receipt_id": single_receipt_id,
                 "action": str(getattr(intent, "action", "")),
-                "confidence": getattr(decision, "confidence", 0.0),
-                "subject": getattr(intent, "_subject", ""),
-                "sender": getattr(intent, "_sender", ""),
-                "rationale": getattr(intent, "synthesized_rationale", ""),
-                "blocked": getattr(decision, "blocked_by_policy", False),
+                "confidence": float(cast(Any, getattr(decision, "confidence", 0.0)) or 0.0),
+                "subject": str(getattr(intent, "_subject", "")),
+                "sender": str(getattr(intent, "_sender", "")),
+                "rationale": str(getattr(intent, "synthesized_rationale", "")),
+                "blocked": bool(cast(Any, getattr(decision, "blocked_by_policy", False))),
             }
         ]
     else:
@@ -883,12 +888,12 @@ def _run_fast_label(*, batch: int = 20, single_receipt_id: str | None = None) ->
 
     labeled = {"good": 0, "bad": 0, "skip": 0}
     for i, item in enumerate(items, 1):
-        conf = item.get("confidence", 0.0) or 0.0
-        action = item.get("action", "?")
-        subject = (item.get("subject", "") or "")[:40]
-        sender = (item.get("sender", "") or "")[:25]
-        rationale = (item.get("rationale", "") or "")[:60]
-        rid = item.get("receipt_id", "")
+        conf = float(cast(Any, item.get("confidence", 0.0) or 0.0))
+        action = str(item.get("action", "?"))
+        subject = str(item.get("subject", "") or "")[:40]
+        sender = str(item.get("sender", "") or "")[:25]
+        rationale = str(item.get("rationale", "") or "")[:60]
+        rid = str(item.get("receipt_id", ""))
 
         print(f"\n[{i}/{len(items)}] {action:<8} {conf:>4.0%}  {sender}")
         print(f"         {subject}")
