@@ -69,7 +69,7 @@ const SYSTEM_INTEGRATION_CONFIGS: SystemIntegrationConfig[] = [
     description: 'Export debate data for fine-tuning language models.',
     href: '/training',
     icon: '[]',
-    probeEndpoint: '/api/v1/training/export',
+    probeEndpoint: '/api/v1/training/stats',
     features: ['SFT format', 'DPO pairs', 'JSONL export'],
   },
   {
