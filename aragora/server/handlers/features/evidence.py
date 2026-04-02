@@ -79,6 +79,10 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     # Static routes for exact matching
     ROUTES = [
+        "/api/evidence",
+        "/api/evidence/statistics",
+        "/api/evidence/search",
+        "/api/evidence/collect",
         "/api/v1/evidence",
         "/api/v1/evidence/statistics",
         "/api/v1/evidence/search",
@@ -87,7 +91,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/evidence")
+        return path.startswith("/api/v1/evidence") or path.startswith("/api/evidence")
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
