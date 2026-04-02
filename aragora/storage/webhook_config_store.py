@@ -777,6 +777,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         self._redis: Any | None = None
         self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
+        self._dirty_ids: set[str] = set()
         logger.info("RedisWebhookConfigStore initialized with SQLite fallback")
 
     def _get_redis(self) -> Any | None:
@@ -800,6 +801,12 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
 
     def _redis_key(self, webhook_id: str) -> str:
         return f"{self.REDIS_PREFIX}:{webhook_id}"
+
+    def _mark_dirty(self, webhook_id: str) -> None:
+        self._dirty_ids.add(webhook_id)
+
+    def _clear_dirty(self, webhook_id: str) -> None:
+        self._dirty_ids.discard(webhook_id)
 
     @staticmethod
     def _serialize_for_cache(webhook: WebhookConfig) -> str:
@@ -854,7 +861,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         redis = self._get_redis()
 
         # Try Redis first
-        if redis is not None:
+        if redis is not None and webhook_id not in self._dirty_ids:
             try:
                 data = redis.get(self._redis_key(webhook_id))
                 if data:
@@ -865,6 +872,8 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 TimeoutError,
                 OSError,
                 ValueError,
+                TypeError,
+                KeyError,
                 json.JSONDecodeError,
             ) as e:
                 logger.debug("Redis get failed, falling back to SQLite: %s", e)
@@ -872,16 +881,24 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         # Fall back to SQLite
         webhook = self._sqlite.get(webhook_id)
 
-        # Populate Redis cache if found
-        if webhook and redis:
+        # Repair or clear Redis cache from authoritative durable state.
+        if redis:
             try:
-                redis.setex(
-                    self._redis_key(webhook_id), self.REDIS_TTL, self._serialize_for_cache(webhook)
-                )
+                if webhook is None:
+                    redis.delete(self._redis_key(webhook_id))
+                else:
+                    redis.setex(
+                        self._redis_key(webhook_id),
+                        self.REDIS_TTL,
+                        self._serialize_for_cache(webhook),
+                    )
+                self._clear_dirty(webhook_id)
             except (_RedisError, ConnectionError, TimeoutError) as e:
-                logger.debug("Redis cache population failed (connection issue): %s", e)
+                logger.debug("Redis cache repair failed (connection issue): %s", e)
+                self._mark_dirty(webhook_id)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
-                logger.debug("Redis cache population failed: %s", e)
+                logger.debug("Redis cache repair failed: %s", e)
+                self._mark_dirty(webhook_id)
 
         return webhook
 
@@ -901,10 +918,13 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         if redis:
             try:
                 redis.delete(self._redis_key(webhook_id))
+                self._clear_dirty(webhook_id)
             except (_RedisError, ConnectionError, TimeoutError) as e:
                 logger.debug("Redis cache delete failed (connection issue): %s", e)
+                self._mark_dirty(webhook_id)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug("Redis cache delete failed: %s", e)
+                self._mark_dirty(webhook_id)
 
         return self._sqlite.delete(webhook_id)
 
@@ -936,8 +956,10 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                         self.REDIS_TTL,
                         self._serialize_for_cache(webhook),
                     )
+                    self._clear_dirty(webhook_id)
                 except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                     logger.debug("Redis cache update failed: %s", e)
+                    self._mark_dirty(webhook_id)
 
         return webhook
 
@@ -954,8 +976,10 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         if redis:
             try:
                 redis.delete(self._redis_key(webhook_id))
+                self._clear_dirty(webhook_id)
             except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug("Redis cache invalidation failed: %s", e)
+                self._mark_dirty(webhook_id)
 
     def get_for_event(self, event_type: str) -> _list[WebhookConfig]:
         return self._sqlite.get_for_event(event_type)

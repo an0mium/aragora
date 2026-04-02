@@ -1372,6 +1372,33 @@ class TestRedisWebhookConfigStore:
         mock_redis.delete.assert_called_with(f"aragora:webhook_configs:{webhook.id}")
         store.close()
 
+    def test_with_mocked_redis_delete_failure_bypasses_stale_cache(self, tmp_path):
+        """A failed Redis invalidation must not resurrect a deleted webhook on later reads."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store.register(url="https://example.com", events=["debate_end"])
+        stale_payload = webhook.to_json()
+
+        mock_redis.delete.side_effect = ConnectionError("Redis down")
+        assert store.delete(webhook.id) is True
+
+        mock_redis.delete.side_effect = None
+        mock_redis.reset_mock()
+        mock_redis.get.return_value = stale_payload
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is None
+        mock_redis.get.assert_not_called()
+        mock_redis.delete.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        store.close()
+
     def test_with_mocked_redis_update_refreshes_cache(self, tmp_path):
         """Test update refreshes the Redis cache."""
         db_path = tmp_path / "test.db"
@@ -1386,6 +1413,38 @@ class TestRedisWebhookConfigStore:
         store.update(webhook.id, url="https://new.com")
 
         # Redis cache should be updated
+        mock_redis.setex.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_update_failure_bypasses_stale_cache(self, tmp_path):
+        """A failed Redis refresh must not let an older cached payload override SQLite truth."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store.register(url="https://old.com", events=["debate_end"])
+        stale_payload = webhook.to_json()
+
+        mock_redis.reset_mock()
+        mock_redis.setex.side_effect = ConnectionError("Redis down")
+
+        updated = store.update(webhook.id, url="https://new.com")
+        assert updated is not None
+        assert updated.url == "https://new.com"
+
+        mock_redis.setex.side_effect = None
+        mock_redis.reset_mock()
+        mock_redis.get.return_value = stale_payload
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.url == "https://new.com"
+        mock_redis.get.assert_not_called()
         mock_redis.setex.assert_called_once()
         store.close()
 
