@@ -1211,6 +1211,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
             "supervisor_run_id": "run-rebound-active-dispatched",
             "work_order_id": "wo-rebound-active-dispatched",
             "task_key": "run-rebound-active-dispatched:wo-rebound-active-dispatched",
+            "reviewer_agent": "codex",
             "worker_pid": 67890,
         },
     )
@@ -1283,6 +1284,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
     assert work_order["lease_id"] == replacement_lease.lease_id
     assert work_order["owner_session_id"] == "swarm-rebound-active-dispatched"
     assert work_order["target_agent"] == "claude"
+    assert work_order["reviewer_agent"] == "codex"
     assert work_order["pid"] == 67890
     assert "exit_code" not in work_order
     assert work_order["review_status"] == "pending"

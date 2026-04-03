@@ -983,6 +983,21 @@ class SwarmSupervisor:
         )
         if getattr(lease, "owner_agent", None):
             item["target_agent"] = str(getattr(lease, "owner_agent")).strip()
+        target_agent = str(item.get("target_agent", "")).strip()
+        target_agent_normalized = target_agent.lower()
+        lease_metadata = getattr(lease, "metadata", {}) or {}
+        reviewer_agent = (
+            str(lease_metadata.get("reviewer_agent", "")).strip()
+            or str(lease_metadata.get("requested_reviewer_agent", "")).strip()
+            or str((item.get("metadata") or {}).get("requested_reviewer_agent", "")).strip()
+            or str(item.get("reviewer_agent", "")).strip()
+        )
+        if reviewer_agent.lower() == target_agent_normalized:
+            reviewer_agent = ""
+        if not reviewer_agent:
+            reviewer_agent = SwarmSupervisor._alternate_agent(target_agent) or ""
+        if reviewer_agent:
+            item["reviewer_agent"] = reviewer_agent
         expected_tests = [
             str(test).strip() for test in getattr(lease, "expected_tests", []) if str(test).strip()
         ]
