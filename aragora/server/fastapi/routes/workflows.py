@@ -22,6 +22,7 @@ Migration Notes:
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from enum import Enum
 from typing import Any
 
@@ -29,8 +30,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.workflows import (
+    create_workflow as create_workflow_record,
+    execute_workflow as execute_workflow_record,
+    get_workflow as get_workflow_record,
+    list_executions as list_workflow_executions,
+    list_pending_approvals as list_pending_workflow_approvals,
+    list_workflows as list_workflow_records,
+    resolve_approval as resolve_workflow_approval,
+)
+from aragora.server.handlers.workflows.templates import (
+    get_template as get_workflow_template_record,
+)
 
-from ..dependencies.auth import require_permission
+from ..dependencies.auth import get_auth_context, require_permission
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -248,100 +261,318 @@ async def get_workflow_engine(request: Request):
 
 def _workflow_to_summary(wf: Any) -> WorkflowSummary:
     """Convert a workflow object to a summary."""
+    steps = _workflow_steps(wf)
     if isinstance(wf, dict):
         return WorkflowSummary(
             id=wf.get("id", wf.get("workflow_id", "")),
             name=wf.get("name", ""),
             description=wf.get("description", ""),
-            status=wf.get("status", "pending"),
-            template=wf.get("template"),
+            status=_workflow_status_value(wf),
+            template=_workflow_template_name(wf),
             created_at=wf.get("created_at"),
             updated_at=wf.get("updated_at"),
-            node_count=len(wf.get("nodes", [])),
+            node_count=len(steps),
         )
     return WorkflowSummary(
         id=getattr(wf, "id", getattr(wf, "workflow_id", "")),
         name=getattr(wf, "name", ""),
         description=getattr(wf, "description", ""),
-        status=getattr(wf, "status", "pending"),
-        template=getattr(wf, "template", None),
+        status=_workflow_status_value(wf),
+        template=_workflow_template_name(wf),
         created_at=str(getattr(wf, "created_at", "")) if hasattr(wf, "created_at") else None,
         updated_at=str(getattr(wf, "updated_at", "")) if hasattr(wf, "updated_at") else None,
-        node_count=len(getattr(wf, "nodes", [])),
+        node_count=len(steps),
     )
 
 
 def _workflow_to_detail(wf: Any) -> WorkflowDetail:
     """Convert a workflow object to full detail."""
-    if isinstance(wf, dict):
-        nodes = []
-        for n in wf.get("nodes", []):
-            if isinstance(n, dict):
-                nodes.append(
-                    WorkflowNodeDetail(
-                        **{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields}
-                    )
-                )
-            else:
-                nodes.append(
-                    WorkflowNodeDetail(
-                        id=getattr(n, "id", ""),
-                        type=getattr(n, "type", ""),
-                        name=getattr(n, "name", ""),
-                        status=getattr(n, "status", "pending"),
-                        config=getattr(n, "config", {}),
-                    )
-                )
+    nodes = [_workflow_node_detail(node) for node in _workflow_steps(wf)]
+    edges = [_workflow_edge_detail(edge) for edge in _workflow_edges(wf)]
+    return WorkflowDetail(
+        id=str(_workflow_field(wf, "id", _workflow_field(wf, "workflow_id", ""))),
+        name=_workflow_field(wf, "name", ""),
+        description=_workflow_field(wf, "description", ""),
+        status=_workflow_status_value(wf),
+        template=_workflow_template_name(wf),
+        nodes=nodes,
+        edges=edges,
+        config=_workflow_config(wf),
+        created_at=_workflow_timestamp(wf, "created_at"),
+        updated_at=_workflow_timestamp(wf, "updated_at"),
+        started_at=_workflow_timestamp(wf, "started_at"),
+        completed_at=_workflow_timestamp(wf, "completed_at"),
+        result=_workflow_field(wf, "result", None),
+        error=_workflow_field(wf, "error", None),
+    )
 
-        return WorkflowDetail(
-            id=wf.get("id", wf.get("workflow_id", "")),
-            name=wf.get("name", ""),
-            description=wf.get("description", ""),
-            status=wf.get("status", "pending"),
-            template=wf.get("template"),
-            nodes=nodes,
-            edges=wf.get("edges", []),
-            config=wf.get("config", {}),
-            created_at=wf.get("created_at"),
-            updated_at=wf.get("updated_at"),
-            started_at=wf.get("started_at"),
-            completed_at=wf.get("completed_at"),
-            result=wf.get("result"),
-            error=wf.get("error"),
+
+def _workflow_field(wf: Any, field: str, default: Any = None) -> Any:
+    """Read a field from a dict or object workflow representation."""
+    if isinstance(wf, dict):
+        return wf.get(field, default)
+    return getattr(wf, field, default)
+
+
+def _workflow_timestamp(wf: Any, field: str) -> str | None:
+    """Return a workflow timestamp as a string if present."""
+    value = _workflow_field(wf, field)
+    if value is None:
+        return None
+    return str(value)
+
+
+def _workflow_metadata(wf: Any) -> dict[str, Any]:
+    """Return workflow metadata when present."""
+    metadata = _workflow_field(wf, "metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _workflow_config(wf: Any) -> dict[str, Any]:
+    """Return workflow config, including metadata-backed config for persisted definitions."""
+    config = _workflow_field(wf, "config")
+    if isinstance(config, dict):
+        return config
+    metadata = _workflow_metadata(wf)
+    metadata_config = metadata.get("config")
+    return metadata_config if isinstance(metadata_config, dict) else {}
+
+
+def _workflow_template_name(wf: Any) -> str | None:
+    """Return the workflow template identifier when present."""
+    template = _workflow_field(wf, "template")
+    if template:
+        return str(template)
+    template_id = _workflow_field(wf, "template_id")
+    if template_id:
+        return str(template_id)
+    metadata_template = _workflow_metadata(wf).get("template")
+    return str(metadata_template) if metadata_template else None
+
+
+def _workflow_status_value(wf: Any) -> str:
+    """Return a workflow status or a default placeholder."""
+    status = _workflow_field(wf, "status")
+    return str(status) if status else "pending"
+
+
+def _workflow_steps(wf: Any) -> list[Any]:
+    """Return workflow nodes/steps across route and persisted representations."""
+    steps = _workflow_field(wf, "nodes")
+    if isinstance(steps, list):
+        return steps
+    steps = _workflow_field(wf, "steps")
+    return steps if isinstance(steps, list) else []
+
+
+def _workflow_edges(wf: Any) -> list[Any]:
+    """Return workflow edges/transitions across route and persisted representations."""
+    edges = _workflow_field(wf, "edges")
+    if isinstance(edges, list):
+        return edges
+    transitions = _workflow_field(wf, "transitions")
+    return transitions if isinstance(transitions, list) else []
+
+
+def _workflow_node_detail(node: Any) -> WorkflowNodeDetail:
+    """Normalize a node/step into the route response shape."""
+    if isinstance(node, dict):
+        return WorkflowNodeDetail(
+            id=str(node.get("id", "")),
+            type=str(node.get("type") or node.get("step_type") or ""),
+            name=str(node.get("name", "")),
+            status=str(node.get("status", "pending")),
+            config=node.get("config", {}) if isinstance(node.get("config"), dict) else {},
+        )
+    return WorkflowNodeDetail(
+        id=str(getattr(node, "id", "")),
+        type=str(getattr(node, "type", getattr(node, "step_type", ""))),
+        name=str(getattr(node, "name", "")),
+        status=str(getattr(node, "status", "pending")),
+        config=getattr(node, "config", {}) if isinstance(getattr(node, "config", {}), dict) else {},
+    )
+
+
+def _workflow_edge_detail(edge: Any) -> dict[str, str]:
+    """Normalize an edge/transition into the route response shape."""
+    if isinstance(edge, dict):
+        from_step = edge.get("from") or edge.get("source") or edge.get("from_step")
+        to_step = edge.get("to") or edge.get("target") or edge.get("to_step")
+        result = {}
+        if from_step:
+            result["from"] = str(from_step)
+        if to_step:
+            result["to"] = str(to_step)
+        label = edge.get("label")
+        if label:
+            result["label"] = str(label)
+        return result
+
+    from_step = getattr(edge, "from", getattr(edge, "from_step", None))
+    to_step = getattr(edge, "to", getattr(edge, "to_step", None))
+    result = {}
+    if from_step:
+        result["from"] = str(from_step)
+    if to_step:
+        result["to"] = str(to_step)
+    label = getattr(edge, "label", None)
+    if label:
+        result["label"] = str(label)
+    return result
+
+
+def _engine_supports(engine: Any, *methods: str) -> bool:
+    """Check whether an engine provides any of the requested callable methods."""
+    return any(callable(getattr(engine, method, None)) for method in methods)
+
+
+def _tenant_id_from_auth(auth: AuthorizationContext | None) -> str:
+    """Resolve the tenant scope from auth when available."""
+    org_id = getattr(auth, "org_id", None) if auth is not None else None
+    return str(org_id) if org_id else "default"
+
+
+def _created_by_from_auth(auth: AuthorizationContext | None) -> str:
+    """Resolve a creator identifier from auth context."""
+    user_id = getattr(auth, "user_id", "") if auth is not None else ""
+    return "" if user_id == "anonymous" else str(user_id or "")
+
+
+def _workflow_request_to_definition_payload(
+    body: CreateWorkflowRequest,
+) -> dict[str, Any]:
+    """Convert the route payload's nodes/edges model into persisted workflow definitions."""
+    next_steps: dict[str, list[str]] = defaultdict(list)
+    transitions: list[dict[str, Any]] = []
+
+    for idx, edge in enumerate(body.edges):
+        from_step = edge.get("from") or edge.get("source") or edge.get("from_step")
+        to_step = edge.get("to") or edge.get("target") or edge.get("to_step")
+        if not from_step or not to_step:
+            continue
+        from_step = str(from_step)
+        to_step = str(to_step)
+        next_steps[from_step].append(to_step)
+        transitions.append(
+            {
+                "id": edge.get("id") or f"tr_{from_step}_to_{to_step}_{idx}",
+                "from_step": from_step,
+                "to_step": to_step,
+                "condition": str(edge.get("condition", "")),
+                "priority": int(edge.get("priority", 0) or 0),
+                "label": str(edge.get("label", "")),
+            }
         )
 
-    nodes = []
-    for n in getattr(wf, "nodes", []):
-        if isinstance(n, dict):
-            nodes.append(
-                WorkflowNodeDetail(**{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields})
-            )
-        else:
-            nodes.append(
-                WorkflowNodeDetail(
-                    id=getattr(n, "id", ""),
-                    type=getattr(n, "type", ""),
-                    name=getattr(n, "name", ""),
-                    status=getattr(n, "status", "pending"),
-                    config=getattr(n, "config", {}),
-                )
-            )
+    steps: list[dict[str, Any]] = []
+    for idx, node in enumerate(body.nodes):
+        step_id = str(node.get("id") or f"step_{idx + 1}")
+        steps.append(
+            {
+                "id": step_id,
+                "name": str(node.get("name") or step_id),
+                "step_type": str(node.get("step_type") or node.get("type") or "task"),
+                "config": node.get("config", {}) if isinstance(node.get("config"), dict) else {},
+                "description": str(node.get("description", "")),
+                "next_steps": list(next_steps.get(step_id, [])),
+            }
+        )
 
-    return WorkflowDetail(
-        id=getattr(wf, "id", getattr(wf, "workflow_id", "")),
-        name=getattr(wf, "name", ""),
-        description=getattr(wf, "description", ""),
-        status=getattr(wf, "status", "pending"),
-        template=getattr(wf, "template", None),
-        nodes=nodes,
-        edges=[e if isinstance(e, dict) else e.__dict__ for e in getattr(wf, "edges", [])],
-        config=getattr(wf, "config", {}),
-        created_at=str(getattr(wf, "created_at", "")) if hasattr(wf, "created_at") else None,
-        updated_at=str(getattr(wf, "updated_at", "")) if hasattr(wf, "updated_at") else None,
-        started_at=str(getattr(wf, "started_at", "")) if hasattr(wf, "started_at") else None,
-        completed_at=str(getattr(wf, "completed_at", "")) if hasattr(wf, "completed_at") else None,
-        result=getattr(wf, "result", None),
-        error=getattr(wf, "error", None),
+    metadata: dict[str, Any] = {}
+    if body.config:
+        metadata["config"] = body.config
+    if body.template:
+        metadata["template"] = body.template
+
+    payload: dict[str, Any] = {
+        "name": body.name,
+        "description": body.description,
+        "steps": steps,
+        "transitions": transitions,
+        "metadata": metadata,
+        "template_id": body.template,
+    }
+    if steps:
+        payload["entry_step"] = steps[0]["id"]
+    return payload
+
+
+async def _build_create_workflow_payload(body: CreateWorkflowRequest) -> dict[str, Any]:
+    """Build the persisted workflow definition payload for route requests."""
+    if body.template and not body.nodes and not body.edges:
+        template = await get_workflow_template_record(body.template)
+        if template is None:
+            raise NotFoundError(f"Workflow template {body.template} not found")
+
+        payload = dict(template)
+        payload.pop("id", None)
+        payload["name"] = body.name
+        if body.description:
+            payload["description"] = body.description
+        metadata = payload.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+        if body.config:
+            metadata["config"] = body.config
+        metadata["template"] = body.template
+        payload["metadata"] = metadata
+        payload["template_id"] = body.template
+        return payload
+
+    return _workflow_request_to_definition_payload(body)
+
+
+def _execution_duration_seconds(execution: dict[str, Any]) -> float:
+    """Convert execution duration into seconds."""
+    if "duration_seconds" in execution:
+        try:
+            return float(execution["duration_seconds"])
+        except (TypeError, ValueError):
+            return 0.0
+    duration_ms = execution.get("duration_ms")
+    if duration_ms is None:
+        return 0.0
+    try:
+        return float(duration_ms) / 1000.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _status_from_execution(
+    workflow_id: str,
+    execution: dict[str, Any],
+) -> WorkflowStatusResponse:
+    """Build a status response from the latest persisted execution record."""
+    steps = execution.get("steps", [])
+    completed: list[str] = []
+    failed: list[str] = []
+    current_node = None
+
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        step_id = str(step.get("step_id") or step.get("id") or "")
+        step_status = str(step.get("status", ""))
+        if step_status == "completed":
+            completed.append(step_id)
+        elif step_status == "failed":
+            failed.append(step_id)
+        elif step_status == "running" and current_node is None:
+            current_node = step_id
+
+    total_steps = len([step for step in steps if isinstance(step, dict)])
+    progress = len(completed) / total_steps if total_steps > 0 else 0.0
+
+    return WorkflowStatusResponse(
+        workflow_id=workflow_id,
+        status=str(execution.get("status", "pending")),
+        progress=round(progress, 3),
+        current_node=current_node,
+        completed_nodes=completed,
+        failed_nodes=failed,
+        started_at=execution.get("started_at"),
+        completed_at=execution.get("completed_at"),
+        error=execution.get("error"),
     )
 
 
@@ -353,6 +584,7 @@ def _workflow_to_detail(wf: Any) -> WorkflowDetail:
 @router.get("/workflows", response_model=WorkflowListResponse)
 async def list_workflows(
     request: Request,
+    auth: AuthorizationContext = Depends(get_auth_context),
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     status: str | None = Query(None, description="Filter by status"),
@@ -369,9 +601,9 @@ async def list_workflows(
     try:
         workflows_raw: list[Any] = []
 
-        if hasattr(engine, "list_workflows"):
+        if _engine_supports(engine, "list_workflows"):
             workflows_raw = engine.list_workflows(limit=limit, offset=offset, status=status)
-        elif hasattr(engine, "list"):
+        elif _engine_supports(engine, "list"):
             all_wf = engine.list()
             if status:
                 all_wf = [
@@ -381,9 +613,18 @@ async def list_workflows(
                     == status
                 ]
             workflows_raw = all_wf[offset : offset + limit]
+        else:
+            result = await list_workflow_records(
+                tenant_id=_tenant_id_from_auth(auth),
+                limit=limit,
+                offset=offset,
+            )
+            workflows_raw = result.get("workflows", [])
+            if status:
+                workflows_raw = [wf for wf in workflows_raw if _workflow_status_value(wf) == status]
 
         # Get total count
-        if hasattr(engine, "count_workflows"):
+        if _engine_supports(engine, "count_workflows"):
             total = engine.count_workflows(status=status)
         else:
             total = len(workflows_raw)
@@ -449,6 +690,7 @@ async def list_workflow_templates(
 @router.get("/workflows/{workflow_id}", response_model=WorkflowDetail)
 async def get_workflow(
     workflow_id: str,
+    auth: AuthorizationContext = Depends(get_auth_context),
     engine=Depends(get_workflow_engine),
 ) -> WorkflowDetail:
     """
@@ -462,10 +704,12 @@ async def get_workflow(
     try:
         wf = None
 
-        if hasattr(engine, "get_workflow"):
+        if _engine_supports(engine, "get_workflow"):
             wf = engine.get_workflow(workflow_id)
-        elif hasattr(engine, "get"):
+        elif _engine_supports(engine, "get"):
             wf = engine.get(workflow_id)
+        else:
+            wf = await get_workflow_record(workflow_id, tenant_id=_tenant_id_from_auth(auth))
 
         if not wf:
             raise NotFoundError(f"Workflow {workflow_id} not found")
@@ -498,61 +742,47 @@ async def create_workflow(
         import uuid
 
         workflow_id = f"wf_{uuid.uuid4().hex[:12]}"
+        wf_data = await _build_create_workflow_payload(body)
+        wf_data.setdefault("id", workflow_id)
+        wf_data.setdefault("status", "pending")
 
-        wf_data: dict[str, Any] = {
-            "id": workflow_id,
-            "name": body.name,
-            "description": body.description,
-            "template": body.template,
-            "nodes": body.nodes,
-            "edges": body.edges,
-            "config": body.config,
-            "status": "pending",
-        }
-
-        # Load template if specified
-        if body.template:
-            try:
-                from aragora.workflow.templates import get_template
-
-                template = get_template(body.template)
-                if template:
-                    # Merge template defaults with user overrides
-                    template_data = template if isinstance(template, dict) else template.__dict__
-                    if not body.nodes:
-                        wf_data["nodes"] = template_data.get("nodes", [])
-                    if not body.edges:
-                        wf_data["edges"] = template_data.get("edges", [])
-            except (ImportError, RuntimeError, ValueError) as e:
-                logger.debug("Template %s not available: %s", body.template, e)
-
-        # Create the workflow
-        if hasattr(engine, "create_workflow"):
+        created: Any = None
+        if _engine_supports(engine, "create_workflow"):
             created = engine.create_workflow(wf_data)
-            if isinstance(created, dict) and "id" in created:
-                workflow_id = created["id"]
-        elif hasattr(engine, "create"):
+        elif _engine_supports(engine, "create"):
             created = engine.create(wf_data)
-            if isinstance(created, dict) and "id" in created:
-                workflow_id = created["id"]
+        else:
+            created = await create_workflow_record(
+                wf_data,
+                tenant_id=_tenant_id_from_auth(auth),
+                created_by=_created_by_from_auth(auth),
+            )
+
+        if isinstance(created, dict) and created.get("id"):
+            workflow_id = str(created["id"])
+
+        workflow_view = dict(wf_data)
+        if isinstance(created, dict):
+            workflow_view.update(created)
+        workflow_view.setdefault("id", workflow_id)
+        workflow_view.setdefault("status", "pending")
+        workflow_view.setdefault("template", body.template)
+        workflow_view.setdefault("config", body.config)
+        if not _workflow_steps(workflow_view) and body.nodes:
+            workflow_view["nodes"] = body.nodes
+        if not _workflow_edges(workflow_view) and body.edges:
+            workflow_view["edges"] = body.edges
 
         logger.info("Created workflow: %s (name=%s)", workflow_id, body.name)
 
         return CreateWorkflowResponse(
             success=True,
             workflow_id=workflow_id,
-            workflow=WorkflowDetail(
-                id=workflow_id,
-                name=body.name,
-                description=body.description,
-                status="pending",
-                template=body.template,
-                nodes=[],
-                edges=body.edges,
-                config=body.config,
-            ),
+            workflow=_workflow_to_detail(workflow_view),
         )
 
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except HTTPException:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
@@ -562,6 +792,7 @@ async def create_workflow(
 
 @router.post("/workflows/{workflow_id}/execute", response_model=ExecuteWorkflowResponse)
 async def execute_workflow(
+    request: Request,
     workflow_id: str,
     body: ExecuteWorkflowRequest,
     auth: AuthorizationContext = Depends(require_permission("workflows:execute")),
@@ -579,20 +810,22 @@ async def execute_workflow(
     try:
         # Verify workflow exists
         wf = None
-        if hasattr(engine, "get_workflow"):
+        use_store_fallback = not _engine_supports(engine, "get_workflow", "get")
+        if _engine_supports(engine, "get_workflow"):
             wf = engine.get_workflow(workflow_id)
-        elif hasattr(engine, "get"):
+        elif _engine_supports(engine, "get"):
             wf = engine.get(workflow_id)
+        else:
+            wf = await get_workflow_record(workflow_id, tenant_id=_tenant_id_from_auth(auth))
 
         if not wf:
             raise NotFoundError(f"Workflow {workflow_id} not found")
 
-        import uuid
-
-        execution_id = f"exec_{uuid.uuid4().hex[:12]}"
-
         # Execute the workflow
-        if hasattr(engine, "execute"):
+        if not use_store_fallback and _engine_supports(engine, "execute"):
+            import uuid
+
+            execution_id = f"exec_{uuid.uuid4().hex[:12]}"
             result = engine.execute(
                 workflow_id,
                 input_data=body.input_data,
@@ -600,10 +833,28 @@ async def execute_workflow(
             )
             if isinstance(result, dict) and "execution_id" in result:
                 execution_id = result["execution_id"]
-        elif hasattr(engine, "run"):
+            status = "running" if body.async_execution else "completed"
+        elif not use_store_fallback and _engine_supports(engine, "run"):
+            import uuid
+
+            execution_id = f"exec_{uuid.uuid4().hex[:12]}"
             result = engine.run(workflow_id, input_data=body.input_data)
             if isinstance(result, dict) and "execution_id" in result:
                 execution_id = result["execution_id"]
+            status = "completed"
+        else:
+            ctx = getattr(request.app.state, "context", None)
+            event_emitter = ctx.get("event_emitter") if isinstance(ctx, dict) else None
+            execution = await execute_workflow_record(
+                workflow_id,
+                inputs=body.input_data,
+                tenant_id=_tenant_id_from_auth(auth),
+                user_id=_created_by_from_auth(auth) or None,
+                org_id=getattr(auth, "org_id", None),
+                event_emitter=event_emitter,
+            )
+            execution_id = str(execution.get("id") or execution.get("execution_id") or "")
+            status = str(execution.get("status", "completed"))
 
         logger.info("Executing workflow %s (execution_id=%s)", workflow_id, execution_id)
 
@@ -611,7 +862,7 @@ async def execute_workflow(
             success=True,
             workflow_id=workflow_id,
             execution_id=execution_id,
-            status="running" if body.async_execution else "completed",
+            status=status,
         )
 
     except NotFoundError:
@@ -626,6 +877,7 @@ async def execute_workflow(
 @router.get("/workflows/{workflow_id}/status", response_model=WorkflowStatusResponse)
 async def get_workflow_status(
     workflow_id: str,
+    auth: AuthorizationContext = Depends(get_auth_context),
     engine=Depends(get_workflow_engine),
 ) -> WorkflowStatusResponse:
     """
@@ -639,60 +891,48 @@ async def get_workflow_status(
     try:
         wf = None
 
-        if hasattr(engine, "get_workflow"):
+        if _engine_supports(engine, "get_workflow"):
             wf = engine.get_workflow(workflow_id)
-        elif hasattr(engine, "get"):
+        elif _engine_supports(engine, "get"):
             wf = engine.get(workflow_id)
+        else:
+            wf = await get_workflow_record(workflow_id, tenant_id=_tenant_id_from_auth(auth))
 
         if not wf:
             raise NotFoundError(f"Workflow {workflow_id} not found")
 
+        if not _engine_supports(engine, "get_workflow", "get"):
+            executions = await list_workflow_executions(
+                workflow_id=workflow_id,
+                tenant_id=_tenant_id_from_auth(auth),
+                limit=1,
+            )
+            if executions:
+                return _status_from_execution(workflow_id, executions[0])
+
         # Extract status info
-        if isinstance(wf, dict):
-            status = wf.get("status", "pending")
-            nodes = wf.get("nodes", [])
-            completed = [
-                n.get("id", "")
-                for n in nodes
-                if (n.get("status") if isinstance(n, dict) else getattr(n, "status", ""))
-                == "completed"
-            ]
-            failed = [
-                n.get("id", "")
-                for n in nodes
-                if (n.get("status") if isinstance(n, dict) else getattr(n, "status", ""))
-                == "failed"
-            ]
-            total_nodes = len(nodes)
-            progress = len(completed) / total_nodes if total_nodes > 0 else 0.0
-        else:
-            status = getattr(wf, "status", "pending")
-            nodes = getattr(wf, "nodes", [])
-            completed = [
-                getattr(n, "id", "") for n in nodes if getattr(n, "status", "") == "completed"
-            ]
-            failed = [getattr(n, "id", "") for n in nodes if getattr(n, "status", "") == "failed"]
-            total_nodes = len(nodes)
-            progress = len(completed) / total_nodes if total_nodes > 0 else 0.0
+        status = _workflow_status_value(wf)
+        nodes = _workflow_steps(wf)
+        completed = [
+            _workflow_field(n, "id", "")
+            for n in nodes
+            if str(_workflow_field(n, "status", "")) == "completed"
+        ]
+        failed = [
+            _workflow_field(n, "id", "")
+            for n in nodes
+            if str(_workflow_field(n, "status", "")) == "failed"
+        ]
+        total_nodes = len(nodes)
+        progress = len(completed) / total_nodes if total_nodes > 0 else 0.0
 
         # Find current executing node
         current_node = None
         for n in nodes:
-            n_status = n.get("status") if isinstance(n, dict) else getattr(n, "status", "")
+            n_status = _workflow_field(n, "status", "")
             if n_status == "running":
-                current_node = n.get("id") if isinstance(n, dict) else getattr(n, "id", None)
+                current_node = _workflow_field(n, "id", None)
                 break
-
-        started_at = (
-            wf.get("started_at")
-            if isinstance(wf, dict)
-            else (str(getattr(wf, "started_at", "")) if hasattr(wf, "started_at") else None)
-        )
-        completed_at = (
-            wf.get("completed_at")
-            if isinstance(wf, dict)
-            else (str(getattr(wf, "completed_at", "")) if hasattr(wf, "completed_at") else None)
-        )
 
         return WorkflowStatusResponse(
             workflow_id=workflow_id,
@@ -701,9 +941,9 @@ async def get_workflow_status(
             current_node=current_node,
             completed_nodes=completed,
             failed_nodes=failed,
-            started_at=started_at,
-            completed_at=completed_at,
-            error=wf.get("error") if isinstance(wf, dict) else getattr(wf, "error", None),
+            started_at=_workflow_timestamp(wf, "started_at"),
+            completed_at=_workflow_timestamp(wf, "completed_at"),
+            error=_workflow_field(wf, "error", None),
         )
 
     except NotFoundError:
@@ -721,6 +961,7 @@ async def get_workflow_status(
 @router.get("/workflows/{workflow_id}/history", response_model=WorkflowHistoryResponse)
 async def get_workflow_history(
     workflow_id: str,
+    auth: AuthorizationContext = Depends(get_auth_context),
     limit: int = Query(20, ge=1, le=100, description="Max entries to return"),
     engine=Depends(get_workflow_engine),
 ) -> WorkflowHistoryResponse:
@@ -731,10 +972,12 @@ async def get_workflow_history(
     try:
         # Verify workflow exists
         wf = None
-        if hasattr(engine, "get_workflow"):
+        if _engine_supports(engine, "get_workflow"):
             wf = engine.get_workflow(workflow_id)
-        elif hasattr(engine, "get"):
+        elif _engine_supports(engine, "get"):
             wf = engine.get(workflow_id)
+        else:
+            wf = await get_workflow_record(workflow_id, tenant_id=_tenant_id_from_auth(auth))
 
         if not wf:
             raise NotFoundError(f"Workflow {workflow_id} not found")
@@ -743,12 +986,18 @@ async def get_workflow_history(
 
         # Try to get execution history
         raw_history: list[Any] = []
-        if hasattr(engine, "get_execution_history"):
+        if _engine_supports(engine, "get_execution_history"):
             raw_history = engine.get_execution_history(workflow_id, limit=limit)
-        elif hasattr(engine, "get_history"):
+        elif _engine_supports(engine, "get_history"):
             raw_history = engine.get_history(workflow_id, limit=limit)
-        elif hasattr(engine, "list_executions"):
+        elif _engine_supports(engine, "list_executions"):
             raw_history = engine.list_executions(workflow_id, limit=limit)
+        else:
+            raw_history = await list_workflow_executions(
+                workflow_id=workflow_id,
+                tenant_id=_tenant_id_from_auth(auth),
+                limit=limit,
+            )
 
         for entry in raw_history:
             if isinstance(entry, dict):
@@ -758,8 +1007,8 @@ async def get_workflow_history(
                         status=entry.get("status", "completed"),
                         started_at=entry.get("started_at"),
                         completed_at=entry.get("completed_at"),
-                        duration_seconds=entry.get("duration_seconds", 0.0),
-                        result=entry.get("result"),
+                        duration_seconds=_execution_duration_seconds(entry),
+                        result=entry.get("result", entry.get("outputs")),
                         error=entry.get("error"),
                     )
                 )
@@ -807,24 +1056,44 @@ async def approve_workflow_step(
     try:
         # Verify workflow exists
         wf = None
-        if hasattr(engine, "get_workflow"):
+        if _engine_supports(engine, "get_workflow"):
             wf = engine.get_workflow(workflow_id)
-        elif hasattr(engine, "get"):
+        elif _engine_supports(engine, "get"):
             wf = engine.get(workflow_id)
+        else:
+            wf = await get_workflow_record(workflow_id, tenant_id=_tenant_id_from_auth(auth))
 
         if not wf:
             raise NotFoundError(f"Workflow {workflow_id} not found")
 
         # Try to approve the step
         approved = False
-        if hasattr(engine, "approve_step"):
+        if _engine_supports(engine, "approve_step"):
             approved = engine.approve_step(workflow_id, body.step_id, comment=body.comment)
-        elif hasattr(engine, "approve"):
+        elif _engine_supports(engine, "approve"):
             approved = engine.approve(workflow_id, body.step_id, comment=body.comment)
         else:
-            raise HTTPException(
-                status_code=501,
-                detail="Workflow engine does not support step approval",
+            approvals = await list_pending_workflow_approvals(
+                workflow_id=workflow_id,
+                tenant_id=_tenant_id_from_auth(auth),
+            )
+            approval = next(
+                (
+                    candidate
+                    for candidate in approvals
+                    if candidate.get("step_id") == body.step_id and candidate.get("id")
+                ),
+                None,
+            )
+            if approval is None:
+                raise NotFoundError(
+                    f"No pending approval found for workflow {workflow_id} step {body.step_id}"
+                )
+            approved = await resolve_workflow_approval(
+                request_id=str(approval["id"]),
+                status="approved",
+                responder_id=_created_by_from_auth(auth) or "system",
+                notes=body.comment,
             )
 
         logger.info("Approved step %s in workflow %s", body.step_id, workflow_id)

@@ -11,7 +11,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,6 +47,31 @@ def client(app, mock_workflow_engine):
         "rbac_checker": MagicMock(),
         "decision_service": MagicMock(),
         "workflow_engine": mock_workflow_engine,
+    }
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def raw_workflow_engine():
+    """Engine-shaped object matching the real WorkflowEngine CRUD gap."""
+
+    class RawWorkflowEngine:
+        def execute(self, *args, **kwargs):
+            return {"execution_id": "exec_raw123"}
+
+    return RawWorkflowEngine()
+
+
+@pytest.fixture
+def fallback_client(app, raw_workflow_engine):
+    """Client whose workflow engine matches the real raw-engine interface."""
+    app.state.context = {
+        "storage": MagicMock(),
+        "elo_system": MagicMock(),
+        "user_store": None,
+        "rbac_checker": MagicMock(),
+        "decision_service": MagicMock(),
+        "workflow_engine": raw_workflow_engine,
     }
     return TestClient(app, raise_server_exceptions=False)
 
@@ -115,6 +140,44 @@ def _override_auth(client, permissions=None):
     client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
 
 
+def _persisted_workflow_definition():
+    """Workflow definition shape returned by the persisted handler layer."""
+    return {
+        "id": "wf_store123",
+        "name": "Stored Workflow",
+        "description": "Persisted workflow definition",
+        "steps": [
+            {
+                "id": "node-1",
+                "step_type": "debate",
+                "name": "Debate",
+                "config": {"rounds": 3},
+                "next_steps": ["node-2"],
+            },
+            {
+                "id": "node-2",
+                "step_type": "verification",
+                "name": "Verify",
+                "config": {},
+                "next_steps": [],
+            },
+        ],
+        "transitions": [
+            {
+                "id": "tr_node-1_to_node-2",
+                "from_step": "node-1",
+                "to_step": "node-2",
+                "condition": "",
+                "priority": 0,
+                "label": "",
+            }
+        ],
+        "metadata": {"config": {"timeout": 120}, "template": "security_review"},
+        "created_at": "2026-04-01T12:00:00Z",
+        "updated_at": "2026-04-01T12:05:00Z",
+    }
+
+
 # =============================================================================
 # GET /api/v2/workflows
 # =============================================================================
@@ -180,6 +243,8 @@ class TestListWorkflows:
 
     def test_list_when_engine_unavailable(self, app):
         """List returns empty when engine is not available."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -188,9 +253,11 @@ class TestListWorkflows:
             "decision_service": MagicMock(),
             "workflow_engine": None,
         }
+        app.dependency_overrides[_dep] = lambda: None
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.get("/api/v2/workflows")
+        app.dependency_overrides.clear()
         assert response.status_code == 200
         data = response.json()
         assert data["workflows"] == []
@@ -741,3 +808,217 @@ class TestApproveWorkflowStep:
         )
         client.app.dependency_overrides.clear()
         assert response.status_code == 503
+
+
+class TestStoreBackedFallbacks:
+    """Tests for route fallbacks when the injected engine is a raw executor only."""
+
+    def test_list_falls_back_to_persisted_workflows(self, fallback_client):
+        persisted = _persisted_workflow_definition()
+
+        with patch(
+            "aragora.server.fastapi.routes.workflows.list_workflow_records",
+            new=AsyncMock(
+                return_value={
+                    "workflows": [persisted],
+                    "total_count": 1,
+                    "limit": 50,
+                    "offset": 0,
+                }
+            ),
+        ) as mock_list:
+            response = fallback_client.get("/api/v2/workflows")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["workflows"][0]["id"] == "wf_store123"
+        assert data["workflows"][0]["node_count"] == 2
+        mock_list.assert_awaited_once()
+
+    def test_get_falls_back_to_persisted_workflow_detail(self, fallback_client):
+        persisted = _persisted_workflow_definition()
+
+        with patch(
+            "aragora.server.fastapi.routes.workflows.get_workflow_record",
+            new=AsyncMock(return_value=persisted),
+        ) as mock_get:
+            response = fallback_client.get("/api/v2/workflows/wf_store123")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "wf_store123"
+        assert data["nodes"][0]["id"] == "node-1"
+        assert data["nodes"][0]["type"] == "debate"
+        assert data["edges"] == [{"from": "node-1", "to": "node-2"}]
+        assert data["config"] == {"timeout": 120}
+        mock_get.assert_awaited_once_with("wf_store123", tenant_id="default")
+
+    def test_create_falls_back_to_persisted_workflow_crud(self, fallback_client):
+        _override_auth(fallback_client)
+        persisted = _persisted_workflow_definition()
+
+        with patch(
+            "aragora.server.fastapi.routes.workflows.create_workflow_record",
+            new=AsyncMock(return_value=persisted),
+        ) as mock_create:
+            response = fallback_client.post(
+                "/api/v2/workflows",
+                json={
+                    "name": "Stored Workflow",
+                    "description": "Persisted workflow definition",
+                    "nodes": [
+                        {
+                            "id": "node-1",
+                            "type": "debate",
+                            "name": "Debate",
+                            "config": {"rounds": 3},
+                        },
+                        {
+                            "id": "node-2",
+                            "type": "verification",
+                            "name": "Verify",
+                            "config": {},
+                        },
+                    ],
+                    "edges": [{"from": "node-1", "to": "node-2"}],
+                    "config": {"timeout": 120},
+                },
+            )
+        fallback_client.app.dependency_overrides.clear()
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["workflow_id"] == "wf_store123"
+        assert data["workflow"]["nodes"][0]["type"] == "debate"
+        assert data["workflow"]["edges"] == [{"from": "node-1", "to": "node-2"}]
+
+        mock_create.assert_awaited_once()
+        payload = mock_create.await_args.args[0]
+        assert payload["steps"][0]["step_type"] == "debate"
+        assert payload["steps"][0]["next_steps"] == ["node-2"]
+        assert payload["transitions"][0]["from_step"] == "node-1"
+        assert payload["metadata"]["config"] == {"timeout": 120}
+        assert mock_create.await_args.kwargs["tenant_id"] == "org-1"
+        assert mock_create.await_args.kwargs["created_by"] == "user-1"
+
+    def test_execute_falls_back_to_persisted_execution(self, fallback_client):
+        _override_auth(fallback_client)
+        persisted = _persisted_workflow_definition()
+        execution = {
+            "id": "exec_store123",
+            "workflow_id": "wf_store123",
+            "status": "completed",
+        }
+
+        with (
+            patch(
+                "aragora.server.fastapi.routes.workflows.get_workflow_record",
+                new=AsyncMock(return_value=persisted),
+            ) as mock_get,
+            patch(
+                "aragora.server.fastapi.routes.workflows.execute_workflow_record",
+                new=AsyncMock(return_value=execution),
+            ) as mock_execute,
+        ):
+            response = fallback_client.post(
+                "/api/v2/workflows/wf_store123/execute",
+                json={"input_data": {"task": "Review security"}},
+            )
+        fallback_client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["execution_id"] == "exec_store123"
+        assert data["status"] == "completed"
+        mock_get.assert_awaited_once_with("wf_store123", tenant_id="org-1")
+        mock_execute.assert_awaited_once_with(
+            "wf_store123",
+            inputs={"task": "Review security"},
+            tenant_id="org-1",
+            user_id="user-1",
+            org_id="org-1",
+            event_emitter=None,
+        )
+
+    def test_status_and_history_fall_back_to_persisted_executions(self, fallback_client):
+        persisted = _persisted_workflow_definition()
+        execution = {
+            "id": "exec_store123",
+            "workflow_id": "wf_store123",
+            "status": "running",
+            "steps": [
+                {"step_id": "node-1", "status": "completed"},
+                {"step_id": "node-2", "status": "running"},
+            ],
+            "started_at": "2026-04-01T12:10:00Z",
+            "completed_at": None,
+            "duration_ms": 1500,
+            "outputs": {"verdict": "pending"},
+            "error": None,
+        }
+
+        with (
+            patch(
+                "aragora.server.fastapi.routes.workflows.get_workflow_record",
+                new=AsyncMock(return_value=persisted),
+            ),
+            patch(
+                "aragora.server.fastapi.routes.workflows.list_workflow_executions",
+                new=AsyncMock(return_value=[execution]),
+            ) as mock_executions,
+        ):
+            status_response = fallback_client.get("/api/v2/workflows/wf_store123/status")
+            history_response = fallback_client.get("/api/v2/workflows/wf_store123/history")
+
+        assert status_response.status_code == 200
+        status_data = status_response.json()
+        assert status_data["status"] == "running"
+        assert status_data["progress"] == pytest.approx(0.5, abs=0.01)
+        assert status_data["current_node"] == "node-2"
+        assert status_data["completed_nodes"] == ["node-1"]
+
+        assert history_response.status_code == 200
+        history_data = history_response.json()
+        assert history_data["total"] == 1
+        assert history_data["executions"][0]["execution_id"] == "exec_store123"
+        assert history_data["executions"][0]["duration_seconds"] == pytest.approx(1.5, abs=0.001)
+        assert history_data["executions"][0]["result"] == {"verdict": "pending"}
+        assert mock_executions.await_count == 2
+
+    def test_approve_falls_back_to_pending_approval_resolution(self, fallback_client):
+        _override_auth(fallback_client)
+        persisted = _persisted_workflow_definition()
+        pending_approval = {"id": "approval-1", "workflow_id": "wf_store123", "step_id": "node-2"}
+
+        with (
+            patch(
+                "aragora.server.fastapi.routes.workflows.get_workflow_record",
+                new=AsyncMock(return_value=persisted),
+            ),
+            patch(
+                "aragora.server.fastapi.routes.workflows.list_pending_workflow_approvals",
+                new=AsyncMock(return_value=[pending_approval]),
+            ) as mock_pending,
+            patch(
+                "aragora.server.fastapi.routes.workflows.resolve_workflow_approval",
+                new=AsyncMock(return_value=True),
+            ) as mock_resolve,
+        ):
+            response = fallback_client.post(
+                "/api/v2/workflows/wf_store123/approve",
+                json={"step_id": "node-2", "comment": "Ship it"},
+            )
+        fallback_client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["status"] == "approved"
+        mock_pending.assert_awaited_once_with(workflow_id="wf_store123", tenant_id="org-1")
+        mock_resolve.assert_awaited_once_with(
+            request_id="approval-1",
+            status="approved",
+            responder_id="user-1",
+            notes="Ship it",
+        )
