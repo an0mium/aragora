@@ -386,3 +386,21 @@ class TestFrontendConfig:
         """TypeScript config exists for the frontend."""
         tsconfig = PROJECT_ROOT / "aragora" / "live" / "tsconfig.json"
         assert tsconfig.exists(), f"Missing: {tsconfig}"
+
+    def test_spectate_detail_route_accepts_runtime_ids(self):
+        """Live spectate links should resolve against a route that allows runtime IDs."""
+        page = (
+            PROJECT_ROOT
+            / "aragora"
+            / "live"
+            / "src"
+            / "app"
+            / "(app)"
+            / "spectate"
+            / "[debateId]"
+            / "page.tsx"
+        )
+        source = page.read_text()
+
+        assert "export const dynamicParams = true;" in source
+        assert "return [{ debateId: '_' }];" in source

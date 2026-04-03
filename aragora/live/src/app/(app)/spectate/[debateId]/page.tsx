@@ -1,11 +1,12 @@
 import SpectateClient from './SpectateClient';
 
-// For static export - no pages pre-rendered, client-side navigation only
-export const dynamicParams = false;
+// Allow runtime debate IDs in standalone/server mode.
+// Static export still uses the placeholder param below.
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  // Return a placeholder so static export has at least one path
-  // Actual debate IDs are resolved client-side via useParams()
+  // Return a placeholder so static export has at least one path.
+  // Actual debate IDs are resolved client-side via useParams().
   return [{ debateId: '_' }];
 }
 
