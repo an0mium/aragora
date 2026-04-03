@@ -1931,6 +1931,82 @@ class SwarmSupervisor:
         return False
 
     @staticmethod
+    def _duplicate_candidate_has_stale_reaped_dependency(
+        work_order: dict[str, Any],
+        run_work_orders: list[dict[str, Any]],
+    ) -> bool:
+        dependency_ids = {
+            str(dep).strip() for dep in work_order.get("dependency_ids", []) if str(dep).strip()
+        }
+        if not dependency_ids:
+            return False
+
+        stale_failure_reasons = {"stale_lease_reaped", "expired_lease_reaped"}
+        dependency_lookup: dict[str, dict[str, Any]] = {}
+        for candidate in run_work_orders:
+            if not isinstance(candidate, dict):
+                continue
+            for key in ("pipeline_task_id", "work_order_id", "task_key"):
+                candidate_id = str(candidate.get(key, "")).strip()
+                if candidate_id:
+                    dependency_lookup[candidate_id] = candidate
+
+        for dependency_id in dependency_ids:
+            dependency = dependency_lookup.get(dependency_id)
+            if not isinstance(dependency, dict):
+                continue
+            if str(dependency.get("status", "")).strip().lower() != "needs_human":
+                continue
+            failure_reason = str(dependency.get("failure_reason", "")).strip().lower()
+            if failure_reason in stale_failure_reasons:
+                return True
+        return False
+
+    def _duplicate_candidate_should_block(
+        self,
+        task: Any,
+        *,
+        run_cache: dict[str, dict[str, Any] | None],
+    ) -> bool:
+        stale_failure_reasons = {"stale_lease_reaped", "expired_lease_reaped"}
+        metadata = getattr(task, "metadata", {}) or {}
+        status = str(getattr(task, "status", "")).strip().lower()
+        failure_reason = str(metadata.get("failure_reason") or "").strip().lower()
+        if status == "needs_human" and failure_reason in stale_failure_reasons:
+            return False
+        if status != "queued":
+            return True
+
+        run_id = str(getattr(task, "run_id", "")).strip()
+        task_id = str(getattr(task, "task_id", "")).strip()
+        if not run_id or not task_id:
+            return True
+
+        record = run_cache.get(run_id)
+        if record is None:
+            record = self.store.get_supervisor_run(run_id)
+            run_cache[run_id] = record
+        if not isinstance(record, dict):
+            return True
+
+        work_order = next(
+            (
+                item
+                for item in record.get("work_orders", [])
+                if isinstance(item, dict) and str(item.get("work_order_id", "")).strip() == task_id
+            ),
+            None,
+        )
+        if not isinstance(work_order, dict):
+            return True
+        if self._duplicate_candidate_has_stale_reaped_dependency(
+            work_order,
+            [item for item in record.get("work_orders", []) if isinstance(item, dict)],
+        ):
+            return False
+        return True
+
+    @staticmethod
     def _dependency_base_reference(
         item: dict[str, Any],
         work_orders: list[dict[str, Any]],
@@ -2097,10 +2173,13 @@ class SwarmSupervisor:
         goal_key = self._normalized_goal_signature(goal)
         existing_by_group: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]] = {}
         existing_overlap_candidates: list[dict[str, Any]] = []
+        run_cache: dict[str, dict[str, Any] | None] = {}
         for task in self.store.list_developer_tasks(open_only=True, limit=1000):
             if str(getattr(task, "status", "")).strip().lower() not in active_duplicate_statuses:
                 continue
             if self._task_has_concrete_deliverable(task):
+                continue
+            if not self._duplicate_candidate_should_block(task, run_cache=run_cache):
                 continue
             task_goal = self._normalized_goal_signature(str(getattr(task, "goal", "") or ""))
             task_metadata = getattr(task, "metadata", {}) or {}

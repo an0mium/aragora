@@ -563,6 +563,99 @@ def test_start_run_preserves_dependent_validation_work_order_in_same_batch(
     )
 
 
+def test_start_run_preserves_rerun_when_existing_duplicate_chain_was_stale_reaped(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2007] Add gemini-cli runner probe parser coverage to swarm CLI tests"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for parser.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "blocking_question": "Should this stale lane be requeued, recovered, or discarded?",
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": "Should this stale lane be requeued, recovered, or discarded?",
+                },
+                "file_scope": ["tests/cli/test_swarm_command.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Write tests for parser.py",
+                    "description": "Write tests only for gemini-cli runner probe parsing.",
+                    "file_scope": ["tests/cli/test_swarm_command.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance tests and fix any failures.",
+                    "file_scope": [
+                        "tests/cli/test_swarm_command.py",
+                        "aragora/cli/parser.py",
+                    ],
+                    "dependency_ids": ["micro-task-1"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued"]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
     repo: Path, store: DevCoordinationStore
 ) -> None:
