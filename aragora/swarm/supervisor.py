@@ -1967,6 +1967,87 @@ class SwarmSupervisor:
                 return reference, dependency_id
         return None
 
+    def _reseed_dependent_session_branch(
+        self,
+        *,
+        session: Any,
+        work_order: dict[str, Any],
+        dependency_ref: str,
+        dependency_id: str,
+    ) -> bool:
+        session_path = str(session.path)
+        status_proc = self._run_git_capture_sync(session_path, "status", "--porcelain")
+        if status_proc.returncode != 0:
+            self._mark_needs_human(
+                work_order,
+                (
+                    "Dependent lane could not inspect its managed worktree before applying the "
+                    "prerequisite branch; reconcile the dependency chain before rerunning."
+                ),
+                failure_reason="dependency_base_conflict",
+                blocking_question=(
+                    "Which completed dependency branch or commit should this lane build on?"
+                ),
+            )
+            work_order["dispatch_error"] = (
+                status_proc.stderr.strip()
+                or status_proc.stdout.strip()
+                or "unable to inspect dependent lane worktree before applying dependency base"
+            )
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+            return False
+        if status_proc.stdout.strip():
+            self._mark_needs_human(
+                work_order,
+                (
+                    "Dependent lane already has unmanaged worktree changes; reconcile the "
+                    "dependency chain before rerunning."
+                ),
+                failure_reason="dependency_base_conflict",
+                blocking_question=(
+                    "Which completed dependency branch or commit should this lane build on?"
+                ),
+            )
+            work_order["dispatch_error"] = (
+                "managed dependent lane worktree is dirty before applying dependency base"
+            )
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+            return False
+
+        checkout_proc = self._run_git_capture_sync(
+            session_path,
+            "checkout",
+            "-B",
+            str(session.branch),
+            dependency_ref,
+        )
+        if checkout_proc.returncode != 0:
+            self._mark_needs_human(
+                work_order,
+                (
+                    "Dependent lane could not start from its prerequisite branch; "
+                    "reconcile the dependency chain before rerunning."
+                ),
+                failure_reason="dependency_base_conflict",
+                blocking_question=(
+                    "Which completed dependency branch or commit should this lane build on?"
+                ),
+            )
+            work_order["dispatch_error"] = (
+                checkout_proc.stderr.strip()
+                or checkout_proc.stdout.strip()
+                or f"unable to reseed dependent lane onto {dependency_ref}"
+            )
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+            return False
+
+        work_order["dependency_base_ref"] = dependency_ref
+        work_order["dependency_base_source"] = dependency_id
+        return True
+
     @staticmethod
     def _looks_like_broad_explicit_pytest_umbrella(*, source: str, text: str) -> bool:
         if source.strip() != "explicit_spec_work_order":
@@ -2435,34 +2516,13 @@ class SwarmSupervisor:
         dependency_base = self._dependency_base_reference(work_order, work_orders)
         if dependency_base is not None:
             dependency_ref, dependency_id = dependency_base
-            merge_proc = self._run_git_capture_sync(
-                str(session.path),
-                "merge",
-                "--ff-only",
-                dependency_ref,
-            )
-            if merge_proc.returncode != 0:
-                self._mark_needs_human(
-                    work_order,
-                    (
-                        "Dependent lane could not start from its prerequisite branch; "
-                        "reconcile the dependency chain before rerunning."
-                    ),
-                    failure_reason="dependency_base_conflict",
-                    blocking_question=(
-                        "Which completed dependency branch or commit should this lane build on?"
-                    ),
-                )
-                work_order["dispatch_error"] = (
-                    merge_proc.stderr.strip()
-                    or merge_proc.stdout.strip()
-                    or f"unable to fast-forward dependent lane onto {dependency_ref}"
-                )
-                work_order["dependency_base_ref"] = dependency_ref
-                work_order["dependency_base_source"] = dependency_id
+            if not self._reseed_dependent_session_branch(
+                session=session,
+                work_order=work_order,
+                dependency_ref=dependency_ref,
+                dependency_id=dependency_id,
+            ):
                 return False
-            work_order["dependency_base_ref"] = dependency_ref
-            work_order["dependency_base_source"] = dependency_id
         else:
             work_order.pop("dependency_base_ref", None)
             work_order.pop("dependency_base_source", None)

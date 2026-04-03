@@ -5123,6 +5123,14 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
     dependency_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
     _run(repo, "git", "checkout", "main")
 
+    unrelated_branch = "codex/swarm-unrelated-base"
+    _run(repo, "git", "checkout", "-b", unrelated_branch)
+    (repo / "README.md").write_text("hello\nunrelated\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "unrelated commit")
+    unrelated_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "checkout", "main")
+
     session_path = repo / "wt-dependent-base"
     _run(
         repo,
@@ -5132,7 +5140,7 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
         "-b",
         "codex/swarm-dependent-base",
         str(session_path),
-        "main",
+        unrelated_branch,
     )
 
     lifecycle = MagicMock()
@@ -5189,6 +5197,11 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
     assert dependent["dependency_base_ref"] == dependency_branch
     assert dependent["dependency_base_source"] == "micro-task-1"
     assert _run(session_path, "git", "rev-parse", "HEAD").stdout.strip() == dependency_head
+    assert (
+        _run(session_path, "git", "rev-parse", "codex/swarm-dependent-base").stdout.strip()
+        == dependency_head
+    )
+    assert unrelated_head != dependency_head
 
 
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
