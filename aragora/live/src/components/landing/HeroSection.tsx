@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
-import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from '../DebateResultPreview';
+import { RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from '../DebateResultPreview';
+import { CompactDebateResult } from './CompactDebateResult';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
@@ -958,16 +959,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Result preview */}
         {result && (
           <div ref={resultRef}>
-            <DebateResultPreview
+            <CompactDebateResult
               result={result}
-              condensed
-              onFlagWrongAnswer={handleWrongAnswer}
-              onOpenFullDebate={(debateResult, surface) => {
-                trackEvent('open_full_debate_clicked', {
-                  result_mode: debateResult.result_mode || 'full',
-                  surface,
-                });
-              }}
+              onWrongAnswer={handleWrongAnswer}
               onShare={(debateResult) => {
                 trackEvent('share_clicked', {
                   result_mode: debateResult.result_mode || 'full',
