@@ -537,6 +537,7 @@ class TestActionExecution:
         body = json.loads(result.body)
         assert body["status"] == "running"
         assert body["error"] is None
+        assert body["output_data"] is None
 
     def test_execute_action_missing_session_id_returns_400(self, handler, mock_user, store):
         """Test that missing session_id returns 400."""
@@ -2331,6 +2332,8 @@ class TestPolicyEndpoints:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["success"] is True
+        assert body["status"] == "completed"
+        assert body["action_id"] == "action-001"
 
     def test_deny_action_returns_200(self, handler, mock_user, store):
         """Test denying an action returns success when runtime accepts it."""
@@ -2356,6 +2359,7 @@ class TestPolicyEndpoints:
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["success"] is True
+        assert body["action_id"] == "action-001"
 
     def test_approve_action_creates_audit_entry(self, handler, mock_user, store):
         """Test that approving an action creates an audit entry."""
