@@ -25,7 +25,8 @@ def _make_run(
     stages: list[str] | None = None,
 ) -> RunLedger:
     events = [
-        RunStageEvent(stage=s, status="done") for s in (stages or ["intake", "specification"])
+        RunStageEvent(stage=s, status="done")
+        for s in (["intake", "specification"] if stages is None else stages)
     ]
     return RunLedger(
         run_id=run_id,
@@ -187,8 +188,8 @@ class TestFastAPIRoutes:
         from aragora.server.fastapi.routes.runs import router
 
         paths = [r.path for r in router.routes]
-        assert "/runs" in paths
-        assert "/runs/{run_id}" in paths
+        assert "/api/v2/runs" in paths
+        assert "/api/v2/runs/{run_id}" in paths
 
     def test_summary_model_fields(self):
         from aragora.server.fastapi.routes.runs import RunSummary
