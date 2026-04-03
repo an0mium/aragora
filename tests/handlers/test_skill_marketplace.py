@@ -190,8 +190,13 @@ MockSkillCategory.CUSTOM = MockSkillCategory("custom")
 class MockSkillTier:
     """Mock SkillTier enum."""
 
+    FREE = None  # Set after class definition
+
     def __init__(self, value):
         self.value = value
+
+
+MockSkillTier.FREE = MockSkillTier("free")
 
 
 class MockHTTPHandler:

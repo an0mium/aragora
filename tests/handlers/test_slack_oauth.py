@@ -289,7 +289,7 @@ class TestInstall:
         mock_state_store.generate.assert_called_once()
         call_kwargs = mock_state_store.generate.call_args
         metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
-        assert metadata["tenant_id"] == "t-123"
+        assert metadata["tenant_id"] == "test-org-001"
 
     @pytest.mark.asyncio
     async def test_stores_state_in_fallback(self, handler, handler_module):
