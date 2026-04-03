@@ -283,6 +283,94 @@ def test_record_completion_persists_extended_receipt_provenance(
     assert merge_queue[0]["metadata"]["pr_created_at"] == stored.created_at
 
 
+def test_record_completion_clears_stale_waiting_conflict_blockers(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    changed_path = "tests/cli/test_swarm_command.py"
+    test_command = f"python3 -m pytest -q {changed_path} -k codex"
+    run = store.create_supervisor_run(
+        goal="Clear stale waiting-conflict blockers after successful completion",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "wo-clear-conflict",
+                "title": "Clear stale waiting-conflict blockers",
+                "status": "waiting_conflict",
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Wait for the overlapping lane to finish?",
+                "blocker": {
+                    "reason": "waiting_conflict",
+                    "message": (
+                        "scope already claimed: tests/cli/test_swarm_command.py, "
+                        "aragora/cli/parser.py"
+                    ),
+                },
+                "blockers": [
+                    "scope already claimed: tests/cli/test_swarm_command.py, aragora/cli/parser.py"
+                ],
+                "dispatch_error": (
+                    "scope already claimed: tests/cli/test_swarm_command.py, aragora/cli/parser.py"
+                ),
+                "branch": "codex/wo-clear-conflict",
+                "worktree_path": str(repo),
+                "file_scope": [changed_path],
+            }
+        ],
+    )
+    lease = store.claim_lease(
+        task_id="wo-clear-conflict",
+        title="Clear stale waiting-conflict blockers",
+        owner_agent="codex",
+        owner_session_id="sess-clear-conflict",
+        branch="codex/wo-clear-conflict",
+        worktree_path=str(repo),
+        claimed_paths=[changed_path],
+        expected_tests=[test_command],
+        metadata={
+            "supervisor_run_id": run["run_id"],
+            "work_order_id": "wo-clear-conflict",
+            "task_key": f"{run['run_id']}:wo-clear-conflict",
+        },
+    )
+
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-clear-conflict",
+        branch="codex/wo-clear-conflict",
+        worktree_path=str(repo),
+        head_sha="abc12345",
+        commit_shas=["abc12345"],
+        changed_paths=[changed_path],
+        tests_run=[test_command],
+        validations_run=[test_command],
+        assumptions=[],
+        blockers=[],
+        outcome="deliverable_created",
+        risks=[],
+        confidence=0.83,
+        require_session_ownership=False,
+    )
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert refreshed is not None
+    item = refreshed["work_orders"][0]
+    assert item["status"] == "completed"
+    assert item["review_status"] == "pending_heterogeneous_review"
+    assert item["receipt_id"] == receipt.receipt_id
+    assert item["changed_paths"] == [changed_path]
+    assert item["tests_run"] == [test_command]
+    assert "failure_reason" not in item
+    assert "blocking_question" not in item
+    assert "blocker" not in item
+    assert item["blockers"] == []
+    assert "dispatch_error" not in item
+
+
 def test_record_completion_rejects_out_of_scope_changes(store: DevCoordinationStore) -> None:
     lease = store.claim_lease(
         task_id="clb-scope",
@@ -4274,6 +4362,8 @@ def test_replay_missing_verification_for_merge_gate_failures_marks_lane_complete
     updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
     updated["work_orders"][0]["status"] = "needs_human"
     updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
     updated["work_orders"][0]["expected_tests"] = [test_command]
     store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
 
@@ -4388,6 +4478,8 @@ def test_replay_missing_verification_for_merge_gate_failures_keeps_lane_blocked_
     updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
     updated["work_orders"][0]["status"] = "needs_human"
     updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
     updated["work_orders"][0]["expected_tests"] = [test_command]
     store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
 
@@ -4506,6 +4598,8 @@ def test_replay_missing_verification_for_merge_gate_failures_uses_temp_worktree_
     updated["work_orders"][0]["receipt_id"] = receipt.receipt_id
     updated["work_orders"][0]["status"] = "needs_human"
     updated["work_orders"][0]["review_status"] = "changes_requested"
+    updated["work_orders"][0]["failure_reason"] = "merge_gate_failed"
+    updated["work_orders"][0]["worker_outcome"] = "merge_gate_failed"
     updated["work_orders"][0]["expected_tests"] = [test_command]
     store.update_supervisor_run(run["run_id"], work_orders=updated["work_orders"])
 
