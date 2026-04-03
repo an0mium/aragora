@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.costs import CostHandler, CostSummary
+from aragora.server.handlers.utils.responses import StreamingBody
 from aragora.server.handler_registry import (
     HANDLER_REGISTRY,
     HANDLERS_AVAILABLE,
@@ -57,6 +58,25 @@ class _FakeHandler:
 
     def handle_delete(self, path: str, query: dict, request_handler: Any) -> _FakeResult:
         return _FakeResult(body=json.dumps({"deleted": True}).encode())
+
+
+class _FakeStreamingHandler:
+    """A minimal streaming handler for SSE-style dispatch tests."""
+
+    ROUTES = ["/api/fake-stream"]
+
+    def __init__(self, ctx: dict | None = None) -> None:
+        pass
+
+    def can_handle(self, path: str) -> bool:
+        return path.startswith("/api/fake-stream")
+
+    def handle(self, path: str, query: dict, request_handler: Any) -> _FakeResult:
+        return _FakeResult(
+            content_type="text/event-stream",
+            body=StreamingBody([b"event: connected\n\n", b"event: heartbeat\n\n"]),
+            headers={"Connection": "keep-alive"},
+        )
 
 
 class _ErrorHandler:
@@ -244,6 +264,33 @@ class TestTryModularHandler:
 
         assert result is True
         instance.send_response.assert_called_once_with(201)
+
+    @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
+    @patch("aragora.server.handler_registry.get_route_index")
+    @patch("aragora.server.handler_registry.extract_version", return_value=("v1", False))
+    @patch("aragora.server.handler_registry.strip_version_prefix", side_effect=lambda p: p)
+    @patch("aragora.server.handler_registry.normalize_path_version", side_effect=lambda p, v: p)
+    @patch("aragora.server.handler_registry.version_response_headers", return_value={})
+    def test_dispatch_streaming_body_omits_content_length_and_flushes_chunks(
+        self, mock_vrh, mock_npv, mock_svp, mock_ev, mock_gri
+    ) -> None:
+        handler = _FakeStreamingHandler()
+        instance = _make_mixin_instance(handler=handler, method="GET")
+        mock_index = MagicMock()
+        mock_index.get_handler = MagicMock(return_value=("_fake_handler", handler))
+        mock_gri.return_value = mock_index
+
+        with patch(
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit",
+            return_value=False,
+        ):
+            result = instance._try_modular_handler("/api/fake-stream", {})
+
+        assert result is True
+        header_names = [call.args[0] for call in instance.send_header.call_args_list]
+        assert "Content-Length" not in header_names
+        assert instance.close_connection is True
+        assert instance.wfile.getvalue() == b"event: connected\n\nevent: heartbeat\n\n"
 
     @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
     @patch("aragora.server.handler_registry.get_route_index")

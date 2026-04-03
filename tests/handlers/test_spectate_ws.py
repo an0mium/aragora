@@ -6,6 +6,7 @@ SpectateWebSocketBridge over the /api/v1/spectate/* endpoints.
 
 from __future__ import annotations
 
+import itertools
 import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -67,6 +68,15 @@ def _parse_sse_frames(body: bytes) -> list[tuple[str, object]]:
     return frames
 
 
+def _consume_stream_frames(body: object, count: int) -> list[tuple[str, object]]:
+    """Collect a bounded number of SSE frames from a live streaming body."""
+    chunks = list(itertools.islice(iter(body), count))
+    close = getattr(body, "close", None)
+    if callable(close):
+        close()
+    return _parse_sse_frames(b"".join(chunks))
+
+
 # ---------------------------------------------------------------------------
 # Route matching tests
 # ---------------------------------------------------------------------------
@@ -116,7 +126,7 @@ class TestRouteMatching:
         assert result[2]["X-Aragora-Stream-Mode"] == "snapshot"
         assert result[2]["X-Aragora-Stream-Transport"] == "json_preview"
 
-    def test_handle_stream_path_returns_sse_snapshot_when_requested(
+    def test_handle_stream_path_returns_live_sse_when_requested(
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
     ):
         from aragora.spectate.ws_bridge import get_spectate_bridge
@@ -137,14 +147,18 @@ class TestRouteMatching:
 
         assert result is not None
         assert result.content_type == "text/event-stream"
-        assert result.headers["X-Aragora-Stream-Transport"] == "sse_snapshot"
-        frames = _parse_sse_frames(result.body)
+        assert result.headers["X-Aragora-Endpoint-State"] == "live"
+        assert result.headers["X-Aragora-Stream-Mode"] == "live"
+        assert result.headers["X-Aragora-Stream-Transport"] == "sse_live"
+        frames = _consume_stream_frames(result.body, 3)
         assert [frame[0] for frame in frames] == ["connected", "proposal", "snapshot_complete"]
         connected = frames[0][1]
         proposal = frames[1][1]
         complete = frames[2][1]
         assert isinstance(connected, dict)
-        assert connected["transport"] == "sse_snapshot"
+        assert connected["mode"] == "live"
+        assert connected["transport"] == "sse_live"
+        assert connected["streaming_ready"] is True
         assert connected["debate_id"] == "d-111"
         assert isinstance(proposal, dict)
         assert proposal["event_type"] == "proposal"
@@ -152,13 +166,47 @@ class TestRouteMatching:
         assert isinstance(complete, dict)
         assert complete["count"] == 1
 
+    def test_handle_stream_path_emits_live_events_after_snapshot(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        result = handler.handle("/api/v1/spectate/stream", {"format": "sse"}, mock_handler)
+
+        assert result is not None
+        iterator = iter(result.body)
+        chunks = [next(iterator), next(iterator)]
+
+        bridge = get_spectate_bridge()
+        bridge._forward_event(
+            "proposal",
+            agent="gpt-5",
+            details="Live event",
+            round_number=2,
+        )
+
+        chunks.append(next(iterator))
+        result.body.close()
+
+        frames = _parse_sse_frames(b"".join(chunks))
+        assert [frame[0] for frame in frames] == [
+            "connected",
+            "snapshot_complete",
+            "proposal",
+        ]
+        live_payload = frames[2][1]
+        assert isinstance(live_payload, dict)
+        assert live_payload["event_type"] == "proposal"
+        assert live_payload["agent_name"] == "gpt-5"
+        assert live_payload["round_number"] == 2
+
     def test_handle_stream_path_honors_format_sse_query(
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
     ):
         result = handler.handle("/api/v1/spectate/stream", {"format": "sse"}, mock_handler)
         assert result is not None
         assert result.content_type == "text/event-stream"
-        frames = _parse_sse_frames(result.body)
+        frames = _consume_stream_frames(result.body, 2)
         assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
 
 

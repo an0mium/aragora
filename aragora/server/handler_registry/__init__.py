@@ -31,9 +31,10 @@ import asyncio
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, BinaryIO
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, BinaryIO
 
+from aragora.server.handlers.utils.responses import StreamingBody
 from aragora.server.versioning import (
     extract_version,
     normalize_path_version,
@@ -503,6 +504,7 @@ class HandlerRegistryMixin:
             if result:
                 # Track status for request lifecycle logging
                 self._response_status = result.status_code
+                is_streaming = isinstance(result.body, StreamingBody)
                 # Log successful handler dispatch at debug level
                 logger.debug(
                     "[handlers] %s %s -> %s (status=%d)",
@@ -513,7 +515,8 @@ class HandlerRegistryMixin:
                 )
                 self.send_response(result.status_code)
                 self.send_header("Content-Type", result.content_type)
-                self.send_header("Content-Length", str(len(result.body)))
+                if not is_streaming:
+                    self.send_header("Content-Length", str(len(result.body)))
 
                 # Add API version headers
                 version_headers = version_response_headers(
@@ -536,6 +539,18 @@ class HandlerRegistryMixin:
                 self._add_security_headers()
                 self._add_trace_headers()
                 self.end_headers()
+                if is_streaming:
+                    self.close_connection = True
+                    try:
+                        for chunk in result.body:
+                            self.wfile.write(chunk)
+                            self.wfile.flush()
+                    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError):
+                        logger.debug("streaming_response_closed", exc_info=True)
+                    finally:
+                        result.body.close()
+                    return True
+
                 self.wfile.write(result.body)
                 return True
         except ImportError as e:

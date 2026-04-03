@@ -64,11 +64,67 @@ interface UseSpectateReturn {
   refresh: () => Promise<void>;
 }
 
+const SPECTATE_STREAM_EVENT_TYPES = [
+  'debate_start',
+  'debate_end',
+  'round_start',
+  'round_end',
+  'proposal',
+  'critique',
+  'refine',
+  'vote',
+  'judge',
+  'consensus',
+  'convergence',
+  'converged',
+  'memory_recall',
+  'breakpoint',
+  'breakpoint_resolved',
+  'system',
+  'error',
+] as const;
+
+function getSpectateEventKey(event: SpectateEvent): string {
+  return [
+    event.event_type,
+    event.timestamp,
+    event.debate_id ?? '',
+    event.pipeline_id ?? '',
+    event.agent_name ?? '',
+    String(event.round_number ?? ''),
+    JSON.stringify(event.data ?? {}),
+  ].join('|');
+}
+
+function toTimestamp(timestamp: string): number {
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function mergeSpectateEvents(
+  current: SpectateEvent[],
+  incoming: SpectateEvent[],
+  maxEvents: number,
+): SpectateEvent[] {
+  const deduped = new Map<string, SpectateEvent>();
+
+  for (const event of current) {
+    deduped.set(getSpectateEventKey(event), event);
+  }
+  for (const event of incoming) {
+    deduped.set(getSpectateEventKey(event), event);
+  }
+
+  return Array.from(deduped.values())
+    .sort((left, right) => toTimestamp(left.timestamp) - toTimestamp(right.timestamp))
+    .slice(-maxEvents);
+}
+
 /**
  * React hook for real-time spectate events from the SpectatorStream bridge.
  *
- * Polls the /api/v1/spectate/recent endpoint at a configurable interval
- * and optionally filters events by debate or pipeline ID.
+ * Bootstraps from /api/v1/spectate/recent, then prefers the live SSE stream
+ * with polling fallback when EventSource is unavailable or drops.
  *
  * @example
  * ```tsx
@@ -101,7 +157,9 @@ export function useSpectate(
   const [connected, setConnected] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SpectateStatus | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const recentPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRecent = useCallback(async () => {
     try {
@@ -142,6 +200,99 @@ export function useSpectate(
     return false;
   }, []);
 
+  const stopRecentPolling = useCallback(() => {
+    if (recentPollRef.current) {
+      clearInterval(recentPollRef.current);
+      recentPollRef.current = null;
+    }
+  }, []);
+
+  const stopEventSource = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+  }, []);
+
+  const startRecentPolling = useCallback(() => {
+    if (recentPollRef.current) {
+      return;
+    }
+
+    recentPollRef.current = setInterval(() => {
+      void fetchRecent().then((recentOk) => {
+        setConnected(recentOk);
+      });
+    }, pollInterval);
+  }, [fetchRecent, pollInterval]);
+
+  const startEventSource = useCallback((): boolean => {
+    if (typeof EventSource === 'undefined') {
+      return false;
+    }
+
+    const params = new URLSearchParams({ count: String(maxEvents), format: 'sse' });
+    if (debateId) params.set('debate_id', debateId);
+    if (pipelineId) params.set('pipeline_id', pipelineId);
+
+    try {
+      const eventSource = new EventSource(
+        `${API_BASE_URL}/api/v1/spectate/stream?${params.toString()}`,
+      );
+
+      const handleLiveEvent = (message: MessageEvent<string>) => {
+        try {
+          const payload = JSON.parse(message.data) as SpectateEvent;
+          if (!payload?.event_type) {
+            return;
+          }
+          setEvents((current) => mergeSpectateEvents(current, [payload], maxEvents));
+          setConnected(true);
+        } catch {
+          // Ignore malformed stream events and keep the live connection running.
+        }
+      };
+
+      eventSource.onopen = () => {
+        stopRecentPolling();
+        setConnected(true);
+      };
+
+      eventSource.addEventListener('heartbeat', () => {
+        setConnected(true);
+      });
+
+      for (const eventType of SPECTATE_STREAM_EVENT_TYPES) {
+        eventSource.addEventListener(eventType, handleLiveEvent as EventListener);
+      }
+
+      eventSource.onerror = () => {
+        if (eventSourceRef.current !== eventSource) {
+          return;
+        }
+        stopEventSource();
+        setConnected(false);
+        void fetchRecent().then((recentOk) => {
+          setConnected(recentOk);
+        });
+        startRecentPolling();
+      };
+
+      eventSourceRef.current = eventSource;
+      return true;
+    } catch {
+      return false;
+    }
+  }, [
+    debateId,
+    fetchRecent,
+    maxEvents,
+    pipelineId,
+    startRecentPolling,
+    stopEventSource,
+    stopRecentPolling,
+  ]);
+
   const refresh = useCallback(async () => {
     const [recentOk] = await Promise.all([
       fetchRecent(),
@@ -154,15 +305,43 @@ export function useSpectate(
   useEffect(() => {
     if (!enabled) return;
 
-    void refresh();
-    intervalRef.current = setInterval(() => {
-      void refresh();
+    let active = true;
+    setEvents([]);
+    setConnected(false);
+    setLoaded(false);
+
+    void refresh().then(() => {
+      if (!active) {
+        return;
+      }
+      if (!startEventSource()) {
+        startRecentPolling();
+      }
+    });
+
+    statusPollRef.current = setInterval(() => {
+      void fetchStatus();
     }, pollInterval);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      active = false;
+      stopEventSource();
+      stopRecentPolling();
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
     };
-  }, [refresh, pollInterval, enabled]);
+  }, [
+    enabled,
+    fetchStatus,
+    pollInterval,
+    refresh,
+    startEventSource,
+    startRecentPolling,
+    stopEventSource,
+    stopRecentPolling,
+  ]);
 
   return { events, connected, loaded, status, refresh };
 }

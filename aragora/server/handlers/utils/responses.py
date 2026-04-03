@@ -21,12 +21,58 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from aragora.server.errors import ErrorCode
 
 _logger = logging.getLogger(__name__)
+
+
+class StreamingBody:
+    """Streaming HTTP body backed by an iterator of byte chunks."""
+
+    def __init__(
+        self,
+        chunks: Iterable[bytes | bytearray | memoryview | str],
+        *,
+        on_close: Callable[[], None] | None = None,
+    ) -> None:
+        self._chunks = iter(chunks)
+        self._on_close = on_close
+        self._closed = False
+
+    def __iter__(self) -> Iterator[bytes]:
+        try:
+            for chunk in self._chunks:
+                if not chunk:
+                    continue
+                if isinstance(chunk, str):
+                    yield chunk.encode("utf-8")
+                elif isinstance(chunk, (bytes, bytearray, memoryview)):
+                    yield bytes(chunk)
+                else:
+                    yield str(chunk).encode("utf-8")
+        finally:
+            self.close()
+
+    @property
+    def closed(self) -> bool:
+        """Whether the stream has been closed."""
+        return self._closed
+
+    def close(self) -> None:
+        """Close the stream and run the optional close hook once."""
+        if self._closed:
+            return
+
+        self._closed = True
+        close = getattr(self._chunks, "close", None)
+        if callable(close):
+            close()
+        if self._on_close is not None:
+            self._on_close()
 
 
 @dataclass
@@ -36,13 +82,13 @@ class HandlerResult:
     Attributes:
         status_code: HTTP status code (200, 400, 500, etc.)
         content_type: MIME type of the response body
-        body: Raw bytes of the response body
+        body: Raw bytes or a streaming iterator wrapper
         headers: Optional HTTP headers to include
     """
 
     status_code: int
     content_type: str
-    body: bytes
+    body: bytes | StreamingBody
     headers: dict | None = None
 
     def __post_init__(self) -> None:

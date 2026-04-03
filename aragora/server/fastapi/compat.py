@@ -62,7 +62,9 @@ from typing import Any, cast
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+
+from aragora.server.handlers.utils.responses import StreamingBody
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +112,13 @@ def _handler_result_to_response(result: Any) -> Response:
         headers = getattr(result, "headers", {}) or {}
         body = result.body
 
+        if isinstance(body, StreamingBody):
+            return StreamingResponse(
+                iter(body),
+                status_code=result.status_code,
+                media_type=content_type,
+                headers=headers,
+            )
         if isinstance(body, bytes):
             return Response(
                 content=body,
