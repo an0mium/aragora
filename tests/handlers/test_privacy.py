@@ -1212,4 +1212,13 @@ class TestHandlerInit:
 
     def test_routes_list(self, handler):
         """ROUTES contains all expected paths."""
-        assert len(handler.ROUTES) == 9
+        assert handler.ROUTES == [
+            "/api/v1/privacy/export",
+            "/api/v1/privacy/data-inventory",
+            "/api/v1/privacy/account",
+            "/api/v1/privacy/preferences",
+            "/api/v1/users",
+            "/api/v2/users/me/export",
+            "/api/v2/users/me/data-inventory",
+            "/api/v2/users/me",
+        ]
