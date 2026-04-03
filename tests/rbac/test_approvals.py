@@ -1222,6 +1222,14 @@ class TestMultiApproverScenarios:
         with pytest.raises(ValueError, match="already made a decision"):
             await workflow.approve(approver_id="admin-1", request_id=request.id)
 
+        # Same approver cannot reject after approving either
+        with pytest.raises(ValueError, match="already made a decision"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="Changing my mind",
+            )
+
     @pytest.mark.asyncio
     async def test_all_approvers_can_approve_independently(self, workflow):
         """Test that all designated approvers can approve."""
@@ -1401,14 +1409,13 @@ class TestDurationAndExpiration:
         # Force expiration
         request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
 
-        # Note: reject doesn't check expiration, only approve does
-        # This tests current behavior - reject still works on expired pending requests
-        result = await workflow.reject(
-            approver_id="admin-1",
-            request_id=request.id,
-            reason="Too late",
-        )
-        assert result.status == ApprovalStatus.REJECTED
+        with pytest.raises(ValueError, match="expired"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="Too late",
+            )
+        assert request.status == ApprovalStatus.EXPIRED
 
     @pytest.mark.asyncio
     async def test_expire_multiple_requests(self, workflow):

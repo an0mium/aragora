@@ -337,14 +337,14 @@ class ApprovalWorkflow:
         if approver_id not in request.approvers:
             raise ValueError(f"User {approver_id} is not an approver for this request")
 
+        # Check status
+        if request.status != ApprovalStatus.PENDING:
+            raise ValueError(f"Request is not pending: {request.status.value}")
+
         # Check if already decided
         existing = [d for d in request.decisions if d.approver_id == approver_id]
         if existing:
             raise ValueError(f"User {approver_id} has already made a decision")
-
-        # Check status
-        if request.status != ApprovalStatus.PENDING:
-            raise ValueError(f"Request is not pending: {request.status.value}")
 
         # Check expiration
         if request.is_expired:
@@ -414,6 +414,16 @@ class ApprovalWorkflow:
         # Check status
         if request.status != ApprovalStatus.PENDING:
             raise ValueError(f"Request is not pending: {request.status.value}")
+
+        # Check if already decided
+        existing = [d for d in request.decisions if d.approver_id == approver_id]
+        if existing:
+            raise ValueError(f"User {approver_id} has already made a decision")
+
+        # Check expiration
+        if request.is_expired:
+            request.status = ApprovalStatus.EXPIRED
+            raise ValueError("Request has expired")
 
         # Record decision
         decision = ApprovalDecision(
