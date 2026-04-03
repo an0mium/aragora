@@ -616,6 +616,7 @@ class SwarmSupervisor:
                         run_id=run_id,
                         target_branch=str(record.get("target_branch", "main")),
                         work_order=item,
+                        work_orders=work_orders,
                         managed_dir_pattern=managed_dir_pattern,
                         approval_policy=SwarmApprovalPolicy.from_dict(
                             record.get("approval_policy")
@@ -631,6 +632,7 @@ class SwarmSupervisor:
                                 run_id=run_id,
                                 target_branch=str(record.get("target_branch", "main")),
                                 work_order=item,
+                                work_orders=work_orders,
                                 managed_dir_pattern=managed_dir_pattern,
                                 approval_policy=SwarmApprovalPolicy.from_dict(
                                     record.get("approval_policy")
@@ -1930,6 +1932,43 @@ class SwarmSupervisor:
         return False
 
     @staticmethod
+    def _dependency_base_reference(
+        item: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> tuple[str, str] | None:
+        dependency_ids = [
+            str(dep).strip() for dep in item.get("dependency_ids", []) if str(dep).strip()
+        ]
+        if not dependency_ids:
+            return None
+
+        completed_statuses = {"completed", "merged", "salvage"}
+        references: dict[str, str] = {}
+        for candidate in work_orders:
+            if not isinstance(candidate, dict):
+                continue
+            status = str(candidate.get("status", "")).strip().lower()
+            if status not in completed_statuses:
+                continue
+            reference = (
+                str(candidate.get("branch", "")).strip()
+                or str(candidate.get("head_sha", "")).strip()
+                or str(candidate.get("initial_head", "")).strip()
+            )
+            if not reference:
+                continue
+            for key in ("pipeline_task_id", "work_order_id", "task_key"):
+                candidate_id = str(candidate.get(key, "")).strip()
+                if candidate_id:
+                    references[candidate_id] = reference
+
+        for dependency_id in reversed(dependency_ids):
+            reference = references.get(dependency_id)
+            if reference:
+                return reference, dependency_id
+        return None
+
+    @staticmethod
     def _looks_like_broad_explicit_pytest_umbrella(*, source: str, text: str) -> bool:
         if source.strip() != "explicit_spec_work_order":
             return False
@@ -2359,6 +2398,7 @@ class SwarmSupervisor:
         run_id: str,
         target_branch: str,
         work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
         managed_dir_pattern: str,
         approval_policy: SwarmApprovalPolicy,
     ) -> bool:
@@ -2393,6 +2433,40 @@ class SwarmSupervisor:
                 failure_reason="scope_violation",
             )
             return False
+        dependency_base = self._dependency_base_reference(work_order, work_orders)
+        if dependency_base is not None:
+            dependency_ref, dependency_id = dependency_base
+            merge_proc = self._run_git_capture_sync(
+                str(session.path),
+                "merge",
+                "--ff-only",
+                dependency_ref,
+            )
+            if merge_proc.returncode != 0:
+                self._mark_needs_human(
+                    work_order,
+                    (
+                        "Dependent lane could not start from its prerequisite branch; "
+                        "reconcile the dependency chain before rerunning."
+                    ),
+                    failure_reason="dependency_base_conflict",
+                    blocking_question=(
+                        "Which completed dependency branch or commit should this lane build on?"
+                    ),
+                )
+                work_order["dispatch_error"] = (
+                    merge_proc.stderr.strip()
+                    or merge_proc.stdout.strip()
+                    or f"unable to fast-forward dependent lane onto {dependency_ref}"
+                )
+                work_order["dependency_base_ref"] = dependency_ref
+                work_order["dependency_base_source"] = dependency_id
+                return False
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+        else:
+            work_order.pop("dependency_base_ref", None)
+            work_order.pop("dependency_base_source", None)
         claimed_paths = [item for item in file_scope if not self._looks_like_glob(item)]
         allowed_globs = [item for item in file_scope if self._looks_like_glob(item)]
         if not allowed_globs and not claimed_paths and file_scope:
