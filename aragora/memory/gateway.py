@@ -80,6 +80,8 @@ class UnifiedMemoryResponse:
     duplicates_removed: int = 0
     query_time_ms: float = 0.0
     errors: dict[str, str] = field(default_factory=dict)
+    source_result_counts: dict[str, int] = field(default_factory=dict)
+    source_timings_ms: dict[str, float] = field(default_factory=dict)
 
 
 class MemoryGateway:
@@ -120,6 +122,34 @@ class MemoryGateway:
         self.retention_gate = retention_gate
         self._dedup_engine = CrossSystemDedupEngine()
 
+    @classmethod
+    def from_backends(
+        cls,
+        *,
+        continuum_memory: ContinuumMemory | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
+        supermemory_adapter: SupermemoryAdapter | None = None,
+        claude_mem_adapter: ClaudeMemAdapter | None = None,
+        coordinator: MemoryCoordinator | None = None,
+        retention_gate: RetentionGate | None = None,
+        parallel: bool = True,
+    ) -> MemoryGateway:
+        """Create a gateway from backend instances with sensible defaults.
+
+        Convenience factory useful for tests and ad-hoc integration.
+        Automatically enables the gateway and configures parallel queries.
+        """
+        config = MemoryGatewayConfig(enabled=True, parallel_queries=parallel)
+        return cls(
+            config=config,
+            continuum_memory=continuum_memory,
+            knowledge_mound=knowledge_mound,
+            supermemory_adapter=supermemory_adapter,
+            claude_mem_adapter=claude_mem_adapter,
+            coordinator=coordinator,
+            retention_gate=retention_gate,
+        )
+
     def _available_sources(self) -> list[str]:
         """Get list of available memory sources."""
         sources = []
@@ -150,11 +180,15 @@ class MemoryGateway:
 
         all_results: list[UnifiedMemoryResult] = []
         errors: dict[str, str] = {}
+        source_result_counts: dict[str, int] = {}
+        source_timings_ms: dict[str, float] = {}
 
         if self.config.parallel_queries:
             # Fan-out in parallel
             tasks = {}
+            task_start_times: dict[str, float] = {}
             for source in sources_to_query:
+                task_start_times[source] = time.time()
                 tasks[source] = asyncio.create_task(self._query_source(source, q.query, q.limit))
 
             for source, task in tasks.items():
@@ -162,25 +196,38 @@ class MemoryGateway:
                     results = await asyncio.wait_for(
                         task, timeout=self.config.query_timeout_seconds
                     )
+                    source_timings_ms[source] = (time.time() - task_start_times[source]) * 1000
+                    source_result_counts[source] = len(results)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
+                    source_timings_ms[source] = (time.time() - task_start_times[source]) * 1000
+                    source_result_counts[source] = 0
                     errors[source] = "timeout"
                     logger.warning("Query timeout for source: %s", source)
                 except Exception as e:  # noqa: BLE001 - gateway boundary
+                    source_timings_ms[source] = (time.time() - task_start_times[source]) * 1000
+                    source_result_counts[source] = 0
                     errors[source] = str(e)
                     logger.warning("Query failed for source %s: %s", source, e)
         else:
             # Sequential queries
             for source in sources_to_query:
+                source_start = time.time()
                 try:
                     results = await asyncio.wait_for(
                         self._query_source(source, q.query, q.limit),
                         timeout=self.config.query_timeout_seconds,
                     )
+                    source_timings_ms[source] = (time.time() - source_start) * 1000
+                    source_result_counts[source] = len(results)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
+                    source_timings_ms[source] = (time.time() - source_start) * 1000
+                    source_result_counts[source] = 0
                     errors[source] = "timeout"
                 except Exception as e:  # noqa: BLE001 - gateway boundary
+                    source_timings_ms[source] = (time.time() - source_start) * 1000
+                    source_result_counts[source] = 0
                     errors[source] = str(e)
 
         total_found = len(all_results)
@@ -209,6 +256,8 @@ class MemoryGateway:
             duplicates_removed=duplicates_removed,
             query_time_ms=query_time_ms,
             errors=errors,
+            source_result_counts=source_result_counts,
+            source_timings_ms=source_timings_ms,
         )
 
     async def store(
