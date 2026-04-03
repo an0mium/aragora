@@ -44,6 +44,15 @@ from enum import Enum
 from pathlib import Path
 
 
+def _is_within_root(path: Path, root: Path) -> bool:
+    """Return whether path resolves inside root."""
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def _find_repo_root(start: Path) -> Path | None:
     """Return the nearest parent that contains a Git marker."""
     current = start.resolve()
@@ -89,14 +98,16 @@ def _linked_worktree_data_dir(start: Path | None = None) -> Path | None:
         return None
 
     worktree_nomic = repo_root / ".nomic"
-    if worktree_nomic.exists():
+    if worktree_nomic.exists() and _is_within_root(worktree_nomic, repo_root):
         return worktree_nomic
 
     worktree_data = repo_root / "data"
-    if worktree_data.exists():
+    if worktree_data.exists() and _is_within_root(worktree_data, repo_root):
         return worktree_data
 
-    return worktree_nomic
+    if _is_within_root(worktree_nomic, repo_root):
+        return worktree_nomic
+    return None
 
 
 class DatabaseType(Enum):
