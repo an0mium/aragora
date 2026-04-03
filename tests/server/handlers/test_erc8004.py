@@ -19,12 +19,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.blockchain.action_store import ChainActionRecord, ChainActionStatus, ChainActionType
 from aragora.server.handlers import erc8004
 
 
@@ -693,9 +693,11 @@ class TestListAndRegisterAgents:
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
         """Should enqueue agent registration and return 202."""
         mock_contract = MagicMock()
-        queued_action = SimpleNamespace(
+        queued_action = ChainActionRecord(
             action_id="chain-test123",
-            status=SimpleNamespace(value="queued"),
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
         )
 
         with (
@@ -731,16 +733,18 @@ class TestListAndRegisterAgents:
         mock_contract.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_register_agent_requires_wallet_credentials(
+    async def test_register_agent_does_not_require_wallet_credentials(
         self,
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should still enqueue registration without reading wallet credentials."""
+        """Should queue registration without loading wallet credentials in-request."""
         mock_contract = MagicMock()
-        queued_action = SimpleNamespace(
+        queued_action = ChainActionRecord(
             action_id="chain-test456",
-            status=SimpleNamespace(value="queued"),
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
         )
 
         with (
@@ -753,7 +757,7 @@ class TestListAndRegisterAgents:
             patch(
                 "aragora.blockchain.wallet.WalletSigner.from_env",
                 side_effect=ValueError("No wallet credentials configured"),
-            ),
+            ) as mock_signer,
             patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
             result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
@@ -763,6 +767,7 @@ class TestListAndRegisterAgents:
         assert data["status"] == "queued"
         assert data["requires_approval"] is True
         mock_contract.register_agent.assert_not_called()
+        mock_signer.assert_not_called()
 
 
 # =============================================================================
