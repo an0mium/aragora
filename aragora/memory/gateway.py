@@ -410,8 +410,81 @@ class MemoryGateway:
 
         return sorted(results, key=sort_key, reverse=True)
 
+    def evaluate_retention(
+        self,
+        results: list[UnifiedMemoryResult],
+        current_confidences: dict[str, float] | None = None,
+        access_counts: dict[str, int] | None = None,
+        red_line_ids: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Apply the retention gate to a list of memory results.
+
+        Uses each result's surprise_score (falling back to 0.5) and
+        optional per-item confidence/access overrides to produce
+        RetentionDecisions via the configured RetentionGate.
+
+        Returns a list of dicts, each containing the original result
+        and its retention decision.
+        """
+        if not self.retention_gate:
+            logger.warning("No retention gate configured — skipping evaluation")
+            return []
+
+        current_confidences = current_confidences or {}
+        access_counts = access_counts or {}
+        red_line_ids = red_line_ids or set()
+
+        evaluated: list[dict[str, Any]] = []
+        for result in results:
+            surprise = result.surprise_score if result.surprise_score is not None else 0.5
+            confidence = current_confidences.get(result.id, result.confidence)
+            access = access_counts.get(result.id, 0)
+            is_red_line = result.id in red_line_ids
+
+            decision = self.retention_gate.evaluate(
+                item_id=result.id,
+                source=result.source_system,
+                content=result.content,
+                outcome_surprise=surprise,
+                current_confidence=confidence,
+                access_count=access,
+                is_red_line=is_red_line,
+            )
+            evaluated.append(
+                {
+                    "result": result,
+                    "decision": decision,
+                }
+            )
+
+        return evaluated
+
+    async def query_with_retention(
+        self,
+        q: UnifiedMemoryQuery,
+        current_confidences: dict[str, float] | None = None,
+        access_counts: dict[str, int] | None = None,
+        red_line_ids: set[str] | None = None,
+    ) -> tuple[UnifiedMemoryResponse, list[dict[str, Any]]]:
+        """Query memory systems and evaluate retention on results.
+
+        Combines ``query()`` and ``evaluate_retention()`` in a single call.
+        Returns (response, retention_evaluations).
+        """
+        response = await self.query(q)
+        evaluations = self.evaluate_retention(
+            response.results,
+            current_confidences=current_confidences,
+            access_counts=access_counts,
+            red_line_ids=red_line_ids,
+        )
+        return response, evaluations
+
     def get_stats(self) -> dict[str, Any]:
         """Get gateway statistics."""
+        retention_stats = None
+        if self.retention_gate:
+            retention_stats = self.retention_gate.get_stats()
         return {
             "available_sources": self._available_sources(),
             "config": {
@@ -423,4 +496,5 @@ class MemoryGateway:
             "dedup_index_size": self._dedup_engine.get_hash_index_size(),
             "has_coordinator": self.coordinator is not None,
             "has_retention_gate": self.retention_gate is not None,
+            "retention_gate_stats": retention_stats,
         }
