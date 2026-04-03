@@ -3348,9 +3348,12 @@ class DevCoordinationStore:
         A run is stale when:
         - It is older than ``max_age_hours``
         - Its status is ``planned`` with only untouched queued work orders,
-          or ``needs_human``/``completed`` with only non-actionable work
-          orders
+          ``needs_human``/``completed`` with only non-actionable work orders,
+          or ``active`` with no work orders backed by a living process
         - No work order shows evidence of active progress
+
+        Runs with active leases whose worker process is still alive are
+        never cleaned — only truly orphaned runs from previous sessions.
 
         This prevents the duplicate_open_work_order detector in
         _suppress_duplicate_open_work_orders from permanently blocking new work
@@ -3375,7 +3378,7 @@ class DevCoordinationStore:
         cleaned = 0
         for run in runs:
             status = str(run.get("status", "")).strip().lower()
-            if status not in ("planned", "needs_human", "completed"):
+            if status not in ("planned", "active", "needs_human", "completed"):
                 continue
             updated_at = _parse_dt(str(run.get("updated_at") or run.get("created_at") or ""))
             if updated_at is None:
@@ -3428,6 +3431,95 @@ class DevCoordinationStore:
                     wo["metadata"] = metadata
                     wo["status"] = "discarded"
                     wo["failure_reason"] = "stale_planned_run"
+                    changed = True
+                if changed:
+                    self.update_supervisor_run(
+                        run["run_id"],
+                        status="completed",
+                        work_orders=work_orders,
+                    )
+                    cleaned += 1
+                continue
+            if status == "active":
+                # Active runs from previous sessions may have orphaned work
+                # orders.  Only clean if no work order has a living worker
+                # process (active lease with live PID or live work-order PID).
+                has_live_worker = False
+                # Collect lease IDs to check against the DB
+                lease_ids = [
+                    wo.get("lease_id")
+                    for wo in work_orders
+                    if isinstance(wo, dict)
+                    and wo.get("lease_id")
+                    and str(wo.get("status", "")).strip().lower() not in terminal_wo_statuses
+                ]
+                active_lease_pids: dict[str, Any] = {}
+                if lease_ids:
+                    conn = self._connect()
+                    try:
+                        placeholders = ",".join("?" for _ in lease_ids)
+                        rows = conn.execute(
+                            f"SELECT lease_id, metadata FROM leases WHERE status = 'active' AND lease_id IN ({placeholders})",
+                            lease_ids,
+                        ).fetchall()
+                        for row in rows:
+                            meta = (
+                                json.loads(row["metadata"] or "{}")
+                                if isinstance(row["metadata"], str)
+                                else (row["metadata"] or {})
+                            )
+                            active_lease_pids[row["lease_id"]] = meta.get("worker_pid")
+                    finally:
+                        conn.close()
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status in terminal_wo_statuses:
+                        continue
+                    # Check lease PID if the lease is still active
+                    lid = wo.get("lease_id")
+                    if lid and lid in active_lease_pids:
+                        raw_pid = active_lease_pids[lid]
+                        if raw_pid is not None:
+                            probe = _safe_kill_probe(raw_pid)
+                            if probe is None or isinstance(probe, PermissionError):
+                                has_live_worker = True
+                                break
+                        else:
+                            # No PID recorded but lease is active — treat
+                            # as live to be safe.
+                            has_live_worker = True
+                            break
+                    # Check work order-level PID
+                    wo_pid = wo.get("pid")
+                    if wo_pid is not None:
+                        probe = _safe_kill_probe(wo_pid)
+                        if probe is None or isinstance(probe, PermissionError):
+                            has_live_worker = True
+                            break
+                if has_live_worker:
+                    continue
+                archived_at = now.isoformat()
+                changed = False
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status in terminal_wo_statuses:
+                        continue
+                    metadata = dict(wo.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "stale_active_run",
+                            "archive_reason": "stale_active_run",
+                            "archived_at": archived_at,
+                            "previous_status": wo_status or "queued",
+                        }
+                    )
+                    wo["metadata"] = metadata
+                    wo["status"] = "discarded"
+                    wo["failure_reason"] = "stale_active_run"
                     changed = True
                 if changed:
                     self.update_supervisor_run(
