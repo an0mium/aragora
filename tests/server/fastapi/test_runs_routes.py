@@ -68,7 +68,7 @@ def test_list_runs_route_is_registered(client) -> None:
         )
     )
 
-    response = client.get("/api/runs")
+    response = client.get("/api/v2/runs")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -95,7 +95,7 @@ def test_get_run_route_is_registered(client) -> None:
         )
     )
 
-    response = client.get("/api/runs/run-fastapi-detail")
+    response = client.get("/api/v2/runs/run-fastapi-detail")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -108,3 +108,10 @@ def test_get_run_route_is_registered(client) -> None:
             "safety_mode": None,
         }
     }
+
+
+def test_runs_routes_are_exposed_in_openapi(client) -> None:
+    spec = client.app.openapi()
+
+    assert "/api/v2/runs" in spec["paths"]
+    assert "/api/v2/runs/{run_id}" in spec["paths"]
