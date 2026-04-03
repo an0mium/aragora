@@ -252,6 +252,25 @@ class TestSwarmParser:
         assert args.probe_limit == 4
         assert args.json is True
 
+    def test_swarm_runner_probe_gemini_cli_parser_no_json(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "gemini-cli",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "runner"
+        assert args.swarm_goal == "probe"
+        assert args.runner_type == "gemini-cli"
+        assert args.json is False
+
     def test_swarm_audit_issues_parser(self):
         from aragora.cli.parser import build_parser
 
