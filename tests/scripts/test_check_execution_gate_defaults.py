@@ -67,6 +67,20 @@ def build_policy(post_cfg):
 """
 
 
+def _write_repo_layout(
+    repo_root: Path,
+    *,
+    config_relpath: str,
+) -> None:
+    config_path = repo_root / config_relpath
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(_valid_post_debate_source(), encoding="utf-8")
+
+    orchestrator_path = repo_root / "aragora/debate/orchestrator_runner.py"
+    orchestrator_path.parent.mkdir(parents=True, exist_ok=True)
+    orchestrator_path.write_text(_valid_orchestrator_source(), encoding="utf-8")
+
+
 def test_post_debate_defaults_accept_secure_baseline() -> None:
     violations = find_post_debate_default_violations(_valid_post_debate_source())
     assert violations == []
@@ -130,4 +144,18 @@ def test_orchestrator_fallbacks_require_getattr_pattern() -> None:
 def test_repo_execution_gate_defaults_pass_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     violations = check_repo(repo_root)
+    assert violations == []
+
+
+def test_repo_execution_gate_defaults_support_extracted_config_module(tmp_path: Path) -> None:
+    _write_repo_layout(tmp_path, config_relpath="aragora/debate/post_debate_config.py")
+    violations = check_repo(tmp_path)
+    assert violations == []
+
+
+def test_repo_execution_gate_defaults_fall_back_to_legacy_coordinator_path(
+    tmp_path: Path,
+) -> None:
+    _write_repo_layout(tmp_path, config_relpath="aragora/debate/post_debate_coordinator.py")
+    violations = check_repo(tmp_path)
     assert violations == []
