@@ -509,8 +509,25 @@ class TestActionExecution:
         """Test that unsupported actions fail immediately with current runtime behavior."""
         session = store.create_session(user_id="user-001")
         setup_handler_user(handler, mock_user)
+        mock_runtime = MagicMock()
+        mock_runtime.dispatch_action.return_value = MagicMock(
+            status=ActionStatus.RUNNING,
+            executed=False,
+            output_data=None,
+            error=None,
+            approval_id=None,
+            execution_time_ms=0,
+            audit_result="success",
+            audit_details={},
+        )
 
-        with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store):
+        with (
+            patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
+            patch(
+                "aragora.server.handlers.openclaw.orchestrator.get_openclaw_execution_runtime",
+                return_value=mock_runtime,
+            ),
+        ):
             result = call_with_bypassed_decorators(
                 handler._handle_execute_action,
                 {"session_id": session.id, "action_type": "browse", "input": {}},
@@ -2287,8 +2304,23 @@ class TestPolicyEndpoints:
     def test_approve_action_returns_200(self, handler, mock_user, store):
         """Test approving an unknown action still returns 200 with a failed result."""
         setup_handler_user(handler, mock_user)
+        mock_runtime = MagicMock()
+        mock_runtime.approve_action.return_value = MagicMock(
+            action_id="action-001",
+            status=ActionStatus.COMPLETED,
+            executed=True,
+            output_data={"ok": True},
+            error=None,
+            execution_time_ms=25,
+        )
 
-        with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store):
+        with (
+            patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
+            patch(
+                "aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime",
+                return_value=mock_runtime,
+            ),
+        ):
             result = call_with_bypassed_decorators(
                 handler._handle_approve_action,
                 "approval-001",
@@ -2303,8 +2335,17 @@ class TestPolicyEndpoints:
     def test_deny_action_returns_200(self, handler, mock_user, store):
         """Test denying an unknown action still returns 200 with a failed result."""
         setup_handler_user(handler, mock_user)
+        mock_runtime = MagicMock()
+        mock_runtime.get_approval.return_value = MagicMock(action_id="action-001")
+        mock_runtime.deny_action.return_value = True
 
-        with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store):
+        with (
+            patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
+            patch(
+                "aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime",
+                return_value=mock_runtime,
+            ),
+        ):
             result = call_with_bypassed_decorators(
                 handler._handle_deny_action,
                 "approval-001",

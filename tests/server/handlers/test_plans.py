@@ -497,6 +497,14 @@ class TestExecutePlan:
     def test_execute_approved_plan(self, handler, mock_store):
         plan = MockPlan(status="approved")
         mock_store.get.return_value = plan
+        launch = {
+            "plan_id": "plan-001",
+            "run_id": "run-001",
+            "execution_id": "exec-001",
+            "correlation_id": "corr-001",
+            "execution_mode": "interactive",
+            "status": "queued",
+        }
 
         with (
             patch(
@@ -510,28 +518,28 @@ class TestExecutePlan:
             patch.object(handler, "get_json_body", return_value={}),
             patch(
                 "aragora.pipeline.canonical_execution.queue_plan_execution",
-                return_value={
-                    "run_id": "run-001",
-                    "execution_id": "exec-001",
-                    "correlation_id": "corr-001",
-                    "status": "queued",
-                    "execution_mode": "default",
-                },
-            ),
+                return_value=launch,
+            ) as mock_queue,
             patch(
                 "aragora.pipeline.canonical_execution.execute_queued_plan",
                 new=AsyncMock(),
-            ),
+            ) as mock_execute,
             patch(
                 "aragora.pipeline.canonical_execution.schedule_coroutine",
                 side_effect=lambda coro, name=None: getattr(coro, "close", lambda: None)(),
-            ),
+            ) as mock_schedule,
             patch(
                 "aragora.server.handlers.plans._fire_plan_notification",
             ),
         ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 202
+            body = _parse_body(result)
+            assert body["run_id"] == "run-001"
+            assert body["execution_id"] == "exec-001"
+            mock_queue.assert_called_once()
+            mock_execute.assert_called_once()
+            mock_schedule.assert_called_once()
 
     def test_execute_unapproved_plan(self, handler, mock_store):
         plan = MockPlan(status="awaiting_approval")

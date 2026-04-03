@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.blockchain.action_store import ChainActionRecord, ChainActionStatus, ChainActionType
 from aragora.server.handlers import erc8004
 
 
@@ -690,8 +691,14 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
-        """Should enqueue agent registration and return 202."""
+        """Should queue agent registration and return 202."""
         mock_contract = MagicMock()
+        queued_action = ChainActionRecord(
+            action_id="chain-act-001",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
+        )
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -700,6 +707,7 @@ class TestListAndRegisterAgents:
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
                 return_value=mock_contract,
             ),
+            patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
             result = await erc8004.handle_register_agent(
                 agent_uri="ipfs://QmAgent",
@@ -708,19 +716,26 @@ class TestListAndRegisterAgents:
 
         assert result["status"] == 202
         data = json.loads(result["body"])
+        assert data["action_id"] == "chain-act-001"
         assert data["status"] == "queued"
         assert data["agent_uri"] == "ipfs://QmAgent"
+        assert data["chain_id"] == mock_provider.get_config().chain_id
         assert data["requires_approval"] is True
-        assert data["action_id"]
 
     @pytest.mark.asyncio
-    async def test_register_agent_requires_wallet_credentials(
+    async def test_register_agent_does_not_require_wallet_credentials(
         self,
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should still enqueue registration without reading wallet credentials."""
+        """Should queue registration without loading wallet credentials in-request."""
         mock_contract = MagicMock()
+        queued_action = ChainActionRecord(
+            action_id="chain-act-002",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
+        )
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -732,11 +747,13 @@ class TestListAndRegisterAgents:
             patch(
                 "aragora.blockchain.wallet.WalletSigner.from_env",
                 side_effect=ValueError("No wallet credentials configured"),
-            ),
+            ) as mock_signer,
+            patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
             result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
 
         assert result["status"] == 202
+        mock_signer.assert_not_called()
 
 
 # =============================================================================
