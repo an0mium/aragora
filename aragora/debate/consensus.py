@@ -1019,6 +1019,7 @@ def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
     metadata = getattr(pe_result, "metadata", {})
 
     builder = ConsensusBuilder(debate_id=debate_id, task=original_claim)
+    estimator_confidence_scores: dict[str, float] = {}
 
     # Map subclaims → Claim objects
     estimates_by_id: dict[str, Any] = {}
@@ -1054,7 +1055,8 @@ def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
         est = estimates_by_id.get(sc_id)
         if est:
             prob = getattr(est, "probability", 0.5)
-            builder.add_evidence(
+            estimator_confidence = getattr(est, "confidence_in_estimate", None)
+            estimator_evidence = builder.add_evidence(
                 claim_id=claim.claim_id,
                 source="estimator",
                 content=f"Probability estimate: {prob:.2f}",
@@ -1062,6 +1064,11 @@ def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
                 supports=prob >= 0.5,
                 strength=abs(prob - 0.5) * 2,  # scale [0,1] centered at 0.5
             )
+            estimator_evidence.metadata["subclaim_id"] = sc_id
+            estimator_evidence.metadata["probability"] = prob
+            if estimator_confidence is not None:
+                estimator_evidence.metadata["estimator_confidence"] = estimator_confidence
+                estimator_confidence_scores[sc_id] = estimator_confidence
 
     # Map challenges → tensions
     for ch in challenges:
@@ -1123,6 +1130,7 @@ def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
     proof.metadata["obfuscation_detected"] = obfuscation_detected
     proof.metadata["subclaim_count"] = len(subclaims)
     proof.metadata["challenge_count"] = len(challenges)
+    proof.metadata["estimator_confidence_scores"] = estimator_confidence_scores
     proof.metadata.update(metadata)
 
     return proof
