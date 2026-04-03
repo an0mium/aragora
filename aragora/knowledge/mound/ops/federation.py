@@ -75,6 +75,42 @@ class SyncResult:
     error: str | None = None
 
 
+COORDINATOR_MODE_ATTR_BY_REGION_MODE: dict[FederationMode, str] = {
+    FederationMode.NONE: "ISOLATED",
+    FederationMode.PULL: "READONLY",
+    FederationMode.BIDIRECTIONAL: "BIDIRECTIONAL",
+    FederationMode.PUSH: "ORCHESTRATED",
+}
+
+
+def _normalize_region_federation_mode(
+    raw_mode: object,
+    *,
+    region_id: str,
+) -> FederationMode:
+    if isinstance(raw_mode, FederationMode):
+        return raw_mode
+
+    candidate = getattr(raw_mode, "value", raw_mode)
+    if isinstance(candidate, str):
+        try:
+            return FederationMode(candidate.strip().lower())
+        except ValueError:
+            logger.warning(
+                "Unknown federation mode %r for region %s; defaulting to none",
+                candidate,
+                region_id,
+            )
+            return FederationMode.NONE
+
+    logger.warning(
+        "Unsupported federation mode %r for region %s; defaulting to none",
+        raw_mode,
+        region_id,
+    )
+    return FederationMode.NONE
+
+
 class FederationProtocol(Protocol):
     """Protocol defining expected interface for Federation mixin."""
 
@@ -685,16 +721,17 @@ class KnowledgeFederationMixin:
             from aragora.coordination.cross_workspace import (
                 CrossWorkspaceCoordinator,
                 FederatedWorkspace,
-                FederationMode,
+                FederationMode as CoordinatorFederationMode,
             )
 
-            mode_value = region.mode.value if hasattr(region.mode, "value") else str(region.mode)
-            coordinator_mode = {
-                "none": FederationMode.ISOLATED,
-                "pull": FederationMode.READONLY,
-                "bidirectional": FederationMode.BIDIRECTIONAL,
-                "push": FederationMode.ORCHESTRATED,
-            }.get(mode_value, FederationMode.BIDIRECTIONAL)
+            normalized_mode = _normalize_region_federation_mode(
+                region.mode,
+                region_id=region.region_id,
+            )
+            coordinator_mode = getattr(
+                CoordinatorFederationMode,
+                COORDINATOR_MODE_ATTR_BY_REGION_MODE[normalized_mode],
+            )
 
             workspace = FederatedWorkspace(
                 id=f"region:{region.region_id}",
