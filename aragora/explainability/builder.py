@@ -180,6 +180,34 @@ class ExplanationBuilder:
 
         return decision
 
+    def snapshot_to_metadata(self, snapshot: Any) -> dict[str, Any]:
+        """Convert a :class:`~aragora.explainability.live_stream.ExplanationSnapshot`
+        into a metadata dict suitable for embedding in a :class:`DecisionReceipt`.
+
+        This bridges the live explainability stream with the receipt pipeline so
+        that the EventBus-driven factor tracking survives into the audit receipt.
+
+        Args:
+            snapshot: An ``ExplanationSnapshot`` (or duck-typed equivalent with
+                the same public attributes).
+
+        Returns:
+            A dict keyed the same way ``handle_debate_completion`` writes into
+            ``result.metadata["live_explainability"]``.
+        """
+        return {
+            "factors": getattr(snapshot, "top_factors", []),
+            "narrative": getattr(snapshot, "narrative", ""),
+            "leading_position": getattr(snapshot, "leading_position", None),
+            "agent_agreement": getattr(snapshot, "agent_agreement", 0.0),
+            "evidence_quality": getattr(snapshot, "evidence_quality", 0.0),
+            "position_confidence": getattr(snapshot, "position_confidence", 0.0),
+            "round_num": getattr(snapshot, "round_num", 0),
+            "evidence_count": getattr(snapshot, "evidence_count", 0),
+            "vote_count": getattr(snapshot, "vote_count", 0),
+            "belief_shifts": getattr(snapshot, "belief_shifts", 0),
+        }
+
     def _emit_event(self, event_name: str, data: dict[str, Any]) -> None:
         """Emit a stream event if event_emitter is configured."""
         if not self.event_emitter:
