@@ -12,7 +12,7 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -583,6 +583,145 @@ class TestShareReceipt:
         mock_receipt_share_store.save.assert_called_once()
 
 
+class TestFormattedReceipt:
+    """Tests for GET /api/v2/receipts/{receipt_id}/formatted/{channel_type}."""
+
+    def test_get_formatted_receipt_not_found(self, client):
+        response = client.get("/api/v2/receipts/missing/formatted/slack")
+        assert response.status_code == 404
+
+    def test_get_formatted_receipt_success(self, client, mock_receipt_store, sample_receipt_dict):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            return_value={"blocks": [{"type": "section"}]},
+        ) as format_receipt:
+            response = client.get("/api/v2/receipts/rcpt_test123/formatted/slack?compact=true")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["channel_type"] == "slack"
+        assert data["formatted"]["blocks"][0]["type"] == "section"
+        format_receipt.assert_called_once()
+
+    def test_get_formatted_receipt_invalid_channel(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            side_effect=ValueError("No formatter registered for channel: fax"),
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/formatted/fax")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "No formatter registered for channel: fax"
+
+
+class TestVerifyReceiptSignature:
+    """Tests for POST /api/v2/receipts/{receipt_id}/verify-signature."""
+
+    def test_verify_signature_not_found(self, client, mock_receipt_store):
+        result = MagicMock()
+        result.error = "Receipt not found"
+        result.to_dict.return_value = {
+            "receipt_id": "missing",
+            "signature_valid": False,
+            "algorithm": None,
+            "key_id": None,
+            "signed_at": None,
+            "verification_timestamp": "2026-02-11T12:00:00Z",
+            "error": "Receipt not found",
+        }
+        mock_receipt_store.verify_signature = MagicMock(return_value=result)
+
+        response = client.post("/api/v2/receipts/missing/verify-signature")
+        assert response.status_code == 404
+
+    def test_verify_signature_success(self, client, mock_receipt_store):
+        result = MagicMock()
+        result.error = None
+        result.to_dict.return_value = {
+            "receipt_id": "rcpt_test123",
+            "signature_valid": True,
+            "algorithm": "hmac-sha256",
+            "key_id": "key-1",
+            "signed_at": 1740000000.0,
+            "verification_timestamp": "2026-02-11T12:00:00Z",
+            "error": None,
+        }
+        mock_receipt_store.verify_signature = MagicMock(return_value=result)
+
+        response = client.post("/api/v2/receipts/rcpt_test123/verify-signature")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["signature_valid"] is True
+        assert data["algorithm"] == "hmac-sha256"
+
+
+class TestSendToChannel:
+    """Tests for POST /api/v2/receipts/{receipt_id}/send-to-channel."""
+
+    def test_send_to_channel_requires_auth(self, client):
+        response = client.post(
+            "/api/v2/receipts/rcpt_test123/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        assert response.status_code == 401
+
+    def test_send_to_channel_requires_permission(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+        _override_auth(client, roles=set(), permissions=set())
+        response = client.post(
+            "/api/v2/receipts/rcpt_test123/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 403
+
+    def test_send_to_channel_not_found(self, client):
+        _override_auth(client, permissions={"receipts:share"})
+        response = client.post(
+            "/api/v2/receipts/missing/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 404
+
+    def test_send_to_channel_success(self, client, mock_receipt_store, sample_receipt_dict):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+        _override_auth(client, permissions={"receipts:share"})
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            return_value={"subject": "Decision Receipt", "html": "<p>ok</p>"},
+        ):
+            with patch(
+                "aragora.server.handlers.receipts.ReceiptsHandler._send_to_email",
+                new=AsyncMock(
+                    return_value={"message_id": "msg-123", "email_sent_to": "user@example.com"}
+                ),
+            ):
+                response = client.post(
+                    "/api/v2/receipts/rcpt_test123/send-to-channel",
+                    json={"channel_type": "email", "channel_id": "user@example.com"},
+                )
+
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sent"] is True
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["channel_type"] == "email"
+        assert data["message_id"] == "msg-123"
+
+
 class TestGetSharedReceipt:
     """Tests for GET /api/v2/receipts/share/{token}."""
 
@@ -648,6 +787,20 @@ class TestGetSharedReceipt:
         assert spec["paths"]["/api/v2/receipts/{receipt_id}/share"]["post"]["security"] == [
             {"bearerAuth": []}
         ]
+        assert "/api/v2/receipts/{receipt_id}/formatted/{channel_type}" in spec["paths"]
+        assert (
+            "security"
+            not in spec["paths"]["/api/v2/receipts/{receipt_id}/formatted/{channel_type}"]["get"]
+        )
+        assert "/api/v2/receipts/{receipt_id}/verify-signature" in spec["paths"]
+        assert (
+            "security"
+            not in spec["paths"]["/api/v2/receipts/{receipt_id}/verify-signature"]["post"]
+        )
+        assert "/api/v2/receipts/{receipt_id}/send-to-channel" in spec["paths"]
+        assert spec["paths"]["/api/v2/receipts/{receipt_id}/send-to-channel"]["post"][
+            "security"
+        ] == [{"bearerAuth": []}]
 
 
 # =============================================================================

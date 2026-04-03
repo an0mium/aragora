@@ -237,6 +237,13 @@ PERMISSION_ENDPOINTS = [
         description="Create receipt share link",
     ),
     EndpointAuth(
+        "/api/v2/receipts/{receipt_id}/send-to-channel",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="receipts:share",
+        description="Send receipt to an external channel",
+    ),
+    EndpointAuth(
         "/api/plugins",
         "post",
         AuthLevel.PERMISSION,
