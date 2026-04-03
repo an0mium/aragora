@@ -521,7 +521,11 @@ class UnifiedHandler(  # type: ignore[misc]
 
     def _serve_live_spectate_stream(self, query: dict[str, Any]) -> bool:
         """Write a live SSE response for the public spectate stream endpoint."""
-        from aragora.server.handlers.spectate_ws import iter_live_spectate_sse_frames
+        from aragora.server.handlers.spectate_ws import (
+            _can_view_live_debates,
+            _get_optional_user_from_request,
+            iter_live_spectate_sse_frames,
+        )
 
         self._response_status = 200
         self.send_response(200)
@@ -538,7 +542,12 @@ class UnifiedHandler(  # type: ignore[misc]
         self._add_trace_headers()
         self.end_headers()
 
-        stream = iter_live_spectate_sse_frames(query)
+        allow_private = _can_view_live_debates(_get_optional_user_from_request(self))
+        stream = iter_live_spectate_sse_frames(
+            query,
+            allow_private=allow_private,
+            storage=getattr(self, "storage", None),
+        )
         try:
             for chunk in stream:
                 self.wfile.write(chunk)

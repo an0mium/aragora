@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import aragora.server.handlers.spectate_ws as spectate_ws_handler
+from aragora.server.handlers.debates.share import _reset_share_state, set_public_spectate
 from aragora.server.handlers.spectate_ws import SpectateStreamHandler
 from aragora.server.handlers.spectate_ws import iter_live_spectate_sse_frames
 from aragora.spectate.ws_bridge import (
@@ -32,8 +33,10 @@ from aragora.spectate.ws_bridge import (
 @pytest.fixture(autouse=True)
 def _reset_bridge():
     """Reset the singleton bridge between tests."""
+    _reset_share_state()
     reset_spectate_bridge()
     yield
+    _reset_share_state()
     reset_spectate_bridge()
 
 
@@ -289,6 +292,82 @@ class TestLiveSSEFrames:
         assert "resync" in payload["message"]
         assert bridge.unsubscribed is True
 
+    def test_filters_private_backlog_and_live_updates_for_public_callers(self):
+        set_public_spectate("shared-222", True)
+        bridge = _ManualSpectateBridge(
+            recent_events=[
+                SpectateEvent(
+                    event_type="proposal",
+                    timestamp="2026-04-03T11:00:00Z",
+                    debate_id="private-111",
+                    agent_name="claude",
+                    data={"details": "Private opening"},
+                ),
+                SpectateEvent(
+                    event_type="proposal",
+                    timestamp="2026-04-03T11:00:01Z",
+                    debate_id="shared-222",
+                    agent_name="gpt4",
+                    data={"details": "Shared opening"},
+                ),
+                SpectateEvent(
+                    event_type="proposal",
+                    timestamp="2026-04-03T11:00:02Z",
+                    debate_id="playground_abcd1234",
+                    agent_name="gemini",
+                    data={"details": "Playground opening"},
+                ),
+            ]
+        )
+
+        stream = iter_live_spectate_sse_frames(
+            {"count": "5"},
+            heartbeat_interval=60,
+            bridge=bridge,
+            allow_private=False,
+        )
+
+        connected = next(stream)
+        shared_backlog = next(stream)
+        playground_backlog = next(stream)
+        snapshot_complete = next(stream)
+
+        assert bridge._subscriber is not None
+        bridge._subscriber(
+            SpectateEvent(
+                event_type="critique",
+                timestamp="2026-04-03T11:00:03Z",
+                debate_id="private-111",
+                agent_name="claude",
+                data={"details": "Private critique"},
+            )
+        )
+        bridge._subscriber(
+            SpectateEvent(
+                event_type="critique",
+                timestamp="2026-04-03T11:00:04Z",
+                debate_id="shared-222",
+                agent_name="gpt4",
+                data={"details": "Shared critique"},
+            )
+        )
+        live_update = next(stream)
+        stream.close()
+
+        frames = _parse_sse_frames(
+            connected + shared_backlog + playground_backlog + snapshot_complete + live_update
+        )
+        assert [frame[0] for frame in frames] == [
+            "connected",
+            "spectate",
+            "spectate",
+            "snapshot_complete",
+            "spectate",
+        ]
+        visible_debate_ids = [frame[1]["debate_id"] for frame in frames if frame[0] == "spectate"]
+        assert "private-111" not in visible_debate_ids
+        assert visible_debate_ids == ["shared-222", "playground_abcd1234", "shared-222"]
+
 
 # ---------------------------------------------------------------------------
 # Recent events tests
@@ -406,10 +485,9 @@ class TestRecentEvents:
         assert body["count"] == 1
         assert body["events"][0]["pipeline_id"] == "p-abc"
 
-    def test_recent_keeps_debate_ids_visible_for_public_spectate_surfaces(
+    def test_recent_filters_private_debate_events_for_unauthenticated_callers(
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
     ):
-        """Public landing/spectate surfaces rely on recent events to discover live debates."""
         from aragora.spectate.ws_bridge import get_spectate_bridge
 
         bridge = get_spectate_bridge()
@@ -417,9 +495,28 @@ class TestRecentEvents:
             SpectateEvent(
                 event_type="proposal",
                 timestamp="2026-02-18T10:00:00+00:00",
-                debate_id="d-landing",
+                debate_id="d-private",
                 agent_name="claude",
-                data={"details": "Opening argument"},
+                data={"details": "Private opening"},
+            )
+        )
+        set_public_spectate("d-shared", True)
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:01+00:00",
+                debate_id="d-shared",
+                agent_name="gpt4",
+                data={"details": "Shared opening"},
+            )
+        )
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:02+00:00",
+                debate_id="playground_abc12345",
+                agent_name="gemini",
+                data={"details": "Playground opening"},
             )
         )
 
@@ -427,9 +524,41 @@ class TestRecentEvents:
             result = handler.handle("/api/v1/spectate/recent", {}, mock_handler)
 
         body = result[0]
+        assert body["count"] == 2
+        debate_ids = [event["debate_id"] for event in body["events"]]
+        assert debate_ids == ["d-shared", "playground_abc12345"]
+        assert "d-private" not in debate_ids
+
+    def test_recent_keeps_private_debate_events_for_authenticated_readers(
+        self, handler: SpectateStreamHandler, mock_handler: MagicMock
+    ):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:00+00:00",
+                debate_id="d-private",
+                agent_name="claude",
+                data={"details": "Private opening"},
+            )
+        )
+
+        with patch.object(
+            handler,
+            "get_current_user",
+            return_value=SimpleNamespace(
+                permissions=["debates:read"],
+                roles=[],
+                role="member",
+            ),
+        ):
+            result = handler.handle("/api/v1/spectate/recent", {}, mock_handler)
+
+        body = result[0]
         assert body["count"] == 1
-        assert body["events"][0]["debate_id"] == "d-landing"
-        assert body["events"][0]["agent_name"] == "claude"
+        assert body["events"][0]["debate_id"] == "d-private"
 
 
 # ---------------------------------------------------------------------------
