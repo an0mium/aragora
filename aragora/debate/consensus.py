@@ -987,6 +987,140 @@ def _extract_topic(text: str) -> str:
     return text[:50].strip() + "..."
 
 
+def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
+    """Build a ConsensusProof from a ProverEstimatorResult.
+
+    Bridges the prover-estimator protocol output into the standard
+    ConsensusProof artifact so it can be audited and serialized
+    consistently with other consensus modes.
+
+    Args:
+        pe_result: A ProverEstimatorResult (or compatible duck-typed object).
+
+    Returns:
+        A fully-populated ConsensusProof.
+    """
+    debate_id = getattr(pe_result, "debate_id", "pe-debate")
+    original_claim = getattr(pe_result, "original_claim", "")
+    subclaims = getattr(pe_result, "subclaims", [])
+    initial_estimates = getattr(pe_result, "initial_estimates", [])
+    final_estimates = getattr(pe_result, "final_estimates", [])
+    challenges = getattr(pe_result, "challenges", [])
+    overall_confidence = getattr(pe_result, "overall_confidence", 0.0)
+    grounding_score = getattr(pe_result, "grounding_score", 0.0)
+    obfuscation_detected = getattr(pe_result, "obfuscation_detected", False)
+    metadata = getattr(pe_result, "metadata", {})
+
+    builder = ConsensusBuilder(debate_id=debate_id, task=original_claim)
+
+    # Map subclaims → Claim objects
+    estimates_by_id: dict[str, Any] = {}
+    for est in final_estimates or initial_estimates:
+        sid = getattr(est, "subclaim_id", "")
+        if sid:
+            estimates_by_id[sid] = est
+
+    for sc in subclaims:
+        sc_id = getattr(sc, "id", "")
+        sc_text = getattr(sc, "text", "")
+        importance = getattr(sc, "importance", 0.5)
+        evidence_text = getattr(sc, "evidence", "")
+
+        claim = builder.add_claim(
+            statement=sc_text,
+            author="prover",
+            confidence=importance,
+        )
+
+        # Attach prover evidence
+        if evidence_text:
+            builder.add_evidence(
+                claim_id=claim.claim_id,
+                source="prover",
+                content=evidence_text,
+                evidence_type="argument",
+                supports=True,
+                strength=importance,
+            )
+
+        # Attach estimator probability as evidence
+        est = estimates_by_id.get(sc_id)
+        if est:
+            prob = getattr(est, "probability", 0.5)
+            builder.add_evidence(
+                claim_id=claim.claim_id,
+                source="estimator",
+                content=f"Probability estimate: {prob:.2f}",
+                evidence_type="data",
+                supports=prob >= 0.5,
+                strength=abs(prob - 0.5) * 2,  # scale [0,1] centered at 0.5
+            )
+
+    # Map challenges → tensions
+    for ch in challenges:
+        ch_sc_id = getattr(ch, "subclaim_id", "")
+        ch_type = getattr(ch, "challenge_type", "evidence")
+        ch_evidence = getattr(ch, "evidence", "")
+        builder.record_tension(
+            description=f"Challenge ({ch_type}) on subclaim {ch_sc_id}",
+            agents=["prover", "estimator"],
+            options=[ch_evidence or "prover's original evidence", "estimator's assessment"],
+            impact="Affects subclaim confidence",
+        )
+
+    # Synthesize votes: prover always supports, estimator vote depends on confidence
+    builder.record_vote(
+        agent="prover",
+        vote=VoteType.AGREE,
+        confidence=overall_confidence,
+        reasoning="Prover supports the decomposed claim",
+    )
+
+    estimator_vote = VoteType.AGREE if overall_confidence >= 0.5 else VoteType.CONDITIONAL
+    builder.record_vote(
+        agent="estimator",
+        vote=estimator_vote,
+        confidence=overall_confidence,
+        reasoning=(
+            f"Estimator {'supports' if overall_confidence >= 0.5 else 'conditionally accepts'} "
+            f"with grounding={grounding_score:.2f}"
+        ),
+        conditions=["obfuscation detected"] if obfuscation_detected else [],
+    )
+
+    if obfuscation_detected:
+        builder.record_dissent(
+            agent="estimator",
+            claim_id=builder.claims[0].claim_id if builder.claims else "",
+            reasons=["Obfuscation detected in prover arguments"],
+            dissent_type="procedural",
+            severity=0.7,
+        )
+
+    proof = builder.build(
+        final_claim=original_claim,
+        confidence=overall_confidence,
+        consensus_reached=overall_confidence >= 0.5 and not obfuscation_detected,
+        reasoning_summary=(
+            f"Prover-Estimator protocol: {len(subclaims)} subclaims, "
+            f"{len(challenges)} challenges, "
+            f"grounding={grounding_score:.2f}, "
+            f"obfuscation={'yes' if obfuscation_detected else 'no'}"
+        ),
+        rounds=len(challenges),
+    )
+
+    # Attach PE-specific metadata
+    proof.metadata["consensus_mode"] = "prover_estimator"
+    proof.metadata["grounding_score"] = grounding_score
+    proof.metadata["obfuscation_detected"] = obfuscation_detected
+    proof.metadata["subclaim_count"] = len(subclaims)
+    proof.metadata["challenge_count"] = len(challenges)
+    proof.metadata.update(metadata)
+
+    return proof
+
+
 def _is_actionable(text: str) -> bool:
     """Check if a statement is actionable (implementation-oriented)."""
     action_keywords = [
