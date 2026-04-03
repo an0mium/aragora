@@ -963,9 +963,10 @@ class SlackOAuthHandler(SecureHandler):
         # Verify state token using centralized state store
         state_store = _get_state_store()
         state_data = state_store.validate_and_consume(state)
+        _cleanup_oauth_states_fallback()
+        fallback_state_data = _oauth_states_fallback.pop(state, None)
         if not state_data:
-            _cleanup_oauth_states_fallback()
-            state_data = _oauth_states_fallback.pop(state, None)
+            state_data = fallback_state_data
         if not state_data:
             return error_response("Invalid or expired state token", 400)
 

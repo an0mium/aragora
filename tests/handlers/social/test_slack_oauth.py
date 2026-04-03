@@ -1233,6 +1233,75 @@ class TestCallback:
         assert "fallback-state" not in handler_module._oauth_states_fallback
 
     @pytest.mark.asyncio
+    async def test_callback_consumes_fallback_copy_after_store_success(
+        self, handler, handler_module, mock_state_store
+    ):
+        """A consumed centralized state must not remain replayable via fallback."""
+        handler_module._oauth_states_fallback["test-state-token-abc123"] = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+        mock_state_store.validate_and_consume.side_effect = [
+            {
+                "tenant_id": "tenant-1",
+                "provider": "slack",
+                "created_at": time.time(),
+            },
+            None,
+        ]
+
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-token",
+                "team": {"id": "W111", "name": "Replay Safe"},
+                "bot_user_id": "B1",
+                "authed_user": {"id": "U1"},
+                "scope": "channels:history",
+            }
+        )
+
+        mock_ws_store = MagicMock()
+        mock_ws_store.get.return_value = None
+        mock_ws_store.save.return_value = True
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_ws_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
+            first = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+            second = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(first) == 200
+        assert "test-state-token-abc123" not in handler_module._oauth_states_fallback
+        assert _status(second) == 400
+        body = _body(second)
+        assert "invalid or expired state token" in body.get("error", "").lower()
+        assert mock_client.post.await_count == 1
+
+    @pytest.mark.asyncio
     async def test_callback_state_from_oauth_state_object(
         self, handler, mock_state_store, mock_workspace_store
     ):
