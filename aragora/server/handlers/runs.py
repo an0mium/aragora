@@ -132,8 +132,9 @@ class RunsHandler(BaseHandler):
     # -------------------------------------------------------------------------
 
     @handle_errors("run detail")
-    def _get_run(self, query_params: dict[str, Any], *, run_id: str = "") -> HandlerResult:
+    def _get_run(self, params: dict[str, str], query_params: dict[str, Any]) -> HandlerResult:
         """Get a single run by ID."""
+        run_id = params.get("run_id", "")
         if not run_id:
             return error_response("Missing run_id", 400)
 
@@ -155,4 +156,4 @@ class RunsHandler(BaseHandler):
         run_id = path[len(_RUN_PREFIX) :].strip("/")
         if not run_id or "/" in run_id:
             return None
-        return self._get_run({}, run_id=run_id)
+        return self._get_run({"run_id": run_id}, {})
