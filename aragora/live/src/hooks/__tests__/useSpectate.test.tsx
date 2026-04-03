@@ -197,4 +197,60 @@ describe('useSpectate', () => {
       mockFetch.mock.calls.some(([url]) => String(url).includes('/api/v1/spectate/recent?count=4')),
     ).toBe(true);
   });
+
+  it('resyncs from recent events when the live stream reports overflow', async () => {
+    const mockFetch = global.fetch as jest.Mock;
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/spectate/status')) {
+        return createJsonResponse(createStatusPayload());
+      }
+      if (url.endsWith('/api/v1/spectate/recent?count=4')) {
+        return createJsonResponse({
+          events: [
+            {
+              event_type: 'consensus',
+              timestamp: '2026-04-03T11:00:03Z',
+              data: { details: 'Recovered from a stream gap.' },
+              debate_id: 'debate-1',
+              pipeline_id: null,
+              agent_name: 'judge',
+              round_number: 2,
+            },
+          ],
+          count: 1,
+        });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useSpectate(undefined, undefined, { pollInterval: 1000, maxEvents: 4 }),
+    );
+
+    await waitFor(() => {
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    const stream = MockEventSource.instances[0];
+
+    act(() => {
+      stream.simulateOpen();
+      stream.emit('resync_required', {
+        reason: 'queue_overflow',
+        dropped_events: 3,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.connected).toBe(true);
+      expect(result.current.events).toHaveLength(1);
+    });
+
+    expect(stream.closed).toBe(true);
+    expect(result.current.events[0].event_type).toBe('consensus');
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/api/v1/spectate/recent?count=4')),
+    ).toBe(true);
+  });
 });

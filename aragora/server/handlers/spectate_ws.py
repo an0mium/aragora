@@ -35,6 +35,7 @@ _DEFAULT_SPECTATE_EVENT_COUNT = 50
 _MAX_SPECTATE_EVENT_COUNT = 500
 _LIVE_SSE_HEARTBEAT_SECONDS = 15.0
 _LIVE_SSE_QUEUE_SIZE = 256
+_LIVE_SSE_RESYNC_SENTINEL = object()
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -232,21 +233,32 @@ def iter_live_spectate_sse_frames(
         metadata["pipeline_id"] = pipeline_id
 
     event_queue: queue.Queue[Any] = queue.Queue(maxsize=_LIVE_SSE_QUEUE_SIZE)
+    resync_state = {"pending": False, "dropped_events": 0}
 
     def enqueue(event: Any) -> None:
         if not _event_matches_scope(event, debate_id=debate_id, pipeline_id=pipeline_id):
             return
+        if resync_state["pending"]:
+            resync_state["dropped_events"] += 1
+            return
         try:
             event_queue.put_nowait(event)
         except queue.Full:
+            dropped_events = 1
+            while True:
+                try:
+                    event_queue.get_nowait()
+                    dropped_events += 1
+                except queue.Empty:
+                    break
+            resync_state["pending"] = True
+            resync_state["dropped_events"] += dropped_events
             try:
-                event_queue.get_nowait()
-            except queue.Empty:
-                return
-            try:
-                event_queue.put_nowait(event)
+                # Stop the live stream as soon as possible so clients can resync
+                # from /recent instead of silently rendering a truncated transcript.
+                event_queue.put_nowait(_LIVE_SSE_RESYNC_SENTINEL)
             except queue.Full:
-                logger.debug("spectate_live_sse_queue_full", exc_info=True)
+                logger.debug("spectate_live_sse_resync_enqueue_failed", exc_info=True)
 
     bridge.subscribe(enqueue)
     try:
@@ -261,6 +273,19 @@ def iter_live_spectate_sse_frames(
             except queue.Empty:
                 yield b": heartbeat\n\n"
                 continue
+            if event is _LIVE_SSE_RESYNC_SENTINEL:
+                yield _sse_frame(
+                    "resync_required",
+                    {
+                        **metadata,
+                        "reason": "queue_overflow",
+                        "dropped_events": resync_state["dropped_events"],
+                        "message": (
+                            "Live spectate delivery fell behind and needs a recent-event resync."
+                        ),
+                    },
+                ).encode("utf-8")
+                break
             yield _sse_frame("spectate", event.to_dict()).encode("utf-8")
     finally:
         bridge.unsubscribe(enqueue)

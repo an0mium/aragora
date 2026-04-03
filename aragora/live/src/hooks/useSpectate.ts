@@ -252,10 +252,18 @@ export function useSpectate(
       }
     };
 
+    const handleResyncRequired = () => {
+      if (eventSourceRef.current !== source) return;
+      setConnected(false);
+      closeEventSource();
+      startFallbackPolling();
+    };
+
     source.onopen = handleConnected;
     source.addEventListener('connected', handleConnected as EventListener);
     source.addEventListener('snapshot_complete', handleConnected as EventListener);
     source.addEventListener('spectate', handleSpectateMessage as EventListener);
+    source.addEventListener('resync_required', handleResyncRequired as EventListener);
     source.onerror = () => {
       if (eventSourceRef.current !== source) return;
       setConnected(false);

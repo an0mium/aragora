@@ -9,10 +9,12 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import aragora.server.handlers.spectate_ws as spectate_ws_handler
 from aragora.server.handlers.spectate_ws import SpectateStreamHandler
 from aragora.server.handlers.spectate_ws import iter_live_spectate_sse_frames
 from aragora.spectate.ws_bridge import (
@@ -66,6 +68,28 @@ def _parse_sse_frames(body: bytes) -> list[tuple[str, object]]:
                 payload = json.loads(line.removeprefix("data: "))
         frames.append((event_type, payload))
     return frames
+
+
+class _ManualSpectateBridge:
+    """Deterministic bridge stub for live SSE generator tests."""
+
+    def __init__(self, recent_events: list[SpectateEvent] | None = None) -> None:
+        self.running = True
+        self._recent_events = recent_events or []
+        self._subscriber: Any = None
+        self.unsubscribed = False
+
+    def start(self) -> None:
+        self.running = True
+
+    def subscribe(self, callback: Any) -> None:
+        self._subscriber = callback
+
+    def unsubscribe(self, callback: Any) -> None:
+        self.unsubscribed = callback == self._subscriber
+
+    def get_recent_events(self, count: int = 50) -> list[SpectateEvent]:
+        return list(self._recent_events[-count:])
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +247,47 @@ class TestLiveSSEFrames:
         assert next(stream).startswith(b"event: snapshot_complete")
         assert next(stream) == b": heartbeat\n\n"
         stream.close()
+
+    def test_emits_resync_required_when_live_queue_overflows(self, monkeypatch):
+        monkeypatch.setattr(spectate_ws_handler, "_LIVE_SSE_QUEUE_SIZE", 2)
+        bridge = _ManualSpectateBridge()
+
+        stream = iter_live_spectate_sse_frames(
+            {"count": "5"},
+            heartbeat_interval=60,
+            bridge=bridge,
+        )
+
+        connected = next(stream)
+        snapshot_complete = next(stream)
+
+        assert bridge._subscriber is not None
+        for i in range(3):
+            bridge._subscriber(
+                SpectateEvent(
+                    event_type="system",
+                    timestamp=f"2026-04-03T11:00:0{i}Z",
+                    data={"details": f"event-{i}"},
+                )
+            )
+
+        resync = next(stream)
+
+        with pytest.raises(StopIteration):
+            next(stream)
+
+        frames = _parse_sse_frames(connected + snapshot_complete + resync)
+        assert [frame[0] for frame in frames] == [
+            "connected",
+            "snapshot_complete",
+            "resync_required",
+        ]
+        payload = frames[-1][1]
+        assert isinstance(payload, dict)
+        assert payload["reason"] == "queue_overflow"
+        assert payload["dropped_events"] == 3
+        assert "resync" in payload["message"]
+        assert bridge.unsubscribed is True
 
 
 # ---------------------------------------------------------------------------
