@@ -194,6 +194,10 @@ class MockSkillTier:
         self.value = value
 
 
+MockSkillTier.FREE = MockSkillTier("free")
+MockSkillTier.PREMIUM = MockSkillTier("premium")
+
+
 class MockHTTPHandler:
     """Mock HTTP handler simulating BaseHTTPRequestHandler."""
 
