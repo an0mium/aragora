@@ -345,7 +345,10 @@ class TestListRuns:
                 plan_id="plan-1",
                 debate_id="deb-1",
                 execution_id="exec-1",
-                events=[(BackboneStage.INTAKE, "received"), (BackboneStage.SPEC, "completed")],
+                events=[
+                    (BackboneStage.INTAKE, "received"),
+                    (BackboneStage.SPECIFICATION, "completed"),
+                ],
             )
         )
 
@@ -447,7 +450,7 @@ class TestGetRun:
                 "run-events",
                 events=[
                     (BackboneStage.INTAKE, "received"),
-                    (BackboneStage.SPEC, "completed"),
+                    (BackboneStage.SPECIFICATION, "completed"),
                     (BackboneStage.PLAN, "in_progress"),
                 ],
             )
@@ -462,7 +465,7 @@ class TestGetRun:
         events = parsed["data"]["run"]["stage_events"]
         assert len(events) == 3
         assert events[0]["stage"] == BackboneStage.INTAKE.value
-        assert events[1]["stage"] == BackboneStage.SPEC.value
+        assert events[1]["stage"] == BackboneStage.SPECIFICATION.value
         assert events[2]["stage"] == BackboneStage.PLAN.value
 
     def test_field_values_match_created_run(
@@ -568,8 +571,9 @@ class TestCanHandleRuns:
     def test_matches_single_run_get(self, handler: PromptEngineHandler) -> None:
         assert handler.can_handle("/api/prompt-engine/runs/some-id", "GET")
 
-    def test_rejects_runs_post(self, handler: PromptEngineHandler) -> None:
-        assert not handler.can_handle("/api/prompt-engine/runs", "POST")
+    def test_accepts_runs_post_at_prompt_engine_level(self, handler: PromptEngineHandler) -> None:
+        # POST is accepted for any /api/prompt-engine/ path (handler dispatches internally)
+        assert handler.can_handle("/api/prompt-engine/runs", "POST")
 
     def test_rejects_unrelated_path(self, handler: PromptEngineHandler) -> None:
         assert not handler.can_handle("/api/other/runs", "GET")
