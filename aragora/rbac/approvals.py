@@ -741,6 +741,10 @@ class ApprovalWorkflow:
             # Map resource type string to enum
             resource_type_enum = ResourceType(request.resource_type)
 
+            metadata = {"approval_request_id": request.id}
+            if request.workspace_id is not None:
+                metadata["workspace_id"] = request.workspace_id
+
             store.grant_permission(
                 user_id=request.requester_id,
                 permission_id=request.permission,
@@ -748,7 +752,8 @@ class ApprovalWorkflow:
                 resource_id=request.resource_id or "*",
                 granted_by="approval_workflow",
                 expires_at=expires_at,
-                conditions={"approval_request_id": request.id},
+                org_id=request.org_id,
+                metadata=metadata,
             )
 
             logger.info(
