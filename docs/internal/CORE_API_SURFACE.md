@@ -1,29 +1,34 @@
 # Core API Surface Analysis
 
-Last updated: 2026-02-13
+Last updated: 2026-04-03
 
 ## Summary
 
-The Aragora server exposes 3,000+ API operations across 208 handler files. This document identifies the ~50 core endpoints that serve 90% of users and categorizes the rest for potential extraction.
+The Aragora server exposes 3,000+ API operations across 208 handler files. This document identifies the maintained core endpoints that serve most users and categorizes the rest for potential extraction.
 
-## Core Endpoints (~50)
+Verified against the current codebase on `origin/main`:
+- Native FastAPI routes now live primarily under `/api/v2/*`.
+- A smaller legacy compatibility surface still exists for routes such as `/api/debates` and `/api/health`.
+- The tables below prefer the maintained route first and call out legacy aliases only when they are still commonly used by clients or runbooks.
+
+## Core Endpoints (~40 maintained + compatibility aliases)
 
 These are the endpoints every Aragora user needs.
 
-### Debates (12 endpoints)
+### Debates (10 maintained endpoints)
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
-| POST | `/api/v1/debates` | debates | Create a new debate |
-| GET | `/api/v1/debates` | debates | List debates |
-| GET | `/api/v1/debates/:id` | debates | Get debate details |
-| DELETE | `/api/v1/debates/:id` | debates | Delete a debate |
-| POST | `/api/v1/debates/:id/start` | debates | Start a debate |
-| GET | `/api/v1/debates/:id/status` | debates | Get debate status |
-| GET | `/api/v1/debates/:id/result` | debates | Get debate result |
-| POST | `/api/v1/debates/quick` | debates | One-shot quick debate |
-| GET | `/api/v1/debates/matrix` | matrix_debates | Matrix debate view |
-| POST | `/api/v1/debates/graph` | graph_debates | Graph debate |
+| POST | `/api/v2/debates` | debates | Create a new debate (`/api/debates` compatibility alias also exists) |
+| GET | `/api/v2/debates` | debates | List debates |
+| GET | `/api/v2/debates/{debate_id}` | debates | Get debate details |
+| PATCH | `/api/v2/debates/{debate_id}` | debates | Update debate metadata |
+| DELETE | `/api/v2/debates/{debate_id}` | debates | Delete a debate |
+| GET | `/api/v2/debates/{debate_id}/messages` | debates | Get debate messages |
+| GET | `/api/v2/debates/{debate_id}/convergence` | debates | Get convergence status |
+| GET | `/api/v2/debates/{debate_id}/export/{format}` | debates | Export a debate |
+| GET | `/api/v2/debates/{debate_id}/argument-graph` | debates | Get argument graph |
+| GET | `/api/v2/debates/{debate_id}/stats` | debates | Get debate graph statistics |
 | POST | `/api/v1/playground/debate` | playground | Interactive playground |
 | GET | `/api/v1/playground/status` | playground | Playground status |
 
@@ -36,48 +41,45 @@ These are the endpoints every Aragora user needs.
 | POST | `/api/v2/receipts/:id/verify` | receipts | Verify receipt HMAC |
 | POST | `/api/v2/receipts/:id/share` | receipts | Generate share link |
 
-### Agents (6 endpoints)
+### Agents (8 maintained endpoints)
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
-| GET | `/api/v1/agents` | agents | List available agents |
-| GET | `/api/v1/agents/:name` | agents | Get agent details |
-| GET | `/api/v1/agents/:name/stats` | agents | Agent performance stats |
-| GET | `/api/v1/rankings` | rankings | ELO rankings |
-| GET | `/api/v1/tournaments` | tournaments | Tournament standings |
-| POST | `/api/v1/tournaments` | tournaments | Create tournament |
+| GET | `/api/v2/agents` | agents | List available agents |
+| POST | `/api/v2/agents` | agents | Register a new agent |
+| GET | `/api/v2/agents/rankings` | agents | ELO rankings |
+| GET | `/api/v2/agents/leaderboard` | agents | Agent leaderboard |
+| GET | `/api/v2/agents/domains` | agents | List agent domains |
+| GET | `/api/v2/agents/{agent_id}` | agents | Get agent details |
+| GET | `/api/v2/agents/{agent_id}/capabilities` | agents | Agent capabilities and metadata |
+| GET | `/api/v2/agents/{agent_id}/stats` | agents | Agent performance stats |
 
-### Authentication (8 endpoints)
-
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| POST | `/api/v1/auth/login` | auth | Login |
-| POST | `/api/v1/auth/register` | auth | Register |
-| POST | `/api/v1/auth/logout` | auth | Logout |
-| POST | `/api/v1/auth/refresh` | auth | Refresh token |
-| GET | `/api/v1/auth/me` | auth | Current user |
-| POST | `/api/v1/auth/api-keys` | auth | Create API key |
-| GET | `/api/v1/auth/api-keys` | auth | List API keys |
-| DELETE | `/api/v1/auth/api-keys/:id` | auth | Revoke API key |
-
-### Health & Config (6 endpoints)
+### Authentication (4 maintained endpoints)
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
-| GET | `/api/v1/health` | health | Health check |
-| GET | `/api/v1/health/ready` | health | Readiness probe |
-| GET | `/api/v1/health/live` | health | Liveness probe |
-| GET | `/api/v1/config` | config | Server configuration |
-| GET | `/api/v1/version` | version | Version info |
-| GET | `/api/v1/features` | features | Feature flags |
+| POST | `/api/v2/auth/login` | auth | Login |
+| POST | `/api/v2/auth/logout` | auth | Logout |
+| GET | `/api/v2/auth/me` | auth | Current user |
+| POST | `/api/v2/auth/refresh` | auth | Refresh token |
 
-### Gauntlet & Review (8 endpoints)
+### Health (5 maintained endpoints)
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
-| POST | `/api/v1/gauntlet/run` | gauntlet | Run adversarial gauntlet |
-| GET | `/api/v1/gauntlet/findings` | gauntlet | List findings |
-| GET | `/api/v1/gauntlet/receipts` | gauntlet | Gauntlet receipts |
+| GET | `/healthz` | health | Basic health check |
+| GET | `/livez` | health | Liveness probe |
+| GET | `/readyz` | health | Readiness probe |
+| GET | `/api/v2/health` | health | Detailed health status |
+| GET | `/api/v2/metrics/summary` | health | Basic metrics summary |
+
+### Gauntlet & Review (8 core endpoints)
+
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| POST | `/api/v2/gauntlet/run` | gauntlet | Run adversarial gauntlet |
+| GET | `/api/v2/gauntlet/{run_id}/status` | gauntlet | Get gauntlet run status |
+| GET | `/api/v2/gauntlet/{run_id}/findings` | gauntlet | Get gauntlet findings |
 | POST | `/api/v1/review` | review | Code review |
 | GET | `/api/v1/review/:id` | review | Get review result |
 | POST | `/api/v1/skills` | skills | Register skill |
@@ -93,7 +95,7 @@ These are the endpoints every Aragora user needs.
 | GET | `/api/v1/webhooks/events` | webhooks | Event types |
 | GET | `/api/v1/webhooks/dead-letter` | webhooks | Dead letter queue |
 
-**Total core: ~48 endpoints**
+**Total core: ~40 maintained endpoints, plus legacy compatibility aliases**
 
 ## Extended Endpoints (by category)
 
