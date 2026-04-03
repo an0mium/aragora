@@ -1071,7 +1071,10 @@ class TestReceiptIntegration:
         ):
             h.handle("/api/v1/debates/my-debate/package", {}, http_handler)
 
-        mock_store.get_by_gauntlet.assert_called_once_with("debate-my-debate")
+        assert mock_store.get_by_gauntlet.call_args_list == [
+            (("my-debate",), {}),
+            (("debate-my-debate",), {}),
+        ]
 
 
 # ===========================================================================
