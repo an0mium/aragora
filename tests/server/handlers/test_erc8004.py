@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.blockchain.action_store import ChainActionRecord, ChainActionStatus, ChainActionType
 from aragora.server.handlers import erc8004
 
 
@@ -690,11 +691,14 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
-        """Should register an agent and return 201."""
+        """Should queue agent registration and return 202."""
         mock_contract = MagicMock()
-        mock_contract.register_agent.return_value = 42
-        mock_signer = MagicMock()
-        mock_signer.address = "0xSignerAddress"
+        queued_action = ChainActionRecord(
+            action_id="chain-act-001",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
+        )
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -703,31 +707,35 @@ class TestListAndRegisterAgents:
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
                 return_value=mock_contract,
             ),
-            patch("aragora.blockchain.wallet.WalletSigner.from_env", return_value=mock_signer),
+            patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
             result = await erc8004.handle_register_agent(
                 agent_uri="ipfs://QmAgent",
                 metadata={"role": "critic", "score": 99},
             )
 
-        assert result["status"] == 201
+        assert result["status"] == 202
         data = json.loads(result["body"])
-        assert data["token_id"] == 42
-        assert data["owner"] == "0xSignerAddress"
-        call_args = mock_contract.register_agent.call_args
-        assert call_args is not None
-        metadata_entries = call_args.args[2]
-        assert metadata_entries[0].key == "role"
-        assert metadata_entries[0].value == b"critic"
+        assert data["action_id"] == "chain-act-001"
+        assert data["status"] == "queued"
+        assert data["agent_uri"] == "ipfs://QmAgent"
+        assert data["chain_id"] == mock_provider.get_config().chain_id
+        assert data["requires_approval"] is True
 
     @pytest.mark.asyncio
-    async def test_register_agent_requires_wallet_credentials(
+    async def test_register_agent_does_not_require_wallet_credentials(
         self,
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should return 400 when wallet credentials are missing."""
+        """Should queue registration without loading wallet credentials in-request."""
         mock_contract = MagicMock()
+        queued_action = ChainActionRecord(
+            action_id="chain-act-002",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
+        )
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -739,11 +747,13 @@ class TestListAndRegisterAgents:
             patch(
                 "aragora.blockchain.wallet.WalletSigner.from_env",
                 side_effect=ValueError("No wallet credentials configured"),
-            ),
+            ) as mock_signer,
+            patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
             result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
 
-        assert result["status"] == 400
+        assert result["status"] == 202
+        mock_signer.assert_not_called()
 
 
 # =============================================================================
@@ -858,6 +868,9 @@ class TestERC8004HandlerRouting:
             mock_fn.assert_called_once_with(
                 agent_uri="ipfs://QmAgent",
                 metadata={"role": "critic"},
+                requested_by="",
+                approval_id="",
+                receipt_id="",
             )
 
 
