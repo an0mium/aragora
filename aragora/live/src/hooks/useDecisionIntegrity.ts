@@ -61,6 +61,32 @@ export interface ComplianceStatus {
   }>;
 }
 
+interface ComplianceStatusApiResponse {
+  data?: {
+    status?: string;
+    compliance_score?: number;
+    frameworks?: {
+      soc2_type2?: {
+        status?: string;
+        controls_assessed?: number;
+        controls_compliant?: number;
+      };
+      gdpr?: {
+        status?: string;
+        data_export?: boolean;
+        consent_tracking?: boolean;
+        retention_policy?: boolean;
+      };
+      hipaa?: {
+        status?: string;
+        note?: string;
+      };
+    };
+    last_audit?: string;
+    generated_at?: string;
+  };
+}
+
 export interface MemoryStats {
   total_entries?: number;
   memory_pressure?: number;
@@ -288,6 +314,82 @@ function normalizeReceiptStats(
   };
 }
 
+function normalizeFrameworkStatus(
+  value: string | undefined,
+): 'compliant' | 'partial' | 'non_compliant' | 'not_assessed' {
+  switch (value) {
+    case 'compliant':
+    case 'supported':
+      return 'compliant';
+    case 'in_progress':
+    case 'partial':
+      return 'partial';
+    case 'non_compliant':
+      return 'non_compliant';
+    default:
+      return 'not_assessed';
+  }
+}
+
+function normalizeComplianceStatus(
+  response: ComplianceStatusApiResponse | null,
+): ComplianceStatus | null {
+  const status = response?.data;
+  if (!status) return null;
+
+  const frameworks: NonNullable<ComplianceStatus['frameworks']> = [];
+  const lastAssessed = status.last_audit ?? status.generated_at;
+
+  if (status.frameworks?.soc2_type2) {
+    const soc2 = status.frameworks.soc2_type2;
+    const controlsAssessed = soc2.controls_assessed ?? 0;
+    const controlsCompliant = soc2.controls_compliant ?? 0;
+    frameworks.push({
+      name: 'SOC 2 Type II',
+      status: normalizeFrameworkStatus(soc2.status),
+      score:
+        controlsAssessed > 0
+          ? controlsCompliant / controlsAssessed
+          : undefined,
+      last_assessed: lastAssessed,
+    });
+  }
+
+  if (status.frameworks?.gdpr) {
+    const gdpr = status.frameworks.gdpr;
+    const controlsMet = [
+      gdpr.data_export,
+      gdpr.consent_tracking,
+      gdpr.retention_policy,
+    ].filter(Boolean).length;
+    frameworks.push({
+      name: 'GDPR',
+      status: normalizeFrameworkStatus(gdpr.status),
+      score: controlsMet / 3,
+      last_assessed: lastAssessed,
+    });
+  }
+
+  if (status.frameworks?.hipaa) {
+    const hipaa = status.frameworks.hipaa;
+    frameworks.push({
+      name: 'HIPAA',
+      status: normalizeFrameworkStatus(hipaa.status),
+      last_assessed: lastAssessed,
+    });
+  }
+
+  return {
+    status: status.status,
+    overall_score:
+      typeof status.compliance_score === 'number'
+        ? status.compliance_score / 100
+        : undefined,
+    frameworks,
+    findings: [],
+  };
+}
+
 // ============================================================================
 // Hook
 // ============================================================================
@@ -308,8 +410,11 @@ export function useDecisionIntegrity(options?: DecisionIntegrityOptions) {
 
   // Parallel SWR fetches -- each degrades independently on 404/error
   const debates = useSWRFetch<DebateListResponse>('/api/v1/debates?status=active', swrOpts);
-  const consensus = useSWRFetch<ConsensusMetrics>('/api/v1/consensus/metrics', swrOpts);
-  const compliance = useSWRFetch<ComplianceStatus>('/api/v1/compliance/status', swrOpts);
+  const consensus = useSWRFetch<ConsensusMetrics>('/api/v1/consensus/stats', swrOpts);
+  const complianceStatus = useSWRFetch<ComplianceStatusApiResponse>(
+    '/api/v2/compliance/status',
+    swrOpts,
+  );
   const memory = useSWRFetch<MemoryStats>('/api/v1/memory/stats', swrOpts);
   const receiptStats = useSWRFetch<ReceiptStatsApiResponse>('/api/v2/receipts/stats', swrOpts);
   const receiptDeliveries = useSWRFetch<ReceiptDeliveryHistoryResponse>(
@@ -327,23 +432,27 @@ export function useDecisionIntegrity(options?: DecisionIntegrityOptions) {
     () => normalizeReceiptStats(receiptStats.data, receiptDeliveries.data),
     [receiptStats.data, receiptDeliveries.data],
   );
+  const compliance = useMemo(
+    () => normalizeComplianceStatus(complianceStatus.data),
+    [complianceStatus.data],
+  );
 
   const metrics = useMemo(
     () =>
       computeIntegrityMetrics(
         debates.data,
         consensus.data,
-        compliance.data,
+        compliance,
         memory.data,
         receipts,
       ),
-    [debates.data, consensus.data, compliance.data, memory.data, receipts],
+    [debates.data, consensus.data, compliance, memory.data, receipts],
   );
 
   const isLoading =
     debates.isLoading ||
     consensus.isLoading ||
-    compliance.isLoading ||
+    complianceStatus.isLoading ||
     memory.isLoading ||
     receiptStats.isLoading ||
     receiptDeliveries.isLoading;
@@ -352,7 +461,7 @@ export function useDecisionIntegrity(options?: DecisionIntegrityOptions) {
     // Raw data from each subsystem
     debates: debates.data,
     consensus: consensus.data,
-    compliance: compliance.data,
+    compliance,
     memory: memory.data,
     receipts,
     audit: audit.data,
@@ -367,7 +476,7 @@ export function useDecisionIntegrity(options?: DecisionIntegrityOptions) {
     errors: {
       debates: debates.error,
       consensus: consensus.error,
-      compliance: compliance.error,
+      compliance: complianceStatus.error,
       memory: memory.error,
       receipts: receiptStats.error ?? receiptDeliveries.error,
       audit: audit.error,
