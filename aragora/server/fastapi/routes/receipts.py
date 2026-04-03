@@ -339,6 +339,24 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _store_accepts_keyword_argument(store: Any, method_name: str, keyword: str) -> bool:
+    """Return whether a store method accepts a named keyword or arbitrary kwargs."""
+
+    method = getattr(store, method_name, None)
+    if method is None:
+        return False
+
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == keyword
+        for parameter in parameters
+    )
+
+
 async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict[str, Any] | None]:
     """Consume one receipt-share access, preferring atomic store support."""
     consume_result = None
@@ -554,6 +572,7 @@ async def list_receipts(
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     verdict: str | None = Query(None, description="Filter by verdict"),
+    debate_id: str | None = Query(None, description="Filter by debate ID"),
     store=Depends(get_receipt_store),
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
@@ -561,15 +580,29 @@ async def list_receipts(
         filter_kwargs: dict[str, Any] = {}
         if verdict:
             filter_kwargs["verdict"] = verdict
+        if debate_id:
+            filter_kwargs["debate_id"] = debate_id
 
         if hasattr(store, "list_recent"):
+            list_recent_kwargs: dict[str, Any] = {
+                "limit": limit,
+                "offset": offset,
+                "verdict": verdict,
+            }
+            if debate_id and _store_accepts_keyword_argument(store, "list_recent", "debate_id"):
+                list_recent_kwargs["debate_id"] = debate_id
+
             results = await _call_store_method(
                 store,
                 "list_recent",
-                limit=limit,
-                offset=offset,
-                verdict=verdict,
+                **list_recent_kwargs,
             )
+            if debate_id and "debate_id" not in list_recent_kwargs:
+                results = [
+                    receipt
+                    for receipt in results
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
         elif hasattr(store, "list"):
             results = await _call_store_method(
                 store, "list", limit=limit, offset=offset, **filter_kwargs
@@ -583,12 +616,29 @@ async def list_receipts(
                     if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", ""))
                     == verdict
                 ]
+            if debate_id:
+                all_receipts = [
+                    receipt
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
             results = all_receipts[offset : offset + limit]
         else:
             results = []
 
         if hasattr(store, "count"):
-            total = await _call_store_method(store, "count", verdict=verdict)
+            count_kwargs: dict[str, Any] = {"verdict": verdict}
+            if debate_id and _store_accepts_keyword_argument(store, "count", "debate_id"):
+                count_kwargs["debate_id"] = debate_id
+            total = await _call_store_method(store, "count", **count_kwargs)
+            if debate_id and "debate_id" not in count_kwargs and hasattr(store, "list_all"):
+                all_receipts = await _call_store_method(store, "list_all")
+                total = sum(
+                    1
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                    and (not verdict or _extract_receipt_payload(receipt).get("verdict") == verdict)
+                )
         else:
             total = len(results)
 
