@@ -410,6 +410,40 @@ class MemoryGateway:
 
         return sorted(results, key=sort_key, reverse=True)
 
+    @classmethod
+    def create_for_testing(
+        cls,
+        *,
+        continuum_memory: ContinuumMemory | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
+        supermemory_adapter: SupermemoryAdapter | None = None,
+        claude_mem_adapter: ClaudeMemAdapter | None = None,
+        coordinator: MemoryCoordinator | None = None,
+        retention_gate: RetentionGate | None = None,
+        parallel: bool = True,
+        timeout: float = 5.0,
+    ) -> MemoryGateway:
+        """Create a gateway pre-configured for E2E / integration testing.
+
+        Returns a fully wired ``MemoryGateway`` with ``enabled=True`` and
+        sensible test defaults (shorter timeout, parallel on).  Backends are
+        passed through as-is so callers can supply real or fake instances.
+        """
+        config = MemoryGatewayConfig(
+            enabled=True,
+            parallel_queries=parallel,
+            query_timeout_seconds=timeout,
+        )
+        return cls(
+            config=config,
+            continuum_memory=continuum_memory,
+            knowledge_mound=knowledge_mound,
+            supermemory_adapter=supermemory_adapter,
+            claude_mem_adapter=claude_mem_adapter,
+            coordinator=coordinator,
+            retention_gate=retention_gate,
+        )
+
     def get_stats(self) -> dict[str, Any]:
         """Get gateway statistics."""
         return {
