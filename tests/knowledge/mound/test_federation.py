@@ -24,6 +24,23 @@ from aragora.knowledge.mound.ops.federation import (
     SyncResult,
 )
 from aragora.knowledge.mound.types import KnowledgeSource
+from aragora.storage.federation_registry_store import (
+    InMemoryFederationRegistryStore,
+    reset_federation_registry_store,
+    set_federation_registry_store,
+)
+
+
+@pytest.fixture(autouse=True)
+def isolated_federation_registry_store():
+    """Keep federation tests isolated from the process-global registry backend."""
+    KnowledgeFederationMixin._federated_regions.clear()
+    set_federation_registry_store(InMemoryFederationRegistryStore())
+    try:
+        yield
+    finally:
+        KnowledgeFederationMixin._federated_regions.clear()
+        reset_federation_registry_store()
 
 
 # =============================================================================

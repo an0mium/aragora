@@ -688,12 +688,18 @@ class KnowledgeFederationMixin:
                 FederationMode,
             )
 
+            mode_value = region.mode.value if hasattr(region.mode, "value") else str(region.mode)
+            coordinator_mode = {
+                "none": FederationMode.ISOLATED,
+                "pull": FederationMode.READONLY,
+                "bidirectional": FederationMode.BIDIRECTIONAL,
+                "push": FederationMode.ORCHESTRATED,
+            }.get(mode_value, FederationMode.BIDIRECTIONAL)
+
             workspace = FederatedWorkspace(
                 id=f"region:{region.region_id}",
                 name=f"Region: {region.region_id}",
-                federation_mode=FederationMode(region.mode.value)
-                if hasattr(region.mode, "value")
-                else FederationMode(region.mode),
+                federation_mode=coordinator_mode,
                 endpoint_url=region.endpoint_url,
                 public_key=region.api_key,
             )
