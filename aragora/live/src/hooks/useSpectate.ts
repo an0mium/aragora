@@ -64,6 +64,27 @@ interface UseSpectateReturn {
   refresh: () => Promise<void>;
 }
 
+const SPECTATE_STREAM_EVENT_TYPES = [
+  'spectate',
+  'debate_start',
+  'debate_end',
+  'round_start',
+  'round_end',
+  'proposal',
+  'critique',
+  'refine',
+  'vote',
+  'judge',
+  'consensus',
+  'convergence',
+  'converged',
+  'memory_recall',
+  'breakpoint',
+  'breakpoint_resolved',
+  'system',
+  'error',
+] as const;
+
 function buildSpectateParams(
   debateId?: string,
   pipelineId?: string,
@@ -262,7 +283,9 @@ export function useSpectate(
     source.onopen = handleConnected;
     source.addEventListener('connected', handleConnected as EventListener);
     source.addEventListener('snapshot_complete', handleConnected as EventListener);
-    source.addEventListener('spectate', handleSpectateMessage as EventListener);
+    SPECTATE_STREAM_EVENT_TYPES.forEach((eventType) => {
+      source.addEventListener(eventType, handleSpectateMessage as EventListener);
+    });
     source.addEventListener('resync_required', handleResyncRequired as EventListener);
     source.onerror = () => {
       if (eventSourceRef.current !== source) return;

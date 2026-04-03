@@ -148,6 +148,54 @@ describe('useSpectate', () => {
     expect(stream.closed).toBe(true);
   });
 
+  it('consumes finite snapshot SSE event types without falling back to polling', async () => {
+    const mockFetch = global.fetch as jest.Mock;
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/spectate/status')) {
+        return createJsonResponse(createStatusPayload());
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useSpectate('debate-1', undefined, { pollInterval: 1000, maxEvents: 5 }),
+    );
+
+    await waitFor(() => {
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    const stream = MockEventSource.instances[0];
+
+    act(() => {
+      stream.simulateOpen();
+      stream.emit('connected', { mode: 'snapshot' });
+      stream.emit('proposal', {
+        event_type: 'proposal',
+        timestamp: '2026-04-03T11:00:01Z',
+        data: { details: 'Snapshot fallback still needs to populate the transcript.' },
+        debate_id: 'debate-1',
+        pipeline_id: null,
+        agent_name: 'judge',
+        round_number: 1,
+      });
+      stream.emit('snapshot_complete', { mode: 'snapshot' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.connected).toBe(true);
+      expect(result.current.loaded).toBe(true);
+      expect(result.current.events).toHaveLength(1);
+    });
+
+    expect(result.current.events[0].event_type).toBe('proposal');
+    expect(result.current.events[0].agent_name).toBe('judge');
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/api/v1/spectate/recent')),
+    ).toBe(false);
+  });
+
   it('falls back to recent-event polling when the SSE stream errors', async () => {
     const mockFetch = global.fetch as jest.Mock;
     mockFetch.mockImplementation((input: RequestInfo | URL) => {
