@@ -77,6 +77,7 @@ class UnifiedMemoryResponse:
     results: list[UnifiedMemoryResult] = field(default_factory=list)
     total_found: int = 0
     sources_queried: list[str] = field(default_factory=list)
+    sources_with_results: list[str] = field(default_factory=list)
     duplicates_removed: int = 0
     query_time_ms: float = 0.0
     errors: dict[str, str] = field(default_factory=dict)
@@ -150,6 +151,7 @@ class MemoryGateway:
 
         all_results: list[UnifiedMemoryResult] = []
         errors: dict[str, str] = {}
+        sources_with_results: list[str] = []
 
         if self.config.parallel_queries:
             # Fan-out in parallel
@@ -162,6 +164,8 @@ class MemoryGateway:
                     results = await asyncio.wait_for(
                         task, timeout=self.config.query_timeout_seconds
                     )
+                    if results:
+                        sources_with_results.append(source)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
                     errors[source] = "timeout"
@@ -177,6 +181,8 @@ class MemoryGateway:
                         self._query_source(source, q.query, q.limit),
                         timeout=self.config.query_timeout_seconds,
                     )
+                    if results:
+                        sources_with_results.append(source)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
                     errors[source] = "timeout"
@@ -206,6 +212,7 @@ class MemoryGateway:
             results=all_results,
             total_found=total_found,
             sources_queried=sources_to_query,
+            sources_with_results=sources_with_results,
             duplicates_removed=duplicates_removed,
             query_time_ms=query_time_ms,
             errors=errors,
