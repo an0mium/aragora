@@ -2,7 +2,8 @@
 Tests for per-client broadcast logic and audience input routing.
 
 Verifies:
-- Unsubscribed clients receive events correctly when auth is off
+- Debate-scoped events require explicit subscriptions even when auth is off
+- System-level events without a loop_id still broadcast to every client
 - loop_id is auto-injected by SyncEventEmitter
 - Audience input routing through AudienceInbox
 - Rate limiting via TokenBucket
@@ -29,11 +30,11 @@ from aragora.server.auth import AuthConfig, check_auth, generate_shareable_link
 
 
 class TestBroadcastWithAuthOff:
-    """Test that all clients receive events when auth is disabled."""
+    """Test broadcast behavior when auth is disabled."""
 
     @pytest.mark.asyncio
-    async def test_all_clients_receive_broadcast_when_auth_disabled(self):
-        """All connected clients should receive broadcast events when auth is off."""
+    async def test_subscribed_clients_receive_debate_scoped_broadcast_when_auth_disabled(self):
+        """Debate-scoped events should still require explicit subscriptions."""
         server = DebateStreamServer(host="localhost", port=0)
 
         # Create mock clients
@@ -42,6 +43,8 @@ class TestBroadcastWithAuthOff:
         client3 = AsyncMock()
 
         server.clients = {client1, client2, client3}
+        for client in (client1, client2, client3):
+            server._client_subscriptions[id(client)] = "test_loop"
 
         event = StreamEvent(
             type=StreamEventType.TASK_START, data={"task": "test_task"}, loop_id="test_loop"
@@ -51,6 +54,25 @@ class TestBroadcastWithAuthOff:
         await server.broadcast(event)
 
         # All clients should have received the message
+        expected_message = event.to_json()
+        client1.send.assert_called_once_with(expected_message)
+        client2.send.assert_called_once_with(expected_message)
+        client3.send.assert_called_once_with(expected_message)
+
+    @pytest.mark.asyncio
+    async def test_system_events_broadcast_to_all_clients_without_subscription(self):
+        """Unscoped events should still reach every connected client."""
+        server = DebateStreamServer(host="localhost", port=0)
+
+        client1 = AsyncMock()
+        client2 = AsyncMock()
+        client3 = AsyncMock()
+        server.clients = {client1, client2, client3}
+
+        event = StreamEvent(type=StreamEventType.TASK_START, data={"task": "test_task"})
+
+        await server.broadcast(event)
+
         expected_message = event.to_json()
         client1.send.assert_called_once_with(expected_message)
         client2.send.assert_called_once_with(expected_message)

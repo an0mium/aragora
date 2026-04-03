@@ -763,6 +763,28 @@ class TestDebateStreamServerBroadcast:
         assert isinstance(sent_data, list)
         assert len(sent_data) == 2
 
+    @pytest.mark.asyncio
+    async def test_broadcast_batch_cleans_up_disconnected_subscriptions(self):
+        """Failed batch sends should remove the client and its subscription."""
+        server = DebateStreamServer()
+
+        mock_good = AsyncMock()
+        mock_bad = AsyncMock()
+        mock_bad.send.side_effect = Exception("Connection closed")
+        server.clients = {mock_good, mock_bad}
+        server._client_subscriptions[id(mock_good)] = "test"
+        server._client_subscriptions[id(mock_bad)] = "test"
+
+        events = [
+            StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"content": "1"}, loop_id="test")
+        ]
+
+        await server.broadcast_batch(events)
+
+        assert mock_good in server.clients
+        assert mock_bad not in server.clients
+        assert id(mock_bad) not in server._client_subscriptions
+
 
 # ============================================================================
 # Server Lifecycle Tests

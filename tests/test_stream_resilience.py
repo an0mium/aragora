@@ -324,6 +324,8 @@ class TestStreamingIntegration:
         # Create mock clients
         clients = [AsyncMock() for _ in range(3)]
         server.clients = set(clients)
+        for client in clients:
+            server._client_subscriptions[id(client)] = "integration-test"
 
         # Create emitter
         emitter = SyncEventEmitter(loop_id="integration-test")
@@ -337,7 +339,7 @@ class TestStreamingIntegration:
         for event in events:
             await server.broadcast(event)
 
-        # All clients should have received both events
+        # All subscribed clients should have received both events
         assert all(c.send.call_count == 2 for c in clients)
 
     @pytest.mark.asyncio

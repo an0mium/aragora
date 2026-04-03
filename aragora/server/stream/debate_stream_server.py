@@ -595,6 +595,9 @@ class DebateStreamServer(ServerBase):
         if disconnected:
             async with self._clients_lock:
                 self.clients -= disconnected
+            # Cleanup subscription tracking for disconnected clients
+            for client in disconnected:
+                self._client_subscriptions.pop(id(client), None)
 
     def _group_events_by_agent(self, events: list[StreamEvent]) -> list[StreamEvent]:
         """Reorder events to group TOKEN_DELTA by (agent, task_id) for smooth frontend rendering.
