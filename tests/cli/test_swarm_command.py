@@ -229,6 +229,29 @@ class TestSwarmParser:
         assert args.runner_type == "codex"
         assert args.json is False
 
+    def test_swarm_runner_probe_gemini_cli_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "runner",
+                "probe",
+                "--runner-type",
+                "gemini-cli",
+                "--probe-limit",
+                "4",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "runner"
+        assert args.swarm_goal == "probe"
+        assert args.runner_type == "gemini-cli"
+        assert args.probe_limit == 4
+        assert args.json is True
+
     def test_swarm_audit_issues_parser(self):
         from aragora.cli.parser import build_parser
 
@@ -1625,6 +1648,66 @@ class TestSwarmCommand:
         assert '"passed": 1' in out
         assert '"probe_status": "passed"' in out
         assert '"runner_type": "codex"' in out
+
+    def test_cmd_swarm_runner_probe_gemini_cli_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="runner",
+            swarm_goal="probe",
+            runner_type="gemini-cli",
+            probe_limit=1,
+            json=True,
+        )
+        inspection = SimpleNamespace(
+            runner_id="gemini-runner-789",
+            profile="gemini-pro",
+            to_dict=lambda: {
+                "runner_id": "gemini-runner-789",
+                "runner_type": "gemini-cli",
+                "profile": "gemini-pro",
+                "auth_mode": "oauth",
+                "availability": "available",
+            },
+        )
+        probe = SimpleNamespace(
+            status="passed",
+            to_runner_fields=lambda: {
+                "probe_status": "passed",
+                "probe_checked_at": "2026-03-09T12:15:00+00:00",
+                "probe_detail": "Live prompt probe succeeded.",
+                "probe_latency_seconds": 1.0,
+                "probe_ttl_seconds": 3600,
+            },
+        )
+
+        with (
+            patch("aragora.swarm.runner_registry.discover_runner_inspections") as discover,
+            patch("aragora.swarm.runner_registry.authorization_context_with_defaults") as auth_ctx,
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch("aragora.swarm.runner_registry.LocalRunnerRegistry") as registry_cls,
+        ):
+            discover.return_value = [inspection]
+            auth_ctx.return_value = object()
+            registry_cls.return_value.resolve_boss_routing.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    "selected_runners": [],
+                    "selected_runner_ids": [],
+                    "blocked_reason": None,
+                }
+            )
+            registry_cls.return_value.record_probe.return_value = {
+                "runner_id": "gemini-runner-789",
+                "runner_type": "gemini-cli",
+                "profile": "gemini-pro",
+                "probe_status": "passed",
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"action": "probe"' in out
+        assert '"attempted": 1' in out
+        assert '"passed": 1' in out
+        assert '"probe_status": "passed"' in out
+        assert '"runner_type": "gemini-cli"' in out
 
     def test_cmd_swarm_runner_maintain_json(self, capsys):
         args = _swarm_args(
