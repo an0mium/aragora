@@ -25,6 +25,7 @@ def _stub_cmd_ask_global_side_effects(request):
         # Demo quality finalization can leave selector sockets pending on
         # Python 3.11 unless the real cleanup coroutine runs on the same loop.
         "test_cmd_ask_demo_quality_pipeline_skips_provider_repairs",
+        "test_cmd_ask_upgrades_output_to_good",
         "test_cmd_ask_cleans_shared_resources_on_debate_loop",
         "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
         # CI on Python 3.11 surfaces loop/socket leaks in this path unless the
