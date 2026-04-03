@@ -151,6 +151,21 @@ class WorktreeLifecycleService:
             python_executable=self.python_executable,
         )
 
+    def _ref_exists(self, ref: str) -> bool:
+        normalized = str(ref or "").strip()
+        if not normalized:
+            return False
+        proc = self._run_git("rev-parse", "--verify", normalized, check=False)
+        return proc.returncode == 0
+
+    def _resolve_existing_base_branch(self, base_branch: str) -> str:
+        requested = str(base_branch or "main").strip() or "main"
+        if self._ref_exists(f"origin/{requested}") or self._ref_exists(requested):
+            return requested
+        if requested != "main" and (self._ref_exists("origin/main") or self._ref_exists("main")):
+            return "main"
+        return requested
+
     @staticmethod
     def _require_session_field(session: dict[str, Any], key: str) -> str:
         value = session.get(key)
@@ -170,10 +185,11 @@ class WorktreeLifecycleService:
         strategy: str = "ff-only",
     ) -> ManagedWorktreeSession:
         """Ensure a managed worktree session exists and return its typed details."""
+        resolved_base_branch = self._resolve_existing_base_branch(base_branch)
         request = AutopilotRequest(
             action="ensure",
             managed_dir=managed_dir,
-            base_branch=base_branch,
+            base_branch=resolved_base_branch,
             agent=agent,
             session_id=session_id,
             force_new=force_new,

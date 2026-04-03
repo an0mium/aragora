@@ -7030,7 +7030,7 @@ def test_cleanup_stale_supervisor_runs(store: DevCoordinationStore) -> None:
     assert run["status"] == "needs_human"
 
     # Run cleanup
-    cleaned = store.cleanup_stale_supervisor_runs()
+    cleaned = store.cleanup_stale_supervisor_runs(max_age_hours=0.0)
     assert cleaned >= 1
 
     # After cleanup: run is completed, work orders are completed
@@ -7056,8 +7056,68 @@ def test_cleanup_skips_active_runs(store: DevCoordinationStore) -> None:
     )
     run_id = record["run_id"]
 
-    cleaned = store.cleanup_stale_supervisor_runs()
+    cleaned = store.cleanup_stale_supervisor_runs(max_age_hours=0.0)
     # Should not clean active runs
     run = store.get_supervisor_run(run_id)
     assert run is not None
     assert run["status"] == "running"
+
+
+def test_cleanup_archives_stale_planned_runs_with_only_queued_work_orders(
+    store: DevCoordinationStore,
+) -> None:
+    record = store.create_supervisor_run(
+        goal="Stale planned run",
+        target_branch="main",
+        supervisor_agents={"planner": "codex"},
+        approval_policy={},
+        spec={"raw_goal": "stale planned"},
+        work_orders=[
+            {"work_order_id": "wo-1", "status": "queued"},
+            {"work_order_id": "wo-2", "status": "queued"},
+        ],
+        status="planned",
+    )
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE supervisor_runs SET created_at = ?, updated_at = ? WHERE run_id = ?",
+            ("2000-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", record["run_id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    cleaned = store.cleanup_stale_supervisor_runs(max_age_hours=0.25)
+    assert cleaned >= 1
+
+    run = store.get_supervisor_run(record["run_id"])
+    assert run is not None
+    assert run["status"] == "completed"
+    for work_order in run["work_orders"]:
+        assert work_order["status"] == "discarded"
+        assert work_order["failure_reason"] == "stale_planned_run"
+        assert work_order["metadata"]["archived_due_to"] == "stale_planned_run"
+        assert work_order["metadata"]["archive_reason"] == "stale_planned_run"
+
+
+def test_cleanup_skips_recent_planned_runs(store: DevCoordinationStore) -> None:
+    record = store.create_supervisor_run(
+        goal="Recent planned run",
+        target_branch="main",
+        supervisor_agents={"planner": "codex"},
+        approval_policy={},
+        spec={"raw_goal": "recent planned"},
+        work_orders=[
+            {"work_order_id": "wo-1", "status": "queued"},
+        ],
+        status="planned",
+    )
+
+    cleaned = store.cleanup_stale_supervisor_runs(max_age_hours=0.25)
+    assert cleaned == 0
+
+    run = store.get_supervisor_run(record["run_id"])
+    assert run is not None
+    assert run["status"] == "planned"
+    assert run["work_orders"][0]["status"] == "queued"

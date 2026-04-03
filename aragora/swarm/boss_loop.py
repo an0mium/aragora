@@ -1551,9 +1551,17 @@ class BossLoop:
             from aragora.nomic.dev_coordination import DevCoordinationStore
 
             store = DevCoordinationStore()
-            cleaned = store.cleanup_stale_supervisor_runs()
+            cleaned = store.cleanup_stale_supervisor_runs(max_age_hours=0.25)
             if cleaned:
                 logger.info("Cleaned %d stale supervisor runs before starting boss loop", cleaned)
+            archived_leasing_failures = store.archive_work_order_leasing_failed_work_orders(
+                grace_period_hours=0.0
+            )
+            if archived_leasing_failures:
+                logger.info(
+                    "Archived %d stale work_order_leasing_failed lanes before starting boss loop",
+                    archived_leasing_failures,
+                )
         except Exception:
             logger.debug("Stale supervisor run cleanup skipped", exc_info=True)
 

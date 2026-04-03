@@ -3345,10 +3345,11 @@ class DevCoordinationStore:
         """Mark stale supervisor runs as completed so duplicate detection doesn't block new dispatches.
 
         A run is stale when:
-        - Its status is 'needs_human' or 'completed'
-        - ALL of its work orders are in non-actionable states (discarded, needs_human,
-          dispatch_failed, failed, timed_out, completed, scope_violation)
-        - No work order has an active lease or running process
+        - It is older than ``max_age_hours``
+        - Its status is ``planned`` with only untouched queued work orders,
+          or ``needs_human``/``completed`` with only non-actionable work
+          orders
+        - No work order shows evidence of active progress
 
         This prevents the duplicate_open_work_order detector in
         _suppress_duplicate_open_work_orders from permanently blocking new work
@@ -3367,14 +3368,73 @@ class DevCoordinationStore:
             "scope_violation",
             "cancelled",
         }
+        now = _utcnow()
+        max_age = timedelta(hours=max(0.0, float(max_age_hours)))
         runs = self.list_supervisor_runs(limit=limit)
         cleaned = 0
         for run in runs:
             status = str(run.get("status", "")).strip().lower()
-            if status not in ("needs_human", "completed"):
+            if status not in ("planned", "needs_human", "completed"):
+                continue
+            updated_at = _parse_dt(str(run.get("updated_at") or run.get("created_at") or ""))
+            if updated_at is None:
+                continue
+            if max_age.total_seconds() > 0 and (now - updated_at) < max_age:
                 continue
             work_orders = run.get("work_orders", [])
             if not work_orders:
+                continue
+            if status == "planned":
+                all_stranded = True
+                changed = False
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status != "queued":
+                        all_stranded = False
+                        break
+                    if (
+                        wo.get("lease_id")
+                        or wo.get("owner_session_id")
+                        or wo.get("branch")
+                        or wo.get("worktree_path")
+                        or wo.get("receipt_id")
+                        or wo.get("commit_shas")
+                        or wo.get("changed_paths")
+                        or wo.get("changed_files")
+                        or wo.get("pr_url")
+                        or wo.get("adopted_pr")
+                    ):
+                        all_stranded = False
+                        break
+                if not all_stranded:
+                    continue
+                archived_at = now.isoformat()
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    metadata = dict(wo.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "stale_planned_run",
+                            "archive_reason": "stale_planned_run",
+                            "archived_at": archived_at,
+                            "previous_status": str(wo.get("status") or "queued").strip()
+                            or "queued",
+                        }
+                    )
+                    wo["metadata"] = metadata
+                    wo["status"] = "discarded"
+                    wo["failure_reason"] = "stale_planned_run"
+                    changed = True
+                if changed:
+                    self.update_supervisor_run(
+                        run["run_id"],
+                        status="completed",
+                        work_orders=work_orders,
+                    )
+                    cleaned += 1
                 continue
             all_terminal = all(
                 str(wo.get("status", "")).strip().lower() in terminal_wo_statuses
