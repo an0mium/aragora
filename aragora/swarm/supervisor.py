@@ -651,6 +651,7 @@ class SwarmSupervisor:
                         item["status"] = "waiting_resource"
                         item["resource_error"] = str(exc)
                     else:
+                        self._clear_stale_prelaunch_deliverable_state(item)
                         self._mark_needs_human(
                             item,
                             str(exc),
@@ -1460,8 +1461,7 @@ class SwarmSupervisor:
                     worker_type_circuit_breakers=worker_type_circuit_breakers,
                 )
                 if not fallback_requeued:
-                    item["status"] = "dispatch_failed"
-                    item["dispatch_error"] = str(exc)
+                    self._mark_dispatch_failed(item, str(exc))
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -2068,7 +2068,32 @@ class SwarmSupervisor:
         dependency_ref: str,
         dependency_id: str,
     ) -> bool:
+        def _clear_stale_deliverable_state() -> None:
+            for key in (
+                "receipt_id",
+                "confidence",
+                "worker_outcome",
+                "completed_at",
+                "exit_code",
+                "head_sha",
+                "commit_shas",
+                "changed_paths",
+                "diff",
+                "diff_lines",
+                "stdout_tail",
+                "stderr_tail",
+                "tests_run",
+                "verification_results",
+                "merge_gate",
+                "verification_missing_reason",
+                "pr_url",
+                "adopted_pr",
+                "scope_violation",
+            ):
+                work_order.pop(key, None)
+
         if not self._is_safe_dependency_ref(str(session.path), dependency_ref):
+            _clear_stale_deliverable_state()
             self._mark_needs_human(
                 work_order,
                 (
@@ -2088,6 +2113,7 @@ class SwarmSupervisor:
         session_path = str(session.path)
         status_proc = self._run_git_capture_sync(session_path, "status", "--porcelain")
         if status_proc.returncode != 0:
+            _clear_stale_deliverable_state()
             self._mark_needs_human(
                 work_order,
                 (
@@ -2108,6 +2134,7 @@ class SwarmSupervisor:
             work_order["dependency_base_source"] = dependency_id
             return False
         if status_proc.stdout.strip():
+            _clear_stale_deliverable_state()
             self._mark_needs_human(
                 work_order,
                 (
@@ -2134,6 +2161,7 @@ class SwarmSupervisor:
             dependency_ref,
         )
         if checkout_proc.returncode != 0:
+            _clear_stale_deliverable_state()
             self._mark_needs_human(
                 work_order,
                 (
@@ -2618,6 +2646,7 @@ class SwarmSupervisor:
         session_key = f"swarm-{run_id[:8]}-{wo_id}"
         raw_scope = [str(item) for item in work_order.get("file_scope", []) if str(item).strip()]
         if not raw_scope:
+            self._clear_stale_prelaunch_deliverable_state(work_order)
             self._mark_needs_human(
                 work_order,
                 "Work order has no declared file scope; declare scope before dispatch.",
@@ -2636,6 +2665,7 @@ class SwarmSupervisor:
         if len(file_scope) != len(raw_scope):
             work_order["file_scope"] = file_scope
         if not file_scope:
+            self._clear_stale_prelaunch_deliverable_state(work_order)
             self._mark_needs_human(
                 work_order,
                 "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch.",
@@ -2980,6 +3010,15 @@ class SwarmSupervisor:
                     )
                     item["review_status"] = "changes_requested"
                     item["receipt_id"] = None
+                    item.pop("confidence", None)
+                    item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
+                    for key in (
+                        "pr_url",
+                        "adopted_pr",
+                        "merge_gate",
+                        "verification_missing_reason",
+                    ):
+                        item.pop(key, None)
                     item["scope_violation"] = {
                         "violations": list(exc.violations),
                         "changed_paths": clean_paths,
@@ -3717,6 +3756,71 @@ class SwarmSupervisor:
         )
         self._release_terminal_lease(item)
 
+    @staticmethod
+    def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
+        """Persist a pre-launch failure without carrying stale deliverable state."""
+        item["status"] = "dispatch_failed"
+        item["review_status"] = "pending"
+        item["dispatch_error"] = str(reason)
+        for key in (
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "exit_code",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "last_observed_at",
+            "last_progress_at",
+            "first_output_at",
+            "last_output_at",
+            "progress_fingerprint",
+            "output_fingerprint",
+        ):
+            item.pop(key, None)
+        item.pop("blockers", None)
+
+    @staticmethod
+    def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
+        """Drop stale completion metadata before persisting a pre-launch blocker."""
+        for key in (
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "exit_code",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+        ):
+            item.pop(key, None)
+
     def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
         released = 0
         for conflict in conflicts:
@@ -4418,6 +4522,13 @@ class SwarmSupervisor:
         item["blockers"] = blockers
         item.pop("receipt_id", None)
         item.pop("confidence", None)
+        for key in (
+            "pr_url",
+            "adopted_pr",
+            "merge_gate",
+            "verification_missing_reason",
+        ):
+            item.pop(key, None)
         item.pop("pid", None)
 
         # Write violation metadata into the lease so status_summary() surfaces

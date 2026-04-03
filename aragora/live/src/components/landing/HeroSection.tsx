@@ -9,6 +9,12 @@ import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
 import { ConnectOpenRouterButton } from '../openrouter/ConnectOpenRouterButton';
 import type { HeroSectionProps } from './types';
+import {
+  prepareLandingDebate,
+  type LandingDebatePreflight,
+  type LandingPreparedDebateOption,
+} from './landingPreflight';
+import { trackLandingEvent } from './landingTelemetry';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
    \u2592\u2588\u2588\u2588\u2588\u2584    \u2593\u2588\u2588 \u2592 \u2588\u2588\u2592\u2592\u2588\u2588\u2588\u2588\u2584     \u2588\u2588\u2592 \u2580\u2588\u2592\u2592\u2588\u2588\u2592  \u2588\u2588\u2592\u2593\u2588\u2588 \u2592 \u2588\u2588\u2592\u2592\u2588\u2588\u2588\u2588\u2584
@@ -35,6 +41,56 @@ const AGENT_DOT_COLORS: Record<string, string> = {
   'Mistral': 'var(--acid-yellow, #ffd700)',
 };
 
+function parseRetryAfterSeconds(retryAfter: string | null): number {
+  if (!retryAfter) return 60;
+
+  const deltaSeconds = Number.parseInt(retryAfter, 10);
+  if (Number.isFinite(deltaSeconds) && deltaSeconds >= 0) {
+    return deltaSeconds;
+  }
+
+  const retryTime = Date.parse(retryAfter);
+  if (Number.isNaN(retryTime)) return 60;
+
+  return Math.max(1, Math.ceil((retryTime - Date.now()) / 1000));
+}
+
+function buildLandingErrorMessage(status: number, data: Record<string, unknown> | null): string {
+  const message = typeof data?.message === 'string' ? data.message.trim() : '';
+  const error = typeof data?.error === 'string' ? data.error.trim() : '';
+  const code = typeof data?.code === 'string' ? data.code : '';
+  const timeoutSeconds =
+    typeof data?.timeout_seconds === 'number' ? Math.round(data.timeout_seconds) : null;
+
+  if (code === 'request_timeout' && timeoutSeconds !== null) {
+    return `Request timed out after ${timeoutSeconds}s. The landing page works best with one focused question. Shorten the prompt, pick one interpretation, or retry with a narrower scope.`;
+  }
+
+  if (code === 'landing_preview_timeout') {
+    if (message) return message;
+    if (timeoutSeconds !== null) {
+      return `The landing preview timed out after ${timeoutSeconds}s. Shorten the prompt or pick one interpretation first.`;
+    }
+    return error || 'The landing preview timed out before the models returned a clean result.';
+  }
+
+  if (code === 'landing_preview_needs_clarification') {
+    return (
+      message
+      || error
+      || 'The fast preview drifted away from your question. Tighten the wording or pick one interpretation first.'
+    );
+  }
+
+  if (code === 'timeout') {
+    return message || error || 'The live debate timed out. Try a shorter, more focused question.';
+  }
+
+  if (message) return message;
+  if (error) return error;
+  return `Something went wrong (${status}). Please try again.`;
+}
+
 /**
  * HeroSection supports two modes:
  * - Landing mode (no props): self-contained debate form with tri-theme styling
@@ -54,12 +110,17 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorNotice, setEditorNotice] = useState<string | null>(null);
+  const [lastTopic, setLastTopic] = useState('');
+  const [lastPreparedOption, setLastPreparedOption] = useState<LandingPreparedDebateOption | null>(null);
+  const [pendingPreflight, setPendingPreflight] = useState<LandingDebatePreflight | null>(null);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef<number>(0);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Phase progression during debate
   useEffect(() => {
@@ -121,6 +182,23 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     apiBase === ''
       ? '/api/v1/playground/debate/'
       : `${apiBase}/api/v1/playground/debate`;
+  const trackEvent = useCallback((
+    eventType: Parameters<typeof trackLandingEvent>[1],
+    data: Parameters<typeof trackLandingEvent>[2] = {},
+  ) => {
+    trackLandingEvent(apiBase, eventType, data);
+  }, [apiBase]);
+  const focusComposer = useCallback(() => {
+    const focus = () => {
+      textareaRef.current?.focus();
+      textareaRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(focus);
+      return;
+    }
+    setTimeout(focus, 0);
+  }, []);
 
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
@@ -195,10 +273,23 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
   }
 
-  async function runDebate(topic: string) {
+  async function executeDebate(option: LandingPreparedDebateOption) {
     setIsRunning(true);
     setError(null);
+    setEditorNotice(null);
     setResult(null);
+    setPendingPreflight(null);
+    setLastTopic(option.originalQuestion);
+    setLastPreparedOption(option);
+
+    trackEvent('preflight_selected', {
+      option_id: option.id,
+      recommended: Boolean(option.recommended),
+      rewritten: option.interpretedQuestion !== option.originalQuestion,
+      agents: option.agents,
+      rounds: option.rounds,
+      question_length: option.originalQuestion.length,
+    });
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -207,24 +298,63 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        body: JSON.stringify({
+          topic: option.debatePrompt,
+          question: option.debatePrompt,
+          original_question: option.originalQuestion,
+          interpreted_question: option.interpretedQuestion,
+          rounds: option.rounds,
+          agents: option.agents,
+          source: 'landing',
+        }),
         signal: controller.signal,
       });
 
       if (res.status === 429) {
-        const data = await res.json().catch(() => null);
-        const retryAfter = data?.retry_after || 60;
-        setError(`Rate limit reached. Please try again in ${retryAfter} seconds.`);
+        const retryAfter = parseRetryAfterSeconds(res.headers.get('Retry-After'));
+        const waitText = retryAfter > 60 ? `${Math.ceil(retryAfter / 60)} minutes` : `${retryAfter} seconds`;
+        setError(`Rate limit reached. Please try again in ${waitText}.`);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || 'Something went wrong. Please try again.');
+        const code = typeof data?.code === 'string' ? data.code : '';
+        if (code === 'landing_preview_timeout') {
+          trackEvent('preview_timeout', {
+            timeout_seconds:
+              typeof data?.timeout_seconds === 'number' ? Math.round(data.timeout_seconds) : null,
+            rewritten: option.interpretedQuestion !== option.originalQuestion,
+            question_length: option.originalQuestion.length,
+          });
+        } else if (code === 'landing_preview_needs_clarification') {
+          trackEvent('preview_clarification_requested', {
+            rewritten: option.interpretedQuestion !== option.originalQuestion,
+            question_length: option.originalQuestion.length,
+          });
+        }
+        setError(buildLandingErrorMessage(res.status, data));
         return;
       }
 
-      setResult(await res.json());
+      const data: DebateResponse = await res.json();
+      const nextResult: DebateResponse = {
+        ...data,
+        original_question: option.originalQuestion,
+        interpreted_question: option.interpretedQuestion,
+        result_warning:
+          data.result_warning
+          || (option.interpretedQuestion !== option.originalQuestion
+            ? 'Aragora debated the focused interpretation you chose before opening the full transcript.'
+            : undefined),
+      };
+      trackEvent('preview_rendered', {
+        result_mode: nextResult.result_mode || 'full',
+        rewritten: option.interpretedQuestion !== option.originalQuestion,
+        participant_count: nextResult.participants.length,
+        has_warning: Boolean(nextResult.result_warning),
+      });
+      setResult(nextResult);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       setError('Could not connect to the server. Check your connection and try again.');
@@ -233,11 +363,35 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
   }
 
+  function runDebate(rawQuestion: string) {
+    const preflight = prepareLandingDebate(rawQuestion);
+    setError(null);
+    setEditorNotice(null);
+    setResult(null);
+    setLastTopic(rawQuestion);
+
+    if (preflight.type === 'confirm') {
+      setPendingPreflight(preflight.preflight);
+      trackEvent('preflight_shown', {
+        option_count: preflight.preflight.options.length,
+        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
+        has_warning: Boolean(preflight.preflight.warning),
+        question_length: rawQuestion.length,
+      });
+      return;
+    }
+
+    setPendingPreflight(null);
+    void executeDebate(preflight.option);
+  }
+
   async function runDemoDebate() {
     setIsDemoRunning(true);
     setIsRunning(true);
     setError(null);
+    setEditorNotice(null);
     setResult(null);
+    setPendingPreflight(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -285,6 +439,43 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       runDebate(question.trim());
     }
   }
+
+  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
+    const sourceQuestion =
+      currentResult.original_question
+      || question
+      || lastTopic
+      || currentResult.topic;
+    const preflight = prepareLandingDebate(sourceQuestion);
+
+    setQuestion(sourceQuestion);
+    setResult(null);
+    setError(null);
+    setLastTopic(sourceQuestion);
+    setLastPreparedOption(null);
+
+    if (preflight.type === 'confirm') {
+      setPendingPreflight(preflight.preflight);
+      setEditorNotice('Pick a narrower interpretation or edit the wording below before rerunning.');
+      trackEvent('preflight_shown', {
+        option_count: preflight.preflight.options.length,
+        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
+        has_warning: Boolean(preflight.preflight.warning),
+        question_length: sourceQuestion.length,
+      });
+    } else {
+      setPendingPreflight(null);
+      setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
+    }
+
+    trackEvent('wrong_answer_clicked', {
+      result_mode: currentResult.result_mode || 'full',
+      rewritten:
+        Boolean(currentResult.interpreted_question)
+        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
+    });
+    focusComposer();
+  }, [focusComposer, lastTopic, question, trackEvent]);
 
   // Keep the saveDebateBeforeLogin available for external use (not currently wired but preserving)
   void saveDebateBeforeLogin;
@@ -373,8 +564,12 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               </span>
             )}
             <textarea
+              ref={textareaRef}
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                if (editorNotice) setEditorNotice(null);
+              }}
               placeholder={PLACEHOLDER_EXAMPLES[placeholderIdx]}
               disabled={isRunning}
               rows={3}
@@ -421,8 +616,123 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           </button>
         </form>
 
+        {editorNotice && (
+          <div
+            className="mt-4 text-left"
+            style={{
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-landing)',
+              fontSize: '13px',
+            }}
+          >
+            {editorNotice}
+          </div>
+        )}
+
+        {pendingPreflight && !isRunning && !result && (
+          <div
+            className="mt-6 text-left"
+            style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)',
+              padding: '20px',
+            }}
+          >
+            <h2
+              className="mb-2"
+              style={{
+                color: 'var(--accent)',
+                fontFamily: 'var(--font-display, var(--font-landing))',
+                fontSize: '18px',
+                fontWeight: 600,
+              }}
+            >
+              {pendingPreflight.title}
+            </h2>
+            <p
+              className="mb-4"
+              style={{
+                color: 'var(--text)',
+                fontFamily: 'var(--font-landing)',
+                fontSize: '14px',
+                lineHeight: 1.6,
+              }}
+            >
+              {pendingPreflight.prompt}
+            </p>
+            {pendingPreflight.warning && (
+              <p
+                className="mb-4"
+                style={{
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-landing)',
+                  fontSize: '12px',
+                  lineHeight: 1.5,
+                }}
+              >
+                {pendingPreflight.warning}
+              </p>
+            )}
+            <div className="space-y-3">
+              {pendingPreflight.options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => { void executeDebate(option); }}
+                  className="w-full text-left transition-all hover:opacity-90 cursor-pointer"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-button)',
+                    padding: '16px',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      style={{
+                        color: 'var(--text)',
+                        fontFamily: 'var(--font-landing)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {option.label}
+                    </span>
+                    {option.recommended && (
+                      <span
+                        style={{
+                          color: 'var(--accent)',
+                          fontFamily: 'var(--font-landing)',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Recommended
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className="mt-2"
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-landing)',
+                      fontSize: '13px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {option.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Demo CTA — runs a preset topic against the real backend, no typing needed */}
-        {!isRunning && !result && (
+        {!isRunning && !result && !pendingPreflight && (
           <button
             onClick={runDemoDebate}
             className="w-full text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -440,7 +750,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {isDark ? '> Try a Demo Debate' : 'Try a Demo Debate'}
           </button>
         )}
-        {!isRunning && !result && (
+        {!isRunning && !result && !pendingPreflight && (
           <p
             className="text-center"
             style={{
@@ -454,7 +764,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             No account needed -- watch AI agents debate a real question
           </p>
         )}
-        {!isRunning && !result && (
+        {!isRunning && !result && !pendingPreflight && (
           <div className="text-center mt-4">
             <ConnectOpenRouterButton compact />
           </div>
@@ -576,19 +886,35 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Error state */}
         {error && (
           <div
-            className="p-4 mt-6 text-left max-w-xl mx-auto"
+            className="mt-6 text-left max-w-xl mx-auto"
             style={{
+              padding: '20px 24px',
               border: '1px solid var(--crimson)',
               borderRadius: 'var(--radius-card)',
               backgroundColor: isDark ? 'rgba(255,0,64,0.05)' : 'rgba(163,59,59,0.05)',
             }}
           >
-            <p className="text-sm mb-3" style={{ color: 'var(--crimson)', fontFamily: 'var(--font-landing)' }}>
+            <p className="text-sm mb-4" style={{ color: 'var(--crimson)', fontFamily: 'var(--font-landing)' }}>
               {error}
             </p>
             <button
-              onClick={() => { setError(null); if (question.trim()) runDebate(question.trim()); }}
-              className="text-xs px-4 py-2 transition-colors hover:opacity-80 cursor-pointer"
+              onClick={() => {
+                trackEvent('retry_clicked', {
+                  has_prepared_option: Boolean(lastPreparedOption),
+                  has_question: Boolean(lastTopic || question.trim()),
+                });
+                setError(null);
+                if (lastPreparedOption) {
+                  void executeDebate(lastPreparedOption);
+                  return;
+                }
+                if (lastTopic) {
+                  runDebate(lastTopic);
+                  return;
+                }
+                if (question.trim()) runDebate(question.trim());
+              }}
+              className="text-xs px-5 py-2.5 transition-colors hover:opacity-80 cursor-pointer"
               style={{
                 fontFamily: 'var(--font-landing)',
                 border: '1px solid var(--crimson)',
@@ -605,7 +931,22 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Result preview */}
         {result && (
           <div ref={resultRef}>
-            <DebateResultPreview result={result} />
+            <DebateResultPreview
+              result={result}
+              condensed
+              onFlagWrongAnswer={handleWrongAnswer}
+              onOpenFullDebate={(debateResult, surface) => {
+                trackEvent('open_full_debate_clicked', {
+                  result_mode: debateResult.result_mode || 'full',
+                  surface,
+                });
+              }}
+              onShare={(debateResult) => {
+                trackEvent('share_clicked', {
+                  result_mode: debateResult.result_mode || 'full',
+                });
+              }}
+            />
           </div>
         )}
 
@@ -615,7 +956,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {/* Primary: View full debate page */}
             {result.id && (
               <button
-                onClick={() => router.push(`/debate/${result.id}`)}
+                onClick={() => {
+                  trackEvent('open_full_debate_clicked', {
+                    result_mode: result.result_mode || 'full',
+                    surface: 'quick_read',
+                  });
+                  router.push(`/debate/${result.id}`);
+                }}
                 className="w-full text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--accent)',
@@ -630,7 +977,15 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {/* Secondary row: Try Another + Share */}
             <div className="flex gap-3">
               <button
-                onClick={() => { setResult(null); setQuestion(''); setError(null); }}
+                onClick={() => {
+                  setResult(null);
+                  setQuestion('');
+                  setError(null);
+                  setEditorNotice(null);
+                  setPendingPreflight(null);
+                  setLastPreparedOption(null);
+                  setLastTopic('');
+                }}
                 className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: result.id ? 'transparent' : 'var(--accent)',
@@ -660,6 +1015,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                   }
                   setShareCopied(true);
                   setTimeout(() => setShareCopied(false), 2000);
+                  trackEvent('share_clicked', {
+                    result_mode: result.result_mode || 'full',
+                  });
                 }}
                 className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-80 cursor-pointer"
                 style={{

@@ -13,6 +13,8 @@ Tests cover:
 """
 
 import pytest
+import sys
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -24,6 +26,23 @@ from aragora.knowledge.mound.ops.federation import (
     SyncResult,
 )
 from aragora.knowledge.mound.types import KnowledgeSource
+from aragora.storage.federation_registry_store import (
+    InMemoryFederationRegistryStore,
+    reset_federation_registry_store,
+    set_federation_registry_store,
+)
+
+
+@pytest.fixture(autouse=True)
+def isolated_federation_registry_store():
+    """Keep federation tests isolated from the process-global registry backend."""
+    KnowledgeFederationMixin._federated_regions.clear()
+    set_federation_registry_store(InMemoryFederationRegistryStore())
+    try:
+        yield
+    finally:
+        KnowledgeFederationMixin._federated_regions.clear()
+        reset_federation_registry_store()
 
 
 # =============================================================================
@@ -500,6 +519,69 @@ class TestSyncAllRegions:
     async def test_sync_all_bidirectional(self):
         """Should do both push and pull for bidirectional."""
         mound = MockKnowledgeMound()
+
+
+class _CoordinatorFederationMode:
+    ISOLATED = "isolated"
+    READONLY = "readonly"
+    BIDIRECTIONAL = "bidirectional"
+    ORCHESTRATED = "orchestrated"
+
+
+def _fake_cross_workspace_module(register_workspace_mock: MagicMock) -> SimpleNamespace:
+    return SimpleNamespace(
+        CrossWorkspaceCoordinator=lambda: SimpleNamespace(
+            register_workspace=register_workspace_mock
+        ),
+        FederatedWorkspace=lambda **kwargs: SimpleNamespace(**kwargs),
+        FederationMode=_CoordinatorFederationMode,
+    )
+
+
+class TestCoordinatorRegistration:
+    """Tests for coordinator federation-mode compatibility mapping."""
+
+    @pytest.mark.asyncio
+    async def test_register_with_coordinator_maps_pull_to_readonly(self):
+        mound = MockKnowledgeMound()
+        register_workspace = MagicMock()
+        fake_module = _fake_cross_workspace_module(register_workspace)
+
+        region = FederatedRegion(
+            region_id="us-east",
+            endpoint_url="https://us-east.aragora.io/api",
+            api_key="secret",
+            mode=FederationMode.PULL,
+        )
+
+        with patch.dict(sys.modules, {"aragora.coordination.cross_workspace": fake_module}):
+            await mound._register_with_coordinator(region)
+
+        workspace = register_workspace.call_args.args[0]
+        assert workspace.federation_mode == _CoordinatorFederationMode.READONLY
+
+    @pytest.mark.asyncio
+    async def test_register_with_coordinator_defaults_invalid_modes_to_isolated(self):
+        mound = MockKnowledgeMound()
+        register_workspace = MagicMock()
+        fake_module = _fake_cross_workspace_module(register_workspace)
+
+        region = FederatedRegion(
+            region_id="eu-west",
+            endpoint_url="https://eu-west.aragora.io/api",
+            api_key="secret",
+        )
+        region.mode = "unsupported-mode"  # type: ignore[assignment]
+
+        with (
+            patch.dict(sys.modules, {"aragora.coordination.cross_workspace": fake_module}),
+            patch("aragora.knowledge.mound.ops.federation.logger.warning") as warning,
+        ):
+            await mound._register_with_coordinator(region)
+
+        workspace = register_workspace.call_args.args[0]
+        assert workspace.federation_mode == _CoordinatorFederationMode.ISOLATED
+        warning.assert_called_once()
 
         # Mock the persistent store to use only cache
         with patch(

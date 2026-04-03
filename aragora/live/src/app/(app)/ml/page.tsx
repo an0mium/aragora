@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { RelatedPages } from '@/components/ui/RelatedPages';
 
 const MLDashboard = dynamic(
   () => import('@/components/MLDashboard').then(m => ({ default: m.MLDashboard })),
@@ -57,6 +58,17 @@ export default function MLPage() {
                 <p>SFT/DPO data generation</p>
               </div>
             </div>
+          </div>
+
+          <div className="mb-6">
+            <RelatedPages
+              title="Related Signals"
+              pages={[
+                { label: 'Analytics', href: '/analytics', description: 'Performance data' },
+                { label: 'Leaderboard', href: '/leaderboard', description: 'Agent rankings' },
+                { label: 'Calibration', href: '/calibration', description: 'Model tuning' },
+              ]}
+            />
           </div>
 
           <PanelErrorBoundary panelName="ML Dashboard">

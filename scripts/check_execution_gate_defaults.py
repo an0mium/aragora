@@ -16,7 +16,10 @@ class Violation:
     message: str
 
 
-POST_DEBATE_CONFIG_PATH = Path("aragora/debate/post_debate_coordinator.py")
+POST_DEBATE_CONFIG_PATHS: tuple[Path, ...] = (
+    Path("aragora/debate/post_debate_config.py"),
+    Path("aragora/debate/post_debate_coordinator.py"),
+)
 ORCHESTRATOR_RUNNER_PATH = Path("aragora/debate/orchestrator_runner.py")
 
 REQUIRED_TRUE_FIELDS: set[str] = {
@@ -96,6 +99,13 @@ def _find_post_debate_config_defaults(module: ast.Module) -> dict[str, Any]:
                 defaults[entry.target.id] = _literal_value(entry.value)
         return defaults
     return {}
+
+
+def _resolve_post_debate_config_path(repo_root: Path) -> Path | None:
+    for candidate in POST_DEBATE_CONFIG_PATHS:
+        if (repo_root / candidate).exists():
+            return candidate
+    return None
 
 
 def find_post_debate_default_violations(source_text: str) -> list[str]:
@@ -203,18 +213,19 @@ def find_orchestrator_runner_default_violations(source_text: str) -> list[str]:
 def check_repo(repo_root: Path) -> list[Violation]:
     violations: list[Violation] = []
 
-    post_debate_file = repo_root / POST_DEBATE_CONFIG_PATH
-    if not post_debate_file.exists():
+    post_debate_path = _resolve_post_debate_config_path(repo_root)
+    if post_debate_path is None:
         violations.append(
             Violation(
-                path=str(POST_DEBATE_CONFIG_PATH),
-                message="missing post-debate coordinator file",
+                path=str(POST_DEBATE_CONFIG_PATHS[0]),
+                message="missing post-debate config file",
             )
         )
     else:
+        post_debate_file = repo_root / post_debate_path
         text = post_debate_file.read_text(encoding="utf-8")
         violations.extend(
-            Violation(path=str(POST_DEBATE_CONFIG_PATH), message=msg)
+            Violation(path=str(post_debate_path), message=msg)
             for msg in find_post_debate_default_violations(text)
         )
 

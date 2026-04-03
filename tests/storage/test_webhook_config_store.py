@@ -1079,6 +1079,21 @@ class TestSQLiteWebhookConfigStore:
         updated = sqlite_store.update(webhook.id, name="Changed")
         assert updated.updated_at > original_updated_at
 
+    def test_update_keeps_returned_revision_in_sync_with_durable_row(self, sqlite_store):
+        """Returned updated_at should match the durable revision used by Redis validation."""
+        webhook = sqlite_store.register(url="https://example.com", events=["debate_end"])
+        revised_at = webhook.updated_at + 10
+
+        with patch(
+            "aragora.storage.webhook_config_store.time.time",
+            side_effect=[revised_at, revised_at + 1],
+        ):
+            updated = sqlite_store.update(webhook.id, name="Changed")
+
+        assert updated is not None
+        assert updated.updated_at == revised_at
+        assert sqlite_store.get_cache_revision(webhook.id) == revised_at
+
     def test_record_delivery_success(self, sqlite_store):
         """Test recording successful delivery."""
         webhook = sqlite_store.register(url="https://a.com", events=["debate_end"])
@@ -1471,6 +1486,38 @@ class TestRedisWebhookConfigStore:
 
         # Redis cache should be updated
         mock_redis.setex.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_update_keeps_cached_revision_trusted(self, tmp_path):
+        """An updated cache entry should be immediately reusable without SQLite repair."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://old.com", events=["debate_end"])
+        revised_at = webhook.updated_at + 10
+
+        with patch(
+            "aragora.storage.webhook_config_store.time.time",
+            side_effect=[revised_at, revised_at + 1],
+        ):
+            updated = store.update(webhook.id, url="https://new.com")
+
+        assert updated is not None
+        cached_payload = mock_redis.setex.call_args[0][2]
+        mock_redis.reset_mock()
+        mock_redis.get.return_value = cached_payload
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.url == "https://new.com"
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_not_called()
         store.close()
 
     def test_with_mocked_redis_update_failure_bypasses_stale_cache(self, tmp_path):

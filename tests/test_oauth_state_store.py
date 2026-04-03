@@ -97,6 +97,18 @@ class TestInMemoryOAuthStateStore:
         result2 = store.validate_and_consume(state)
         assert result2 is None
 
+    def test_peek_does_not_consume(self):
+        """Peek should validate without burning single-use state."""
+        store = InMemoryOAuthStateStore()
+        state = store.generate(user_id="user123", redirect_url="http://localhost")
+
+        peeked = store.peek(state)
+        assert peeked is not None
+        assert peeked.user_id == "user123"
+
+        consumed = store.validate_and_consume(state)
+        assert consumed is not None
+
     def test_invalid_state(self):
         """Test validation of non-existent state."""
         store = InMemoryOAuthStateStore()
@@ -186,6 +198,20 @@ class TestSQLiteOAuthStateStore:
         # Second validation should fail (single use)
         result2 = sqlite_store.validate_and_consume(state)
         assert result2 is None
+
+    def test_peek_does_not_consume(self, sqlite_store):
+        """Peek should not delete valid SQLite-backed state."""
+        state = sqlite_store.generate(
+            user_id="user123",
+            redirect_url="http://localhost:3000/callback",
+        )
+
+        peeked = sqlite_store.peek(state)
+        assert peeked is not None
+        assert peeked.user_id == "user123"
+
+        consumed = sqlite_store.validate_and_consume(state)
+        assert consumed is not None
 
     def test_invalid_state(self, sqlite_store):
         """Test validation of non-existent state."""
@@ -289,6 +315,19 @@ class TestFallbackOAuthStateStore:
         result = store.validate_and_consume(state)
         assert result is not None
         assert result.user_id == "user123"
+        store.close()
+
+    def test_peek_with_sqlite(self, temp_db_path):
+        """Peek should not consume fallback-store state."""
+        store = FallbackOAuthStateStore(redis_url="", sqlite_path=temp_db_path, use_sqlite=True)
+        state = store.generate(user_id="user123", metadata={"provider": "slack"})
+
+        peeked = store.peek(state)
+        assert peeked is not None
+        assert peeked.user_id == "user123"
+
+        consumed = store.validate_and_consume(state)
+        assert consumed is not None
         store.close()
 
     def test_redis_fallback_to_sqlite(self, temp_db_path):
@@ -415,6 +454,28 @@ class TestRedisOAuthStateStore:
             assert result is not None
             assert result.user_id == "user123"
 
+    def test_peek_with_mock_redis(self, mock_redis):
+        """Peek should read Redis state without deleting it."""
+        import json
+        import redis as redis_module
+
+        state_data = {
+            "user_id": "user123",
+            "redirect_url": "http://localhost",
+            "expires_at": time.time() + 600,
+            "created_at": time.time(),
+            "metadata": {"provider": "slack"},
+        }
+        mock_redis.get.return_value = json.dumps(state_data)
+
+        with patch.object(redis_module, "from_url", return_value=mock_redis):
+            store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
+            result = store.peek("test_state")
+
+            assert result is not None
+            assert result.user_id == "user123"
+            mock_redis.pipeline.assert_not_called()
+
 
 class TestConvenienceFunctions:
     """Tests for module-level convenience functions."""
@@ -534,6 +595,18 @@ class TestJWTOAuthStateStore:
         assert result.user_id == "user456"
         assert result.redirect_url == "http://example.com/cb"
         assert result.is_expired is False
+
+    def test_jwt_peek_does_not_consume(self):
+        """Peek should validate a JWT state without marking its nonce used."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(user_id="user456", redirect_url="http://example.com/cb")
+
+        peeked = store.peek(token)
+        assert peeked is not None
+        assert peeked.user_id == "user456"
+
+        consumed = store.validate_and_consume(token)
+        assert consumed is not None
 
     def test_jwt_validate_with_metadata(self):
         """Test JWT preserves metadata through roundtrip."""

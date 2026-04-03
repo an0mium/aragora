@@ -22,6 +22,8 @@ export interface SavedDebate {
   votes: Array<{ agent: string; choice: string; confidence: number }>;
   final_answer: string;
   receipt_hash: string | null;
+  result_mode?: string;
+  result_warning?: string;
   messages?: SavedDebateMessage[];
 }
 
@@ -71,6 +73,9 @@ function parseSavedDebate(payload: unknown): SavedDebate | null {
       : typeof debate.receipt_hash === 'string'
         ? debate.receipt_hash
         : null;
+  const resultMode = typeof debate.result_mode === 'string' ? debate.result_mode : undefined;
+  const resultWarning =
+    typeof debate.result_warning === 'string' ? debate.result_warning : undefined;
 
   if (!id || !topic) {
     return null;
@@ -91,6 +96,8 @@ function parseSavedDebate(payload: unknown): SavedDebate | null {
     votes,
     final_answer: finalAnswer,
     receipt_hash: receiptHash,
+    ...(resultMode ? { result_mode: resultMode } : {}),
+    ...(resultWarning ? { result_warning: resultWarning } : {}),
     messages: messages.length > 0 ? messages : undefined,
   };
 }

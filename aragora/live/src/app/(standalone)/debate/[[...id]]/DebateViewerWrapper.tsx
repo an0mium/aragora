@@ -53,6 +53,13 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
 
   const isInProgress = debate.status === 'in_progress' || debate.status === 'running';
   const isFailed = debate.status === 'failed' || debate.status === 'error';
+  const previewOnly =
+    debate.result_mode === 'preview'
+    || (
+      debate.verdict === 'needs_review'
+      && debate.critiques.length === 0
+      && debate.votes.length === 0
+    );
 
   const shareUrl =
     typeof window !== 'undefined'
@@ -111,6 +118,14 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
               {'>'} DEBATE FAILED -- PARTIAL RESULTS SHOWN BELOW
             </div>
           )}
+          {previewOnly && (
+            <div className="mb-6 p-4 border border-[var(--gold)]/40 bg-[var(--gold)]/5 font-mono text-sm text-[var(--gold)]">
+              <div className="font-bold mb-1">{'>'} LANDING PREVIEW</div>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {debate.result_warning || 'This page shows a fast landing-page preview of parallel model outputs, not a full consensus proof.'}
+              </p>
+            </div>
+          )}
 
           {/* Topic */}
           <h1 className="text-2xl md:text-3xl font-mono font-bold text-[var(--acid-green)] mb-2 leading-tight">
@@ -126,10 +141,13 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
             {debate.duration_seconds > 0 && (
               <span>{debate.duration_seconds.toFixed(1)}s</span>
             )}
-            {debate.consensus_reached && (
+            {previewOnly && (
+              <span className="text-[var(--gold)]">PREVIEW ONLY</span>
+            )}
+            {!previewOnly && debate.consensus_reached && (
               <span className="text-[var(--acid-green)]">CONSENSUS</span>
             )}
-            {!debate.consensus_reached && debate.status === 'completed' && (
+            {!previewOnly && !debate.consensus_reached && debate.status === 'completed' && (
               <span className="text-[var(--gold)]">NO CONSENSUS</span>
             )}
           </div>
@@ -142,20 +160,26 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                   <span className="px-3 py-1 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 uppercase">
                     VERDICT
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-[var(--text-muted)]">
-                      CONFIDENCE
+                  {previewOnly ? (
+                    <span className="text-xs font-mono text-[var(--gold)]">
+                      PREVIEW ONLY
                     </span>
-                    <div className="w-24 h-2 bg-[var(--bg)] border border-[var(--acid-green)]/20 overflow-hidden">
-                      <div
-                        className="h-full bg-[var(--acid-green)] transition-all duration-500"
-                        style={{ width: `${confidencePercent}%` }}
-                      />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                        CONFIDENCE
+                      </span>
+                      <div className="w-24 h-2 bg-[var(--bg)] border border-[var(--acid-green)]/20 overflow-hidden">
+                        <div
+                          className="h-full bg-[var(--acid-green)] transition-all duration-500"
+                          style={{ width: `${confidencePercent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-[var(--acid-green)]">
+                        {confidencePercent}%
+                      </span>
                     </div>
-                    <span className="text-xs font-mono text-[var(--acid-green)]">
-                      {confidencePercent}%
-                    </span>
-                  </div>
+                  )}
                 </div>
                 <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
                   {debate.verdict}

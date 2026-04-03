@@ -653,7 +653,7 @@ function ConsensusBar({ confidence }: { confidence: number }) {
         <span className="uppercase tracking-[0.12em]">
           Consensus confidence
         </span>
-        <span className="rounded-full bg-[var(--surface-elevated)] px-2.5 py-1 font-semibold text-[var(--acid-green)] shadow-[var(--shadow-panel)]">
+        <span className="rounded-full bg-[var(--surface-elevated)] px-3.5 py-1.5 font-semibold text-[var(--acid-green)] shadow-[var(--shadow-panel)]">
           {Math.round(clamped * 100)}%
         </span>
       </div>
@@ -812,7 +812,7 @@ function ResultStateChip({ tone }: { tone: "live" | "fallback" }) {
           ? "bg-[var(--surface)] text-[var(--acid-green)]"
           : "bg-amber-50 text-amber-700"
       }`}
-      style={{ padding: "9px 14px" }}
+      style={{ padding: "10px 16px" }}
     >
       {isLive
         ? "Backend returned a live debate"
@@ -883,7 +883,7 @@ function ExpandableText({
           type="button"
           onClick={() => setExpanded((current) => !current)}
           className="inline-flex items-center gap-2 rounded-full border bg-transparent text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--acid-green)]"
-          style={{ padding: "8px 12px", borderColor: buttonBorderColor }}
+          style={{ padding: "8px 14px", borderColor: buttonBorderColor }}
         >
           <span>{expanded ? "Show less" : buttonLabel}</span>
           <span
@@ -1283,12 +1283,12 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
                       </span>
                       <span
                         className={`rounded-full uppercase font-semibold ${badgeColor} bg-current/5`}
-                        style={{ ...LABEL_TEXT_STYLE, padding: "8px 12px" }}
+                        style={{ ...LABEL_TEXT_STYLE, padding: "6px 14px" }}
                       >
                         {event.type}
                       </span>
                     </div>
-                    <div className="rounded-full bg-[var(--surface-elevated)] px-3 py-1 text-sm text-[var(--text-muted)] shadow-[var(--shadow-panel)]">
+                    <div className="rounded-full bg-[var(--surface-elevated)] px-4 py-1.5 text-sm text-[var(--text-muted)] shadow-[var(--shadow-panel)]">
                       Round {event.round}
                       {event.confidence !== undefined
                         ? ` · ${Math.round(event.confidence * 100)}%`
@@ -1627,7 +1627,7 @@ export default function PublicDemoPage() {
                 disabled={recordedSamplePinned}
                 className="rounded-full border bg-transparent text-[13px] font-medium tracking-[0.01em] text-[var(--text-muted)] transition-colors hover:text-sky-700"
                 style={{
-                  padding: "9px 14px",
+                  padding: "10px 16px",
                   borderColor: "color-mix(in srgb, var(--border) 68%, transparent)",
                 }}
               >

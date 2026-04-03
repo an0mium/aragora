@@ -89,6 +89,51 @@ def _mock_orch_nodes(count: int = 2) -> list[dict[str, Any]]:
     ]
 
 
+def _mock_plan(plan_id: str = "plan-123") -> MagicMock:
+    plan = MagicMock()
+    plan.id = plan_id
+    return plan
+
+
+def _mock_launch(
+    plan_id: str = "plan-123",
+    execution_id: str = "exec-123",
+    correlation_id: str = "corr-123",
+) -> dict[str, Any]:
+    return {
+        "plan_id": plan_id,
+        "execution_id": execution_id,
+        "correlation_id": correlation_id,
+        "execution_mode": "workflow",
+        "status": "queued",
+    }
+
+
+def _mock_outcome(
+    *,
+    success: bool = True,
+    tasks_total: int = 1,
+    tasks_completed: int | None = None,
+    receipt_id: str = "rcpt-123",
+    error: str | None = None,
+) -> MagicMock:
+    completed = tasks_completed if tasks_completed is not None else tasks_total
+    outcome = MagicMock()
+    outcome.success = success
+    outcome.tasks_total = tasks_total
+    outcome.tasks_completed = completed
+    outcome.error = error
+    outcome.receipt_id = receipt_id
+    outcome.to_dict.return_value = {
+        "success": success,
+        "tasks_total": tasks_total,
+        "tasks_completed": completed,
+        "error": error,
+        "receipt_id": receipt_id,
+    }
+    return outcome
+
+
 # ---------------------------------------------------------------------------
 # Emitter Wiring During Execution
 # ---------------------------------------------------------------------------
@@ -111,15 +156,31 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(2, 2, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=2, tasks_completed=2),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_started.assert_awaited_once()
         call_args = mock_emitter.emit_started.call_args
@@ -143,15 +204,31 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(3, 3, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=3, tasks_completed=3),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_completed.assert_awaited_once()
         assert mock_emitter.emit_completed.call_args[0][0] == "pipe-ws"
@@ -172,15 +249,31 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(0, 3, 3))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=False, tasks_total=3, tasks_completed=0),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_failed.assert_awaited_once()
 
@@ -200,14 +293,24 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(side_effect=RuntimeError("Boom"))
-                    await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(side_effect=RuntimeError("Boom")),
+                ),
+            ):
+                await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_failed.assert_awaited_once()
-        assert "failed" in mock_emitter.emit_failed.call_args[0][1].lower()
+        assert "boom" in mock_emitter.emit_failed.call_args[0][1].lower()
 
     @pytest.mark.asyncio
     async def test_emitter_failed_event_on_cancel(self):
@@ -225,18 +328,28 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(side_effect=asyncio.CancelledError())
-                    await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(side_effect=asyncio.CancelledError()),
+                ),
+            ):
+                await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_failed.assert_awaited_once()
         assert "cancel" in mock_emitter.emit_failed.call_args[0][1].lower()
 
     @pytest.mark.asyncio
     async def test_emitter_failed_event_on_import_error(self):
-        """pipeline_failed event emitted when SelfImprovePipeline unavailable."""
+        """pipeline_failed event emitted when canonical execution is unavailable."""
         h = _make_handler()
         _executions["pipe-ws"] = {"pipeline_id": "pipe-ws", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
@@ -249,7 +362,10 @@ class TestEmitterWiring:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch.dict("sys.modules", {"aragora.nomic.self_improve": None}):
+            with patch(
+                "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                side_effect=ImportError("canonical execution not available"),
+            ):
                 await h._execute_pipeline("pipe-ws", "cycle-1", goals, None, False)
 
         mock_emitter.emit_failed.assert_awaited_once()
@@ -257,14 +373,14 @@ class TestEmitterWiring:
 
 
 # ---------------------------------------------------------------------------
-# Progress Callback Wiring
+# Execution State Wiring
 # ---------------------------------------------------------------------------
 
 
 class TestProgressCallback:
     @pytest.mark.asyncio
-    async def test_progress_callback_wired_to_config(self):
-        """SelfImproveConfig receives a progress_callback."""
+    async def test_execution_records_launch_metadata(self):
+        """Launch metadata is stored on the in-memory execution record."""
         h = _make_handler()
         _executions["pipe-cb"] = {"pipeline_id": "pipe-cb", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
@@ -278,140 +394,172 @@ class TestProgressCallback:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
 
-            call_kwargs = MockConfig.call_args[1]
-            assert "progress_callback" in call_kwargs
-            assert call_kwargs["progress_callback"] is not None
+        execution = _executions["pipe-cb"]
+        assert execution["plan_id"] == "plan-123"
+        assert execution["execution_id"] == "exec-123"
+        assert execution["correlation_id"] == "corr-123"
 
     @pytest.mark.asyncio
-    async def test_progress_callback_updates_execution_state_stage(self):
-        """Progress callback updates current_stage in _executions."""
+    async def test_execution_updates_status_on_success(self):
+        """Successful execution updates the in-memory execution status."""
         h = _make_handler()
         _executions["pipe-cb"] = {"pipeline_id": "pipe-cb", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
-
-        captured_callback = None
 
         mock_emitter = MagicMock()
         mock_emitter.emit_started = AsyncMock()
         mock_emitter.emit_completed = AsyncMock()
         mock_emitter.as_event_callback.return_value = lambda e, d: None
 
-        def capture_config(**kwargs: Any) -> MagicMock:
-            nonlocal captured_callback
-            captured_callback = kwargs.get("progress_callback")
-            return MagicMock()
-
         with patch(
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch(
-                    "aragora.nomic.self_improve.SelfImproveConfig", side_effect=capture_config
-                ):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
 
-        assert captured_callback is not None
-        captured_callback("stage_started", {"stage": "implementation"})
-        assert _executions["pipe-cb"]["current_stage"] == "implementation"
+        assert _executions["pipe-cb"]["status"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_progress_callback_updates_execution_state_progress(self):
-        """Progress callback updates progress in _executions."""
+    async def test_execution_updates_subtask_counts(self):
+        """Successful execution stores subtask counts from the outcome."""
         h = _make_handler()
         _executions["pipe-cb"] = {"pipeline_id": "pipe-cb", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
-
-        captured_callback = None
 
         mock_emitter = MagicMock()
         mock_emitter.emit_started = AsyncMock()
         mock_emitter.emit_completed = AsyncMock()
         mock_emitter.as_event_callback.return_value = lambda e, d: None
 
-        def capture_config(**kwargs: Any) -> MagicMock:
-            nonlocal captured_callback
-            captured_callback = kwargs.get("progress_callback")
-            return MagicMock()
-
         with patch(
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch(
-                    "aragora.nomic.self_improve.SelfImproveConfig", side_effect=capture_config
-                ):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock(), MagicMock(), MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=3, tasks_completed=2),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
 
-        assert captured_callback is not None
-        captured_callback("step_progress", {"progress": 0.75})
-        assert _executions["pipe-cb"]["progress"] == 0.75
+        execution = _executions["pipe-cb"]
+        assert execution["total_subtasks"] == 3
+        assert execution["completed_subtasks"] == 2
+        assert execution["failed_subtasks"] == 1
 
     @pytest.mark.asyncio
-    async def test_progress_callback_forwards_to_emitter(self):
-        """Progress callback forwards events to the WebSocket emitter."""
+    async def test_execution_forwards_lifecycle_events_to_emitter(self):
+        """Execution start and completion are forwarded to the WebSocket emitter."""
         h = _make_handler()
         _executions["pipe-cb"] = {"pipeline_id": "pipe-cb", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
 
-        emitter_events: list[tuple[str, dict[str, Any]]] = []
-
         mock_emitter = MagicMock()
         mock_emitter.emit_started = AsyncMock()
         mock_emitter.emit_completed = AsyncMock()
-        mock_emitter.as_event_callback.return_value = lambda e, d: emitter_events.append((e, d))
-
-        captured_callback = None
-
-        def capture_config(**kwargs: Any) -> MagicMock:
-            nonlocal captured_callback
-            captured_callback = kwargs.get("progress_callback")
-            return MagicMock()
+        mock_emitter.as_event_callback.return_value = lambda e, d: None
 
         with patch(
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch(
-                    "aragora.nomic.self_improve.SelfImproveConfig", side_effect=capture_config
-                ):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-cb", "cycle-1", goals, None, False)
 
-        assert captured_callback is not None
-        captured_callback("step_progress", {"progress": 0.5, "step": "testing"})
-        assert len(emitter_events) == 1
-        assert emitter_events[0][0] == "step_progress"
-        assert emitter_events[0][1]["progress"] == 0.5
+        mock_emitter.emit_started.assert_awaited_once()
+        mock_emitter.emit_completed.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -461,21 +609,37 @@ class TestEmitterUnavailable:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=None,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-no-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-no-ws", "cycle-1", goals, None, False)
 
         assert _executions["pipe-no-ws"]["status"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_no_progress_callback_without_emitter(self):
-        """No progress_callback is set when emitter is None."""
+    async def test_execution_records_metadata_without_emitter(self):
+        """Plan launch metadata is still recorded when no emitter is available."""
         h = _make_handler()
         _executions["pipe-no-ws"] = {"pipeline_id": "pipe-no-ws", "status": "started"}
         goals = [MagicMock(description="Goal 1")]
@@ -484,20 +648,35 @@ class TestEmitterUnavailable:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=None,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig") as MockConfig:
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-no-ws", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-no-ws", "cycle-1", goals, None, False)
 
-        call_kwargs = MockConfig.call_args[1]
-        cb = call_kwargs.get("progress_callback")
-        # Callback still exists for state tracking, but won't forward to emitter
-        assert cb is not None
+        execution = _executions["pipe-no-ws"]
+        assert execution["plan_id"] == "plan-123"
+        assert execution["execution_id"] == "exec-123"
 
 
 # ---------------------------------------------------------------------------
@@ -575,15 +754,31 @@ class TestEventPipelineId:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(return_value=_mock_result(1, 1, 0))
-                    with patch(
-                        "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
-                        new_callable=AsyncMock,
-                    ):
-                        await h._execute_pipeline("pipe-id-check", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(
+                        return_value=(
+                            _mock_outcome(success=True, tasks_total=1, tasks_completed=1),
+                            {"execution_id": "exec-123"},
+                            {"receipt_id": "rcpt-123"},
+                        )
+                    ),
+                ),
+                patch(
+                    "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+                    new_callable=AsyncMock,
+                ),
+            ):
+                await h._execute_pipeline("pipe-id-check", "cycle-1", goals, None, False)
 
         # Check started event
         assert mock_emitter.emit_started.call_args[0][0] == "pipe-id-check"
@@ -606,11 +801,21 @@ class TestEventPipelineId:
             "aragora.server.handlers.pipeline.execute._get_emitter",
             return_value=mock_emitter,
         ):
-            with patch("aragora.nomic.self_improve.SelfImprovePipeline") as MockPipeline:
-                with patch("aragora.nomic.self_improve.SelfImproveConfig"):
-                    mock_instance = MockPipeline.return_value
-                    mock_instance.run = AsyncMock(side_effect=RuntimeError("Boom"))
-                    await h._execute_pipeline("pipe-fail-id", "cycle-1", goals, None, False)
+            with (
+                patch(
+                    "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                    return_value=(_mock_plan(), [MagicMock()]),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    return_value=_mock_launch(),
+                ),
+                patch(
+                    "aragora.pipeline.canonical_execution.execute_queued_plan",
+                    new=AsyncMock(side_effect=RuntimeError("Boom")),
+                ),
+            ):
+                await h._execute_pipeline("pipe-fail-id", "cycle-1", goals, None, False)
 
         assert mock_emitter.emit_failed.call_args[0][0] == "pipe-fail-id"
 

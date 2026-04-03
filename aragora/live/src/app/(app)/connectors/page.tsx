@@ -37,6 +37,7 @@ function ConnectorCard({
   onViewDetails: () => void;
   syncing: boolean;
 }) {
+  const schedule = connector.schedule ?? { interval_minutes: 60, enabled: false };
   const connectorType = connector.type || connector.id.split(':')[0] || 'unknown';
   const connectorId = connector.name || connector.id.split(':').pop() || connector.id;
   const isRunning = connector.is_running || connector.status === 'syncing';
@@ -97,18 +98,13 @@ function ConnectorCard({
           <div>
             <span className="text-text-muted">Schedule:</span>
             <span className="ml-2 text-text">
-              {connector.schedule.cron_expression ||
-                `Every ${connector.schedule.interval_minutes || 60}m`}
+              {schedule.cron_expression || `Every ${schedule.interval_minutes || 60}m`}
             </span>
           </div>
           <div>
             <span className="text-text-muted">Status:</span>
-            <span
-              className={`ml-2 ${
-                connector.schedule.enabled ? 'text-acid-green' : 'text-text-muted'
-              }`}
-            >
-              {connector.schedule.enabled ? 'ENABLED' : 'DISABLED'}
+            <span className={`ml-2 ${schedule.enabled ? 'text-acid-green' : 'text-text-muted'}`}>
+              {schedule.enabled ? 'ENABLED' : 'DISABLED'}
             </span>
           </div>
           {connector.last_run && (
@@ -174,14 +170,11 @@ function EditConnectorModal({
   onClose: () => void;
   onSave: (updates: { schedule: Connector['schedule'] }) => void;
 }) {
-  const [intervalMinutes, setIntervalMinutes] = useState(
-    connector.schedule.interval_minutes || 60
-  );
-  const [cronExpression, setCronExpression] = useState(
-    connector.schedule.cron_expression || ''
-  );
-  const [enabled, setEnabled] = useState(connector.schedule.enabled);
-  const [useCron, setUseCron] = useState(!!connector.schedule.cron_expression);
+  const schedule = connector.schedule ?? { interval_minutes: 60, enabled: false };
+  const [intervalMinutes, setIntervalMinutes] = useState(schedule.interval_minutes || 60);
+  const [cronExpression, setCronExpression] = useState(schedule.cron_expression || '');
+  const [enabled, setEnabled] = useState(schedule.enabled);
+  const [useCron, setUseCron] = useState(!!schedule.cron_expression);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -493,6 +486,7 @@ function ConnectorDetailsModal({
   }
 
   const connectorType = details.type || details.id.split(':')[0] || 'unknown';
+  const schedule = details.schedule ?? { interval_minutes: 60, enabled: false };
   const isRunning = details.is_running || details.status === 'syncing';
 
   return (
@@ -592,19 +586,19 @@ function ConnectorDetailsModal({
                   <div>
                     <span className="text-text-muted">Type:</span>
                     <span className="ml-2 text-text">
-                      {details.schedule.cron_expression ? 'Cron' : 'Interval'}
+                      {schedule.cron_expression ? 'Cron' : 'Interval'}
                     </span>
                   </div>
                   <div>
                     <span className="text-text-muted">Value:</span>
                     <span className="ml-2 text-text">
-                      {details.schedule.cron_expression || `${details.schedule.interval_minutes || 60}m`}
+                      {schedule.cron_expression || `${schedule.interval_minutes || 60}m`}
                     </span>
                   </div>
                   <div>
                     <span className="text-text-muted">Enabled:</span>
-                    <span className={`ml-2 ${details.schedule.enabled ? 'text-acid-green' : 'text-red-400'}`}>
-                      {details.schedule.enabled ? 'YES' : 'NO'}
+                    <span className={`ml-2 ${schedule.enabled ? 'text-acid-green' : 'text-red-400'}`}>
+                      {schedule.enabled ? 'YES' : 'NO'}
                     </span>
                   </div>
                   <div>

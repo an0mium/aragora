@@ -652,7 +652,7 @@ class TestWebhookHandlerGet:
         handler = MockHandler(headers={})
         result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 403
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_webhook_denies_missing_workspace_context(self, server_context):
@@ -677,7 +677,7 @@ class TestWebhookHandlerGet:
         handler = MockHandler(headers={})
         result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 403
+        assert result.status_code == 404
 
 
 class TestWebhookHandlerDelete:
@@ -708,6 +708,30 @@ class TestWebhookHandlerDelete:
         result = await webhook_handler.handle_delete(
             "/api/v1/webhooks/non-existent-id", {}, handler
         )
+
+        assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_webhook_hides_workspace_mismatch(self, server_context):
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com",
+            events=["debate_start"],
+            workspace_id="org-locked",
+        )
+        handler_obj = WebhookHandler(server_context)
+        handler_obj.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id="org-other",
+            )
+        )
+
+        handler = MockHandler(headers={})
+        result = await handler_obj.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 404
 
@@ -761,6 +785,33 @@ class TestWebhookHandlerUpdate:
 
         result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
         assert result.status_code == 400
+
+    def test_update_webhook_hides_workspace_mismatch(self, server_context):
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com",
+            events=["debate_start"],
+            workspace_id="org-locked",
+        )
+        handler_obj = WebhookHandler(server_context)
+        handler_obj.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id="org-other",
+            )
+        )
+
+        body = json.dumps({"active": False}).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = handler_obj.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+        assert result.status_code == 404
 
 
 class TestWebhookHandlerTest:
@@ -818,7 +869,30 @@ class TestWebhookHandlerTest:
             assert result.status_code == 502
             body = json.loads(result.body)
             assert body["success"] is False
-            assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_test_webhook_hides_workspace_mismatch(self, server_context):
+        from aragora.server.handlers.webhooks import WebhookHandler
+
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com/hook",
+            events=["debate_start"],
+            workspace_id="org-locked",
+        )
+        handler_obj = WebhookHandler(server_context)
+        handler_obj.get_current_user = MagicMock(
+            return_value=SimpleNamespace(
+                user_id="test-user-001",
+                role="admin",
+                org_id="org-other",
+            )
+        )
+
+        handler = MockHandler(headers={})
+        result = await handler_obj.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
+
+        assert result.status_code == 404
 
 
 # ===========================================================================

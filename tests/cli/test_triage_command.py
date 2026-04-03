@@ -417,6 +417,7 @@ def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monk
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("ARAGORA_ENV", "production")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "1")
     monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
     monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
 
@@ -473,6 +474,7 @@ def test_show_status_reports_gmail_from_secret_fallback(tmp_path, monkeypatch, c
 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("ARAGORA_ENV", "production")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "1")
     monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
     monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
 

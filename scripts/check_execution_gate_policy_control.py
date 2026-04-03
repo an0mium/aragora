@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Any
 
 
-POST_DEBATE_CONFIG_PATH = Path("aragora/debate/post_debate_coordinator.py")
+POST_DEBATE_CONFIG_PATHS: tuple[Path, ...] = (
+    Path("aragora/debate/post_debate_config.py"),
+    Path("aragora/debate/post_debate_coordinator.py"),
+)
 POLICY_PATH = Path("security/policies/execution_gate_defaults_policy.json")
 
 TRACKED_FIELDS: tuple[str, ...] = (
@@ -57,6 +60,13 @@ def _extract_post_debate_defaults(source_text: str) -> dict[str, Any]:
                 defaults[entry.target.id] = _literal_value(entry.value)
         return defaults
     return {}
+
+
+def _resolve_post_debate_config_path(repo_root: Path) -> Path | None:
+    for candidate in POST_DEBATE_CONFIG_PATHS:
+        if (repo_root / candidate).exists():
+            return candidate
+    return None
 
 
 def canonicalize_json(data: Any) -> str:
@@ -174,14 +184,15 @@ def validate_policy_document(
 def check_repo(repo_root: Path) -> list[Violation]:
     violations: list[Violation] = []
 
-    source_path = repo_root / POST_DEBATE_CONFIG_PATH
-    if not source_path.exists():
+    config_path = _resolve_post_debate_config_path(repo_root)
+    if config_path is None:
         return [
             Violation(
-                path=str(POST_DEBATE_CONFIG_PATH),
+                path=str(POST_DEBATE_CONFIG_PATHS[0]),
                 message="missing PostDebateConfig source file",
             )
         ]
+    source_path = repo_root / config_path
 
     policy_path = repo_root / POLICY_PATH
     if not policy_path.exists():
@@ -197,7 +208,7 @@ def check_repo(repo_root: Path) -> list[Violation]:
     if not source_defaults:
         violations.append(
             Violation(
-                path=str(POST_DEBATE_CONFIG_PATH),
+                path=str(config_path),
                 message="failed to parse PostDebateConfig defaults",
             )
         )

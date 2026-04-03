@@ -410,6 +410,25 @@ class MemoryGateway:
 
         return sorted(results, key=sort_key, reverse=True)
 
+    @staticmethod
+    def _resolve_surprise_score(result: UnifiedMemoryResult) -> float:
+        """Resolve a normalized surprise score for retention evaluation."""
+        if result.surprise_score is not None:
+            raw_surprise: Any = result.surprise_score
+        else:
+            metadata = result.metadata or {}
+            raw_surprise = metadata.get(
+                "surprise_score",
+                metadata.get("outcome_surprise", metadata.get("surprise", 0.5)),
+            )
+
+        try:
+            surprise = float(raw_surprise)
+        except (TypeError, ValueError):
+            return 0.5
+
+        return max(0.0, min(1.0, surprise))
+
     def evaluate_retention(
         self,
         results: list[UnifiedMemoryResult],
@@ -436,7 +455,7 @@ class MemoryGateway:
 
         evaluated: list[dict[str, Any]] = []
         for result in results:
-            surprise = result.surprise_score if result.surprise_score is not None else 0.5
+            surprise = self._resolve_surprise_score(result)
             confidence = current_confidences.get(result.id, result.confidence)
             access = access_counts.get(result.id, 0)
             is_red_line = result.id in red_line_ids

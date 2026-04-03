@@ -366,6 +366,24 @@ class SlackOAuthHandler(SecureHandler):
             return True
         return requester_tenant_id != workspace_tenant_id
 
+    @staticmethod
+    def _extract_state_metadata(state_data: Any) -> tuple[str | None, str | None, str | None]:
+        """Extract tenant, redirect URI, and provider metadata from an OAuth state payload."""
+        if isinstance(state_data, dict):
+            tenant_id = state_data.get("tenant_id")
+            redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
+            provider = str(state_data.get("provider", "") or "").strip() or None
+            return tenant_id, redirect_uri, provider
+
+        metadata = getattr(state_data, "metadata", None)
+        if isinstance(metadata, dict):
+            tenant_id = metadata.get("tenant_id")
+            redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
+            provider = str(metadata.get("provider", "") or "").strip() or None
+            return tenant_id, redirect_uri, provider
+
+        return None, None, None
+
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Route OAuth requests with dual-signature support.
 
@@ -936,8 +954,34 @@ class SlackOAuthHandler(SecureHandler):
             state: State token for CSRF verification
             error: Error code if user denied
         """
+        state = query_params.get("state")
+        state_store = _get_state_store()
+        peeked_state_data = None
+        fallback_state_data = None
+
+        if state:
+            _cleanup_oauth_states_fallback()
+            fallback_state_data = _oauth_states_fallback.get(state)
+            try:
+                peeked_state_data = state_store.peek(state)
+            except Exception:
+                logger.debug("Failed to peek Slack OAuth state", exc_info=True)
+
         # Check for error from Slack
         if "error" in query_params:
+            if state:
+                _, _, state_provider = self._extract_state_metadata(
+                    peeked_state_data or fallback_state_data
+                )
+                if state_provider == "slack":
+                    try:
+                        state_store.validate_and_consume(state)
+                    except Exception:
+                        logger.debug(
+                            "Failed to consume Slack OAuth state after callback error",
+                            exc_info=True,
+                        )
+                    _oauth_states_fallback.pop(state, None)
             error_code = query_params.get("error")
             logger.warning("Slack OAuth error: %s", error_code)
             # Audit log OAuth denial
@@ -950,9 +994,7 @@ class SlackOAuthHandler(SecureHandler):
                     error=f"User denied: {error_code}",
                 )
             return error_response(f"Slack authorization denied: {error_code}", 400)
-
         code = query_params.get("code")
-        state = query_params.get("state")
 
         if not code:
             return error_response("Missing authorization code", 400)
@@ -960,30 +1002,21 @@ class SlackOAuthHandler(SecureHandler):
         if not state:
             return error_response("Missing state parameter", 400)
 
-        # Verify state token using centralized state store
-        state_store = _get_state_store()
+        if not (peeked_state_data or fallback_state_data):
+            return error_response("Invalid or expired state token", 400)
+
+        tenant_id, state_redirect_uri, state_provider = self._extract_state_metadata(
+            peeked_state_data or fallback_state_data
+        )
+        if state_provider != "slack":
+            return error_response("Invalid or expired state token", 400)
+
+        # Consume only after verifying this state was actually minted for Slack.
         state_data = state_store.validate_and_consume(state)
-        _cleanup_oauth_states_fallback()
         fallback_state_data = _oauth_states_fallback.pop(state, None)
         if not state_data:
             state_data = fallback_state_data
         if not state_data:
-            return error_response("Invalid or expired state token", 400)
-
-        state_redirect_uri: str | None = None
-        state_provider: str | None = None
-        if isinstance(state_data, dict):
-            tenant_id = state_data.get("tenant_id")
-            state_redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
-            state_provider = str(state_data.get("provider", "") or "").strip() or None
-        else:
-            metadata = getattr(state_data, "metadata", None)
-            tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
-            if isinstance(metadata, dict):
-                state_redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
-                state_provider = str(metadata.get("provider", "") or "").strip() or None
-
-        if state_provider != "slack":
             return error_response("Invalid or expired state token", 400)
 
         client_id = _get_slack_client_id()
@@ -1131,6 +1164,9 @@ class SlackOAuthHandler(SecureHandler):
             existing_tenant_id = (
                 str(getattr(existing_workspace, "tenant_id", "") or "").strip() or None
             )
+            existing_refresh_token = (
+                str(getattr(existing_workspace, "refresh_token", "") or "").strip() or None
+            )
             requested_tenant_id = str(tenant_id or "").strip() or None
             if (
                 existing_tenant_id
@@ -1156,6 +1192,8 @@ class SlackOAuthHandler(SecureHandler):
                     "Workspace is already linked to a different tenant",
                     409,
                 )
+            if not str(refresh_token or "").strip():
+                refresh_token = existing_refresh_token
 
             workspace = SlackWorkspace(
                 workspace_id=workspace_id,
@@ -1661,7 +1699,9 @@ class SlackOAuthHandler(SecureHandler):
                         error="Invalid refresh response: missing access token",
                     )
                 return error_response("Invalid token refresh response", 502)
-            new_refresh_token = data.get("refresh_token", workspace.refresh_token)
+            new_refresh_token = data.get("refresh_token")
+            if not str(new_refresh_token or "").strip():
+                new_refresh_token = workspace.refresh_token
             expires_in = data.get("expires_in")
             new_expires_at = time.time() + expires_in if expires_in else None
 

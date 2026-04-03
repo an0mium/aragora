@@ -303,6 +303,73 @@ class TestSlackOAuthCallback:
         assert "denied" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
+    async def test_callback_error_from_slack_consumes_state(self, oauth_handler, oauth_state_store):
+        """Test callback burns state even when Slack returns an error."""
+        state = "error-state"
+        oauth_state_store._states[state] = OAuthState(
+            user_id=None,
+            redirect_url=None,
+            expires_at=time.time() + 600,
+            created_at=time.time(),
+            metadata={"provider": "slack"},
+        )
+
+        result = await oauth_handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            query_params={"error": "access_denied", "state": state},
+        )
+
+        assert result.status_code == 400
+        assert state not in oauth_state_store._states
+
+    @pytest.mark.asyncio
+    async def test_callback_error_from_slack_does_not_consume_other_provider_state(
+        self, oauth_handler, oauth_state_store
+    ):
+        """Slack callback errors must not burn non-Slack OAuth state tokens."""
+        state = "github-state"
+        oauth_state_store._states[state] = OAuthState(
+            user_id=None,
+            redirect_url=None,
+            expires_at=time.time() + 600,
+            created_at=time.time(),
+            metadata={"provider": "github"},
+        )
+
+        result = await oauth_handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            query_params={"error": "access_denied", "state": state},
+        )
+
+        assert result.status_code == 400
+        assert state in oauth_state_store._states
+
+    @pytest.mark.asyncio
+    async def test_callback_rejects_other_provider_state_without_consuming(
+        self, oauth_handler, oauth_state_store
+    ):
+        """Slack callback must fail closed before burning another provider's state."""
+        state = "github-state"
+        oauth_state_store._states[state] = OAuthState(
+            user_id=None,
+            redirect_url=None,
+            expires_at=time.time() + 600,
+            created_at=time.time(),
+            metadata={"provider": "github"},
+        )
+
+        result = await oauth_handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            query_params={"code": "auth-code", "state": state},
+        )
+
+        assert result.status_code == 400
+        assert state in oauth_state_store._states
+
+    @pytest.mark.asyncio
     async def test_callback_missing_code(self, oauth_handler):
         """Test callback requires authorization code."""
         result = await oauth_handler.handle(
@@ -782,7 +849,7 @@ class TestSlackOAuthState:
             redirect_url=None,
             expires_at=time.time() + 600,
             created_at=time.time(),
-            metadata=None,
+            metadata={"provider": "slack"},
         )
 
         # Make callback fail early but still consume state

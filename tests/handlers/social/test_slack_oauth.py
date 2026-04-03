@@ -151,6 +151,11 @@ def mock_state_store():
     """Create a mock OAuth state store."""
     store = MagicMock()
     store.generate.return_value = "test-state-token-abc123"
+    store.peek.return_value = {
+        "tenant_id": "tenant-1",
+        "provider": "slack",
+        "created_at": time.time(),
+    }
     store.validate_and_consume.return_value = {
         "tenant_id": "tenant-1",
         "provider": "slack",
@@ -698,6 +703,29 @@ class TestCallback:
         assert "access_denied" in body.get("error", "")
 
     @pytest.mark.asyncio
+    async def test_error_param_consumes_state_and_fallback_copy(
+        self, handler, handler_module, mock_state_store
+    ):
+        handler_module._oauth_states_fallback["error-state"] = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "access_denied", "state": "error-state"},
+            {},
+            None,
+        )
+
+        assert _status(result) == 400
+        mock_state_store.validate_and_consume.assert_called_once_with("error-state")
+        assert "error-state" not in handler_module._oauth_states_fallback
+
+    @pytest.mark.asyncio
     async def test_missing_code_returns_400(self, handler):
         result = await handler.handle(
             "GET",
@@ -910,9 +938,56 @@ class TestCallback:
         mock_workspace_store.save.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_callback_preserves_existing_refresh_token_when_response_omits_it(
+        self, handler, mock_workspace, mock_workspace_store, mock_state_store
+    ):
+        mock_workspace.refresh_token = "xoxr-existing-refresh"
+        mock_state_store.validate_and_consume.return_value = {
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+                "refresh_token": "",
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch("aragora.storage.slack_workspace_store.SlackWorkspace") as mock_workspace_cls,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 200
+        assert mock_workspace_cls.call_args.kwargs["refresh_token"] == "xoxr-existing-refresh"
+        mock_workspace_store.save.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_callback_rejects_state_from_other_provider(
         self, handler, mock_state_store, mock_workspace_store
     ):
+        mock_state_store.peek.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "google",
+            "created_at": time.time(),
+        }
         mock_state_store.validate_and_consume.return_value = {
             "tenant_id": "tenant-1",
             "provider": "google",
@@ -1144,6 +1219,12 @@ class TestCallback:
         self, handler, handler_module, mock_state_store, mock_workspace_store, monkeypatch
     ):
         monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+        mock_state_store.peek.return_value = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "redirect_uri": "http://localhost:3000/api/integrations/slack/callback",
+            "created_at": time.time(),
+        }
         mock_state_store.validate_and_consume.return_value = {
             "tenant_id": "tenant-1",
             "provider": "slack",
@@ -2597,6 +2678,41 @@ class TestRefreshToken:
         assert _status(result) == 200
         assert mock_workspace.access_token == "xoxb-updated-token"
         assert mock_workspace.refresh_token == "xoxr-updated-refresh"
+        mock_workspace_store.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_refresh_preserves_existing_refresh_token_when_response_is_blank(
+        self, handler, mock_workspace, mock_workspace_store
+    ):
+        mock_workspace.refresh_token = "xoxr-existing-refresh"
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-updated-token",
+                "refresh_token": "",
+                "expires_in": 86400,
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 200
+        assert mock_workspace.access_token == "xoxb-updated-token"
+        assert mock_workspace.refresh_token == "xoxr-existing-refresh"
         mock_workspace_store.save.assert_called_once()
 
     @pytest.mark.asyncio

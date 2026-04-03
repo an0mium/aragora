@@ -1165,6 +1165,44 @@ class TestCollectFinishedSync:
         mock_diff.assert_not_called()
         assert "wo-sync-active-lock" in launcher._processes
 
+    def test_collect_finished_sync_defers_on_active_lock_even_after_returncode_set(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        worker = WorkerProcess(
+            work_order_id="wo-sync-active-lock-returncode",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=333,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-active-lock-returncode"] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes["wo-sync-active-lock-returncode"] = proc
+
+        session_meta = {
+            "pid": 333,
+            "exit_code": 0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=True) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff_sync") as mock_diff,
+        ):
+            completed = launcher.collect_finished_sync(
+                work_order_ids=["wo-sync-active-lock-returncode"]
+            )
+
+        assert completed == []
+        mock_running.assert_called_once_with(333)
+        mock_diff.assert_not_called()
+        assert "wo-sync-active-lock-returncode" in launcher._processes
+
     def test_collect_finished_sync_prefers_live_session_meta_pid_when_worker_pid_is_stale(
         self, tmp_path: Path
     ):
@@ -1632,6 +1670,26 @@ class TestSnapshotProgress:
 
 class TestCollectChangedPaths:
     @pytest.mark.asyncio
+    async def test_skips_origin_main_fallback_when_initial_head_is_missing(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            if args[:2] == ("status", "--porcelain"):
+                return ""
+            return "aragora/swarm/boss_loop.py\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            changed = await WorkerLauncher._collect_changed_paths(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert changed == []
+        assert ("diff", "--name-only", "origin/main..HEAD") not in calls
+
+    @pytest.mark.asyncio
     async def test_skips_origin_main_fallback_when_initial_head_matches_head_sha(self):
         calls: list[tuple[str, ...]] = []
 
@@ -1671,6 +1729,43 @@ class TestCollectChangedPaths:
 
         assert changed == ["real.py"]
         assert ("diff", "--name-only", "abc123..def456") in calls
+
+
+class TestCollectCommitShas:
+    @pytest.mark.asyncio
+    async def test_returns_empty_without_initial_head_instead_of_falling_back_to_origin_main(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "abc123\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            shas = await WorkerLauncher._collect_commit_shas(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
+
+    def test_returns_empty_sync_without_initial_head_instead_of_falling_back_to_origin_main(self):
+        calls: list[tuple[str, ...]] = []
+
+        def _git_output_sync(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "abc123\n"
+
+        with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
+            shas = WorkerLauncher._collect_commit_shas_sync(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
 
 
 class TestIsPidRunning:

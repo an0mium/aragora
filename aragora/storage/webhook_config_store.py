@@ -712,8 +712,9 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             webhook.description = description
 
         if updates:
+            now = time.time()
             updates.append("updated_at = ?")
-            params.append(time.time())
+            params.append(now)
             params.append(webhook_id)
 
             conn = self._get_conn()
@@ -722,7 +723,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
                 params,
             )
             conn.commit()
-            webhook.updated_at = time.time()
+            webhook.updated_at = now
 
         return webhook
 

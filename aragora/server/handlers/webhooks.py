@@ -265,6 +265,11 @@ class WebhookHandler(SecureHandler):
             return True
         return False
 
+    @staticmethod
+    def _hidden_webhook_not_found(webhook_id: str) -> HandlerResult:
+        """Return a generic not-found for unauthorized single-record access."""
+        return error_response(f"Webhook not found: {webhook_id}", 404)
+
     @api_endpoint(
         path="/api/v1/webhooks",
         method="GET",
@@ -628,7 +633,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return error_response("Access denied", 403)
+            return self._hidden_webhook_not_found(webhook_id)
 
         return json_response({"webhook": webhook.to_dict(include_secret=False)})
 
@@ -716,7 +721,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return error_response("Access denied", 403)
+            return self._hidden_webhook_not_found(webhook_id)
 
         store.delete(webhook_id)
 
@@ -752,7 +757,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return error_response("Access denied", 403)
+            return self._hidden_webhook_not_found(webhook_id)
 
         # Validate URL if provided (SSRF check)
         new_url = body.get("url")
@@ -810,7 +815,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return error_response("Access denied", 403)
+            return self._hidden_webhook_not_found(webhook_id)
 
         # Import here to avoid circular dependency
         from aragora.events.dispatcher import dispatch_webhook
