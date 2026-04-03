@@ -8,12 +8,7 @@ import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
 import { ConnectOpenRouterButton } from '../openrouter/ConnectOpenRouterButton';
-import type { HeroSectionProps } from './types';
-import {
-  prepareLandingDebate,
-  type LandingDebatePreflight,
-  type LandingPreparedDebateOption,
-} from './landingPreflight';
+import type { HeroSectionProps, LandingDebatePreflight, LandingPreparedDebateOption } from './types';
 import { trackLandingEvent } from './landingTelemetry';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
@@ -368,26 +363,66 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
   }
 
-  function runDebate(rawQuestion: string) {
-    const preflight = prepareLandingDebate(rawQuestion);
+  async function runDebate(rawQuestion: string) {
     setError(null);
     setEditorNotice(null);
     setResult(null);
     setLastTopic(rawQuestion);
+    setIsRunning(true);
 
-    if (preflight.type === 'confirm') {
-      setPendingPreflight(preflight.preflight);
-      trackEvent('preflight_shown', {
-        option_count: preflight.preflight.options.length,
-        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
-        has_warning: Boolean(preflight.preflight.warning),
-        question_length: rawQuestion.length,
+    const fallbackOption: LandingPreparedDebateOption = {
+      id: 'original',
+      label: rawQuestion,
+      description: rawQuestion,
+      originalQuestion: rawQuestion,
+      interpretedQuestion: rawQuestion,
+      debatePrompt: rawQuestion,
+      agents: 3,
+      rounds: 2,
+    };
+
+    try {
+      const assessUrl = apiBase === ''
+        ? '/api/v1/playground/assess'
+        : `${apiBase}/api/v1/playground/assess`;
+
+      const assessRes = await fetch(assessUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: rawQuestion }),
+        signal: AbortSignal.timeout(8000),
       });
-      return;
-    }
 
-    setPendingPreflight(null);
-    void executeDebate(preflight.option);
+      if (!assessRes.ok) {
+        // Assess failed -- debate raw question directly
+        setPendingPreflight(null);
+        setIsRunning(false);
+        void executeDebate(fallbackOption);
+        return;
+      }
+
+      const assessment = await assessRes.json();
+
+      if (assessment.type === 'confirm') {
+        setPendingPreflight(assessment.preflight);
+        setIsRunning(false);
+        trackEvent('preflight_shown', {
+          option_count: assessment.preflight.options.length,
+          question_length: rawQuestion.length,
+        });
+        return;
+      }
+
+      // Clear -- proceed directly
+      setPendingPreflight(null);
+      setIsRunning(false);
+      void executeDebate(assessment.option ?? fallbackOption);
+    } catch {
+      // Assess call failed -- debate raw question directly
+      setIsRunning(false);
+      setPendingPreflight(null);
+      void executeDebate(fallbackOption);
+    }
   }
 
   async function runDemoDebate() {
@@ -441,7 +476,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (question.trim()) {
-      runDebate(question.trim());
+      void runDebate(question.trim());
     }
   }
 
@@ -451,27 +486,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       || question
       || lastTopic
       || currentResult.topic;
-    const preflight = prepareLandingDebate(sourceQuestion);
 
     setQuestion(sourceQuestion);
     setResult(null);
     setError(null);
     setLastTopic(sourceQuestion);
     setLastPreparedOption(null);
-
-    if (preflight.type === 'confirm') {
-      setPendingPreflight(preflight.preflight);
-      setEditorNotice('Pick a narrower interpretation or edit the wording below before rerunning.');
-      trackEvent('preflight_shown', {
-        option_count: preflight.preflight.options.length,
-        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
-        has_warning: Boolean(preflight.preflight.warning),
-        question_length: sourceQuestion.length,
-      });
-    } else {
-      setPendingPreflight(null);
-      setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
-    }
+    setPendingPreflight(null);
+    setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
 
     trackEvent('wrong_answer_clicked', {
       result_mode: currentResult.result_mode || 'full',

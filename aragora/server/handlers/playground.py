@@ -2547,6 +2547,8 @@ class PlaygroundHandler(BaseHandler):
             return self._handle_landing_event(handler)
         if path == "/api/v1/playground/landing/feedback":
             return self._handle_landing_feedback(handler)
+        if path == "/api/v1/playground/assess":
+            return self._handle_assess(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
             return self._handle_cost_estimate(handler)
         if path == "/api/v1/playground/debate/live":
@@ -2737,6 +2739,117 @@ class PlaygroundHandler(BaseHandler):
             data=body,
         )
         return json_response({"ok": True, "report_id": report["id"]}, status=202)
+
+    # ------------------------------------------------------------------
+    # Question assessment (ambiguity detection via frontier model)
+    # ------------------------------------------------------------------
+
+    def _handle_assess(self, handler: Any) -> HandlerResult:
+        """Assess question ambiguity using a frontier model."""
+        body = json.loads(handler.body or b"{}")
+        question = str(body.get("question", "")).strip()
+        if not question:
+            return json_response({"type": "ready", "option": self._build_ready_option("")})
+
+        # Rate limit: reuse the existing per-IP check (10 per 60s for assess)
+        client_ip = _extract_client_ip(handler)
+        allowed, retry_after = _check_rate_limit(
+            f"assess:{client_ip}",
+            limit=10,
+            window=60.0,
+        )
+        if not allowed:
+            return json_response(
+                {
+                    "error": "Rate limit exceeded. Please try again later.",
+                    "code": "rate_limit_exceeded",
+                    "retry_after": retry_after,
+                },
+                status=429,
+            )
+
+        prompt = (
+            "You are a question-assessment system. Analyze this user question and determine if it is "
+            "clear enough to debate directly, or if it could be interpreted multiple ways.\n\n"
+            f"Question: {question}\n\n"
+            "Respond with JSON only:\n"
+            '- If clear: {"clear": true, "topic": "<the question as-is>"}\n'
+            '- If ambiguous: {"clear": false, "interpretations": ["interpretation 1", "interpretation 2", "interpretation 3"]}\n'
+            "JSON response:"
+        )
+
+        try:
+            raw = self._call_frontier_model(prompt, timeout=5.0)
+            # Extract JSON from response (model might wrap it in markdown code blocks)
+            import re as _re
+
+            json_match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group())
+            else:
+                parsed = json.loads(raw)
+        except (TimeoutError, ConnectionError, json.JSONDecodeError, RuntimeError, OSError) as exc:
+            logger.debug("Assess call failed, returning ready: %s", exc)
+            return json_response({"type": "ready", "option": self._build_ready_option(question)})
+
+        if parsed.get("clear", True):
+            topic = parsed.get("topic", question)
+            return json_response({"type": "ready", "option": self._build_ready_option(topic)})
+
+        # Build preflight options from interpretations
+        interpretations = parsed.get("interpretations", [])
+        options = []
+        for i, interp in enumerate(interpretations[:4]):
+            options.append(
+                {
+                    "id": f"interp-{i}",
+                    "label": interp[:80],
+                    "description": interp,
+                    "originalQuestion": question,
+                    "interpretedQuestion": interp,
+                    "debatePrompt": interp,
+                    "agents": 3,
+                    "rounds": 2,
+                    "recommended": i == 0,
+                }
+            )
+        # Always include "use original wording" as last option
+        options.append(
+            {
+                "id": "original",
+                "label": "Use original wording",
+                "description": "Debate the question exactly as written.",
+                "originalQuestion": question,
+                "interpretedQuestion": question,
+                "debatePrompt": question,
+                "agents": 3,
+                "rounds": 2,
+            }
+        )
+
+        return json_response(
+            {
+                "type": "confirm",
+                "preflight": {
+                    "title": "This question could mean a few things",
+                    "prompt": "Pick the interpretation you want Aragora to debate.",
+                    "options": options,
+                },
+            }
+        )
+
+    def _build_ready_option(self, question: str) -> dict:
+        """Build a ready-to-debate option payload."""
+        return {
+            "id": "original",
+            "label": "Use original wording",
+            "description": question,
+            "originalQuestion": question,
+            "interpretedQuestion": question,
+            "debatePrompt": question,
+            "agents": 3,
+            "rounds": 2,
+        }
 
     # ------------------------------------------------------------------
     # TL;DR synthesis helpers
