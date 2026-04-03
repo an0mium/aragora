@@ -169,12 +169,21 @@ function ConfidenceGauge({ value }: { value: number }) {
 interface DebateResultPreviewProps {
   result: DebateResponse;
   condensed?: boolean;
+  onFlagWrongAnswer?: (result: DebateResponse) => void;
+  onOpenFullDebate?: (result: DebateResponse, surface: 'quick_read' | 'share_bar') => void;
+  onShare?: (result: DebateResponse) => void;
 }
 
 export const RETURN_URL_KEY = RETURN_URL_STORAGE_KEY;
 export const PENDING_DEBATE_KEY = 'aragora_pending_debate';
 
-export function DebateResultPreview({ result, condensed = false }: DebateResultPreviewProps) {
+export function DebateResultPreview({
+  result,
+  condensed = false,
+  onFlagWrongAnswer,
+  onOpenFullDebate,
+  onShare,
+}: DebateResultPreviewProps) {
   const saveDebateAndReturnUrl = () => {
     // Save debate results so the landing page can restore them after login
     sessionStorage.setItem(PENDING_DEBATE_KEY, JSON.stringify(result));
@@ -209,12 +218,20 @@ export function DebateResultPreview({ result, condensed = false }: DebateResultP
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/debate/${result.id}`;
     const shareText = `I stress-tested "${result.topic}" with AI agents on Aragora.`;
+    const completeShare = (showFeedback: boolean) => {
+      if (showFeedback) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+      onShare?.(result);
+    };
 
     // Prefer Web Share API on mobile
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: 'Aragora Debate', text: shareText, url: shareUrl });
         // Native share sheet provides its own feedback
+        completeShare(false);
         return;
       } catch {
         // User cancelled or share failed — fall through to clipboard
@@ -241,8 +258,7 @@ export function DebateResultPreview({ result, condensed = false }: DebateResultP
       }
     }
     // Always show confirmation so the user knows the action registered
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    completeShare(true);
   };
 
   return (
@@ -254,6 +270,7 @@ export function DebateResultPreview({ result, condensed = false }: DebateResultP
             {result.id && (
               <Link
                 href={`/debate/${result.id}`}
+                onClick={() => onOpenFullDebate?.(result, 'quick_read')}
                 className="text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
               >
                 Open full debate &rarr;
@@ -294,13 +311,24 @@ export function DebateResultPreview({ result, condensed = false }: DebateResultP
             )}
 
             {condensed && (
-              <button
-                type="button"
-                onClick={() => setShowDetails((current) => !current)}
-                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 transition-opacity"
-              >
-                {showDetails ? 'Hide transcript details' : 'Show transcript details'}
-              </button>
+              <div className="flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowDetails((current) => !current)}
+                  className="text-xs font-bold text-[var(--accent)] hover:opacity-80 transition-opacity"
+                >
+                  {showDetails ? 'Hide transcript details' : 'Show transcript details'}
+                </button>
+                {onFlagWrongAnswer && (
+                  <button
+                    type="button"
+                    onClick={() => onFlagWrongAnswer(result)}
+                    className="text-xs font-bold text-[var(--crimson)] hover:opacity-80 transition-opacity"
+                  >
+                    This answer seems wrong
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -561,6 +589,7 @@ export function DebateResultPreview({ result, condensed = false }: DebateResultP
           <Link
             href={`/debate/${result.id}`}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+            onClick={() => onOpenFullDebate?.(result, 'share_bar')}
           >
             View full debate &rarr;
           </Link>

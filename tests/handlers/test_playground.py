@@ -133,6 +133,9 @@ class TestCanHandle:
     def test_tts_path(self, handler):
         assert handler.can_handle("/api/v1/playground/tts")
 
+    def test_landing_event_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/landing/events")
+
     def test_rejects_unrelated_path(self, handler):
         assert not handler.can_handle("/api/v1/debates")
 
@@ -198,6 +201,12 @@ class TestStatus:
         body = _body(result)
         assert "rate_limit" in body
         assert str(_PLAYGROUND_RATE_LIMIT) in body["rate_limit"]
+
+    def test_returns_landing_event_count(self, handler):
+        mock_h = _MockHTTPHandler("GET")
+        result = handler.handle("/api/v1/playground/status", {}, mock_h)
+        body = _body(result)
+        assert body["landing_event_count"] == 0
 
     def test_non_matching_path_returns_none(self, handler):
         mock_h = _MockHTTPHandler("GET")
@@ -469,6 +478,62 @@ class TestOracleMode:
             body = _body(result)
             assert body["code"] == "landing_preview_timeout"
             mock_run_live.assert_not_called()
+
+    def test_landing_preview_clarification_does_not_fall_back_to_live(self, handler):
+        with (
+            patch(
+                "aragora.server.handlers.playground._try_oracle_tentacles",
+                return_value={
+                    "code": "landing_preview_needs_clarification",
+                    "message": "The fast preview drifted away from your question.",
+                },
+            ),
+            patch(
+                "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
+            ) as mock_run_live,
+        ):
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={"question": "Should I microwave chicken nuggets?", "source": "landing"},
+            )
+            result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+            assert _status(result) == 422
+            body = _body(result)
+            assert body["code"] == "landing_preview_needs_clarification"
+            mock_run_live.assert_not_called()
+
+
+class TestLandingTelemetry:
+    """Tests for the landing telemetry endpoint."""
+
+    def test_records_bounded_public_event(self, handler):
+        from aragora.server.handlers import playground as playground_module
+
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "event_type": "preflight_shown",
+                "data": {
+                    "question_length": 91,
+                    "option_id": "practical-food",
+                    "raw_prompt": "x" * 500,
+                },
+            },
+        )
+        result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
+        assert _status(result) == 202
+        assert len(playground_module._landing_events) == 1
+        assert playground_module._landing_events[0]["event_type"] == "preflight_shown"
+        assert playground_module._landing_events[0]["data"]["question_length"] == 91
+        assert len(playground_module._landing_events[0]["data"]["raw_prompt"]) == 160
+
+    def test_rejects_unknown_event_type(self, handler):
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={"event_type": "not_real", "data": {"foo": "bar"}},
+        )
+        result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
+        assert _status(result) == 400
 
 
 # ============================================================================
@@ -1083,6 +1148,40 @@ class TestBuildTentaclePrompt:
 class TestTryOracleTentacles:
     """Tests for the multi-model preview helper."""
 
+    def test_landing_practical_question_uses_practical_roles(self):
+        models = [
+            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-6"},
+            {"name": "grok", "provider": "xai", "model": "grok-4"},
+        ]
+        prompts: list[str] = []
+
+        def fake_call(provider, model, prompt, max_tokens, timeout, openrouter_model=None):
+            prompts.append(prompt)
+            return "Reheat the nuggets until hot all the way through."
+
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_available_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.handlers.playground._call_provider_llm",
+                side_effect=fake_call,
+            ),
+        ):
+            _try_oracle_tentacles(
+                mode="consult",
+                question="Should I microwave chicken nuggets for my kid?",
+                agent_count=3,
+                source="landing",
+                summary_depth="none",
+            )
+
+        assert any("PRACTICAL ADVISOR" in prompt for prompt in prompts)
+        assert any("SAFETY CHECKER" in prompt for prompt in prompts)
+        assert not any("STRATEGIC ANALYST" in prompt for prompt in prompts)
+
     def test_landing_source_marks_result_as_preview(self):
         models = [
             {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
@@ -1119,6 +1218,39 @@ class TestTryOracleTentacles:
         assert result["is_live"] is False
         assert result["receipt"]["consensus"]["method"] == "landing_preview"
         assert "preview" in result["result_warning"].lower()
+
+    def test_landing_source_rejects_off_topic_preview_drift(self):
+        models = [
+            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-6"},
+            {"name": "grok", "provider": "xai", "model": "grok-4"},
+        ]
+
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_available_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.handlers.playground._call_provider_llm",
+                side_effect=[
+                    "As the Implementation Expert, start a cross-functional task force and analyze hidden signals in the lyrics.",
+                    "The lyrics suggest layer two systems, shadow IT, and quarterly workshops.",
+                    "Build a cultural transformation sprint with KPIs and residue data.",
+                ],
+            ),
+        ):
+            result = _try_oracle_tentacles(
+                mode="consult",
+                question="Should I microwave chicken nuggets for my kid?",
+                agent_count=3,
+                source="landing",
+                summary_depth="none",
+            )
+
+        assert result is not None
+        assert result["code"] == "landing_preview_needs_clarification"
+        assert "drifted" in result["message"].lower()
 
 
 # ============================================================================
@@ -1304,6 +1436,19 @@ class TestPostDispatch:
             mock_h = _MockHTTPHandler("POST", body={})
             handler.handle_post("/api/v1/playground/tts", {}, mock_h)
             mock_tts.assert_called_once()
+
+    def test_landing_event_path_dispatches(self, handler):
+        with patch.object(handler, "_handle_landing_event") as mock_events:
+            from aragora.server.handlers.utils.responses import HandlerResult
+
+            mock_events.return_value = HandlerResult(
+                status_code=202,
+                content_type="application/json",
+                body=json.dumps({"ok": True}).encode(),
+            )
+            mock_h = _MockHTTPHandler("POST", body={})
+            handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
+            mock_events.assert_called_once()
 
     def test_unknown_path_returns_none(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})

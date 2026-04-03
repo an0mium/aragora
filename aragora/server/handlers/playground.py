@@ -26,6 +26,7 @@ import logging
 import os
 import random
 import re
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -72,6 +73,20 @@ OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
 # IP -> list of timestamps
 _request_timestamps: dict[str, list[float]] = {}
 _live_request_timestamps: dict[str, list[float]] = {}
+_landing_event_lock = threading.Lock()
+_landing_events: list[dict[str, Any]] = []
+_LANDING_EVENT_LIMIT = 5000
+_LANDING_EVENT_TYPES = {
+    "preflight_shown",
+    "preflight_selected",
+    "preview_rendered",
+    "preview_timeout",
+    "preview_clarification_requested",
+    "retry_clicked",
+    "wrong_answer_clicked",
+    "open_full_debate_clicked",
+    "share_clicked",
+}
 
 
 def _check_rate_limit(
@@ -158,6 +173,8 @@ def _reset_rate_limits() -> None:
     global _daily_debate_count, _daily_debate_reset_time  # noqa: PLW0603
     _request_timestamps.clear()
     _live_request_timestamps.clear()
+    with _landing_event_lock:
+        _landing_events.clear()
     _daily_debate_count = 0
     _daily_debate_reset_time = 0.0
 
@@ -166,6 +183,62 @@ def _reset_oracle_sessions() -> None:
     """Reset all Oracle session state. Used by tests."""
     _oracle_sessions.clear()
     _oracle_session_timestamps.clear()
+
+
+def _sanitize_landing_event_data(data: Any) -> dict[str, Any]:
+    """Keep landing telemetry bounded and scalar for a public endpoint."""
+    if not isinstance(data, dict):
+        return {}
+
+    clean: dict[str, Any] = {}
+    for key, value in data.items():
+        clean_key = str(key).strip()[:64]
+        if not clean_key:
+            continue
+        if isinstance(value, bool):
+            clean[clean_key] = value
+        elif isinstance(value, int):
+            clean[clean_key] = max(-1_000_000, min(1_000_000, value))
+        elif isinstance(value, float):
+            clean[clean_key] = round(max(-1_000_000.0, min(1_000_000.0, value)), 4)
+        elif value is None:
+            clean[clean_key] = None
+        elif isinstance(value, str):
+            clean[clean_key] = value.strip()[:160]
+    return clean
+
+
+def _record_landing_event(
+    event_type: str,
+    *,
+    client_ip: str,
+    data: dict[str, Any] | None = None,
+) -> None:
+    """Record a bounded in-memory landing telemetry event."""
+    if event_type not in _LANDING_EVENT_TYPES:
+        return
+
+    with _landing_event_lock:
+        _landing_events.append(
+            {
+                "event_type": event_type,
+                "client_ip": client_ip,
+                "data": _sanitize_landing_event_data(data or {}),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if len(_landing_events) > _LANDING_EVENT_LIMIT:
+            del _landing_events[:-_LANDING_EVENT_LIMIT]
+
+
+def _extract_client_ip(handler: Any) -> str:
+    """Best-effort client IP extraction for public endpoints."""
+    client_ip = "unknown"
+    if handler and hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, (list, tuple)) and len(addr) >= 1:
+            client_ip = str(addr[0])
+    return client_ip
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +455,24 @@ def _build_landing_preview_timeout_response(message: str | None = None) -> Handl
             "is_live": False,
         },
         status=408,
+    )
+
+
+def _build_landing_preview_clarification_response(message: str | None = None) -> HandlerResult:
+    """Return an explicit guardrail when the fast preview drifts off-topic."""
+    detail = (
+        message
+        or "The fast preview drifted away from your question. "
+        "Tighten the wording or pick one interpretation first."
+    )
+    return json_response(
+        {
+            "error": detail,
+            "message": detail,
+            "code": "landing_preview_needs_clarification",
+            "is_live": False,
+        },
+        status=422,
     )
 
 
@@ -1136,7 +1227,7 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
     ),
 ]
 
-_LANDING_ROLE_PROMPTS = [
+_LANDING_STRATEGY_ROLE_PROMPTS = [
     (
         "You are the STRATEGIC ANALYST. Evaluate from a strategic perspective — "
         "market dynamics, competitive positioning, risk/reward tradeoffs. "
@@ -1173,6 +1264,306 @@ _LANDING_ROLE_PROMPTS = [
         "Keep to 2-3 concise paragraphs."
     ),
 ]
+
+_LANDING_TECHNICAL_ROLE_PROMPTS = [
+    (
+        "You are the SYSTEMS ARCHITECT. Evaluate the technical architecture, system "
+        "boundaries, and long-term design tradeoffs. Be concrete about constraints, "
+        "failure modes, and what good boundaries look like. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the RELIABILITY SKEPTIC. Stress-test the plan for operational risk, "
+        "coupling, rollout hazards, debugging cost, and team ownership gaps. Keep to "
+        "2-3 concise paragraphs."
+    ),
+    (
+        "You are the IMPLEMENTATION LEAD. Translate the answer into a practical sequence "
+        "of engineering steps with clear priorities, dependencies, and rollback logic. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the COST AND COMPLEXITY CHECKER. Identify where the proposal creates "
+        "hidden maintenance burden, migration drag, or tool/process sprawl. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Integrate the technical tradeoffs into a balanced "
+        "recommendation and state the clearest next move. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_PRACTICAL_ROLE_PROMPTS = [
+    (
+        "You are the PRACTICAL ADVISOR. Answer the everyday decision in plain English. "
+        "Lead with what the person should do right now, then explain why. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the SAFETY CHECKER. Identify real-world risks, edge cases, and what would "
+        "change the advice. Focus on concrete safety or welfare concerns, not abstract "
+        "debate for its own sake. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the COMMON-SENSE SKEPTIC. Challenge overcomplication, false dilemmas, and "
+        "needless moral theater. Separate the practical question from side issues unless "
+        "they materially change the answer. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the CONTEXT CHECKER. Identify what facts are missing, what assumptions the "
+        "question implies, and what clarification matters most before escalating the issue. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Combine the practical answer, the key caveats, and the "
+        "most relevant edge case into one direct recommendation. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_ETHICS_ROLE_PROMPTS = [
+    (
+        "You are the ETHICS ANALYST. Evaluate the moral question directly without drifting "
+        "into unrelated abstractions. Clarify the relevant values, tradeoffs, and harms. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the DEVIL'S ADVOCATE. Surface the strongest opposing moral argument and the "
+        "hardest uncomfortable objection. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the PRACTICAL DECISION-MAKER. Translate the ethical discussion into what a "
+        "person should actually do next, including what matters now versus later. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the HUMAN IMPACT CHECKER. Focus on who is affected, what harm is direct or "
+        "outsourced, and what moral distance may be hiding. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Reconcile the ethical and practical considerations into a "
+        "clear bottom-line recommendation. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_ROLE_PROMPTS = _LANDING_STRATEGY_ROLE_PROMPTS
+
+_LANDING_INTENT_TECHNICAL_TERMS = {
+    "api",
+    "apis",
+    "auth",
+    "backend",
+    "billing",
+    "checkout",
+    "ci",
+    "codebase",
+    "database",
+    "deploy",
+    "deployment",
+    "frontend",
+    "infra",
+    "migration",
+    "microservice",
+    "microservices",
+    "monolith",
+    "monolithic",
+    "ownership",
+    "pipeline",
+    "pricing",
+    "reporting",
+    "service",
+    "services",
+    "system",
+    "systems",
+    "typescript",
+}
+
+_LANDING_INTENT_PRACTICAL_TERMS = {
+    "child",
+    "chicken",
+    "cook",
+    "cooking",
+    "eat",
+    "feeding",
+    "food",
+    "hungry",
+    "kid",
+    "meal",
+    "microwave",
+    "microwaving",
+    "nugget",
+    "nuggets",
+    "parent",
+    "practical",
+    "reheat",
+    "reheating",
+    "safe",
+    "safety",
+    "toddler",
+}
+
+_LANDING_INTENT_ETHICAL_TERMS = {
+    "better person",
+    "cruel",
+    "ethical",
+    "ethics",
+    "factory",
+    "guilt",
+    "harm",
+    "humane",
+    "killing",
+    "moral",
+    "morally",
+    "outsourced",
+    "right thing",
+    "wrong",
+}
+
+_LANDING_GENERIC_DRIFT_PHRASES = {
+    "lyrics",
+    "song",
+    "chorus",
+    "verse",
+    "task force",
+    "quarterly workshop",
+    "quarterly workshops",
+    "shadow it",
+    "kpi",
+    "kpis",
+    "cultural transformation",
+    "layer two",
+    "decentralized innovation",
+    "residue data",
+}
+
+_LANDING_INTENT_DRIFT_PHRASES = {
+    "practical": _LANDING_GENERIC_DRIFT_PHRASES,
+    "technical": _LANDING_GENERIC_DRIFT_PHRASES | {"recipe", "hungry", "toddler"},
+    "ethical": _LANDING_GENERIC_DRIFT_PHRASES,
+    "strategy": {"lyrics", "chorus", "verse", "recipe", "microwave", "nuggets", "4 year old"},
+}
+
+
+def _contains_term(text: str, term: str) -> bool:
+    if " " in term:
+        return term in text
+    return bool(re.search(rf"\b{re.escape(term)}\b", text))
+
+
+def _classify_landing_intent(question: str) -> str:
+    lower_question = question.lower()
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_TECHNICAL_TERMS):
+        return "technical"
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_PRACTICAL_TERMS):
+        return "practical"
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_ETHICAL_TERMS):
+        return "ethical"
+    return "strategy"
+
+
+def _choose_landing_role_prompts(question: str) -> list[str]:
+    intent = _classify_landing_intent(question)
+    if intent == "technical":
+        return _LANDING_TECHNICAL_ROLE_PROMPTS
+    if intent == "practical":
+        return _LANDING_PRACTICAL_ROLE_PROMPTS
+    if intent == "ethical":
+        return _LANDING_ETHICS_ROLE_PROMPTS
+    return _LANDING_STRATEGY_ROLE_PROMPTS
+
+
+def _keyword_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z]{4,}", text.lower())
+        if token
+        not in {
+            "about",
+            "after",
+            "answer",
+            "because",
+            "being",
+            "could",
+            "first",
+            "from",
+            "have",
+            "into",
+            "just",
+            "keep",
+            "more",
+            "other",
+            "question",
+            "right",
+            "should",
+            "that",
+            "their",
+            "them",
+            "they",
+            "this",
+            "what",
+            "when",
+            "which",
+            "would",
+        }
+    }
+
+
+def _landing_focus_terms(question: str, intent: str) -> set[str]:
+    lower_question = question.lower()
+    if intent == "technical":
+        source_terms = _LANDING_INTENT_TECHNICAL_TERMS
+    elif intent == "practical":
+        source_terms = _LANDING_INTENT_PRACTICAL_TERMS
+    elif intent == "ethical":
+        source_terms = _LANDING_INTENT_ETHICAL_TERMS
+    else:
+        source_terms = _keyword_tokens(lower_question)
+
+    matches = {term for term in source_terms if _contains_term(lower_question, term)}
+    if matches:
+        return matches
+    return set(list(_keyword_tokens(lower_question))[:6])
+
+
+def _landing_relevance_issue(question: str, response: str) -> str | None:
+    lower_question = question.lower()
+    lower_response = response.lower()
+    intent = _classify_landing_intent(question)
+
+    if "lyric" not in lower_question and any(
+        phrase in lower_response for phrase in {"lyrics", "chorus", "verse", "song"}
+    ):
+        return "The fast preview drifted into unrelated lyrics analysis."
+
+    focus_terms = _landing_focus_terms(question, intent)
+    has_focus_term = any(_contains_term(lower_response, term) for term in focus_terms)
+    overlap = _keyword_tokens(lower_question) & _keyword_tokens(lower_response)
+    drift_hits = [
+        phrase
+        for phrase in _LANDING_INTENT_DRIFT_PHRASES[intent]
+        if phrase in lower_response and phrase not in lower_question
+    ]
+
+    if drift_hits and not has_focus_term and not overlap:
+        if intent == "practical":
+            return (
+                "The fast preview drifted away from the practical question. "
+                "Tighten the wording or pick the interpretation you want Aragora to debate."
+            )
+        if intent == "technical":
+            return (
+                "The fast preview drifted away from the technical question. "
+                "Tighten the wording or focus the architecture problem before retrying."
+            )
+        if intent == "ethical":
+            return (
+                "The fast preview drifted away from the ethical question. "
+                "Tighten the wording so Aragora debates the moral issue you actually care about."
+            )
+        return (
+            "The fast preview drifted away from your question. "
+            "Tighten the wording or pick one interpretation first."
+        )
+
+    return None
 
 
 def _build_tentacle_prompt(
@@ -1274,7 +1665,9 @@ def _try_oracle_tentacles(
         return None
 
     # Assign roles to available models (up to agent_count)
-    role_prompts = _TENTACLE_ROLE_PROMPTS if source == "oracle" else _LANDING_ROLE_PROMPTS
+    role_prompts = (
+        _TENTACLE_ROLE_PROMPTS if source == "oracle" else _choose_landing_role_prompts(question)
+    )
     count = max(2, min(agent_count, len(available), len(role_prompts)))
     assignments = list(zip(available[:count], role_prompts[:count]))
     results: dict[str, str] = {}
@@ -1348,6 +1741,22 @@ def _try_oracle_tentacles(
         iter(results.values())
     )
     is_landing_preview = source == "landing"
+    if is_landing_preview:
+        final_issue = _landing_relevance_issue(question, final)
+        flagged_responses = sum(
+            1 for response in results.values() if _landing_relevance_issue(question, response)
+        )
+        if final_issue or flagged_responses >= max(2, (len(results) + 1) // 2):
+            return {
+                "error": "Landing preview needs clarification",
+                "message": final_issue
+                or (
+                    "The fast preview drifted away from your question. "
+                    "Tighten the wording or pick one interpretation first."
+                ),
+                "code": "landing_preview_needs_clarification",
+                "is_live": False,
+            }
     consensus_reached = False if is_landing_preview else len(results) >= 2
     confidence = 0.0 if is_landing_preview else 0.7
     debate_id = uuid.uuid4().hex[:16]
@@ -1641,6 +2050,7 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/debate",
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
+        "/api/v1/playground/landing/events",
         "/api/v1/playground/status",
         "/api/v1/playground/tts",
     ]
@@ -1659,6 +2069,7 @@ class PlaygroundHandler(BaseHandler):
             *self._CREATE_PATHS,
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
+            "/api/v1/playground/landing/events",
             "/api/v1/playground/status",
             "/api/v1/playground/tts",
         ):
@@ -1708,6 +2119,7 @@ class PlaygroundHandler(BaseHandler):
                 "max_rounds": _MAX_ROUNDS,
                 "max_agents": _MAX_AGENTS,
                 "rate_limit": f"{_PLAYGROUND_RATE_LIMIT} requests per {int(_PLAYGROUND_RATE_WINDOW)}s",
+                "landing_event_count": len(_landing_events),
             }
         )
 
@@ -1816,6 +2228,8 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/tts":
             return self._handle_tts(handler)
+        if path == "/api/v1/playground/landing/events":
+            return self._handle_landing_event(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
             return self._handle_cost_estimate(handler)
         if path == "/api/v1/playground/debate/live":
@@ -1939,11 +2353,7 @@ class PlaygroundHandler(BaseHandler):
             logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
 
         # Rate limiting (skipped on cache hit above)
-        client_ip = "unknown"
-        if handler and hasattr(handler, "client_address"):
-            addr = handler.client_address
-            if isinstance(addr, (list, tuple)) and len(addr) >= 1:
-                client_ip = str(addr[0])
+        client_ip = _extract_client_ip(handler)
 
         allowed, retry_after = _check_rate_limit(client_ip)
         if not allowed:
@@ -1979,6 +2389,23 @@ class PlaygroundHandler(BaseHandler):
             cache_key=cache_key,
             model_ids=model_ids,
         )
+
+    def _handle_landing_event(self, handler: Any) -> HandlerResult:
+        """Accept best-effort landing telemetry from the public landing page."""
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+
+        event_type = str(body.get("event_type", "") or "").strip()
+        if event_type not in _LANDING_EVENT_TYPES:
+            return error_response("Unknown landing telemetry event", 400)
+
+        _record_landing_event(
+            event_type,
+            client_ip=_extract_client_ip(handler),
+            data=body.get("data") if isinstance(body, dict) else {},
+        )
+        return json_response({"ok": True}, status=202)
 
     def _run_debate(
         self,
@@ -2053,6 +2480,14 @@ class PlaygroundHandler(BaseHandler):
                     summary_depth="none",  # no essay context for non-Oracle sources
                 )
                 if tentacle_result:
+                    if (
+                        source == "landing"
+                        and tentacle_result.get("code") == "landing_preview_needs_clarification"
+                    ):
+                        logger.info("Landing preview drifted off-topic — asking for clarification")
+                        return _build_landing_preview_clarification_response(
+                            str(tentacle_result.get("message") or "").strip() or None
+                        )
                     return self._persist_and_respond(
                         json_response(tentacle_result), topic, source, **_cache_kw
                     )

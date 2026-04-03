@@ -1140,6 +1140,9 @@ class SlackOAuthHandler(SecureHandler):
             existing_tenant_id = (
                 str(getattr(existing_workspace, "tenant_id", "") or "").strip() or None
             )
+            existing_refresh_token = (
+                str(getattr(existing_workspace, "refresh_token", "") or "").strip() or None
+            )
             requested_tenant_id = str(tenant_id or "").strip() or None
             if (
                 existing_tenant_id
@@ -1165,6 +1168,8 @@ class SlackOAuthHandler(SecureHandler):
                     "Workspace is already linked to a different tenant",
                     409,
                 )
+            if not str(refresh_token or "").strip():
+                refresh_token = existing_refresh_token
 
             workspace = SlackWorkspace(
                 workspace_id=workspace_id,
@@ -1670,7 +1675,9 @@ class SlackOAuthHandler(SecureHandler):
                         error="Invalid refresh response: missing access token",
                     )
                 return error_response("Invalid token refresh response", 502)
-            new_refresh_token = data.get("refresh_token", workspace.refresh_token)
+            new_refresh_token = data.get("refresh_token")
+            if not str(new_refresh_token or "").strip():
+                new_refresh_token = workspace.refresh_token
             expires_in = data.get("expires_in")
             new_expires_at = time.time() + expires_in if expires_in else None
 

@@ -632,17 +632,29 @@ class BossLoop:
             normalized.append(runner_type)
         return normalized
 
-    def _has_retryable_attempts(self) -> bool:
-        return any(
-            isinstance(issue_number, int) and attempt_count > 0
-            for issue_number, attempt_count in self._issue_attempt_counts.items()
-        )
+    def _selected_issues_need_retry_routing(self, issues: list[GitHubIssue]) -> bool:
+        for issue in issues:
+            issue_number = int(getattr(issue, "number", 0) or 0)
+            if issue_number <= 0:
+                continue
+            if issue_number in self._pending_handoff_prompts:
+                return True
+            if int(self._issue_attempt_counts.get(issue_number, 0) or 0) > 0:
+                return True
+        return False
 
-    def _requested_runner_type_for_freshness(self) -> str | None:
-        # Once retries are in play, keep the freshness pool broad enough that
-        # dispatch can rotate to the next runner type instead of reusing the
-        # original default forever.
-        if self._has_retryable_attempts() and len(self._normalized_model_rotation()) > 1:
+    def _requested_runner_type_for_freshness(
+        self,
+        selected_issues: list[GitHubIssue],
+    ) -> str | None:
+        # Broaden the freshness pool only for the issue(s) we are about to
+        # dispatch when they are actually on a retry/handoff path. Historical
+        # retries on unrelated issues must not let fresh issues bypass the
+        # default target runner requirement.
+        if (
+            self._selected_issues_need_retry_routing(selected_issues)
+            and len(self._normalized_model_rotation()) > 1
+        ):
             return None
         return self.config.default_target_agent
 
@@ -1731,7 +1743,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self._requested_runner_type_for_freshness(),
+            requested_runner_type=self._requested_runner_type_for_freshness([selected]),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
             verified_runner_target=self.config.verified_runner_target,
@@ -1883,7 +1895,7 @@ class BossLoop:
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
             env=self._env,
-            requested_runner_type=self._requested_runner_type_for_freshness(),
+            requested_runner_type=self._requested_runner_type_for_freshness(selected_issues),
             allowed_profiles=self.config.allowed_runner_profiles,
             rotation_interval_seconds=self.config.runner_rotation_interval_seconds,
         )

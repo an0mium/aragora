@@ -599,12 +599,21 @@ class InboxTrustWedgeStore:
             verdict = "FAIL"
         else:
             verdict = "CONDITIONAL"
+        # Include email metadata for auditability — these are set by
+        # _attach_display_metadata in triage_runner.py as private attrs.
+        email_subject = getattr(intent, "_subject", None) or ""
+        email_from = getattr(intent, "_sender", None) or ""
+        email_snippet = getattr(intent, "_snippet", None) or ""
+
         return {
             "receipt_id": receipt_id,
             "gauntlet_id": receipt_id,
             "intent_hash": intent.intent_hash(),
             "action_intent": intent.to_dict(),
             "triage_decision": decision.to_dict(),
+            "email_subject": str(email_subject),
+            "email_from": str(email_from),
+            "email_snippet": str(email_snippet)[:200],
             "timestamp": created_at.isoformat(),
             "verdict": verdict,
             "confidence": float(decision.confidence),
@@ -612,6 +621,20 @@ class InboxTrustWedgeStore:
             "created_at": created_at.isoformat(),
             "expires_at": _isoformat(expires_at),
         }
+
+    def get_receipt_by_message_id(self, message_id: str) -> StoredInboxTrustEnvelope | None:
+        """Return the most recent receipt for a given Gmail message ID, if any."""
+        with self._cursor() as cursor:
+            cursor.execute(
+                "SELECT receipt_id FROM inbox_trust_receipts "
+                "WHERE message_id = ? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (message_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return self.get_receipt(row["receipt_id"])
 
     def create_receipt(
         self,
@@ -621,6 +644,14 @@ class InboxTrustWedgeStore:
         expires_at: datetime | None = None,
         signer: ReceiptSigner | None = None,
     ) -> StoredInboxTrustEnvelope:
+        # Deduplicate: return existing receipt if one already exists for this
+        # real Gmail message (skip synthetic/test message IDs).
+        msg_id = intent.message_id
+        if msg_id and not msg_id.startswith(("msg-", "test-", "fake-")):
+            existing = self.get_receipt_by_message_id(msg_id)
+            if existing is not None:
+                return existing
+
         receipt_id = str(uuid.uuid4())
         created_at = _utcnow()
         state = ReceiptState.CREATED
@@ -1486,6 +1517,8 @@ class InboxTrustWedgeService:
             provider = envelope.intent.provider
             user_id = envelope.intent.user_id
             message_id = envelope.intent.message_id
+            if not message_id:
+                raise ValueError("receipt missing message_id")
 
             if action == InboxWedgeAction.ARCHIVE:
                 result = await self.email_actions_service.archive(provider, user_id, message_id)

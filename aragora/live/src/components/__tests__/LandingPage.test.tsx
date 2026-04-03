@@ -249,7 +249,11 @@ describe('LandingPage live debate preview', () => {
 describe('LandingPage submission flow', () => {
   const mockFetch = global.fetch as jest.Mock;
 
-  function installBaseFetchMock(postHandler: (body: Record<string, unknown>) => Promise<unknown>) {
+  function installBaseFetchMock(
+    postHandler: (body: Record<string, unknown>) => Promise<unknown>,
+    options: { telemetryBodies?: Array<Record<string, unknown>> } = {},
+  ) {
+    const { telemetryBodies } = options;
     mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -271,12 +275,19 @@ describe('LandingPage submission flow', () => {
         return postHandler(body);
       }
 
+      if (url.endsWith('/api/v1/playground/landing/events')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+        telemetryBodies?.push(body);
+        return createHttpResponse({ ok: true }, { status: 202 });
+      }
+
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
   }
 
   it('asks for confirmation before debating an ambiguous nuggets prompt', async () => {
     const postedBodies: Array<Record<string, unknown>> = [];
+    const telemetryBodies: Array<Record<string, unknown>> = [];
     installBaseFetchMock(async (body) => {
       postedBodies.push(body);
       return createHttpResponse({
@@ -319,7 +330,7 @@ describe('LandingPage submission flow', () => {
         },
         receipt_hash: 'hash-preview-1',
       });
-    });
+    }, { telemetryBodies });
 
     render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
 
@@ -344,9 +355,13 @@ describe('LandingPage submission flow', () => {
     expect(await screen.findByText('Quick Read')).toBeInTheDocument();
     expect(screen.getByText('You Asked')).toBeInTheDocument();
     expect(screen.getByText('Aragora Debated')).toBeInTheDocument();
+    expect(telemetryBodies.some((entry) => entry.event_type === 'preflight_shown')).toBe(true);
+    expect(telemetryBodies.some((entry) => entry.event_type === 'preflight_selected')).toBe(true);
+    expect(telemetryBodies.some((entry) => entry.event_type === 'preview_rendered')).toBe(true);
   });
 
   it('shows actionable timeout copy for landing preview failures', async () => {
+    const telemetryBodies: Array<Record<string, unknown>> = [];
     installBaseFetchMock(async () => (
       createHttpResponse(
         {
@@ -355,7 +370,7 @@ describe('LandingPage submission flow', () => {
         },
         { ok: false, status: 408 },
       )
-    ));
+    ), { telemetryBodies });
 
     render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
 
@@ -369,5 +384,161 @@ describe('LandingPage submission flow', () => {
         'The landing preview timed out after 25s. Shorten the prompt or pick one interpretation first.',
       ),
     ).toBeInTheDocument();
+    expect(telemetryBodies.some((entry) => entry.event_type === 'preview_timeout')).toBe(true);
+  });
+
+  it('lets the user flag a wrong answer and return to the editor flow', async () => {
+    const telemetryBodies: Array<Record<string, unknown>> = [];
+    installBaseFetchMock(async () => (
+      createHttpResponse({
+        id: 'debate-preview-2',
+        topic: 'Should I microwave chicken nuggets for my kid?',
+        status: 'completed',
+        rounds_used: 1,
+        consensus_reached: false,
+        confidence: 0,
+        verdict: 'needs_review',
+        duration_seconds: 3.1,
+        participants: ['gpt', 'claude'],
+        proposals: {
+          gpt: 'Yes. Reheat the nuggets until hot all the way through.',
+          claude: 'Microwaving pre-cooked nuggets is practical for a child meal.',
+        },
+        critiques: [],
+        votes: [],
+        dissenting_views: [],
+        final_answer: 'Yes. Reheat the nuggets until hot all the way through.',
+        result_mode: 'preview',
+        receipt: {
+          receipt_id: 'LV-20260403-test02',
+          question: 'Should I microwave chicken nuggets for my kid?',
+          verdict: 'needs_review',
+          confidence: 0,
+          consensus: {
+            reached: false,
+            method: 'landing_preview',
+            confidence: 0,
+            supporting_agents: ['gpt', 'claude'],
+            dissenting_agents: [],
+          },
+          agents: ['gpt', 'claude'],
+          rounds_used: 1,
+          timestamp: '2026-04-03T12:00:00Z',
+          signature: null,
+          signature_algorithm: null,
+        },
+        receipt_hash: 'hash-preview-2',
+      })
+    ), { telemetryBodies });
+
+    render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
+
+    fireEvent.change(screen.getByPlaceholderText('What decision are you facing?'), {
+      target: {
+        value: 'I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?',
+      },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: 'Run a free debate' }).closest('form') as HTMLFormElement);
+    fireEvent.click(await screen.findByRole('button', { name: /Practical food-safety first/i }));
+
+    expect(await screen.findByText('Quick Read')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'This answer seems wrong' }));
+
+    expect(
+      await screen.findByText('Pick a narrower interpretation or edit the wording below before rerunning.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Choose which version of the question to debate')).toBeInTheDocument();
+    expect(telemetryBodies.some((entry) => entry.event_type === 'wrong_answer_clicked')).toBe(true);
+  });
+
+  it('cancels a pending focus frame when the page unmounts after a wrong answer', async () => {
+    const telemetryBodies: Array<Record<string, unknown>> = [];
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    const cancelAnimationFrame = jest.fn();
+
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: jest.fn(() => 77),
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      configurable: true,
+      value: cancelAnimationFrame,
+    });
+
+    installBaseFetchMock(async () => (
+      createHttpResponse({
+        id: 'debate-preview-3',
+        topic: 'Should I microwave chicken nuggets for my kid?',
+        status: 'completed',
+        rounds_used: 1,
+        consensus_reached: false,
+        confidence: 0,
+        verdict: 'needs_review',
+        duration_seconds: 2.2,
+        participants: ['gpt', 'claude'],
+        proposals: {
+          gpt: 'Yes. Reheat the nuggets until hot all the way through.',
+          claude: 'Microwaving pre-cooked nuggets is practical for a child meal.',
+        },
+        critiques: [],
+        votes: [],
+        dissenting_views: [],
+        final_answer: 'Yes. Reheat the nuggets until hot all the way through.',
+        result_mode: 'preview',
+        receipt: {
+          receipt_id: 'LV-20260403-test03',
+          question: 'Should I microwave chicken nuggets for my kid?',
+          verdict: 'needs_review',
+          confidence: 0,
+          consensus: {
+            reached: false,
+            method: 'landing_preview',
+            confidence: 0,
+            supporting_agents: ['gpt', 'claude'],
+            dissenting_agents: [],
+          },
+          agents: ['gpt', 'claude'],
+          rounds_used: 1,
+          timestamp: '2026-04-03T12:00:00Z',
+          signature: null,
+          signature_algorithm: null,
+        },
+        receipt_hash: 'hash-preview-3',
+      })
+    ), { telemetryBodies });
+
+    try {
+      const view = render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
+
+      fireEvent.change(screen.getByPlaceholderText('What decision are you facing?'), {
+        target: {
+          value: 'I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?',
+        },
+      });
+      fireEvent.submit(screen.getByRole('button', { name: 'Run a free debate' }).closest('form') as HTMLFormElement);
+      fireEvent.click(await screen.findByRole('button', { name: /Practical food-safety first/i }));
+      expect(await screen.findByText('Quick Read')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'This answer seems wrong' }));
+
+      expect(
+        await screen.findByText('Pick a narrower interpretation or edit the wording below before rerunning.'),
+      ).toBeInTheDocument();
+      expect(window.requestAnimationFrame).toHaveBeenCalled();
+
+      view.unmount();
+
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(77);
+      expect(telemetryBodies.some((entry) => entry.event_type === 'wrong_answer_clicked')).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        value: originalCancelAnimationFrame,
+      });
+    }
   });
 });

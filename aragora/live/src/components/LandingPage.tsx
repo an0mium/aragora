@@ -9,6 +9,7 @@ import {
   type LandingDebatePreflight,
   type LandingPreparedDebateOption,
 } from './landing/landingPreflight';
+import { trackLandingEvent } from './landing/landingTelemetry';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
@@ -618,6 +619,14 @@ function buildLandingErrorMessage(status: number, data: Record<string, unknown> 
     return error || 'The landing preview timed out before the models returned a clean result.';
   }
 
+  if (code === 'landing_preview_needs_clarification') {
+    return (
+      message
+      || error
+      || 'The fast preview drifted away from your question. Tighten the wording or pick one interpretation first.'
+    );
+  }
+
   if (code === 'timeout') {
     return message || error || 'The live debate timed out. Try a shorter, more focused question.';
   }
@@ -632,18 +641,48 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorNotice, setEditorNotice] = useState<string | null>(null);
   const [lastTopic, setLastTopic] = useState('');
   const [lastPreparedOption, setLastPreparedOption] = useState<LandingPreparedDebateOption | null>(null);
   const [pendingPreflight, setPendingPreflight] = useState<LandingDebatePreflight | null>(null);
   const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
   const abortRef = useRef<AbortController | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
   const livePreviewApiBase = useMemo(() => resolvedApiBase.replace(/\/$/, ''), [resolvedApiBase]);
+  const trackEvent = useCallback((
+    eventType: Parameters<typeof trackLandingEvent>[1],
+    data: Parameters<typeof trackLandingEvent>[2] = {},
+  ) => {
+    trackLandingEvent(resolvedApiBase, eventType, data);
+  }, [resolvedApiBase]);
+  const focusComposer = useCallback(() => {
+    const focus = () => {
+      textareaRef.current?.focus();
+      textareaRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      if (focusFrameRef.current !== null && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(focusFrameRef.current);
+      }
+      focusFrameRef.current = window.requestAnimationFrame(() => {
+        focusFrameRef.current = null;
+        focus();
+      });
+      return;
+    }
+    setTimeout(focus, 0);
+  }, []);
 
   useEffect(() => {
     return () => {
+      if (focusFrameRef.current !== null && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(focusFrameRef.current);
+        focusFrameRef.current = null;
+      }
       abortRef.current?.abort();
       if (progressRef.current) {
         clearInterval(progressRef.current);
@@ -667,11 +706,20 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
 
     setIsRunning(true);
     setError(null);
+    setEditorNotice(null);
     setResult(null);
     setPendingPreflight(null);
     setLastTopic(option.originalQuestion);
     setLastPreparedOption(option);
     setProgressMsg(PROGRESS_MESSAGES[0]);
+    trackEvent('preflight_selected', {
+      option_id: option.id,
+      recommended: Boolean(option.recommended),
+      rewritten: option.interpretedQuestion !== option.originalQuestion,
+      agents: option.agents,
+      rounds: option.rounds,
+      question_length: option.originalQuestion.length,
+    });
 
     // Rotate progress messages
     let progressIdx = 0;
@@ -708,12 +756,26 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
+        const code = typeof data?.code === 'string' ? data.code : '';
+        if (code === 'landing_preview_timeout') {
+          trackEvent('preview_timeout', {
+            timeout_seconds:
+              typeof data?.timeout_seconds === 'number' ? Math.round(data.timeout_seconds) : null,
+            rewritten: option.interpretedQuestion !== option.originalQuestion,
+            question_length: option.originalQuestion.length,
+          });
+        } else if (code === 'landing_preview_needs_clarification') {
+          trackEvent('preview_clarification_requested', {
+            rewritten: option.interpretedQuestion !== option.originalQuestion,
+            question_length: option.originalQuestion.length,
+          });
+        }
         setError(buildLandingErrorMessage(res.status, data));
         return;
       }
 
       const data: DebateResponse = await res.json();
-      setResult({
+      const nextResult: DebateResponse = {
         ...data,
         original_question: option.originalQuestion,
         interpreted_question: option.interpretedQuestion,
@@ -722,7 +784,14 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
           || (option.interpretedQuestion !== option.originalQuestion
             ? 'Aragora debated the focused interpretation you chose before opening the full transcript.'
             : undefined),
+      };
+      trackEvent('preview_rendered', {
+        result_mode: nextResult.result_mode || 'full',
+        rewritten: option.interpretedQuestion !== option.originalQuestion,
+        participant_count: nextResult.participants.length,
+        has_warning: Boolean(nextResult.result_warning),
       });
+      setResult(nextResult);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       if (err instanceof Error && err.message.includes('Failed to fetch')) {
@@ -743,16 +812,61 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
   function runDebate(rawQuestion: string) {
     const preflight = prepareLandingDebate(rawQuestion);
     setError(null);
+    setEditorNotice(null);
     setResult(null);
     setLastTopic(rawQuestion);
 
     if (preflight.type === 'confirm') {
       setPendingPreflight(preflight.preflight);
+      trackEvent('preflight_shown', {
+        option_count: preflight.preflight.options.length,
+        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
+        has_warning: Boolean(preflight.preflight.warning),
+        question_length: rawQuestion.length,
+      });
       return;
     }
 
+    setPendingPreflight(null);
     void executeDebate(preflight.option);
   }
+
+  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
+    const sourceQuestion =
+      currentResult.original_question
+      || question
+      || lastTopic
+      || currentResult.topic;
+    const preflight = prepareLandingDebate(sourceQuestion);
+
+    setQuestion(sourceQuestion);
+    setResult(null);
+    setError(null);
+    setLastTopic(sourceQuestion);
+    setLastPreparedOption(null);
+
+    if (preflight.type === 'confirm') {
+      setPendingPreflight(preflight.preflight);
+      setEditorNotice('Pick a narrower interpretation or edit the wording below before rerunning.');
+      trackEvent('preflight_shown', {
+        option_count: preflight.preflight.options.length,
+        recommended_count: preflight.preflight.options.filter((option) => option.recommended).length,
+        has_warning: Boolean(preflight.preflight.warning),
+        question_length: sourceQuestion.length,
+      });
+    } else {
+      setPendingPreflight(null);
+      setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
+    }
+
+    trackEvent('wrong_answer_clicked', {
+      result_mode: currentResult.result_mode || 'full',
+      rewritten:
+        Boolean(currentResult.interpreted_question)
+        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
+    });
+    focusComposer();
+  }, [focusComposer, lastTopic, question, trackEvent]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -818,10 +932,12 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
 
           <form onSubmit={handleSubmit} className="text-left max-w-xl mx-auto">
             <textarea
+              ref={textareaRef}
               value={question}
               onChange={(e) => {
                 setQuestion(e.target.value);
                 setPendingPreflight(null);
+                setEditorNotice(null);
               }}
               placeholder="What decision are you facing?"
               disabled={isRunning}
@@ -836,6 +952,12 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
               {isRunning ? 'Agents debating...' : 'Run a free debate'}
             </button>
           </form>
+
+          {editorNotice && !isRunning && (
+            <div className="mt-4 max-w-xl mx-auto rounded-xl border border-acid-cyan/20 bg-acid-cyan/10 px-4 py-3 text-left">
+              <p className="text-xs text-text-muted leading-relaxed">{editorNotice}</p>
+            </div>
+          )}
 
           {/* Example topics — reduce blank-page friction */}
           {!result && !isRunning && (
@@ -923,6 +1045,10 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
               {(lastPreparedOption || lastTopic) && (
                 <button
                   onClick={() => {
+                    trackEvent('retry_clicked', {
+                      has_prepared_option: Boolean(lastPreparedOption),
+                      has_question: Boolean(lastTopic),
+                    });
                     setError(null);
                     if (lastPreparedOption) {
                       void executeDebate(lastPreparedOption);
@@ -938,7 +1064,24 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
             </div>
           )}
 
-          {result && <DebateResultPreview result={result} condensed />}
+          {result && (
+            <DebateResultPreview
+              result={result}
+              condensed
+              onFlagWrongAnswer={handleWrongAnswer}
+              onOpenFullDebate={(debateResult, surface) => {
+                trackEvent('open_full_debate_clicked', {
+                  result_mode: debateResult.result_mode || 'full',
+                  surface,
+                });
+              }}
+              onShare={(debateResult) => {
+                trackEvent('share_clicked', {
+                  result_mode: debateResult.result_mode || 'full',
+                });
+              }}
+            />
+          )}
         </div>
       </section>
 

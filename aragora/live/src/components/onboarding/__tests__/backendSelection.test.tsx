@@ -153,7 +153,7 @@ describe('Onboarding backend selection', () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.aragora.ai/api/debate',
+        'https://api.aragora.ai/api/debates',
         expect.objectContaining({ method: 'POST' }),
       );
     });

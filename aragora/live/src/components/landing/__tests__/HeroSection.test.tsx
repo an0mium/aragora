@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HeroSection } from '../HeroSection';
 
 const mockPush = jest.fn();
 const mockBackendConfig = { api: 'http://localhost:8080' };
+const mockDebateResultPreview = jest.fn();
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -14,7 +15,10 @@ jest.mock('@/context/ThemeContext', () => ({
 }));
 
 jest.mock('../../DebateResultPreview', () => ({
-  DebateResultPreview: () => <div data-testid="debate-result-preview">Debate result</div>,
+  DebateResultPreview: (props: Record<string, unknown>) => {
+    mockDebateResultPreview(props);
+    return <div data-testid="debate-result-preview">Debate result</div>;
+  },
   RETURN_URL_KEY: 'return_url',
   PENDING_DEBATE_KEY: 'pending_debate',
 }));
@@ -215,6 +219,93 @@ describe('HeroSection', () => {
         '/api/v1/playground/debate/',
         expect.objectContaining({
           method: 'POST',
+        }),
+      );
+    });
+
+    it('shows a preflight chooser for ambiguous landing prompts before debating', async () => {
+      const user = userEvent.setup();
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      render(<HeroSection />);
+
+      await user.type(
+        screen.getByRole('textbox'),
+        'Should I cook my chickens in a microwave? What if they are alive, and what if they are dead?'
+      );
+      await user.click(screen.getByRole('button', { name: /start debate/i }));
+
+      expect(
+        screen.getByRole('heading', { name: /choose which version of the question to debate/i })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /practical food-safety first/i })).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/playground/debate'),
+        expect.anything(),
+      );
+    });
+
+    it('renders the landing preview in condensed mode after a successful debate', async () => {
+      const user = userEvent.setup();
+      const fetchMock = jest.fn().mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/v1/playground/landing/events')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({}),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: 'debate-123',
+            topic: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+            status: 'completed',
+            rounds_used: 1,
+            consensus_reached: false,
+            confidence: 0.7,
+            verdict: 'needs_review',
+            duration_seconds: 8,
+            participants: ['gpt', 'claude', 'grok'],
+            proposals: { gpt: 'Yes, if heated safely.' },
+            critiques: [],
+            votes: [],
+            dissenting_views: [],
+            final_answer: 'Yes, if heated safely.',
+            receipt: null,
+            receipt_hash: null,
+            result_mode: 'preview',
+          }),
+        });
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      render(<HeroSection />);
+
+      await user.type(
+        screen.getByRole('textbox'),
+        'Can I microwave frozen chicken nuggets for my 4-year-old?'
+      );
+      await user.click(screen.getByRole('button', { name: /start debate/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
+      });
+
+      expect(mockDebateResultPreview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          condensed: true,
+          onFlagWrongAnswer: expect.any(Function),
+          onOpenFullDebate: expect.any(Function),
+          onShare: expect.any(Function),
+          result: expect.objectContaining({
+            original_question: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+            interpreted_question: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+          }),
         }),
       );
     });
