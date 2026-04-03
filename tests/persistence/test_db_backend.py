@@ -490,7 +490,14 @@ class TestGetUnifiedBackend:
 
     def test_postgres_fallback_on_no_dsn(self, tmp_path: Path):
         """Requesting PostgreSQL without DSN falls back to SQLite."""
-        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": str(tmp_path)}, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DATA_DIR": str(tmp_path),
+                "ARAGORA_USE_SECRETS_MANAGER": "false",
+            },
+            clear=False,
+        ):
             # Remove all PG config
             for key in [
                 "DATABASE_URL",

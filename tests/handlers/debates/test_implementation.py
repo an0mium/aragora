@@ -116,12 +116,14 @@ class _MockApprovalRequest:
 
 @dataclass
 class _MockOutcome:
+    success: bool = True
     tasks_total: int = 1
     tasks_completed: int = 1
     duration_seconds: float = 2.5
 
     def to_dict(self):
         return {
+            "success": self.success,
             "tasks_total": self.tasks_total,
             "tasks_completed": self.tasks_completed,
             "duration_seconds": self.duration_seconds,
@@ -504,19 +506,32 @@ class TestPersistPlan:
         from aragora.server.handlers.debates.implementation import _persist_plan
 
         mock_factory = MagicMock()
-        mock_factory.from_implement_plan.return_value = MagicMock()
+        mock_decision_plan = MagicMock()
+        mock_decision_plan.id = "plan-123"
+        mock_decision_plan.metadata = {}
+        mock_factory.from_implement_plan.return_value = mock_decision_plan
         with patch(
             "aragora.server.handlers.debates.implementation.DecisionPlanFactory",
             mock_factory,
             create=True,
         ):
-            with patch("aragora.pipeline.executor.store_plan") as mock_store:
+            with (
+                patch("aragora.pipeline.executor.store_plan") as mock_store,
+                patch(
+                    "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+                    return_value="run-123",
+                ),
+                patch(
+                    "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+                    return_value=True,
+                ),
+            ):
                 with patch(
                     "aragora.pipeline.decision_plan.DecisionPlanFactory",
                     mock_factory,
                 ):
                     _persist_plan(_MockPlan(), "d1")
-                    mock_store.assert_called_once()
+                    mock_store.assert_called_once_with(mock_decision_plan)
 
     def test_import_error_silenced(self):
         from aragora.server.handlers.debates.implementation import _persist_plan
@@ -1357,7 +1372,20 @@ class TestExecuteComputerUse:
         from aragora.server.handlers.debates.implementation import _parse_request
 
         outcome = _MockOutcome()
-        mock_ra.return_value = outcome
+
+        def _mock_run_async(coro):
+            if hasattr(coro, "close"):
+                coro.close()
+            return (
+                {
+                    "run_id": "run-1",
+                    "execution_id": "exec-1",
+                    "correlation_id": "corr-1",
+                },
+                outcome,
+            )
+
+        mock_ra.side_effect = _mock_run_async
 
         mock_executor = MagicMock()
         MockPE.return_value = mock_executor

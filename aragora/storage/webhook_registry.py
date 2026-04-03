@@ -112,7 +112,6 @@ class SQLiteWebhookRegistry:
         conn = self._conn_var.get()
         if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-            conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.row_factory = sqlite3.Row
             self._conn_var.set(conn)
@@ -123,6 +122,7 @@ class SQLiteWebhookRegistry:
     def _init_schema(self) -> None:
         """Initialize database schema."""
         conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript("""
             -- Webhook registrations table
             CREATE TABLE IF NOT EXISTS webhook_registrations (

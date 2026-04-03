@@ -125,6 +125,7 @@ class TestFilterAvailableAgents:
                 "OPENAI_API_KEY": "",
                 "OPENROUTER_API_KEY": "",
                 "ARAGORA_OPENROUTER_FALLBACK_ENABLED": "false",
+                "ARAGORA_USE_SECRETS_MANAGER": "false",
             },
             clear=False,
         ):

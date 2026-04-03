@@ -118,6 +118,8 @@ EXEMPT_HANDLERS = frozenset(
         "ReplaysHandler",
         # Feature/metadata discovery endpoints (public API info)
         "FeaturesHandler",
+        "MCPToolsHandler",
+        "PipelineTelemetryHandler",
         # Admin connectors/streaming (use internal authz or future RBAC)
         "ConnectorManagementHandler",
         "StreamingConnectorHandler",
@@ -140,6 +142,7 @@ EXEMPT_HANDLERS = frozenset(
         "GDPRDeletionHandler",
         # Debate stats (read-only public stats)
         "DebateStatsHandler",
+        "PublicDebateViewerHandler",
         # Moderation analytics (admin dashboard, internal auth)
         "ModerationAnalyticsHandler",
         # Plan management (uses subscription-level access control)

@@ -741,6 +741,11 @@ class TestWebhookEdgeCases:
 
         handler = FakeHandler(method="POST", headers={"Stripe-Signature": "sig"})
 
+        def _mock_get_callable(name, fallback):
+            if name == "_is_duplicate_webhook":
+                return lambda event_id: event_id == event.event_id
+            return fallback
+
         with (
             patch.object(billing_handler, "validate_content_length", return_value=10),
             patch(
@@ -748,8 +753,8 @@ class TestWebhookEdgeCases:
                 return_value=event,
             ),
             patch(
-                "aragora.server.handlers.billing.core._is_duplicate_webhook",
-                return_value=True,
+                "aragora.server.handlers.billing.core_webhooks._get_admin_billing_callable",
+                side_effect=_mock_get_callable,
             ),
         ):
             fn = billing_handler._handle_stripe_webhook.__wrapped__
@@ -767,6 +772,13 @@ class TestWebhookEdgeCases:
 
         handler = FakeHandler(method="POST", headers={"Stripe-Signature": "sig"})
 
+        def _mock_get_callable(name, fallback):
+            if name == "_is_duplicate_webhook":
+                return lambda _event_id: False
+            if name == "_mark_webhook_processed":
+                return lambda _event_id: None
+            return fallback
+
         with (
             patch.object(billing_handler, "validate_content_length", return_value=10),
             patch(
@@ -774,10 +786,9 @@ class TestWebhookEdgeCases:
                 return_value=event,
             ),
             patch(
-                "aragora.server.handlers.billing.core._is_duplicate_webhook",
-                return_value=False,
+                "aragora.server.handlers.billing.core_webhooks._get_admin_billing_callable",
+                side_effect=_mock_get_callable,
             ),
-            patch("aragora.server.handlers.billing.core._mark_webhook_processed"),
         ):
             fn = billing_handler._handle_stripe_webhook.__wrapped__
             result = fn(billing_handler, handler)
