@@ -4880,6 +4880,57 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert "stalled lane" in work_order["blocking_question"]
 
 
+@pytest.mark.asyncio
+async def test_collect_finished_results_defers_with_active_lock_and_no_usable_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    (repo / ".codex_session_active").write_text("1\n", encoding="utf-8")
+    run_record = store.create_supervisor_run(
+        goal="active lock without usable pid",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "active lock without usable pid"},
+        work_orders=[
+            {
+                "work_order_id": "wo-active-lock",
+                "status": "dispatched",
+                "review_status": "pending",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": "oops",
+                "initial_head": "abc123",
+                "dispatched_at": "2026-03-06T00:00:00+00:00",
+                "last_progress_at": "2026-03-06T00:00:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    launcher = WorkerLauncher()
+    launcher.collect_finished = AsyncMock(return_value=[])
+    launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=launcher)
+
+    with patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatched"
+    assert work_order["review_status"] == "pending"
+    assert "dispatch_error" not in work_order
+
+
 def test_session_key_unique_per_work_order() -> None:
     """Regression: subtask_1/subtask_2/subtask_3 must NOT collide into one worktree."""
     run_id = "abcdef12-3456"

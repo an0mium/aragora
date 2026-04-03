@@ -1434,6 +1434,30 @@ class TestSnapshotProgress:
         mock_running.assert_called_once_with(24680)
 
     @pytest.mark.asyncio
+    async def test_snapshot_progress_treats_active_lock_without_usable_pid_as_alive(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is True
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_includes_log_tails(self, tmp_path: Path):
         launcher = WorkerLauncher()
         work_order = {
