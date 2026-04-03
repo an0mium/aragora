@@ -12,6 +12,7 @@ from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunSta
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
 from aragora.server.fastapi import create_app
+from aragora.server.fastapi.dependencies.auth import require_authenticated
 
 
 def _make_run(
@@ -55,6 +56,25 @@ def client(app):
     return TestClient(app, raise_server_exceptions=False)
 
 
+def _override_auth(client: TestClient, permissions: set[str]) -> None:
+    from aragora.rbac.models import AuthorizationContext
+
+    auth_ctx = AuthorizationContext(
+        user_id="user-1",
+        org_id="org-1",
+        workspace_id="ws-1",
+        roles={"admin"},
+        permissions=permissions,
+    )
+    client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+
+def test_list_runs_route_requires_auth(client) -> None:
+    response = client.get("/api/v2/runs")
+
+    assert response.status_code == 401
+
+
 def test_list_runs_route_is_registered(client) -> None:
     plan_store = client.app.state.context["plan_store"]
     plan_store.create_run(
@@ -68,7 +88,9 @@ def test_list_runs_route_is_registered(client) -> None:
         )
     )
 
+    _override_auth(client, {"orchestration:read"})
     response = client.get("/api/v2/runs")
+    client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
     assert response.json() == {
@@ -85,6 +107,12 @@ def test_list_runs_route_is_registered(client) -> None:
     }
 
 
+def test_get_run_route_requires_auth(client) -> None:
+    response = client.get("/api/v2/runs/run-fastapi-detail")
+
+    assert response.status_code == 401
+
+
 def test_get_run_route_is_registered(client) -> None:
     plan_store = client.app.state.context["plan_store"]
     plan_store.create_run(
@@ -95,7 +123,9 @@ def test_get_run_route_is_registered(client) -> None:
         )
     )
 
+    _override_auth(client, {"orchestration:read"})
     response = client.get("/api/v2/runs/run-fastapi-detail")
+    client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
     assert response.json() == {

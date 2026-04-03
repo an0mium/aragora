@@ -12,9 +12,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.runs import handle_run_detail, handle_runs_list
+from aragora.server.fastapi.dependencies.auth import require_permission
 
 router = APIRouter(prefix="/api/v2", tags=["Runs"])
+_RUNS_READ_PERMISSION = "orchestration:read"
 
 
 class RunStageSummary(BaseModel):
@@ -86,10 +89,11 @@ async def list_runs(
     status: str | None = Query(None, description="Optional run status filter"),
     limit: int = Query(50, ge=1, le=100, description="Maximum results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
+    auth: AuthorizationContext = Depends(require_permission(_RUNS_READ_PERMISSION)),
     store: Any = Depends(get_runs_store),
 ) -> RunListResponse:
-    """List persisted backbone runs."""
-    del request  # request is kept for route signature parity with other route modules
+    """List persisted backbone runs. Requires `orchestration:read`."""
+    del auth, request  # request is kept for route signature parity with other route modules
     payload = _unwrap_handler_result(
         handle_runs_list(
             {"status": status, "limit": limit, "offset": offset},
@@ -102,9 +106,11 @@ async def list_runs(
 @router.get("/runs/{run_id}", response_model=RunDetailResponse)
 async def get_run(
     run_id: str,
+    auth: AuthorizationContext = Depends(require_permission(_RUNS_READ_PERMISSION)),
     store: Any = Depends(get_runs_store),
 ) -> RunDetailResponse:
-    """Fetch one persisted backbone run."""
+    """Fetch one persisted backbone run. Requires `orchestration:read`."""
+    del auth
     payload = _unwrap_handler_result(handle_run_detail(run_id, store=store))
     return RunDetailResponse(**payload)
 

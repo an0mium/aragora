@@ -12,7 +12,10 @@ from typing import Any, cast
 
 from aragora.pipeline.backbone_contracts import RunLedger
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
+
+_RUNS_READ_PERMISSION = "orchestration:read"
 
 
 def _get_plan_store() -> Any:
@@ -165,6 +168,7 @@ class RunsHandler(BaseHandler):
         normalized_path = strip_version_prefix(path)
         return normalized_path == "/api/runs" or normalized_path.startswith("/api/runs/")
 
+    @require_permission(_RUNS_READ_PERMISSION)
     def handle(
         self,
         path: str,

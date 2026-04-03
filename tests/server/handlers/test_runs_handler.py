@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -42,11 +43,41 @@ def _make_run(
     return run
 
 
+def _make_http_handler() -> Any:
+    handler = MagicMock()
+    handler.command = "GET"
+    handler.headers = {}
+    handler.user_store = None
+    return handler
+
+
 @pytest.fixture(autouse=True)
 def isolated_plan_store(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> PlanStore:
     store = PlanStore(db_path=str(tmp_path / "runs_handler.db"))
     monkeypatch.setattr("aragora.pipeline.plan_store.get_plan_store", lambda: store)
     return store
+
+
+@pytest.fixture
+def authorized_http_handler(monkeypatch: pytest.MonkeyPatch) -> Any:
+    from aragora.server.handlers.utils import decorators as handler_decorators
+
+    auth_ctx = MagicMock()
+    auth_ctx.is_authenticated = True
+    auth_ctx.user_id = "runs-reader"
+    auth_ctx.role = "admin"
+    auth_ctx.error_reason = None
+
+    monkeypatch.setattr(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        lambda handler, user_store=None: auth_ctx,
+    )
+    monkeypatch.setattr(
+        handler_decorators,
+        "has_permission",
+        lambda role, permission: permission == "orchestration:read",
+    )
+    return _make_http_handler()
 
 
 def test_handle_runs_list_returns_compact_backbone_payload(
@@ -171,6 +202,7 @@ def test_handle_run_detail_returns_404_when_missing() -> None:
 
 def test_runs_handler_routes_list_requests(
     isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
 ) -> None:
     run = _make_run(
         "run-handler-list",
@@ -179,7 +211,11 @@ def test_runs_handler_routes_list_requests(
     )
     isolated_plan_store.create_run(run)
 
-    result = RunsHandler({"plan_store": isolated_plan_store}).handle("/api/runs", {}, None)
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs",
+        {},
+        authorized_http_handler,
+    )
     parsed = _parse(result)
 
     assert parsed["status"] == 200
@@ -188,6 +224,7 @@ def test_runs_handler_routes_list_requests(
 
 def test_runs_handler_routes_detail_requests(
     isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
 ) -> None:
     run = _make_run(
         "run-handler-detail",
@@ -199,9 +236,36 @@ def test_runs_handler_routes_detail_requests(
     result = RunsHandler({"plan_store": isolated_plan_store}).handle(
         "/api/runs/run-handler-detail",
         {},
-        None,
+        authorized_http_handler,
     )
     parsed = _parse(result)
 
     assert parsed["status"] == 200
     assert parsed["body"]["run"]["run_id"] == "run-handler-detail"
+
+
+def test_runs_handler_requires_auth(
+    isolated_plan_store: PlanStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.server.handlers.utils import decorators as handler_decorators
+
+    unauthenticated = MagicMock()
+    unauthenticated.is_authenticated = False
+    unauthenticated.error_reason = "Authentication required"
+
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", None)
+    monkeypatch.setattr(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        lambda handler, user_store=None: unauthenticated,
+    )
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs",
+        {},
+        _make_http_handler(),
+    )
+    parsed = _parse(result)
+
+    assert parsed["status"] == 401
+    assert parsed["body"] == {"error": "Authentication required"}
