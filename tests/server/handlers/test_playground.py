@@ -215,7 +215,7 @@ class TestDebateEndpoint:
         assert "receipt" in data
         assert "receipt_hash" in data
         assert "participants" in data
-        assert len(data["participants"]) == 3  # default agent count
+        assert len(data["participants"]) == 4  # default agent count
         assert data["duration_seconds"] >= 0
 
     def test_debate_with_trailing_slash_path(self, handler, mock_http_handler):

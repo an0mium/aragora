@@ -1074,7 +1074,11 @@ class TestConstants:
         assert MEMORY_WRITE_PERMISSION == "memory:write"
 
     def test_routes_defined(self):
-        assert len(LearningHandler.ROUTES) == 4
+        assert len(LearningHandler.ROUTES) == 8
+        assert "/api/learning/cycles" in LearningHandler.ROUTES
+        assert "/api/learning/patterns" in LearningHandler.ROUTES
+        assert "/api/learning/agent-evolution" in LearningHandler.ROUTES
+        assert "/api/learning/insights" in LearningHandler.ROUTES
         assert "/api/v1/learning/cycles" in LearningHandler.ROUTES
         assert "/api/v1/learning/patterns" in LearningHandler.ROUTES
         assert "/api/v1/learning/agent-evolution" in LearningHandler.ROUTES

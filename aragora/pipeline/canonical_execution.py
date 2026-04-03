@@ -30,7 +30,7 @@ from aragora.pipeline.execution_mode import (
 )
 
 if TYPE_CHECKING:
-    from aragora.pipeline.executor import ExecutionMode
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -694,7 +694,7 @@ async def execute_queued_plan(
     outcome = await bridge.execute_approved_plan(
         plan.id,
         auth_context=auth_context,
-        execution_mode=cast(ExecutionMode | None, normalized_mode),
+        execution_mode=cast(Any, normalized_mode),
         execution_id=execution_id,
         correlation_id=correlation_id,
     )

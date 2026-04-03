@@ -100,12 +100,15 @@ class TestReadinessProbe:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch(
-                    "aragora.server.unified_server.is_server_ready",
+                    "aragora.server.unified_server.is_runtime_ready",
                     return_value=True,
                 ):
-                    with patch("aragora.server.handler_registry.core.get_route_index") as mock_ri:
-                        mock_ri.return_value._exact_routes = {"/healthz": True}
-                        result = await health_handler.handle("/readyz", {}, None)
+                    with patch("aragora.server.degraded_mode.is_degraded", return_value=False):
+                        with patch(
+                            "aragora.server.handler_registry.core.get_route_index"
+                        ) as mock_ri:
+                            mock_ri.return_value._exact_routes = {"/healthz": True}
+                            result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -119,12 +122,15 @@ class TestReadinessProbe:
         with patch.object(health_handler, "get_storage", return_value=mock_storage):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch(
-                    "aragora.server.unified_server.is_server_ready",
+                    "aragora.server.unified_server.is_runtime_ready",
                     return_value=True,
                 ):
-                    with patch("aragora.server.handler_registry.core.get_route_index") as mock_ri:
-                        mock_ri.return_value._exact_routes = {"/healthz": True}
-                        result = await health_handler.handle("/readyz", {}, None)
+                    with patch("aragora.server.degraded_mode.is_degraded", return_value=False):
+                        with patch(
+                            "aragora.server.handler_registry.core.get_route_index"
+                        ) as mock_ri:
+                            mock_ri.return_value._exact_routes = {"/healthz": True}
+                            result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -136,7 +142,8 @@ class TestReadinessProbe:
         """Readiness should return not_ready when storage fails."""
         with patch.object(health_handler, "get_storage", side_effect=RuntimeError("DB error")):
             with patch.object(health_handler, "get_elo_system", return_value=None):
-                result = await health_handler.handle("/readyz", {}, None)
+                with patch("aragora.server.degraded_mode.is_degraded", return_value=False):
+                    result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         body = json.loads(result.body)

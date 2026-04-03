@@ -101,7 +101,8 @@ class TestReadyzFallback:
         mod._server_ready = False
         mod._http_server_started = True
 
-        UnifiedHandler._do_GET_internal(handler, "/readyz", {})
+        with patch("aragora.server.degraded_mode.is_degraded", return_value=False):
+            UnifiedHandler._do_GET_internal(handler, "/readyz", {})
 
         assert responses == [({"status": "ready"}, 200)]
         handler._try_modular_handler.assert_not_called()
@@ -119,7 +120,8 @@ class TestReadyzFallback:
         mod._server_ready = True
         mod._http_server_started = True
 
-        UnifiedHandler._do_GET_internal(handler, "/readyz", {})
+        with patch("aragora.server.degraded_mode.is_degraded", return_value=False):
+            UnifiedHandler._do_GET_internal(handler, "/readyz", {})
 
         assert responses == [({"status": "ready"}, 200)]
         handler._try_modular_handler.assert_not_called()
