@@ -781,7 +781,6 @@ def test_start_run_preserves_rerun_when_existing_duplicate_chain_was_stale_reape
     for work_order in run.work_orders:
         assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
 
-
 def test_refresh_run_requeues_stale_reaped_needs_human_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -846,8 +845,6 @@ def test_refresh_run_requeues_stale_reaped_needs_human_lane(
     assert work_orders["micro-1"].get("failure_reason") in {"", None}
     assert work_orders["micro-1"].get("lease_id")
     assert work_orders["micro-2"]["status"] in {"queued", "leased"}
-
-
 def test_refresh_run_salvages_stale_reaped_lane_with_recoverable_commit(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1013,7 +1010,6 @@ def test_refresh_run_does_not_lease_downstream_lane_before_dependencies_complete
     assert work_orders["micro-3"]["status"] == "queued"
     assert "lease_id" not in work_orders["micro-3"]
     assert lifecycle.ensure_managed_worktree.call_count == 1
-
 
 def test_start_run_preserves_rerun_when_existing_missing_verification_plan_is_deferred(
     repo: Path, store: DevCoordinationStore
