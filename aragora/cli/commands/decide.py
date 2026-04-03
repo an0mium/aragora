@@ -171,6 +171,12 @@ async def run_decide(
         # Extract the specification dict (handle both raw and wrapped formats)
         spec_dict = spec_data.get("specification", spec_data)
 
+        # Forward the canonical spec bundle and validation results if present
+        validation_result = spec_data.get("validation") or spec_data.get("validation_result")
+        metadata = {"prompt_spec_artifacts": spec_data}
+        if "spec_bundle" in spec_data:
+            metadata["spec_bundle"] = spec_data["spec_bundle"]
+
         if verbose:
             title = spec_dict.get("title", task)
             print(f"[decide] Using spec: {title}")
@@ -180,6 +186,8 @@ async def run_decide(
             task=task,
             budget_limit_usd=budget_limit,
             approval_mode=approval_mode,
+            metadata=metadata,
+            validation_result=validation_result,
         )
         run_id = _seed_cli_backbone_run(
             plan,
