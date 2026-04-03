@@ -9,14 +9,22 @@ class BackbonePersistenceError(RuntimeError):
     """Raised when interactive execution cannot guarantee backbone persistence."""
 
 
-def ensure_backbone_persisted(ok: bool, message: str) -> None:
+class FailClosedBackboneError(BackbonePersistenceError):
+    """Raised when interactive handlers must fail closed on backbone persistence errors."""
+
+
+def ensure_backbone_persisted(
+    ok: bool,
+    message: str = FAIL_CLOSED_BACKBONE_MESSAGE,
+) -> None:
     """Raise a typed error when a required backbone write did not persist."""
     if not ok:
-        raise BackbonePersistenceError(message)
+        raise FailClosedBackboneError(message)
 
 
 __all__ = [
     "BackbonePersistenceError",
+    "FailClosedBackboneError",
     "FAIL_CLOSED_BACKBONE_MESSAGE",
     "ensure_backbone_persisted",
 ]
