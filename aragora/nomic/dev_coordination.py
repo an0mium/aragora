@@ -572,6 +572,8 @@ class DevCoordinationStore:
             self._git_common_dir(self.repo_root) / "aragora-agent-state" / "dev_coordination.db"
         )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._supervisor_run_snapshot_dir = self.db_path.parent / "supervisor_runs"
+        self._supervisor_run_snapshot_dir.mkdir(parents=True, exist_ok=True)
         self.event_bus = event_bus or EventBus(repo_root=self.repo_root)
         self.fleet_store = FleetCoordinationStore(self.repo_root)
         self._ensure_schema()
@@ -806,27 +808,11 @@ class DevCoordinationStore:
         }
         conn = self._connect()
         try:
-            conn.execute(
-                """
-                INSERT INTO supervisor_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record["run_id"],
-                    record["goal"],
-                    record["target_branch"],
-                    record["status"],
-                    _json_dump(record["supervisor_agents"]),
-                    _json_dump(record["approval_policy"]),
-                    _json_dump(record["spec"]),
-                    _json_dump(record["work_orders"]),
-                    _json_dump(record["metadata"]),
-                    record["created_at"],
-                    record["updated_at"],
-                ),
-            )
+            self._insert_supervisor_run(conn, record)
             conn.commit()
         finally:
             conn.close()
+        self._write_supervisor_run_snapshot(record)
         return record
 
     def get_supervisor_run(self, run_id: str) -> dict[str, Any] | None:
@@ -836,6 +822,8 @@ class DevCoordinationStore:
                 "SELECT * FROM supervisor_runs WHERE run_id = ?",
                 (run_id,),
             ).fetchone()
+            if row is None:
+                return self._restore_missing_supervisor_run(conn, run_id)
         finally:
             conn.close()
         return None if row is None else self._supervisor_run_from_row(row)
@@ -3237,8 +3225,12 @@ class DevCoordinationStore:
                 (run_id,),
             ).fetchone()
             if row is None:
-                raise KeyError(f"Unknown supervisor run: {run_id}")
-            record = self._supervisor_run_from_row(row)
+                restored = self._restore_missing_supervisor_run(conn, run_id)
+                if restored is None:
+                    raise KeyError(f"Unknown supervisor run: {run_id}")
+                record = restored
+            else:
+                record = self._supervisor_run_from_row(row)
             if status is not None:
                 record["status"] = status
             if work_orders is not None:
@@ -5135,6 +5127,92 @@ class DevCoordinationStore:
                 record["run_id"],
             ),
         )
+        self._write_supervisor_run_snapshot(record)
+
+    def _insert_supervisor_run(
+        self,
+        conn: sqlite3.Connection,
+        record: dict[str, Any],
+        *,
+        ignore_existing: bool = False,
+    ) -> None:
+        insert_mode = "INSERT OR IGNORE" if ignore_existing else "INSERT"
+        conn.execute(
+            f"""
+            {insert_mode} INTO supervisor_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record["run_id"],
+                record["goal"],
+                record["target_branch"],
+                record["status"],
+                _json_dump(record.get("supervisor_agents", {})),
+                _json_dump(record.get("approval_policy", {})),
+                _json_dump(record.get("spec", {})),
+                _json_dump(record.get("work_orders", [])),
+                _json_dump(record.get("metadata", {})),
+                record["created_at"],
+                record["updated_at"],
+            ),
+        )
+
+    def _supervisor_run_snapshot_path(self, run_id: str) -> Path:
+        safe_run_id = re.sub(r"[^A-Za-z0-9_.-]", "_", str(run_id).strip())
+        return self._supervisor_run_snapshot_dir / f"{safe_run_id}.json"
+
+    def _write_supervisor_run_snapshot(self, record: dict[str, Any]) -> None:
+        run_id = str(record.get("run_id", "")).strip()
+        if not run_id:
+            return
+        path = self._supervisor_run_snapshot_path(run_id)
+        tmp_path = path.with_suffix(".json.tmp")
+        payload = json.dumps(record, indent=2, sort_keys=True) + "\n"
+        tmp_path.write_text(payload, encoding="utf-8")
+        tmp_path.replace(path)
+
+    def _load_supervisor_run_snapshot(self, run_id: str) -> dict[str, Any] | None:
+        path = self._supervisor_run_snapshot_path(run_id)
+        if not path.exists():
+            return None
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(loaded, dict):
+            return None
+        if str(loaded.get("run_id", "")).strip() != str(run_id).strip():
+            return None
+        return {
+            "run_id": str(loaded.get("run_id", "")).strip(),
+            "goal": str(loaded.get("goal", "")),
+            "target_branch": str(loaded.get("target_branch", "")),
+            "status": str(loaded.get("status", "")),
+            "supervisor_agents": dict(loaded.get("supervisor_agents") or {}),
+            "approval_policy": dict(loaded.get("approval_policy") or {}),
+            "spec": dict(loaded.get("spec") or {}),
+            "work_orders": [dict(item) for item in loaded.get("work_orders", [])],
+            "metadata": dict(loaded.get("metadata") or {}),
+            "created_at": str(loaded.get("created_at", "")),
+            "updated_at": str(loaded.get("updated_at", "")),
+        }
+
+    def _restore_missing_supervisor_run(
+        self,
+        conn: sqlite3.Connection,
+        run_id: str,
+    ) -> dict[str, Any] | None:
+        snapshot = self._load_supervisor_run_snapshot(run_id)
+        if snapshot is None:
+            return None
+        self._insert_supervisor_run(conn, snapshot, ignore_existing=True)
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM supervisor_runs WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        if row is not None:
+            return self._supervisor_run_from_row(row)
+        return snapshot
 
     def _sync_supervisor_run_from_lease(
         self,

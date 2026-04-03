@@ -453,6 +453,71 @@ def test_supervisor_run_tracks_lease_completion_and_decision(store: DevCoordinat
     assert refreshed["status"] == "needs_human"
 
 
+def test_get_supervisor_run_restores_missing_row_from_snapshot(store: DevCoordinationStore) -> None:
+    run = store.create_supervisor_run(
+        goal="Recover missing supervisor row",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={"raw_goal": "Recover missing supervisor row"},
+        work_orders=[
+            {
+                "work_order_id": "wo-restore",
+                "title": "Restore run",
+                "file_scope": ["aragora/swarm/reconciler.py"],
+                "status": "queued",
+            }
+        ],
+    )
+
+    with store._connect() as conn:
+        conn.execute("DELETE FROM supervisor_runs WHERE run_id = ?", (run["run_id"],))
+        conn.commit()
+
+    restored = store.get_supervisor_run(run["run_id"])
+    assert restored is not None
+    assert restored["run_id"] == run["run_id"]
+    assert restored["work_orders"][0]["work_order_id"] == "wo-restore"
+
+    with store._connect() as conn:
+        restored_row = conn.execute(
+            "SELECT run_id FROM supervisor_runs WHERE run_id = ?",
+            (run["run_id"],),
+        ).fetchone()
+    assert restored_row is not None
+
+
+def test_update_supervisor_run_restores_missing_row_from_snapshot(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Update restored supervisor row",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={"raw_goal": "Update restored supervisor row"},
+        work_orders=[
+            {
+                "work_order_id": "wo-update-restore",
+                "title": "Restore then update",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "status": "queued",
+            }
+        ],
+    )
+
+    with store._connect() as conn:
+        conn.execute("DELETE FROM supervisor_runs WHERE run_id = ?", (run["run_id"],))
+        conn.commit()
+
+    updated = store.update_supervisor_run(run["run_id"], status="active")
+    assert updated["status"] == "active"
+
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["status"] == "active"
+
+
 def test_mark_supervisor_run_merged_records_canonical_lane_telemetry(
     store: DevCoordinationStore,
 ) -> None:
