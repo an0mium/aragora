@@ -238,6 +238,12 @@ class TestCanHandle:
     def test_workspace_refresh_path(self, handler):
         assert handler.can_handle("/api/integrations/slack/workspaces/W123/refresh")
 
+    def test_rejects_workspace_status_suffix(self, handler):
+        assert not handler.can_handle("/api/integrations/slack/workspaces/W123/status/extra")
+
+    def test_rejects_workspace_refresh_suffix(self, handler):
+        assert not handler.can_handle("/api/integrations/slack/workspaces/W123/refresh/extra")
+
     def test_rejects_unrelated_path(self, handler):
         assert not handler.can_handle("/api/v1/debates")
 
@@ -2673,6 +2679,30 @@ class TestNotFound:
         result = await handler.handle(
             "GET",
             "/api/integrations/slack/settings",
+            {},
+            {},
+            {},
+            None,
+        )
+        assert _status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_workspace_status_suffix_returns_404(self, handler):
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/workspaces/W123/status/extra",
+            {},
+            {},
+            {},
+            None,
+        )
+        assert _status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_workspace_refresh_suffix_returns_404(self, handler):
+        result = await handler.handle(
+            "POST",
+            "/api/integrations/slack/workspaces/W123/refresh/extra",
             {},
             {},
             {},

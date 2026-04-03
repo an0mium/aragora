@@ -231,8 +231,8 @@ class SlackOAuthHandler(SecureHandler):
 
     # Route patterns for dynamic paths
     ROUTE_PATTERNS = [
-        r"/api/integrations/slack/workspaces/([^/]+)/status",
-        r"/api/integrations/slack/workspaces/([^/]+)/refresh",
+        r"^/api/integrations/slack/workspaces/([^/]+)/status$",
+        r"^/api/integrations/slack/workspaces/([^/]+)/refresh$",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
