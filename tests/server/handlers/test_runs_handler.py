@@ -158,42 +158,44 @@ class TestAiohttpHandlers:
 
 
 # ============================================================================
-# FastAPI route tests
+# FastAPI route function tests (call async handlers directly to avoid
+# conftest httpx.Client monkeypatch conflicting with TestClient).
 # ============================================================================
 
 
 class TestFastAPIRoutes:
-    """Test the FastAPI router using TestClient."""
+    """Test the FastAPI route functions directly."""
 
-    @pytest.fixture()
-    def client(self) -> Any:
-        from fastapi import FastAPI
-        from fastapi.testclient import TestClient
-
-        from aragora.server.fastapi.routes.runs import _get_plan_store, router
-
-        app = FastAPI()
-        app.include_router(router)
+    @pytest.mark.asyncio
+    async def test_list_runs(self) -> None:
+        from aragora.server.fastapi.routes.runs import RunListResponse, list_runs
 
         store = _make_store()
-        app.dependency_overrides[_get_plan_store] = lambda: store
+        req = MagicMock()
+        result = await list_runs(request=req, status=None, limit=50, offset=0, store=store)
+        assert isinstance(result, RunListResponse)
+        assert result.total == 1
+        assert result.runs[0].run_id == "run-001"
 
-        return TestClient(app)
+    @pytest.mark.asyncio
+    async def test_get_run(self) -> None:
+        from aragora.server.fastapi.routes.runs import RunResponse, get_run
 
-    def test_list_runs(self, client: Any) -> None:
-        resp = client.get("/api/v2/runs")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["total"] == 1
-        assert body["runs"][0]["run_id"] == "run-001"
+        store = _make_store()
+        req = MagicMock()
+        result = await get_run(request=req, run_id="run-001", store=store)
+        assert isinstance(result, RunResponse)
+        assert result.run_id == "run-001"
+        assert result.safety_mode == "strict"
 
-    def test_get_run(self, client: Any) -> None:
-        resp = client.get("/api/v2/runs/run-001")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["run_id"] == "run-001"
-        assert body["safety_mode"] == "strict"
+    @pytest.mark.asyncio
+    async def test_get_run_not_found(self) -> None:
+        from fastapi import HTTPException
 
-    def test_get_run_not_found(self, client: Any) -> None:
-        resp = client.get("/api/v2/runs/missing")
-        assert resp.status_code == 404
+        from aragora.server.fastapi.routes.runs import get_run
+
+        store = _make_store()
+        req = MagicMock()
+        with pytest.raises(HTTPException) as exc_info:
+            await get_run(request=req, run_id="missing", store=store)
+        assert exc_info.value.status_code == 404
