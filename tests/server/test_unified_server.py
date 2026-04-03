@@ -21,6 +21,7 @@ import tempfile
 import time
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
@@ -298,16 +299,49 @@ class TestHTTPDispatch:
             accept="text/event-stream",
         )
 
-        with patch(
-            "aragora.server.handlers.spectate_ws.iter_live_spectate_sse_frames",
-            return_value=iter([b"event: connected\ndata: {}\n\n"]),
+        with (
+            patch(
+                "aragora.server.handlers.spectate_ws.iter_live_spectate_sse_frames",
+                return_value=iter([b"event: connected\ndata: {}\n\n"]),
+            ) as mock_stream,
+            patch(
+                "aragora.server.handlers.spectate_ws._get_optional_user_from_request",
+                return_value=None,
+            ),
         ):
             assert handler._serve_live_spectate_stream({}) is True
 
+        mock_stream.assert_called_once_with({}, allow_private=False, storage=None)
         assert mock_request_handler.wfile.getvalue() == b"event: connected\ndata: {}\n\n"
         handler.send_response.assert_called_once_with(200)
         handler.send_header.assert_any_call("Content-Type", "text/event-stream")
         handler.send_header.assert_any_call("X-Aragora-Stream-Transport", "sse_live")
+
+    def test_serve_live_spectate_stream_keeps_private_events_for_debate_readers(
+        self, mock_request_handler
+    ):
+        handler = self._make_unified_handler(
+            mock_request_handler,
+            accept="text/event-stream",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.spectate_ws.iter_live_spectate_sse_frames",
+                return_value=iter([b"event: connected\ndata: {}\n\n"]),
+            ) as mock_stream,
+            patch(
+                "aragora.server.handlers.spectate_ws._get_optional_user_from_request",
+                return_value=SimpleNamespace(
+                    permissions=["debates:read"],
+                    roles=[],
+                    role="member",
+                ),
+            ),
+        ):
+            assert handler._serve_live_spectate_stream({}) is True
+
+        mock_stream.assert_called_once_with({}, allow_private=True, storage=None)
 
 
 class TestHTTP404Handling:
