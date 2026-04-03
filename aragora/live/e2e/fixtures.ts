@@ -123,7 +123,7 @@ export class AragoraPage {
    */
   async dismissConnectivityWarning() {
     const dismissButton = this.page.locator('button[aria-label="Dismiss connectivity warning"]');
-    const connectivityWarning = this.page.locator('[role="alert"]');
+    const connectivityWarning = this.page.locator('[role="alert"]').filter({ has: dismissButton }).first();
     if (await this.isVisible(dismissButton, 'connectivity warning dismiss button')) {
       await this.assertNoSensitiveWarningContent(connectivityWarning, 'connectivity warning');
       await this.clickIfVisible(dismissButton, 'connectivity warning dismiss button');
