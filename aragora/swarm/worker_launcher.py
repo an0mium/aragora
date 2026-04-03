@@ -1026,7 +1026,7 @@ class WorkerLauncher:
             if len(line) < 4:
                 continue
             path = line[3:].strip()
-            if path and path not in SESSION_ARTIFACTS:
+            if path and Path(path).name not in SESSION_ARTIFACTS:
                 return True
         return False
 
@@ -1042,7 +1042,7 @@ class WorkerLauncher:
             if len(line) < 4:
                 continue
             path = line[3:].strip()
-            if path and path not in SESSION_ARTIFACTS:
+            if path and Path(path).name not in SESSION_ARTIFACTS:
                 return True
         return False
 
@@ -1403,6 +1403,24 @@ class WorkerLauncher:
         except (TypeError, ValueError):
             return None, None
         return exit_code, ended_at
+
+    @classmethod
+    async def _collect_staged_session_artifact_paths(cls, worktree_path: str) -> list[str]:
+        staged_output = await cls._git_output(worktree_path, "diff", "--cached", "--name-only")
+        return [
+            path
+            for raw_path in staged_output.splitlines()
+            if (path := raw_path.strip()) and Path(path).name in SESSION_ARTIFACTS
+        ]
+
+    @classmethod
+    def _collect_staged_session_artifact_paths_sync(cls, worktree_path: str) -> list[str]:
+        staged_output = cls._git_output_sync(worktree_path, "diff", "--cached", "--name-only")
+        return [
+            path
+            for raw_path in staged_output.splitlines()
+            if (path := raw_path.strip()) and Path(path).name in SESSION_ARTIFACTS
+        ]
 
     @staticmethod
     def _is_pid_running(pid: int) -> bool:
@@ -1872,14 +1890,17 @@ class WorkerLauncher:
                 )
                 return
 
-            # Unstage session artifacts — ignore errors if files are not staged
-            for artifact in SESSION_ARTIFACTS:
+            # Unstage staged session artifacts by basename so nested harness
+            # metadata cannot slip through as a deliverable.
+            for artifact_path in await WorkerLauncher._collect_staged_session_artifact_paths(
+                worker.worktree_path
+            ):
                 reset_proc = await asyncio.create_subprocess_exec(
                     "git",
                     "reset",
                     "HEAD",
                     "--",
-                    artifact,
+                    artifact_path,
                     cwd=worker.worktree_path,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -1978,9 +1999,11 @@ class WorkerLauncher:
                 )
                 return
 
-            for artifact in SESSION_ARTIFACTS:
+            for artifact_path in WorkerLauncher._collect_staged_session_artifact_paths_sync(
+                worker.worktree_path
+            ):
                 subprocess.run(
-                    ["git", "reset", "HEAD", "--", artifact],
+                    ["git", "reset", "HEAD", "--", artifact_path],
                     cwd=worker.worktree_path,
                     capture_output=True,
                     text=True,

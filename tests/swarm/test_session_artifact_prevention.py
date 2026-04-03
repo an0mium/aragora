@@ -380,7 +380,15 @@ class TestAutoCommitSessionArtifactPrevention:
             branch="main",
         )
 
-        asyncio.run(WorkerLauncher._auto_commit(worker))
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_authorize_worker_capability",
+                return_value=("approval-id", {}),
+            ),
+            patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+        ):
+            asyncio.run(WorkerLauncher._auto_commit(worker))
 
         # Check what was committed
         result = _run(repo, "git", "diff", "--name-only", "HEAD~1", "HEAD")
@@ -400,7 +408,15 @@ class TestAutoCommitSessionArtifactPrevention:
             branch="main",
         )
 
-        asyncio.run(WorkerLauncher._auto_commit(worker))
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_authorize_worker_capability",
+                return_value=("approval-id", {}),
+            ),
+            patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+        ):
+            asyncio.run(WorkerLauncher._auto_commit(worker))
 
         result = _run(repo, "git", "diff", "--name-only", "HEAD~1", "HEAD")
         committed_files = set(result.stdout.strip().splitlines())
@@ -419,10 +435,68 @@ class TestAutoCommitSessionArtifactPrevention:
             branch="main",
         )
 
-        asyncio.run(WorkerLauncher._auto_commit(worker))
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_authorize_worker_capability",
+                return_value=("approval-id", {}),
+            ),
+            patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+        ):
+            asyncio.run(WorkerLauncher._auto_commit(worker))
 
         # HEAD should not advance — no real changes to commit
         assert _head(repo) == initial_head
+
+    def test_auto_commit_excludes_nested_session_artifacts(self, repo: Path) -> None:
+        """Nested harness artifacts must not be auto-committed by basename."""
+        nested = repo / "subdir"
+        nested.mkdir()
+        (nested / ".codex_session_meta.json").write_text('{"pid": 3}', encoding="utf-8")
+        (repo / "real_work.py").write_text("print('hello')\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="nested-artifact-test",
+            agent="codex",
+            worktree_path=str(repo),
+            branch="main",
+        )
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_authorize_worker_capability",
+                return_value=("approval-id", {}),
+            ),
+            patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()),
+        ):
+            asyncio.run(WorkerLauncher._auto_commit(worker))
+
+        result = _run(repo, "git", "diff", "--name-only", "HEAD~1", "HEAD")
+        committed_files = set(result.stdout.strip().splitlines())
+        assert "real_work.py" in committed_files
+        assert "subdir/.codex_session_meta.json" not in committed_files
+
+
+class TestWorkingTreeChangeFiltering:
+    """Test that dirty-tree detection ignores nested harness artifacts."""
+
+    @pytest.mark.asyncio
+    async def test_has_working_tree_changes_ignores_nested_session_artifacts(self) -> None:
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            assert args[:2] == ("status", "--porcelain")
+            return "?? subdir/.codex_session_meta.json\n?? logs/.swarm_worker_stdout.log\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            assert not await WorkerLauncher._has_working_tree_changes("/tmp/wt")
+
+    def test_has_working_tree_changes_sync_ignores_nested_session_artifacts(self) -> None:
+        def _git_output_sync(_worktree_path: str, *args: str) -> str:
+            assert args[:2] == ("status", "--porcelain")
+            return "?? subdir/.codex_session_meta.json\n?? logs/.swarm_worker_stderr.log\n"
+
+        with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
+            assert not WorkerLauncher._has_working_tree_changes_sync("/tmp/wt")
 
 
 # ---------------------------------------------------------------------------
