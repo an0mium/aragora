@@ -838,19 +838,43 @@ class PostDebateCoordinator:
         task: str,
         explanation: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
-        """Step 2: Create decision plan, enriched with explanation context."""
+        """Step 2: Create decision plan, enriched with explanation context.
+
+        When a BackboneRuntime is available the plan is stamped with the
+        current ``backbone_run_id`` so downstream stages (execution, receipt,
+        feedback) can trace back to the originating run ledger entry.
+        """
         try:
             from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
             # Include explanation in plan metadata if available
-            metadata = {"debate_id": debate_id, "task": task}
+            metadata: dict[str, Any] = {"debate_id": debate_id, "task": task}
             if explanation:
                 metadata["explanation"] = explanation.get("explanation", "")
+
+            # Stamp backbone run context so the plan is traceable through the
+            # runtime ledger from the moment it is created.
+            runtime = self._get_backbone_runtime()
+            run_id = self._current_run_id(debate_result)
+            if runtime and run_id:
+                metadata["backbone_run_id"] = run_id
+                metadata["backbone_entrypoint"] = "post_debate_coordinator.run"
 
             plan = DecisionPlanFactory.from_debate_result(
                 debate_result,
                 metadata=metadata,
             )
+
+            # If the plan object supports metadata stamping, ensure backbone
+            # fields are present on the object itself (not just the factory
+            # metadata dict).
+            if runtime and run_id and plan is not None and not isinstance(plan, dict):
+                try:
+                    from aragora.pipeline.backbone_runtime import BackboneRuntime as _BR
+
+                    _BR.ensure_plan_metadata(plan, run_id, "post_debate_coordinator.run")
+                except (ImportError, AttributeError, TypeError):
+                    pass
 
             logger.info("Decision plan created for %s", debate_id)
             return {
@@ -864,6 +888,15 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Plan creation failed: %s", e)
             return None
+
+    def _current_run_id(self, debate_result: Any) -> str | None:
+        """Extract the backbone run ID from the debate result metadata."""
+        metadata = getattr(debate_result, "metadata", None)
+        if isinstance(metadata, dict):
+            run_id = str(metadata.get("backbone_run_id", "") or "").strip()
+            if run_id:
+                return run_id
+        return None
 
     def _step_notify(
         self,
