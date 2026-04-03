@@ -5105,6 +5105,85 @@ def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_st
     assert "scope_violation" not in work_order
 
 
+def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branch(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    dependency_branch = "codex/swarm-dependency-base"
+    _run(repo, "git", "checkout", "-b", dependency_branch)
+    (repo / "README.md").write_text("hello\ndependency\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "dependency commit")
+    dependency_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "checkout", "main")
+
+    session_path = repo / "wt-dependent-base"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-dependent-base",
+        str(session_path),
+        "main",
+    )
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-dependent-base",
+        agent="codex",
+        branch="codex/swarm-dependent-base",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="validate dependency branch reuse",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "validate dependency branch reuse"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "branch": dependency_branch,
+                "head_sha": dependency_head,
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "review_status": "pending",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert dependent["status"] == "leased"
+    assert dependent["dependency_base_ref"] == dependency_branch
+    assert dependent["dependency_base_source"] == "micro-task-1"
+    assert _run(session_path, "git", "rev-parse", "HEAD").stdout.strip() == dependency_head
+
+
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
     """refresh_run should not leave dead leased work orders active forever."""
     lifecycle = MagicMock()
