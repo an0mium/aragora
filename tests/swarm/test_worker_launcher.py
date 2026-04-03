@@ -1269,6 +1269,41 @@ class TestCollectDetachedResult:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_preserves_logs_when_dead_pid_has_no_terminal_marker_or_deliverable(
+        self, tmp_path: Path
+    ):
+        stdout_log = tmp_path / ".swarm_worker_stdout.log"
+        stderr_log = tmp_path / ".swarm_worker_stderr.log"
+        stdout_log.write_text("worker stdout\n", encoding="utf-8")
+        stderr_log.write_text("worker stderr\n", encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-no-marker-logs",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is None
+        assert stdout_log.exists()
+        assert stderr_log.exists()
+        assert stdout_log.read_text(encoding="utf-8") == "worker stdout\n"
+        assert stderr_log.read_text(encoding="utf-8") == "worker stderr\n"
+
+    @pytest.mark.asyncio
     async def test_returns_none_if_active_lock_exists_without_usable_pid(self, tmp_path: Path):
         (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
 

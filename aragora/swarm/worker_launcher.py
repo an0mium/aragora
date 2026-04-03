@@ -1252,6 +1252,8 @@ class WorkerLauncher:
         if observed_pid is None:
             observed_pid = cls._normalized_pid(session_meta.get("pid"))
         missing_terminal_marker = session_exit_code is None
+        cleanup_artifacts = True
+        preserve_terminal_evidence = False
         if cls._active_session_lock_blocks_collection(worktree_path, observed_pid):
             return None
         elif (
@@ -1319,15 +1321,18 @@ class WorkerLauncher:
                     for item in worker.verification_results
                     if str(item.get("command", "")).strip()
                 ]
+            if missing_terminal_marker and not worker.commit_shas and not worker.changed_paths:
+                preserve_terminal_evidence = True
         finally:
-            # Wait for the worker process (including its shell EXIT trap) to
-            # fully terminate before removing artifacts.  Without this wait
-            # the codex_session.sh trap can recreate .codex_session_meta.json
-            # and append to .codex_session.log after Python-side cleanup (#902).
-            _cleanup_pid = observed_pid
-            if _cleanup_pid is not None:
-                await cls._wait_for_pid_exit(_cleanup_pid)
-            cls._cleanup_session_artifacts(worktree_path)
+            if cleanup_artifacts and not preserve_terminal_evidence:
+                # Wait for the worker process (including its shell EXIT trap) to
+                # fully terminate before removing artifacts.  Without this wait
+                # the codex_session.sh trap can recreate .codex_session_meta.json
+                # and append to .codex_session.log after Python-side cleanup (#902).
+                _cleanup_pid = observed_pid
+                if _cleanup_pid is not None:
+                    await cls._wait_for_pid_exit(_cleanup_pid)
+                cls._cleanup_session_artifacts(worktree_path)
 
         logger.info(
             "Collected detached worker %s: commits=%d changed_paths=%d",
@@ -1339,7 +1344,9 @@ class WorkerLauncher:
             # A dead detached PID with no terminal session marker should not be
             # reported as a clean success. Only surface it if there is concrete
             # work to salvage; otherwise let the supervisor classify it as
-            # "without receipt or exit marker".
+            # "without receipt or exit marker". Preserve the session artifacts
+            # in that case so the supervisor can still snapshot the worker's
+            # logs before deciding how to escalate the lane.
             if not worker.commit_shas and not worker.changed_paths:
                 return None
             worker.exit_code = 1
