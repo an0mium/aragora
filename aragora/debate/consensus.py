@@ -727,10 +727,18 @@ class ConsensusBuilder:
 
         Extracts claims, evidence, and voting patterns from the debate.
         """
-        builder = cls(result.id, result.task)
+        builder = cls(
+            getattr(result, "id", getattr(result, "debate_id", "unknown")),
+            getattr(result, "task", getattr(result, "prompt", "")),
+        )
+        messages = list(getattr(result, "messages", []))
+        critiques = list(getattr(result, "critiques", []))
+        participants = {agent for agent in getattr(result, "participants", []) if agent}
+        consensus_reached = getattr(result, "consensus_reached", False)
+        confidence = getattr(result, "confidence", 0.0)
 
         # Extract claims from messages
-        for msg in result.messages:
+        for msg in messages:
             if msg.role == "proposer":
                 # Each proposal is a claim
                 claim = builder.add_claim(
@@ -757,7 +765,7 @@ class ConsensusBuilder:
             claims_by_author[claim.author].append(claim)
 
         # Extract critiques as evidence
-        for critique in result.critiques:
+        for critique in critiques:
             # Find the claim being critiqued (O(1) lookup using index)
             target_claims = claims_by_author.get(critique.target_agent, [])
             if target_claims:
@@ -791,10 +799,10 @@ class ConsensusBuilder:
                     )
 
         # Infer votes from final state
-        all_agents = set(msg.agent for msg in result.messages)
+        all_agents = participants | {msg.agent for msg in messages}
         for agent in all_agents:
             # Agents with high-severity critiques in final round likely dissent
-            agent_critiques = [c for c in result.critiques if c.agent == agent]
+            agent_critiques = [c for c in critiques if c.agent == agent]
             final_severity = agent_critiques[-1].severity if agent_critiques else 0
 
             if final_severity > 0.6:
@@ -813,12 +821,10 @@ class ConsensusBuilder:
             else:
                 builder.record_vote(
                     agent=agent,
-                    vote=VoteType.AGREE if result.consensus_reached else VoteType.CONDITIONAL,
-                    confidence=result.confidence,
+                    vote=VoteType.AGREE if consensus_reached else VoteType.CONDITIONAL,
+                    confidence=confidence,
                     reasoning=(
-                        "Supported final consensus"
-                        if result.consensus_reached
-                        else "Partial agreement"
+                        "Supported final consensus" if consensus_reached else "Partial agreement"
                     ),
                 )
 
@@ -848,6 +854,7 @@ def build_partial_consensus(result: Any) -> PartialConsensus:
         overall_consensus=getattr(result, "consensus_reached", False),
         overall_confidence=getattr(result, "confidence", 0.0),
     )
+    overall_confidence = partial.overall_confidence
 
     participants = list(getattr(result, "participants", []))
     final_answer = getattr(result, "final_answer", "")
@@ -890,7 +897,7 @@ def build_partial_consensus(result: Any) -> PartialConsensus:
                 # Calculate confidence for this item
                 # Higher if no critiques mention it, lower if they do
                 critique_impact = min(len(critique_mentions) * 0.15, 0.5)
-                item_confidence = max(0.2, result.confidence - critique_impact)
+                item_confidence = max(0.2, overall_confidence - critique_impact)
 
                 # Determine if agreed
                 agreed = len(disagreeing_agents) < len(participants) / 2
