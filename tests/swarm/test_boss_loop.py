@@ -2431,6 +2431,35 @@ async def test_run_iteration_prioritizes_pending_handoff_issue() -> None:
     assert status.selected_issue["number"] == issue_b.number
 
 
+@pytest.mark.asyncio
+async def test_run_iteration_drops_ineligible_pending_handoff_issue() -> None:
+    issue_a = _make_issue(1803, "Regular issue")
+    issue_b = _make_issue(1804, "Pending handoff issue", labels=["wontfix"])
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue_a, issue_b]
+
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+    loop._pending_handoff_prompts[issue_b.number] = ("handoff prompt", "codex")
+
+    seen: list[int] = []
+
+    async def _dispatch_issue(issue, freshness):
+        seen.append(issue.number)
+        return {"status": "completed"}
+
+    loop._dispatch_issue = _dispatch_issue
+
+    status = await loop._run_iteration(1)
+
+    assert seen == [issue_a.number]
+    assert status.selected_issue["number"] == issue_a.number
+    assert issue_b.number not in loop._pending_handoff_prompts
+
+
 # ---------------------------------------------------------------------------
 # Fixture-backed Boss-loop invocation test
 # ---------------------------------------------------------------------------

@@ -745,6 +745,16 @@ class BossLoop:
                 continue
             if self.config.issue_number is not None and issue_number != self.config.issue_number:
                 continue
+            if (
+                select_eligible_issue(
+                    [issue],
+                    skip_labels=self.config.skip_labels,
+                    require_labels=self.config.require_labels,
+                )
+                is None
+            ):
+                stale_issue_numbers.append(issue_number)
+                continue
             candidates.append(issue)
 
         for issue_number in stale_issue_numbers:
