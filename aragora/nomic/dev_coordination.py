@@ -792,6 +792,7 @@ class DevCoordinationStore:
         status: str = "planned",
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        self.cleanup_stale_supervisor_runs()
         now = _utcnow().isoformat()
         record = {
             "run_id": str(uuid.uuid4())[:12],
@@ -3374,6 +3375,31 @@ class DevCoordinationStore:
         }
         now = _utcnow()
         max_age = timedelta(hours=max(0.0, float(max_age_hours)))
+        conn = self._connect()
+        try:
+            active_lease_ids = {
+                str(row["lease_id"]).strip()
+                for row in conn.execute(
+                    "SELECT lease_id FROM leases WHERE status = ?",
+                    (LeaseStatus.ACTIVE.value,),
+                ).fetchall()
+                if str(row["lease_id"]).strip()
+            }
+        finally:
+            conn.close()
+
+        def _has_live_worker_process(work_order: dict[str, Any]) -> bool:
+            metadata = work_order.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+            raw_pid = work_order.get("worker_pid")
+            if raw_pid is None:
+                raw_pid = metadata.get("worker_pid")
+            if raw_pid is None:
+                return False
+            probe = _safe_kill_probe(raw_pid)
+            return probe is None or isinstance(probe, PermissionError)
+
         runs = self.list_supervisor_runs(limit=limit)
         cleaned = 0
         for run in runs:
@@ -3387,6 +3413,15 @@ class DevCoordinationStore:
                 continue
             work_orders = run.get("work_orders", [])
             if not work_orders:
+                continue
+            if any(
+                isinstance(wo, dict)
+                and (
+                    _optional_text(wo.get("lease_id")) in active_lease_ids
+                    or _has_live_worker_process(wo)
+                )
+                for wo in work_orders
+            ):
                 continue
             if status == "planned":
                 all_stranded = True
