@@ -2738,6 +2738,92 @@ class PlaygroundHandler(BaseHandler):
         )
         return json_response({"ok": True, "report_id": report["id"]}, status=202)
 
+    # ------------------------------------------------------------------
+    # TL;DR synthesis helpers
+    # ------------------------------------------------------------------
+
+    def _call_frontier_model(self, prompt: str, timeout: float = 5.0) -> str:
+        """Call the fastest available frontier model for a short generation task.
+
+        Tries Anthropic (Claude Sonnet) first, falls back to OpenRouter.
+        Runs the async agent.generate() call in a sync context with a timeout.
+
+        Raises:
+            TimeoutError: If the generation exceeds *timeout* seconds.
+            RuntimeError: If no agent is available.
+        """
+        agent = None
+
+        # Try Anthropic first
+        try:
+            from aragora.agents.api_agents.anthropic import (
+                AnthropicAPIAgent as _Anthropic,
+            )
+
+            agent = _Anthropic(
+                name="tldr-synth",
+                model="claude-sonnet-4-6",
+            )
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Anthropic agent unavailable for TL;DR: %s", exc)
+
+        # Fall back to OpenRouter
+        if agent is None:
+            try:
+                from aragora.agents.api_agents.openrouter import (
+                    OpenRouterAgent as _OpenRouter,
+                )
+
+                agent = _OpenRouter(
+                    name="tldr-synth",
+                    model="anthropic/claude-sonnet-4.6",
+                )
+            except (ImportError, RuntimeError, ValueError, OSError) as exc:
+                logger.debug("OpenRouter agent unavailable for TL;DR: %s", exc)
+
+        if agent is None:
+            raise RuntimeError("No frontier model available for TL;DR synthesis")
+
+        async def _generate() -> str:
+            return await asyncio.wait_for(agent.generate(prompt), timeout=timeout)
+
+        return asyncio.run(_generate())
+
+    def _synthesize_tldr(
+        self,
+        question: str,
+        proposals: dict[str, str],
+        fallback_text: str | None = None,
+    ) -> str:
+        """Synthesize a one-sentence TL;DR from agent proposals.
+
+        Uses ``_call_frontier_model`` to generate a concise answer.  On any
+        failure (timeout, connection error, missing agent), extracts the first
+        sentence from *fallback_text* instead.
+        """
+        prompt = (
+            "Given these agent proposals responding to the question below, "
+            "write a single-sentence direct answer. Be practical, not philosophical. "
+            "Do not mention the agents or the debate process.\n\n"
+            f"Question: {question}\n\n"
+        )
+        for agent_name, text in proposals.items():
+            prompt += f"{agent_name}: {text[:500]}\n\n"
+        prompt += "One-sentence answer:"
+
+        try:
+            return self._call_frontier_model(prompt, timeout=5.0)
+        except (TimeoutError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
+            logger.debug("TL;DR synthesis failed, using fallback: %s", exc)
+
+        # Fallback: extract first sentence from fallback_text
+        if not fallback_text:
+            return ""
+        first_dot = fallback_text.find(". ")
+        if first_dot > 0:
+            return fallback_text[: first_dot + 1]
+        return fallback_text[:200]
+
     def _run_debate(
         self,
         topic: str,
@@ -2761,6 +2847,13 @@ class PlaygroundHandler(BaseHandler):
                     mode=mode, question=question, topic=topic, session_id=session_id
                 )
                 if oracle_result:
+                    proposals = oracle_result.get("proposals", {})
+                    if proposals:
+                        oracle_result["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=oracle_result.get("final_answer", ""),
+                        )
                     return self._persist_and_respond(
                         json_response(oracle_result),
                         topic,
@@ -2819,6 +2912,13 @@ class PlaygroundHandler(BaseHandler):
                         return _build_landing_preview_clarification_response(
                             str(tentacle_result.get("message") or "").strip() or None
                         )
+                    proposals = tentacle_result.get("proposals", {})
+                    if proposals:
+                        tentacle_result["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=tentacle_result.get("final_answer", ""),
+                        )
                     return self._persist_and_respond(
                         json_response(tentacle_result), topic, source, **_cache_kw
                     )
@@ -2832,6 +2932,19 @@ class PlaygroundHandler(BaseHandler):
             live_result = self._run_live_debate(question or topic, rounds, agent_count)
             # Check if live debate returned an error response (status >= 400)
             if live_result.status_code < 400:
+                # Inject TL;DR into live debate result
+                try:
+                    live_data = json.loads(live_result.body.decode("utf-8"))
+                    proposals = live_data.get("proposals", {})
+                    if isinstance(proposals, dict) and proposals:
+                        live_data["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=live_data.get("final_answer", ""),
+                        )
+                        live_result = json_response(live_data, status=live_result.status_code)
+                except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+                    logger.debug("Could not inject TL;DR into live debate result")
                 return self._persist_and_respond(live_result, topic, source, **_cache_kw)
             logger.info(
                 "Live debate returned status %d, falling back to mock", live_result.status_code
@@ -2850,6 +2963,13 @@ class PlaygroundHandler(BaseHandler):
             _run_inline_mock_debate(topic, rounds, agent_count, question=question),
             reason="Live agents were unavailable, so the public beta returned a deterministic fallback.",
         )
+        proposals = mock_data.get("proposals", {})
+        if proposals:
+            mock_data["tldr"] = self._synthesize_tldr(
+                question or topic,
+                proposals,
+                fallback_text=mock_data.get("final_answer", ""),
+            )
         return self._persist_and_respond(json_response(mock_data), topic, source, **_cache_kw)
 
     @staticmethod
@@ -3174,6 +3294,13 @@ class PlaygroundHandler(BaseHandler):
             )
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
+                proposals = tentacle_result.get("proposals", {})
+                if proposals:
+                    tentacle_result["tldr"] = self._synthesize_tldr(
+                        question or topic,
+                        proposals,
+                        fallback_text=tentacle_result.get("final_answer", ""),
+                    )
                 return self._persist_and_respond(
                     json_response(tentacle_result),
                     topic,
