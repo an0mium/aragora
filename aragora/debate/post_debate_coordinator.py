@@ -432,6 +432,14 @@ class PostDebateCoordinator:
                     return normalized
         return ""
 
+    @staticmethod
+    def _current_run_id(debate_result: Any) -> str:
+        """Extract the backbone run_id previously seeded onto the debate result."""
+        metadata = getattr(debate_result, "metadata", None)
+        if not isinstance(metadata, dict):
+            return ""
+        return str(metadata.get("backbone_run_id", "") or "").strip()
+
     def _seed_backbone_run(
         self,
         debate_id: str,
@@ -838,7 +846,13 @@ class PostDebateCoordinator:
         task: str,
         explanation: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
-        """Step 2: Create decision plan, enriched with explanation context."""
+        """Step 2: Create decision plan, enriched with explanation context.
+
+        When a BackboneRuntime is available the plan is persisted through its
+        PlanStore and annotated with the backbone run_id so downstream stages
+        (execution, receipt, feedback) can correlate back to the same ledger
+        entry.
+        """
         try:
             from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
@@ -851,6 +865,39 @@ class PostDebateCoordinator:
                 debate_result,
                 metadata=metadata,
             )
+
+            # Wire plan through BackboneRuntime for persistence & metadata.
+            runtime = self._get_backbone_runtime()
+            if runtime is not None:
+                try:
+                    # Stamp backbone run_id onto the plan so execution and
+                    # receipt stages can look it up from the plan object alone.
+                    run_id = self._current_run_id(debate_result)
+                    if run_id:
+                        from aragora.pipeline.backbone_runtime import BackboneRuntime as _BR
+
+                        _BR.ensure_plan_metadata(plan, run_id, "post_debate_coordinator.run")
+
+                    # Persist the full plan object into the backbone PlanStore.
+                    if hasattr(runtime, "plan_store"):
+                        store = runtime.plan_store
+                        if hasattr(store, "create"):
+                            store.create(plan)
+                            logger.debug(
+                                "Plan %s persisted via backbone for debate %s",
+                                getattr(plan, "id", "?"),
+                                debate_id,
+                            )
+                except (
+                    ImportError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    RuntimeError,
+                    OSError,
+                ) as e:
+                    # Best-effort: plan creation succeeded, persistence is bonus.
+                    self._backbone_failure(f"Backbone plan persistence failed for {debate_id}", e)
 
             logger.info("Decision plan created for %s", debate_id)
             return {
