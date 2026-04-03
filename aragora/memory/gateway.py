@@ -410,6 +410,42 @@ class MemoryGateway:
 
         return sorted(results, key=sort_key, reverse=True)
 
+    async def evaluate_retention(
+        self,
+        results: list[UnifiedMemoryResult],
+        outcome_surprise: float = 0.5,
+    ) -> list[dict[str, Any]]:
+        """Apply retention gate evaluation to query results.
+
+        Each result is evaluated through the RetentionGate to produce
+        surprise-driven retain/demote/forget/consolidate decisions.
+
+        Args:
+            results: Query results to evaluate
+            outcome_surprise: Debate-level surprise score to use as default
+
+        Returns:
+            List of dicts with ``result``, ``decision`` keys for each item.
+            Returns empty list if no retention gate is configured.
+        """
+        if not self.retention_gate:
+            return []
+
+        evaluated: list[dict[str, Any]] = []
+        for r in results:
+            surprise = r.surprise_score if r.surprise_score is not None else outcome_surprise
+            decision = self.retention_gate.evaluate(
+                item_id=r.id,
+                source=r.source_system,
+                content=r.content,
+                outcome_surprise=surprise,
+                current_confidence=r.confidence,
+                access_count=r.metadata.get("access_count", 0),
+                is_red_line=r.metadata.get("is_red_line", False),
+            )
+            evaluated.append({"result": r, "decision": decision})
+        return evaluated
+
     def get_stats(self) -> dict[str, Any]:
         """Get gateway statistics."""
         return {
