@@ -800,10 +800,15 @@ class TestModuleExports:
 
         assert "AuditEntry" in mod.__all__
 
+    def test_approval_request_exported(self):
+        import aragora.server.handlers.openclaw.models as mod
+
+        assert "ApprovalRequest" in mod.__all__
+
     def test_all_count(self):
         import aragora.server.handlers.openclaw.models as mod
 
-        assert len(mod.__all__) == 7
+        assert len(mod.__all__) == 8
 
 
 # ============================================================================
