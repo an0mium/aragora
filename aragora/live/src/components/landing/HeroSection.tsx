@@ -576,19 +576,20 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Error state */}
         {error && (
           <div
-            className="p-4 mt-6 text-left max-w-xl mx-auto"
+            className="mt-6 text-left max-w-xl mx-auto"
             style={{
+              padding: '20px 24px',
               border: '1px solid var(--crimson)',
               borderRadius: 'var(--radius-card)',
               backgroundColor: isDark ? 'rgba(255,0,64,0.05)' : 'rgba(163,59,59,0.05)',
             }}
           >
-            <p className="text-sm mb-3" style={{ color: 'var(--crimson)', fontFamily: 'var(--font-landing)' }}>
+            <p className="text-sm mb-4" style={{ color: 'var(--crimson)', fontFamily: 'var(--font-landing)' }}>
               {error}
             </p>
             <button
               onClick={() => { setError(null); if (question.trim()) runDebate(question.trim()); }}
-              className="text-xs px-4 py-2 transition-colors hover:opacity-80 cursor-pointer"
+              className="text-xs px-5 py-2.5 transition-colors hover:opacity-80 cursor-pointer"
               style={{
                 fontFamily: 'var(--font-landing)',
                 border: '1px solid var(--crimson)',
