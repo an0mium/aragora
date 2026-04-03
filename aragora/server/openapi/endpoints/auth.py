@@ -1421,3 +1421,321 @@ AUTH_ENDPOINTS = {
         },
     },
 }
+
+AUTH_ENDPOINTS.update(
+    {
+        "/api/auth/forgot-password": {
+            "post": {
+                "tags": ["Authentication", "Password"],
+                "summary": "Request password reset (legacy route)",
+                "operationId": "forgotPasswordLegacy",
+                "description": "Compatibility alias for requesting a password reset email.",
+                "security": [],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email"],
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reset request accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"sent": {"type": "boolean"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                    "503": {"description": "Service unavailable"},
+                },
+            }
+        },
+        "/api/auth/reset-password": {
+            "post": {
+                "tags": ["Authentication", "Password"],
+                "summary": "Reset password (legacy route)",
+                "operationId": "resetPasswordLegacy",
+                "description": "Compatibility alias for resetting a password with a reset token.",
+                "security": [],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["token", "new_password"],
+                                "properties": {
+                                    "token": {"type": "string"},
+                                    "new_password": {"type": "string", "minLength": 8},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"reset": {"type": "boolean"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                    "503": {"description": "Service unavailable"},
+                },
+            }
+        },
+        "/api/auth/verify-email": {
+            "post": {
+                "tags": ["Authentication"],
+                "summary": "Verify email address (legacy route)",
+                "operationId": "verifyEmailLegacy",
+                "description": "Compatibility alias for verifying an email address with a token.",
+                "security": [],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["token"],
+                                "properties": {
+                                    "token": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Email verified",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {"type": "string"},
+                                        "access_token": {"type": ["string", "null"]},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                },
+            }
+        },
+        "/api/auth/verify-email/resend": {
+            "post": {
+                "tags": ["Authentication"],
+                "summary": "Resend verification email (legacy route)",
+                "operationId": "resendVerifyEmailLegacy",
+                "description": "Compatibility alias for resending the verification email.",
+                "security": [],
+                "requestBody": {
+                    "required": False,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Verification email resent",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"sent": {"type": "boolean"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                },
+            }
+        },
+        "/api/auth/resend-verification": {
+            "post": {
+                "tags": ["Authentication"],
+                "summary": "Resend verification email",
+                "operationId": "resendVerificationLegacy",
+                "description": "Legacy resend-verification compatibility route.",
+                "security": [],
+                "requestBody": {
+                    "required": False,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Verification resend accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"sent": {"type": "boolean"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                },
+            }
+        },
+        "/api/auth/setup-organization": {
+            "post": {
+                "tags": ["Authentication", "Onboarding"],
+                "summary": "Create organization after signup (legacy route)",
+                "operationId": "setupOrganizationLegacy",
+                "description": "Compatibility alias for the post-signup organization setup flow.",
+                "security": [{}, {"bearerAuth": []}],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["name"],
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "slug": {"type": "string"},
+                                    "plan": {"type": "string"},
+                                    "billing_email": {"type": "string", "format": "email"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Organization created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"organization": {"type": "object"}},
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                    "401": STANDARD_ERRORS["401"],
+                },
+            }
+        },
+        "/api/auth/invite": {
+            "post": {
+                "tags": ["Authentication", "Onboarding"],
+                "summary": "Invite team member (legacy route)",
+                "operationId": "inviteTeamMemberLegacy",
+                "description": "Compatibility alias for sending a team invitation.",
+                "security": [{"bearerAuth": []}],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email"],
+                                "properties": {
+                                    "email": {"type": "string", "format": "email"},
+                                    "role": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Invitation created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "invite_token": {"type": "string"},
+                                        "invite_url": {"type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                    "401": STANDARD_ERRORS["401"],
+                    "403": STANDARD_ERRORS["403"],
+                },
+            }
+        },
+        "/api/auth/accept-invite": {
+            "post": {
+                "tags": ["Authentication", "Onboarding"],
+                "summary": "Accept team invitation (legacy route)",
+                "operationId": "acceptInviteLegacy",
+                "description": "Compatibility alias for accepting a team invitation token.",
+                "security": [],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["token"],
+                                "properties": {
+                                    "token": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Invitation accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "organization_id": {"type": "string"},
+                                        "role": {"type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "400": STANDARD_ERRORS["400"],
+                },
+            }
+        },
+    }
+)
