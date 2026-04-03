@@ -4053,6 +4053,7 @@ class SwarmSupervisor:
         blocking_question: str | None = None,
     ) -> None:
         item["status"] = "needs_human"
+        item["review_status"] = "changes_requested"
         item["dispatch_error"] = reason
         normalized_reason = (
             str(failure_reason or cls._infer_failure_reason(item, reason)).strip() or "needs_human"

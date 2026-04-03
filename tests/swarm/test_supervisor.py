@@ -4529,6 +4529,7 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
             {
                 "work_order_id": "wo-dead",
                 "status": "dispatched",
+                "review_status": "pending_heterogeneous_review",
                 "worktree_path": str(repo),
                 "branch": "main",
                 "target_agent": "codex",
@@ -4568,6 +4569,7 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
     assert updated is not None
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
     assert "without receipt or exit marker" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_exited_without_receipt"
     assert "existing worktree" in work_order["blocking_question"]
@@ -4832,6 +4834,7 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
             {
                 "work_order_id": "wo-stalled",
                 "status": "dispatched",
+                "review_status": "pending_heterogeneous_review",
                 "worktree_path": str(repo),
                 "branch": "main",
                 "target_agent": "claude",
@@ -4871,6 +4874,7 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert updated is not None
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
     assert "no-progress timeout" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_no_progress_timeout"
     assert "stalled lane" in work_order["blocking_question"]
