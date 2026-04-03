@@ -29,6 +29,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -520,7 +521,7 @@ class TestActionExecution:
         assert body["action_type"] == "click"
 
     def test_execute_action_status_is_running(self, handler, mock_user, store):
-        """Test that action immediately transitions to running status."""
+        """Test that unsupported actions surface a failed runtime status."""
         session = store.create_session(user_id="user-001")
         setup_handler_user(handler, mock_user)
 
@@ -532,7 +533,8 @@ class TestActionExecution:
             )
 
         body = json.loads(result.body)
-        assert body["status"] == "running"
+        assert body["status"] == "failed"
+        assert body["error"]
 
     def test_execute_action_missing_session_id_returns_400(self, handler, mock_user, store):
         """Test that missing session_id returns 400."""
@@ -2300,8 +2302,23 @@ class TestPolicyEndpoints:
     def test_approve_action_returns_200(self, handler, mock_user, store):
         """Test approving an action returns 200."""
         setup_handler_user(handler, mock_user)
+        runtime = MagicMock()
+        runtime.approve_action.return_value = SimpleNamespace(
+            action_id="action-001",
+            status=ActionStatus.COMPLETED,
+            executed=False,
+            execution_time_ms=0,
+            output_data=None,
+            error=None,
+        )
 
-        with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store):
+        with (
+            patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
+            patch(
+                "aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime",
+                return_value=runtime,
+            ),
+        ):
             result = call_with_bypassed_decorators(
                 handler._handle_approve_action,
                 "approval-001",
@@ -2316,8 +2333,17 @@ class TestPolicyEndpoints:
     def test_deny_action_returns_200(self, handler, mock_user, store):
         """Test denying an action returns 200."""
         setup_handler_user(handler, mock_user)
+        runtime = MagicMock()
+        runtime.get_approval.return_value = SimpleNamespace(action_id="action-001")
+        runtime.deny_action.return_value = True
 
-        with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store):
+        with (
+            patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
+            patch(
+                "aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime",
+                return_value=runtime,
+            ),
+        ):
             result = call_with_bypassed_decorators(
                 handler._handle_deny_action,
                 "approval-001",

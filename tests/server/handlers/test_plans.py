@@ -37,6 +37,12 @@ def _parse_body(result: HandlerResult) -> dict[str, Any]:
     return json.loads(result.body)
 
 
+def _close_scheduled_coroutine(coro, *args, **kwargs):
+    """Close scheduled coroutines in tests to avoid background execution."""
+    coro.close()
+    return None
+
+
 class MockPlanStatus(str, Enum):
     CREATED = "created"
     AWAITING_APPROVAL = "awaiting_approval"
@@ -497,6 +503,13 @@ class TestExecutePlan:
     def test_execute_approved_plan(self, handler, mock_store):
         plan = MockPlan(status="approved")
         mock_store.get.return_value = plan
+        launch = {
+            "run_id": "run-exec-1",
+            "execution_id": "exec-exec-1",
+            "correlation_id": "corr-exec-1",
+            "status": "queued",
+            "execution_mode": "workflow",
+        }
 
         with (
             patch(
@@ -509,8 +522,12 @@ class TestExecutePlan:
             ),
             patch.object(handler, "get_json_body", return_value={}),
             patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=MagicMock(),
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=launch,
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
+                side_effect=_close_scheduled_coroutine,
             ),
             patch(
                 "aragora.server.handlers.plans._fire_plan_notification",

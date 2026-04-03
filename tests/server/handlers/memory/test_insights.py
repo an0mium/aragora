@@ -174,7 +174,8 @@ class TestHandlerRouting:
 class TestGetRecentInsights:
     """Tests for get recent insights endpoint."""
 
-    def test_get_insights_success(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_insights_success(self, handler, mock_insight_store):
         """Test successful insights retrieval."""
         insights = [
             MockInsight(
@@ -189,7 +190,7 @@ class TestGetRecentInsights:
         ]
         mock_insight_store.get_recent_insights.return_value = insights
 
-        result = handler._get_recent_insights({}, handler.ctx)
+        result = await handler._get_recent_insights({}, handler.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
@@ -197,28 +198,31 @@ class TestGetRecentInsights:
         assert len(data["insights"]) == 1
         assert data["insights"][0]["type"] == "position_reversal"
 
-    def test_get_insights_with_limit(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_insights_with_limit(self, handler, mock_insight_store):
         """Test insights retrieval with limit parameter."""
         mock_insight_store.get_recent_insights.return_value = []
 
-        result = handler._get_recent_insights({"limit": 50}, handler.ctx)
+        result = await handler._get_recent_insights({"limit": 50}, handler.ctx)
 
         assert result.status_code == 200
         mock_insight_store.get_recent_insights.assert_called_once()
 
-    def test_get_insights_limit_capped(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_insights_limit_capped(self, handler, mock_insight_store):
         """Test insights limit is capped at 100."""
         mock_insight_store.get_recent_insights.return_value = []
 
-        handler._get_recent_insights({"limit": 500}, handler.ctx)
+        await handler._get_recent_insights({"limit": 500}, handler.ctx)
 
         # Should be capped to 100
         call_args = mock_insight_store.get_recent_insights.call_args
         assert call_args.kwargs["limit"] == 100
 
-    def test_get_insights_no_store(self, handler_no_store):
+    @pytest.mark.asyncio
+    async def test_get_insights_no_store(self, handler_no_store):
         """Test insights when store not configured."""
-        result = handler_no_store._get_recent_insights({}, handler_no_store.ctx)
+        result = await handler_no_store._get_recent_insights({}, handler_no_store.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
@@ -234,7 +238,8 @@ class TestGetRecentInsights:
 class TestGetRecentFlips:
     """Tests for get recent flips endpoint."""
 
-    def test_get_flips_success(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_flips_success(self, handler, mock_insight_store):
         """Test successful flips retrieval."""
         insights = [
             MockInsight(
@@ -248,16 +253,17 @@ class TestGetRecentFlips:
         ]
         mock_insight_store.get_recent_insights.return_value = insights
 
-        result = handler._get_recent_flips({}, handler.ctx)
+        result = await handler._get_recent_flips({}, handler.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
         assert "flips" in data
         assert data["count"] == 1
 
-    def test_get_flips_no_store(self, handler_no_store):
+    @pytest.mark.asyncio
+    async def test_get_flips_no_store(self, handler_no_store):
         """Test flips when store not configured."""
-        result = handler_no_store._get_recent_flips({}, handler_no_store.ctx)
+        result = await handler_no_store._get_recent_flips({}, handler_no_store.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
@@ -273,7 +279,8 @@ class TestGetRecentFlips:
 class TestGetFlipsSummary:
     """Tests for get flips summary endpoint."""
 
-    def test_get_summary_success(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_summary_success(self, handler, mock_insight_store):
         """Test successful summary retrieval."""
         insights = [
             MockInsight(
@@ -295,25 +302,27 @@ class TestGetFlipsSummary:
         ]
         mock_insight_store.get_recent_insights.return_value = insights
 
-        result = handler._get_flips_summary({}, handler.ctx)
+        result = await handler._get_flips_summary({}, handler.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
         assert data["summary"]["total"] == 2
 
-    def test_get_summary_with_period(self, handler, mock_insight_store):
+    @pytest.mark.asyncio
+    async def test_get_summary_with_period(self, handler, mock_insight_store):
         """Test summary with period parameter."""
         mock_insight_store.get_recent_insights.return_value = []
 
-        result = handler._get_flips_summary({"period": "7d"}, handler.ctx)
+        result = await handler._get_flips_summary({"period": "7d"}, handler.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)
         assert data["period"] == "7d"
 
-    def test_get_summary_no_store(self, handler_no_store):
+    @pytest.mark.asyncio
+    async def test_get_summary_no_store(self, handler_no_store):
         """Test summary when store not configured."""
-        result = handler_no_store._get_flips_summary({}, handler_no_store.ctx)
+        result = await handler_no_store._get_flips_summary({}, handler_no_store.ctx)
 
         assert result.status_code == 200
         data = parse_response(result)

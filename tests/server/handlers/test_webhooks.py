@@ -53,6 +53,7 @@ def _make_webhook(
     secret: str = "test-secret-key",
     active: bool = True,
     user_id: str | None = "user-1",
+    workspace_id: str | None = None,
     name: str | None = "Test Webhook",
     description: str | None = "A test webhook",
 ) -> WebhookConfig:
@@ -64,6 +65,7 @@ def _make_webhook(
         secret=secret,
         active=active,
         user_id=user_id,
+        workspace_id=workspace_id,
         name=name,
         description=description,
         created_at=time.time(),
@@ -93,6 +95,7 @@ class MockWebhookStore:
         name: str | None = None,
         description: str | None = None,
         user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         webhook = _make_webhook(
             webhook_id=f"wh-{len(self._webhooks) + 1:03d}",
@@ -101,6 +104,7 @@ class MockWebhookStore:
             name=name,
             description=description,
             user_id=user_id,
+            workspace_id=workspace_id,
         )
         self._webhooks[webhook.id] = webhook
         return webhook
