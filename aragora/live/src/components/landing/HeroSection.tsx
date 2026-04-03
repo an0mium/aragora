@@ -11,6 +11,7 @@ import { DebateInput } from '../DebateInput';
 import { ConnectOpenRouterButton } from '../openrouter/ConnectOpenRouterButton';
 import type { HeroSectionProps, LandingDebatePreflight, LandingPreparedDebateOption } from './types';
 import { trackLandingEvent } from './landingTelemetry';
+import { useLandingDebateProgress } from '@/hooks/useLandingDebateProgress';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
    \u2592\u2588\u2588\u2588\u2588\u2584    \u2593\u2588\u2588 \u2592 \u2588\u2588\u2592\u2592\u2588\u2588\u2588\u2588\u2584     \u2588\u2588\u2592 \u2580\u2588\u2592\u2592\u2588\u2588\u2592  \u2588\u2588\u2592\u2593\u2588\u2588 \u2592 \u2588\u2588\u2592\u2592\u2588\u2588\u2588\u2588\u2584
@@ -22,20 +23,6 @@ const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u258
      \u2591   \u2592     \u2591\u2591   \u2591   \u2591   \u2592   \u2591 \u2591   \u2591 \u2591 \u2591 \u2591 \u2592    \u2591\u2591   \u2591   \u2591   \u2592
          \u2591  \u2591   \u2591           \u2591  \u2591      \u2591     \u2591 \u2591     \u2591           \u2591  \u2591`;
 
-const DEBATE_PHASES = [
-  { label: 'Assembling panel', agents: ['Claude', 'GPT-4', 'Gemini'], duration: 3000 },
-  { label: 'Opening arguments', agents: ['Claude', 'GPT-4', 'Gemini'], duration: 5000 },
-  { label: 'Cross-examination', agents: ['GPT-4', 'Claude'], duration: 4000 },
-  { label: 'Building consensus', agents: ['Gemini', 'Claude', 'GPT-4'], duration: 4000 },
-  { label: 'Rendering verdict', agents: [], duration: 3000 },
-];
-
-const AGENT_DOT_COLORS: Record<string, string> = {
-  'Claude': 'var(--acid-cyan, #00e5ff)',
-  'GPT-4': 'var(--acid-green, #39ff14)',
-  'Gemini': 'var(--acid-magenta, #ff00ff)',
-  'Mistral': 'var(--acid-yellow, #ffd700)',
-};
 
 function parseRetryAfterSeconds(retryAfter: string | null): number {
   if (!retryAfter) return 60;
@@ -110,38 +97,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const [lastTopic, setLastTopic] = useState('');
   const [lastPreparedOption, setLastPreparedOption] = useState<LandingPreparedDebateOption | null>(null);
   const [pendingPreflight, setPendingPreflight] = useState<LandingDebatePreflight | null>(null);
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [debateId, setDebateId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const startTimeRef = useRef<number>(0);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Phase progression during debate
-  useEffect(() => {
-    if (!isRunning) {
-      setPhaseIndex(0);
-      setElapsed(0);
-      return;
-    }
-    startTimeRef.current = Date.now();
-    let cumulative = 0;
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
-    DEBATE_PHASES.forEach((phase, i) => {
-      if (i > 0) {
-        cumulative += DEBATE_PHASES[i - 1].duration;
-        timeouts.push(setTimeout(() => setPhaseIndex(i), cumulative));
-      }
-    });
-    const ticker = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }, 1000);
-    return () => {
-      timeouts.forEach(clearTimeout);
-      clearInterval(ticker);
-    };
-  }, [isRunning]);
   // Cycling placeholder examples
   const PLACEHOLDER_EXAMPLES = [
     'Should we migrate to microservices or keep our monolith?',
@@ -178,6 +138,14 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     apiBase === ''
       ? '/api/v1/playground/debate/'
       : `${apiBase}/api/v1/playground/debate`;
+  const spectateWsUrl = backendConfig.ws
+    ? backendConfig.ws.replace(/\/ws\/?$/, '') + '/ws/spectate'
+    : 'ws://localhost:8765/ws/spectate';
+  const progress = useLandingDebateProgress({
+    debateId,
+    wsUrl: spectateWsUrl,
+    enabled: isRunning,
+  });
   const trackEvent = useCallback((
     eventType: Parameters<typeof trackLandingEvent>[1],
     data: Parameters<typeof trackLandingEvent>[2] = {},
@@ -270,6 +238,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   }
 
   async function executeDebate(option: LandingPreparedDebateOption) {
+    const nextDebateId = `LV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomUUID().slice(0, 6)}`;
+    setDebateId(nextDebateId);
+    progress.reset();
     setIsRunning(true);
     setError(null);
     setEditorNotice(null);
@@ -303,6 +274,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           rounds: option.rounds,
           agents: option.agents,
           source: 'landing',
+          debate_id: nextDebateId,
         }),
         signal: controller.signal,
       });
@@ -427,6 +399,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   }
 
   async function runDemoDebate() {
+    const nextDebateId = `LV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomUUID().slice(0, 6)}`;
+    setDebateId(nextDebateId);
+    progress.reset();
     setIsDemoRunning(true);
     setIsRunning(true);
     setError(null);
@@ -441,7 +416,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       const res = await fetch(playgroundDebateUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: DEMO_TOPIC, question: DEMO_TOPIC, rounds: 2, agents: 3, source: 'demo' }),
+        body: JSON.stringify({ topic: DEMO_TOPIC, question: DEMO_TOPIC, rounds: 2, agents: 3, source: 'demo', debate_id: nextDebateId }),
         signal: controller.signal,
       });
 
@@ -798,9 +773,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           </div>
         )}
 
-        {/* Loading state — phased progress */}
+        {/* Loading state — real streaming progress */}
         {isRunning && (
-          <div className="mt-8 max-w-xl mx-auto">
+          <div className="mt-6 max-w-xl mx-auto p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]" style={{ fontFamily: 'var(--font-landing)' }}>
             {isDemoRunning && (
               <p
                 className="text-center mb-3"
@@ -813,101 +788,27 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                 Debating: &quot;{DEMO_TOPIC}&quot;
               </p>
             )}
-            <div
-              className="p-5 text-left"
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-card, 8px)',
-                backgroundColor: 'var(--surface)',
-              }}
-            >
-              {/* Phase steps */}
-              <div className="space-y-3 mb-4">
-                {DEBATE_PHASES.map((phase, i) => {
-                  const isActive = i === phaseIndex;
-                  const isDone = i < phaseIndex;
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 transition-opacity duration-300"
-                      style={{ opacity: isDone ? 0.4 : isActive ? 1 : 0.25 }}
-                    >
-                      {/* Step indicator */}
-                      <div
-                        className="w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold"
-                        style={{
-                          borderRadius: '50%',
-                          border: `2px solid ${isActive ? 'var(--accent)' : isDone ? 'var(--accent)' : 'var(--border)'}`,
-                          color: isActive || isDone ? 'var(--accent)' : 'var(--text-muted)',
-                          backgroundColor: isDone ? 'var(--accent)' : 'transparent',
-                          ...(isDone ? { color: 'var(--bg)' } : {}),
-                          fontFamily: 'var(--font-landing)',
-                        }}
-                      >
-                        {isDone ? '\u2713' : i + 1}
-                      </div>
-                      {/* Label + agents */}
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className="text-sm font-medium"
-                          style={{
-                            color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                            fontFamily: 'var(--font-landing)',
-                          }}
-                        >
-                          {phase.label}
-                        </span>
-                        {isActive && phase.agents.length > 0 && (
-                          <div className="flex items-center gap-2 mt-1">
-                            {phase.agents.map((agent) => (
-                              <span
-                                key={agent}
-                                className="flex items-center gap-1 text-xs"
-                                style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
-                              >
-                                <span
-                                  className="w-2 h-2 rounded-full inline-block animate-pulse"
-                                  style={{ backgroundColor: AGENT_DOT_COLORS[agent] || 'var(--accent)' }}
-                                />
-                                {agent}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {/* Active spinner */}
-                      {isActive && (
-                        <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)' }}>
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Progress bar */}
-              <div
-                className="h-1 rounded-full overflow-hidden"
-                style={{ backgroundColor: 'var(--border)' }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-1000 ease-out"
-                  style={{
-                    backgroundColor: 'var(--accent)',
-                    width: `${Math.min(((phaseIndex + 1) / DEBATE_PHASES.length) * 100, 100)}%`,
-                    boxShadow: isDark ? '0 0 8px var(--accent-glow)' : 'none',
-                  }}
-                />
-              </div>
-              <div
-                className="flex justify-between mt-2 text-xs"
-                style={{ color: 'var(--text-muted)', opacity: 0.6, fontFamily: 'var(--font-landing)' }}
-              >
-                <span>{elapsed}s elapsed</span>
-                <span>~15s remaining</span>
-              </div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse" />
+              <span className="text-sm font-medium text-[var(--text)]">
+                {progress.latestEvent?.phase === 'proposing' && progress.latestEvent.agent
+                  ? `${progress.latestEvent.agent} is responding...`
+                  : progress.latestEvent?.phase === 'critiquing'
+                    ? `Round ${progress.latestEvent.round || 1}: Critiques...`
+                    : progress.latestEvent?.phase === 'voting'
+                      ? 'Building consensus...'
+                      : progress.latestEvent?.phase === 'consensus'
+                        ? 'Consensus reached!'
+                        : 'Asking agents...'}
+              </span>
+              <span className="ml-auto text-xs text-[var(--text-muted)]">{progress.elapsed}s</span>
             </div>
+            {/* Show streaming content preview if available */}
+            {progress.latestEvent?.content && (
+              <div className="text-xs text-[var(--text-muted)] leading-relaxed mt-2 max-h-24 overflow-hidden" style={{ maskImage: 'linear-gradient(to bottom, black 60%, transparent)' }}>
+                {progress.latestEvent.content.slice(0, 300)}
+              </div>
+            )}
           </div>
         )}
 
