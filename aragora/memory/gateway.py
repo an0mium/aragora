@@ -442,6 +442,12 @@ class MemoryGateway:
         optional per-item confidence/access overrides to produce
         RetentionDecisions via the configured RetentionGate.
 
+        Edge-case handling:
+        - surprise_score clamped to [0.0, 1.0]
+        - confidence clamped to [0.0, 1.0]
+        - negative access_count treated as 0
+        - results with empty id get a synthetic id for tracking
+
         Returns a list of dicts, each containing the original result
         and its retention decision.
         """
@@ -454,14 +460,23 @@ class MemoryGateway:
         red_line_ids = red_line_ids or set()
 
         evaluated: list[dict[str, Any]] = []
-        for result in results:
+        for idx, result in enumerate(results):
             surprise = self._resolve_surprise_score(result)
             confidence = current_confidences.get(result.id, result.confidence)
+            # Clamp confidence to valid range
+            confidence = min(1.0, max(0.0, confidence))
+
             access = access_counts.get(result.id, 0)
+            # Guard against negative access counts
+            access = max(0, access)
+
+            # Ensure item_id is non-empty for tracking
+            item_id = result.id or f"_anon_{idx}"
+
             is_red_line = result.id in red_line_ids
 
             decision = self.retention_gate.evaluate(
-                item_id=result.id,
+                item_id=item_id,
                 source=result.source_system,
                 content=result.content,
                 outcome_surprise=surprise,
@@ -477,6 +492,25 @@ class MemoryGateway:
             )
 
         return evaluated
+
+    @staticmethod
+    def retention_summary(
+        evaluations: list[dict[str, Any]],
+    ) -> dict[str, list[str]]:
+        """Summarise retention evaluations by action.
+
+        Returns a dict mapping each action ("retain", "demote",
+        "forget", "consolidate") to the list of item_ids that
+        received that action.  Useful for tests and monitoring.
+        """
+        by_action: dict[str, list[str]] = {}
+        for ev in evaluations:
+            decision = ev.get("decision")
+            if decision is None:
+                continue
+            action = getattr(decision, "action", None) or "unknown"
+            by_action.setdefault(action, []).append(getattr(decision, "item_id", ""))
+        return by_action
 
     async def query_with_retention(
         self,
