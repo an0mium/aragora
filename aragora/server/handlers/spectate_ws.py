@@ -16,6 +16,7 @@ __all__ = [
 import json
 import logging
 import queue
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -210,14 +211,14 @@ def _is_public_spectate_debate(
                 from aragora.server.storage import get_debates_db
 
                 resolved_storage = get_debates_db()
-            except (ImportError, RuntimeError, ValueError, OSError):
+            except (ImportError, RuntimeError, ValueError, OSError, sqlite3.Error):
                 resolved_storage = None
 
         is_public_method = getattr(resolved_storage, "is_public", None)
         if callable(is_public_method):
             try:
                 is_public = bool(is_public_method(debate_id))
-            except (RuntimeError, ValueError, OSError):
+            except (RuntimeError, ValueError, OSError, sqlite3.Error):
                 is_public = False
 
     if visibility_cache is not None:
