@@ -449,6 +449,7 @@ class SwarmSupervisor:
     """Coordinate a bounded Codex/Claude worker pool using existing primitives."""
 
     _LLM_CALL_TIMEOUT: float = 60.0  # seconds for LLM adjudication/evaluation calls
+    _DEPENDENCY_SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
 
     def __init__(
         self,
@@ -2066,6 +2067,23 @@ class SwarmSupervisor:
         dependency_ref: str,
         dependency_id: str,
     ) -> bool:
+        if not self._is_safe_dependency_ref(str(session.path), dependency_ref):
+            self._mark_needs_human(
+                work_order,
+                (
+                    "Dependent lane received an invalid prerequisite branch reference; "
+                    "reconcile the dependency chain before rerunning."
+                ),
+                failure_reason="dependency_base_conflict",
+                blocking_question=(
+                    "Which completed dependency branch or commit should this lane build on?"
+                ),
+            )
+            work_order["dispatch_error"] = f"unsafe dependency base reference: {dependency_ref!r}"
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+            return False
+
         session_path = str(session.path)
         status_proc = self._run_git_capture_sync(session_path, "status", "--porcelain")
         if status_proc.returncode != 0:
@@ -2138,6 +2156,22 @@ class SwarmSupervisor:
         work_order["dependency_base_ref"] = dependency_ref
         work_order["dependency_base_source"] = dependency_id
         return True
+
+    @classmethod
+    def _is_safe_dependency_ref(cls, worktree_path: str, dependency_ref: str) -> bool:
+        """Allow completed dependency references that are valid SHAs or git branch names."""
+        reference = dependency_ref.strip()
+        if not reference or reference.startswith("-"):
+            return False
+        if cls._DEPENDENCY_SHA_PATTERN.fullmatch(reference):
+            return True
+        check_proc = cls._run_git_capture_sync(
+            worktree_path,
+            "check-ref-format",
+            "--branch",
+            reference,
+        )
+        return check_proc.returncode == 0
 
     @staticmethod
     def _looks_like_broad_explicit_pytest_umbrella(*, source: str, text: str) -> bool:
