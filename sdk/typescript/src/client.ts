@@ -6156,10 +6156,11 @@ export class AragoraClient {
   }
 
   /**
-   * Combined MFA setup and verification endpoint.
+   * Compatibility MFA endpoint that dispatches setup, enable, disable, verify,
+   * and backup-code regeneration by action.
    */
-  async mfa(request: { action: string; code?: string; method?: string }): Promise<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }> {
-    return this.request<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }>('POST', '/api/auth/mfa', {
+  async mfa(request: { action: string; code?: string; method?: string; password?: string; pending_token?: string }): Promise<import('./types').MFACompatibilityResponse> {
+    return this.request<import('./types').MFACompatibilityResponse>('POST', '/api/auth/mfa', {
       body: request,
     });
   }

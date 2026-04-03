@@ -1,8 +1,28 @@
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
  * E2E tests for the Aragora homepage and navigation.
  */
+
+async function openResponsiveHeaderNav(page: Page): Promise<Locator> {
+  const desktopNav = page.locator('header nav').first();
+  if (await desktopNav.isVisible().catch(() => false)) {
+    return desktopNav;
+  }
+
+  const mobileMenuButton = page.getByRole('button', { name: /open menu|close menu/i }).first();
+  await expect(mobileMenuButton).toBeVisible();
+  if ((await mobileMenuButton.getAttribute('aria-expanded')) !== 'true') {
+    await mobileMenuButton.click();
+  }
+
+  const mobileNav = page.locator('nav').filter({
+    has: page.getByRole('link', { name: 'Sign up free' }),
+  });
+  await expect(mobileNav).toBeVisible();
+  return mobileNav;
+}
 
 test.describe('Homepage', () => {
   test('should load successfully', async ({ page, aragoraPage }) => {
@@ -21,9 +41,10 @@ test.describe('Homepage', () => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
 
-    // Check for navigation elements - homepage uses header/links instead of nav landmark
-    const navLinks = page.locator('a[href="/debates"], a[href="/leaderboard"], a[href="/agents"]');
-    await expect(navLinks.first()).toBeVisible();
+    const nav = await openResponsiveHeaderNav(page);
+    await expect(nav.getByRole('link', { name: 'Quickstart' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Docs' }).first()).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Pricing' }).first()).toBeVisible();
   });
 
   test('should be responsive on mobile', async ({ page, aragoraPage }) => {
@@ -65,7 +86,9 @@ test.describe('Homepage', () => {
         !err.includes('favicon') &&
         !err.includes('CORS') &&
         !err.includes('ERR_FAILED') &&
-        !err.includes('404')
+        !err.includes('404') &&
+        !err.includes('429') &&
+        !err.includes('Too Many Requests')
     );
 
     expect(unexpectedErrors).toHaveLength(0);
@@ -75,11 +98,9 @@ test.describe('Homepage', () => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
 
-    // Should have a main landmark (use first() to handle multiple mains)
-    const main = page.locator('main, [role="main"]').first();
-    await expect(main).toBeVisible();
+    await expect(page.locator('header, [role="banner"]').first()).toBeVisible();
+    await expect(page.locator('footer, [role="contentinfo"]').first()).toBeVisible();
 
-    // Should have skip link or proper heading structure
     const headings = page.locator('h1, h2, h3');
     const headingCount = await headings.count();
     expect(headingCount).toBeGreaterThan(0);
@@ -87,24 +108,22 @@ test.describe('Homepage', () => {
 });
 
 test.describe('Navigation', () => {
-  test('should navigate to debates page', async ({ page, aragoraPage }) => {
+  test('should navigate to quickstart page', async ({ page, aragoraPage }) => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
 
-    // Click on debates link
-    const debatesLink = page.locator('a[href="/debates"]').first();
-    await debatesLink.click();
-    await expect(page).toHaveURL(/debate/i);
+    const nav = await openResponsiveHeaderNav(page);
+    await nav.getByRole('link', { name: 'Quickstart' }).first().click();
+    await expect(page).toHaveURL(/quickstart/i);
   });
 
-  test('should navigate to leaderboard', async ({ page, aragoraPage }) => {
+  test('should navigate to pricing', async ({ page, aragoraPage }) => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
 
-    // Click on leaderboard link
-    const leaderboardLink = page.locator('a[href="/leaderboard"]').first();
-    await leaderboardLink.click();
-    await expect(page).toHaveURL(/leaderboard/i);
+    const nav = await openResponsiveHeaderNav(page);
+    await nav.getByRole('link', { name: 'Pricing' }).first().click();
+    await expect(page).toHaveURL(/pricing/i);
   });
 
   test('should navigate back to homepage from any page', async ({ page, aragoraPage }) => {

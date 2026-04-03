@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 

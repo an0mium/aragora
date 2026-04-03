@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.server.handlers.pipeline.execute import (
     PipelineExecuteHandler,
     _executions,
@@ -427,6 +428,27 @@ class TestPostExecution:
         assert _executions["pipe-123"]["goal_count"] == 3
         assert _executions["pipe-123"]["status"] == "started"
         assert _executions["pipe-123"]["runtime"] == "decision_plan"
+
+    @pytest.mark.asyncio
+    async def test_start_execution_backbone_failure_returns_503(self):
+        h = _make_handler()
+        http = _make_http_handler(body={})
+        orch_nodes = _mock_orch_nodes(2)
+
+        with patch.object(h, "_load_orchestration_nodes", return_value=orch_nodes):
+            with patch(
+                "aragora.pipeline.canonical_execution.build_decision_plan_from_orchestration",
+                return_value=(_mock_plan(), [MagicMock(), MagicMock()]),
+            ):
+                with patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution",
+                    side_effect=BackbonePersistenceError("run ledger unavailable"),
+                ):
+                    result = await h.handle_post("/api/v1/pipeline/pipe-123/execute", {}, http)
+
+        assert _status(result) == 503
+        assert _body(result)["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
+        assert "pipe-123" not in _executions
 
     @pytest.mark.asyncio
     async def test_start_execution_empty_id_segment(self):

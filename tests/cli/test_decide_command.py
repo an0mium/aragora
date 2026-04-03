@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.execution_mode import ExecutionMode
+
 
 def _make_args(**overrides):
     base = {
@@ -200,6 +202,7 @@ async def test_run_decide_executes_via_backbone_helper(tmp_path) -> None:
         executor=executor,
         auth_context=None,
         execution_mode="hybrid",
+        safety_mode=ExecutionMode.INTERACTIVE,
     )
 
 
@@ -247,4 +250,5 @@ def test_cmd_plans_execute_routes_through_backbone_helper() -> None:
         executor=executor,
         auth_context=None,
         execution_mode="hybrid",
+        safety_mode=ExecutionMode.INTERACTIVE,
     )

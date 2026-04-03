@@ -691,7 +691,7 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
-        """Should queue an agent registration and return 202."""
+        """Should enqueue agent registration and return 202."""
         mock_contract = MagicMock()
         queued_action = SimpleNamespace(
             action_id="chain-test123",
@@ -736,7 +736,7 @@ class TestListAndRegisterAgents:
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should still queue when wallet credentials are missing on the request path."""
+        """Should still enqueue registration without reading wallet credentials."""
         mock_contract = MagicMock()
         queued_action = SimpleNamespace(
             action_id="chain-test456",

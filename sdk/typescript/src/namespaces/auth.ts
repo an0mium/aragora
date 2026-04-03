@@ -26,6 +26,7 @@ import type {
   MFASetupResponse,
   MFAVerifyRequest,
   MFAVerifyResponse,
+  MFACompatibilityResponse,
 } from '../types';
 
 /**
@@ -120,7 +121,7 @@ interface AuthClientInterface {
   revokeInvite(inviteId: string): Promise<{ revoked: boolean }>;
   getAuthHealth(): Promise<{ status: string; services: Record<string, string> }>;
   getProfile(): Promise<import('../types').User>;
-  mfa(request: { action: string; code?: string; method?: string }): Promise<{ status: string; secret?: string; qr_code_uri?: string; backup_codes?: string[] }>;
+  mfa(request: { action: string; code?: string; method?: string; password?: string; pending_token?: string }): Promise<MFACompatibilityResponse>;
   getOAuthAuthorizeUrl(params: { provider: string; redirect_uri?: string; state?: string }): Promise<{ authorization_url: string }>;
   getOAuthDiagnostics(): Promise<{ providers: Record<string, unknown>; status: Record<string, string> }>;
   getOAuthCallback(params: { code: string; state?: string }): Promise<{ access_token: string; user: import('../types').User }>;
@@ -434,16 +435,12 @@ export class AuthAPI {
   }
 
   /**
-   * Combined MFA setup and verification endpoint.
+   * Compatibility MFA endpoint that dispatches setup, enable, disable, verify,
+   * and backup-code regeneration by action.
    *
-   * @param request - MFA request with action, optional code, and optional method
+   * @param request - MFA request with action and any action-specific fields
    */
-  async mfa(request: { action: string; code?: string; method?: string }): Promise<{
-    status: string;
-    secret?: string;
-    qr_code_uri?: string;
-    backup_codes?: string[];
-  }> {
+  async mfa(request: { action: string; code?: string; method?: string; password?: string; pending_token?: string }): Promise<MFACompatibilityResponse> {
     return this.client.mfa(request);
   }
 

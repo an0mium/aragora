@@ -13,6 +13,7 @@ import logging
 import sys
 from typing import Any, Literal, cast
 
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.decision_integrity_utils import execute_decision_plan_with_backbone
 
 logger = logging.getLogger(__name__)
@@ -257,6 +258,7 @@ async def run_decide(
             executor=executor,
             auth_context=None,
             execution_mode=_mode,
+            safety_mode=SafetyMode.INTERACTIVE,
         )
         result["outcome"] = outcome
         result["run_id"] = launch.get("run_id") or result.get("run_id")
@@ -841,6 +843,7 @@ def cmd_plans_execute(args: argparse.Namespace) -> None:
                 executor=executor,
                 auth_context=None,
                 execution_mode=execution_mode,
+                safety_mode=SafetyMode.INTERACTIVE,
             )
         )
         print()

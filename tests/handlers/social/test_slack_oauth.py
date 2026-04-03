@@ -25,6 +25,7 @@ import os
 import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from aragora.rbac.models import AuthorizationContext
@@ -593,6 +594,33 @@ class TestPreview:
         assert "tenant_id=test-org-001" in html
 
     @pytest.mark.asyncio
+    async def test_preview_escapes_tenant_bound_install_url(self, handler):
+        malicious_tenant = 'tenant" onclick="alert(1)<script>'
+        expected_query = urlencode({"tenant_id": malicious_tenant})
+
+        with (
+            patch.object(
+                handler,
+                "get_auth_context",
+                AsyncMock(return_value=MagicMock(org_id=malicious_tenant)),
+            ),
+            patch.object(handler, "_check_permission", return_value=True),
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/preview",
+                {},
+                {"tenant_id": "ignored"},
+                {},
+                None,
+            )
+
+        html = _html(result)
+        assert malicious_tenant not in html
+        assert expected_query in html
+        assert "onclick=" not in html
+
+    @pytest.mark.asyncio
     async def test_preview_no_client_id_returns_503(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", None)
         result = await handler.handle("GET", "/api/integrations/slack/preview", {}, {}, {}, None)
@@ -752,6 +780,44 @@ class TestCallback:
         html = _html(result)
         assert "Connected" in html
         assert "My Team" in html
+
+    @pytest.mark.asyncio
+    async def test_successful_callback_escapes_workspace_name(self, handler, mock_workspace_store):
+        malicious_workspace_name = '<img src=x onerror="alert(1)">'
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": malicious_workspace_name},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch(
+                "aragora.storage.slack_workspace_store.SlackWorkspace",
+                return_value=MagicMock(),
+            ),
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        html = _html(result)
+        assert malicious_workspace_name not in html
+        assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;" in html
 
     @pytest.mark.asyncio
     async def test_callback_rejects_cross_tenant_workspace_rebind(

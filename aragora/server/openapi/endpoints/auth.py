@@ -578,6 +578,87 @@ AUTH_ENDPOINTS = {
     # =========================================================================
     # MFA (Multi-Factor Authentication)
     # =========================================================================
+    "/api/auth/mfa": {
+        "post": {
+            "tags": ["Authentication", "MFA"],
+            "summary": "Run a compatibility MFA action",
+            "operationId": "runMfaCompatibilityAction",
+            "description": (
+                "Compatibility endpoint that dispatches MFA setup, enable, disable, "
+                "verify, and backup-code regeneration by action."
+            ),
+            "security": [{}, {"bearerAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["action"],
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "setup",
+                                        "enable",
+                                        "disable",
+                                        "verify",
+                                        "backup-codes",
+                                    ],
+                                },
+                                "code": {"type": "string"},
+                                "password": {"type": "string"},
+                                "pending_token": {"type": "string"},
+                                "method": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "Compatibility MFA action completed",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["status"],
+                                "properties": {
+                                    "status": {"type": "string"},
+                                    "message": {"type": ["string", "null"]},
+                                    "secret": {"type": ["string", "null"]},
+                                    "provisioning_uri": {"type": ["string", "null"]},
+                                    "qr_code_uri": {"type": ["string", "null"]},
+                                    "backup_codes": {
+                                        "type": ["array", "null"],
+                                        "items": {"type": "string"},
+                                    },
+                                    "sessions_invalidated": {"type": ["boolean", "null"]},
+                                    "disabled": {"type": ["boolean", "null"]},
+                                    "tokens": {
+                                        "type": ["object", "null"],
+                                        "additionalProperties": True,
+                                    },
+                                    "access_token": {"type": ["string", "null"]},
+                                    "refresh_token": {"type": ["string", "null"]},
+                                    "token_type": {"type": ["string", "null"]},
+                                    "expires_in": {"type": ["integer", "null"]},
+                                    "user": {
+                                        "type": ["object", "null"],
+                                        "additionalProperties": True,
+                                    },
+                                    "backup_codes_remaining": {"type": ["integer", "null"]},
+                                    "warning": {"type": ["string", "null"]},
+                                },
+                                "additionalProperties": True,
+                            }
+                        }
+                    },
+                },
+                **STANDARD_ERRORS,
+            },
+        }
+    },
     "/api/auth/mfa/setup": {
         "post": {
             "tags": ["Authentication", "MFA"],

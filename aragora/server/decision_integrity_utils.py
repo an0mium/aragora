@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 import uuid
 
 from aragora.pipeline.execution_mode import (
@@ -13,6 +13,8 @@ from aragora.pipeline.execution_mode import (
     resolve_safety_mode,
 )
 
+if TYPE_CHECKING:
+    from aragora.pipeline.executor import ExecutionMode
 logger = logging.getLogger(__name__)
 
 
@@ -307,6 +309,7 @@ async def execute_decision_plan_with_backbone(
     executor: Any,
     auth_context: Any | None,
     execution_mode: str | None,
+    safety_mode: SafetyMode | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """Queue and execute a decision plan through ExecutionBridge with a supplied executor."""
     from aragora.pipeline.canonical_execution import queue_plan_execution
@@ -317,12 +320,17 @@ async def execute_decision_plan_with_backbone(
         plan,
         auth_context=auth_context,
         execution_mode=execution_mode,
+        safety_mode=safety_mode,
     )
     bridge = ExecutionBridge(plan_store=get_plan_store(), executor=executor)
     outcome = await bridge.execute_approved_plan(
         plan.id,
         auth_context=auth_context,
-        execution_mode=str(launch.get("execution_mode", execution_mode or "")) or None,
+        execution_mode=cast(
+            ExecutionMode | None,
+            str(launch.get("execution_mode", execution_mode or "")) or None,
+        ),
+        safety_mode=resolve_safety_mode(safety_mode, auth_context=auth_context),
         execution_id=str(launch.get("execution_id", "") or ""),
         correlation_id=str(launch.get("correlation_id", "") or ""),
     )
@@ -646,11 +654,13 @@ async def build_decision_integrity_payload(
                     parallel_execution=parallel_execution,
                     execution_mode=engine,  # type: ignore[arg-type]
                 )
+                resolved_safety_mode = resolve_safety_mode(None, auth_context=auth_context)
                 launch, outcome = await execute_decision_plan_with_backbone(
                     plan,
                     executor=executor,
                     auth_context=auth_context,
                     execution_mode=engine,
+                    safety_mode=resolved_safety_mode,
                 )
                 if notifier and notify_origin:
                     await notifier.send_completion_summary()

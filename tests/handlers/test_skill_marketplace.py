@@ -197,6 +197,7 @@ class MockSkillTier:
 
 
 MockSkillTier.FREE = MockSkillTier("free")
+MockSkillTier.PREMIUM = MockSkillTier("premium")
 
 
 class MockHTTPHandler:

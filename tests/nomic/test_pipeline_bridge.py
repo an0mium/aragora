@@ -9,6 +9,7 @@ import pytest
 
 from aragora.nomic.pipeline_bridge import NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask
+from aragora.pipeline.execution_mode import ExecutionMode
 
 
 def _make_mock_assignment(title, description, status="completed", file_scope=None, deps=None):
@@ -353,6 +354,7 @@ class TestExecuteViaPipeline:
             executor=mock_executor,
             auth_context=None,
             execution_mode="queued",
+            safety_mode=ExecutionMode.AUTONOMOUS,
         )
         assert plan.metadata["custom"] == "value"
         assert plan.metadata["source_surface"] == "nomic_pipeline_bridge"

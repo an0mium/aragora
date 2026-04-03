@@ -24,6 +24,7 @@ from aragora.pipeline.execution_bridge import (
     get_execution_bridge,
     reset_execution_bridge,
 )
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
 
 
@@ -367,6 +368,31 @@ class TestExecutionBridgeExecute:
         )
 
     @pytest.mark.asyncio
+    async def test_execute_fail_closes_interactive_backbone_stage_write(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create_run(
+            RunLedger(
+                run_id="run-interactive",
+                entrypoint="prompt_engine.run",
+                status="plan_ready",
+                plan_id=approved_plan.id,
+            )
+        )
+        approved_plan.metadata["backbone_run_id"] = "run-interactive"
+        store.create(approved_plan)
+
+        with patch.object(bridge.backbone_runtime, "record_execution_stage", return_value=False):
+            with pytest.raises(RuntimeError, match="running execution stage"):
+                await bridge.execute_approved_plan(
+                    approved_plan.id,
+                    execution_mode="workflow",
+                    safety_mode=ExecutionMode.INTERACTIVE,
+                )
+
+        bridge.executor.execute.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_execute_blocks_tainted_backbone_run_without_manual_override(
         self, bridge: ExecutionBridge, store: PlanStore
     ) -> None:
@@ -430,6 +456,44 @@ class TestExecutionBridgeSchedule:
         # Should not raise - errors are logged
         bridge.schedule_execution(approved_plan.id)
         await asyncio.sleep(0.1)
+
+    @pytest.mark.asyncio
+    async def test_schedule_execution_records_interactive_safety_mode(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create_run(
+            RunLedger(
+                run_id="run-scheduled",
+                entrypoint="prompt_engine.run",
+                status="plan_ready",
+                plan_id=approved_plan.id,
+            )
+        )
+        approved_plan.metadata["backbone_run_id"] = "run-scheduled"
+        store.create(approved_plan)
+
+        bridge.schedule_execution(
+            approved_plan.id,
+            safety_mode=ExecutionMode.INTERACTIVE,
+        )
+        await asyncio.sleep(0.1)
+
+        records = bridge.list_execution_records(plan_id=approved_plan.id)
+        assert records
+        assert records[0]["metadata"]["safety_mode"] == ExecutionMode.INTERACTIVE.value
+
+    def test_schedule_execution_requires_backbone_run_in_interactive_mode(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create(approved_plan)
+
+        with pytest.raises(RuntimeError, match="backbone run"):
+            bridge.schedule_execution(
+                approved_plan.id,
+                safety_mode=ExecutionMode.INTERACTIVE,
+            )
+
+        assert bridge.list_execution_records(plan_id=approved_plan.id) == []
 
     def test_schedule_execution_falls_back_to_thread_without_running_loop(
         self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan

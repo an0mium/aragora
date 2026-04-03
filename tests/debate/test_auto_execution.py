@@ -21,7 +21,8 @@ from aragora.debate.arena_sub_configs import AutoExecutionConfig
 from aragora.debate.execution_safety import ExecutionSafetyDecision
 from aragora.debate.orchestrator_runner import _auto_execute_plan
 from aragora.pipeline.decision_plan import DecisionPlanFactory
-from aragora.pipeline.decision_plan.core import ApprovalMode, PlanStatus
+from aragora.pipeline.decision_plan.core import ApprovalMode
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.risk_register import RiskLevel
 
 
@@ -276,6 +277,7 @@ class TestAutoExecutePlan:
                 executor=mock_executor_instance,
                 auth_context=None,
                 execution_mode="workflow",
+                safety_mode=ExecutionMode.AUTONOMOUS,
             )
             assert updated.metadata["plan_outcome"]["success"] is True
             assert updated.metadata["plan_outcome"]["tasks_completed"] == 3
@@ -563,6 +565,7 @@ class TestExecutionModePassthrough:
 
             mock_executor_cls.assert_called_once_with(execution_mode=mode)
             assert mock_execute.await_args.kwargs["execution_mode"] == mode
+            assert mock_execute.await_args.kwargs["safety_mode"] == ExecutionMode.AUTONOMOUS
 
     @pytest.mark.asyncio
     async def test_reserved_metadata_is_scrubbed_before_backbone_seed(self):

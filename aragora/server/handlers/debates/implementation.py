@@ -17,15 +17,21 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+    ensure_backbone_persisted,
+)
 from aragora.pipeline.decision_integrity import (
     build_decision_integrity_package,
     coerce_debate_result,
 )
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.decision_integrity_utils import (
     ensure_decision_plan_backbone_run,
     execute_decision_plan_with_backbone,
@@ -47,10 +53,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_receipt_store_get: Callable[[], Any] | None = None
 try:
-    from aragora.storage.receipt_store import get_receipt_store as _receipt_store_get
+    from aragora.storage.receipt_store import (
+        get_receipt_store as _imported_receipt_store_get,
+    )
 except (ImportError, AttributeError):
-    _receipt_store_get = None
+    pass
+else:
+    _receipt_store_get = _imported_receipt_store_get
 
 
 def get_receipt_store() -> Any:
@@ -350,7 +361,7 @@ class _DebatesHandlerProtocol(Protocol):
         approval_request: Any,
         requested_by: str | None,
         computer_use_plan: Any,
-    ) -> None: ...
+    ) -> HandlerResult | None: ...
     def _execute_fabric(
         self, debate_id: str, package: Any, rc: _RequestConfig, response_payload: dict[str, Any]
     ) -> None: ...
@@ -661,7 +672,10 @@ class ImplementationOperationsMixin:
             source_id=debate_id,
         )
         store_plan(plan)
-        sync_decision_plan_backbone_receipt(plan, append_event=False)
+        ensure_backbone_persisted(
+            sync_decision_plan_backbone_receipt(plan, append_event=False),
+            f"Failed to sync decision-plan receipt for run {run_id}",
+        )
 
         response_payload["decision_plan"] = plan.to_dict()
         response_payload["plan_id"] = plan.id
@@ -710,7 +724,10 @@ class ImplementationOperationsMixin:
                     else "Approved",
                 )
                 store_plan(plan)
-                sync_decision_plan_backbone_receipt(plan, append_event=True)
+                ensure_backbone_persisted(
+                    sync_decision_plan_backbone_receipt(plan, append_event=True),
+                    f"Failed to sync approved-plan receipt for run {run_id}",
+                )
 
         # Execute workflow if requested
         if rc.execute_workflow:
@@ -724,14 +741,23 @@ class ImplementationOperationsMixin:
                     knowledge_mound=self.ctx.get("knowledge_mound"),
                     parallel_execution=rc.parallel_execution,
                 )
-                launch, outcome = run_async(
-                    execute_decision_plan_with_backbone(
-                        plan,
-                        executor=plan_executor,
-                        auth_context=user,
-                        execution_mode="workflow",
+                try:
+                    launch, outcome = run_async(
+                        execute_decision_plan_with_backbone(
+                            plan,
+                            executor=plan_executor,
+                            auth_context=user,
+                            execution_mode="workflow",
+                            safety_mode=SafetyMode.INTERACTIVE,
+                        )
                     )
-                )
+                except BackbonePersistenceError as exc:
+                    logger.warning(
+                        "Workflow execution blocked for debate %s: %s",
+                        debate_id,
+                        exc,
+                    )
+                    return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
                 response_payload["workflow_execution"] = {
                     "status": "completed" if outcome.success else "failed",
                     "run_id": launch.get("run_id"),
@@ -835,7 +861,7 @@ class ImplementationOperationsMixin:
             return error_response("No implementation plan available", 400)
 
         if engine == "computer_use":
-            self._execute_computer_use(
+            return self._execute_computer_use(
                 rc, response_payload, approval_request, requested_by, computer_use_plan
             )
         elif engine == "fabric":
@@ -852,7 +878,7 @@ class ImplementationOperationsMixin:
         approval_request: Any,
         requested_by: str | None,
         computer_use_plan: Any,
-    ) -> None:
+    ) -> HandlerResult | None:
         """Execute via computer-use engine."""
         try:
             from aragora.pipeline.executor import PlanExecutor, store_plan
@@ -863,7 +889,7 @@ class ImplementationOperationsMixin:
                     "mode": "computer_use",
                     "error": "No execution plan available for computer use",
                 }
-                return
+                return None
             computer_use_plan.approve(
                 approver_id=approval_request.approved_by or requested_by or "system",
                 reason="Approved",
@@ -879,7 +905,10 @@ class ImplementationOperationsMixin:
             plan_metadata.setdefault("execution_target_resource", f"plan:{computer_use_plan.id}")
             computer_use_plan.metadata = plan_metadata
             store_plan(computer_use_plan)
-            sync_decision_plan_backbone_receipt(computer_use_plan, append_event=True)
+            ensure_backbone_persisted(
+                sync_decision_plan_backbone_receipt(computer_use_plan, append_event=True),
+                f"Failed to sync computer-use plan receipt for plan {computer_use_plan.id}",
+            )
             plan_executor = PlanExecutor(
                 continuum_memory=self.ctx.get("continuum_memory"),
                 knowledge_mound=self.ctx.get("knowledge_mound"),
@@ -892,8 +921,9 @@ class ImplementationOperationsMixin:
                 execute_decision_plan_with_backbone(
                     computer_use_plan,
                     executor=plan_executor,
-                    auth_context=None,
+                    auth_context=getattr(self, "_auth_context", None),
                     execution_mode="computer_use",
+                    safety_mode=SafetyMode.INTERACTIVE,
                 )
             )
             response_payload["execution"] = {
@@ -909,6 +939,9 @@ class ImplementationOperationsMixin:
                     "duration_seconds": outcome.duration_seconds,
                 },
             }
+        except BackbonePersistenceError as exc:
+            logger.warning("Computer-use execution blocked: %s", exc)
+            return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
         except (
             ImportError,
             ValueError,
@@ -923,6 +956,7 @@ class ImplementationOperationsMixin:
                 "mode": "computer_use",
                 "error": str(exc),
             }
+        return None
 
     def _execute_hybrid(
         self: _DebatesHandlerProtocol,

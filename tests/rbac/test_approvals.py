@@ -1222,6 +1222,14 @@ class TestMultiApproverScenarios:
         with pytest.raises(ValueError, match="already made a decision"):
             await workflow.approve(approver_id="admin-1", request_id=request.id)
 
+        # Same approver cannot reject after approving either
+        with pytest.raises(ValueError, match="already made a decision"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="Changing my mind",
+            )
+
     @pytest.mark.asyncio
     async def test_all_approvers_can_approve_independently(self, workflow):
         """Test that all designated approvers can approve."""
@@ -1401,14 +1409,13 @@ class TestDurationAndExpiration:
         # Force expiration
         request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
 
-        # Note: reject doesn't check expiration, only approve does
-        # This tests current behavior - reject still works on expired pending requests
-        result = await workflow.reject(
-            approver_id="admin-1",
-            request_id=request.id,
-            reason="Too late",
-        )
-        assert result.status == ApprovalStatus.REJECTED
+        with pytest.raises(ValueError, match="expired"):
+            await workflow.reject(
+                approver_id="admin-1",
+                request_id=request.id,
+                reason="Too late",
+            )
+        assert request.status == ApprovalStatus.EXPIRED
 
     @pytest.mark.asyncio
     async def test_expire_multiple_requests(self, workflow):
@@ -1531,6 +1538,39 @@ class TestGrantTemporaryPermission:
 
         # Should complete without error
         assert request.status == ApprovalStatus.APPROVED
+
+    @pytest.mark.asyncio
+    async def test_grant_preserves_org_scope_and_metadata(self, workflow):
+        """Test that temporary grants keep org scope and audit metadata."""
+        request = await workflow.request_access(
+            requester_id="user-1",
+            permission="debates:delete",
+            resource_type="debates",
+            resource_id="debate-456",
+            justification="Scoped access",
+            approvers=["admin-1"],
+            org_id="org-123",
+            workspace_id="ws-456",
+            duration_hours=8,
+        )
+
+        with patch("aragora.rbac.resource_permissions.ResourcePermissionStore") as mock_store_cls:
+            mock_store = mock_store_cls.return_value
+            await workflow._grant_temporary_permission(request)
+
+        mock_store.grant_permission.assert_called_once()
+        _, kwargs = mock_store.grant_permission.call_args
+        assert kwargs["user_id"] == "user-1"
+        assert kwargs["permission_id"] == "debates:delete"
+        assert kwargs["resource_type"].value == "debates"
+        assert kwargs["resource_id"] == "debate-456"
+        assert kwargs["granted_by"] == "approval_workflow"
+        assert kwargs["org_id"] == "org-123"
+        assert kwargs.get("conditions") is None
+        assert kwargs["metadata"] == {
+            "approval_request_id": request.id,
+            "workspace_id": "ws-456",
+        }
 
 
 # =============================================================================

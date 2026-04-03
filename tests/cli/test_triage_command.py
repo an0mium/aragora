@@ -386,6 +386,26 @@ def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkey
     assert connector._refresh_token == "refresh-from-file"
 
 
+def test_resolve_gmail_oauth_credentials_skips_remote_secret_fallback_by_default(monkeypatch):
+    monkeypatch.delenv("ARAGORA_ENV", raising=False)
+    monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+
+    with (
+        patch.object(
+            triage_cmd,
+            "_get_secret_fallback",
+            side_effect=AssertionError("remote fallback should stay disabled for local runs"),
+        ),
+        patch.object(triage_cmd, "_load_local_dotenv"),
+    ):
+        client_id, client_secret = triage_cmd._resolve_gmail_oauth_credentials()
+
+    assert client_id == ""
+    assert client_secret == ""
+
+
 def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monkeypatch):
     class _FakeConnector:
         def __init__(self):
@@ -396,6 +416,7 @@ def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monk
     (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
 
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_ENV", "production")
     monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
     monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
 
@@ -408,6 +429,7 @@ def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monk
                 "GMAIL_CLIENT_SECRET": "secret-client-secret",
             }.get(name, ""),
         ),
+        patch.object(triage_cmd, "_load_local_dotenv"),
         patch(
             "aragora.connectors.enterprise.communication.gmail.GmailConnector",
             _FakeConnector,
@@ -450,16 +472,20 @@ def test_show_status_reports_gmail_from_secret_fallback(tmp_path, monkeypatch, c
     (token_dir / "signing.key").write_text("dummy-signing-key")
 
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_ENV", "production")
     monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
     monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
 
-    with patch.object(
-        triage_cmd,
-        "_get_secret_fallback",
-        side_effect=lambda name: {
-            "GMAIL_CLIENT_ID": "secret-client-id",
-            "GMAIL_CLIENT_SECRET": "secret-client-secret",
-        }.get(name, ""),
+    with (
+        patch.object(
+            triage_cmd,
+            "_get_secret_fallback",
+            side_effect=lambda name: {
+                "GMAIL_CLIENT_ID": "secret-client-id",
+                "GMAIL_CLIENT_SECRET": "secret-client-secret",
+            }.get(name, ""),
+        ),
+        patch.object(triage_cmd, "_load_local_dotenv"),
     ):
         triage_cmd._show_status()
 
@@ -467,6 +493,29 @@ def test_show_status_reports_gmail_from_secret_fallback(tmp_path, monkeypatch, c
     assert "Gmail configured:     yes" in out
     assert "Durable signing key:  yes" in out
     assert "Gmail refresh token:  yes" in out
+
+
+@pytest.mark.asyncio
+async def test_run_gmail_auth_fails_fast_without_remote_secret_fallback(monkeypatch, capsys):
+    monkeypatch.delenv("ARAGORA_ENV", raising=False)
+    monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+
+    with (
+        patch.object(
+            triage_cmd,
+            "_get_secret_fallback",
+            side_effect=AssertionError("triage auth should not hit remote secrets for local runs"),
+        ),
+        patch.object(triage_cmd, "_load_local_dotenv"),
+    ):
+        with pytest.raises(SystemExit) as excinfo:
+            await triage_cmd._run_gmail_auth()
+
+    assert excinfo.value.code == 1
+    err = capsys.readouterr().err
+    assert "Set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET environment" in err
 
 
 @pytest.mark.asyncio

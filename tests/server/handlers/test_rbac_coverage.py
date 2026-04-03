@@ -72,6 +72,7 @@ EXEMPT_HANDLERS = frozenset(
         "CSPReportHandler",
         # Metrics endpoint - must be public for Prometheus scraper
         "MetricsHandler",
+        "PipelineTelemetryHandler",
         # Example handlers (documentation/testing only)
         "ExampleResourceHandler",
         "ExampleAsyncHandler",

@@ -23,6 +23,7 @@ import logging
 import os
 import secrets
 import time
+from html import escape
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
@@ -724,7 +725,7 @@ class SlackOAuthHandler(SecureHandler):
         # Build install URL with tenant_id
         install_url = "/api/integrations/slack/install"
         if tenant_id:
-            install_url += f"?tenant_id={tenant_id}"
+            install_url = f"{install_url}?{urlencode({'tenant_id': tenant_id})}"
 
         # Generate HTML consent preview page
         html = self._render_consent_preview(
@@ -749,13 +750,15 @@ class SlackOAuthHandler(SecureHandler):
         """Render the consent preview HTML page."""
         required_html = ""
         for s in required_scopes:
-            icon = s["icon"] if s["icon"] else "&#128274;"
+            icon = escape(str(s["icon"])) if s["icon"] else "&#128274;"
+            name = escape(str(s["name"]))
+            description = escape(str(s["description"]))
             required_html += f"""
             <div class="scope-item">
                 <span class="scope-icon">{icon}</span>
                 <div class="scope-details">
-                    <div class="scope-name">{s["name"]}</div>
-                    <div class="scope-desc">{s["description"]}</div>
+                    <div class="scope-name">{name}</div>
+                    <div class="scope-desc">{description}</div>
                 </div>
                 <span class="scope-badge required">Required</span>
             </div>
@@ -763,13 +766,15 @@ class SlackOAuthHandler(SecureHandler):
 
         optional_html = ""
         for s in optional_scopes:
-            icon = s["icon"] if s["icon"] else "&#128274;"
+            icon = escape(str(s["icon"])) if s["icon"] else "&#128274;"
+            name = escape(str(s["name"]))
+            description = escape(str(s["description"]))
             optional_html += f"""
             <div class="scope-item">
                 <span class="scope-icon">{icon}</span>
                 <div class="scope-details">
-                    <div class="scope-name">{s["name"]}</div>
-                    <div class="scope-desc">{s["description"]}</div>
+                    <div class="scope-name">{name}</div>
+                    <div class="scope-desc">{description}</div>
                 </div>
                 <span class="scope-badge optional">Optional</span>
             </div>
@@ -781,6 +786,8 @@ class SlackOAuthHandler(SecureHandler):
                 "<div class='section-title' style='margin-top: 24px;'>Optional Features</div>"
                 + optional_html
             )
+
+        safe_install_url = escape(install_url, quote=True)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -911,7 +918,7 @@ class SlackOAuthHandler(SecureHandler):
             </div>
         </div>
         <div class="actions">
-            <a href="{install_url}" class="btn btn-primary">
+            <a href="{safe_install_url}" class="btn btn-primary">
                 &#128241; Continue to Slack Authorization
             </a>
             <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
@@ -1203,6 +1210,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Workspace storage not available", 503)
 
         # Return success page
+        safe_workspace_name = escape(workspace_name)
         success_html = f"""
         <!DOCTYPE html>
         <html>
@@ -1245,7 +1253,7 @@ class SlackOAuthHandler(SecureHandler):
                 <div class="check">&#10003;</div>
                 <h1>Connected!</h1>
                 <p>Aragora is now installed in</p>
-                <p class="workspace">{workspace_name}</p>
+                <p class="workspace">{safe_workspace_name}</p>
                 <p>You can close this window and return to Slack.</p>
             </div>
         </body>

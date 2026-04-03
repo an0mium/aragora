@@ -616,6 +616,7 @@ class SwarmSupervisor:
                         run_id=run_id,
                         target_branch=str(record.get("target_branch", "main")),
                         work_order=item,
+                        work_orders=work_orders,
                         managed_dir_pattern=managed_dir_pattern,
                         approval_policy=SwarmApprovalPolicy.from_dict(
                             record.get("approval_policy")
@@ -631,6 +632,7 @@ class SwarmSupervisor:
                                 run_id=run_id,
                                 target_branch=str(record.get("target_branch", "main")),
                                 work_order=item,
+                                work_orders=work_orders,
                                 managed_dir_pattern=managed_dir_pattern,
                                 approval_policy=SwarmApprovalPolicy.from_dict(
                                     record.get("approval_policy")
@@ -1908,6 +1910,64 @@ class SwarmSupervisor:
         return " ".join(part for part in parts if part).lower()
 
     @staticmethod
+    def _duplicate_candidate_is_current_batch_dependency(
+        item: dict[str, Any],
+        candidate: dict[str, Any],
+    ) -> bool:
+        if not candidate.get("from_current_batch"):
+            return False
+        dependency_ids = {
+            str(dep).strip() for dep in item.get("dependency_ids", []) if str(dep).strip()
+        }
+        if not dependency_ids:
+            return False
+        for candidate_id in (
+            str(candidate.get("pipeline_task_id", "")).strip(),
+            str(candidate.get("work_order_id", "")).strip(),
+            str(candidate.get("task_key", "")).strip(),
+        ):
+            if candidate_id and candidate_id in dependency_ids:
+                return True
+        return False
+
+    @staticmethod
+    def _dependency_base_reference(
+        item: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> tuple[str, str] | None:
+        dependency_ids = [
+            str(dep).strip() for dep in item.get("dependency_ids", []) if str(dep).strip()
+        ]
+        if not dependency_ids:
+            return None
+
+        completed_statuses = {"completed", "merged", "salvage"}
+        references: dict[str, str] = {}
+        for candidate in work_orders:
+            if not isinstance(candidate, dict):
+                continue
+            status = str(candidate.get("status", "")).strip().lower()
+            if status not in completed_statuses:
+                continue
+            reference = (
+                str(candidate.get("branch", "")).strip()
+                or str(candidate.get("head_sha", "")).strip()
+                or str(candidate.get("initial_head", "")).strip()
+            )
+            if not reference:
+                continue
+            for key in ("pipeline_task_id", "work_order_id", "task_key"):
+                candidate_id = str(candidate.get(key, "")).strip()
+                if candidate_id:
+                    references[candidate_id] = reference
+
+        for dependency_id in reversed(dependency_ids):
+            reference = references.get(dependency_id)
+            if reference:
+                return reference, dependency_id
+        return None
+
+    @staticmethod
     def _looks_like_broad_explicit_pytest_umbrella(*, source: str, text: str) -> bool:
         if source.strip() != "explicit_spec_work_order":
             return False
@@ -1954,7 +2014,7 @@ class SwarmSupervisor:
             "failed",
         }
         goal_key = self._normalized_goal_signature(goal)
-        existing_by_group: dict[tuple[str, str, tuple[str, ...]], str] = {}
+        existing_by_group: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]] = {}
         existing_overlap_candidates: list[dict[str, Any]] = []
         for task in self.store.list_developer_tasks(open_only=True, limit=1000):
             if str(getattr(task, "status", "")).strip().lower() not in active_duplicate_statuses:
@@ -1984,6 +2044,12 @@ class SwarmSupervisor:
                             "lane": task_lane,
                             "scope": task_scope,
                             "source": task_source,
+                            "pipeline_task_id": str(
+                                getattr(task, "pipeline_task_id", "") or ""
+                            ).strip(),
+                            "work_order_id": str(getattr(task, "work_order_id", "") or "").strip()
+                            or task_key,
+                            "from_current_batch": False,
                             "text": " ".join(
                                 part
                                 for part in (
@@ -1995,7 +2061,12 @@ class SwarmSupervisor:
                         }
                     )
                 continue
-            existing_by_group[group_key] = task_key
+            existing_by_group[group_key] = {
+                "task_key": task_key,
+                "pipeline_task_id": str(getattr(task, "pipeline_task_id", "") or "").strip(),
+                "work_order_id": str(getattr(task, "work_order_id", "") or "").strip() or task_key,
+                "from_current_batch": False,
+            }
             if task_scope and task_key and task_goal:
                 existing_overlap_candidates.append(
                     {
@@ -2004,6 +2075,12 @@ class SwarmSupervisor:
                         "lane": task_lane,
                         "scope": task_scope,
                         "source": task_source,
+                        "pipeline_task_id": str(
+                            getattr(task, "pipeline_task_id", "") or ""
+                        ).strip(),
+                        "work_order_id": str(getattr(task, "work_order_id", "") or "").strip()
+                        or task_key,
+                        "from_current_batch": False,
                         "text": " ".join(
                             part
                             for part in (
@@ -2033,9 +2110,19 @@ class SwarmSupervisor:
                 [str(path) for path in item.get("file_scope", []) if str(path).strip()],
                 dict(item.get("metadata") or {}),
             )
-            canonical_task_key = existing_by_group.get(group_key) if group_key else None
+            canonical_candidate = existing_by_group.get(group_key) if group_key else None
+            canonical_task_key = (
+                str(canonical_candidate["task_key"])
+                if canonical_candidate
+                and not self._duplicate_candidate_is_current_batch_dependency(
+                    item, canonical_candidate
+                )
+                else None
+            )
             if not canonical_task_key and item_scope:
                 for existing in existing_overlap_candidates:
+                    if self._duplicate_candidate_is_current_batch_dependency(item, existing):
+                        continue
                     same_lane = bool(
                         item_lane and existing["lane"] and item_lane == existing["lane"]
                     )
@@ -2060,7 +2147,13 @@ class SwarmSupervisor:
             if not group_key or not canonical_task_key:
                 if group_key:
                     existing_by_group.setdefault(
-                        group_key, str(item.get("work_order_id", "")).strip()
+                        group_key,
+                        {
+                            "task_key": str(item.get("work_order_id", "")).strip(),
+                            "pipeline_task_id": str(item.get("pipeline_task_id", "")).strip(),
+                            "work_order_id": str(item.get("work_order_id", "")).strip(),
+                            "from_current_batch": True,
+                        },
                     )
                 if item_scope and goal_key:
                     existing_overlap_candidates.append(
@@ -2070,6 +2163,9 @@ class SwarmSupervisor:
                             "lane": item_lane,
                             "scope": item_scope,
                             "source": str((item.get("metadata") or {}).get("source") or ""),
+                            "pipeline_task_id": str(item.get("pipeline_task_id", "")).strip(),
+                            "work_order_id": str(item.get("work_order_id", "")).strip(),
+                            "from_current_batch": True,
                             "text": item_text,
                         }
                     )
@@ -2301,6 +2397,7 @@ class SwarmSupervisor:
         run_id: str,
         target_branch: str,
         work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
         managed_dir_pattern: str,
         approval_policy: SwarmApprovalPolicy,
     ) -> bool:
@@ -2335,6 +2432,40 @@ class SwarmSupervisor:
                 failure_reason="scope_violation",
             )
             return False
+        dependency_base = self._dependency_base_reference(work_order, work_orders)
+        if dependency_base is not None:
+            dependency_ref, dependency_id = dependency_base
+            merge_proc = self._run_git_capture_sync(
+                str(session.path),
+                "merge",
+                "--ff-only",
+                dependency_ref,
+            )
+            if merge_proc.returncode != 0:
+                self._mark_needs_human(
+                    work_order,
+                    (
+                        "Dependent lane could not start from its prerequisite branch; "
+                        "reconcile the dependency chain before rerunning."
+                    ),
+                    failure_reason="dependency_base_conflict",
+                    blocking_question=(
+                        "Which completed dependency branch or commit should this lane build on?"
+                    ),
+                )
+                work_order["dispatch_error"] = (
+                    merge_proc.stderr.strip()
+                    or merge_proc.stdout.strip()
+                    or f"unable to fast-forward dependent lane onto {dependency_ref}"
+                )
+                work_order["dependency_base_ref"] = dependency_ref
+                work_order["dependency_base_source"] = dependency_id
+                return False
+            work_order["dependency_base_ref"] = dependency_ref
+            work_order["dependency_base_source"] = dependency_id
+        else:
+            work_order.pop("dependency_base_ref", None)
+            work_order.pop("dependency_base_source", None)
         claimed_paths = [item for item in file_scope if not self._looks_like_glob(item)]
         allowed_globs = [item for item in file_scope if self._looks_like_glob(item)]
         if not allowed_globs and not claimed_paths and file_scope:
@@ -3939,6 +4070,8 @@ class SwarmSupervisor:
         if reason not in blockers:
             blockers.append(reason)
         item["blockers"] = blockers
+        item.pop("receipt_id", None)
+        item.pop("confidence", None)
         item.pop("pid", None)
 
     @classmethod
@@ -4026,6 +4159,8 @@ class SwarmSupervisor:
         if reason not in blockers:
             blockers.append(reason)
         item["blockers"] = blockers
+        item.pop("receipt_id", None)
+        item.pop("confidence", None)
         item.pop("pid", None)
 
         # Write violation metadata into the lease so status_summary() surfaces

@@ -263,6 +263,27 @@ class TestHandleErrors:
         result = handler()
         assert result.status_code == 404
 
+    def test_supports_bare_decorator_usage(self):
+        """Should support @handle_errors without an explicit context string."""
+
+        @handle_errors
+        def handler():
+            raise ValueError("Invalid input")
+
+        result = handler()
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_supports_bare_decorator_usage_async(self):
+        """Bare @handle_errors should also wrap async handlers."""
+
+        @handle_errors
+        async def handler():
+            raise RuntimeError("boom")
+
+        result = await handler()
+        assert result.status_code == 500
+
 
 # =============================================================================
 # Test auto_error_response decorator

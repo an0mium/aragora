@@ -25,6 +25,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import inspect
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -88,24 +89,6 @@ class MockRequestHandler:
             self.rfile.read.return_value = b"{}"
 
 
-def _bypass_decorators():
-    """Context manager patches to bypass require_permission, rate_limit, auth_rate_limit."""
-    return (
-        patch(
-            "aragora.server.handlers.openclaw_gateway.require_permission",
-            lambda *a, **kw: lambda f: f,
-        ),
-        patch(
-            "aragora.server.handlers.openclaw_gateway.rate_limit",
-            lambda *a, **kw: lambda f: f,
-        ),
-        patch(
-            "aragora.server.handlers.openclaw_gateway.auth_rate_limit",
-            lambda *a, **kw: lambda f: f,
-        ),
-    )
-
-
 @pytest.fixture
 def mock_server_context():
     """Create mock server context."""
@@ -157,10 +140,11 @@ def setup_handler_user(handler: OpenClawGatewayHandler, user: MockUser) -> None:
 
 
 def call_with_bypassed_decorators(fn, *args, **kwargs):
-    """Call a handler method with permission and rate-limit decorators bypassed."""
-    p1, p2, p3 = _bypass_decorators()
-    with p1, p2, p3:
-        return fn(*args, **kwargs)
+    """Call a handler method with wrapper decorators removed."""
+    unwrapped = inspect.unwrap(fn)
+    if getattr(fn, "__self__", None) is not None:
+        unwrapped = unwrapped.__get__(fn.__self__, type(fn.__self__))
+    return unwrapped(*args, **kwargs)
 
 
 # ===========================================================================
@@ -520,8 +504,10 @@ class TestActionExecution:
         body = json.loads(result.body)
         assert body["action_type"] == "click"
 
-    def test_execute_action_status_is_running(self, handler, mock_user, store):
-        """Test that unsupported actions surface a failed runtime status."""
+    def test_execute_action_status_is_failed_when_action_is_unsupported(
+        self, handler, mock_user, store
+    ):
+        """Test that unsupported actions fail immediately with current runtime behavior."""
         session = store.create_session(user_id="user-001")
         setup_handler_user(handler, mock_user)
 

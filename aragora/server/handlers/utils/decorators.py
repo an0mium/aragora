@@ -218,7 +218,8 @@ def handle_errors(
     Supports both sync and async handler methods.
 
     Args:
-        context: Description of the operation (e.g., "debate creation")
+        context: Description of the operation (e.g., "debate creation"), or
+            the decorated function itself when used as ``@handle_errors``.
         default_status: Default HTTP status for unrecognized exceptions
 
     Returns:
