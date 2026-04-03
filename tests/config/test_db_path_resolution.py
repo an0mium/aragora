@@ -122,8 +122,8 @@ def test_get_nomic_dir_prefers_nomic_over_data(tmp_path, monkeypatch):
     assert db_config.get_nomic_dir() == Path(".nomic")
 
 
-def test_get_nomic_dir_uses_git_common_dir_for_linked_worktree(tmp_path, monkeypatch):
-    _repo, linked, common_dir = _make_git_repo_with_linked_worktree(tmp_path)
+def test_get_nomic_dir_uses_worktree_local_nomic_for_linked_worktree(tmp_path, monkeypatch):
+    _repo, linked, _common_dir = _make_git_repo_with_linked_worktree(tmp_path)
 
     monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
     monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
@@ -132,7 +132,22 @@ def test_get_nomic_dir_uses_git_common_dir_for_linked_worktree(tmp_path, monkeyp
     import aragora.persistence.db_config as db_config
 
     db_config = importlib.reload(db_config)
-    assert db_config.get_nomic_dir() == common_dir / "aragora" / "data" / linked.name
+    assert db_config.get_nomic_dir() == linked / ".nomic"
+
+
+def test_get_nomic_dir_stays_at_worktree_root_from_nested_cwd(tmp_path, monkeypatch):
+    _repo, linked, _common_dir = _make_git_repo_with_linked_worktree(tmp_path)
+    nested = linked / "nested" / "deeper"
+    nested.mkdir(parents=True)
+
+    monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
+    monkeypatch.chdir(nested)
+
+    import aragora.persistence.db_config as db_config
+
+    db_config = importlib.reload(db_config)
+    assert db_config.get_nomic_dir() == linked / ".nomic"
 
 
 def test_resolve_db_path_absolute_passthrough():
@@ -157,8 +172,8 @@ def test_resolve_db_path_file_uri_passthrough():
     assert legacy.resolve_db_path("file:test?mode=memory").startswith("file:")
 
 
-def test_resolve_db_path_uses_git_common_dir_for_linked_worktree(tmp_path, monkeypatch):
-    _repo, linked, common_dir = _make_git_repo_with_linked_worktree(tmp_path)
+def test_resolve_db_path_uses_worktree_local_nomic_for_linked_worktree(tmp_path, monkeypatch):
+    _repo, linked, _common_dir = _make_git_repo_with_linked_worktree(tmp_path)
 
     monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
     monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
@@ -168,7 +183,7 @@ def test_resolve_db_path_uses_git_common_dir_for_linked_worktree(tmp_path, monke
 
     legacy = importlib.reload(legacy)
     resolved = Path(legacy.resolve_db_path("example.db"))
-    assert resolved == common_dir / "aragora" / "data" / linked.name / "example.db"
+    assert resolved == linked / ".nomic" / "example.db"
 
 
 def test_guard_repo_clean_scan_paths():
