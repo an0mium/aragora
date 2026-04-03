@@ -1138,7 +1138,7 @@ class ReceiptsHandler(BaseHandler):
         if len(history) > 1000:
             del history[:-1000]
 
-    @require_permission("receipts:send")
+    @require_permission("receipts:share")
     async def _send_to_channel(self, receipt_id: str, body: dict[str, Any]) -> HandlerResult:
         """
         Send a decision receipt to a specified channel.
