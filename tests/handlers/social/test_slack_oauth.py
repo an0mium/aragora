@@ -2369,6 +2369,73 @@ class TestRefreshToken:
         mock_workspace_store.save.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_refresh_requires_client_credentials(
+        self,
+        handler,
+        handler_module,
+        monkeypatch,
+        mock_workspace_store,
+    ):
+        mock_client, _ = _make_httpx_mock({"ok": True, "access_token": "xoxb-new"})
+        monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", "")
+        monkeypatch.setattr(handler_module, "SLACK_CLIENT_SECRET", "")
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 503
+        body = _body(result)
+        assert "not configured" in body.get("error", "").lower()
+        mock_client.post.assert_not_called()
+        mock_workspace_store.save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refresh_rejects_workspace_mismatch(self, handler, mock_workspace_store):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "refresh_token": "xoxr-new-refresh",
+                "team": {"id": "W999"},
+                "expires_in": 43200,
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 502
+        body = _body(result)
+        assert "invalid token refresh response" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_store_import_error_returns_503(self, handler):
         with patch.dict("sys.modules", {"aragora.storage.slack_workspace_store": None}):
             result = await handler.handle(

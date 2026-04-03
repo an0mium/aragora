@@ -1563,6 +1563,20 @@ class SlackOAuthHandler(SecureHandler):
             if not workspace.is_active:
                 return error_response("Workspace is inactive. Re-installation required.", 400)
 
+            client_id = _get_slack_client_id()
+            client_secret = _get_slack_client_secret()
+            if not client_id or not client_secret:
+                logger.error("Slack OAuth refresh not configured for workspace %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Slack OAuth not configured",
+                    )
+                return error_response("Slack OAuth not configured", 503)
+
             # Attempt token refresh
             import httpx
 
@@ -1571,8 +1585,8 @@ class SlackOAuthHandler(SecureHandler):
                     response = await client.post(
                         SLACK_OAUTH_TOKEN_URL,
                         data={
-                            "client_id": _get_slack_client_id(),
-                            "client_secret": _get_slack_client_secret(),
+                            "client_id": client_id,
+                            "client_secret": client_secret,
                             "grant_type": "refresh_token",
                             "refresh_token": workspace.refresh_token,
                         },
@@ -1605,6 +1619,33 @@ class SlackOAuthHandler(SecureHandler):
                         error=error_msg,
                     )
                 return error_response(f"Token refresh failed: {error_msg}", 400)
+
+            response_workspace_id = ""
+            team = data.get("team")
+            if isinstance(team, dict):
+                response_workspace_id = str(team.get("id") or team.get("team_id") or "").strip()
+            if not response_workspace_id:
+                response_workspace_id = str(
+                    data.get("team_id") or data.get("workspace_id") or ""
+                ).strip()
+            expected_workspace_id = str(
+                getattr(workspace, "workspace_id", "") or workspace_id
+            ).strip()
+            if response_workspace_id and response_workspace_id != expected_workspace_id:
+                logger.error(
+                    "Token refresh workspace mismatch for %s: got %s",
+                    workspace_id,
+                    response_workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: workspace mismatch",
+                    )
+                return error_response("Invalid token refresh response", 502)
 
             # Update stored tokens
             new_access_token = data.get("access_token")
