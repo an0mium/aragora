@@ -95,6 +95,7 @@ class TestReadyzFallback:
         responses: list[tuple[dict, int]] = []
         handler = MagicMock()
         handler._send_json = lambda data, status=200: responses.append((data, status))
+        handler._maybe_stream_live_spectate = MagicMock(return_value=False)
         handler._try_modular_handler = MagicMock(return_value=True)
 
         mod._server_ready = False
@@ -112,6 +113,7 @@ class TestReadyzFallback:
         responses: list[tuple[dict, int]] = []
         handler = MagicMock()
         handler._send_json = lambda data, status=200: responses.append((data, status))
+        handler._maybe_stream_live_spectate = MagicMock(return_value=False)
         handler._try_modular_handler = MagicMock(return_value=True)
 
         mod._server_ready = True

@@ -1539,16 +1539,28 @@ class TestAnswerQuestionAsync:
 
     @pytest.mark.asyncio
     async def test_happy_path(self, slack_handler):
-        mock_session = AsyncMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"answer": "Paris is the capital of France"}
-        mock_session.post.return_value = mock_response
+        mock_arena_run = AsyncMock(
+            return_value=SimpleNamespace(
+                final_answer="Paris is the capital of France",
+                summary=None,
+                confidence=0.9,
+            )
+        )
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[
+                    ("anthropic-api", "claude-opus-4-6"),
+                    ("openai-api", "gpt-4.1"),
+                    ("gemini", "gemini-3.1-pro-preview"),
+                ],
+            ),
+            patch(
+                "aragora.agents.base.create_agent",
+                side_effect=lambda *args, **kwargs: MagicMock(),
+            ),
+            patch("aragora.debate.orchestrator.Arena.run", mock_arena_run),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1563,19 +1575,27 @@ class TestAnswerQuestionAsync:
 
     @pytest.mark.asyncio
     async def test_fallback_to_debate(self, slack_handler):
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 200
-        resp1.json.return_value = {"answer": None}
-        resp2 = MagicMock()
-        resp2.status_code = 200
-        resp2.json.return_value = {"final_answer": "Debate answer here"}
-        mock_session.post.side_effect = [resp1, resp2]
+        mock_arena_run = AsyncMock(
+            return_value=SimpleNamespace(
+                final_answer="Debate answer here",
+                summary=None,
+                confidence=0.95,
+            )
+        )
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[
+                    ("anthropic-api", "claude-opus-4-6"),
+                    ("openai-api", "gpt-4.1"),
+                ],
+            ),
+            patch(
+                "aragora.agents.base.create_agent",
+                side_effect=lambda *args, **kwargs: MagicMock(),
+            ),
+            patch("aragora.debate.orchestrator.Arena.run", mock_arena_run),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1587,38 +1607,43 @@ class TestAnswerQuestionAsync:
 
     @pytest.mark.asyncio
     async def test_quick_answer_non_200_falls_back(self, slack_handler):
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 500
-        resp1.json.return_value = {"error": "service down"}
-        resp2 = MagicMock()
-        resp2.status_code = 201
-        resp2.json.return_value = {"final_answer": "Fallback debate answer"}
-        mock_session.post.side_effect = [resp1, resp2]
+        mock_arena_run = AsyncMock(
+            return_value=SimpleNamespace(
+                final_answer="Uncertain answer",
+                summary=None,
+                confidence=0.1,
+            )
+        )
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[
+                    ("anthropic-api", "claude-opus-4-6"),
+                    ("openai-api", "gpt-4.1"),
+                ],
+            ),
+            patch(
+                "aragora.agents.base.create_agent",
+                side_effect=lambda *args, **kwargs: MagicMock(),
+            ),
+            patch("aragora.debate.orchestrator.Arena.run", mock_arena_run),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
                 "Some important question here", "https://hooks.slack.com/resp", "U1", "C1"
             )
             slack_handler._post_to_response_url.assert_called_once()
+            payload = slack_handler._post_to_response_url.call_args[0][1]
+            assert "wasn't able to reach a confident answer" in json.dumps(
+                payload.get("blocks", [])
+            )
 
     @pytest.mark.asyncio
     async def test_network_error_posts_failure(self, slack_handler):
-        mock_pool = MagicMock()
-        mock_pool.get_session.return_value.__aenter__ = AsyncMock(
-            side_effect=OSError("network error")
-        )
-        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
-
         with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-            create=True,
+            "aragora.cli.commands.quickstart._detect_agents",
+            side_effect=OSError("network error"),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1630,27 +1655,16 @@ class TestAnswerQuestionAsync:
     @pytest.mark.asyncio
     async def test_debate_fallback_also_fails(self, slack_handler):
         """When both quick-answer and debate API fail, posts generic answer."""
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 200
-        resp1.json.return_value = {"answer": None}
-        resp2 = MagicMock()
-        resp2.status_code = 500
-        resp2.json.return_value = {"error": "internal"}
-        mock_session.post.side_effect = [resp1, resp2]
-
         with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+            "aragora.cli.commands.quickstart._detect_agents",
+            return_value=[],
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
                 "Some question here", "https://hooks.slack.com/resp", "U1", "C1"
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
-            blocks_text = json.dumps(payload.get("blocks", []))
-            assert "Unable to generate answer" in blocks_text
+            assert "failed to answer question" in payload["text"].lower()
 
 
 # ---------------------------------------------------------------------------

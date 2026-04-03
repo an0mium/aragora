@@ -282,6 +282,7 @@ class TestPrometheusMetrics:
 
     def test_register_updates_gauge(self):
         """Gauge tracks registered thread count."""
+        pytest.importorskip("prometheus_client")
         from aragora.server.lifecycle import REGISTERED_THREADS_GAUGE
 
         assert REGISTERED_THREADS_GAUGE is not None, "prometheus_client must be installed"
@@ -304,6 +305,7 @@ class TestPrometheusMetrics:
 
     def test_shutdown_records_histogram(self):
         """Shutdown duration is observed in histogram."""
+        pytest.importorskip("prometheus_client")
         from aragora.server.lifecycle import SHUTDOWN_DURATION_HISTOGRAM
 
         assert SHUTDOWN_DURATION_HISTOGRAM is not None

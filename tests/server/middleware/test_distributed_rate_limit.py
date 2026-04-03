@@ -765,6 +765,7 @@ class TestMetricsRecording:
 
     def test_records_rate_limit_decisions(self, shared_redis, mock_settings):
         """Should record rate limit decisions in metrics."""
+        pytest.importorskip("prometheus_client")
         from aragora.server.middleware.rate_limit.distributed import (
             DistributedRateLimiter,
         )
