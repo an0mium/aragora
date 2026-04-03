@@ -416,6 +416,32 @@ export function DebateResultPreview({
         )}
       </div>
 
+      {/* Interpretation notice */}
+      {(result as Record<string, unknown>).interpreted_question &&
+        (result as Record<string, unknown>).interpreted_question !== ((result as Record<string, unknown>).original_question || result.topic) && (
+        <p className="text-xs text-[var(--text-muted)] italic">
+          Aragora interpreted this as: {(result as Record<string, unknown>).interpreted_question as string}
+        </p>
+      )}
+
+      {/* TL;DR answer */}
+      {(result as Record<string, unknown>).tldr && (
+        <div
+          className="rounded-2xl border p-5"
+          style={{
+            borderColor: 'var(--accent)',
+            backgroundColor: 'color-mix(in srgb, var(--accent) 5%, var(--surface))',
+          }}
+        >
+          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold mb-2" style={{ color: 'var(--accent)' }}>
+            Summary
+          </div>
+          <div className="text-base font-semibold leading-relaxed text-[var(--text)]">
+            {(result as Record<string, unknown>).tldr as string}
+          </div>
+        </div>
+      )}
+
       {/* Proposals — hidden when single-agent and verdict duplicates the proposal */}
       {(() => {
         const proposalEntries = Object.entries(result.proposals);
