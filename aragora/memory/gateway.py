@@ -120,6 +120,17 @@ class MemoryGateway:
         self.retention_gate = retention_gate
         self._dedup_engine = CrossSystemDedupEngine()
 
+    @staticmethod
+    def _normalize_source_name(source: str) -> str:
+        """Map external source aliases to the gateway's canonical source ids."""
+        aliases = {
+            "knowledge_mound": "km",
+            "knowledge-mound": "km",
+            "super_memory": "supermemory",
+            "claude-mem": "claude_mem",
+        }
+        return aliases.get(source, source)
+
     def _available_sources(self) -> list[str]:
         """Get list of available memory sources."""
         sources = []
@@ -145,8 +156,9 @@ class MemoryGateway:
         start = time.time()
         available = self._available_sources()
         sources_to_query = q.sources or self.config.default_sources or available
+        sources_to_query = [self._normalize_source_name(source) for source in sources_to_query]
         # Only query sources that are actually available
-        sources_to_query = [s for s in sources_to_query if s in available]
+        sources_to_query = list(dict.fromkeys(s for s in sources_to_query if s in available))
 
         all_results: list[UnifiedMemoryResult] = []
         errors: dict[str, str] = {}
