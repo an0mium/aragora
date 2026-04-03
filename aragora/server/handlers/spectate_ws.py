@@ -3,17 +3,19 @@
 Endpoints:
 - GET /api/v1/spectate/recent  - Get recent buffered spectate events
 - GET /api/v1/spectate/status  - Get bridge status (active, subscribers, buffer size)
-- GET /api/v1/spectate/stream  - Finite SSE snapshot or JSON preview of recent events
+- GET /api/v1/spectate/stream  - Live SSE on the unified server, JSON/snapshot fallback here
 """
 
 from __future__ import annotations
 
 __all__ = [
     "SpectateStreamHandler",
+    "iter_live_spectate_sse_frames",
 ]
 
 import json
 import logging
+import queue
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -29,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 _RECENT_ACTIVITY_WINDOW_SECONDS = 300  # 5 min — matches demo loop interval
 _STATUS_ACTIVITY_SCAN_LIMIT = 200
+_DEFAULT_SPECTATE_EVENT_COUNT = 50
+_MAX_SPECTATE_EVENT_COUNT = 500
+_LIVE_SSE_HEARTBEAT_SECONDS = 15.0
+_LIVE_SSE_QUEUE_SIZE = 256
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -150,11 +156,124 @@ def _sse_frame(event_type: str, data: Any) -> str:
     return f"event: {event_type}\ndata: {payload}\n\n"
 
 
+def _get_requested_count(query_params: dict[str, Any] | None) -> int:
+    """Return the bounded recent-event count requested by the caller."""
+    count_str = (
+        query_params.get("count", str(_DEFAULT_SPECTATE_EVENT_COUNT))
+        if query_params
+        else str(_DEFAULT_SPECTATE_EVENT_COUNT)
+    )
+    try:
+        return min(int(count_str), _MAX_SPECTATE_EVENT_COUNT)
+    except (ValueError, TypeError):
+        return _DEFAULT_SPECTATE_EVENT_COUNT
+
+
+def _event_matches_scope(
+    event: Any,
+    *,
+    debate_id: str | None,
+    pipeline_id: str | None,
+) -> bool:
+    """Return True when a spectate event belongs to the requested scope."""
+    if debate_id and getattr(event, "debate_id", None) != debate_id:
+        return False
+    if pipeline_id and getattr(event, "pipeline_id", None) != pipeline_id:
+        return False
+    return True
+
+
+def _filter_spectate_events(events: list[Any], query_params: dict[str, Any] | None) -> list[Any]:
+    """Filter buffered spectate events using the shared query semantics."""
+    debate_id = query_params.get("debate_id") if query_params else None
+    pipeline_id = query_params.get("pipeline_id") if query_params else None
+    return [
+        event
+        for event in events
+        if _event_matches_scope(event, debate_id=debate_id, pipeline_id=pipeline_id)
+    ]
+
+
+def iter_live_spectate_sse_frames(
+    query_params: dict[str, Any],
+    *,
+    heartbeat_interval: float = _LIVE_SSE_HEARTBEAT_SECONDS,
+    bridge: Any | None = None,
+):
+    """Yield a live SSE stream with an initial buffered snapshot and heartbeats."""
+    if bridge is None:
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+
+    if not bridge.running:
+        bridge.start()
+
+    debate_id = query_params.get("debate_id")
+    pipeline_id = query_params.get("pipeline_id")
+    backlog = _filter_spectate_events(
+        bridge.get_recent_events(_get_requested_count(query_params)),
+        query_params,
+    )
+    metadata: dict[str, Any] = {
+        "mode": "live",
+        "transport": "sse_live",
+        "readiness": "live",
+        "streaming_ready": True,
+        "message": (
+            "Spectate events are being delivered as a live SSE stream with an initial "
+            "buffered snapshot."
+        ),
+        "count": len(backlog),
+    }
+    if debate_id:
+        metadata["debate_id"] = debate_id
+    if pipeline_id:
+        metadata["pipeline_id"] = pipeline_id
+
+    event_queue: queue.Queue[Any] = queue.Queue(maxsize=_LIVE_SSE_QUEUE_SIZE)
+
+    def enqueue(event: Any) -> None:
+        if not _event_matches_scope(event, debate_id=debate_id, pipeline_id=pipeline_id):
+            return
+        try:
+            event_queue.put_nowait(event)
+        except queue.Full:
+            try:
+                event_queue.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                event_queue.put_nowait(event)
+            except queue.Full:
+                logger.debug("spectate_live_sse_queue_full", exc_info=True)
+
+    bridge.subscribe(enqueue)
+    try:
+        yield _sse_frame("connected", metadata).encode("utf-8")
+        for event in backlog:
+            yield _sse_frame("spectate", event.to_dict()).encode("utf-8")
+        yield _sse_frame("snapshot_complete", metadata).encode("utf-8")
+
+        while True:
+            try:
+                event = event_queue.get(timeout=heartbeat_interval)
+            except queue.Empty:
+                yield b": heartbeat\n\n"
+                continue
+            yield _sse_frame("spectate", event.to_dict()).encode("utf-8")
+    finally:
+        bridge.unsubscribe(enqueue)
+
+
 class SpectateStreamHandler(BaseHandler):
     """Handler for spectate stream endpoints.
 
-    Serves buffered SpectatorStream events over HTTP so that the
-    dashboard can poll for live debate/pipeline visualization data.
+    Serves buffered SpectatorStream preview data over HTTP.
+
+    The unified HTTP server upgrades SSE callers on this same endpoint to a
+    long-lived live stream via ``iter_live_spectate_sse_frames()``. This
+    handler remains the JSON/finite-snapshot fallback for compatibility.
     """
 
     ROUTES = [
@@ -170,12 +289,12 @@ class SpectateStreamHandler(BaseHandler):
     STREAM_SSE_TRANSPORT = "sse_snapshot"
     STREAM_JSON_MESSAGE = (
         "Buffered spectate events are available as a JSON preview on this endpoint. "
-        "Request Accept: text/event-stream or ?format=sse for a finite SSE snapshot; "
-        "full live SSE delivery has not shipped yet."
+        "Request Accept: text/event-stream or ?format=sse for live SSE delivery on the "
+        "unified server."
     )
     STREAM_SSE_MESSAGE = (
-        "Buffered spectate events are being delivered as a finite SSE snapshot on this "
-        "endpoint; full live SSE delivery has not shipped yet."
+        "Buffered spectate events are being delivered as a finite SSE fallback here; "
+        "the unified server serves live SSE on this endpoint."
     )
 
     @handle_errors("spectate")
@@ -282,24 +401,8 @@ class SpectateStreamHandler(BaseHandler):
             from aragora.spectate.ws_bridge import get_spectate_bridge
 
             bridge = get_spectate_bridge()
-
-            count_str = query_params.get("count", "50") if query_params else "50"
-            try:
-                count = min(int(count_str), 500)
-            except (ValueError, TypeError):
-                count = 50
-
-            events = bridge.get_recent_events(count)
-
-            debate_id = query_params.get("debate_id") if query_params else None
-            pipeline_id = query_params.get("pipeline_id") if query_params else None
-
-            if debate_id:
-                events = [e for e in events if e.debate_id == debate_id]
-            if pipeline_id:
-                events = [e for e in events if e.pipeline_id == pipeline_id]
-
-            return events
+            events = bridge.get_recent_events(_get_requested_count(query_params))
+            return _filter_spectate_events(events, query_params)
         except ImportError:
             return []
 

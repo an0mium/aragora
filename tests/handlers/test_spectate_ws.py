@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.spectate_ws import SpectateStreamHandler
+from aragora.server.handlers.spectate_ws import iter_live_spectate_sse_frames
 from aragora.spectate.ws_bridge import (
     SpectateEvent,
     SpectateWebSocketBridge,
@@ -160,6 +161,68 @@ class TestRouteMatching:
         assert result.content_type == "text/event-stream"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
+
+
+class TestLiveSSEFrames:
+    """Tests for the live SSE frame generator used by the unified server."""
+
+    def test_replays_backlog_then_streams_live_events(self):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp="2026-02-18T10:00:00+00:00",
+                debate_id="d-111",
+                agent_name="claude",
+                data={"details": "Ship the public bridge"},
+            )
+        )
+
+        stream = iter_live_spectate_sse_frames(
+            {"debate_id": "d-111", "count": "5"},
+            heartbeat_interval=0.01,
+            bridge=bridge,
+        )
+
+        connected = next(stream)
+        backlog = next(stream)
+        snapshot_complete = next(stream)
+
+        bridge._forward_event(
+            event_type="critique",
+            agent="gpt4",
+            details='{"debate_id":"d-111","details":"Do not fake liveness."}',
+        )
+        live_update = next(stream)
+        stream.close()
+
+        frames = _parse_sse_frames(connected + backlog + snapshot_complete + live_update)
+        assert [frame[0] for frame in frames] == [
+            "connected",
+            "spectate",
+            "snapshot_complete",
+            "spectate",
+        ]
+        assert frames[1][1]["event_type"] == "proposal"
+        assert frames[3][1]["event_type"] == "critique"
+        assert bridge.subscriber_count == 0
+
+    def test_emits_heartbeats_when_no_live_event_arrives(self):
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        stream = iter_live_spectate_sse_frames(
+            {"count": "1"},
+            heartbeat_interval=0.01,
+            bridge=bridge,
+        )
+
+        assert next(stream).startswith(b"event: connected")
+        assert next(stream).startswith(b"event: snapshot_complete")
+        assert next(stream) == b": heartbeat\n\n"
+        stream.close()
 
 
 # ---------------------------------------------------------------------------

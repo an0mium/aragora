@@ -104,6 +104,32 @@ def temp_nomic_dir():
 class TestHTTPDispatch:
     """Tests for HTTP route dispatching logic."""
 
+    @staticmethod
+    def _make_unified_handler(mock_request_handler, *, accept: str = "application/json"):
+        from aragora.server.unified_server import UnifiedHandler
+
+        handler = UnifiedHandler.__new__(UnifiedHandler)
+        handler.path = "/api/v1/spectate/stream"
+        handler.command = "GET"
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.headers = type(mock_request_handler.headers)({"Accept": accept})
+        handler.wfile = mock_request_handler.wfile
+        handler._response_status = 0
+        handler._rate_limit_result = None
+        handler.send_response = MagicMock()
+        handler.send_header = MagicMock()
+        handler.end_headers = MagicMock()
+        handler._add_cors_headers = MagicMock()
+        handler._add_security_headers = MagicMock()
+        handler._add_trace_headers = MagicMock()
+        handler._check_rbac = MagicMock(return_value=True)
+        handler._check_admin_mfa = MagicMock(return_value=True)
+        handler._check_rate_limit = MagicMock(return_value=True)
+        handler._check_live_streaming_budget = MagicMock(return_value=True)
+        handler._try_modular_handler = MagicMock(return_value=False)
+        handler._send_json = MagicMock()
+        return handler
+
     def test_api_path_routes_to_modular_handlers(self, mock_request_handler):
         """Test that /api/* paths attempt modular handler routing."""
         from aragora.server.unified_server import UnifiedHandler
@@ -236,6 +262,52 @@ class TestHTTPDispatch:
         # The /api/auth/me endpoint should return 401 for unauthenticated requests
         # This is a fallback behavior when the handler isn't available
         assert "/api/auth/me" not in UnifiedHandler.AUTH_EXEMPT_PATHS
+
+    def test_live_spectate_stream_intercepts_sse_requests(self, mock_request_handler):
+        """SSE spectate requests should bypass the buffered modular handler path."""
+        from aragora.server.unified_server import UnifiedHandler
+
+        handler = self._make_unified_handler(
+            mock_request_handler,
+            accept="text/event-stream",
+        )
+
+        with patch.object(
+            UnifiedHandler,
+            "_serve_live_spectate_stream",
+            return_value=True,
+        ) as mock_stream:
+            handler._do_GET_internal("/api/v1/spectate/stream", {})
+
+        mock_stream.assert_called_once_with({})
+        handler._try_modular_handler.assert_not_called()
+
+    def test_live_spectate_stream_falls_back_for_json_callers(self, mock_request_handler):
+        """Non-SSE spectate callers should continue through modular JSON handling."""
+        handler = self._make_unified_handler(mock_request_handler)
+        handler._try_modular_handler.return_value = True
+
+        handler._do_GET_internal("/api/v1/spectate/stream", {})
+
+        handler._try_modular_handler.assert_called_once_with("/api/v1/spectate/stream", {})
+
+    def test_serve_live_spectate_stream_writes_sse_frames(self, mock_request_handler):
+        """The dedicated live spectate path should emit framed SSE bytes."""
+        handler = self._make_unified_handler(
+            mock_request_handler,
+            accept="text/event-stream",
+        )
+
+        with patch(
+            "aragora.server.handlers.spectate_ws.iter_live_spectate_sse_frames",
+            return_value=iter([b"event: connected\ndata: {}\n\n"]),
+        ):
+            assert handler._serve_live_spectate_stream({}) is True
+
+        assert mock_request_handler.wfile.getvalue() == b"event: connected\ndata: {}\n\n"
+        handler.send_response.assert_called_once_with(200)
+        handler.send_header.assert_any_call("Content-Type", "text/event-stream")
+        handler.send_header.assert_any_call("X-Aragora-Stream-Transport", "sse_live")
 
 
 class TestHTTP404Handling:

@@ -410,6 +410,9 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_live_streaming_budget():
                 return
 
+        if self._maybe_stream_live_spectate(path, query):
+            return
+
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
@@ -503,6 +506,50 @@ class UnifiedHandler(  # type: ignore[misc]
         else:
             # Try serving as a static file
             self._serve_file(path.lstrip("/"))
+
+    def _maybe_stream_live_spectate(self, path: str, query: dict[str, Any]) -> bool:
+        """Serve the live spectate SSE transport before modular handler dispatch."""
+        if path not in {"/api/v1/spectate/stream", "/api/spectate/stream"}:
+            return False
+
+        format_hint = str(query.get("format", "")).lower() if query else ""
+        accept = self.headers.get("Accept") or self.headers.get("accept") or ""
+        if format_hint != "sse" and "text/event-stream" not in accept:
+            return False
+
+        return self._serve_live_spectate_stream(query)
+
+    def _serve_live_spectate_stream(self, query: dict[str, Any]) -> bool:
+        """Write a live SSE response for the public spectate stream endpoint."""
+        from aragora.server.handlers.spectate_ws import iter_live_spectate_sse_frames
+
+        self._response_status = 200
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Vary", "Accept")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("X-Aragora-Endpoint-State", "live")
+        self.send_header("X-Aragora-Stream-Mode", "live")
+        self.send_header("X-Aragora-Stream-Transport", "sse_live")
+        self._add_cors_headers()
+        self._add_security_headers()
+        self._add_trace_headers()
+        self.end_headers()
+
+        stream = iter_live_spectate_sse_frames(query)
+        try:
+            for chunk in stream:
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError, ValueError):
+            logger.debug("spectate_live_sse_client_disconnected", exc_info=True)
+        finally:
+            close = getattr(stream, "close", None)
+            if callable(close):
+                close()
+        return True
 
     def do_OPTIONS(self) -> None:
         """Handle CORS preflight."""
