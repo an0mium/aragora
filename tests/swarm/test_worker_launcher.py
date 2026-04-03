@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import subprocess
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1247,6 +1251,17 @@ class TestCollectFinishedSync:
 
 
 class TestCollectDetachedResult:
+    @staticmethod
+    def _run_git(cwd: Path, *args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return proc.stdout.strip()
+
     @pytest.mark.asyncio
     async def test_returns_none_if_pid_running(self):
         with patch.object(WorkerLauncher, "_is_pid_running", return_value=True):
@@ -1305,6 +1320,57 @@ class TestCollectDetachedResult:
         assert result.verification_results == verification_results
         assert result.stdout == "some output"
         mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
+
+    @pytest.mark.asyncio
+    async def test_infers_missing_initial_head_from_session_reflog(self, tmp_path: Path):
+        self._run_git(tmp_path, "init", "-b", "main")
+        self._run_git(tmp_path, "config", "user.name", "Codex")
+        self._run_git(tmp_path, "config", "user.email", "codex@example.com")
+        (tmp_path / "file.txt").write_text("base\n", encoding="utf-8")
+        self._run_git(tmp_path, "add", "file.txt")
+        self._run_git(tmp_path, "commit", "-m", "base")
+        initial_head = self._run_git(tmp_path, "rev-parse", "HEAD")
+
+        started_at = datetime.now(timezone.utc).isoformat()
+        time.sleep(1.1)
+        (tmp_path / "file.txt").write_text("base\nchange\n", encoding="utf-8")
+        self._run_git(tmp_path, "add", "file.txt")
+        self._run_git(tmp_path, "commit", "-m", "change")
+        head_sha = self._run_git(tmp_path, "rev-parse", "HEAD")
+
+        (tmp_path / ".codex_session_meta.json").write_text(
+            json.dumps(
+                {
+                    "pid": 999999,
+                    "started_at": started_at,
+                    "ended_at": datetime.now(timezone.utc).isoformat(),
+                    "exit_code": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()) as mock_push,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-missing-initial-head",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=999999,
+                initial_head="",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+        assert result.initial_head == initial_head
+        assert result.head_sha == head_sha
+        assert result.commit_shas == [head_sha]
+        assert result.changed_paths == ["file.txt"]
+        mock_push.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_returns_none_if_pid_dead_without_terminal_marker_or_deliverable(self):

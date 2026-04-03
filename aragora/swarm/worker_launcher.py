@@ -38,6 +38,7 @@ from aragora.swarm.worker_process import (
 )
 
 logger = logging.getLogger(__name__)
+_REFLOG_SELECTOR_TIMESTAMP_RE = re.compile(r"\{(?P<timestamp>[^{}]+)\}$")
 
 # Merge-gate verification should be deterministic and must not inherit the
 # operator shell's live provider credentials. Tests that need keys can still
@@ -932,6 +933,91 @@ class WorkerLauncher:
     def _collect_diff_sync(cls, worktree_path: str) -> str:
         return cls._git_output_sync(worktree_path, "diff", "HEAD")
 
+    @staticmethod
+    def _parse_iso_timestamp(raw_value: Any) -> datetime | None:
+        text = str(raw_value or "").strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = f"{text[:-1]}+00:00"
+        try:
+            return datetime.fromisoformat(text)
+        except ValueError:
+            return None
+
+    @classmethod
+    def _infer_initial_head_from_reflog_output(
+        cls,
+        reflog_output: str,
+        *,
+        session_started_at: datetime,
+        head_sha: str,
+    ) -> str:
+        entries: list[tuple[str, datetime]] = []
+        for raw_line in reflog_output.splitlines():
+            if not raw_line:
+                continue
+            sha, separator, selector = raw_line.partition("\0")
+            if not separator:
+                continue
+            match = _REFLOG_SELECTOR_TIMESTAMP_RE.search(selector.strip())
+            if not match:
+                continue
+            entry_started_at = cls._parse_iso_timestamp(match.group("timestamp"))
+            if entry_started_at is None:
+                continue
+            entry_sha = sha.strip()
+            if not entry_sha:
+                continue
+            entries.append((entry_sha, entry_started_at))
+
+        session_entry_indexes = [
+            idx
+            for idx, (_, entry_started_at) in enumerate(entries)
+            if entry_started_at >= session_started_at
+        ]
+        if not session_entry_indexes:
+            return ""
+
+        prior_entry_index = max(session_entry_indexes) + 1
+        if prior_entry_index >= len(entries):
+            return ""
+
+        candidate = entries[prior_entry_index][0]
+        if not candidate or candidate == head_sha:
+            return ""
+        return candidate
+
+    @classmethod
+    async def _infer_initial_head_from_session_reflog(
+        cls,
+        worktree_path: str,
+        *,
+        session_started_at: Any,
+        head_sha: str,
+    ) -> str:
+        parsed_started_at = cls._parse_iso_timestamp(session_started_at)
+        if parsed_started_at is None or not head_sha:
+            return ""
+        reflog_output = await cls._git_output(
+            worktree_path,
+            "reflog",
+            "--date=iso-strict",
+            "--format=%H%x00%gD",
+        )
+        inferred = cls._infer_initial_head_from_reflog_output(
+            reflog_output,
+            session_started_at=parsed_started_at,
+            head_sha=head_sha,
+        )
+        if inferred:
+            logger.info(
+                "Inferred missing initial_head from session reflog for %s: %s",
+                worktree_path,
+                inferred[:12],
+            )
+        return inferred
+
     @classmethod
     async def _collect_commit_shas(
         cls,
@@ -1145,14 +1231,23 @@ class WorkerLauncher:
                 await cls._auto_commit(worker)
 
             worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
+            effective_initial_head = initial_head
+            if not effective_initial_head:
+                effective_initial_head = await cls._infer_initial_head_from_session_reflog(
+                    worktree_path,
+                    session_started_at=session_meta.get("started_at"),
+                    head_sha=worker.head_sha,
+                )
+                if effective_initial_head:
+                    worker.initial_head = effective_initial_head
             worker.commit_shas = await cls._collect_commit_shas(
                 worktree_path,
-                initial_head=initial_head,
+                initial_head=effective_initial_head,
                 head_sha=worker.head_sha,
             )
             worker.changed_paths = await cls._collect_changed_paths(
                 worktree_path,
-                initial_head=initial_head,
+                initial_head=effective_initial_head,
                 head_sha=worker.head_sha,
             )
 

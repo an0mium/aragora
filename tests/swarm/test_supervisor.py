@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import subprocess
+import json
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -3436,6 +3438,124 @@ def test_refresh_run_collects_finished_detached_worker_before_stale_lease_reap(
     assert refreshed.work_orders[0]["status"] == "completed"
     assert refreshed.work_orders[0]["review_status"] == "pending_heterogeneous_review"
     assert refreshed.work_orders[0]["merge_gate"]["checks_passed"] is True
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_recovers_missing_initial_head_from_detached_session_reflog(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    expected_test = "python -m pytest tests/swarm/test_supervisor.py -q -k detached"
+    _run(repo, "git", "checkout", "-b", "codex/missing-initial-head")
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    started_at = datetime.now(timezone.utc).isoformat()
+    time.sleep(1.1)
+
+    (repo / "README.md").write_text("hello\nrecovered detached deliverable\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "recover missing initial head")
+    head_sha = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    (repo / ".codex_session_meta.json").write_text(
+        json.dumps(
+            {
+                "pid": 424242,
+                "started_at": started_at,
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+                "exit_code": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    lease = store.claim_lease(
+        task_id="detached-missing-initial-head",
+        title="Detached missing initial head lane",
+        owner_agent="codex",
+        owner_session_id="detached-missing-initial-head-session",
+        branch="codex/missing-initial-head",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="recover detached worker deliverable with missing initial head",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "recover detached worker deliverable with missing initial head"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-missing-initial-head",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "codex/missing-initial-head",
+                "target_agent": "codex",
+                "owner_session_id": "detached-missing-initial-head-session",
+                "lease_id": lease.lease_id,
+                "pid": 424242,
+                "initial_head": "",
+                "review_status": "pending",
+                "file_scope": ["README.md", ".aragora/*"],
+                "expected_tests": [expected_test],
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock()
+    mock_launcher.get_worker = MagicMock(return_value=None)
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with (
+        patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+        patch.object(WorkerLauncher, "_auto_push", new=AsyncMock()) as mock_push,
+        patch.object(SwarmSupervisor, "_check_file_scope_violations", return_value=[]),
+        patch.object(
+            store,
+            "record_completion",
+            return_value=SimpleNamespace(
+                receipt_id="receipt-missing-initial-head",
+                confidence=0.93,
+            ),
+        ) as mock_record_completion,
+        patch.object(
+            WorkerLauncher,
+            "_run_verification_commands",
+            new=AsyncMock(
+                return_value=[
+                    {
+                        "command": expected_test,
+                        "exit_code": 0,
+                        "passed": True,
+                        "stdout": "1 passed",
+                        "stderr": "",
+                        "duration_seconds": 0.1,
+                    }
+                ]
+            ),
+        ) as mock_verify,
+    ):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert len(completed) == 1
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "completed"
+    assert work_order["commit_shas"] == [head_sha]
+    assert "README.md" in work_order["changed_paths"]
+    assert work_order["receipt_id"] == "receipt-missing-initial-head"
+    assert work_order["tests_run"] == [expected_test]
+    mock_push.assert_awaited_once()
+    mock_verify.assert_awaited_once_with(str(repo), [expected_test])
+    mock_record_completion.assert_called_once()
+    assert mock_record_completion.call_args.kwargs["base_sha"] == initial_head
+    assert mock_record_completion.call_args.kwargs["head_sha"] == head_sha
+    mock_launcher.snapshot_progress.assert_not_awaited()
 
 
 @pytest.mark.asyncio

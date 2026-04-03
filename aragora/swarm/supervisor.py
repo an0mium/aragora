@@ -2823,6 +2823,8 @@ class SwarmSupervisor:
         item["verification_results"] = self._verification_results_from_result(result)
         item["commit_shas"] = list(result.commit_shas)
         item["head_sha"] = result.head_sha
+        if result.initial_head and not str(item.get("initial_head", "")).strip():
+            item["initial_head"] = result.initial_head
         self._update_log_tails(item, stdout=result.stdout, stderr=result.stderr)
         item.pop("pid", None)
 
