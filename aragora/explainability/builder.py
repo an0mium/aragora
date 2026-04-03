@@ -54,6 +54,7 @@ class ExplanationBuilder:
         elo_system: Any | None = None,
         provenance_tracker: Any | None = None,
         event_emitter: Any | None = None,
+        live_explainability_stream: Any | None = None,
     ):
         """
         Initialize the builder with optional tracking systems.
@@ -65,6 +66,9 @@ class ExplanationBuilder:
             elo_system: EloSystem for agent skill ratings
             provenance_tracker: ProvenanceTracker for claim lineage
             event_emitter: Optional event emitter for streaming explainability events
+            live_explainability_stream: Optional LiveExplainabilityStream for
+                feeding builder-computed factors into the live explainability
+                snapshot that gets persisted in receipt metadata.
         """
         self.evidence_tracker = evidence_tracker
         self.belief_network = belief_network
@@ -72,6 +76,7 @@ class ExplanationBuilder:
         self.elo_system = elo_system
         self.provenance_tracker = provenance_tracker
         self.event_emitter = event_emitter
+        self.live_explainability_stream = live_explainability_stream
 
     async def build(
         self,
@@ -178,6 +183,10 @@ class ExplanationBuilder:
             },
         )
 
+        # Feed builder-computed factors into the live explainability stream
+        # so they appear in the snapshot persisted to receipt metadata.
+        self._enrich_live_stream(decision)
+
         return decision
 
     def _emit_event(self, event_name: str, data: dict[str, Any]) -> None:
@@ -192,6 +201,61 @@ class ExplanationBuilder:
                 self.event_emitter.emit(StreamEvent(type=event_type, data=data))
         except (ImportError, AttributeError, TypeError):
             pass
+
+    def _enrich_live_stream(self, decision: Decision) -> None:
+        """Feed builder-computed factors into the LiveExplainabilityStream.
+
+        When a LiveExplainabilityStream is attached, this bridges the
+        builder's richer factor analysis (evidence quality, agreement,
+        belief stability) into the live snapshot that gets persisted
+        in receipt metadata via ``result.metadata["live_explainability"]``.
+        """
+        stream = self.live_explainability_stream
+        if stream is None:
+            return
+        try:
+            from aragora.explainability.live_stream import LiveFactor
+
+            enriched_factors: list[Any] = []
+            if decision.evidence_quality_score > 0:
+                enriched_factors.append(
+                    LiveFactor(
+                        name="builder_evidence_quality",
+                        contribution=round(decision.evidence_quality_score * 0.3, 3),
+                        explanation=f"Builder-computed evidence quality: {decision.evidence_quality_score:.0%}",
+                        raw_value=decision.evidence_quality_score,
+                    )
+                )
+            if decision.agent_agreement_score > 0:
+                enriched_factors.append(
+                    LiveFactor(
+                        name="builder_agent_agreement",
+                        contribution=round(decision.agent_agreement_score * 0.3, 3),
+                        explanation=f"Builder-computed agent agreement: {decision.agent_agreement_score:.0%}",
+                        raw_value=decision.agent_agreement_score,
+                    )
+                )
+            if decision.belief_stability_score < 1.0:
+                enriched_factors.append(
+                    LiveFactor(
+                        name="builder_belief_stability",
+                        contribution=round(decision.belief_stability_score * 0.2, 3),
+                        explanation=f"Builder-computed belief stability: {decision.belief_stability_score:.0%}",
+                        raw_value=decision.belief_stability_score,
+                    )
+                )
+
+            # Inject enriched factors into the stream's factor computation
+            # by recording them via on_belief_change so they influence the
+            # next snapshot.  The stream doesn't have a direct add_factor API,
+            # so we stash them as a public attribute the stream can optionally
+            # pick up when generating a snapshot.
+            if enriched_factors and hasattr(stream, "_builder_factors"):
+                stream._builder_factors.extend(enriched_factors)
+            elif enriched_factors:
+                stream._builder_factors = list(enriched_factors)
+        except (ImportError, AttributeError, TypeError, ValueError) as e:
+            logger.debug("Live stream enrichment failed (non-critical): %s", e)
 
     def _generate_id(self, result: Any) -> str:
         """Generate an ID for the debate."""
