@@ -766,7 +766,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
-_ORACLE_CALL_TIMEOUT = 25.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
+_ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
 
 
 def _get_api_key(name: str) -> str | None:
@@ -2836,7 +2836,7 @@ class PlaygroundHandler(BaseHandler):
             logger.info(
                 "Live debate returned status %d, falling back to mock", live_result.status_code
             )
-        except (TimeoutError, ValueError, RuntimeError, OSError) as exc:
+        except Exception as exc:  # noqa: BLE001 — landing page must never error
             logger.warning("Live debate failed, falling back to mock: %s", exc)
 
         if source == "demo":
@@ -3324,7 +3324,7 @@ class PlaygroundHandler(BaseHandler):
 # Live debate execution
 # ---------------------------------------------------------------------------
 
-_LIVE_TIMEOUT = 15  # seconds — playground must respond quickly
+_LIVE_TIMEOUT = 90  # seconds — playground must respond quickly
 _LIVE_BUDGET_CAP = 0.05  # USD
 _LIVE_MAX_CONCURRENT = 2
 _LIVE_DEFAULT_AGENTS = ["anthropic-api", "openai-api"]

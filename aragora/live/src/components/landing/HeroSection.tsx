@@ -293,6 +293,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 180_000);
 
     try {
       const res = await fetch(playgroundDebateUrl, {
@@ -356,9 +357,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       });
       setResult(nextResult);
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('The debate is taking longer than expected. Please try a shorter question or try again.');
+        return;
+      }
       setError('Could not connect to the server. Check your connection and try again.');
     } finally {
+      clearTimeout(timeoutId);
       setIsRunning(false);
     }
   }
