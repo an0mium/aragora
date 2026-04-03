@@ -176926,6 +176926,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Request password reset (compatibility)",
+        "operationId": "requestPasswordResetCompat",
+        "description": "Legacy compatibility alias for requesting a password reset email.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset request accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/forgot-password": {
@@ -176991,6 +177040,59 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Reset password (compatibility)",
+        "operationId": "resetPasswordCompat",
+        "description": "Legacy compatibility alias for resetting a password with a token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "new_password"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/reset-password": {
@@ -177446,6 +177548,54 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify email address (compatibility)",
+        "operationId": "verifyEmailCompat",
+        "description": "Legacy compatibility alias for verifying an email address with a token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/verify-email": {
@@ -177511,6 +177661,36 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend verification email (compatibility)",
+        "operationId": "resendVerificationEmailCompat",
+        "description": "Legacy compatibility alias for resending the verification email.",
+        "deprecated": true,
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Verification email resent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/verify-email/resend": {
@@ -177576,6 +177756,52 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend verification email via legacy alias",
+        "operationId": "resendVerificationCompat",
+        "description": "Legacy compatibility alias for resending an email verification message.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email resent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/resend-verification": {
@@ -177641,6 +177867,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Set up organization (compatibility)",
+        "operationId": "setupOrganizationCompat",
+        "description": "Legacy compatibility alias for creating the first organization after signup.",
+        "deprecated": true,
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/setup-organization": {
@@ -177706,6 +177981,55 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Invite team member (compatibility)",
+        "operationId": "inviteTeamMemberCompat",
+        "description": "Legacy compatibility alias for inviting a team member.",
+        "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/invite": {
@@ -177836,6 +178160,47 @@
         "x-method-inferred": false,
         "deprecated": true,
         "x-aragora-stability": "deprecated"
+      },
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Accept invite (compatibility)",
+        "operationId": "acceptInviteCompat",
+        "description": "Legacy compatibility alias for accepting an invitation token.",
+        "deprecated": true,
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/auth/accept-invite": {
@@ -192982,99 +193347,78 @@
       }
     },
     "/api/v1/costs/efficiency": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Costs"
-        ],
+      "get": {
+        "summary": "Get efficiency metrics",
+        "tags": [],
+        "description": "Get cost efficiency metrics including cost per token and model utilization.",
+        "operationId": "handle_get_efficiency",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
           }
         },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/costs/export": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Costs"
-        ],
+      "get": {
+        "summary": "Export cost data",
+        "tags": [],
+        "description": "Export usage data as CSV or JSON.",
+        "operationId": "handle_export",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
           }
         },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/costs/forecast": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Costs"
-        ],
+      "get": {
+        "summary": "Get cost forecast",
+        "tags": [],
+        "description": "Get cost forecast for the specified number of days.",
+        "operationId": "handle_get_forecast",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
           }
         },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/costs/forecast/simulate": {
@@ -193110,35 +193454,28 @@
       }
     },
     "/api/v1/costs/recommendations": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Costs"
-        ],
+      "get": {
+        "summary": "Get recommendations",
+        "tags": [],
+        "description": "Get cost optimization recommendations for the workspace.",
+        "operationId": "handle_get_recommendations",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
           }
         },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/v1/costs/recommendations/{param}/apply": {
@@ -214903,6 +215240,213 @@
           }
         ],
         "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/matches/stats": {
+      "get": {
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get match statistics",
+        "description": "Return aggregate statistics for the match system.",
+        "responses": {
+          "200": {
+            "description": "Match statistics",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/v1/matches/stats": {
+      "get": {
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get match statistics",
+        "description": "Return aggregate statistics for the match system.",
+        "operationId": "getMatchStats",
+        "responses": {
+          "200": {
+            "description": "Match statistics",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/bots/email/status": {
+      "get": {
+        "tags": [
+          "Bots - Email"
+        ],
+        "summary": "Get email integration status",
+        "description": "Returns the status of email integrations (SendGrid, AWS SES).\n\n**Response includes:**\n- SendGrid Inbound Parse connection status\n- AWS SES connection status\n- Total emails processed\n\n**Use cases:**\n- Verify email webhook configuration\n- Monitor email processing volume\n- Debug delivery issues",
+        "operationId": "getEmailStatus",
+        "responses": {
+          "200": {
+            "description": "Email integration status",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sendgrid_connected": {
+                      "type": "boolean"
+                    },
+                    "ses_connected": {
+                      "type": "boolean"
+                    },
+                    "emails_processed": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/inbox/mentions": {
+      "get": {
+        "summary": "Get mentions",
+        "tags": [
+          "Inbox",
+          "Mentions"
+        ],
+        "description": "Get @mentions for the current user.",
+        "operationId": "handle_get_mentions",
+        "parameters": [
+          {
+            "name": "unacknowledged_only",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of mentions"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },
