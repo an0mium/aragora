@@ -24,6 +24,133 @@ EntityT = TypeVar("EntityT")
 # Metrics callback - set by metrics module
 _metrics_callback: Callable[[str, int], None] | None = None
 
+# Prometheus metrics - lazily initialized
+_prom_metrics: dict[str, Any] = {}
+_prometheus_available: bool | None = None
+
+
+def _check_prometheus() -> bool:
+    """Check if prometheus_client is available."""
+    global _prometheus_available
+    if _prometheus_available is None:
+        try:
+            import prometheus_client  # noqa: F401
+
+            _prometheus_available = True
+        except ImportError:
+            _prometheus_available = False
+    return _prometheus_available
+
+
+def _get_or_create_prom_metric(
+    name: str,
+    metric_type: type,
+    description: str,
+    labels: list[str] | None = None,
+) -> Any:
+    """Get or lazily create a Prometheus metric."""
+    if not _check_prometheus():
+        return None
+    if name not in _prom_metrics:
+        if labels:
+            _prom_metrics[name] = metric_type(name, description, labels)
+        else:
+            _prom_metrics[name] = metric_type(name, description)
+    return _prom_metrics[name]
+
+
+def _prom_record_state(circuit_name: str, state: int) -> None:
+    """Update Prometheus metrics for a circuit state change.
+
+    Args:
+        circuit_name: Name of the circuit breaker
+        state: 0=closed, 1=open, 2=half-open
+    """
+    if not _check_prometheus():
+        return
+    try:
+        from prometheus_client import Counter, Gauge
+
+        state_gauge = _get_or_create_prom_metric(
+            "aragora_circuit_breaker_state",
+            Gauge,
+            "Current circuit breaker state (0=closed, 1=open, 2=half_open)",
+            ["circuit_name"],
+        )
+        if state_gauge:
+            state_gauge.labels(circuit_name=circuit_name).set(state)
+
+        state_map = {0: "closed", 1: "open", 2: "half_open"}
+        transitions_counter = _get_or_create_prom_metric(
+            "aragora_circuit_breaker_transitions_total",
+            Counter,
+            "Total circuit breaker state transitions",
+            ["circuit_name", "to_state"],
+        )
+        if transitions_counter:
+            transitions_counter.labels(
+                circuit_name=circuit_name,
+                to_state=state_map.get(state, str(state)),
+            ).inc()
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Error recording prometheus circuit breaker metrics: %s", e)
+
+
+def _prom_record_failure(circuit_name: str) -> None:
+    """Increment Prometheus failure counter for a circuit."""
+    if not _check_prometheus():
+        return
+    try:
+        from prometheus_client import Counter
+
+        counter = _get_or_create_prom_metric(
+            "aragora_circuit_breaker_failures_total",
+            Counter,
+            "Total circuit breaker recorded failures",
+            ["circuit_name"],
+        )
+        if counter:
+            counter.labels(circuit_name=circuit_name).inc()
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Error recording prometheus circuit breaker failure: %s", e)
+
+
+def _prom_record_success(circuit_name: str) -> None:
+    """Increment Prometheus success counter for a circuit."""
+    if not _check_prometheus():
+        return
+    try:
+        from prometheus_client import Counter
+
+        counter = _get_or_create_prom_metric(
+            "aragora_circuit_breaker_successes_total",
+            Counter,
+            "Total circuit breaker recorded successes",
+            ["circuit_name"],
+        )
+        if counter:
+            counter.labels(circuit_name=circuit_name).inc()
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Error recording prometheus circuit breaker success: %s", e)
+
+
+def reset_prometheus_metrics() -> None:
+    """Reset all Prometheus metrics (for testing)."""
+    global _prom_metrics, _prometheus_available
+    if _prometheus_available:
+        try:
+            from prometheus_client import REGISTRY
+
+            for metric in _prom_metrics.values():
+                try:
+                    REGISTRY.unregister(metric)
+                except (ValueError, TypeError, KeyError):
+                    pass
+        except ImportError:
+            pass
+    _prom_metrics.clear()
+    _prometheus_available = None
+
 
 def _set_metrics_callback(callback: Callable[[str, int], None] | None) -> None:
     """Internal: Set the metrics callback."""
@@ -33,6 +160,7 @@ def _set_metrics_callback(callback: Callable[[str, int], None] | None) -> None:
 
 def _emit_metrics(circuit_name: str, state: int) -> None:
     """Emit metrics for circuit state change."""
+    _prom_record_state(circuit_name, state)
     if _metrics_callback:
         try:
             _metrics_callback(circuit_name, state)
@@ -208,6 +336,7 @@ class CircuitBreaker:
         """Record failure in single-entity mode."""
         self._single_failures += 1
         self._single_successes = 0
+        _prom_record_failure(self.name)
 
         if self._single_failures >= self.failure_threshold:
             if self._single_open_at == 0.0:
@@ -239,6 +368,7 @@ class CircuitBreaker:
         self._prune_stale_entities()
         self._failures[entity] = self._failures.get(entity, 0) + 1
         self._half_open_successes[entity] = 0
+        _prom_record_failure(f"{self.name}:{entity}")
 
         if self._failures[entity] >= self.failure_threshold:
             if entity not in self._circuit_open_at:
@@ -264,6 +394,7 @@ class CircuitBreaker:
 
     def _record_single_success(self) -> None:
         """Record success in single-entity mode."""
+        _prom_record_success(self.name)
         if self._single_open_at > 0.0:
             # Single success closes circuit in single-entity mode
             self._single_open_at = 0.0
@@ -276,6 +407,7 @@ class CircuitBreaker:
 
     def _record_entity_success(self, entity: str) -> None:
         """Record success for a specific entity."""
+        _prom_record_success(f"{self.name}:{entity}")
         if entity in self._circuit_open_at:
             self._half_open_successes[entity] = self._half_open_successes.get(entity, 0) + 1
             if self._half_open_successes[entity] >= self.half_open_success_threshold:
@@ -587,4 +719,5 @@ class CircuitBreaker:
 __all__ = [
     "CircuitBreaker",
     "CircuitOpenError",
+    "reset_prometheus_metrics",
 ]
