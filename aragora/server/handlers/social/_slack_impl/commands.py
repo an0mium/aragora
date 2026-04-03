@@ -575,8 +575,6 @@ Reply in thread to add suggestions to ongoing debates
             json.JSONDecodeError,
             ValueError,
             KeyError,
-            ImportError,
-            RuntimeError,
         ) as e:
             logger.error("Async question answering failed: %s", e, exc_info=True)
             await self._post_to_response_url(
