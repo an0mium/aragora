@@ -4026,6 +4026,152 @@ def test_rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders_p
     assert refreshed["work_orders"][0]["status"] == "needs_human"
 
 
+def test_rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders_restores_validation_child(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Rehabilitate validation child lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for parser.py",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "worker_outcome": "completed",
+                "branch": "codex/micro-1",
+                "commit_shas": ["abc12345"],
+                "receipt_id": "receipt-parent",
+                "changed_paths": ["tests/cli/test_swarm_command.py"],
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "completed",
+                "review_status": "changes_requested",
+                "worker_outcome": "clean_exit_no_effect",
+                "failure_reason": "clean_exit_no_deliverable",
+                "dispatch_error": "worker produced only session artifacts, no real deliverables",
+                "blocking_question": (
+                    "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                ),
+                "blocker": {
+                    "reason": "clean_exit_no_deliverable",
+                    "question": (
+                        "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                    ),
+                },
+                "blockers": ["worker produced only session artifacts, no real deliverables"],
+                "branch": "codex/micro-2",
+                "commit_shas": ["def67890"],
+                "receipt_id": "receipt-child",
+                "dependency_ids": ["micro-task-1"],
+                "expected_tests": ["python -m pytest tests/cli/test_swarm_command.py -q"],
+                "tests_run": ["python -m pytest tests/cli/test_swarm_command.py -q"],
+                "verification_results": [
+                    {
+                        "command": "python -m pytest tests/cli/test_swarm_command.py -q",
+                        "passed": True,
+                        "exit_code": 0,
+                        "stdout": "76 passed in 1.92s\n",
+                        "stderr": "",
+                    }
+                ],
+                "changed_paths": [],
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+            },
+        ],
+    )
+
+    updated = store.rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 1
+    assert refreshed is not None
+    work_order = next(
+        item for item in refreshed["work_orders"] if item["pipeline_task_id"] == "micro-task-2"
+    )
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["worker_outcome"] == "completed"
+    assert work_order["merge_gate"]["checks_passed"] is True
+    assert work_order["blockers"] == []
+    assert "failure_reason" not in work_order
+    assert "dispatch_error" not in work_order
+    assert "blocking_question" not in work_order
+    assert "blocker" not in work_order
+
+
+def test_rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders_preserves_validation_child_without_deliverable_dependency(
+    store: DevCoordinationStore,
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Preserve validation child without deliverable dependency",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Queued prerequisite",
+                "status": "queued",
+                "review_status": "pending",
+                "file_scope": ["tests/cli/test_swarm_command.py"],
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "completed",
+                "review_status": "changes_requested",
+                "worker_outcome": "clean_exit_no_effect",
+                "failure_reason": "clean_exit_no_deliverable",
+                "dispatch_error": "worker produced only session artifacts, no real deliverables",
+                "receipt_id": "receipt-child",
+                "dependency_ids": ["micro-task-1"],
+                "expected_tests": ["python -m pytest tests/cli/test_swarm_command.py -q"],
+                "tests_run": ["python -m pytest tests/cli/test_swarm_command.py -q"],
+                "verification_results": [
+                    {
+                        "command": "python -m pytest tests/cli/test_swarm_command.py -q",
+                        "passed": True,
+                        "exit_code": 0,
+                        "stdout": "76 passed in 1.92s\n",
+                        "stderr": "",
+                    }
+                ],
+                "changed_paths": [],
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+            },
+        ],
+    )
+
+    updated = store.rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders()
+    refreshed = store.get_supervisor_run(run["run_id"])
+
+    assert updated == 0
+    assert refreshed is not None
+    work_order = next(
+        item for item in refreshed["work_orders"] if item["pipeline_task_id"] == "micro-task-2"
+    )
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "changes_requested"
+    assert work_order["failure_reason"] == "clean_exit_no_deliverable"
+
+
 def test_reclassify_branch_snapshot_stale_review_work_orders(
     store: DevCoordinationStore,
 ) -> None:

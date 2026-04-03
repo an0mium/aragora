@@ -1005,7 +1005,8 @@ class DevCoordinationStore:
                 changed = False
                 for item in record["work_orders"]:
                     if not _work_order_should_rehabilitate_deliverable_backed_clean_exit_no_deliverable(
-                        item
+                        item,
+                        work_orders=record["work_orders"],
                     ):
                         continue
                     item["merge_gate"] = _merge_gate_state_for_work_order(item)
@@ -5882,16 +5883,101 @@ def _work_order_should_rehabilitate_docs_only_missing_verification_plan(
     return _work_order_has_concrete_deliverable(work_order)
 
 
+def _work_order_dependency_ids(work_order: dict[str, Any]) -> list[str]:
+    return [str(item).strip() for item in work_order.get("dependency_ids", []) if str(item).strip()]
+
+
+def _work_order_matches_dependency_id(work_order: dict[str, Any], dependency_id: str) -> bool:
+    target = str(dependency_id).strip()
+    if not target:
+        return False
+    return target in {
+        _optional_text(work_order.get("pipeline_task_id")),
+        _work_order_identifier(work_order),
+        _optional_text(work_order.get("task_key")),
+    }
+
+
+def _resolve_dependency_work_order(
+    work_orders: list[dict[str, Any]],
+    dependency_id: str,
+) -> dict[str, Any] | None:
+    for candidate in work_orders:
+        if not isinstance(candidate, dict):
+            continue
+        if _work_order_matches_dependency_id(candidate, dependency_id):
+            return candidate
+    return None
+
+
+def _work_order_has_passed_verification_results(work_order: dict[str, Any]) -> bool:
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    if not verification_results:
+        return False
+    if not all(bool(entry.get("passed", False)) for entry in verification_results):
+        return False
+    merge_gate = _merge_gate_state_for_work_order(work_order)
+    return bool(merge_gate.get("checks_passed")) and not _optional_text(
+        merge_gate.get("verification_missing_reason")
+    )
+
+
+def _work_order_should_rehabilitate_dependency_validated_clean_exit_no_deliverable(
+    work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]],
+) -> bool:
+    if _optional_text(work_order.get("status")).lower() != "completed":
+        return False
+    if _optional_text(work_order.get("review_status")).lower() != "changes_requested":
+        return False
+    if _optional_text(work_order.get("worker_outcome")).lower() != "clean_exit_no_effect":
+        return False
+    if any(str(path).strip() for path in work_order.get("changed_paths", []) or []):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    if not _work_order_has_passed_verification_results(work_order):
+        return False
+    dependency_ids = _work_order_dependency_ids(work_order)
+    if not dependency_ids:
+        return False
+    for dependency_id in dependency_ids:
+        dependency = _resolve_dependency_work_order(work_orders, dependency_id)
+        if dependency is None or dependency is work_order:
+            return False
+        if _optional_text(dependency.get("status")).lower() not in {
+            "completed",
+            "changes_requested",
+            "merged",
+        }:
+            return False
+        if not _work_order_has_concrete_deliverable(dependency):
+            return False
+    return True
+
+
 def _work_order_should_rehabilitate_deliverable_backed_clean_exit_no_deliverable(
     work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not isinstance(work_order, dict):
         return False
     status = _optional_text(work_order.get("status")).lower()
-    if status not in {"needs_human", "changes_requested"}:
+    if status not in {"needs_human", "changes_requested", "completed"}:
         return False
     if _infer_missing_failure_reason_for_work_order(work_order) != "clean_exit_no_deliverable":
         return False
+    if status == "completed":
+        return _work_order_should_rehabilitate_dependency_validated_clean_exit_no_deliverable(
+            work_order,
+            work_orders=list(work_orders or []),
+        )
     if not _optional_text(work_order.get("receipt_id")):
         return False
     return _work_order_has_concrete_deliverable(work_order)
