@@ -47,6 +47,76 @@ interface MemoryPressure {
   recommendation?: string;
 }
 
+const DEFAULT_TIER_PRESSURE = {
+  fast: 0,
+  medium: 0,
+  slow: 0,
+  glacial: 0,
+};
+
+function _asNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeMemoryPressure(data: unknown): MemoryPressure | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const payload = data as Record<string, unknown>;
+  const rawTierPressure =
+    payload.tier_pressure && typeof payload.tier_pressure === 'object'
+      ? (payload.tier_pressure as Record<string, unknown>)
+      : null;
+  const rawTierUtilization =
+    payload.tier_utilization && typeof payload.tier_utilization === 'object'
+      ? (payload.tier_utilization as Record<string, unknown>)
+      : null;
+
+  const getTierValue = (tier: keyof typeof DEFAULT_TIER_PRESSURE) => {
+    const tierPressureValue = rawTierPressure?.[tier];
+    if (typeof tierPressureValue === 'number' && Number.isFinite(tierPressureValue)) {
+      return tierPressureValue;
+    }
+
+    const tierKey = tier.toUpperCase();
+    const tierUtilizationEntry =
+      rawTierUtilization?.[tierKey] ?? rawTierUtilization?.[tier];
+    if (tierUtilizationEntry && typeof tierUtilizationEntry === 'object') {
+      return _asNumber(
+        (tierUtilizationEntry as { utilization?: unknown }).utilization,
+        DEFAULT_TIER_PRESSURE[tier]
+      );
+    }
+
+    return DEFAULT_TIER_PRESSURE[tier];
+  };
+
+  const tier_pressure = {
+    fast: getTierValue('fast'),
+    medium: getTierValue('medium'),
+    slow: getTierValue('slow'),
+    glacial: getTierValue('glacial'),
+  };
+
+  const overall_pressure = _asNumber(
+    payload.overall_pressure ?? payload.pressure,
+    Math.max(...Object.values(tier_pressure))
+  );
+
+  const alerts = Array.isArray(payload.alerts)
+    ? payload.alerts.filter((alert): alert is string => typeof alert === 'string')
+    : [];
+
+  return {
+    overall_pressure,
+    tier_pressure,
+    alerts,
+    recommendation:
+      typeof payload.recommendation === 'string' ? payload.recommendation : undefined,
+  };
+}
+
 function PressureGauge({ value, label, color }: { value: number; label: string; color: string }) {
   const percentage = Math.min(100, Math.max(0, value * 100));
   const barColor = percentage > 80 ? 'bg-warning' : percentage > 60 ? 'bg-acid-yellow' : color;
@@ -76,7 +146,7 @@ export default function MemoryPage() {
         const res = await fetch(`${backendConfig.api}/api/memory/pressure`);
         if (res.ok) {
           const data = await res.json();
-          setPressure(data.pressure || data);
+          setPressure(normalizeMemoryPressure(data));
         }
       } catch {
         // Pressure endpoint may not exist
