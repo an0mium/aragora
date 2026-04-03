@@ -63,6 +63,11 @@ export interface DebateResponse {
   is_live?: boolean;
   mock_fallback?: boolean;
   mock_fallback_reason?: string;
+  original_question?: string;
+  interpreted_question?: string;
+  short_answer?: string;
+  result_mode?: string;
+  result_warning?: string;
   upgrade_cta?: {
     title: string;
     message: string;
@@ -89,6 +94,48 @@ function agentColor(name: string): string {
 
 function agentDot(name: string): string {
   return AGENT_STYLES[name]?.dot || 'var(--acid-cyan, #00e5ff)';
+}
+
+function stripMarkdownForSummary(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function deriveShortAnswer(result: DebateResponse): string {
+  const fallbackContent =
+    result.short_answer
+    || result.final_answer
+    || Object.values(result.proposals)[0]
+    || '';
+  const cleaned = stripMarkdownForSummary(fallbackContent);
+  if (!cleaned) return 'The agent outputs are available below.';
+
+  const sentenceMatch = cleaned.match(/^(.{1,220}?[.!?])(?:\s|$)/);
+  if (sentenceMatch?.[1]) {
+    return sentenceMatch[1].trim();
+  }
+
+  if (cleaned.length <= 220) return cleaned;
+  return `${cleaned.slice(0, 217).trimEnd()}...`;
+}
+
+function isPreviewResult(result: DebateResponse): boolean {
+  return result.result_mode === 'preview'
+    || (
+      result.verdict === 'needs_review'
+      && result.critiques.length === 0
+      && result.votes.length === 0
+    );
 }
 
 function ConfidenceGauge({ value }: { value: number }) {
@@ -121,12 +168,13 @@ function ConfidenceGauge({ value }: { value: number }) {
 
 interface DebateResultPreviewProps {
   result: DebateResponse;
+  condensed?: boolean;
 }
 
 export const RETURN_URL_KEY = RETURN_URL_STORAGE_KEY;
 export const PENDING_DEBATE_KEY = 'aragora_pending_debate';
 
-export function DebateResultPreview({ result }: DebateResultPreviewProps) {
+export function DebateResultPreview({ result, condensed = false }: DebateResultPreviewProps) {
   const saveDebateAndReturnUrl = () => {
     // Save debate results so the landing page can restore them after login
     sessionStorage.setItem(PENDING_DEBATE_KEY, JSON.stringify(result));
@@ -138,6 +186,25 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
   const handleLogin = saveDebateAndReturnUrl;
 
   const [copied, setCopied] = useState(false);
+  const [showDetails, setShowDetails] = useState(!condensed);
+  const previewOnly = isPreviewResult(result);
+  const statusLabel = previewOnly
+    ? 'Multi-model Preview'
+    : result.consensus_reached
+      ? 'Consensus Reached'
+      : 'No Consensus';
+  const statusTone = previewOnly
+    ? 'text-[var(--acid-yellow,#ffd700)]'
+    : result.consensus_reached
+      ? 'text-[var(--acid-green)]'
+      : 'text-[var(--warning)]';
+  const questionLabel = result.original_question || result.topic;
+  const interpretedLabel =
+    result.interpreted_question && result.interpreted_question !== questionLabel
+      ? result.interpreted_question
+      : null;
+  const quickAnswer = deriveShortAnswer(result);
+  const showQuickRead = condensed || Boolean(result.original_question) || Boolean(result.result_warning);
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/debate/${result.id}`;
@@ -180,6 +247,67 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
 
   return (
     <div className="text-left space-y-4 mt-8">
+      {showQuickRead && (
+        <div className="rounded-2xl border border-[var(--accent)]/20 bg-[var(--surface)] p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-sm font-bold text-[var(--accent)]">Quick Read</h2>
+            {result.id && (
+              <Link
+                href={`/debate/${result.id}`}
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+              >
+                Open full debate &rarr;
+              </Link>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                You Asked
+              </span>
+              <p className="text-sm text-[var(--text)] leading-relaxed">{questionLabel}</p>
+            </div>
+
+            {interpretedLabel && (
+              <div>
+                <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                  Aragora Debated
+                </span>
+                <p className="text-sm text-[var(--text)] leading-relaxed">{interpretedLabel}</p>
+              </div>
+            )}
+
+            <div>
+              <span className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                Short Answer
+              </span>
+              <p className="text-sm text-[var(--text)] leading-relaxed">{quickAnswer}</p>
+            </div>
+
+            {(result.result_warning || previewOnly) && (
+              <div className="rounded-xl border border-[var(--acid-yellow,#ffd700)]/30 bg-[var(--acid-yellow,#ffd700)]/10 px-4 py-3">
+                <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                  {result.result_warning || 'This landing result is a condensed preview of parallel model outputs, not a full consensus proof.'}
+                </p>
+              </div>
+            )}
+
+            {condensed && (
+              <button
+                type="button"
+                onClick={() => setShowDetails((current) => !current)}
+                className="text-xs font-bold text-[var(--accent)] hover:opacity-80 transition-opacity"
+              >
+                {showDetails ? 'Hide transcript details' : 'Show transcript details'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!condensed || showDetails) && (
+        <>
       {/* Demo mode / Live badge */}
       {result.mock_fallback && (
         <div className="flex items-center justify-between gap-3 p-3 bg-[var(--acid-yellow,#ffd700)]/10 border border-[var(--acid-yellow,#ffd700)]/30">
@@ -211,17 +339,21 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
         {/* Verdict status + confidence side by side */}
         <div className="flex items-center justify-between gap-4">
           <span
-            className={`text-base font-bold font-mono ${
-              result.consensus_reached
-                ? 'text-[var(--acid-green)]'
-                : 'text-[var(--warning)]'
-            }`}
+            className={`text-base font-bold font-mono ${statusTone}`}
           >
-            {result.consensus_reached ? 'Consensus Reached' : 'No Consensus'}
+            {statusLabel}
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs font-mono text-[var(--text-muted)]">Confidence</span>
-            <ConfidenceGauge value={result.confidence} />
+            {previewOnly ? (
+              <span className="text-xs font-mono text-[var(--text-muted)]">
+                Preview only
+              </span>
+            ) : (
+              <>
+                <span className="text-xs font-mono text-[var(--text-muted)]">Confidence</span>
+                <ConfidenceGauge value={result.confidence} />
+              </>
+            )}
           </div>
         </div>
         {/* Metadata row */}
@@ -499,6 +631,8 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
           Learn more &rarr;
         </Link>
       </div>
+        </>
+      )}
     </div>
   );
 }

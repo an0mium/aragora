@@ -936,8 +936,19 @@ class SlackOAuthHandler(SecureHandler):
             state: State token for CSRF verification
             error: Error code if user denied
         """
+        state = query_params.get("state")
+
         # Check for error from Slack
         if "error" in query_params:
+            if state:
+                try:
+                    _get_state_store().validate_and_consume(state)
+                except Exception:
+                    logger.debug(
+                        "Failed to consume Slack OAuth state after callback error", exc_info=True
+                    )
+                _cleanup_oauth_states_fallback()
+                _oauth_states_fallback.pop(state, None)
             error_code = query_params.get("error")
             logger.warning("Slack OAuth error: %s", error_code)
             # Audit log OAuth denial
@@ -950,9 +961,7 @@ class SlackOAuthHandler(SecureHandler):
                     error=f"User denied: {error_code}",
                 )
             return error_response(f"Slack authorization denied: {error_code}", 400)
-
         code = query_params.get("code")
-        state = query_params.get("state")
 
         if not code:
             return error_response("Missing authorization code", 400)

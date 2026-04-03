@@ -303,6 +303,27 @@ class TestSlackOAuthCallback:
         assert "denied" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
+    async def test_callback_error_from_slack_consumes_state(self, oauth_handler, oauth_state_store):
+        """Test callback burns state even when Slack returns an error."""
+        state = "error-state"
+        oauth_state_store._states[state] = OAuthState(
+            user_id=None,
+            redirect_url=None,
+            expires_at=time.time() + 600,
+            created_at=time.time(),
+            metadata={"provider": "slack"},
+        )
+
+        result = await oauth_handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            query_params={"error": "access_denied", "state": state},
+        )
+
+        assert result.status_code == 400
+        assert state not in oauth_state_store._states
+
+    @pytest.mark.asyncio
     async def test_callback_missing_code(self, oauth_handler):
         """Test callback requires authorization code."""
         result = await oauth_handler.handle(

@@ -3877,6 +3877,76 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
 
 
 @pytest.mark.asyncio
+async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="dispatch failure clears stale deliverable state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "dispatch failure clears stale deliverable state"},
+        work_orders=[
+            {
+                "work_order_id": "wo-dispatch-failed-cleanup",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "review_status": "pending_heterogeneous_review",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.93,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "verification_missing_reason": "missing_verification_plan",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("fatal: boom"))
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    launched = await supervisor.dispatch_workers(run_record["run_id"])
+
+    assert launched == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatch_failed"
+    assert work_order["review_status"] == "pending"
+    assert work_order["dispatch_error"] == "fatal: boom"
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "pr_url",
+        "verification_missing_reason",
+        "failure_reason",
+        "blocking_question",
+        "blocker",
+        "blockers",
+    ):
+        assert cleared_key not in work_order
+
+
+@pytest.mark.asyncio
 async def test_dispatch_workers_resets_closed_worker_type_circuit_breaker_after_successful_launch(
     repo: Path, store: DevCoordinationStore
 ) -> None:

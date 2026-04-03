@@ -366,6 +366,25 @@ def _build_live_demo_unavailable_response(message: str) -> HandlerResult:
     )
 
 
+def _build_landing_preview_timeout_response(message: str | None = None) -> HandlerResult:
+    """Return an explicit fast-fail when landing preview cannot finish cleanly."""
+    detail = (
+        message
+        or "The landing preview timed out before the models returned a clean result. "
+        "Shorten the prompt or choose one interpretation first."
+    )
+    return json_response(
+        {
+            "error": detail,
+            "message": detail,
+            "code": "landing_preview_timeout",
+            "timeout_seconds": int(_ORACLE_CALL_TIMEOUT),
+            "is_live": False,
+        },
+        status=408,
+    )
+
+
 # Keep static versions for backward compat
 _MOCK_CRITIQUE_ISSUES = _build_mock_critiques(_DEFAULT_TOPIC)["issues"]
 _MOCK_CRITIQUE_SUGGESTIONS = _build_mock_critiques(_DEFAULT_TOPIC)["suggestions"]
@@ -1328,18 +1347,23 @@ def _try_oracle_tentacles(
     final = results.get(available[min(2, len(available) - 1)]["name"]) or next(
         iter(results.values())
     )
+    is_landing_preview = source == "landing"
+    consensus_reached = False if is_landing_preview else len(results) >= 2
+    confidence = 0.0 if is_landing_preview else 0.7
     debate_id = uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"LV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
-    receipt_hash = hashlib.sha256(f"{receipt_id}:{question}:needs_review:0.7".encode()).hexdigest()
+    receipt_hash = hashlib.sha256(
+        f"{receipt_id}:{question}:needs_review:{confidence}".encode()
+    ).hexdigest()
 
-    return {
+    payload: dict[str, Any] = {
         "id": debate_id,
         "topic": question,
         "status": "completed",
         "rounds_used": 1,
-        "consensus_reached": len(results) >= 2,
-        "confidence": 0.7,
+        "consensus_reached": consensus_reached,
+        "confidence": confidence,
         "verdict": "needs_review",
         "duration_seconds": round(duration, 3),
         "participants": participants,
@@ -1348,16 +1372,16 @@ def _try_oracle_tentacles(
         "votes": [],
         "dissenting_views": [],
         "final_answer": final,
-        "is_live": True,
+        "is_live": not is_landing_preview,
         "receipt": {
             "receipt_id": receipt_id,
             "question": question,
             "verdict": "needs_review",
-            "confidence": 0.7,
+            "confidence": confidence,
             "consensus": {
-                "reached": len(results) >= 2,
-                "method": "multi_perspective",
-                "confidence": 0.7,
+                "reached": consensus_reached,
+                "method": "landing_preview" if is_landing_preview else "multi_perspective",
+                "confidence": confidence,
                 "supporting_agents": participants,
                 "dissenting_agents": [],
                 "dissents": [],
@@ -1372,6 +1396,13 @@ def _try_oracle_tentacles(
         },
         "receipt_hash": receipt_hash,
     }
+    if is_landing_preview:
+        payload["result_mode"] = "preview"
+        payload["result_warning"] = (
+            "This landing result is a fast preview of parallel model outputs. "
+            "It is not a full consensus proof."
+        )
+    return payload
 
 
 def _run_inline_mock_debate(
@@ -2025,6 +2056,9 @@ class PlaygroundHandler(BaseHandler):
                     return self._persist_and_respond(
                         json_response(tentacle_result), topic, source, **_cache_kw
                     )
+                if source == "landing":
+                    logger.info("Landing preview failed — returning explicit preview timeout")
+                    return _build_landing_preview_timeout_response()
                 logger.info("Multi-perspective call failed — trying live debate")
 
         # Run a real live debate, fall back to mock if it fails

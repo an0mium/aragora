@@ -382,16 +382,13 @@ class WorkerLauncher:
             if worker is not None:
                 session_meta = self._read_session_meta(worker.worktree_path)
                 session_exit_code, _ = self._terminal_session_result(session_meta)
-                if proc is not None and proc.returncode is None:
-                    observed_pid = self._pid_for_active_lock(
-                        worker.worktree_path,
-                        worker.pid,
-                        session_meta,
-                    )
-                    if self._active_session_lock_blocks_collection(
-                        worker.worktree_path, observed_pid
-                    ):
-                        continue
+                observed_pid = self._pid_for_active_lock(
+                    worker.worktree_path,
+                    worker.pid,
+                    session_meta,
+                )
+                if self._active_session_lock_blocks_collection(worker.worktree_path, observed_pid):
+                    continue
             if proc is None or (proc.returncode is None and session_exit_code is None):
                 continue
             completed.append(self._wait_sync(work_order_id))
@@ -955,22 +952,10 @@ class WorkerLauncher:
             if shas:
                 return shas
 
-        # Fallback: if initial_head is empty/missing or same as head_sha,
-        # check for commits ahead of origin/main.  This catches cases where
-        # the worker committed but initial_head was not captured correctly.
-        fallback_output = await cls._git_output(
-            worktree_path, "rev-list", "--reverse", "origin/main..HEAD"
-        )
-        shas = [line.strip() for line in fallback_output.splitlines() if line.strip()]
-        if shas:
-            logger.info(
-                "commit_shas fallback: found %d commits ahead of origin/main "
-                "(initial_head=%r, head_sha=%r)",
-                len(shas),
-                initial_head[:12] if initial_head else "",
-                head_sha[:12] if head_sha else "",
-            )
-        return shas
+        # Fail closed when initial_head is missing or unchanged. Falling back
+        # to origin/main can misattribute pre-existing branch commits to the
+        # current worker when the lane starts from stale or non-main history.
+        return []
 
     @classmethod
     def _collect_commit_shas_sync(
@@ -991,19 +976,10 @@ class WorkerLauncher:
             if shas:
                 return shas
 
-        fallback_output = cls._git_output_sync(
-            worktree_path, "rev-list", "--reverse", "origin/main..HEAD"
-        )
-        shas = [line.strip() for line in fallback_output.splitlines() if line.strip()]
-        if shas:
-            logger.info(
-                "commit_shas sync fallback: found %d commits ahead of origin/main "
-                "(initial_head=%r, head_sha=%r)",
-                len(shas),
-                initial_head[:12] if initial_head else "",
-                head_sha[:12] if head_sha else "",
-            )
-        return shas
+        # Fail closed when initial_head is missing or unchanged. Falling back
+        # to origin/main can misattribute pre-existing branch commits to the
+        # current worker when the lane starts from stale or non-main history.
+        return []
 
     @classmethod
     async def _collect_changed_paths(
@@ -1017,9 +993,6 @@ class WorkerLauncher:
         diff_range = ""
         if initial_head and head_sha and initial_head != head_sha:
             diff_range = f"{initial_head}..{head_sha}"
-        elif head_sha and not initial_head:
-            # Fallback: compare against origin/main when initial_head is missing
-            diff_range = "origin/main..HEAD"
         if diff_range:
             diff_names = await cls._git_output(
                 worktree_path,
@@ -1074,8 +1047,6 @@ class WorkerLauncher:
         diff_range = ""
         if initial_head and head_sha and initial_head != head_sha:
             diff_range = f"{initial_head}..{head_sha}"
-        elif head_sha and not initial_head:
-            diff_range = "origin/main..HEAD"
         if diff_range:
             diff_names = cls._git_output_sync(
                 worktree_path,

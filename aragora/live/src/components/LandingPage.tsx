@@ -4,6 +4,11 @@ import { useState, useCallback, useRef, useEffect, useMemo, FormEvent } from 're
 import Link from 'next/link';
 import { WS_URL } from '@/config';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import {
+  prepareLandingDebate,
+  type LandingDebatePreflight,
+  type LandingPreparedDebateOption,
+} from './landing/landingPreflight';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
 
 interface LandingPageProps {
@@ -594,12 +599,42 @@ function parseRetryAfterSeconds(retryAfter: string | null): number {
   return Math.max(1, Math.ceil((retryTime - Date.now()) / 1000));
 }
 
+function buildLandingErrorMessage(status: number, data: Record<string, unknown> | null): string {
+  const message = typeof data?.message === 'string' ? data.message.trim() : '';
+  const error = typeof data?.error === 'string' ? data.error.trim() : '';
+  const code = typeof data?.code === 'string' ? data.code : '';
+  const timeoutSeconds =
+    typeof data?.timeout_seconds === 'number' ? Math.round(data.timeout_seconds) : null;
+
+  if (code === 'request_timeout' && timeoutSeconds !== null) {
+    return `Request timed out after ${timeoutSeconds}s. The landing page works best with one focused question. Shorten the prompt, pick one interpretation, or retry with a narrower scope.`;
+  }
+
+  if (code === 'landing_preview_timeout') {
+    if (message) return message;
+    if (timeoutSeconds !== null) {
+      return `The landing preview timed out after ${timeoutSeconds}s. Shorten the prompt or pick one interpretation first.`;
+    }
+    return error || 'The landing preview timed out before the models returned a clean result.';
+  }
+
+  if (code === 'timeout') {
+    return message || error || 'The live debate timed out. Try a shorter, more focused question.';
+  }
+
+  if (message) return message;
+  if (error) return error;
+  return `Something went wrong (${status}). Please try again.`;
+}
+
 export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPageProps) {
   const [question, setQuestion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastTopic, setLastTopic] = useState('');
+  const [lastPreparedOption, setLastPreparedOption] = useState<LandingPreparedDebateOption | null>(null);
+  const [pendingPreflight, setPendingPreflight] = useState<LandingDebatePreflight | null>(null);
   const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
   const abortRef = useRef<AbortController | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -624,7 +659,7 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
     }
   }, [result]);
 
-  async function runDebate(topic: string) {
+  async function executeDebate(option: LandingPreparedDebateOption) {
     abortRef.current?.abort();
     if (progressRef.current) {
       clearInterval(progressRef.current);
@@ -633,7 +668,9 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
     setIsRunning(true);
     setError(null);
     setResult(null);
-    setLastTopic(topic);
+    setPendingPreflight(null);
+    setLastTopic(option.originalQuestion);
+    setLastPreparedOption(option);
     setProgressMsg(PROGRESS_MESSAGES[0]);
 
     // Rotate progress messages
@@ -650,7 +687,15 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
       const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        body: JSON.stringify({
+          topic: option.debatePrompt,
+          question: option.debatePrompt,
+          original_question: option.originalQuestion,
+          interpreted_question: option.interpretedQuestion,
+          rounds: option.rounds,
+          agents: option.agents,
+          source: 'landing',
+        }),
         signal: controller.signal,
       });
 
@@ -663,11 +708,21 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || `Something went wrong (${res.status}). Please try again.`);
+        setError(buildLandingErrorMessage(res.status, data));
         return;
       }
 
-      setResult(await res.json());
+      const data: DebateResponse = await res.json();
+      setResult({
+        ...data,
+        original_question: option.originalQuestion,
+        interpreted_question: option.interpretedQuestion,
+        result_warning:
+          data.result_warning
+          || (option.interpretedQuestion !== option.originalQuestion
+            ? 'Aragora debated the focused interpretation you chose before opening the full transcript.'
+            : undefined),
+      });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       if (err instanceof Error && err.message.includes('Failed to fetch')) {
@@ -683,6 +738,20 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
       setIsRunning(false);
       setProgressMsg('');
     }
+  }
+
+  function runDebate(rawQuestion: string) {
+    const preflight = prepareLandingDebate(rawQuestion);
+    setError(null);
+    setResult(null);
+    setLastTopic(rawQuestion);
+
+    if (preflight.type === 'confirm') {
+      setPendingPreflight(preflight.preflight);
+      return;
+    }
+
+    void executeDebate(preflight.option);
   }
 
   function handleSubmit(e: FormEvent) {
@@ -750,7 +819,10 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
           <form onSubmit={handleSubmit} className="text-left max-w-xl mx-auto">
             <textarea
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setPendingPreflight(null);
+              }}
               placeholder="What decision are you facing?"
               disabled={isRunning}
               rows={2}
@@ -787,6 +859,51 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
             </div>
           )}
 
+          {pendingPreflight && !isRunning && (
+            <div className="border border-acid-yellow/30 bg-acid-yellow/10 p-4 mt-6 text-left max-w-xl mx-auto space-y-4">
+              <div>
+                <p className="text-sm font-mono text-text mb-2">{pendingPreflight.title}</p>
+                <p className="text-xs font-mono text-text-muted leading-relaxed">
+                  {pendingPreflight.prompt}
+                </p>
+                {pendingPreflight.warning && (
+                  <p className="text-xs font-mono text-acid-yellow mt-3 leading-relaxed">
+                    {pendingPreflight.warning}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                {pendingPreflight.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => { void executeDebate(option); }}
+                    className="w-full text-left border border-border bg-surface px-4 py-3 hover:border-acid-green/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-mono text-text">{option.label}</span>
+                      {option.recommended && (
+                        <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.18em] border border-acid-green/30 bg-acid-green/10 text-acid-green">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-mono text-text-muted leading-relaxed">
+                      {option.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingPreflight(null)}
+                className="font-mono text-xs text-text-muted hover:text-acid-green transition-colors"
+              >
+                Edit the question instead
+              </button>
+            </div>
+          )}
+
           {isRunning && (
             <div className="flex flex-col items-center py-8 gap-3">
               <div className="flex items-center gap-3 text-acid-green">
@@ -803,9 +920,16 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
           {error && (
             <div className="border border-crimson/40 bg-crimson/5 p-4 mt-6 text-left max-w-xl mx-auto">
               <p className="text-sm text-crimson font-mono mb-3">{error}</p>
-              {lastTopic && (
+              {(lastPreparedOption || lastTopic) && (
                 <button
-                  onClick={() => { setError(null); runDebate(lastTopic); }}
+                  onClick={() => {
+                    setError(null);
+                    if (lastPreparedOption) {
+                      void executeDebate(lastPreparedOption);
+                      return;
+                    }
+                    runDebate(lastTopic);
+                  }}
                   className="font-mono text-xs px-4 py-2 border border-crimson/40 text-crimson hover:bg-crimson/10 transition-colors"
                 >
                   Try again
@@ -814,7 +938,7 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
             </div>
           )}
 
-          {result && <DebateResultPreview result={result} />}
+          {result && <DebateResultPreview result={result} condensed />}
         </div>
       </section>
 

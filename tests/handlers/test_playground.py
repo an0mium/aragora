@@ -32,6 +32,7 @@ from aragora.server.handlers.playground import (
     _build_mock_proposals,
     _build_oracle_prompt,
     _build_tentacle_prompt,
+    _try_oracle_tentacles,
     _build_upgrade_cta,
     _get_available_live_agents,
     _MAX_TOPIC_LENGTH,
@@ -405,7 +406,12 @@ class TestOracleMode:
             return_value=oracle_result,
         ):
             mock_h = _MockHTTPHandler(
-                "POST", body={"topic": "system prompt", "question": "What is consciousness?"}
+                "POST",
+                body={
+                    "topic": "system prompt",
+                    "question": "What is consciousness?",
+                    "source": "oracle",
+                },
             )
             result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             assert _status(result) == 200
@@ -418,7 +424,12 @@ class TestOracleMode:
             return_value=None,
         ):
             mock_h = _MockHTTPHandler(
-                "POST", body={"question": "What is consciousness?", "mode": "consult"}
+                "POST",
+                body={
+                    "question": "What is consciousness?",
+                    "mode": "consult",
+                    "source": "oracle",
+                },
             )
             result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             assert _status(result) == 200
@@ -431,10 +442,33 @@ class TestOracleMode:
             "aragora.server.handlers.playground._try_oracle_response",
             return_value=None,
         ) as mock_oracle:
-            mock_h = _MockHTTPHandler("POST", body={"question": "test question"})
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={"question": "test question", "source": "oracle"},
+            )
             handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             mock_oracle.assert_called_once()
             assert mock_oracle.call_args.kwargs.get("mode") == "consult"
+
+    def test_landing_preview_timeout_does_not_fall_back_to_live(self, handler):
+        with (
+            patch(
+                "aragora.server.handlers.playground._try_oracle_tentacles",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.playground.PlaygroundHandler._run_live_debate",
+            ) as mock_run_live,
+        ):
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={"question": "Should I microwave chicken nuggets?", "source": "landing"},
+            )
+            result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+            assert _status(result) == 408
+            body = _body(result)
+            assert body["code"] == "landing_preview_timeout"
+            mock_run_live.assert_not_called()
 
 
 # ============================================================================
@@ -1044,6 +1078,47 @@ class TestBuildTentaclePrompt:
         assert "tentacle" not in prompt.lower()
         assert "Shoggoth" not in prompt
         assert "Oracle" not in prompt
+
+
+class TestTryOracleTentacles:
+    """Tests for the multi-model preview helper."""
+
+    def test_landing_source_marks_result_as_preview(self):
+        models = [
+            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-6"},
+            {"name": "grok", "provider": "xai", "model": "grok-4"},
+        ]
+
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_available_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.handlers.playground._call_provider_llm",
+                side_effect=[
+                    "Yes. Reheat the nuggets until hot all the way through.",
+                    "Microwaving pre-cooked nuggets is practical for a child meal.",
+                    "Handle the practical food-safety question first.",
+                ],
+            ),
+        ):
+            result = _try_oracle_tentacles(
+                mode="consult",
+                question="Should I microwave chicken nuggets for my kid?",
+                agent_count=3,
+                source="landing",
+                summary_depth="none",
+            )
+
+        assert result is not None
+        assert result["result_mode"] == "preview"
+        assert result["consensus_reached"] is False
+        assert result["confidence"] == 0.0
+        assert result["is_live"] is False
+        assert result["receipt"]["consensus"]["method"] == "landing_preview"
+        assert "preview" in result["result_warning"].lower()
 
 
 # ============================================================================

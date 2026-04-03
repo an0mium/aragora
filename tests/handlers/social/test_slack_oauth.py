@@ -698,6 +698,29 @@ class TestCallback:
         assert "access_denied" in body.get("error", "")
 
     @pytest.mark.asyncio
+    async def test_error_param_consumes_state_and_fallback_copy(
+        self, handler, handler_module, mock_state_store
+    ):
+        handler_module._oauth_states_fallback["error-state"] = {
+            "tenant_id": "tenant-1",
+            "provider": "slack",
+            "created_at": time.time(),
+        }
+
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/callback",
+            {},
+            {"error": "access_denied", "state": "error-state"},
+            {},
+            None,
+        )
+
+        assert _status(result) == 400
+        mock_state_store.validate_and_consume.assert_called_once_with("error-state")
+        assert "error-state" not in handler_module._oauth_states_fallback
+
+    @pytest.mark.asyncio
     async def test_missing_code_returns_400(self, handler):
         result = await handler.handle(
             "GET",

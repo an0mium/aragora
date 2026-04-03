@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LandingPage } from '../LandingPage';
 
 jest.mock('next/link', () => {
@@ -46,6 +46,25 @@ class MockWebSocket {
 function createJsonResponse(payload: unknown, ok = true) {
   return Promise.resolve({
     ok,
+    status: ok ? 200 : 500,
+    headers: { get: () => null },
+    json: () => Promise.resolve(payload),
+  });
+}
+
+function createHttpResponse(
+  payload: unknown,
+  options: { ok?: boolean; status?: number; retryAfter?: string | null } = {},
+) {
+  const { ok = true, status = ok ? 200 : 500, retryAfter = null } = options;
+  return Promise.resolve({
+    ok,
+    status,
+    headers: {
+      get: (name: string) => (
+        name.toLowerCase() === 'retry-after' ? retryAfter : null
+      ),
+    },
     json: () => Promise.resolve(payload),
   });
 }
@@ -224,5 +243,131 @@ describe('LandingPage live debate preview', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('CRITIQUE')).toBeInTheDocument();
+  });
+});
+
+describe('LandingPage submission flow', () => {
+  const mockFetch = global.fetch as jest.Mock;
+
+  function installBaseFetchMock(postHandler: (body: Record<string, unknown>) => Promise<unknown>) {
+    mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/spectate/recent?count=40')) {
+        return createJsonResponse({ events: [] });
+      }
+
+      if (url.endsWith('/api/v1/spectate/status')) {
+        return createJsonResponse({
+          active: false,
+          recent_activity_window_seconds: 120,
+          recent_event_count: 0,
+          last_event_at: null,
+        });
+      }
+
+      if (url.endsWith('/api/v1/playground/debate')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+        return postHandler(body);
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+  }
+
+  it('asks for confirmation before debating an ambiguous nuggets prompt', async () => {
+    const postedBodies: Array<Record<string, unknown>> = [];
+    installBaseFetchMock(async (body) => {
+      postedBodies.push(body);
+      return createHttpResponse({
+        id: 'debate-preview-1',
+        topic: String(body.question),
+        status: 'completed',
+        rounds_used: 1,
+        consensus_reached: false,
+        confidence: 0,
+        verdict: 'needs_review',
+        duration_seconds: 4.2,
+        participants: ['gpt', 'claude'],
+        proposals: {
+          gpt: 'Yes. Reheat the nuggets until hot all the way through.',
+          claude: 'Microwaving pre-cooked nuggets is a normal practical choice.',
+        },
+        critiques: [],
+        votes: [],
+        dissenting_views: [],
+        final_answer: 'Yes. Reheat the nuggets until hot all the way through.',
+        result_mode: 'preview',
+        result_warning: 'This landing result is a fast preview of parallel model outputs.',
+        receipt: {
+          receipt_id: 'LV-20260403-test01',
+          question: String(body.question),
+          verdict: 'needs_review',
+          confidence: 0,
+          consensus: {
+            reached: false,
+            method: 'landing_preview',
+            confidence: 0,
+            supporting_agents: ['gpt', 'claude'],
+            dissenting_agents: [],
+          },
+          agents: ['gpt', 'claude'],
+          rounds_used: 1,
+          timestamp: '2026-04-03T12:00:00Z',
+          signature: null,
+          signature_algorithm: null,
+        },
+        receipt_hash: 'hash-preview-1',
+      });
+    });
+
+    render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
+
+    fireEvent.change(screen.getByPlaceholderText('What decision are you facing?'), {
+      target: {
+        value: 'I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?',
+      },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: 'Run a free debate' }).closest('form') as HTMLFormElement);
+
+    expect(await screen.findByText('Choose which version of the question to debate')).toBeInTheDocument();
+    expect(postedBodies).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /Practical food-safety first/i }));
+
+    await waitFor(() => {
+      expect(postedBodies).toHaveLength(1);
+    });
+
+    expect(String(postedBodies[0].question)).toContain('pre-cooked chicken nuggets');
+    expect(postedBodies[0].source).toBe('landing');
+    expect(await screen.findByText('Quick Read')).toBeInTheDocument();
+    expect(screen.getByText('You Asked')).toBeInTheDocument();
+    expect(screen.getByText('Aragora Debated')).toBeInTheDocument();
+  });
+
+  it('shows actionable timeout copy for landing preview failures', async () => {
+    installBaseFetchMock(async () => (
+      createHttpResponse(
+        {
+          code: 'landing_preview_timeout',
+          timeout_seconds: 25,
+        },
+        { ok: false, status: 408 },
+      )
+    ));
+
+    render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
+
+    fireEvent.change(screen.getByPlaceholderText('What decision are you facing?'), {
+      target: { value: 'Should we delay the migration by one quarter?' },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: 'Run a free debate' }).closest('form') as HTMLFormElement);
+
+    expect(
+      await screen.findByText(
+        'The landing preview timed out after 25s. Shorten the prompt or pick one interpretation first.',
+      ),
+    ).toBeInTheDocument();
   });
 });

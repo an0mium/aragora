@@ -1460,8 +1460,7 @@ class SwarmSupervisor:
                     worker_type_circuit_breakers=worker_type_circuit_breakers,
                 )
                 if not fallback_requeued:
-                    item["status"] = "dispatch_failed"
-                    item["dispatch_error"] = str(exc)
+                    self._mark_dispatch_failed(item, str(exc))
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -3716,6 +3715,45 @@ class SwarmSupervisor:
             failure_reason="worker_type_blocked",
         )
         self._release_terminal_lease(item)
+
+    @staticmethod
+    def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
+        """Persist a pre-launch failure without carrying stale deliverable state."""
+        item["status"] = "dispatch_failed"
+        item["review_status"] = "pending"
+        item["dispatch_error"] = str(reason)
+        for key in (
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "exit_code",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
+            "stdout_tail",
+            "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "last_observed_at",
+            "last_progress_at",
+            "first_output_at",
+            "last_output_at",
+            "progress_fingerprint",
+            "output_fingerprint",
+        ):
+            item.pop(key, None)
+        item.pop("blockers", None)
 
     def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
         released = 0
