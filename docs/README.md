@@ -124,7 +124,7 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 | [API_EXAMPLES](./api/API_EXAMPLES.md) | API usage examples |
 | [API_COOKBOOK](./guides/API_COOKBOOK.md) | 20 common patterns with runnable code |
 | [API_VERSIONING](./api/API_VERSIONING.md) | API version policy |
-| [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes and migration |
+| [BREAKING_CHANGES](./BREAKING_CHANGES.md) | Breaking changes and migration |
 | [MIGRATION_V1_TO_V2](./status/MIGRATION_V1_TO_V2.md) | API v1 to v2 migration guide |
 | [WEBSOCKET_EVENTS](./streaming/WEBSOCKET_EVENTS.md) | WebSocket event reference |
 | [SDK_TYPESCRIPT](./guides/SDK_TYPESCRIPT.md) | TypeScript SDK guide |
@@ -137,11 +137,11 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 
 | Endpoint Pattern | Purpose |
 |-----------------|---------|
-| `POST /api/v1/debates` | Start a debate |
-| `GET /api/v1/debates/{id}` | Get debate result |
-| `GET /ws/debate/{id}` | Stream events via WebSocket |
-| `POST /api/v1/knowledge/search` | Search knowledge |
-| `GET /api/v1/agents/rankings` | Agent rankings |
+| `POST /api/debates` | Start a debate |
+| `GET /api/debates/{id}` | Get debate result |
+| `GET /ws/debates/{id}` | Stream events via WebSocket |
+| `POST /api/v2/knowledge/search` | Search knowledge |
+| `GET /api/v2/agents/rankings` | Agent rankings |
 | `GET /health` | Health check |
 
 ### CLI Quick Reference
