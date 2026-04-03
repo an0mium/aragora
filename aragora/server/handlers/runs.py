@@ -11,7 +11,8 @@ from collections.abc import Iterable
 from typing import Any, cast
 
 from aragora.pipeline.backbone_contracts import RunLedger
-from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
+from aragora.server.versioning.compat import strip_version_prefix
 
 
 def _get_plan_store() -> Any:
@@ -153,7 +154,45 @@ def handle_run_detail(
     return json_response({"run": _run_payload(run)})
 
 
+class RunsHandler(BaseHandler):
+    """Legacy aiohttp-style handler for backbone run ledger reads."""
+
+    ROUTES = ["/api/runs"]
+    ROUTE_PREFIXES = ["/api/runs/"]
+
+    def can_handle(self, path: str) -> bool:
+        """Accept both canonical and versioned backbone run paths."""
+        normalized_path = strip_version_prefix(path)
+        return normalized_path == "/api/runs" or normalized_path.startswith("/api/runs/")
+
+    def handle(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult | None:
+        """Dispatch GET requests for the backbone runs surface."""
+        method = getattr(handler, "command", "GET") if handler is not None else "GET"
+        if method != "GET":
+            return None
+
+        normalized_path = strip_version_prefix(path)
+        store = self.ctx.get("plan_store") or _get_plan_store()
+
+        if normalized_path == "/api/runs":
+            return handle_runs_list(query_params, store=store)
+
+        if normalized_path.startswith("/api/runs/"):
+            run_id = normalized_path.removeprefix("/api/runs/").strip("/")
+            if not run_id or "/" in run_id:
+                return error_response("Run not found", 404)
+            return handle_run_detail(run_id, store=store)
+
+        return None
+
+
 __all__ = [
+    "RunsHandler",
     "handle_run_detail",
     "handle_runs_list",
 ]

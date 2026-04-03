@@ -283,6 +283,19 @@ class TestRouteIndex:
             assert idx.get_handler("/api/learning/cycles")[0] == "_learning_handler"
             assert idx.get_handler("/api/training/stats")[0] == "_training_handler"
 
+    def test_get_handler_resolves_backbone_runs_paths(self) -> None:
+        """Backbone runs should dispatch through exact and dynamic legacy paths."""
+        from aragora.server.handlers.runs import RunsHandler
+
+        idx = RouteIndex()
+        mixin = MagicMock()
+        mixin._runs_handler = RunsHandler({})
+        idx.build(mixin, [("_runs_handler", RunsHandler)])
+
+        with patch("aragora.server.versioning.strip_version_prefix", side_effect=lambda p: p):
+            assert idx.get_handler("/api/runs")[0] == "_runs_handler"
+            assert idx.get_handler("/api/runs/run-123")[0] == "_runs_handler"
+
 
 class TestGetRouteIndex:
     """Tests for global route index singleton."""

@@ -9,7 +9,7 @@ import pytest
 from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
-from aragora.server.handlers.runs import handle_run_detail, handle_runs_list
+from aragora.server.handlers.runs import RunsHandler, handle_run_detail, handle_runs_list
 
 
 def _parse(result: Any) -> dict[str, Any]:
@@ -167,3 +167,41 @@ def test_handle_run_detail_returns_404_when_missing() -> None:
 
     assert parsed["status"] == 404
     assert parsed["body"] == {"error": "Run not found"}
+
+
+def test_runs_handler_routes_list_requests(
+    isolated_plan_store: PlanStore,
+) -> None:
+    run = _make_run(
+        "run-handler-list",
+        status="plan_ready",
+        stage_events=[RunStageEvent.create(BackboneStage.PLAN, status="completed")],
+    )
+    isolated_plan_store.create_run(run)
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle("/api/runs", {}, None)
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"]["runs"][0]["run_id"] == "run-handler-list"
+
+
+def test_runs_handler_routes_detail_requests(
+    isolated_plan_store: PlanStore,
+) -> None:
+    run = _make_run(
+        "run-handler-detail",
+        status="execution_started",
+        stage_events=[RunStageEvent.create(BackboneStage.EXECUTION, status="running")],
+    )
+    isolated_plan_store.create_run(run)
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs/run-handler-detail",
+        {},
+        None,
+    )
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"]["run"]["run_id"] == "run-handler-detail"
