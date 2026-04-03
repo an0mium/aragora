@@ -7,6 +7,7 @@ reusing the managed-session wrapper so worktree locks/logs stay coherent.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -73,6 +74,34 @@ class WorkerLauncher:
     def _strip_session_artifacts(paths: set[str]) -> list[str]:
         """Normalize changed paths by removing harness-owned artifacts by basename."""
         return sorted(path for path in paths if Path(path).name not in SESSION_ARTIFACTS)
+
+    @staticmethod
+    async def _maybe_await(result: Any) -> Any:
+        """Await mock/fake stream methods without penalizing real StreamWriter calls."""
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    async def _write_prompt_to_stdin(
+        self,
+        proc: asyncio.subprocess.Process,
+        prompt_bytes: bytes | None,
+    ) -> None:
+        """Flush prompt bytes into subprocess stdin before closing the pipe."""
+        if prompt_bytes is None or proc.stdin is None:
+            return
+
+        await self._maybe_await(proc.stdin.write(prompt_bytes))
+
+        drain = getattr(proc.stdin, "drain", None)
+        if callable(drain):
+            await self._maybe_await(drain())
+
+        await self._maybe_await(proc.stdin.close())
+
+        wait_closed = getattr(proc.stdin, "wait_closed", None)
+        if callable(wait_closed):
+            await self._maybe_await(wait_closed())
 
     async def launch(
         self,
@@ -159,9 +188,7 @@ class WorkerLauncher:
                     start_new_session=True,
                     env=worker_env,
                 )
-                if prompt_bytes is not None and proc.stdin is not None:
-                    proc.stdin.write(prompt_bytes)
-                    proc.stdin.close()
+                await self._write_prompt_to_stdin(proc, prompt_bytes)
             finally:
                 # The subprocess inherits its own descriptors; close the
                 # parent-side handles immediately to avoid ResourceWarning.
@@ -176,9 +203,7 @@ class WorkerLauncher:
                 stderr=asyncio.subprocess.PIPE,
                 env=worker_env,
             )
-            if prompt_bytes is not None and proc.stdin is not None:
-                proc.stdin.write(prompt_bytes)
-                proc.stdin.close()
+            await self._write_prompt_to_stdin(proc, prompt_bytes)
             self._start_live_log_capture(work_order_id, worktree_path, proc)
 
         worker = WorkerProcess(

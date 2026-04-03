@@ -398,7 +398,9 @@ class TestLaunch:
         launcher = WorkerLauncher(LaunchConfig(detach=True))
         mock_proc = AsyncMock()
         mock_proc.pid = 100
-        mock_proc.stdin = AsyncMock()
+        mock_proc.stdin = MagicMock()
+        mock_proc.stdin.drain = AsyncMock()
+        mock_proc.stdin.wait_closed = AsyncMock()
         worktree = tmp_path / "wt"
         (worktree / "scripts").mkdir(parents=True)
         (worktree / "scripts" / "codex_session.sh").write_text(
@@ -421,12 +423,19 @@ class TestLaunch:
 
         call_kwargs = mock_exec.call_args
         assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.PIPE
+        mock_proc.stdin.write.assert_called_once()
+        mock_proc.stdin.drain.assert_awaited_once()
+        mock_proc.stdin.close.assert_called_once()
+        mock_proc.stdin.wait_closed.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_launch_detached_closes_parent_log_handles(self, tmp_path: Path):
         launcher = WorkerLauncher(LaunchConfig(detach=True))
         mock_proc = AsyncMock()
         mock_proc.pid = 101
+        mock_proc.stdin = MagicMock()
+        mock_proc.stdin.drain = AsyncMock()
+        mock_proc.stdin.wait_closed = AsyncMock()
         worktree = tmp_path / "wt"
         (worktree / "scripts").mkdir(parents=True)
         (worktree / "scripts" / "codex_session.sh").write_text(
@@ -453,6 +462,8 @@ class TestLaunch:
         assert stderr_handle is not None
         assert stdout_handle.closed is True
         assert stderr_handle.closed is True
+        mock_proc.stdin.drain.assert_awaited_once()
+        mock_proc.stdin.wait_closed.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_launch_raises_on_missing_cli(self):
