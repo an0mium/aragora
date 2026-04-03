@@ -8,6 +8,7 @@ import { OutlookAPI } from '../outlook';
 import { SkillsAPI } from '../skills';
 import { SMEAPI } from '../sme';
 import { SSONamespace } from '../sso';
+import { SpectateAPI } from '../spectate';
 import { WebhooksAPI } from '../webhooks';
 
 interface MockClient {
@@ -66,6 +67,16 @@ describe('Parity Compatibility Routes', () => {
     expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/debates/debate-1/spectate/public');
     expect(mockClient.request).toHaveBeenNthCalledWith(3, 'GET', '/api/debates/debate-1/package');
     expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/debates/debate%2F1/package/markdown');
+  });
+
+  it('builds the canonical live spectate SSE URL without a JSON request', async () => {
+    const api = new SpectateAPI(mockClient as any);
+
+    await expect(api.connectSSE('debate/1')).resolves.toEqual({
+      debate_id: 'debate/1',
+      stream_url: '/api/v1/debates/debate%2F1/spectate',
+    });
+    expect(mockClient.request).not.toHaveBeenCalled();
   });
 
   it('maps debate diagnostics and share revoke compatibility routes', async () => {

@@ -12,17 +12,24 @@ interface SpectateClientInterface {
   }): Promise<T>;
 }
 
+function buildSSEStreamInfo(debateId: string): Record<string, unknown> {
+  return {
+    debate_id: debateId,
+    stream_url: `/api/v1/debates/${encodeURIComponent(debateId)}/spectate`,
+  };
+}
+
 export class SpectateAPI {
   constructor(private client: SpectateClientInterface) {}
 
   /**
-   * Connect to SSE stream for a debate.
+   * Return connection details for a debate's live SSE stream.
    *
-   * Returns connection details including the stream URL.
-   * Use the stream URL with an EventSource client for real-time events.
+   * The shared HTTP client assumes JSON responses, so this helper returns
+   * the canonical stream URL instead of issuing the SSE request directly.
    */
   async connectSSE(debateId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/spectate/${encodeURIComponent(debateId)}/stream`);
+    return buildSSEStreamInfo(debateId);
   }
 
   async getRecent(options?: { count?: number; debateId?: string }): Promise<Record<string, unknown>> {
