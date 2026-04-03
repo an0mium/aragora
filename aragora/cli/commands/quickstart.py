@@ -5,7 +5,7 @@ Guides new users through a short debate:
 1. Checks for supported API keys (loads .env if present)
 2. Accepts a question via --question or interactive prompt
 3. Runs a live debate when keys are available, otherwise falls back to demo
-4. Displays verdict, confidence, mode, and elapsed time
+4. Can alternatively generate a first-pass execution specification
 5. Saves one deterministic result artifact
 6. Optionally opens an HTML view in the browser
 """
@@ -137,6 +137,7 @@ Examples:
   aragora quickstart --topic "Migrate to TypeScript?" --rounds 1 --json
   aragora quickstart --provider openai --api-key sk-... --save-key
   aragora quickstart --question "Migrate to TypeScript?" --output receipt.json
+  aragora quickstart --question "Migrate to TypeScript?" --spec-first
   aragora quickstart --demo --no-browser                 # CI/headless mode
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -156,6 +157,11 @@ Examples:
         "--demo",
         action="store_true",
         help="Use mock agents (no API keys required)",
+    )
+    qs_parser.add_argument(
+        "--spec-first",
+        action="store_true",
+        help="Generate a prompt-to-spec artifact instead of starting with debate",
     )
     qs_parser.add_argument(
         "--provider",
@@ -340,6 +346,11 @@ def _default_receipt_path(mode: str, fmt: str) -> Path:
     return receipts_dir / f"quickstart-{normalized_mode}-receipt{suffix}"
 
 
+def _default_spec_path() -> Path:
+    """Return the default saved artifact path for quickstart spec-first output."""
+    return Path.cwd() / ".aragora" / "specs" / "quickstart-spec.json"
+
+
 def _clamp_confidence(raw_confidence: Any) -> float:
     """Normalize confidence values into the expected [0.0, 1.0] range."""
     try:
@@ -368,6 +379,65 @@ def _normalize_json_result(result: dict[str, Any], artifact_path: Path) -> dict[
     payload = _build_quickstart_receipt_payload(result)
     payload["artifact_path"] = str(artifact_path)
     return payload
+
+
+def _normalize_spec_json_result(result: dict[str, Any], artifact_path: Path) -> dict[str, Any]:
+    """Return a stdout-safe JSON payload for spec-first quickstart runs."""
+    payload = dict(result)
+    payload["artifact_path"] = str(artifact_path)
+    return payload
+
+
+async def _run_quickstart_spec_first(question: str) -> dict[str, Any]:
+    """Generate a first-pass specification for quickstart onboarding.
+
+    Prefer the orchestrator-backed path for canonical backbone tracking, but
+    fall back to the lighter prompt-engine conductor so onboarding still
+    produces a usable artifact when the wider stack is unavailable.
+    """
+    from aragora.cli.commands.spec import _run_spec_pipeline
+
+    try:
+        result = await _run_spec_pipeline(
+            question,
+            depth="quick",
+            profile="founder",
+            output_format="json",
+            use_orchestrator=True,
+        )
+        result["pipeline"] = "orchestrator"
+        return result
+    except Exception:
+        logger.debug("quickstart_spec_first_orchestrator_failed", exc_info=True)
+
+    result = await _run_spec_pipeline(
+        question,
+        depth="quick",
+        profile="founder",
+        output_format="json",
+        use_orchestrator=False,
+    )
+    result["pipeline"] = "prompt_engine"
+    return result
+
+
+def _build_quickstart_spec_payload(question: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Normalize quickstart spec-first output into a saved JSON artifact."""
+    payload = dict(result)
+    payload["question"] = question
+    payload["mode"] = "quickstart-spec"
+    payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+    return payload
+
+
+def _save_quickstart_spec_payload(payload: dict[str, Any], output_path: str | None = None) -> Path:
+    """Persist the quickstart spec-first payload to JSON."""
+    path = Path(output_path) if output_path else _default_spec_path()
+    if path.suffix.lower() != ".json":
+        path = path.with_suffix(".json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, default=str))
+    return path
 
 
 def _coerce_string_list(values: Any) -> list[str]:
@@ -1148,6 +1218,75 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     emit(f"\nQuestion: {question}")
+
+    if getattr(args, "spec_first", False):
+        requested_format = str(getattr(args, "format", "json") or "json").lower()
+        if requested_format != "json":
+            emit("\n[*] Spec-first quickstart always saves JSON artifacts; ignoring --format.")
+
+        emit("\n[*] Run mode: spec-first")
+        emit("    Pipeline: prompt -> spec -> saved artifact")
+
+        start_time = time.monotonic()
+        try:
+            spec_result = _run_sync(_run_quickstart_spec_first(question))
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            emit(f"\n[!] Spec-first pipeline failed: {exc}")
+            sys.exit(1)
+
+        elapsed = time.monotonic() - start_time
+        spec_payload = _build_quickstart_spec_payload(question, spec_result)
+        saved_artifact = _save_quickstart_spec_payload(
+            spec_payload,
+            getattr(args, "output", None),
+        )
+
+        bundle = spec_payload.get("spec_bundle") if isinstance(spec_payload, dict) else None
+        spec = spec_payload.get("specification") if isinstance(spec_payload, dict) else None
+        title = ""
+        problem = ""
+        criteria: list[Any] = []
+        risks: list[Any] = []
+        run_id = str(spec_payload.get("run_id", "") or "")
+
+        if isinstance(bundle, dict):
+            title = str(bundle.get("title", "")).strip()
+            problem = str(bundle.get("problem_statement", "")).strip()
+            criteria = list(bundle.get("acceptance_criteria", []) or [])
+            risks = list(bundle.get("rollback_plan", []) or [])
+        elif isinstance(spec, dict):
+            title = str(spec.get("title", "")).strip()
+            problem = str(spec.get("problem_statement", "")).strip()
+            criteria = list(spec.get("success_criteria", []) or [])
+            risks = list(spec.get("risks", []) or [])
+
+        emit("=" * 60)
+        emit("  SPEC RESULT")
+        emit("=" * 60)
+        if title:
+            emit(f"\n  Title:      {title}")
+        if problem:
+            emit(f"  Problem:    {problem[:300]}")
+        emit(f"  Criteria:   {len(criteria)}")
+        emit(f"  Risks:      {len(risks)}")
+        emit(f"  Pipeline:   {spec_payload.get('pipeline', 'unknown')}")
+        emit(f"  Elapsed:    {elapsed:.1f}s")
+        if run_id:
+            emit(f"  Run:        {run_id}")
+        emit(f"\nSpec artifact (json): {saved_artifact}")
+
+        if output_json:
+            json.dump(
+                _normalize_spec_json_result(spec_payload, saved_artifact), sys.stdout, indent=2
+            )
+            sys.stdout.write("\n")
+            return
+
+        emit("\nNext steps:")
+        emit(f"  aragora decide '{question}' --spec {saved_artifact}")
+        emit(f"  aragora spec '{question}' --output {saved_artifact}")
+        emit("  aragora ask 'Your question'                    # Debate the approach")
+        return
 
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)

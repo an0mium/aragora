@@ -9,14 +9,28 @@ And the 'plans' command for managing decision plans.
 
 import argparse
 import asyncio
+import json
 import logging
 import sys
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.decision_integrity_utils import execute_decision_plan_with_backbone
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_spec_file(spec_file: str) -> Path:
+    """Resolve and validate a spec file path without mutating CLI context."""
+    spec_path = Path(spec_file)
+    if not spec_path.exists():
+        raise FileNotFoundError(f"Spec file not found: {spec_file}")
+    try:
+        json.loads(spec_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Failed to parse spec file: {exc}") from exc
+    return spec_path
 
 
 def _seed_cli_backbone_run(
@@ -150,14 +164,9 @@ async def run_decide(
     # Spec-first path: skip debate and create plan from spec file
     spec_file = kwargs.pop("spec_file", None)
     if spec_file:
-        import json as json_mod
-        from pathlib import Path
-
-        spec_path = Path(spec_file)
-        if not spec_path.exists():
-            raise FileNotFoundError(f"Spec file not found: {spec_file}")
-        with open(spec_path) as f:
-            spec_data = json_mod.load(f)
+        spec_path = _validate_spec_file(spec_file)
+        with spec_path.open() as f:
+            spec_data = json.load(f)
 
         # Extract the specification dict (handle both raw and wrapped formats)
         spec_dict = spec_data.get("specification", spec_data)
@@ -498,47 +507,13 @@ def cmd_decide(args: argparse.Namespace) -> None:
             print(f"Failed to read --context-file: {e}", file=sys.stderr)
             raise SystemExit(2)
 
-    # Load spec file from `aragora spec --output` and use as debate context
     spec_file = getattr(args, "spec", None)
     if spec_file:
         try:
-            import json
-            from pathlib import Path
-
-            spec_path = Path(spec_file)
-            if not spec_path.exists():
-                print(f"Spec file not found: {spec_file}", file=sys.stderr)
-                raise SystemExit(2)
-            spec_data = json.loads(spec_path.read_text())
-            # Spec files from `aragora spec` nest the spec under "specification"
-            spec = spec_data.get("specification", spec_data)
-            spec_context_parts = []
-            if spec.get("problem_statement"):
-                spec_context_parts.append(f"Problem: {spec['problem_statement']}")
-            if spec.get("proposed_solution"):
-                spec_context_parts.append(f"Proposed Solution: {spec['proposed_solution']}")
-            if spec.get("success_criteria"):
-                criteria = spec["success_criteria"]
-                if isinstance(criteria, list):
-                    criteria_text = "\n".join(
-                        f"  - {c.get('description', c) if isinstance(c, dict) else c}"
-                        for c in criteria
-                    )
-                    spec_context_parts.append(f"Success Criteria:\n{criteria_text}")
-            if spec.get("risks") or spec.get("risk_register"):
-                risks = spec.get("risks") or spec.get("risk_register", [])
-                if isinstance(risks, list):
-                    risk_text = "\n".join(
-                        f"  - {r.get('description', r) if isinstance(r, dict) else r}"
-                        for r in risks
-                    )
-                    spec_context_parts.append(f"Risks:\n{risk_text}")
-            if spec_context_parts:
-                spec_context = "\n\n".join(spec_context_parts)
-                context = f"{spec_context}\n\n{context}" if context else spec_context
-                print(f"[+] Loaded spec from: {spec_file}")
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
-            print(f"Failed to parse spec file: {e}", file=sys.stderr)
+            _validate_spec_file(spec_file)
+            print(f"[+] Loaded spec from: {spec_file}")
+        except (FileNotFoundError, ValueError) as e:
+            print(str(e), file=sys.stderr)
             raise SystemExit(2)
 
     documents = _parse_document_ids(

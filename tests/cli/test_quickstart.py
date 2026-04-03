@@ -112,6 +112,13 @@ class TestQuickstartParser:
         args = parser.parse_args(["quickstart", "--json"])
         assert args.json is True
 
+    def test_parser_spec_first_flag(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--spec-first"])
+        assert args.spec_first is True
+
     def test_build_parser_registers_quickstart_json_flag(self):
         parser = build_parser()
         args = parser.parse_args(["quickstart", "--topic", "Topic question", "--json"])
@@ -1297,3 +1304,77 @@ class TestCmdQuickstart:
         payload = json.loads(output.out)
         assert payload["question"] == "Should JSON prompts stay off stdout?"
         assert "> " in output.err
+
+    def test_spec_first_writes_spec_artifact_and_skips_debate_execution(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should quickstart generate a spec first?",
+            demo=False,
+            spec_first=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="md",
+            json=False,
+            rounds=None,
+            no_browser=True,
+        )
+        spec_result = {
+            "spec_bundle": {
+                "title": "Spec-first quickstart",
+                "problem_statement": "Create a spec before running debate.",
+                "acceptance_criteria": ["save an artifact", "show the next command"],
+                "rollback_plan": ["fall back to direct debate if spec generation fails"],
+            },
+            "pipeline": "orchestrator",
+            "run_id": "run-spec-1",
+        }
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._run_quickstart_spec_first",
+                new=AsyncMock(return_value=spec_result),
+            ) as run_spec_first,
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                side_effect=AssertionError("spec-first should return before agent detection"),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                side_effect=AssertionError("spec-first should not launch a live debate"),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                side_effect=AssertionError("spec-first should not launch a demo debate"),
+            ),
+        ):
+            cmd_quickstart(args)
+
+        artifact_path = tmp_path / ".aragora" / "specs" / "quickstart-spec.json"
+        assert artifact_path.exists()
+
+        saved_payload = json.loads(artifact_path.read_text())
+        assert saved_payload["question"] == "Should quickstart generate a spec first?"
+        assert saved_payload["mode"] == "quickstart-spec"
+        assert saved_payload["pipeline"] == "orchestrator"
+        assert saved_payload["run_id"] == "run-spec-1"
+        assert saved_payload["spec_bundle"]["acceptance_criteria"] == [
+            "save an artifact",
+            "show the next command",
+        ]
+
+        run_spec_first.assert_awaited_once_with("Should quickstart generate a spec first?")
+
+        output = capsys.readouterr().out
+        assert "Run mode: spec-first" in output
+        assert "Spec-first quickstart always saves JSON artifacts" in output
+        assert "Pipeline:   orchestrator" in output
+        assert "Run:        run-spec-1" in output
+        assert str(artifact_path) in output
+        assert (
+            f"aragora decide 'Should quickstart generate a spec first?' --spec {artifact_path}"
+            in output
+        )

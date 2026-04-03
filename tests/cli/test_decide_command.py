@@ -29,6 +29,7 @@ def _make_args(**overrides):
         "auto_select_config": None,
         "context": None,
         "context_file": None,
+        "spec": None,
         "document": None,
         "documents": None,
         "no_knowledge": False,
@@ -99,6 +100,28 @@ def test_cmd_decide_normalizes_execution_mode_alias() -> None:
     kwargs = mock_run_decide.call_args.kwargs
     assert kwargs["execution_mode"] == "workflow"
     assert kwargs["implementation_profile"]["execution_mode"] == "workflow"
+
+
+def test_cmd_decide_uses_structured_spec_path_without_mutating_context(tmp_path) -> None:
+    """cmd_decide should pass spec_file through without stuffing spec text into context."""
+    from aragora.cli.commands import decide as decide_cmd
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"specification":{"title":"Spec","problem_statement":"Ship it"}}')
+    args = _make_args(
+        spec=str(spec_path),
+        context="operator notes",
+    )
+
+    with (
+        patch.object(decide_cmd, "run_decide", return_value="coro") as mock_run_decide,
+        patch.object(decide_cmd.asyncio, "run", return_value={}),
+    ):
+        decide_cmd.cmd_decide(args)
+
+    kwargs = mock_run_decide.call_args.kwargs
+    assert kwargs["context"] == "operator notes"
+    assert kwargs["spec_file"] == str(spec_path)
 
 
 @pytest.mark.asyncio
