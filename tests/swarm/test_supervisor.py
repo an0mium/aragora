@@ -6037,6 +6037,50 @@ def test_no_progress_timeout_ignores_last_output_at_without_actual_output(
     assert supervisor._exceeded_no_progress_timeout(item) is True
 
 
+def test_no_progress_timeout_uses_recent_output_when_bytes_exist(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
+    now = datetime.now(UTC)
+    item = {
+        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
+        "output_fingerprint": {
+            "stdout_size": 128,
+            "stderr_size": 0,
+            "stdout_mtime_ns": 123,
+            "stderr_mtime_ns": 0,
+            "has_output": True,
+        },
+    }
+
+    assert supervisor._exceeded_no_progress_timeout(item) is False
+
+
+def test_no_progress_timeout_ignores_last_output_at_without_actual_output(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
+    now = datetime.now(UTC)
+    item = {
+        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
+        "output_fingerprint": {
+            "stdout_size": 0,
+            "stderr_size": 0,
+            "stdout_mtime_ns": 0,
+            "stderr_mtime_ns": 0,
+            "has_output": False,
+        },
+    }
+
+    assert supervisor._exceeded_no_progress_timeout(item) is True
+
+
 @pytest.mark.asyncio
 async def test_collect_finished_results_defers_with_active_lock_and_no_usable_pid(
     repo: Path, store: DevCoordinationStore
