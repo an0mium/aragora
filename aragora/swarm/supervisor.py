@@ -522,7 +522,6 @@ class SwarmSupervisor:
         if not text or text.lower() in {"none", "null"}:
             return None
         return text
-
     def _apply_launcher_config_snapshot(self, snapshot: dict[str, Any] | None) -> None:
         if not isinstance(snapshot, dict) or not snapshot:
             return

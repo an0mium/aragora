@@ -218,6 +218,9 @@ async def test_dispatch_workers_reuses_persisted_launcher_profile(
     stored = store.get_supervisor_run(run.run_id)
     assert stored is not None
     assert stored["work_orders"][0]["status"] == "dispatched"
+    assert resume_launcher.config.require_explicit_approval is True
+    assert resume_launcher.config.use_managed_session_script is True
+    assert resume_launcher.config.detach is False
 
 
 def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> None:
