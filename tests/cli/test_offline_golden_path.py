@@ -30,6 +30,7 @@ def _stub_cmd_ask_global_side_effects(request):
         # CI on Python 3.11 surfaces loop/socket leaks in this path unless the
         # real cmd_ask cleanup coroutine runs on the active event loop.
         "test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output",
+        "test_cmd_ask_quality_fail_closed_accepts_output_contract_file",
     }
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
@@ -1080,16 +1081,8 @@ def test_cmd_ask_quality_fail_closed_accepts_output_contract_file(monkeypatch, t
         output_contract_file=str(contract_path),
     )
 
-    async def _fake_shutdown() -> None:
-        await asyncio.sleep(0)
-
     with (
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
-        patch.object(
-            debate_cmd,
-            "_shutdown_cmd_ask_resources",
-            new=AsyncMock(side_effect=_fake_shutdown),
-        ),
         patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
     ):
         mock_result = MagicMock()
