@@ -1512,6 +1512,48 @@ class MemoryManager:
         else:
             self._memory_cache.clear()
 
+    def get_cross_debate_context(self, task: str, limit: int = 5) -> str:
+        """Retrieve cross-debate institutional knowledge for a task.
+
+        Queries ContinuumMemory for stored debate outcomes relevant to the
+        given task. This is the retrieval counterpart of ``store_debate_outcome``
+        and powers the ``enable_cross_debate_memory`` injection chain.
+
+        Args:
+            task: The debate task/topic to find relevant past outcomes for.
+            limit: Maximum number of past outcomes to include.
+
+        Returns:
+            Formatted institutional knowledge string, or empty string if
+            nothing relevant was found.
+        """
+        if not self.continuum_memory or not task:
+            return ""
+
+        try:
+            entries = self.continuum_memory.retrieve(
+                query=task,
+                tiers=[MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW],
+                limit=limit,
+                tenant_id=self._tenant_id,
+            )
+            if not entries:
+                return ""
+
+            lines: list[str] = []
+            for entry in entries:
+                content = getattr(entry, "content", str(entry))
+                lines.append(f"- {content}")
+
+            if not lines:
+                return ""
+
+            header = "The following insights are from previous debates on related topics:\n\n"
+            return header + "\n".join(lines)
+        except (AttributeError, TypeError, ValueError, OSError, RuntimeError) as e:
+            logger.debug("Cross-debate context retrieval error: %s", e)
+            return ""
+
     def cleanup(self) -> None:
         """
         Cleanup resources when debate session ends.
