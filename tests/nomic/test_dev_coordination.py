@@ -1507,7 +1507,6 @@ def test_archive_failed_no_deliverable_work_orders_discards_empty_launch_crash_b
             }
         ],
     )
-
     conn = store._connect()
     try:
         conn.execute(
@@ -1533,6 +1532,7 @@ def test_archive_failed_no_deliverable_work_orders_discards_empty_launch_crash_b
     assert work_order["metadata"]["archived_due_to"] == "failed_no_deliverable"
     assert work_order["metadata"]["archive_reason"] == "worker_exited_without_receipt"
     assert work_order["metadata"]["previous_status"] == "needs_human"
+
 def test_archive_terminal_dependency_failure_work_orders_discards_blocked_successors(
     store: DevCoordinationStore,
 ) -> None:
