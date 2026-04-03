@@ -14,7 +14,7 @@ The long-term goal: every consequential AI-assisted decision in an organization 
 
 ## Operating Principle: Build the Full Vision, Make Everything Work
 
-This roadmap is not a stop-doing list. The platform has massive infrastructure already built — 3,800+ Python modules, 216,000+ tests, 42 Knowledge Mound adapters, 43 agent types, 4-stage pipeline, swarm orchestration, compliance framework, and more.
+This roadmap is not a stop-doing list. The platform has massive infrastructure already built — 3,800+ Python modules, 211,000+ tests, 42 Knowledge Mound adapters, 43 agent types, 4-stage pipeline, swarm orchestration, compliance framework, and more.
 
 **The priority is:**
 1. Make everything that exists work correctly and reliably
@@ -39,7 +39,7 @@ The live founder loop is **proven repeatable** (5/5 consecutive runs, 35-62s). P
 - Inbox trust wedge CLI (`aragora triage`) with staged performance profile
 - Autonomous overnight queue producing real strategy artifacts
 - Deploy pipeline auto-deploying on push to main
-- 216,000+ tests across 4,700+ test files
+- 211,000+ tests across 4,700+ test files
 
 ---
 
