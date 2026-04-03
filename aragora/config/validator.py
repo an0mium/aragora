@@ -54,6 +54,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
     config_summary: dict[str, Any] = {}
+    env_vars = dict(os.environ)
 
     # Run basic validation from settings module
     try:
@@ -68,26 +69,26 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         errors.append(f"Basic configuration validation failed: {e}")
 
     # Additional security checks
-    env = os.environ.get("ARAGORA_ENV", "development").lower()
+    env = env_vars.get("ARAGORA_ENV", "development").lower()
     is_production = env in ("production", "prod", "live")
 
     # Check encryption key in production
     if is_production:
-        if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
+        if not env_vars.get("ARAGORA_ENCRYPTION_KEY"):
             errors.append("ARAGORA_ENCRYPTION_KEY required in production for secrets encryption")
 
         # Check for debug mode in production
-        if os.environ.get("ARAGORA_DEBUG", "").lower() in ("true", "1", "yes"):
+        if env_vars.get("ARAGORA_DEBUG", "").lower() in ("true", "1", "yes"):
             warnings.append(
                 "ARAGORA_DEBUG is enabled in production - this may expose sensitive info"
             )
 
         # Check for secure cookies
-        if os.environ.get("ARAGORA_SECURE_COOKIES", "").lower() not in ("true", "1", "yes"):
+        if env_vars.get("ARAGORA_SECURE_COOKIES", "").lower() not in ("true", "1", "yes"):
             warnings.append("ARAGORA_SECURE_COOKIES should be enabled in production")
 
         # Check for HTTPS
-        base_url = os.environ.get("ARAGORA_BASE_URL", "")
+        base_url = env_vars.get("ARAGORA_BASE_URL", "")
         if base_url and not base_url.startswith("https://"):
             warnings.append("ARAGORA_BASE_URL should use HTTPS in production")
 
@@ -99,13 +100,13 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     except ImportError:
         distributed_required = False
 
-    state_backend = os.environ.get("ARAGORA_STATE_BACKEND", "")
-    redis_url = os.environ.get("ARAGORA_REDIS_URL", "") or os.environ.get("REDIS_URL", "")
-    redis_mode = os.environ.get("ARAGORA_REDIS_MODE", "").strip().lower()
-    sentinel_hosts = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "").strip()
-    sentinel_master = os.environ.get("ARAGORA_REDIS_SENTINEL_MASTER", "").strip()
+    state_backend = env_vars.get("ARAGORA_STATE_BACKEND", "")
+    redis_url = env_vars.get("ARAGORA_REDIS_URL", "") or env_vars.get("REDIS_URL", "")
+    redis_mode = env_vars.get("ARAGORA_REDIS_MODE", "").strip().lower()
+    sentinel_hosts = env_vars.get("ARAGORA_REDIS_SENTINEL_HOSTS", "").strip()
+    sentinel_master = env_vars.get("ARAGORA_REDIS_SENTINEL_MASTER", "").strip()
     sentinel_configured = redis_mode == "sentinel" and bool(sentinel_hosts and sentinel_master)
-    cluster_nodes = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "").strip()
+    cluster_nodes = env_vars.get("ARAGORA_REDIS_CLUSTER_NODES", "").strip()
     cluster_configured = redis_mode == "cluster" and bool(cluster_nodes)
     redis_configured = bool(redis_url or sentinel_configured or cluster_configured)
     if state_backend == "redis" and not redis_configured:
@@ -130,11 +131,11 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         config_summary["state_backend"] = "sqlite"
 
     # Check database configuration
-    db_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    db_backend = env_vars.get("ARAGORA_DB_BACKEND", "sqlite").lower()
     config_summary["db_backend"] = db_backend
 
     if db_backend in ("postgres", "postgresql"):
-        pg_dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+        pg_dsn = env_vars.get("ARAGORA_POSTGRES_DSN") or env_vars.get("DATABASE_URL")
         if not pg_dsn:
             errors.append(
                 "ARAGORA_DB_BACKEND=postgres but no PostgreSQL DSN configured. "
@@ -142,7 +143,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
             )
 
     # Check JWT secret for user auth
-    jwt_secret = os.environ.get("SUPABASE_JWT_SECRET") or os.environ.get("ARAGORA_JWT_SECRET")
+    jwt_secret = env_vars.get("SUPABASE_JWT_SECRET") or env_vars.get("ARAGORA_JWT_SECRET")
     if not jwt_secret:
         warnings.append(
             "No JWT secret configured (SUPABASE_JWT_SECRET or ARAGORA_JWT_SECRET). "
@@ -150,8 +151,8 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         )
 
     # Check Supabase configuration
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_KEY")
+    supabase_url = env_vars.get("SUPABASE_URL")
+    supabase_key = env_vars.get("SUPABASE_KEY") or env_vars.get("SUPABASE_ANON_KEY")
     if supabase_url and not supabase_key:
         warnings.append("SUPABASE_URL set but SUPABASE_KEY not configured")
 
@@ -160,11 +161,11 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     # Check for localhost defaults in production
     if is_production:
         localhost_vars = [
-            ("ARAGORA_API_BASE", os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")),
-            ("ARAGORA_WS_URL", os.environ.get("ARAGORA_WS_URL", "ws://localhost:8080/ws")),
-            ("MONGODB_HOST", os.environ.get("MONGODB_HOST", "")),
-            ("KAFKA_BOOTSTRAP_SERVERS", os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "")),
-            ("RABBITMQ_URL", os.environ.get("RABBITMQ_URL", "")),
+            ("ARAGORA_API_BASE", env_vars.get("ARAGORA_API_BASE", "http://localhost:8080")),
+            ("ARAGORA_WS_URL", env_vars.get("ARAGORA_WS_URL", "ws://localhost:8080/ws")),
+            ("MONGODB_HOST", env_vars.get("MONGODB_HOST", "")),
+            ("KAFKA_BOOTSTRAP_SERVERS", env_vars.get("KAFKA_BOOTSTRAP_SERVERS", "")),
+            ("RABBITMQ_URL", env_vars.get("RABBITMQ_URL", "")),
         ]
         for var_name, var_value in localhost_vars:
             if var_value and ("localhost" in var_value or "127.0.0.1" in var_value):
@@ -176,7 +177,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     # Update config summary
     config_summary["environment"] = env
     config_summary["is_production"] = is_production
-    config_summary["encryption_configured"] = bool(os.environ.get("ARAGORA_ENCRYPTION_KEY"))
+    config_summary["encryption_configured"] = bool(env_vars.get("ARAGORA_ENCRYPTION_KEY"))
 
     # Build result
     is_valid = len(errors) == 0

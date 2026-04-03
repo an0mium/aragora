@@ -229,6 +229,20 @@ class TestSecretManagerAWS:
             result = manager.get("ENV_ONLY_SECRET")
             assert result == "env_value"
 
+    def test_preseeded_initialized_cache_does_not_refresh_immediately(self):
+        """Manually seeded cache state should not trigger an AWS refresh."""
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}
+        manager._initialized = True
+
+        with patch.object(manager, "_load_from_aws") as mock_load:
+            with patch.dict(os.environ, {"ENV_ONLY_SECRET": "env_value"}):
+                result = manager.get("ENV_ONLY_SECRET")
+
+        assert result == "env_value"
+        mock_load.assert_not_called()
+
     def test_aws_client_lazy_initialization(self):
         """AWS client is lazily initialized only when needed."""
         config = SecretsConfig(use_aws=True)

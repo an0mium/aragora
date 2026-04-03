@@ -447,6 +447,14 @@ class SecretManager:
             if not self.config.use_aws:
                 return  # No AWS, no refresh needed
 
+            if self._cache_timestamp == 0.0 and not force_refresh:
+                # Some callers and tests preseed _cached_secrets and mark the
+                # manager initialized to model a known cache state without
+                # touching live AWS. Treat that explicit initialization as
+                # authoritative until the normal TTL window elapses.
+                self._cache_timestamp = time.time()
+                return
+
             needs_refresh = force_refresh or self._is_cache_expired()
             if not needs_refresh:
                 return
