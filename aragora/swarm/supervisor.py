@@ -3939,6 +3939,8 @@ class SwarmSupervisor:
         if reason not in blockers:
             blockers.append(reason)
         item["blockers"] = blockers
+        item.pop("receipt_id", None)
+        item.pop("confidence", None)
         item.pop("pid", None)
 
     @classmethod
@@ -4026,6 +4028,8 @@ class SwarmSupervisor:
         if reason not in blockers:
             blockers.append(reason)
         item["blockers"] = blockers
+        item.pop("receipt_id", None)
+        item.pop("confidence", None)
         item.pop("pid", None)
 
         # Write violation metadata into the lease so status_summary() surfaces

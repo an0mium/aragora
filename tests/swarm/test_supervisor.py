@@ -2673,6 +2673,8 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
             }
         ],
         status="active",
@@ -2722,6 +2724,7 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
     assert wo["status"] == "needs_human"
     assert wo["review_status"] == "changes_requested"
     assert wo["receipt_id"] is None
+    assert "confidence" not in wo
     assert wo["worker_outcome"] == "merge_gate_failed"
     assert wo["merge_gate"]["checks_passed"] is False
     assert "merge gate blocked" in wo["dispatch_error"]
@@ -3049,6 +3052,8 @@ async def test_collect_results_marks_scope_violation_needs_human(
                 "lease_id": lease.lease_id,
                 "file_scope": ["aragora/server/auth_checks.py"],
                 "review_status": "pending",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.88,
             }
         ],
         status="active",
@@ -3092,6 +3097,7 @@ async def test_collect_results_marks_scope_violation_needs_human(
     assert wo["failure_reason"] == "scope_violation"
     assert "stay in scope" in wo["blocking_question"]
     assert wo.get("receipt_id") is None
+    assert "confidence" not in wo
     assert wo["lease_id"] == lease.lease_id
     assert wo["scope_violation"]["violations"][0]["type"] == "out_of_scope"
 
