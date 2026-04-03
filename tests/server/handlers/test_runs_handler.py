@@ -53,6 +53,46 @@ def _make_run(
     return run
 
 
+class _ListStore:
+    def __init__(self, runs: list[RunLedger]) -> None:
+        self._runs = runs
+        self.calls: list[dict[str, Any]] = []
+
+    def list_runs(
+        self,
+        *,
+        status: str | None = None,
+        execution_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[RunLedger]:
+        self.calls.append(
+            {
+                "status": status,
+                "execution_id": execution_id,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+        return self._runs[offset : offset + limit]
+
+
+class _GetStore:
+    def __init__(self, preferred: RunLedger | None, fallback: RunLedger | None = None) -> None:
+        self._preferred = preferred
+        self._fallback = fallback
+        self.get_backbone_run_calls: list[str] = []
+        self.get_run_calls: list[str] = []
+
+    def get_backbone_run(self, run_id: str) -> RunLedger | None:
+        self.get_backbone_run_calls.append(run_id)
+        return self._preferred
+
+    def get_run(self, run_id: str) -> RunLedger | None:
+        self.get_run_calls.append(run_id)
+        return self._fallback
+
+
 @pytest.fixture
 def handler() -> RunsHandler:
     return RunsHandler(ctx={})
@@ -73,23 +113,24 @@ class TestRunsHandlerBasics:
 
 class TestListRuns:
     def test_list_runs_formats_run_ledger_fields(self, handler: RunsHandler) -> None:
-        store = MagicMock()
-        store.list_runs.return_value = [
-            _make_run(
-                run_id="run-1",
-                status="execution_queued",
-                execution_id="exec-1",
-                receipt_id="receipt-1",
-                safety_mode="interactive",
-            ),
-            _make_run(
-                run_id="run-2",
-                status="receipt_ready",
-                execution_id="exec-2",
-                receipt_id="receipt-2",
-                stage_details_mode="autonomous",
-            ),
-        ]
+        store = _ListStore(
+            [
+                _make_run(
+                    run_id="run-1",
+                    status="execution_queued",
+                    execution_id="exec-1",
+                    receipt_id="receipt-1",
+                    safety_mode="interactive",
+                ),
+                _make_run(
+                    run_id="run-2",
+                    status="receipt_ready",
+                    execution_id="exec-2",
+                    receipt_id="receipt-2",
+                    stage_details_mode="autonomous",
+                ),
+            ]
+        )
 
         with patch("aragora.server.handlers.runs._get_plan_store", return_value=store):
             result = handler.handle(
@@ -114,12 +155,14 @@ class TestListRuns:
             "safety_mode": "interactive",
         }
         assert data["runs"][1]["safety_mode"] == "autonomous"
-        store.list_runs.assert_called_once_with(
-            status=None,
-            execution_id=None,
-            limit=2,
-            offset=0,
-        )
+        assert store.calls == [
+            {
+                "status": None,
+                "execution_id": None,
+                "limit": 2,
+                "offset": 0,
+            }
+        ]
 
 
 class TestGetRun:
@@ -132,9 +175,7 @@ class TestGetRun:
             safety_mode="interactive",
         )
         fallback = _make_run(run_id="run-fallback", safety_mode="autonomous")
-        store = MagicMock()
-        store.get_backbone_run.return_value = preferred
-        store.get_run.return_value = fallback
+        store = _GetStore(preferred, fallback)
 
         with patch("aragora.server.handlers.runs._get_plan_store", return_value=store):
             result = handler.handle(
@@ -155,12 +196,11 @@ class TestGetRun:
             {"stage": "intake", "status": "completed"},
             {"stage": "execution", "status": "queued"},
         ]
-        store.get_backbone_run.assert_called_once_with("run-preferred")
-        store.get_run.assert_not_called()
+        assert store.get_backbone_run_calls == ["run-preferred"]
+        assert store.get_run_calls == []
 
     def test_get_run_returns_not_found(self, handler: RunsHandler) -> None:
-        store = MagicMock()
-        store.get_backbone_run.return_value = None
+        store = _GetStore(preferred=None)
 
         with patch("aragora.server.handlers.runs._get_plan_store", return_value=store):
             result = handler.handle("/api/runs/missing-run", {}, _make_mock_handler())
