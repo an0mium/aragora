@@ -43,10 +43,10 @@ from aragora.swarm.terminal_truth import (
     qualify_work_order_terminal_state,
 )
 from aragora.swarm.worker_launcher import (
-    SESSION_ARTIFACTS,
     LaunchConfig,
     WorkerLauncher,
     WorkerProcess,
+    is_ignored_changed_path,
 )
 from aragora.worktree.lifecycle import WorktreeLifecycleService
 
@@ -1058,6 +1058,9 @@ class SwarmSupervisor:
             if self._should_requeue_reaped_needs_human(item, active_leases):
                 self._reset_work_order_for_requeue(item)
                 continue
+            if self._should_requeue_ignorable_scope_violation(item):
+                self._reset_work_order_for_requeue(item)
+                continue
             if self._should_requeue_terminal_dependency_failure(item, work_orders):
                 self._reset_work_order_for_requeue(item)
                 continue
@@ -1578,6 +1581,40 @@ class SwarmSupervisor:
             return False
         dependency_status = str(dependency.get("status", "")).strip().lower()
         return dependency_status not in {"discarded", "failed", "timed_out", "scope_violation"}
+
+    @staticmethod
+    def _should_requeue_ignorable_scope_violation(item: dict[str, Any]) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"scope_violation", "needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if failure_reason != "scope_violation" and archived_due_to != "scope_violation":
+            return False
+        if str(item.get("receipt_id") or "").strip():
+            return False
+        if item.get("commit_shas") or item.get("pr_url") or item.get("adopted_pr"):
+            return False
+
+        candidate_paths: set[str] = {
+            str(path).strip() for path in item.get("changed_paths", []) if str(path).strip()
+        }
+        scope_violation = item.get("scope_violation")
+        if isinstance(scope_violation, dict):
+            for violation in scope_violation.get("violations", []) or []:
+                if not isinstance(violation, dict):
+                    continue
+                path = str(violation.get("path", "")).strip()
+                if path:
+                    candidate_paths.add(path)
+        if not candidate_paths:
+            return False
+        return all(is_ignored_changed_path(path) for path in candidate_paths)
 
     @staticmethod
     def _reset_work_order_for_requeue(item: dict[str, Any]) -> None:
@@ -3185,13 +3222,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _strip_session_artifacts(paths: list[str]) -> list[str]:
-        """Remove harness session metadata from a list of changed paths.
+        """Remove harness and runtime noise from a list of changed paths.
 
         Session artifacts like ``.codex_session_meta.json`` are infrastructure
-        metadata created by the harness, not user deliverables.  Stripping them
-        prevents workers from claiming credit for non-work output.
+        metadata created by the harness, while runtime directories like
+        ``node_modules`` are environment noise. Stripping them prevents workers
+        from claiming credit for non-work output or tripping false scope checks.
         """
-        return [p for p in paths if Path(p).name not in SESSION_ARTIFACTS]
+        return [p for p in paths if not is_ignored_changed_path(p)]
 
     def _campaign_metadata(
         self,

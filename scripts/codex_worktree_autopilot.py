@@ -475,6 +475,55 @@ def _local_branches_with_prefix(repo_root: Path, prefix: str) -> list[str]:
     return branches
 
 
+def _worktree_admin_dir(repo_root: Path, session_id: str) -> Path:
+    return _git_common_dir(repo_root) / "worktrees" / str(session_id or "").strip()
+
+
+def _clear_stale_initializing_worktree_registration(
+    repo_root: Path,
+    *,
+    session_id: str,
+    worktree_path: Path,
+) -> bool:
+    """Remove a stale `.git/worktrees/<session>` entry left by an aborted add.
+
+    Failed `git worktree add` calls can leave an admin dir behind with
+    `locked=initializing` even when the target worktree path never materialized.
+    Future retries then fail before checkout and leak retry branches. Clearing
+    only this narrow stale shape is safe and lets the session recover in place.
+    """
+    sid = str(session_id or "").strip()
+    if not sid or worktree_path.exists():
+        return False
+    admin_dir = _worktree_admin_dir(repo_root, sid)
+    if not admin_dir.exists():
+        return False
+    locked_path = admin_dir / "locked"
+    try:
+        locked_reason = locked_path.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return False
+    if locked_reason != "initializing":
+        return False
+    try:
+        shutil.rmtree(admin_dir)
+    except OSError:
+        return False
+    return not admin_dir.exists()
+
+
+def _cleanup_leaked_retry_branch(
+    repo_root: Path,
+    *,
+    branch: str,
+    worktree_path: Path,
+) -> None:
+    """Drop a just-created branch when worktree creation failed before checkout."""
+    if worktree_path.exists() or not _branch_exists(repo_root, branch):
+        return
+    _run_git(repo_root, "branch", "-D", branch)
+
+
 def _branch_collision_error(stderr: str, branch: str) -> bool:
     message = str(stderr or "").lower()
     return (
@@ -642,6 +691,11 @@ def _create_managed_worktree(
 
     if worktree_path.exists():
         shutil.rmtree(worktree_path, ignore_errors=True)
+    _clear_stale_initializing_worktree_registration(
+        repo_root,
+        session_id=sid,
+        worktree_path=worktree_path,
+    )
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
     attached_branches = {
@@ -739,6 +793,11 @@ def _create_managed_worktree(
             )
             if add_proc.returncode == 0:
                 break
+            _cleanup_leaked_retry_branch(
+                repo_root,
+                branch=branch,
+                worktree_path=worktree_path,
+            )
             if _branch_collision_error(add_proc.stderr, branch):
                 branch = f"{base_branch_name}-{uuid4().hex[:4]}"
                 retry_branch = True
