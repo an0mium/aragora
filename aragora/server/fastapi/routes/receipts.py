@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-import os
 from datetime import datetime, timezone
 from enum import Enum
 from inspect import signature
@@ -31,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
+from aragora.utils.public_urls import public_receipt_share_url
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +227,7 @@ class ShareReceiptResponse(BaseModel):
     success: bool
     receipt_id: str
     share_url: str
+    full_url: str
     token: str
     expires_at: str
     max_accesses: int | None = None
@@ -519,8 +520,7 @@ def _reconstruct_decision_receipt(receipt: Any) -> Any | None:
 def _render_shared_receipt_html(receipt: Any, token: str) -> str:
     """Render a lightweight standalone HTML view for shared receipts."""
     title = getattr(receipt, "receipt_id", None) or token
-    base_url = os.environ.get("ARAGORA_BASE_URL", "https://aragora.ai").rstrip("/")
-    share_url = f"{base_url}/api/v2/receipts/share/{token}"
+    share_url = public_receipt_share_url(token)
     if hasattr(receipt, "to_html"):
         body = receipt.to_html()
     else:
@@ -1004,11 +1004,14 @@ async def share_receipt(
             expires_at=expires_at_ts,
             max_accesses=body.max_accesses,
         )
+        share_url = f"/api/v2/receipts/share/{token}"
+        full_url = public_receipt_share_url(token)
 
         return ShareReceiptResponse(
             success=True,
             receipt_id=receipt_id,
-            share_url=f"/api/v2/receipts/share/{token}",
+            share_url=share_url,
+            full_url=full_url,
             token=token,
             expires_at=datetime.fromtimestamp(expires_at_ts, tz=timezone.utc).isoformat(),
             max_accesses=body.max_accesses,

@@ -728,6 +728,7 @@ _RECEIPT_ENDPOINTS = {
                         "success": {"type": "boolean"},
                         "receipt_id": {"type": "string"},
                         "share_url": {"type": "string"},
+                        "full_url": {"type": "string"},
                         "token": {"type": "string"},
                         "expires_at": {"type": "string", "format": "date-time"},
                         "max_accesses": {

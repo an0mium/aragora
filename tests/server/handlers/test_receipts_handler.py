@@ -1184,8 +1184,40 @@ class TestReceiptsHandlerShare:
         assert data["success"] is True
         assert data["receipt_id"] == "r1"
         assert "share_url" in data
+        assert data["full_url"] == f"https://aragora.ai{data['share_url']}"
         assert "token" in data
         assert "expires_at" in data
+
+    @pytest.mark.asyncio
+    async def test_share_receipt_webhook_uses_absolute_url(
+        self, handler_with_share_store, mock_receipt_store
+    ):
+        """Webhook notifications should receive a copy-pasteable receipt URL."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+
+        mock_notifier = MagicMock()
+
+        with (
+            patch(
+                "aragora.server.handlers.receipts.secrets.token_urlsafe",
+                return_value="test-token-123",
+            ),
+            patch(
+                "aragora.integrations.receipt_webhooks.ReceiptWebhookNotifier",
+                return_value=mock_notifier,
+            ),
+        ):
+            result = await handler_with_share_store.handle(
+                "POST", "/api/v2/receipts/r1/share", body={}
+            )
+
+        assert result.status_code == 200
+        mock_notifier.notify_receipt_shared.assert_called_once()
+        kwargs = mock_notifier.notify_receipt_shared.call_args.kwargs
+        assert kwargs["receipt_id"] == "r1"
+        assert kwargs["debate_id"] == "debate-001"
+        assert kwargs["share_url"] == "https://aragora.ai/api/v2/receipts/share/test-token-123"
+        assert "expires_at" in kwargs
 
     @pytest.mark.asyncio
     async def test_share_receipt_custom_expiry(self, handler_with_share_store, mock_receipt_store):

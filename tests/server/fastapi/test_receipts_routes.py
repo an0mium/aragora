@@ -579,6 +579,7 @@ class TestShareReceipt:
         assert data["success"] is True
         assert data["receipt_id"] == "rcpt_test123"
         assert data["share_url"].startswith("/api/v2/receipts/share/")
+        assert data["full_url"] == f"https://aragora.ai{data['share_url']}"
         assert data["max_accesses"] == 3
         mock_receipt_share_store.save.assert_called_once()
 

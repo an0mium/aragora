@@ -61,6 +61,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
+from aragora.utils.public_urls import public_receipt_share_url
 
 logger = logging.getLogger(__name__)
 
@@ -1505,6 +1506,7 @@ class ReceiptsHandler(BaseHandler):
 
         # Emit webhook notification
         share_url = f"/api/v2/receipts/share/{token}"
+        full_url = public_receipt_share_url(token)
         try:
             from aragora.integrations.receipt_webhooks import ReceiptWebhookNotifier
 
@@ -1513,7 +1515,7 @@ class ReceiptsHandler(BaseHandler):
             notifier.notify_receipt_shared(
                 receipt_id=receipt_id,
                 debate_id=debate_id,
-                share_url=share_url,
+                share_url=full_url,
                 expires_at=datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
             )
         except ImportError:
@@ -1524,6 +1526,7 @@ class ReceiptsHandler(BaseHandler):
                 "success": True,
                 "receipt_id": receipt_id,
                 "share_url": share_url,
+                "full_url": full_url,
                 "token": token,
                 "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
                 "max_accesses": max_accesses,

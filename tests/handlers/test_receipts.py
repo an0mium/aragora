@@ -1216,6 +1216,7 @@ class TestShareReceipt:
         assert body["receipt_id"] == "rcpt-001"
         assert "token" in body
         assert "share_url" in body
+        assert body["full_url"] == f"https://aragora.ai{body['share_url']}"
         assert "expires_at" in body
 
     @pytest.mark.asyncio
