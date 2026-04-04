@@ -68,6 +68,8 @@ export interface CompactDebateResultProps {
 export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactDebateResultProps) {
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const participants = result.participants ?? [];
+  const proposals = result.proposals ?? {};
 
   const tldr = result.tldr
     || (result.final_answer ? stripMarkdown(result.final_answer).slice(0, 200) : '');
@@ -78,7 +80,7 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
     Boolean(interpretedQuestion) && interpretedQuestion !== originalQuestion;
 
   const confidencePct = Math.round(result.confidence * 100);
-  const agentCount = result.participants.length || Object.keys(result.proposals).length;
+  const agentCount = participants.length || Object.keys(proposals).length;
   const rounds = result.rounds_used;
   const duration = result.duration_seconds;
 
@@ -96,11 +98,11 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
 
   // Get proposal text for an agent (look up by name, stripping round suffix)
   function getProposalText(agent: string): string {
-    if (result.proposals[agent]) {
-      return stripMarkdown(result.proposals[agent]).slice(0, 200);
+    if (proposals[agent]) {
+      return stripMarkdown(proposals[agent]).slice(0, 200);
     }
     // Try matching by display name prefix
-    for (const [key, val] of Object.entries(result.proposals)) {
+    for (const [key, val] of Object.entries(proposals)) {
       if (key === agent || agentDisplayName(key) === agent) {
         return stripMarkdown(val).slice(0, 200);
       }
@@ -110,9 +112,9 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
 
   // Agents to show as chips: participants list, or fall back to proposal keys
   const chipAgents =
-    result.participants.length > 0
-      ? result.participants
-      : Object.keys(result.proposals);
+    participants.length > 0
+      ? participants
+      : Object.keys(proposals);
 
   async function handleShare() {
     const shareUrl = result.id
