@@ -271,8 +271,8 @@ class WebhookHandler(SecureHandler):
 
     @staticmethod
     def _forbidden_webhook_access() -> HandlerResult:
-        """Return the documented forbidden response for non-owner access."""
-        return error_response("Access denied - not the webhook owner", 403)
+        """Hide non-owned webhook records to avoid cross-tenant leaks."""
+        return error_response("Webhook not found", 404)
 
     @api_endpoint(
         path="/api/v1/webhooks",

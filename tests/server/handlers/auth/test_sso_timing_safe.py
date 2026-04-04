@@ -210,25 +210,26 @@ class TestJWTStoreTimingSafeComparison:
         fake_sig = "A" * len(signature)
         forged_state = f"{payload}.{fake_sig}"
 
-        # Both should be validated consistently - the forged one should fail
-        # This demonstrates that signature comparison is happening correctly
-        valid_result = jwt_state_store.validate_and_consume(state)
-        assert valid_result is not None, "Valid state should pass validation"
+        with patch.object(
+            hmac_module,
+            "compare_digest",
+            wraps=hmac_module.compare_digest,
+        ) as mock_compare_digest:
+            # Both should be validated consistently - the forged one should fail
+            # This demonstrates that signature comparison is happening correctly
+            valid_result = jwt_state_store.validate_and_consume(state)
+            assert valid_result is not None, "Valid state should pass validation"
 
-        # Generate another valid state to test forged signature
-        state2 = jwt_state_store.generate(ttl_seconds=3600)
-        parts2 = state2.split(".")
-        forged_state2 = f"{parts2[0]}.{fake_sig}"
+            # Generate another valid state to test forged signature
+            state2 = jwt_state_store.generate(ttl_seconds=3600)
+            parts2 = state2.split(".")
+            forged_state2 = f"{parts2[0]}.{fake_sig}"
 
-        # Forged state should fail
-        forged_result = jwt_state_store.validate_and_consume(forged_state2)
-        assert forged_result is None, "Forged state should fail validation"
+            # Forged state should fail
+            forged_result = jwt_state_store.validate_and_consume(forged_state2)
+            assert forged_result is None, "Forged state should fail validation"
 
-        # Verify the implementation uses compare_digest by examining the source
-        import inspect
-
-        source = inspect.getsource(jwt_state_store.validate_and_consume)
-        assert "compare_digest" in source, (
+        assert mock_compare_digest.called, (
             "JWTOAuthStateStore.validate_and_consume should use compare_digest"
         )
 

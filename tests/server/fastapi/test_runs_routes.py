@@ -96,9 +96,16 @@ def test_list_runs_route_is_registered(client) -> None:
     assert response.json() == {
         "runs": [
             {
+                "created_at": None,
                 "run_id": "run-fastapi-list",
                 "status": "plan_ready",
-                "stages": [{"stage": BackboneStage.PLAN.value, "status": "completed"}],
+                "stages": [
+                    {
+                        "created_at": None,
+                        "stage": BackboneStage.PLAN.value,
+                        "status": "completed",
+                    }
+                ],
                 "execution_id": "exec-fastapi",
                 "receipt_id": "receipt-fastapi",
                 "safety_mode": ExecutionMode.INTERACTIVE.value,
@@ -130,9 +137,16 @@ def test_get_run_route_is_registered(client) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "run": {
+            "created_at": None,
             "run_id": "run-fastapi-detail",
             "status": "execution_started",
-            "stages": [{"stage": BackboneStage.EXECUTION.value, "status": "running"}],
+            "stages": [
+                {
+                    "created_at": None,
+                    "stage": BackboneStage.EXECUTION.value,
+                    "status": "running",
+                }
+            ],
             "execution_id": None,
             "receipt_id": None,
             "safety_mode": None,
