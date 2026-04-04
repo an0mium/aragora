@@ -10,18 +10,20 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.runs import handle_run_detail, handle_runs_list
 from aragora.server.fastapi.dependencies.auth import require_permission
 
-router = APIRouter(prefix="/api/v2", tags=["Runs"])
+router = APIRouter(tags=["Runs"])
 _RUNS_READ_PERMISSION = "orchestration:read"
 
 
 class RunStageSummary(BaseModel):
     """Collapsed latest status for a single stage."""
+
+    model_config = ConfigDict(extra="allow")
 
     stage: str
     status: str
@@ -30,6 +32,8 @@ class RunStageSummary(BaseModel):
 
 class RunSummary(BaseModel):
     """Compact backbone run summary."""
+
+    model_config = ConfigDict(extra="allow")
 
     run_id: str
     status: str
@@ -85,7 +89,8 @@ def _unwrap_handler_result(result: Any) -> dict[str, Any]:
     return payload
 
 
-@router.get("/runs", response_model=RunListResponse)
+@router.get("/api/runs", response_model=RunListResponse)
+@router.get("/api/v2/runs", response_model=RunListResponse, include_in_schema=False)
 async def list_runs(
     request: Request,
     status: str | None = Query(None, description="Optional run status filter"),
@@ -105,7 +110,8 @@ async def list_runs(
     return RunListResponse(**payload)
 
 
-@router.get("/runs/{run_id}", response_model=RunDetailResponse)
+@router.get("/api/runs/{run_id}", response_model=RunDetailResponse)
+@router.get("/api/v2/runs/{run_id}", response_model=RunDetailResponse, include_in_schema=False)
 async def get_run(
     run_id: str,
     auth: AuthorizationContext = Depends(require_permission(_RUNS_READ_PERMISSION)),
