@@ -540,10 +540,11 @@ describe('LandingPage submission flow', () => {
     expect(feedbackBodies).toHaveLength(1);
     expect(feedbackBodies[0]).toEqual(expect.objectContaining({
       question: 'I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?',
-      interpreted_question: expect.stringContaining('practical food-safety question'),
+      interpreted_question: 'Should I microwave pre-cooked chicken nuggets for my 4 year old?',
       final_answer: 'Yes. Reheat the nuggets until hot all the way through.',
       debate_id: 'debate-preview-2',
       result_mode: 'preview',
+      result_warning: 'Aragora debated the focused interpretation you chose before opening the full transcript.',
       verdict: 'needs_review',
       participant_count: 2,
       rewritten: true,
