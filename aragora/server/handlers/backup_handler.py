@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.backup.manager import get_default_backup_source_path
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -264,28 +265,32 @@ class BackupHandler(BaseHandler):
             metadata: Additional metadata to store
         """
         source_path = body.get("source_path")
+        validated_path = None
         if not source_path:
-            return error_response("source_path is required", 400)
+            default_source = get_default_backup_source_path()
+            if not default_source.exists():
+                return error_response("Default backup source not found", 404)
+            validated_path = default_source.resolve()
 
         # SECURITY: Validate source_path to prevent path traversal attacks.
         # Only allow paths within configured allowed directories.
-        validated_path = None
-        for allowed_base in _ALLOWED_BACKUP_SOURCE_DIRS:
-            if not allowed_base.exists():
-                continue
-            try:
-                validated_path = safe_path(allowed_base, source_path, must_exist=True)
-                break
-            except PathTraversalError:
-                logger.debug(
-                    "Path traversal attempt blocked for backup source: %s (base: %s)",
-                    source_path,
-                    allowed_base,
-                )
-                continue
-            except FileNotFoundError:
-                # Path within allowed dir but doesn't exist - try next base
-                continue
+        if validated_path is None:
+            for allowed_base in _ALLOWED_BACKUP_SOURCE_DIRS:
+                if not allowed_base.exists():
+                    continue
+                try:
+                    validated_path = safe_path(allowed_base, source_path, must_exist=True)
+                    break
+                except PathTraversalError:
+                    logger.debug(
+                        "Path traversal attempt blocked for backup source: %s (base: %s)",
+                        source_path,
+                        allowed_base,
+                    )
+                    continue
+                except FileNotFoundError:
+                    # Path within allowed dir but doesn't exist - try next base
+                    continue
 
         if validated_path is None:
             logger.warning("Backup source path validation failed: %s", source_path)
