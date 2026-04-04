@@ -2,11 +2,11 @@
 
 *Complete catalog of 230+ features for developers exploring Aragora capabilities*
 
-> Compatibility mirror for older links. This file is currently the maintained feature inventory; the older `status/FEATURE_DISCOVERY.md` target is not present in the repo.
+> Compatibility mirror for older links. This file mirrors `docs/status/FEATURE_DISCOVERY.md`, with root-relative links adjusted for the legacy path.
 
 This document provides a comprehensive inventory of Aragora's features organized by domain. Use this guide to discover what Aragora can do and find the relevant modules for your use case.
 
-> **Quick Links**: [STATUS.md](STATUS.md) for implementation status | [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for enterprise details | [API_REFERENCE.md](./api/API_REFERENCE.md) for endpoints
+> **Quick Links**: [STATUS.md](STATUS.md) for implementation status | [ENTERPRISE_FEATURES.md](./ENTERPRISE_FEATURES.md) for enterprise details | [API_REFERENCE.md](./api/API_REFERENCE.md) for endpoints
 
 ---
 
@@ -24,7 +24,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 230+ features | 3,000+ Python modules | 153,000+ tests | 3,000+ API operations across 2,600+ paths
+**Total**: 230+ features | 3,800+ Python modules | 153,000+ tests | 3,100+ API operations across 2,600+ paths
 
 ---
 
@@ -447,7 +447,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
 | **Structured Logging** | Stable | JSON logs with correlation IDs, PII redaction | `aragora/observability/logging.py` | |
-| **Alert Runbooks** | Stable | Automated alert responses | `docs/ALERT_RUNBOOKS.md` | [ALERT_RUNBOOKS.md](./deployment/ALERT_RUNBOOKS.md) |
+| **Alert Runbooks** | Stable | Automated alert responses | `docs/deployment/ALERT_RUNBOOKS.md` | [ALERT_RUNBOOKS.md](./deployment/ALERT_RUNBOOKS.md) |
 
 ### Health Monitoring
 
@@ -760,16 +760,16 @@ python scripts/self_develop.py --goal "Improve test coverage" --dry-run
 
 ```bash
 # Find all handlers
-grep -r "class.*Handler" aragora/server/handlers/ --include="*.py"
+rg "class.*Handler" aragora/server/handlers/
 
 # Find all adapters
-grep -r "class.*Adapter" aragora/ --include="*.py"
+rg "class.*Adapter" aragora/
 
 # Find all permissions
-grep -r "require_permission" aragora/ --include="*.py"
+rg "require_permission" aragora/
 
 # Find all WebSocket events
-grep -r "event_type=" aragora/ --include="*.py"
+rg "event_type=" aragora/
 ```
 
 ### Key Entry Points
@@ -790,8 +790,8 @@ grep -r "event_type=" aragora/ --include="*.py"
 |----------|---------|
 | [CLAUDE.md](../CLAUDE.md) | Development guide for AI assistants |
 | [STATUS.md](STATUS.md) | Release status and changelog |
-| [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) | Enterprise capability deep-dive |
-| [EXTENDED_README.md](EXTENDED_README.md) | Comprehensive technical reference |
+| [ENTERPRISE_FEATURES.md](./ENTERPRISE_FEATURES.md) | Enterprise capability deep-dive |
+| [EXTENDED_README.md](./EXTENDED_README.md) | Comprehensive technical reference |
 | [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md) | Commercial positioning |
 | [API_REFERENCE.md](./api/API_REFERENCE.md) | REST API documentation |
 | [WORKFLOWS.md](./workflow/WORKFLOWS.md) | Workflow engine guide |
