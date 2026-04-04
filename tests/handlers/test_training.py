@@ -320,13 +320,13 @@ class TestHandlerInit:
         assert custom.exists()
 
     def test_routes_defined(self, handler):
-        assert len(handler.ROUTES) == 6
+        assert len(handler.ROUTES) == 12
         assert "/api/v1/training/export/sft" in handler.ROUTES
         assert "/api/v1/training/export/dpo" in handler.ROUTES
         assert "/api/v1/training/export/gauntlet" in handler.ROUTES
 
     def test_route_map_defined(self, handler):
-        assert len(handler._ROUTE_MAP) == 6
+        assert len(handler._ROUTE_MAP) == 12
 
     def test_job_routes_defined(self, handler):
         assert len(handler.JOB_ROUTES) >= 6

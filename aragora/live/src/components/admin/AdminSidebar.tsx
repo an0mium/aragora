@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { label: 'Billing', href: '/admin/billing', icon: '=' },
   { label: 'Audit Logs', href: '/admin/audit', icon: '!' },
   { label: 'Security', href: '/admin/security', icon: '*' },
+  { label: 'Landing', href: '/admin/landing', icon: '?' },
   { label: 'Queue', href: '/admin/queue', icon: '>' },
   { label: 'Training', href: '/admin/training', icon: '^' },
   { label: 'Personas', href: '/admin/personas', icon: '&' },

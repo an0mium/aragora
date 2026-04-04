@@ -33,6 +33,7 @@ from .routes import (
     agents,
     consensus,
     pipeline,
+    runs,
     knowledge,
     workflows,
     compliance,
@@ -357,6 +358,7 @@ def create_app(
     app.include_router(agents.router)
     app.include_router(consensus.router)
     app.include_router(pipeline.router)
+    app.include_router(runs.router)
     app.include_router(knowledge.router)
     app.include_router(workflows.router)
     app.include_router(compliance.router)

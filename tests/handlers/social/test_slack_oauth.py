@@ -605,6 +605,45 @@ class TestPreview:
         assert "tenant_id=test-org-001" in html
 
     @pytest.mark.asyncio
+    async def test_preview_preserves_valid_dev_host_in_install_url(
+        self, handler, handler_module, monkeypatch
+    ):
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/preview",
+            {},
+            {"host": "localhost:3000"},
+            {},
+            None,
+        )
+
+        assert _status(result) == 200
+        html = _html(result)
+        assert "tenant_id=test-org-001" in html
+        assert "host=localhost%3A3000" in html
+
+    @pytest.mark.asyncio
+    async def test_preview_rejects_invalid_dev_host(self, handler, handler_module, monkeypatch):
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "development")
+        monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", None)
+
+        result = await handler.handle(
+            "GET",
+            "/api/integrations/slack/preview",
+            {},
+            {"host": "evil.com:3000"},
+            {},
+            None,
+        )
+
+        assert _status(result) == 400
+        body = _body(result)
+        assert "localhost" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_preview_escapes_tenant_bound_install_url(self, handler):
         malicious_tenant = 'tenant" onclick="alert(1)<script>'
         expected_query = urlencode({"tenant_id": malicious_tenant})

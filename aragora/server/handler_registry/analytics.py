@@ -160,6 +160,7 @@ ReceiptExplorerHandler = _safe_import(
 DecompositionHandler = _safe_import(
     "aragora.server.handlers.pipeline.decomposition", "DecompositionHandler"
 )
+RunsHandler = _safe_import("aragora.server.handlers.runs", "RunsHandler")
 
 # Differentiation and moderation analytics
 DifferentiationHandler = _safe_import(
@@ -227,6 +228,7 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_plan_management_handler", PlanManagementHandler),
     ("_receipt_explorer_handler", ReceiptExplorerHandler),
     ("_decomposition_handler", DecompositionHandler),
+    ("_runs_handler", RunsHandler),
     # Differentiation and moderation analytics
     ("_differentiation_handler", DifferentiationHandler),
     ("_moderation_analytics_handler", ModerationAnalyticsHandler),
@@ -282,6 +284,7 @@ __all__ = [
     "PlanManagementHandler",
     "ReceiptExplorerHandler",
     "DecompositionHandler",
+    "RunsHandler",
     # Differentiation and moderation analytics
     "DifferentiationHandler",
     "ModerationAnalyticsHandler",

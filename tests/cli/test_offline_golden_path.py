@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import argparse
 import gc
+import inspect
 import json
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -63,8 +64,10 @@ def _collect_garbage_between_tests():
 async def test_run_debate_offline_is_network_free(monkeypatch):
     """Offline mode should not attempt audience networking and should disable network-backed subsystems."""
     from aragora.cli.commands import debate as debate_cmd
+    from aragora.debate.orchestrator import Arena as RealArena
 
     monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+    real_arena_signature = inspect.signature(RealArena.__init__)
 
     with (
         patch.object(debate_cmd, "create_agent", return_value=MagicMock(name="demo-agent")),
@@ -75,6 +78,7 @@ async def test_run_debate_offline_is_network_free(monkeypatch):
             side_effect=AssertionError("should not probe network in offline mode"),
         ),
         patch.object(debate_cmd, "CritiqueStore") as mock_store,
+        patch("inspect.signature", return_value=real_arena_signature),
     ):
         mock_result = MagicMock()
         mock_arena.return_value.run = AsyncMock(return_value=mock_result)

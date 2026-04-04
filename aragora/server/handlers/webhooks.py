@@ -257,6 +257,10 @@ class WebhookHandler(SecureHandler):
         """Check whether the authenticated requester may access this webhook."""
         if user is None:
             return True
+        # Fail closed on orphaned rows: without either an owning user or an
+        # owning workspace, the record has no legitimate caller-scoped owner.
+        if not webhook.user_id and not webhook.workspace_id:
+            return True
         user_id = str(getattr(user, "user_id", "") or "").strip()
         org_id = str(getattr(user, "org_id", "") or "").strip()
         if webhook.user_id and webhook.user_id != user_id:
@@ -266,9 +270,9 @@ class WebhookHandler(SecureHandler):
         return False
 
     @staticmethod
-    def _hidden_webhook_not_found(webhook_id: str) -> HandlerResult:
-        """Return a generic not-found for unauthorized single-record access."""
-        return error_response(f"Webhook not found: {webhook_id}", 404)
+    def _forbidden_webhook_access() -> HandlerResult:
+        """Return the documented forbidden response for non-owner access."""
+        return error_response("Access denied - not the webhook owner", 403)
 
     @api_endpoint(
         path="/api/v1/webhooks",
@@ -633,7 +637,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return self._hidden_webhook_not_found(webhook_id)
+            return self._forbidden_webhook_access()
 
         return json_response({"webhook": webhook.to_dict(include_secret=False)})
 
@@ -721,7 +725,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return self._hidden_webhook_not_found(webhook_id)
+            return self._forbidden_webhook_access()
 
         store.delete(webhook_id)
 
@@ -757,7 +761,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return self._hidden_webhook_not_found(webhook_id)
+            return self._forbidden_webhook_access()
 
         # Validate URL if provided (SSRF check)
         new_url = body.get("url")
@@ -815,7 +819,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         # Check ownership
         user = self.get_current_user(handler)
         if self._is_webhook_access_denied(webhook, user):
-            return self._hidden_webhook_not_found(webhook_id)
+            return self._forbidden_webhook_access()
 
         # Import here to avoid circular dependency
         from aragora.events.dispatcher import dispatch_webhook

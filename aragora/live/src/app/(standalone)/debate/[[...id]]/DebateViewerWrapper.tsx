@@ -106,7 +106,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
           {/* Status Banner for non-completed debates */}
           {isInProgress && (
             <div className="mb-6 p-4 border border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/5 font-mono text-sm text-[var(--acid-cyan)] text-center">

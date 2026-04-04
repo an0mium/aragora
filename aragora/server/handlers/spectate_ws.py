@@ -16,6 +16,7 @@ __all__ = [
 import json
 import logging
 import queue
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -36,6 +37,7 @@ _MAX_SPECTATE_EVENT_COUNT = 500
 _LIVE_SSE_HEARTBEAT_SECONDS = 15.0
 _LIVE_SSE_QUEUE_SIZE = 256
 _LIVE_SSE_RESYNC_SENTINEL = object()
+_PUBLIC_PLAYGROUND_DEBATE_PREFIX = "playground_"
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -151,6 +153,111 @@ def _redact_live_debate_details(summary: dict[str, Any]) -> dict[str, Any]:
     return redacted
 
 
+def _get_optional_user_from_request(handler: Any | None) -> Any | None:
+    """Return the authenticated request user when available."""
+    if handler is None:
+        return None
+
+    from aragora.billing.jwt_auth import extract_user_from_request
+
+    user_store = getattr(handler, "user_store", None)
+    if user_store is None:
+        user_store = getattr(getattr(handler, "__class__", object), "user_store", None)
+
+    user_ctx = extract_user_from_request(handler, user_store)
+    return user_ctx if getattr(user_ctx, "is_authenticated", False) else None
+
+
+def _can_view_live_debates(user: Any | None) -> bool:
+    """Return True when the caller can inspect debate-linked public spectate events."""
+    permissions = set(getattr(user, "permissions", []) or []) if user is not None else set()
+    roles = set(getattr(user, "roles", []) or []) if user is not None else set()
+    role = getattr(user, "role", None) if user is not None else None
+    return user is not None and (
+        "debates:read" in permissions
+        or "admin" in permissions
+        or "admin" in roles
+        or role == "admin"
+    )
+
+
+def _is_public_spectate_debate(
+    debate_id: str | None,
+    *,
+    storage: Any | None = None,
+    visibility_cache: dict[str, bool] | None = None,
+) -> bool:
+    """Return True when debate-linked spectate events are safe for public callers."""
+    if not debate_id:
+        return True
+
+    if visibility_cache is not None and debate_id in visibility_cache:
+        return visibility_cache[debate_id]
+
+    is_public = debate_id.startswith(_PUBLIC_PLAYGROUND_DEBATE_PREFIX)
+
+    if not is_public:
+        try:
+            from aragora.server.handlers.debates.share import is_publicly_shared
+
+            is_public = is_publicly_shared(debate_id)
+        except (ImportError, RuntimeError, ValueError):
+            is_public = False
+
+    if not is_public:
+        resolved_storage = storage
+        if resolved_storage is None:
+            try:
+                from aragora.server.storage import get_debates_db
+
+                resolved_storage = get_debates_db()
+            except (ImportError, RuntimeError, ValueError, OSError, sqlite3.Error):
+                resolved_storage = None
+
+        is_public_method = getattr(resolved_storage, "is_public", None)
+        if callable(is_public_method):
+            try:
+                is_public = bool(is_public_method(debate_id))
+            except (RuntimeError, ValueError, OSError, sqlite3.Error):
+                is_public = False
+
+    if visibility_cache is not None:
+        visibility_cache[debate_id] = is_public
+    return is_public
+
+
+def _is_event_visible_on_public_spectate_surface(
+    event: Any,
+    *,
+    storage: Any | None = None,
+    visibility_cache: dict[str, bool] | None = None,
+) -> bool:
+    """Return True when an event can be exposed on unauthenticated spectate surfaces."""
+    return _is_public_spectate_debate(
+        getattr(event, "debate_id", None),
+        storage=storage,
+        visibility_cache=visibility_cache,
+    )
+
+
+def _filter_events_for_public_spectate_surface(
+    events: list[Any],
+    *,
+    storage: Any | None = None,
+) -> list[Any]:
+    """Drop debate-linked events that are not explicitly public."""
+    visibility_cache: dict[str, bool] = {}
+    return [
+        event
+        for event in events
+        if _is_event_visible_on_public_spectate_surface(
+            event,
+            storage=storage,
+            visibility_cache=visibility_cache,
+        )
+    ]
+
+
 def _sse_frame(event_type: str, data: Any) -> str:
     """Format a single SSE frame."""
     payload = json.dumps(data, default=str, separators=(",", ":"))
@@ -200,6 +307,8 @@ def iter_live_spectate_sse_frames(
     *,
     heartbeat_interval: float = _LIVE_SSE_HEARTBEAT_SECONDS,
     bridge: Any | None = None,
+    allow_private: bool = True,
+    storage: Any | None = None,
 ):
     """Yield a live SSE stream with an initial buffered snapshot and heartbeats."""
     if bridge is None:
@@ -216,6 +325,17 @@ def iter_live_spectate_sse_frames(
         bridge.get_recent_events(_get_requested_count(query_params)),
         query_params,
     )
+    visibility_cache: dict[str, bool] = {}
+    if not allow_private:
+        backlog = [
+            event
+            for event in backlog
+            if _is_event_visible_on_public_spectate_surface(
+                event,
+                storage=storage,
+                visibility_cache=visibility_cache,
+            )
+        ]
     metadata: dict[str, Any] = {
         "mode": "live",
         "transport": "sse_live",
@@ -237,6 +357,12 @@ def iter_live_spectate_sse_frames(
 
     def enqueue(event: Any) -> None:
         if not _event_matches_scope(event, debate_id=debate_id, pipeline_id=pipeline_id):
+            return
+        if not allow_private and not _is_event_visible_on_public_spectate_surface(
+            event,
+            storage=storage,
+            visibility_cache=visibility_cache,
+        ):
             return
         if resync_state["pending"]:
             resync_state["dropped_events"] += 1
@@ -329,7 +455,7 @@ class SpectateStreamHandler(BaseHandler):
             return None
 
         if path.endswith("/recent"):
-            return self._handle_recent(query_params)
+            return self._handle_recent(query_params, handler)
         if path.endswith("/status"):
             return self._handle_status(handler)
         if path.endswith("/stream"):
@@ -371,14 +497,24 @@ class SpectateStreamHandler(BaseHandler):
         except ImportError:
             return json_response({"error": "Bridge module unavailable"}, status=503)
 
-    def _handle_recent(self, query_params: dict[str, Any]) -> HandlerResult:
+    def _handle_recent(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/recent -- get recent events from the buffer."""
         events = self._get_recent_events(query_params)
+        if not self._request_allows_private_events(handler):
+            events = _filter_events_for_public_spectate_surface(
+                events,
+                storage=self.get_storage(),
+            )
         return json_response(self._recent_payload(events))
 
     def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
         events = self._get_recent_events(query_params)
+        if not self._request_allows_private_events(handler):
+            events = _filter_events_for_public_spectate_surface(
+                events,
+                storage=self.get_storage(),
+            )
         if self._wants_sse(query_params, handler):
             metadata = self._stream_metadata(
                 query_params,
@@ -478,6 +614,10 @@ class SpectateStreamHandler(BaseHandler):
         accept = headers.get("Accept") or headers.get("accept") or ""
         return "text/event-stream" in accept
 
+    def _request_allows_private_events(self, handler: Any) -> bool:
+        """Return True when the request can inspect private debate-linked events."""
+        return _can_view_live_debates(self.get_current_user(handler) if handler else None)
+
     def _handle_status(self, handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/status -- bridge status."""
         try:
@@ -489,16 +629,7 @@ class SpectateStreamHandler(BaseHandler):
                 bridge_running=bridge.running,
             )
             user = self.get_current_user(handler)
-            permissions = set(getattr(user, "permissions", []) or []) if user is not None else set()
-            roles = set(getattr(user, "roles", []) or []) if user is not None else set()
-            role = getattr(user, "role", None) if user is not None else None
-            can_view_live_debates = user is not None and (
-                "debates:read" in permissions
-                or "admin" in permissions
-                or "admin" in roles
-                or role == "admin"
-            )
-            if not can_view_live_debates:
+            if not _can_view_live_debates(user):
                 summary = _redact_live_debate_details(summary)
             return json_response(
                 {

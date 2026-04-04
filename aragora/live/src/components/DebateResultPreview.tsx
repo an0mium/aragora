@@ -65,6 +65,7 @@ export interface DebateResponse {
   mock_fallback_reason?: string;
   original_question?: string;
   interpreted_question?: string;
+  tldr?: string;
   short_answer?: string;
   result_mode?: string;
   result_warning?: string;
@@ -415,6 +416,32 @@ export function DebateResultPreview({
           </div>
         )}
       </div>
+
+      {/* Interpretation notice */}
+      {result.interpreted_question &&
+        result.interpreted_question !== (result.original_question || result.topic) && (
+        <p className="text-xs text-[var(--text-muted)] italic">
+          Aragora interpreted this as: {result.interpreted_question}
+        </p>
+      )}
+
+      {/* TL;DR answer */}
+      {result.tldr && (
+        <div
+          className="rounded-2xl border p-5"
+          style={{
+            borderColor: 'var(--accent)',
+            backgroundColor: 'color-mix(in srgb, var(--accent) 5%, var(--surface))',
+          }}
+        >
+          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold mb-2" style={{ color: 'var(--accent)' }}>
+            Summary
+          </div>
+          <div className="text-base font-semibold leading-relaxed text-[var(--text)]">
+            {result.tldr}
+          </div>
+        </div>
+      )}
 
       {/* Proposals — hidden when single-agent and verdict duplicates the proposal */}
       {(() => {

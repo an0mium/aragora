@@ -709,6 +709,15 @@ class SlackOAuthHandler(SecureHandler):
             )
 
         tenant_id = self._resolved_tenant_id(query_params, auth_context) or ""
+        install_params: dict[str, str] = {}
+        if tenant_id:
+            install_params["tenant_id"] = tenant_id
+        if not _get_slack_redirect_uri() and _get_aragora_env().lower() != "production":
+            host = str(query_params.get("host", "") or "").strip()
+            if host:
+                if not _is_loopback_redirect_host(host):
+                    return error_response("Only localhost allowed in development mode", 400)
+                install_params["host"] = host
 
         # Build scope information for display
         current_scopes = _get_slack_scopes().split(",")
@@ -742,8 +751,8 @@ class SlackOAuthHandler(SecureHandler):
 
         # Build install URL with tenant_id
         install_url = "/api/integrations/slack/install"
-        if tenant_id:
-            install_url = f"{install_url}?{urlencode({'tenant_id': tenant_id})}"
+        if install_params:
+            install_url = f"{install_url}?{urlencode(install_params)}"
 
         # Generate HTML consent preview page
         html = self._render_consent_preview(

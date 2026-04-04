@@ -2071,7 +2071,10 @@ class WorkerLauncher:
 
         session_meta = self._read_session_meta(worker.worktree_path)
         session_exit_code, session_completed_at = self._terminal_session_result(session_meta)
-        exit_code = proc.returncode if proc.returncode is not None else session_exit_code
+        missing_terminal_marker = session_exit_code is None
+        # The managed-session marker is authoritative when present: it records
+        # the inner worker outcome after the shell wrapper's EXIT trap runs.
+        exit_code = session_exit_code if session_exit_code is not None else proc.returncode
         if exit_code is None:
             raise KeyError(f"No finished worker for {work_order_id}")
 
@@ -2143,4 +2146,8 @@ class WorkerLauncher:
         )
 
         self._processes.pop(work_order_id, None)
+        if missing_terminal_marker:
+            # Trust the harness session marker, not a bare subprocess return
+            # code, before classifying the run as a clean success.
+            worker.exit_code = 1
         return worker

@@ -1001,6 +1001,15 @@ class TestCollectFinishedSync:
         launcher._processes["wo-sync-finished"] = proc
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 222,
+                    "exit_code": 0,
+                    "ended_at": "2026-03-31T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
             patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
             patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
@@ -1090,6 +1099,47 @@ class TestCollectFinishedSync:
         mock_verify.assert_called_once_with("/tmp/wt-meta", [expected_test])
         mock_wait_pid.assert_called_once_with(333)
         assert "wo-sync-meta-finished" not in launcher._processes
+
+    def test_collect_finished_sync_prefers_session_exit_code_over_returncode(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-prefers-session-exit",
+            agent="codex",
+            worktree_path="/tmp/wt-meta-prefers-session-exit",
+            branch="main",
+            pid=333,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 333,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync"),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 143
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert worker.work_order_id not in launcher._processes
 
     def test_collect_finished_sync_ignores_invalid_session_meta_pid_for_cleanup(self):
         launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
@@ -1244,6 +1294,80 @@ class TestCollectFinishedSync:
         assert any(call.args == (24680,) for call in mock_running.call_args_list)
         mock_diff.assert_not_called()
         assert "wo-sync-stale-worker-pid" in launcher._processes
+
+    def test_collect_finished_sync_downgrades_missing_terminal_marker_with_deliverable(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-deliverable",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-deliverable",
+            branch="main",
+            pid=444,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.completed_at
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_downgrades_missing_terminal_marker_without_deliverable(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-no-deliverable",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-no-deliverable",
+            branch="main",
+            pid=555,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes_sync",
+                return_value=False,
+            ),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="stderr evidence"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == []
+        assert result.changed_paths == []
+        assert result.stdout == "stderr evidence"
+        assert result.stderr == "stderr evidence"
+        assert worker.work_order_id not in launcher._processes
 
 
 class TestCollectDetachedResult:

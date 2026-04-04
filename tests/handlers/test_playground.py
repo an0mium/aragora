@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -46,6 +47,10 @@ from aragora.server.handlers.playground import (
     _PLAYGROUND_RATE_WINDOW,
     _LIVE_RATE_LIMIT,
     _LIVE_RATE_WINDOW,
+)
+from aragora.storage.landing_review_store import (
+    get_landing_review_store,
+    reset_landing_review_store,
 )
 
 
@@ -103,11 +108,17 @@ def handler():
 
 
 @pytest.fixture(autouse=True)
-def _clear_rate_limits():
-    """Reset rate limit state before each test."""
+def _clear_rate_limits(tmp_path, monkeypatch):
+    """Reset rate limit and landing review state before each test."""
+    monkeypatch.setenv(
+        "ARAGORA_LANDING_REVIEW_DB_PATH",
+        str(tmp_path / "landing_review.sqlite3"),
+    )
+    reset_landing_review_store()
     _reset_rate_limits()
     yield
     _reset_rate_limits()
+    reset_landing_review_store()
 
 
 # ============================================================================
@@ -129,6 +140,12 @@ class TestCanHandle:
 
     def test_status_path(self, handler):
         assert handler.can_handle("/api/v1/playground/status")
+
+    def test_landing_summary_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/landing/events/summary")
+
+    def test_landing_feedback_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/landing/feedback")
 
     def test_tts_path(self, handler):
         assert handler.can_handle("/api/v1/playground/tts")
@@ -507,8 +524,6 @@ class TestLandingTelemetry:
     """Tests for the landing telemetry endpoint."""
 
     def test_records_bounded_public_event(self, handler):
-        from aragora.server.handlers import playground as playground_module
-
         mock_h = _MockHTTPHandler(
             "POST",
             body={
@@ -522,10 +537,11 @@ class TestLandingTelemetry:
         )
         result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
         assert _status(result) == 202
-        assert len(playground_module._landing_events) == 1
-        assert playground_module._landing_events[0]["event_type"] == "preflight_shown"
-        assert playground_module._landing_events[0]["data"]["question_length"] == 91
-        assert len(playground_module._landing_events[0]["data"]["raw_prompt"]) == 160
+        events = get_landing_review_store().list_recent_events(window_seconds=3600)
+        assert len(events) == 1
+        assert events[0]["event_type"] == "preflight_shown"
+        assert events[0]["data"]["question_length"] == 91
+        assert len(events[0]["data"]["raw_prompt"]) == 160
 
     def test_rejects_unknown_event_type(self, handler):
         mock_h = _MockHTTPHandler(
@@ -534,6 +550,202 @@ class TestLandingTelemetry:
         )
         result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
         assert _status(result) == 400
+
+    def test_returns_recent_landing_summary(self, handler):
+        now = datetime.now(timezone.utc)
+        store = get_landing_review_store()
+        store.record_event(
+            event_type="preflight_shown",
+            client_tag="ip:test-client",
+            data={"question_length": 120},
+            timestamp=now.isoformat(),
+        )
+        store.record_event(
+            event_type="preflight_selected",
+            client_tag="ip:test-client",
+            data={
+                "option_id": "practical-food",
+                "recommended": True,
+                "rewritten": True,
+                "question_length": 120,
+            },
+            timestamp=now.isoformat(),
+        )
+        store.record_event(
+            event_type="preview_rendered",
+            client_tag="ip:test-client",
+            data={"participant_count": 3, "has_warning": True},
+            timestamp=now.isoformat(),
+        )
+        store.record_event(
+            event_type="wrong_answer_clicked",
+            client_tag="ip:test-client",
+            data={"result_mode": "preview", "rewritten": True},
+            timestamp=now.isoformat(),
+        )
+        store.record_event(
+            event_type="preflight_shown",
+            client_tag="ip:old-client",
+            data={"question_length": 40},
+            timestamp=(now - timedelta(days=2)).isoformat(),
+        )
+
+        result = handler.handle(
+            "/api/v1/playground/landing/events/summary",
+            {"window": "3600", "limit": "3"},
+            _MockHTTPHandler("GET"),
+        )
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["window_seconds"] == 3600.0
+        assert body["total_events"] == 4
+        assert body["unique_client_count"] == 1
+        assert body["event_counts"]["preflight_shown"] == 1
+        assert body["event_counts"]["preflight_selected"] == 1
+        assert body["event_counts"]["preview_rendered"] == 1
+        assert body["event_counts"]["wrong_answer_clicked"] == 1
+        assert body["rates"]["preflight_selection_rate"] == 1.0
+        assert body["rates"]["preview_render_rate"] == 1.0
+        assert body["rates"]["wrong_answer_rate"] == 1.0
+        assert body["question_length"]["samples"] == 2
+        assert body["question_length"]["avg"] == 120.0
+        assert body["preview"]["avg_participant_count"] == 3.0
+        assert body["top_options"] == [
+            {
+                "option_id": "practical-food",
+                "selected_count": 1,
+                "recommended_count": 1,
+                "rewritten_count": 1,
+            }
+        ]
+
+    def test_summary_returns_empty_funnel_when_no_events_exist(self, handler):
+        result = handler.handle(
+            "/api/v1/playground/landing/events/summary",
+            {},
+            _MockHTTPHandler("GET"),
+        )
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["total_events"] == 0
+        assert body["top_options"] == []
+        assert body["rates"]["preflight_selection_rate"] is None
+        assert body["question_length"]["samples"] == 0
+
+    def test_records_bounded_wrong_answer_report(self, handler):
+        mock_h = _MockHTTPHandler(
+            "POST",
+            body={
+                "question": "x" * 700,
+                "interpreted_question": "Microwave pre-cooked nuggets for a 4 year old?",
+                "final_answer": "y" * 1600,
+                "result_warning": "z" * 400,
+                "result_mode": "preview",
+                "debate_id": "debate-123",
+                "participant_count": 3,
+                "rewritten": True,
+                "verdict": "needs_review",
+            },
+            client_address=("203.0.113.12", 9000),
+        )
+        result = handler.handle_post("/api/v1/playground/landing/feedback", {}, mock_h)
+
+        assert _status(result) == 202
+        reports = get_landing_review_store().list_recent_feedback(window_seconds=3600, limit=10)
+        assert len(reports) == 1
+        report = reports[0]
+        assert report["question"] == "x" * 500
+        assert len(report["final_answer_preview"]) == 1200
+        assert len(report["result_warning"]) == 280
+        assert report["client_tag"].startswith("ip:")
+        assert report["participant_count"] == 3
+        assert report["rewritten"] is True
+
+    def test_feedback_list_requires_admin(self, handler):
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(
+            handler,
+            "require_admin_or_error",
+            return_value=(None, error_response("Admin access required", 403)),
+        ):
+            result = handler.handle(
+                "/api/v1/playground/landing/feedback",
+                {},
+                _MockHTTPHandler("GET"),
+            )
+
+        assert _status(result) == 403
+
+    def test_feedback_list_returns_recent_reports_for_admin(self, handler):
+        now = datetime.now(timezone.utc)
+        store = get_landing_review_store()
+        store.record_feedback(
+            {
+                "id": "lfb_1",
+                "timestamp": now.isoformat(),
+                "client_tag": "ip:abc123",
+                "question": "Should I microwave chicken nuggets for my child?",
+                "interpreted_question": "Is it safe to reheat pre-cooked chicken nuggets?",
+                "final_answer_preview": "Yes, reheat until hot all the way through.",
+                "result_warning": None,
+                "result_mode": "preview",
+                "debate_id": "debate-123",
+                "verdict": "needs_review",
+                "participant_count": 3,
+                "rewritten": True,
+            }
+        )
+        store.record_feedback(
+            {
+                "id": "lfb_2",
+                "timestamp": (now - timedelta(days=10)).isoformat(),
+                "client_tag": "ip:def456",
+                "question": "Old report",
+                "interpreted_question": "Old interpreted question",
+                "final_answer_preview": "Old answer",
+                "result_warning": None,
+                "result_mode": "preview",
+                "debate_id": "debate-456",
+                "verdict": "needs_review",
+                "participant_count": 2,
+                "rewritten": False,
+            }
+        )
+
+        with patch.object(handler, "require_admin_or_error", return_value=(MagicMock(), None)):
+            result = handler.handle(
+                "/api/v1/playground/landing/feedback",
+                {"window": "3600", "limit": "10"},
+                _MockHTTPHandler("GET"),
+            )
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["window_seconds"] == 3600.0
+        assert body["total_reports"] == 1
+        assert body["returned_reports"] == 1
+        assert body["unique_client_count"] == 1
+        assert body["stats"]["rewritten_count"] == 1
+        assert body["stats"]["preview_mode_count"] == 1
+        assert body["reports"] == [
+            {
+                "id": "lfb_1",
+                "timestamp": now.isoformat(),
+                "client_tag": "ip:abc123",
+                "question": "Should I microwave chicken nuggets for my child?",
+                "interpreted_question": "Is it safe to reheat pre-cooked chicken nuggets?",
+                "final_answer_preview": "Yes, reheat until hot all the way through.",
+                "result_warning": None,
+                "result_mode": "preview",
+                "debate_id": "debate-123",
+                "verdict": "needs_review",
+                "participant_count": 3,
+                "rewritten": True,
+            }
+        ]
 
 
 # ============================================================================

@@ -590,6 +590,30 @@ class TestWebhookHandlerList:
         assert urls == {"https://current-workspace.com", "https://legacy-global.com"}
 
     @pytest.mark.asyncio
+    async def test_list_webhooks_excludes_ownerless_records(self, webhook_handler, server_context):
+        """Ownerless legacy rows should not be enumerable by arbitrary users."""
+        store = server_context["webhook_store"]
+        store.register(
+            url="https://owned.com",
+            events=["debate_start"],
+            user_id="test-user-001",
+        )
+        store.register(
+            url="https://ownerless.com",
+            events=["debate_end"],
+            user_id=None,
+            workspace_id=None,
+        )
+
+        handler = MockHandler(headers={})
+        result = await webhook_handler.handle("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        urls = {webhook["url"] for webhook in body["webhooks"]}
+        assert urls == {"https://owned.com"}
+
+    @pytest.mark.asyncio
     async def test_list_webhooks_excludes_secrets(self, webhook_handler, server_context):
         """Should not include secrets in list response."""
         store = server_context["webhook_store"]
@@ -676,6 +700,22 @@ class TestWebhookHandlerGet:
 
         handler = MockHandler(headers={})
         result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_webhook_hides_ownerless_record(self, webhook_handler, server_context):
+        """Ownerless records should fail closed instead of becoming globally readable."""
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://ownerless.com",
+            events=["debate_start"],
+            user_id=None,
+            workspace_id=None,
+        )
+
+        handler = MockHandler(headers={})
+        result = await webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 404
 

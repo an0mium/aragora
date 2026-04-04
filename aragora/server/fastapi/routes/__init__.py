@@ -9,6 +9,7 @@ from . import gauntlet
 from . import agents
 from . import consensus
 from . import pipeline
+from . import runs
 from . import knowledge
 from . import workflows
 from . import compliance
@@ -37,6 +38,7 @@ __all__ = [
     "agents",
     "consensus",
     "pipeline",
+    "runs",
     "knowledge",
     "workflows",
     "compliance",

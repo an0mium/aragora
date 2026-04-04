@@ -755,6 +755,7 @@ class SwarmSupervisor:
                         item["status"] = "waiting_resource"
                         item["resource_error"] = str(exc)
                     else:
+                        self._clear_stale_prelaunch_deliverable_state(item)
                         self._mark_needs_human(
                             item,
                             str(exc),
@@ -1831,6 +1832,7 @@ class SwarmSupervisor:
                         changed = True
                         continue
 
+                    self._clear_stale_runtime_deliverable_state(item)
                     self._mark_needs_human(
                         item,
                         "worker process exited without receipt or exit marker",
@@ -1894,6 +1896,7 @@ class SwarmSupervisor:
                         self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
                         item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     else:
+                        self._clear_stale_runtime_deliverable_state(item)
                         self._mark_needs_human(
                             item,
                             reason,
@@ -3030,6 +3033,16 @@ class SwarmSupervisor:
             # strip) and detached workers (changed_paths already stripped by
             # _collect_changed_paths, but commit_shas populated from auto-commit).
             if not clean_paths and (result.changed_paths or result.commit_shas):
+                for key in (
+                    "receipt_id",
+                    "confidence",
+                    "pr_url",
+                    "adopted_pr",
+                    "merge_gate",
+                    "verification_missing_reason",
+                ):
+                    item.pop(key, None)
+                item["commit_shas"] = []
                 self._mark_needs_human(
                     item,
                     "worker produced only session artifacts, no real deliverables",
@@ -3043,6 +3056,15 @@ class SwarmSupervisor:
 
             # Clean exit with zero changes of any kind — fail closed
             if not clean_paths and not result.commit_shas:
+                for key in (
+                    "receipt_id",
+                    "confidence",
+                    "pr_url",
+                    "adopted_pr",
+                    "merge_gate",
+                    "verification_missing_reason",
+                ):
+                    item.pop(key, None)
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 logger.warning(
@@ -3885,6 +3907,7 @@ class SwarmSupervisor:
         worker_type: str,
         detail: str,
     ) -> None:
+        self._clear_stale_prelaunch_deliverable_state(item)
         metadata = dict(item.get("metadata") or {})
         metadata.update(
             {
@@ -3957,6 +3980,30 @@ class SwarmSupervisor:
             "diff_lines",
             "stdout_tail",
             "stderr_tail",
+            "tests_run",
+            "verification_results",
+            "merge_gate",
+            "verification_missing_reason",
+            "pr_url",
+            "adopted_pr",
+            "scope_violation",
+        ):
+            item.pop(key, None)
+
+    @staticmethod
+    def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
+        """Drop stale deliverable metadata while preserving runtime log evidence."""
+        for key in (
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "exit_code",
+            "head_sha",
+            "commit_shas",
+            "changed_paths",
+            "diff",
+            "diff_lines",
             "tests_run",
             "verification_results",
             "merge_gate",

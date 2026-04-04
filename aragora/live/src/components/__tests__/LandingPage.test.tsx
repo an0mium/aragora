@@ -69,6 +69,65 @@ function createHttpResponse(
   });
 }
 
+function createReadyAssessResponse(question: string) {
+  return createHttpResponse({
+    type: 'ready',
+    option: {
+      id: 'original',
+      label: 'Use original wording',
+      description: question,
+      originalQuestion: question,
+      interpretedQuestion: question,
+      debatePrompt: question,
+      agents: 3,
+      rounds: 2,
+    },
+  });
+}
+
+function createNuggetsAssessResponse(question: string) {
+  return createHttpResponse({
+    type: 'confirm',
+    preflight: {
+      title: 'This question could mean a few things',
+      prompt: 'Pick the interpretation you want Aragora to debate.',
+      options: [
+        {
+          id: 'interp-0',
+          label: 'Practical food-safety first',
+          description: 'Focus on whether reheating pre-cooked chicken nuggets is safe and practical for a 4 year old.',
+          originalQuestion: question,
+          interpretedQuestion: 'Should I microwave pre-cooked chicken nuggets for my 4 year old?',
+          debatePrompt: 'Should I microwave pre-cooked chicken nuggets for my 4 year old?',
+          agents: 3,
+          rounds: 2,
+          recommended: true,
+        },
+        {
+          id: 'interp-1',
+          label: 'Philosophical chicken-status reading',
+          description: 'Treat the question as a joke about whether the chickens are alive or dead.',
+          originalQuestion: question,
+          interpretedQuestion: 'Is this really a joke about whether the chickens are alive or dead?',
+          debatePrompt: 'Is this really a joke about whether the chickens are alive or dead?',
+          agents: 3,
+          rounds: 2,
+        },
+        {
+          id: 'original',
+          label: 'Use original wording',
+          description: 'Debate the question exactly as written.',
+          originalQuestion: question,
+          interpretedQuestion: question,
+          debatePrompt: question,
+          agents: 3,
+          rounds: 2,
+        },
+      ],
+    },
+  });
+}
+
 describe('LandingPage live debate preview', () => {
   const originalWebSocket = global.WebSocket;
   const mockFetch = global.fetch as jest.Mock;
@@ -251,9 +310,17 @@ describe('LandingPage submission flow', () => {
 
   function installBaseFetchMock(
     postHandler: (body: Record<string, unknown>) => Promise<unknown>,
-    options: { telemetryBodies?: Array<Record<string, unknown>> } = {},
+    options: {
+      telemetryBodies?: Array<Record<string, unknown>>;
+      feedbackBodies?: Array<Record<string, unknown>>;
+      assessHandler?: (body: Record<string, unknown>) => Promise<unknown>;
+    } = {},
   ) {
-    const { telemetryBodies } = options;
+    const {
+      telemetryBodies,
+      feedbackBodies,
+      assessHandler = async (body) => createReadyAssessResponse(String(body.question ?? '')),
+    } = options;
     mockFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -270,6 +337,11 @@ describe('LandingPage submission flow', () => {
         });
       }
 
+      if (url.endsWith('/api/v1/playground/assess')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+        return assessHandler(body);
+      }
+
       if (url.endsWith('/api/v1/playground/debate')) {
         const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
         return postHandler(body);
@@ -279,6 +351,12 @@ describe('LandingPage submission flow', () => {
         const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
         telemetryBodies?.push(body);
         return createHttpResponse({ ok: true }, { status: 202 });
+      }
+
+      if (url.endsWith('/api/v1/playground/landing/feedback')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+        feedbackBodies?.push(body);
+        return createHttpResponse({ ok: true, report_id: 'lfb_test_1' }, { status: 202 });
       }
 
       throw new Error(`Unexpected fetch URL: ${url}`);
@@ -330,7 +408,10 @@ describe('LandingPage submission flow', () => {
         },
         receipt_hash: 'hash-preview-1',
       });
-    }, { telemetryBodies });
+    }, {
+      telemetryBodies,
+      assessHandler: async (body) => createNuggetsAssessResponse(String(body.question ?? '')),
+    });
 
     render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
 
@@ -341,7 +422,8 @@ describe('LandingPage submission flow', () => {
     });
     fireEvent.submit(screen.getByRole('button', { name: 'Run a free debate' }).closest('form') as HTMLFormElement);
 
-    expect(await screen.findByText('Choose which version of the question to debate')).toBeInTheDocument();
+    expect(await screen.findByText('This question could mean a few things')).toBeInTheDocument();
+    expect(screen.getByText('Pick the interpretation you want Aragora to debate.')).toBeInTheDocument();
     expect(postedBodies).toHaveLength(0);
 
     fireEvent.click(screen.getByRole('button', { name: /Practical food-safety first/i }));
@@ -389,6 +471,7 @@ describe('LandingPage submission flow', () => {
 
   it('lets the user flag a wrong answer and return to the editor flow', async () => {
     const telemetryBodies: Array<Record<string, unknown>> = [];
+    const feedbackBodies: Array<Record<string, unknown>> = [];
     installBaseFetchMock(async () => (
       createHttpResponse({
         id: 'debate-preview-2',
@@ -429,7 +512,11 @@ describe('LandingPage submission flow', () => {
         },
         receipt_hash: 'hash-preview-2',
       })
-    ), { telemetryBodies });
+    ), {
+      telemetryBodies,
+      feedbackBodies,
+      assessHandler: async (body) => createNuggetsAssessResponse(String(body.question ?? '')),
+    });
 
     render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
 
@@ -445,14 +532,28 @@ describe('LandingPage submission flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'This answer seems wrong' }));
 
     expect(
-      await screen.findByText('Pick a narrower interpretation or edit the wording below before rerunning.'),
+      await screen.findByText('Edit the wording below and rerun the debate with one more specific detail.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Choose which version of the question to debate')).toBeInTheDocument();
+    expect(screen.queryByText('Choose which version of the question to debate')).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?')).toBeInTheDocument();
     expect(telemetryBodies.some((entry) => entry.event_type === 'wrong_answer_clicked')).toBe(true);
+    expect(feedbackBodies).toHaveLength(1);
+    expect(feedbackBodies[0]).toEqual(expect.objectContaining({
+      question: 'I warmed up chicken nuggets in the microwave for my 4 year old, but what if the chickens are alive or dead?',
+      interpreted_question: 'Should I microwave pre-cooked chicken nuggets for my 4 year old?',
+      final_answer: 'Yes. Reheat the nuggets until hot all the way through.',
+      debate_id: 'debate-preview-2',
+      result_mode: 'preview',
+      result_warning: 'Aragora debated the focused interpretation you chose before opening the full transcript.',
+      verdict: 'needs_review',
+      participant_count: 2,
+      rewritten: true,
+    }));
   });
 
   it('cancels a pending focus frame when the page unmounts after a wrong answer', async () => {
     const telemetryBodies: Array<Record<string, unknown>> = [];
+    const feedbackBodies: Array<Record<string, unknown>> = [];
     const originalRequestAnimationFrame = window.requestAnimationFrame;
     const originalCancelAnimationFrame = window.cancelAnimationFrame;
     const cancelAnimationFrame = jest.fn();
@@ -506,7 +607,11 @@ describe('LandingPage submission flow', () => {
         },
         receipt_hash: 'hash-preview-3',
       })
-    ), { telemetryBodies });
+    ), {
+      telemetryBodies,
+      feedbackBodies,
+      assessHandler: async (body) => createNuggetsAssessResponse(String(body.question ?? '')),
+    });
 
     try {
       const view = render(<LandingPage apiBase="https://api.example.com" wsUrl="ws://spectate.example.com/ws" />);
@@ -522,7 +627,7 @@ describe('LandingPage submission flow', () => {
       fireEvent.click(screen.getByRole('button', { name: 'This answer seems wrong' }));
 
       expect(
-        await screen.findByText('Pick a narrower interpretation or edit the wording below before rerunning.'),
+        await screen.findByText('Edit the wording below and rerun the debate with one more specific detail.'),
       ).toBeInTheDocument();
       expect(window.requestAnimationFrame).toHaveBeenCalled();
 
@@ -530,6 +635,7 @@ describe('LandingPage submission flow', () => {
 
       expect(cancelAnimationFrame).toHaveBeenCalledWith(77);
       expect(telemetryBodies.some((entry) => entry.event_type === 'wrong_answer_clicked')).toBe(true);
+      expect(feedbackBodies).toHaveLength(1);
     } finally {
       Object.defineProperty(window, 'requestAnimationFrame', {
         configurable: true,
