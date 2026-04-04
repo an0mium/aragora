@@ -129,6 +129,9 @@ def _clear_rate_limits(tmp_path, monkeypatch):
 class TestCanHandle:
     """Verify that can_handle correctly accepts or rejects paths."""
 
+    def test_assess_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/assess")
+
     def test_debate_path(self, handler):
         assert handler.can_handle("/api/v1/playground/debate")
 
@@ -901,6 +904,49 @@ class TestLiveRateLimiting:
             assert _status(result) == 429
             body = _body(result)
             assert "live_rate_limit_exceeded" in body.get("code", "")
+
+
+# ============================================================================
+# POST /api/v1/playground/assess
+# ============================================================================
+
+
+class TestAssess:
+    """Tests for the landing ambiguity assessment endpoint."""
+
+    def test_heuristic_food_ethics_prompt_returns_confirm_without_frontier_call(self, handler):
+        question = (
+            "I warmed up chicken nuggets in the microwave for my 4 year old, "
+            "but what if the chickens are alive or dead?"
+        )
+        mock_h = _MockHTTPHandler("POST", body={"question": question})
+
+        with patch.object(handler, "_call_frontier_model") as mock_frontier:
+            result = handler.handle_post("/api/v1/playground/assess", {}, mock_h)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["type"] == "confirm"
+        assert body["preflight"]["title"] == "This question could mean a few things"
+        assert body["preflight"]["options"][0]["label"] == "Practical food-safety first"
+        assert body["preflight"]["options"][0]["recommended"] is True
+        assert (
+            "pre-cooked chicken nuggets" in body["preflight"]["options"][0]["interpretedQuestion"]
+        )
+        assert body["preflight"]["options"][-1]["id"] == "original"
+        mock_frontier.assert_not_called()
+
+    def test_frontier_failure_returns_ready_for_non_heuristic_prompt(self, handler):
+        question = "Should we delay the migration by one quarter?"
+        mock_h = _MockHTTPHandler("POST", body={"question": question})
+
+        with patch.object(handler, "_call_frontier_model", side_effect=TimeoutError):
+            result = handler.handle_post("/api/v1/playground/assess", {}, mock_h)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["type"] == "ready"
+        assert body["option"]["interpretedQuestion"] == question
 
 
 # ============================================================================
@@ -1757,6 +1803,19 @@ class TestPostDispatch:
             mock_h = _MockHTTPHandler("POST", body={})
             handler.handle_post("/api/v1/playground/landing/feedback/review", {}, mock_h)
             mock_review.assert_called_once()
+
+    def test_assess_path_dispatches(self, handler):
+        with patch.object(handler, "_handle_assess") as mock_assess:
+            from aragora.server.handlers.utils.responses import HandlerResult
+
+            mock_assess.return_value = HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=json.dumps({"type": "ready"}).encode(),
+            )
+            mock_h = _MockHTTPHandler("POST", body={})
+            handler.handle_post("/api/v1/playground/assess", {}, mock_h)
+            mock_assess.assert_called_once()
 
     def test_unknown_path_returns_none(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})

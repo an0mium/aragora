@@ -1732,11 +1732,52 @@ _LANDING_INTENT_DRIFT_PHRASES = {
     "strategy": {"lyrics", "chorus", "verse", "recipe", "microwave", "nuggets", "4 year old"},
 }
 
+_LANDING_HEURISTIC_FOOD_TERMS = {
+    "chicken",
+    "cook",
+    "cooking",
+    "food",
+    "meal",
+    "microwave",
+    "microwaving",
+    "nugget",
+    "nuggets",
+    "reheat",
+    "reheating",
+}
+
+_LANDING_HEURISTIC_CHILD_TERMS = {
+    "4 year old",
+    "child",
+    "kid",
+    "parent",
+    "toddler",
+}
+
+_LANDING_HEURISTIC_ETHICS_TERMS = {
+    "alive",
+    "better person",
+    "cruel",
+    "dead",
+    "ethical",
+    "ethics",
+    "factory",
+    "humane",
+    "killing",
+    "live",
+    "moral",
+    "morally",
+}
+
 
 def _contains_term(text: str, term: str) -> bool:
     if " " in term:
         return term in text
     return bool(re.search(rf"\b{re.escape(term)}\b", text))
+
+
+def _contains_any_term(text: str, terms: set[str]) -> bool:
+    return any(_contains_term(text, term) for term in terms)
 
 
 def _classify_landing_intent(question: str) -> str:
@@ -1855,6 +1896,103 @@ def _landing_relevance_issue(question: str, response: str) -> str | None:
         )
 
     return None
+
+
+def _landing_food_subject(question: str) -> str:
+    lower_question = question.lower()
+    if _contains_term(lower_question, "nugget") or _contains_term(lower_question, "nuggets"):
+        return "pre-cooked chicken nuggets"
+    if _contains_term(lower_question, "chicken"):
+        return "chicken"
+    return "the food"
+
+
+def _build_heuristic_food_preflight(question: str) -> dict[str, Any] | None:
+    lower_question = question.lower()
+    has_food_context = _contains_any_term(lower_question, _LANDING_HEURISTIC_FOOD_TERMS)
+    has_ethics_context = _contains_any_term(lower_question, _LANDING_HEURISTIC_ETHICS_TERMS)
+    has_splitter = any(
+        phrase in lower_question
+        for phrase in {"alive or dead", "live or dead", "but what if", "what if"}
+    )
+
+    if not has_food_context or not has_ethics_context:
+        return None
+    if not (
+        has_splitter
+        or _contains_term(lower_question, "alive")
+        or _contains_term(lower_question, "dead")
+    ):
+        return None
+
+    subject = _landing_food_subject(question)
+    action = (
+        "reheat"
+        if any(
+            phrase in lower_question
+            for phrase in {
+                "reheat",
+                "reheating",
+                "warmed up",
+                "warm up",
+                "pre-cooked",
+                "precooked",
+                "frozen",
+            }
+        )
+        else "cook"
+    )
+    audience = (
+        " for my child"
+        if _contains_any_term(lower_question, _LANDING_HEURISTIC_CHILD_TERMS)
+        else ""
+    )
+    practical_question = f"Should I {action} {subject}{audience} in a microwave, and what food-safety precautions matter most?"
+    ethical_question = (
+        "Is the real question an ethical one about live animals or the moral distance created by factory-processed chicken, "
+        "rather than the practical reheating question?"
+    )
+
+    return {
+        "title": "This question could mean a few things",
+        "prompt": "Pick the interpretation you want Aragora to debate.",
+        "options": [
+            {
+                "id": "heuristic-practical-food",
+                "label": "Practical food-safety first",
+                "description": f"Focus on whether {action}ing {subject} in a microwave is safe and practical.",
+                "originalQuestion": question,
+                "interpretedQuestion": practical_question,
+                "debatePrompt": practical_question,
+                "agents": 3,
+                "rounds": 2,
+                "recommended": True,
+            },
+            {
+                "id": "heuristic-ethical-food",
+                "label": "Ethical / philosophical reading",
+                "description": (
+                    "Treat this as a moral question about live animals or factory-farmed chicken, "
+                    "not the practical reheating question."
+                ),
+                "originalQuestion": question,
+                "interpretedQuestion": ethical_question,
+                "debatePrompt": ethical_question,
+                "agents": 3,
+                "rounds": 2,
+            },
+            {
+                "id": "original",
+                "label": "Use original wording",
+                "description": "Debate the question exactly as written.",
+                "originalQuestion": question,
+                "interpretedQuestion": question,
+                "debatePrompt": question,
+                "agents": 3,
+                "rounds": 2,
+            },
+        ],
+    }
 
 
 def _build_tentacle_prompt(
@@ -2339,6 +2477,7 @@ class PlaygroundHandler(BaseHandler):
     """
 
     ROUTES = [
+        "/api/v1/playground/assess",
         "/api/v1/playground/debate",
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
@@ -2361,6 +2500,7 @@ class PlaygroundHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         if path in (
+            "/api/v1/playground/assess",
             *self._CREATE_PATHS,
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
@@ -2839,7 +2979,11 @@ class PlaygroundHandler(BaseHandler):
 
     def _handle_assess(self, handler: Any) -> HandlerResult:
         """Assess question ambiguity using a frontier model."""
-        body = json.loads(handler.body or b"{}")
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return error_response("Invalid assess payload", 400)
         question = str(body.get("question", "")).strip()
         if not question:
             return json_response({"type": "ready", "option": self._build_ready_option("")})
@@ -2860,6 +3004,10 @@ class PlaygroundHandler(BaseHandler):
                 },
                 status=429,
             )
+
+        heuristic_preflight = _build_heuristic_food_preflight(question)
+        if heuristic_preflight is not None:
+            return json_response({"type": "confirm", "preflight": heuristic_preflight})
 
         prompt = (
             "You are a question-assessment system. Analyze this user question and determine if it is "
