@@ -51,14 +51,14 @@ interface DashboardStats {
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   high: 'bg-acid-orange/20 text-acid-orange border-acid-orange/40',
-  medium: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+  medium: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
   low: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
   info: 'bg-muted/20 text-muted border-muted/40',
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-  running: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40',
+  completed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+  running: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40',
   pending: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
   paused: 'bg-acid-purple/20 text-acid-purple border-acid-purple/40',
   failed: 'bg-acid-red/20 text-acid-red border-acid-red/40',
@@ -69,7 +69,7 @@ function StatusBadge({ status }: { status: string }) {
   const isRunning = status === 'running';
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-mono rounded border ${
+      className={`px-2 py-0.5 text-xs font-theme-data rounded border ${
         STATUS_COLORS[status] || STATUS_COLORS.pending
       } ${isRunning ? 'animate-pulse' : ''}`}
     >
@@ -96,10 +96,10 @@ function StatCard({
   return (
     <div className={`border rounded p-4 ${bgColor}`}>
       <div className="flex items-center justify-between">
-        <span className={`text-2xl font-bold font-mono ${color}`}>{value}</span>
+        <span className={`text-2xl font-bold font-theme-data ${color}`}>{value}</span>
         <span className="text-xl">{icon}</span>
       </div>
-      <div className={`text-xs font-mono mt-1 ${color}`}>{label}</div>
+      <div className={`text-xs font-theme-data mt-1 ${color}`}>{label}</div>
       {subtext && <div className="text-xs text-text-muted mt-1">{subtext}</div>}
     </div>
   );
@@ -280,7 +280,7 @@ export default function AuditDashboardPage() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} AUDIT DASHBOARD</span>
+            <span className="text-muted font-theme-data text-sm">{'//'} AUDIT DASHBOARD</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -293,8 +293,8 @@ export default function AuditDashboardPage() {
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-mono mb-1">CODEBASE AUDIT RESULTS</h1>
-            <p className="text-muted text-sm font-mono">
+            <h1 className="text-2xl font-theme-data mb-1">CODEBASE AUDIT RESULTS</h1>
+            <p className="text-muted text-sm font-theme-data">
               Multi-agent security, compliance, and quality analysis
             </p>
           </div>
@@ -331,8 +331,8 @@ export default function AuditDashboardPage() {
               <StatCard
                 label="RUNNING"
                 value={stats.running_sessions}
-                color="text-acid-cyan"
-                bgColor="bg-acid-cyan/10 border-acid-cyan/40"
+                color="text-[var(--acid-cyan)]"
+                bgColor="bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/40"
                 icon=">"
                 subtext={stats.running_sessions > 0 ? 'In progress' : 'None active'}
               />
@@ -408,7 +408,7 @@ export default function AuditDashboardPage() {
             </div>
           ) : error ? (
             <div className="card p-6 border-acid-red bg-acid-red/5 text-center">
-              <div className="text-acid-red font-mono mb-2">{error}</div>
+              <div className="text-acid-red font-theme-data mb-2">{error}</div>
               <button onClick={fetchSessions} className="btn btn-ghost text-sm">
                 Retry
               </button>
@@ -416,7 +416,7 @@ export default function AuditDashboardPage() {
           ) : sortedSessions.length === 0 ? (
             <div className="card p-12 text-center">
               <div className="text-4xl mb-4">🔍</div>
-              <div className="text-muted font-mono mb-4">
+              <div className="text-muted font-theme-data mb-4">
                 {sessions.length === 0
                   ? 'No audit sessions yet'
                   : 'No sessions match your filters'}
@@ -430,13 +430,13 @@ export default function AuditDashboardPage() {
               <table className="w-full">
                 <thead className="bg-surface border-b border-border">
                   <tr>
-                    <th className="p-3 text-left font-mono text-xs text-muted">SESSION</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">STATUS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">FINDINGS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">DOCUMENTS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">CREATED</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">DURATION</th>
-                    <th className="p-3 text-right font-mono text-xs text-muted">ACTIONS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">SESSION</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">STATUS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">FINDINGS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">DOCUMENTS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">CREATED</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">DURATION</th>
+                    <th className="p-3 text-right font-theme-data text-xs text-muted">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -447,7 +447,7 @@ export default function AuditDashboardPage() {
                       onClick={() => router.push(`/audit/view?id=${session.id}`)}
                     >
                       <td className="p-3">
-                        <div className="font-mono text-sm">{session.name || session.id.slice(0, 12)}</div>
+                        <div className="font-theme-data text-sm">{session.name || session.id.slice(0, 12)}</div>
                         <div className="text-xs text-muted flex items-center gap-2 mt-1">
                           <span>{session.model}</span>
                           <span className="text-border">|</span>
@@ -466,7 +466,7 @@ export default function AuditDashboardPage() {
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono">{session.findings_count}</span>
+                          <span className="font-theme-data">{session.findings_count}</span>
                           {(session.findings_by_severity?.critical || 0) > 0 && (
                             <span
                               className={`px-1.5 py-0.5 text-xs rounded ${SEVERITY_COLORS.critical}`}
@@ -484,13 +484,13 @@ export default function AuditDashboardPage() {
                         </div>
                       </td>
                       <td className="p-3">
-                        <span className="font-mono text-sm">{session.document_ids.length}</span>
+                        <span className="font-theme-data text-sm">{session.document_ids.length}</span>
                       </td>
                       <td className="p-3">
                         <span className="text-sm text-muted">{formatDate(session.created_at)}</span>
                       </td>
                       <td className="p-3">
-                        <span className="text-sm font-mono text-muted">
+                        <span className="text-sm font-theme-data text-muted">
                           {formatDuration(session.duration_seconds)}
                         </span>
                       </td>
@@ -501,7 +501,7 @@ export default function AuditDashboardPage() {
                               e.stopPropagation();
                               router.push(`/audit/view?id=${session.id}`);
                             }}
-                            className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
+                            className="px-2 py-1 text-xs font-theme-data bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
                           >
                             View
                           </button>
@@ -515,7 +515,7 @@ export default function AuditDashboardPage() {
                                   '_blank'
                                 );
                               }}
-                              className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors"
+                              className="px-2 py-1 text-xs font-theme-data bg-surface hover:bg-accent/10 rounded transition-colors"
                             >
                               Export
                             </button>
@@ -533,13 +533,13 @@ export default function AuditDashboardPage() {
         {/* Severity Breakdown Chart */}
         {stats && stats.total_findings > 0 && (
           <div className="mt-6 card p-4">
-            <h3 className="text-sm font-mono text-muted mb-4">FINDINGS BY SEVERITY</h3>
+            <h3 className="text-sm font-theme-data text-muted mb-4">FINDINGS BY SEVERITY</h3>
             <div className="flex items-end gap-2 h-32">
               {[
                 { key: 'critical', label: 'Critical', count: stats.critical_findings, color: 'bg-acid-red' },
                 { key: 'high', label: 'High', count: stats.high_findings, color: 'bg-acid-orange' },
                 { key: 'medium', label: 'Medium', count: stats.medium_findings, color: 'bg-acid-yellow' },
-                { key: 'low', label: 'Low', count: stats.low_findings, color: 'bg-acid-cyan' },
+                { key: 'low', label: 'Low', count: stats.low_findings, color: 'bg-[var(--acid-cyan)]' },
               ].map((item) => {
                 const maxCount = Math.max(
                   stats.critical_findings,
@@ -559,7 +559,7 @@ export default function AuditDashboardPage() {
                       />
                     </div>
                     <div className="text-center">
-                      <div className="font-mono text-sm">{item.count}</div>
+                      <div className="font-theme-data text-sm">{item.count}</div>
                       <div className="text-xs text-muted">{item.label}</div>
                     </div>
                   </div>
@@ -571,7 +571,7 @@ export default function AuditDashboardPage() {
       </main>
 
       <footer className="border-t border-border bg-surface/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-mono">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-theme-data">
           <span>ARAGORA AUDIT ENGINE</span>
           <div className="flex items-center gap-4">
             <Link href="/admin/audit" className="hover:text-accent">

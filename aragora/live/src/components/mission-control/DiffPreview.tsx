@@ -16,10 +16,10 @@ export const DiffPreview = memo(function DiffPreview({ diff, maxLines = 20 }: Di
       className="rounded border border-[var(--border)] bg-[var(--bg)] overflow-hidden"
       data-testid="diff-preview"
     >
-      <div className="px-2 py-1 border-b border-[var(--border)] text-xs font-mono text-[var(--text-muted)]">
+      <div className="px-2 py-1 border-b border-[var(--border)] text-xs font-theme-data text-[var(--text-muted)]">
         Diff Preview
       </div>
-      <pre className="p-2 text-xs font-mono overflow-x-auto max-h-48 overflow-y-auto">
+      <pre className="p-2 text-xs font-theme-data overflow-x-auto max-h-48 overflow-y-auto">
         {lines.map((line, i) => {
           let className = 'text-[var(--text-muted)]';
           if (line.startsWith('+') && !line.startsWith('+++')) {

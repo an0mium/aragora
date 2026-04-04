@@ -46,10 +46,10 @@ interface CoordinationHealth {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'text-acid-green',
+  active: 'text-[var(--accent)]',
   running: 'text-blue-400',
   pending: 'text-yellow-400',
-  completed: 'text-acid-green',
+  completed: 'text-[var(--accent)]',
   failed: 'text-red-400',
   merged: 'text-purple-400',
   archived: 'text-text-muted',
@@ -98,16 +98,16 @@ export default function CoordinationPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/self-improve" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/self-improve" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [SELF-IMPROVE]
               </Link>
-              <Link href="/autonomous" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/autonomous" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [AUTONOMOUS]
               </Link>
               <BackendSelector compact />
@@ -119,17 +119,17 @@ export default function CoordinationPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 {'>'} MULTI-AGENT COORDINATION
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Federated cross-workspace execution, worktree lifecycle, task dispatch, and consent management.
               </p>
             </div>
             {health && (
-              <div className={`px-3 py-1 rounded border text-xs font-mono ${
+              <div className={`px-3 py-1 rounded border text-xs font-theme-data ${
                 health.healthy
-                  ? 'border-acid-green/50 text-acid-green bg-acid-green/10'
+                  ? 'border-[var(--accent)]/50 text-[var(--accent)] bg-[var(--accent)]/10'
                   : 'border-red-400/50 text-red-400 bg-red-400/10'
               }`}>
                 {health.healthy ? 'HEALTHY' : 'DEGRADED'}
@@ -139,11 +139,11 @@ export default function CoordinationPage() {
 
           <PanelErrorBoundary panelName="Coordination">
             {isLoading ? (
-              <div className="text-acid-green font-mono animate-pulse text-center py-12">Loading coordination data...</div>
+              <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">Loading coordination data...</div>
             ) : !stats ? (
               <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                <p className="text-text-muted font-mono">
-                  Coordination module not available. The <code className="text-acid-green">aragora.coordination</code> package
+                <p className="text-text-muted font-theme-data">
+                  Coordination module not available. The <code className="text-[var(--accent)]">aragora.coordination</code> package
                   provides cross-workspace federation, worktree management, and task dispatch.
                 </p>
               </div>
@@ -152,19 +152,19 @@ export default function CoordinationPage() {
                 {/* Stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-acid-green">{stats.total_workspaces}</div>
+                    <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">{stats.total_workspaces}</div>
                     <div className="text-xs text-text-muted uppercase">Workspaces</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-blue-400">{stats.active_executions}</div>
+                    <div className="text-3xl font-theme-data font-bold text-blue-400">{stats.active_executions}</div>
                     <div className="text-xs text-text-muted uppercase">Active Executions</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-purple-400">{stats.total_consents}</div>
+                    <div className="text-3xl font-theme-data font-bold text-purple-400">{stats.total_consents}</div>
                     <div className="text-xs text-text-muted uppercase">Active Consents</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-gold">{stats.federation_policies}</div>
+                    <div className="text-3xl font-theme-data font-bold text-gold">{stats.federation_policies}</div>
                     <div className="text-xs text-text-muted uppercase">Federation Policies</div>
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export default function CoordinationPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Workspaces */}
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Registered Workspaces
                     </h2>
                     {workspaces.length > 0 ? (
@@ -180,12 +180,12 @@ export default function CoordinationPage() {
                         {workspaces.map((ws) => (
                           <div key={ws.workspace_id} className="p-3 bg-bg rounded flex items-center justify-between">
                             <div>
-                              <div className="text-sm text-text font-mono">{ws.name}</div>
+                              <div className="text-sm text-text font-theme-data">{ws.name}</div>
                               <div className="text-xs text-text-muted">
                                 {ws.workspace_id.substring(0, 12)}...
                               </div>
                             </div>
-                            <span className={`text-xs font-mono ${statusColor(ws.status)}`}>
+                            <span className={`text-xs font-theme-data ${statusColor(ws.status)}`}>
                               {ws.status.toUpperCase()}
                             </span>
                           </div>
@@ -198,7 +198,7 @@ export default function CoordinationPage() {
 
                   {/* Executions */}
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Recent Executions
                     </h2>
                     {executions.length > 0 ? (
@@ -206,10 +206,10 @@ export default function CoordinationPage() {
                         {executions.map((exec) => (
                           <div key={exec.execution_id} className="p-3 bg-bg rounded">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-mono text-text-muted">
+                              <span className="text-xs font-theme-data text-text-muted">
                                 {exec.execution_id.substring(0, 12)}...
                               </span>
-                              <span className={`text-xs font-mono ${statusColor(exec.status)}`}>
+                              <span className={`text-xs font-theme-data ${statusColor(exec.status)}`}>
                                 {exec.status.toUpperCase()}
                               </span>
                             </div>
@@ -228,7 +228,7 @@ export default function CoordinationPage() {
 
                 {/* Consents */}
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Data Sharing Consents
                   </h2>
                   {consents.length > 0 ? (
@@ -236,10 +236,10 @@ export default function CoordinationPage() {
                       {consents.map((consent) => (
                         <div key={consent.consent_id} className="p-3 bg-bg rounded flex items-center justify-between">
                           <div>
-                            <div className="text-xs font-mono text-text-muted">
+                            <div className="text-xs font-theme-data text-text-muted">
                               {consent.workspace_id.substring(0, 12)}...
                             </div>
-                            <span className="px-1.5 py-0.5 text-xs font-mono bg-acid-green/20 text-acid-green rounded">
+                            <span className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                               {consent.scope}
                             </span>
                           </div>
@@ -260,8 +260,8 @@ export default function CoordinationPage() {
           </PanelErrorBoundary>
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // MULTI-AGENT COORDINATION</p>
         </footer>
       </main>

@@ -155,7 +155,7 @@ export default function TrainingExplorerPage() {
 
   const renderStatsTab = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-mono font-bold text-acid-green">Dataset Statistics</h2>
+      <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">Dataset Statistics</h2>
 
       {!stats ? (
         <p className="text-text-muted">No statistics available</p>
@@ -164,19 +164,19 @@ export default function TrainingExplorerPage() {
           {/* Overview Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-3xl font-mono font-bold text-acid-green">{stats.total_debates}</div>
+              <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">{stats.total_debates}</div>
               <div className="text-xs text-text-muted mt-1">Total Debates</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-3xl font-mono font-bold text-text">{stats.total_messages}</div>
+              <div className="text-3xl font-theme-data font-bold text-text">{stats.total_messages}</div>
               <div className="text-xs text-text-muted mt-1">Total Messages</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-3xl font-mono font-bold text-text">{stats.debates_with_consensus}</div>
+              <div className="text-3xl font-theme-data font-bold text-text">{stats.debates_with_consensus}</div>
               <div className="text-xs text-text-muted mt-1">With Consensus</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-3xl font-mono font-bold text-text">
+              <div className="text-3xl font-theme-data font-bold text-text">
                 {(stats.average_confidence * 100).toFixed(0)}%
               </div>
               <div className="text-xs text-text-muted mt-1">Avg Confidence</div>
@@ -186,8 +186,8 @@ export default function TrainingExplorerPage() {
           {/* Date Range */}
           {stats.date_range && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-2">Date Range</h3>
-              <div className="text-sm font-mono text-text">
+              <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-2">Date Range</h3>
+              <div className="text-sm font-theme-data text-text">
                 {new Date(stats.date_range.earliest).toLocaleDateString()} - {new Date(stats.date_range.latest).toLocaleDateString()}
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function TrainingExplorerPage() {
           {/* Topic Distribution */}
           {stats.topic_distribution && Object.keys(stats.topic_distribution).length > 0 && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Topic Distribution</h3>
+              <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">Topic Distribution</h3>
               <div className="space-y-2">
                 {Object.entries(stats.topic_distribution)
                   .sort(([, a], [, b]) => b - a)
@@ -210,7 +210,7 @@ export default function TrainingExplorerPage() {
                         </div>
                         <div className="h-2 bg-bg rounded overflow-hidden">
                           <div
-                            className="h-full bg-acid-green/60"
+                            className="h-full bg-[var(--accent)]/60"
                             style={{
                               width: `${(count / Math.max(...Object.values(stats.topic_distribution))) * 100}%`,
                             }}
@@ -226,14 +226,14 @@ export default function TrainingExplorerPage() {
           {/* Agent Distribution */}
           {stats.agent_distribution && Object.keys(stats.agent_distribution).length > 0 && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Agent Distribution</h3>
+              <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">Agent Distribution</h3>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(stats.agent_distribution)
                   .sort(([, a], [, b]) => b - a)
                   .map(([agent, count]) => (
                     <span
                       key={agent}
-                      className="px-2 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/30 text-acid-green rounded"
+                      className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] rounded"
                     >
                       {agent}: {count}
                     </span>
@@ -249,14 +249,14 @@ export default function TrainingExplorerPage() {
   const renderPreviewTab = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-mono font-bold text-acid-green">Data Preview</h2>
+        <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">Data Preview</h2>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-xs text-text-muted">Format:</label>
             <select
               value={selectedFormat}
               onChange={(e) => setSelectedFormat(e.target.value as FormatType)}
-              className="px-2 py-1 bg-bg border border-border rounded text-sm font-mono"
+              className="px-2 py-1 bg-bg border border-border rounded text-sm font-theme-data"
             >
               <option value="sft">SFT</option>
               <option value="dpo">DPO</option>
@@ -274,7 +274,7 @@ export default function TrainingExplorerPage() {
               onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
               className="w-20"
             />
-            <span className="text-xs font-mono text-text">{(confidenceThreshold * 100).toFixed(0)}%</span>
+            <span className="text-xs font-theme-data text-text">{(confidenceThreshold * 100).toFixed(0)}%</span>
           </div>
         </div>
       </div>
@@ -282,14 +282,14 @@ export default function TrainingExplorerPage() {
       {/* Format Schema */}
       {formats[selectedFormat] && (
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-2">
+          <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-2">
             {formats[selectedFormat].name} Format
           </h3>
           <p className="text-sm text-text-muted mb-3">{formats[selectedFormat].description}</p>
           <div className="space-y-1">
             {formats[selectedFormat].fields?.map((field) => (
-              <div key={field.name} className="flex items-center gap-2 text-xs font-mono">
-                <span className="text-acid-green">{field.name}</span>
+              <div key={field.name} className="flex items-center gap-2 text-xs font-theme-data">
+                <span className="text-[var(--accent)]">{field.name}</span>
                 <span className="text-text-muted">({field.type})</span>
                 <span className="text-text">{field.description}</span>
               </div>
@@ -301,11 +301,11 @@ export default function TrainingExplorerPage() {
       {/* Preview Records */}
       {previewLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="text-acid-green font-mono animate-pulse">Loading preview...</div>
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading preview...</div>
         </div>
       ) : previewData.length === 0 ? (
         <div className="p-8 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono">No training records match the criteria</p>
+          <p className="text-text-muted font-theme-data">No training records match the criteria</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -313,7 +313,7 @@ export default function TrainingExplorerPage() {
             <div key={record.id || idx} className="p-4 bg-surface border border-border rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 text-xs font-mono rounded ${
+                  <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${
                     record.type === 'sft'
                       ? 'bg-blue-500/20 text-blue-400'
                       : 'bg-purple-500/20 text-purple-400'
@@ -324,7 +324,7 @@ export default function TrainingExplorerPage() {
                     <span className="text-xs text-text-muted">{record.topic}</span>
                   )}
                 </div>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   Confidence: {(record.confidence * 100).toFixed(0)}%
                 </span>
               </div>
@@ -335,7 +335,7 @@ export default function TrainingExplorerPage() {
                   {record.input && (
                     <div>
                       <div className="text-xs text-text-muted mb-1">Input:</div>
-                      <div className="text-sm text-text bg-bg p-2 rounded font-mono overflow-x-auto">
+                      <div className="text-sm text-text bg-bg p-2 rounded font-theme-data overflow-x-auto">
                         {record.input.substring(0, 300)}{record.input.length > 300 ? '...' : ''}
                       </div>
                     </div>
@@ -343,7 +343,7 @@ export default function TrainingExplorerPage() {
                   {record.output && (
                     <div>
                       <div className="text-xs text-text-muted mb-1">Output:</div>
-                      <div className="text-sm text-text bg-bg p-2 rounded font-mono overflow-x-auto">
+                      <div className="text-sm text-text bg-bg p-2 rounded font-theme-data overflow-x-auto">
                         {record.output.substring(0, 300)}{record.output.length > 300 ? '...' : ''}
                       </div>
                     </div>
@@ -356,8 +356,8 @@ export default function TrainingExplorerPage() {
                 <div className="grid md:grid-cols-2 gap-3">
                   {record.chosen && (
                     <div>
-                      <div className="text-xs text-acid-green mb-1">Chosen:</div>
-                      <div className="text-sm text-text bg-bg p-2 rounded font-mono overflow-x-auto">
+                      <div className="text-xs text-[var(--accent)] mb-1">Chosen:</div>
+                      <div className="text-sm text-text bg-bg p-2 rounded font-theme-data overflow-x-auto">
                         {record.chosen.substring(0, 200)}{record.chosen.length > 200 ? '...' : ''}
                       </div>
                     </div>
@@ -365,7 +365,7 @@ export default function TrainingExplorerPage() {
                   {record.rejected && (
                     <div>
                       <div className="text-xs text-red-400 mb-1">Rejected:</div>
-                      <div className="text-sm text-text bg-bg p-2 rounded font-mono overflow-x-auto">
+                      <div className="text-sm text-text bg-bg p-2 rounded font-theme-data overflow-x-auto">
                         {record.rejected.substring(0, 200)}{record.rejected.length > 200 ? '...' : ''}
                       </div>
                     </div>
@@ -381,24 +381,24 @@ export default function TrainingExplorerPage() {
 
   const renderExportTab = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-mono font-bold text-acid-green">Export Training Data</h2>
+      <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">Export Training Data</h2>
 
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-4">Export Settings</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-4">Export Settings</h3>
 
         <div className="space-y-4">
           {/* Format Selection */}
           <div>
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">Format</label>
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">Format</label>
             <div className="flex gap-2">
               {(['sft', 'dpo', 'gauntlet'] as FormatType[]).map((fmt) => (
                 <button
                   key={fmt}
                   onClick={() => setSelectedFormat(fmt)}
-                  className={`flex-1 px-4 py-3 rounded border-2 transition-all font-mono text-sm ${
+                  className={`flex-1 px-4 py-3 rounded border-2 transition-all font-theme-data text-sm ${
                     selectedFormat === fmt
-                      ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                      : 'border-border text-text-muted hover:border-acid-green/50'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                      : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                   }`}
                 >
                   <div className="font-bold">{fmt.toUpperCase()}</div>
@@ -414,7 +414,7 @@ export default function TrainingExplorerPage() {
 
           {/* Confidence Threshold */}
           <div>
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">
               Minimum Confidence: {(confidenceThreshold * 100).toFixed(0)}%
             </label>
             <input
@@ -437,10 +437,10 @@ export default function TrainingExplorerPage() {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className={`w-full px-4 py-3 rounded font-mono font-bold transition-all ${
+            className={`w-full px-4 py-3 rounded font-theme-data font-bold transition-all ${
               exporting
                 ? 'bg-border text-text-muted cursor-not-allowed'
-                : 'bg-acid-green/20 border-2 border-acid-green text-acid-green hover:bg-acid-green/30'
+                : 'bg-[var(--accent)]/20 border-2 border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30'
             }`}
           >
             {exporting ? 'Exporting...' : `Export ${selectedFormat.toUpperCase()} Data`}
@@ -450,18 +450,18 @@ export default function TrainingExplorerPage() {
 
       {/* Format Info */}
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Format Details</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">Format Details</h3>
         <div className="space-y-3 text-sm text-text-muted">
           <div>
-            <div className="font-mono text-text">SFT (Supervised Fine-Tuning)</div>
+            <div className="font-theme-data text-text">SFT (Supervised Fine-Tuning)</div>
             <p>Input-output pairs from winning debate responses. Best for teaching models debate patterns.</p>
           </div>
           <div>
-            <div className="font-mono text-text">DPO (Direct Preference Optimization)</div>
+            <div className="font-theme-data text-text">DPO (Direct Preference Optimization)</div>
             <p>Chosen/rejected pairs showing which responses won debates. Best for alignment training.</p>
           </div>
           <div>
-            <div className="font-mono text-text">Gauntlet (Adversarial)</div>
+            <div className="font-theme-data text-text">Gauntlet (Adversarial)</div>
             <p>Attack patterns and vulnerabilities from red-team testing. Best for robustness training.</p>
           </div>
         </div>
@@ -483,7 +483,7 @@ export default function TrainingExplorerPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/training/models"
-              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               [MODELS]
             </Link>
@@ -495,14 +495,14 @@ export default function TrainingExplorerPage() {
         {/* Title */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <Link href="/training" className="text-acid-green hover:underline font-mono text-sm">
+            <Link href="/training" className="text-[var(--accent)] hover:underline font-theme-data text-sm">
               Training
             </Link>
             <span className="text-text-muted">/</span>
-            <span className="text-text font-mono text-sm">Explorer</span>
+            <span className="text-text font-theme-data text-sm">Explorer</span>
           </div>
-          <h1 className="text-3xl font-mono font-bold text-acid-green mb-2">Training Data Explorer</h1>
-          <p className="text-text-muted font-mono text-sm">
+          <h1 className="text-3xl font-theme-data font-bold text-[var(--accent)] mb-2">Training Data Explorer</h1>
+          <p className="text-text-muted font-theme-data text-sm">
             Browse, preview, and export debate data for model fine-tuning
           </p>
         </div>
@@ -518,9 +518,9 @@ export default function TrainingExplorerPage() {
         <div className="flex gap-2 mb-6 border-b border-border pb-2">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'stats'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -528,9 +528,9 @@ export default function TrainingExplorerPage() {
           </button>
           <button
             onClick={() => setActiveTab('preview')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'preview'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -538,9 +538,9 @@ export default function TrainingExplorerPage() {
           </button>
           <button
             onClick={() => setActiveTab('export')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'export'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -551,7 +551,7 @@ export default function TrainingExplorerPage() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+            <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading...</div>
           </div>
         ) : (
           <div>

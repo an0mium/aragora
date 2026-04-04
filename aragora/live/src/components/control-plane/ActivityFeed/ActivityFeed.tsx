@@ -139,10 +139,10 @@ export function ActivityFeed({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
-            <h3 className="font-mono text-sm text-acid-green">{title}</h3>
+            <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+            <h3 className="font-theme-data text-sm text-[var(--accent)]">{title}</h3>
             {events.length > 0 && (
-              <span className="text-xs text-text-muted font-mono">
+              <span className="text-xs text-text-muted font-theme-data">
                 ({filteredEvents.length})
               </span>
             )}
@@ -151,13 +151,13 @@ export function ActivityFeed({
           <div className="flex items-center gap-3">
             {/* Severity badges */}
             {severityCounts.error > 0 && (
-              <span className="flex items-center gap-1 text-xs font-mono text-crimson">
-                <span className="w-1.5 h-1.5 rounded-full bg-crimson" />
+              <span className="flex items-center gap-1 text-xs font-theme-data text-[var(--crimson)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--crimson)]" />
                 {severityCounts.error}
               </span>
             )}
             {severityCounts.warning > 0 && (
-              <span className="flex items-center gap-1 text-xs font-mono text-yellow-400">
+              <span className="flex items-center gap-1 text-xs font-theme-data text-yellow-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
                 {severityCounts.warning}
               </span>
@@ -166,7 +166,7 @@ export function ActivityFeed({
             {showViewAll && onViewAll && (
               <button
                 onClick={onViewAll}
-                className="text-xs text-text-muted hover:text-acid-green transition-colors font-mono"
+                className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors font-theme-data"
               >
                 View All &rarr;
               </button>
@@ -181,9 +181,9 @@ export function ActivityFeed({
               <button
                 key={preset.label}
                 onClick={() => handleFilterClick(preset)}
-                className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+                className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
                   activeFilter === preset.label
-                    ? 'bg-acid-green/20 text-acid-green border border-acid-green/30'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30'
                     : 'bg-surface text-text-muted hover:text-text border border-transparent'
                 }`}
               >
@@ -200,7 +200,7 @@ export function ActivityFeed({
         className="max-h-[400px] overflow-y-auto"
       >
         {visibleEvents.length === 0 ? (
-          <div className="p-6 text-center text-text-muted font-mono text-sm">
+          <div className="p-6 text-center text-text-muted font-theme-data text-sm">
             No activity to display
           </div>
         ) : (
@@ -216,7 +216,7 @@ export function ActivityFeed({
 
             {filteredEvents.length > maxVisible && (
               <div className="text-center pt-2">
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   + {filteredEvents.length - maxVisible} more events
                 </span>
               </div>

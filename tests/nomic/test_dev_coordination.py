@@ -1508,7 +1508,6 @@ def test_archive_failed_no_deliverable_work_orders_discards_empty_launch_crash_b
             }
         ],
     )
-
     conn = store._connect()
     try:
         conn.execute(

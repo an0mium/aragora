@@ -20,7 +20,7 @@ export default function AutonomousPage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-white/50">Approval Flow</span>
-              <span className="text-acid-green">Human-in-loop</span>
+              <span className="text-[var(--accent)]">Human-in-loop</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/50">Alerts</span>
@@ -28,7 +28,7 @@ export default function AutonomousPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-white/50">Triggers</span>
-              <span className="text-acid-cyan">Scheduled</span>
+              <span className="text-[var(--acid-cyan)]">Scheduled</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/50">Learning</span>

@@ -61,24 +61,24 @@ export function AdminLayout({
 
       <div className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50 h-12">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50 h-12">
           <div className="container mx-auto px-4 h-full flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/">
                 <AsciiBannerCompact connected={true} />
               </Link>
-              <span className="text-acid-green/40 font-mono">|</span>
+              <span className="text-[var(--accent)]/40 font-theme-data">|</span>
               <Link
                 href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [ADMIN]
               </Link>
             </div>
             <div className="flex items-center gap-4">
               {isAuthenticated && user && (
-                <div className="font-mono text-xs text-text-muted">
-                  <span className="text-acid-green">*</span> {user.email || user.name}
+                <div className="font-theme-data text-xs text-text-muted">
+                  <span className="text-[var(--accent)]">*</span> {user.email || user.name}
                 </div>
               )}
               <BackendSelector compact />
@@ -101,15 +101,15 @@ export function AdminLayout({
           }}
         >
           {/* Breadcrumbs */}
-          <div className="border-b border-acid-green/20 bg-surface/40 px-6 py-2">
-            <nav className="flex items-center gap-2 font-mono text-xs">
+          <div className="border-b border-[var(--accent)]/20 bg-surface/40 px-6 py-2">
+            <nav className="flex items-center gap-2 font-theme-data text-xs">
               {displayBreadcrumbs.map((crumb, idx) => (
                 <React.Fragment key={idx}>
                   {idx > 0 && <span className="text-text-muted">/</span>}
                   {crumb.href ? (
                     <Link
                       href={crumb.href}
-                      className="text-acid-cyan hover:text-acid-green transition-colors"
+                      className="text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                     >
                       {crumb.label}
                     </Link>
@@ -122,14 +122,14 @@ export function AdminLayout({
           </div>
 
           {/* Page Header */}
-          <div className="px-6 py-6 border-b border-acid-green/10">
+          <div className="px-6 py-6 border-b border-[var(--accent)]/10">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-2xl font-mono text-acid-green mb-2">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                   {title}
                 </h1>
                 {description && (
-                  <p className="text-text-muted font-mono text-sm">
+                  <p className="text-text-muted font-theme-data text-sm">
                     {description}
                   </p>
                 )}
@@ -146,7 +146,7 @@ export function AdminLayout({
           {!isAdmin && (
             <div className="mx-6 mt-6">
               <div className="card p-4 border-acid-yellow/40 bg-acid-yellow/5">
-                <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
+                <div className="flex items-center gap-2 text-[var(--acid-yellow)] font-theme-data text-sm">
                   <span>!</span>
                   <span>Admin access required. Some features may be restricted.</span>
                 </div>
@@ -160,8 +160,8 @@ export function AdminLayout({
           </div>
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8 mx-6">
-            <div className="text-acid-green/50 mb-2">
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8 mx-6">
+            <div className="text-[var(--accent)]/50 mb-2">
               {'='.repeat(40)}
             </div>
             <p className="text-text-muted">

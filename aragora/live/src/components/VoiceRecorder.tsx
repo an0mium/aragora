@@ -198,7 +198,7 @@ export function VoiceRecorder({
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface
           ${
             state === 'recording'
-              ? 'bg-crimson hover:bg-crimson/80 focus:ring-crimson'
+              ? 'bg-[var(--crimson)] hover:bg-[var(--crimson)]/80 focus:ring-crimson'
               : 'bg-accent hover:bg-accent/80 focus:ring-accent'
           }
           ${disabled || state === 'processing' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -251,7 +251,7 @@ export function VoiceRecorder({
         )}
         {state === 'recording' && (
           <div className="space-y-1">
-            <div className={`text-sm font-mono ${isNearLimit ? 'text-crimson' : 'text-text'}`}>
+            <div className={`text-sm font-theme-data ${isNearLimit ? 'text-[var(--crimson)]' : 'text-text'}`}>
               {formatDuration(duration)}
               {isNearLimit && (
                 <span className="text-text-muted ml-2">({formatDuration(remainingTime)} left)</span>
@@ -264,7 +264,7 @@ export function VoiceRecorder({
           <div className="text-sm text-text-muted">Processing...</div>
         )}
         {error && (
-          <div className="text-sm text-crimson">{error}</div>
+          <div className="text-sm text-[var(--crimson)]">{error}</div>
         )}
       </div>
 

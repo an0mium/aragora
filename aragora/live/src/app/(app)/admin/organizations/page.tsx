@@ -47,13 +47,13 @@ interface APIKey {
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
     free: 'bg-text-muted/20 text-text-muted border-text-muted/40',
-    starter: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40',
-    professional: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    enterprise: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    starter: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40',
+    professional: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    enterprise: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[tier] || colors.free}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[tier] || colors.free}`}>
       {tier.replace('_', ' ').toUpperCase()}
     </span>
   );
@@ -61,14 +61,14 @@ function TierBadge({ tier }: { tier: string }) {
 
 function UsageBar({ used, limit }: { used: number; limit: number }) {
   const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  const color = percent >= 90 ? 'bg-acid-red' : percent >= 70 ? 'bg-acid-yellow' : 'bg-acid-green';
+  const color = percent >= 90 ? 'bg-acid-red' : percent >= 70 ? 'bg-acid-yellow' : 'bg-[var(--accent)]';
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 bg-bg rounded overflow-hidden">
         <div className={`h-full ${color} transition-all`} style={{ width: `${percent}%` }} />
       </div>
-      <span className="font-mono text-xs text-text-muted whitespace-nowrap">
+      <span className="font-theme-data text-xs text-text-muted whitespace-nowrap">
         {used}/{limit}
       </span>
     </div>
@@ -142,13 +142,13 @@ function OrgDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden z-10">
+      <div className="relative bg-surface border border-[var(--accent)]/40 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden z-10">
         {/* Header */}
-        <div className="p-4 border-b border-acid-green/20">
+        <div className="p-4 border-b border-[var(--accent)]/20">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-mono text-lg text-acid-green">{organization.name}</h2>
-              <p className="font-mono text-xs text-text-muted">/{organization.slug}</p>
+              <h2 className="font-theme-data text-lg text-[var(--accent)]">{organization.name}</h2>
+              <p className="font-theme-data text-xs text-text-muted">/{organization.slug}</p>
             </div>
             <div className="flex items-center gap-2">
               <TierBadge tier={organization.tier} />
@@ -163,14 +163,14 @@ function OrgDetailModal({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-acid-green/20">
+        <div className="flex border-b border-[var(--accent)]/20">
           {(['details', 'members', 'api-keys'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-mono text-sm transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm transition-colors ${
                 activeTab === tab
-                  ? 'text-acid-green border-b-2 border-acid-green'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -185,32 +185,32 @@ function OrgDetailModal({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
-                  <div className="font-mono text-xs text-text-muted">Organization ID</div>
-                  <div className="font-mono text-sm text-acid-cyan break-all">{organization.id}</div>
+                  <div className="font-theme-data text-xs text-text-muted">Organization ID</div>
+                  <div className="font-theme-data text-sm text-[var(--acid-cyan)] break-all">{organization.id}</div>
                 </div>
                 <div className="card p-4">
-                  <div className="font-mono text-xs text-text-muted">Created</div>
-                  <div className="font-mono text-sm text-text">
+                  <div className="font-theme-data text-xs text-text-muted">Created</div>
+                  <div className="font-theme-data text-sm text-text">
                     {new Date(organization.created_at).toLocaleDateString()}
                   </div>
                 </div>
               </div>
 
               <div className="card p-4">
-                <div className="font-mono text-xs text-text-muted mb-2">Debates Usage (This Month)</div>
+                <div className="font-theme-data text-xs text-text-muted mb-2">Debates Usage (This Month)</div>
                 <UsageBar used={organization.debates_used_this_month} limit={organization.debates_limit} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
-                  <div className="font-mono text-xs text-text-muted">Members</div>
-                  <div className="font-mono text-2xl text-acid-green">{organization.member_count}</div>
+                  <div className="font-theme-data text-xs text-text-muted">Members</div>
+                  <div className="font-theme-data text-2xl text-[var(--accent)]">{organization.member_count}</div>
                 </div>
                 <div className="card p-4">
-                  <div className="font-mono text-xs text-text-muted">Billing</div>
-                  <div className="font-mono text-sm">
+                  <div className="font-theme-data text-xs text-text-muted">Billing</div>
+                  <div className="font-theme-data text-sm">
                     {organization.stripe_customer_id ? (
-                      <span className="text-acid-green">Connected</span>
+                      <span className="text-[var(--accent)]">Connected</span>
                     ) : (
                       <span className="text-text-muted">Not set up</span>
                     )}
@@ -220,14 +220,14 @@ function OrgDetailModal({
 
               {organization.owner_email && (
                 <div className="card p-4">
-                  <div className="font-mono text-xs text-text-muted">Owner</div>
-                  <div className="font-mono text-sm text-acid-cyan">{organization.owner_email}</div>
+                  <div className="font-theme-data text-xs text-text-muted">Owner</div>
+                  <div className="font-theme-data text-sm text-[var(--acid-cyan)]">{organization.owner_email}</div>
                 </div>
               )}
 
               <div className="card p-4">
-                <div className="font-mono text-xs text-text-muted">Billing Cycle</div>
-                <div className="font-mono text-sm text-text">
+                <div className="font-theme-data text-xs text-text-muted">Billing Cycle</div>
+                <div className="font-theme-data text-sm text-text">
                   Started: {new Date(organization.billing_cycle_start).toLocaleDateString()}
                 </div>
               </div>
@@ -237,11 +237,11 @@ function OrgDetailModal({
           {activeTab === 'members' && (
             <div>
               {loading ? (
-                <div className="text-center py-8 font-mono text-text-muted animate-pulse">
+                <div className="text-center py-8 font-theme-data text-text-muted animate-pulse">
                   Loading members...
                 </div>
               ) : members.length === 0 ? (
-                <div className="text-center py-8 font-mono text-text-muted">
+                <div className="text-center py-8 font-theme-data text-text-muted">
                   No members found
                 </div>
               ) : (
@@ -258,11 +258,11 @@ function OrgDetailModal({
           {activeTab === 'api-keys' && (
             <div>
               {loading ? (
-                <div className="text-center py-8 font-mono text-text-muted animate-pulse">
+                <div className="text-center py-8 font-theme-data text-text-muted animate-pulse">
                   Loading API keys...
                 </div>
               ) : apiKeys.length === 0 ? (
-                <div className="text-center py-8 font-mono text-text-muted">
+                <div className="text-center py-8 font-theme-data text-text-muted">
                   No API keys found
                 </div>
               ) : (
@@ -270,18 +270,18 @@ function OrgDetailModal({
                   {apiKeys.map((key) => (
                     <div key={key.id} className="card p-3 flex items-center justify-between">
                       <div>
-                        <div className="font-mono text-sm text-text">{key.name}</div>
-                        <div className="font-mono text-xs text-acid-cyan">{key.key_prefix}...</div>
+                        <div className="font-theme-data text-sm text-text">{key.name}</div>
+                        <div className="font-theme-data text-xs text-[var(--acid-cyan)]">{key.key_prefix}...</div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="font-mono text-xs text-text-muted">
+                        <div className="font-theme-data text-xs text-text-muted">
                           {key.last_used_at
                             ? `Last used: ${new Date(key.last_used_at).toLocaleDateString()}`
                             : 'Never used'}
                         </div>
-                        <span className={`px-2 py-0.5 text-xs font-mono rounded border ${
+                        <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${
                           key.is_active
-                            ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
+                            ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40'
                             : 'bg-acid-red/20 text-acid-red border-acid-red/40'
                         }`}>
                           {key.is_active ? 'ACTIVE' : 'REVOKED'}
@@ -439,7 +439,7 @@ function OrganizationsAdminPageContent() {
         <button
           onClick={fetchOrganizations}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -447,7 +447,7 @@ function OrganizationsAdminPageContent() {
     >
       {error && (
         <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-          <p className="text-acid-red font-mono text-sm">{error}</p>
+          <p className="text-acid-red font-theme-data text-sm">{error}</p>
         </div>
       )}
 
@@ -462,7 +462,7 @@ function OrganizationsAdminPageContent() {
               setPage(1);
             }}
             placeholder="Search by name or slug..."
-            className="w-full bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+            className="w-full bg-surface border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--accent)]"
           />
         </div>
         <select
@@ -472,7 +472,7 @@ function OrganizationsAdminPageContent() {
             setPage(1);
           }}
           aria-label="Filter by tier"
-          className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
+          className="bg-surface border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2"
         >
           <option value="">All Tiers</option>
           <option value="free">Free</option>
@@ -485,24 +485,24 @@ function OrganizationsAdminPageContent() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Total</div>
-          <div className="font-mono text-2xl text-acid-green">{total}</div>
+          <div className="font-theme-data text-xs text-text-muted">Total</div>
+          <div className="font-theme-data text-2xl text-[var(--accent)]">{total}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Free</div>
-          <div className="font-mono text-2xl text-text-muted">{tierStats.free || 0}</div>
+          <div className="font-theme-data text-xs text-text-muted">Free</div>
+          <div className="font-theme-data text-2xl text-text-muted">{tierStats.free || 0}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Starter</div>
-          <div className="font-mono text-2xl text-acid-cyan">{tierStats.starter || 0}</div>
+          <div className="font-theme-data text-xs text-text-muted">Starter</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-cyan)]">{tierStats.starter || 0}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Pro</div>
-          <div className="font-mono text-2xl text-acid-green">{tierStats.professional || 0}</div>
+          <div className="font-theme-data text-xs text-text-muted">Pro</div>
+          <div className="font-theme-data text-2xl text-[var(--accent)]">{tierStats.professional || 0}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Enterprise</div>
-          <div className="font-mono text-2xl text-acid-yellow">{tierStats.enterprise || 0}</div>
+          <div className="font-theme-data text-xs text-text-muted">Enterprise</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-yellow)]">{tierStats.enterprise || 0}</div>
         </div>
       </div>
 
@@ -510,63 +510,63 @@ function OrganizationsAdminPageContent() {
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-surface border-b border-acid-green/20">
+            <thead className="bg-surface border-b border-[var(--accent)]/20">
               <tr>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">ORGANIZATION</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">TIER</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">MEMBERS</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">USAGE</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">BILLING</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">CREATED</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">ORGANIZATION</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">TIER</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">MEMBERS</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">USAGE</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">BILLING</th>
+                <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">CREATED</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center">
-                    <div className="font-mono text-text-muted animate-pulse">Loading...</div>
+                    <div className="font-theme-data text-text-muted animate-pulse">Loading...</div>
                   </td>
                 </tr>
               )}
               {!loading && organizations.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center">
-                    <div className="font-mono text-text-muted">No organizations found</div>
+                    <div className="font-theme-data text-text-muted">No organizations found</div>
                   </td>
                 </tr>
               )}
               {!loading && organizations.map((org) => (
                 <tr
                   key={org.id}
-                  className="border-b border-acid-green/10 hover:bg-surface/50 cursor-pointer"
+                  className="border-b border-[var(--accent)]/10 hover:bg-surface/50 cursor-pointer"
                   onClick={() => handleOrgClick(org)}
                 >
                   <td className="px-4 py-3">
-                    <div className="font-mono text-sm text-text">{org.name}</div>
-                    <div className="font-mono text-xs text-acid-cyan">/{org.slug}</div>
+                    <div className="font-theme-data text-sm text-text">{org.name}</div>
+                    <div className="font-theme-data text-xs text-[var(--acid-cyan)]">/{org.slug}</div>
                   </td>
                   <td className="px-4 py-3">
                     <TierBadge tier={org.tier} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-mono text-sm text-text">{org.member_count}</div>
+                    <div className="font-theme-data text-sm text-text">{org.member_count}</div>
                   </td>
                   <td className="px-4 py-3 min-w-[150px]">
                     <UsageBar used={org.debates_used_this_month} limit={org.debates_limit} />
                   </td>
                   <td className="px-4 py-3">
                     {org.stripe_customer_id ? (
-                      <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-green/20 text-acid-green border-acid-green/40">
+                      <span className="px-2 py-0.5 text-xs font-theme-data rounded border bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40">
                         CONNECTED
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 text-xs font-mono rounded border bg-text-muted/20 text-text-muted border-text-muted/40">
+                      <span className="px-2 py-0.5 text-xs font-theme-data rounded border bg-text-muted/20 text-text-muted border-text-muted/40">
                         NOT SET
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-mono text-xs text-text-muted">
+                    <div className="font-theme-data text-xs text-text-muted">
                       {new Date(org.created_at).toLocaleDateString()}
                     </div>
                   </td>
@@ -578,25 +578,25 @@ function OrganizationsAdminPageContent() {
 
         {/* Pagination */}
         {Math.ceil(total / limit) > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-acid-green/20">
-            <div className="font-mono text-xs text-text-muted">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--accent)]/20">
+            <div className="font-theme-data text-xs text-text-muted">
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1 font-theme-data text-sm text-[var(--acid-cyan)] hover:text-[var(--accent)] disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
               >
                 &lt; PREV
               </button>
-              <span className="font-mono text-sm text-text-muted">
+              <span className="font-theme-data text-sm text-text-muted">
                 Page {page} of {Math.ceil(total / limit)}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
                 disabled={page >= Math.ceil(total / limit)}
-                className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1 font-theme-data text-sm text-[var(--acid-cyan)] hover:text-[var(--accent)] disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
               >
                 NEXT &gt;
               </button>
@@ -622,7 +622,7 @@ function OrganizationsAdminPageContent() {
 
 export default function OrganizationsAdminPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center font-mono text-text-muted">Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-center font-theme-data text-text-muted">Loading...</div>}>
       <OrganizationsAdminPageContent />
     </Suspense>
   );

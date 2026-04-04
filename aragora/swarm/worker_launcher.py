@@ -1183,10 +1183,10 @@ class WorkerLauncher:
             # Ensure the branch is pushed if the worker produced commits.
             # _auto_push only runs inside _auto_commit which is skipped when the
             # worker already committed on its own.
-            if worker.commit_shas:
+            if worker.commit_shas and not missing_terminal_marker:
                 await cls._auto_push(worker)
 
-            if cls._should_run_verification(worker):
+            if not missing_terminal_marker and cls._should_run_verification(worker):
                 worker.verification_results = await cls._run_verification_commands(
                     worktree_path,
                     worker.expected_tests,
@@ -2137,10 +2137,10 @@ class WorkerLauncher:
                 head_sha=worker.head_sha,
             )
 
-            if worker.commit_shas:
+            if worker.commit_shas and not missing_terminal_marker:
                 self._auto_push_sync(worker)
 
-            if self._should_run_verification(worker):
+            if not missing_terminal_marker and self._should_run_verification(worker):
                 worker.verification_results = self._run_verification_commands_sync(
                     worker.worktree_path,
                     worker.expected_tests,

@@ -239,7 +239,7 @@ export function ReportGenerator() {
     <div className="space-y-6">
       {/* Report Selection */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} SELECT REPORT
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -254,7 +254,7 @@ export function ReportGenerator() {
               }`}
             >
               <div className="text-2xl mb-2">{report.icon}</div>
-              <div className="font-mono text-sm text-[var(--text)]">{report.name}</div>
+              <div className="font-theme-data text-sm text-[var(--text)]">{report.name}</div>
               <div className="text-xs text-[var(--text-muted)] mt-1">{report.description}</div>
             </button>
           ))}
@@ -264,7 +264,7 @@ export function ReportGenerator() {
       {/* Date Range (if required) */}
       {config?.requiresDates && (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-          <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
             {'>'} DATE RANGE
           </h3>
           <div className="flex items-center gap-4">
@@ -274,7 +274,7 @@ export function ReportGenerator() {
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)]"
+                className="px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)]"
               />
             </div>
             <div>
@@ -283,7 +283,7 @@ export function ReportGenerator() {
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)]"
+                className="px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)]"
               />
             </div>
           </div>
@@ -296,7 +296,7 @@ export function ReportGenerator() {
           <button
             onClick={generateReport}
             disabled={generating}
-            className="px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-mono text-sm rounded hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data text-sm rounded hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {generating ? (
               <>
@@ -319,7 +319,7 @@ export function ReportGenerator() {
           {/* Report Header */}
           <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-mono text-[var(--acid-green)]">
+              <h3 className="text-lg font-theme-data text-[var(--acid-green)]">
                 {config?.name}
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
@@ -328,7 +328,7 @@ export function ReportGenerator() {
             </div>
             <button
               onClick={() => window.print()}
-              className="px-3 py-1 text-xs font-mono border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Export PDF
             </button>
@@ -341,19 +341,19 @@ export function ReportGenerator() {
               <div className="p-4 space-y-6">
                 {/* Income Section */}
                 <div>
-                  <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Income</h4>
+                  <h4 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">Income</h4>
                   <div className="space-y-2">
                     {plData.income.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono text-[var(--acid-green)]">
+                        <span className="font-theme-data text-[var(--acid-green)]">
                           ${item.amount.toLocaleString()}
                         </span>
                       </div>
                     ))}
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
                       <span>Total Income</span>
-                      <span className="font-mono text-[var(--acid-green)]">
+                      <span className="font-theme-data text-[var(--acid-green)]">
                         ${plData.income.total.toLocaleString()}
                       </span>
                     </div>
@@ -362,19 +362,19 @@ export function ReportGenerator() {
 
                 {/* Expenses Section */}
                 <div>
-                  <h4 className="text-sm font-mono text-red-400 mb-3">Expenses</h4>
+                  <h4 className="text-sm font-theme-data text-red-400 mb-3">Expenses</h4>
                   <div className="space-y-2">
                     {plData.expenses.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono text-red-400">
+                        <span className="font-theme-data text-red-400">
                           ${item.amount.toLocaleString()}
                         </span>
                       </div>
                     ))}
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
                       <span>Total Expenses</span>
-                      <span className="font-mono text-red-400">
+                      <span className="font-theme-data text-red-400">
                         ${plData.expenses.total.toLocaleString()}
                       </span>
                     </div>
@@ -385,7 +385,7 @@ export function ReportGenerator() {
                 <div className="pt-4 border-t-2 border-[var(--acid-green)]">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Net Income</span>
-                    <span className={`font-mono ${plData.netIncome >= 0 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                    <span className={`font-theme-data ${plData.netIncome >= 0 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                       ${plData.netIncome.toLocaleString()}
                     </span>
                   </div>
@@ -401,14 +401,14 @@ export function ReportGenerator() {
               <div className="p-4 grid grid-cols-2 gap-6">
                 {/* Assets */}
                 <div>
-                  <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Assets</h4>
+                  <h4 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">Assets</h4>
                   <div className="space-y-4">
                     <div>
                       <h5 className="text-xs text-[var(--text-muted)] mb-2">Current Assets</h5>
                       {bsData.assets.current.items.map((item: LineItem) => (
                         <div key={item.name} className="flex justify-between text-sm py-1">
                           <span className="text-[var(--text-muted)]">{item.name}</span>
-                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                          <span className="font-theme-data">${item.amount.toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -417,13 +417,13 @@ export function ReportGenerator() {
                       {bsData.assets.fixed.items.map((item: LineItem) => (
                         <div key={item.name} className="flex justify-between text-sm py-1">
                           <span className="text-[var(--text-muted)]">{item.name}</span>
-                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                          <span className="font-theme-data">${item.amount.toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
                       <span>Total Assets</span>
-                      <span className="font-mono text-[var(--acid-green)]">
+                      <span className="font-theme-data text-[var(--acid-green)]">
                         ${bsData.assets.total.toLocaleString()}
                       </span>
                     </div>
@@ -432,14 +432,14 @@ export function ReportGenerator() {
 
                 {/* Liabilities & Equity */}
                 <div>
-                  <h4 className="text-sm font-mono text-red-400 mb-3">Liabilities & Equity</h4>
+                  <h4 className="text-sm font-theme-data text-red-400 mb-3">Liabilities & Equity</h4>
                   <div className="space-y-4">
                     <div>
                       <h5 className="text-xs text-[var(--text-muted)] mb-2">Liabilities</h5>
                       {bsData.liabilities.items.map((item: LineItem) => (
                         <div key={item.name} className="flex justify-between text-sm py-1">
                           <span className="text-[var(--text-muted)]">{item.name}</span>
-                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                          <span className="font-theme-data">${item.amount.toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -448,13 +448,13 @@ export function ReportGenerator() {
                       {bsData.equity.items.map((item: LineItem) => (
                         <div key={item.name} className="flex justify-between text-sm py-1">
                           <span className="text-[var(--text-muted)]">{item.name}</span>
-                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                          <span className="font-theme-data">${item.amount.toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
                       <span>Total L&E</span>
-                      <span className="font-mono">
+                      <span className="font-theme-data">
                         ${(bsData.liabilities.total + bsData.equity.total).toLocaleString()}
                       </span>
                     </div>
@@ -474,7 +474,7 @@ export function ReportGenerator() {
                   {agingData.buckets.map((bucket: AgingBucket) => (
                     <div key={bucket.label} className="p-3 bg-[var(--bg)] rounded text-center">
                       <div className="text-xs text-[var(--text-muted)]">{bucket.label}</div>
-                      <div className="text-lg font-mono text-[var(--text)]">
+                      <div className="text-lg font-theme-data text-[var(--text)]">
                         ${bucket.amount.toLocaleString()}
                       </div>
                       <div className="text-xs text-[var(--text-muted)]">{bucket.customers} accts</div>
@@ -484,8 +484,8 @@ export function ReportGenerator() {
 
                 {/* Total */}
                 <div className="flex justify-between items-center p-3 bg-[var(--acid-green)]/10 rounded">
-                  <span className="font-mono">Total {reportData.type === 'ar_aging' ? 'Receivables' : 'Payables'}</span>
-                  <span className="text-xl font-mono text-[var(--acid-green)]">
+                  <span className="font-theme-data">Total {reportData.type === 'ar_aging' ? 'Receivables' : 'Payables'}</span>
+                  <span className="text-xl font-theme-data text-[var(--acid-green)]">
                     ${agingData.total.toLocaleString()}
                   </span>
                 </div>

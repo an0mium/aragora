@@ -10,8 +10,8 @@ const TREND_ICON: Record<string, string> = {
 
 const TREND_COLOR: Record<string, string> = {
   increasing: 'text-acid-red',
-  stable: 'text-acid-green',
-  decreasing: 'text-acid-cyan',
+  stable: 'text-[var(--accent)]',
+  decreasing: 'text-[var(--acid-cyan)]',
 };
 
 export function BudgetGauge() {
@@ -29,8 +29,8 @@ export function BudgetGauge() {
   if (!available || !budget) {
     return (
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Budget Utilization</h3>
-        <p className="text-text-muted font-mono text-xs">Budget tracking unavailable</p>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Budget Utilization</h3>
+        <p className="text-text-muted font-theme-data text-xs">Budget tracking unavailable</p>
       </div>
     );
   }
@@ -41,24 +41,24 @@ export function BudgetGauge() {
       ? 'bg-acid-red'
       : budget.utilization > 0.8
       ? 'bg-acid-yellow'
-      : 'bg-acid-green';
+      : 'bg-[var(--accent)]';
   const pctColor =
     budget.utilization > 0.95
       ? 'text-acid-red'
       : budget.utilization > 0.8
-      ? 'text-acid-yellow'
-      : 'text-acid-green';
+      ? 'text-[var(--acid-yellow)]'
+      : 'text-[var(--accent)]';
 
   return (
     <div className="card p-6">
-      <h3 className="font-mono text-acid-green mb-4">Budget Utilization</h3>
+      <h3 className="font-theme-data text-[var(--accent)] mb-4">Budget Utilization</h3>
 
       {/* Big percentage */}
       <div className="flex items-end gap-2 mb-4">
-        <span className={`font-mono text-3xl font-bold ${pctColor}`}>
+        <span className={`font-theme-data text-3xl font-bold ${pctColor}`}>
           {pct.toFixed(1)}%
         </span>
-        <span className="font-mono text-xs text-text-muted mb-1">utilized</span>
+        <span className="font-theme-data text-xs text-text-muted mb-1">utilized</span>
       </div>
 
       {/* Progress bar */}
@@ -80,7 +80,7 @@ export function BudgetGauge() {
       </div>
 
       {/* Spent / Total */}
-      <div className="flex justify-between font-mono text-xs mb-3">
+      <div className="flex justify-between font-theme-data text-xs mb-3">
         <span className="text-text">
           ${budget.spent.toFixed(2)} <span className="text-text-muted">spent</span>
         </span>
@@ -91,7 +91,7 @@ export function BudgetGauge() {
 
       {/* Forecast */}
       {budget.forecast && (
-        <div className="flex items-center gap-2 font-mono text-xs border-t border-border pt-3">
+        <div className="flex items-center gap-2 font-theme-data text-xs border-t border-border pt-3">
           <span className="text-text-muted">EOM Forecast:</span>
           <span className="text-text">${budget.forecast.eom.toFixed(2)}</span>
           <span className={TREND_COLOR[budget.forecast.trend] || 'text-text-muted'}>

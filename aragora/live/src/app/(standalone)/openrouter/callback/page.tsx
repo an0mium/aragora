@@ -72,17 +72,17 @@ function CallbackContent() {
     >
       <div className="text-center max-w-md w-full">
         <div
-          className="text-5xl font-mono mb-6"
+          className="text-5xl font-theme-data mb-6"
           style={{ color: statusColor }}
         >
           {statusIcon}
         </div>
-        <h1 className="font-mono text-lg mb-2" style={{ color: 'var(--text)' }}>
+        <h1 className="font-theme-data text-lg mb-2" style={{ color: 'var(--text)' }}>
           {status === 'processing' && 'Connecting OpenRouter'}
           {status === 'success' && 'Connected'}
           {status === 'error' && 'Connection Failed'}
         </h1>
-        <p className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-theme-data text-sm" style={{ color: 'var(--text-muted)' }}>
           {message}
         </p>
 
@@ -102,7 +102,7 @@ function CallbackContent() {
           <div className="mt-6 flex gap-3 justify-center">
             <button
               onClick={() => router.replace('/landing/')}
-              className="px-4 py-2 font-mono text-xs rounded transition-colors cursor-pointer"
+              className="px-4 py-2 font-theme-data text-xs rounded transition-colors cursor-pointer"
               style={{
                 color: 'var(--accent)',
                 border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)',
@@ -112,7 +112,7 @@ function CallbackContent() {
             </button>
             <button
               onClick={() => router.replace('/settings/')}
-              className="px-4 py-2 font-mono text-xs rounded transition-colors cursor-pointer"
+              className="px-4 py-2 font-theme-data text-xs rounded transition-colors cursor-pointer"
               style={{
                 color: 'var(--text-muted)',
                 border: '1px solid var(--border)',
@@ -134,7 +134,7 @@ export default function OpenRouterCallbackPage() {
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg)', color: 'var(--text-muted)' }}
       >
-        <span className="font-mono text-sm">Loading...</span>
+        <span className="font-theme-data text-sm">Loading...</span>
       </div>
     }>
       <CallbackContent />

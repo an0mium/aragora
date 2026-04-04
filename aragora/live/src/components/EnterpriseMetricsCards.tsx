@@ -53,7 +53,7 @@ function VerdictBadge({ verdict }: { verdict: Receipt['verdict'] }) {
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono border rounded ${colors[verdict]}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data border rounded ${colors[verdict]}`}>
       {verdict}
     </span>
   );
@@ -76,7 +76,7 @@ function TrendIndicator({ trend, value }: { trend: 'up' | 'down' | 'stable'; val
   };
 
   return (
-    <span className={`font-mono ${colors[trend]}`}>
+    <span className={`font-theme-data ${colors[trend]}`}>
       {icons[trend]}
       {value !== undefined && <span className="ml-1">{value > 0 ? '+' : ''}{value}%</span>}
     </span>
@@ -134,7 +134,7 @@ function DecisionAuditCard({ apiBase }: { apiBase: string }) {
         </div>
         <button
           onClick={fetchReceipts}
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           ↻
         </button>
@@ -174,7 +174,7 @@ function DecisionAuditCard({ apiBase }: { apiBase: string }) {
       </div>
       <a
         href="/receipts"
-        className="block p-2 text-center text-xs font-mono text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
+        className="block p-2 text-center text-xs font-theme-data text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
       >
         View All Receipts →
       </a>
@@ -249,7 +249,7 @@ function ComplianceScoreCard({ apiBase }: { apiBase: string }) {
         ) : compliance ? (
           <div className="space-y-3">
             <div className="flex items-end justify-between">
-              <div className={`text-4xl font-bold font-mono ${scoreColor}`}>
+              <div className={`text-4xl font-bold font-theme-data ${scoreColor}`}>
                 {compliance.score}%
               </div>
               <TrendIndicator trend={compliance.trend >= 0 ? 'up' : 'down'} value={compliance.trend} />
@@ -272,15 +272,15 @@ function ComplianceScoreCard({ apiBase }: { apiBase: string }) {
             {/* Breakdown */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2 bg-[var(--bg)] rounded">
-                <div className="text-lg font-mono text-green-400">{compliance.passed}</div>
+                <div className="text-lg font-theme-data text-green-400">{compliance.passed}</div>
                 <div className="text-xs text-[var(--text-muted)]">Passed</div>
               </div>
               <div className="p-2 bg-[var(--bg)] rounded">
-                <div className="text-lg font-mono text-yellow-400">{compliance.conditional}</div>
+                <div className="text-lg font-theme-data text-yellow-400">{compliance.conditional}</div>
                 <div className="text-xs text-[var(--text-muted)]">Conditional</div>
               </div>
               <div className="p-2 bg-[var(--bg)] rounded">
-                <div className="text-lg font-mono text-red-400">{compliance.failed}</div>
+                <div className="text-lg font-theme-data text-red-400">{compliance.failed}</div>
                 <div className="text-xs text-[var(--text-muted)]">Failed</div>
               </div>
             </div>
@@ -293,7 +293,7 @@ function ComplianceScoreCard({ apiBase }: { apiBase: string }) {
       </div>
       <a
         href="/gauntlet"
-        className="block p-2 text-center text-xs font-mono text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
+        className="block p-2 text-center text-xs font-theme-data text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
       >
         Run Gauntlet →
       </a>
@@ -350,25 +350,25 @@ function ActiveWorkflowsCard({ apiBase }: { apiBase: string }) {
         ) : stats ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-[var(--bg)] rounded-lg border border-[var(--acid-green)]/30">
-              <div className="text-2xl font-bold font-mono text-[var(--acid-green)]">
+              <div className="text-2xl font-bold font-theme-data text-[var(--acid-green)]">
                 {stats.active}
               </div>
               <div className="text-xs text-[var(--text-muted)]">Running</div>
             </div>
             <div className="p-3 bg-[var(--bg)] rounded-lg">
-              <div className="text-2xl font-bold font-mono text-[var(--text)]">
+              <div className="text-2xl font-bold font-theme-data text-[var(--text)]">
                 {stats.pending}
               </div>
               <div className="text-xs text-[var(--text-muted)]">Pending</div>
             </div>
             <div className="p-3 bg-[var(--bg)] rounded-lg">
-              <div className="text-2xl font-bold font-mono text-green-400">
+              <div className="text-2xl font-bold font-theme-data text-green-400">
                 {stats.completed_today}
               </div>
               <div className="text-xs text-[var(--text-muted)]">Completed Today</div>
             </div>
             <div className="p-3 bg-[var(--bg)] rounded-lg">
-              <div className="text-2xl font-bold font-mono text-red-400">
+              <div className="text-2xl font-bold font-theme-data text-red-400">
                 {stats.failed}
               </div>
               <div className="text-xs text-[var(--text-muted)]">Failed</div>
@@ -382,7 +382,7 @@ function ActiveWorkflowsCard({ apiBase }: { apiBase: string }) {
       </div>
       <a
         href="/workflows"
-        className="block p-2 text-center text-xs font-mono text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
+        className="block p-2 text-center text-xs font-theme-data text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
       >
         Manage Workflows →
       </a>
@@ -462,7 +462,7 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
               key={member.agent}
               className="flex items-center gap-3 p-2 bg-[var(--bg)] rounded border border-[var(--border)]"
             >
-              <span className="text-sm font-mono text-[var(--text-muted)] w-4">
+              <span className="text-sm font-theme-data text-[var(--text-muted)] w-4">
                 {index + 1}
               </span>
               <div
@@ -472,7 +472,7 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-[var(--text)] truncate">{member.agent}</div>
               </div>
-              <div className="text-sm font-mono text-[var(--acid-green)]">{member.elo}</div>
+              <div className="text-sm font-theme-data text-[var(--acid-green)]">{member.elo}</div>
               <div className="text-xs text-[var(--text-muted)]">
                 {member.wins}W/{member.losses}L
               </div>
@@ -483,7 +483,7 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
       </div>
       <a
         href="/leaderboard"
-        className="block p-2 text-center text-xs font-mono text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
+        className="block p-2 text-center text-xs font-theme-data text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors border-t border-[var(--border)]"
       >
         Full Leaderboard →
       </a>

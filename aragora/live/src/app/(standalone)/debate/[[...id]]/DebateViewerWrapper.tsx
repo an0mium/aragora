@@ -97,7 +97,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
       <CRTVignette />
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/landing/">
               <AsciiBannerCompact connected={true} />
@@ -109,17 +109,17 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
         <div className="container mx-auto px-4 py-8 max-w-5xl">
           {/* Status Banner for non-completed debates */}
           {isInProgress && (
-            <div className="mb-6 p-4 border border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/5 font-mono text-sm text-[var(--acid-cyan)] text-center">
+            <div className="mb-6 p-4 border border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/5 font-theme-data text-sm text-[var(--acid-cyan)] text-center">
               {'>'} DEBATE IN PROGRESS -- RESULTS MAY UPDATE
             </div>
           )}
           {isFailed && (
-            <div className="mb-6 p-4 border border-[var(--crimson)]/40 bg-[var(--crimson)]/5 font-mono text-sm text-[var(--crimson)] text-center">
+            <div className="mb-6 p-4 border border-[var(--crimson)]/40 bg-[var(--crimson)]/5 font-theme-data text-sm text-[var(--crimson)] text-center">
               {'>'} DEBATE FAILED -- PARTIAL RESULTS SHOWN BELOW
             </div>
           )}
           {previewOnly && (
-            <div className="mb-6 p-4 border border-[var(--gold)]/40 bg-[var(--gold)]/5 font-mono text-sm text-[var(--gold)]">
+            <div className="mb-6 p-4 border border-[var(--gold)]/40 bg-[var(--gold)]/5 font-theme-data text-sm text-[var(--gold)]">
               <div className="font-bold mb-1">{'>'} LANDING PREVIEW</div>
               <p className="text-xs leading-relaxed text-[var(--text-muted)]">
                 {debate.result_warning || 'This page shows a fast landing-page preview of parallel model outputs, not a full consensus proof.'}
@@ -128,12 +128,12 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           )}
 
           {/* Topic */}
-          <h1 className="text-2xl md:text-3xl font-mono font-bold text-[var(--acid-green)] mb-2 leading-tight">
+          <h1 className="text-2xl md:text-3xl font-theme-data font-bold text-[var(--acid-green)] mb-2 leading-tight">
             {debate.topic}
           </h1>
 
           {/* Meta row */}
-          <div className="flex flex-wrap items-center gap-4 mb-8 text-xs font-mono text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center gap-4 mb-8 text-xs font-theme-data text-[var(--text-muted)]">
             <span>{debate.participants.length} AGENTS</span>
             {typeof debate.rounds_used === 'number' && debate.rounds_used > 0 && (
               <span>{debate.rounds_used} ROUNDS</span>
@@ -157,16 +157,16 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
             <div className="mb-8 border border-[var(--acid-green)]/30 bg-[var(--surface)]">
               <div className="p-4 border-b border-[var(--acid-green)]/20">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="px-3 py-1 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 uppercase">
+                  <span className="px-3 py-1 text-sm font-theme-data font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 uppercase">
                     VERDICT
                   </span>
                   {previewOnly ? (
-                    <span className="text-xs font-mono text-[var(--gold)]">
+                    <span className="text-xs font-theme-data text-[var(--gold)]">
                       PREVIEW ONLY
                     </span>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         CONFIDENCE
                       </span>
                       <div className="w-24 h-2 bg-[var(--bg)] border border-[var(--acid-green)]/20 overflow-hidden">
@@ -175,13 +175,13 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                           style={{ width: `${confidencePercent}%` }}
                         />
                       </div>
-                      <span className="text-xs font-mono text-[var(--acid-green)]">
+                      <span className="text-xs font-theme-data text-[var(--acid-green)]">
                         {confidencePercent}%
                       </span>
                     </div>
                   )}
                 </div>
-                <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
+                <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed">
                   {debate.verdict}
                 </p>
               </div>
@@ -189,10 +189,10 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
               {/* Final answer / synthesis */}
               {debate.final_answer && (
                 <div className="p-4 border-b border-[var(--acid-green)]/20">
-                  <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider block mb-2">
+                  <span className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider block mb-2">
                     Synthesis
                   </span>
-                  <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                     {debate.final_answer}
                   </p>
                 </div>
@@ -203,7 +203,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {/* ---- Agent Position Cards ---- */}
           {debate.participants.length > 0 && debate.proposals && (
             <div className="mb-8">
-              <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+              <h2 className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-4">
                 Agent Positions
               </h2>
               <div className="space-y-3">
@@ -220,13 +220,13 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       }}
                     >
                       <span
-                        className="text-xs font-mono font-bold uppercase tracking-wider"
+                        className="text-xs font-theme-data font-bold uppercase tracking-wider"
                         style={{ color: color.text }}
                       >
                         {agent}
                       </span>
                       {proposal && (
-                        <p className="mt-2 text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        <p className="mt-2 text-sm font-theme-data text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                           {proposal}
                         </p>
                       )}
@@ -241,7 +241,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {debate.critiques.length > 0 && (
             <div className="mb-8 border border-[var(--crimson)]/20 bg-[var(--surface)]">
               <div className="p-4">
-                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                <h2 className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-4">
                   Critiques
                 </h2>
                 <div className="space-y-3">
@@ -250,7 +250,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       key={`${critique.agent}-${critique.target}-${index}`}
                       className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
                     >
-                      <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-mono uppercase">
+                      <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-theme-data uppercase">
                         <span className="text-[var(--crimson)]">{critique.agent}</span>
                         {critique.target && (
                           <span className="text-[var(--text-muted)]">
@@ -258,7 +258,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                      <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                         {critique.text}
                       </p>
                     </div>
@@ -272,7 +272,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {debate.votes && debate.votes.length > 0 && (
             <div className="mb-8 border border-[var(--acid-green)]/20 bg-[var(--surface)]">
               <div className="p-4">
-                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                <h2 className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-4">
                   Vote Breakdown
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -290,16 +290,16 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span
-                            className="text-xs font-mono font-bold uppercase"
+                            className="text-xs font-theme-data font-bold uppercase"
                             style={{ color: color.text }}
                           >
                             {vote.agent}
                           </span>
-                          <span className="text-xs font-mono text-[var(--text-muted)]">
+                          <span className="text-xs font-theme-data text-[var(--text-muted)]">
                             {voteConf}%
                           </span>
                         </div>
-                        <p className="text-xs font-mono text-[var(--text)]">
+                        <p className="text-xs font-theme-data text-[var(--text)]">
                           {vote.choice}
                         </p>
                       </div>
@@ -314,7 +314,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {debate.messages && debate.messages.length > 0 && (
             <div className="mb-8 border border-[var(--acid-cyan)]/20 bg-[var(--surface)]">
               <div className="p-4">
-                <h2 className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+                <h2 className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-4">
                   Full Transcript
                 </h2>
                 <div className="space-y-3">
@@ -325,13 +325,13 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
                         key={`${speaker}-${index}`}
                         className="p-4 bg-[var(--bg)]/50 border border-[var(--border)]"
                       >
-                        <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-mono uppercase">
+                        <div className="flex flex-wrap items-center gap-2 mb-2 text-xs font-theme-data uppercase">
                           <span className="text-[var(--acid-cyan)]">{speaker}</span>
                           {typeof message.round === 'number' && (
                             <span className="text-[var(--text-muted)]">round {message.round}</span>
                           )}
                         </div>
-                        <p className="text-sm font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed whitespace-pre-wrap">
                           {message.content}
                         </p>
                       </div>
@@ -345,15 +345,15 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           {/* ---- Receipt Hash ---- */}
           {debate.receipt_hash && (
             <div className="mb-8 flex items-center gap-3 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/20">
-              <span className="text-xs font-mono text-[var(--acid-green)]">
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">
                 &#10003;
               </span>
               <div className="min-w-0">
-                <span className="text-xs font-mono text-[var(--text-muted)]">
+                <span className="text-xs font-theme-data text-[var(--text-muted)]">
                   SHA-256 DECISION RECEIPT
                 </span>
                 <p
-                  className="text-xs font-mono text-[var(--text-muted)]/60 truncate"
+                  className="text-xs font-theme-data text-[var(--text-muted)]/60 truncate"
                   title={debate.receipt_hash}
                 >
                   {debate.receipt_hash}
@@ -366,21 +366,21 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           <div className="flex flex-col gap-3 mb-8">
             <Link
               href={`/try${debate.topic ? `?topic=${encodeURIComponent(debate.topic.slice(0, 200))}` : ''}`}
-              className="w-full py-4 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+              className="w-full py-4 text-center font-theme-data font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
             >
               START YOUR OWN DEBATE
             </Link>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleCopyLink}
-                className="flex-1 py-3 font-mono font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
+                className="flex-1 py-3 font-theme-data font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
                            hover:bg-[var(--acid-green)]/10 transition-colors"
               >
                 {copied ? 'LINK COPIED!' : 'SHARE THIS DEBATE'}
               </button>
               <Link
                 href="/landing/"
-                className="flex-1 py-3 text-center font-mono font-bold text-sm border border-[var(--border)] text-[var(--text-muted)]
+                className="flex-1 py-3 text-center font-theme-data font-bold text-sm border border-[var(--border)] text-[var(--text-muted)]
                            hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
               >
                 BACK TO ARAGORA
@@ -392,7 +392,7 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           <div className="text-center py-8 border-t border-[var(--border)]">
             <Link
               href="/landing/"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               ARAGORA // DECISION INTEGRITY PLATFORM
             </Link>
@@ -504,7 +504,7 @@ export function DebateViewerWrapper({
         <Scanlines opacity={0.02} />
         <CRTVignette />
         <main className="min-h-screen bg-bg text-text relative z-10">
-          <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+          <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-3 flex items-center justify-between">
               <Link href="/landing/">
                 <AsciiBannerCompact connected={true} />
@@ -513,20 +513,20 @@ export function DebateViewerWrapper({
             </div>
           </header>
           <div className="container mx-auto px-4 py-20 text-center max-w-lg">
-            <div className="text-acid-green font-mono text-xl mb-4">{'>'} ARAGORA DEBATE VIEWER</div>
-            <p className="text-text-muted font-mono text-sm mb-8">
+            <div className="text-[var(--accent)] font-theme-data text-xl mb-4">{'>'} ARAGORA DEBATE VIEWER</div>
+            <p className="text-text-muted font-theme-data text-sm mb-8">
               Watch AI agents debate decisions with adversarial rigor and deliver audit-ready verdicts.
             </p>
             <div className="flex flex-col gap-3">
               <Link
                 href="/try"
-                className="py-4 font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+                className="py-4 font-theme-data font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
               >
                 START YOUR OWN DEBATE
               </Link>
               <Link
                 href="/landing/"
-                className="py-3 font-mono text-sm border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+                className="py-3 font-theme-data text-sm border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
               >
                 BACK TO ARAGORA
               </Link>
@@ -543,7 +543,7 @@ export function DebateViewerWrapper({
         <Scanlines opacity={0.02} />
         <CRTVignette />
         <main className="min-h-screen bg-bg text-text relative z-10">
-          <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+          <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-3 flex items-center justify-between">
               <Link href="/landing/">
                 <AsciiBannerCompact connected={true} />
@@ -552,7 +552,7 @@ export function DebateViewerWrapper({
             </div>
           </header>
           <div className="container mx-auto px-4 py-20 text-center max-w-lg">
-            <div className="text-acid-green font-mono animate-pulse">
+            <div className="text-[var(--accent)] font-theme-data animate-pulse">
               {'>'} LOADING DEBATE...
             </div>
           </div>
@@ -587,7 +587,7 @@ export function DebateViewerWrapper({
         <div className="container mx-auto px-4 py-4">
           <button
             onClick={() => setShowAnalysis(!showAnalysis)}
-            className="w-full py-3 border border-acid-green/30 bg-surface hover:bg-surface/80 transition-colors font-mono text-sm text-acid-green"
+            className="w-full py-3 border border-[var(--accent)]/30 bg-surface hover:bg-surface/80 transition-colors font-theme-data text-sm text-[var(--accent)]"
           >
             {showAnalysis ? '[-] HIDE ANALYSIS PANELS' : '[+] SHOW ANALYSIS PANELS'}
           </button>
@@ -643,7 +643,7 @@ export function DebateViewerWrapper({
           {/* Deep Analysis Toggle */}
           <button
             onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
-            className="w-full py-2 mt-4 border border-acid-cyan/30 bg-surface hover:bg-surface/80 transition-colors font-mono text-xs text-acid-cyan"
+            className="w-full py-2 mt-4 border border-[var(--acid-cyan)]/30 bg-surface hover:bg-surface/80 transition-colors font-theme-data text-xs text-[var(--acid-cyan)]"
           >
             {showDeepAnalysis ? '[-] HIDE DEEP ANALYSIS' : '[+] SHOW DEEP ANALYSIS'}
           </button>

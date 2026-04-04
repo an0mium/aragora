@@ -78,7 +78,7 @@ function statusBadge(status: string) {
   };
   return (
     <span
-      className={`inline-block px-2 py-0.5 text-[10px] font-mono border rounded ${colors[status] || colors.cancelled}`}
+      className={`inline-block px-2 py-0.5 text-[10px] font-theme-data border rounded ${colors[status] || colors.cancelled}`}
     >
       {status.toUpperCase()}
     </span>
@@ -97,7 +97,7 @@ function formatDuration(seconds?: number): string {
 
 export default function SelfImprovePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-bg text-text font-mono flex items-center justify-center"><span className="animate-pulse text-acid-green">Loading...</span></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-bg text-text font-theme-data flex items-center justify-center"><span className="animate-pulse text-[var(--accent)]">Loading...</span></div>}>
       <SelfImprovePageInner />
     </Suspense>
   );
@@ -267,17 +267,17 @@ function SelfImprovePageInner() {
             <div className="flex items-center gap-3 mb-2">
               <Link
                 href="/dashboard"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 DASHBOARD
               </Link>
-              <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">SELF-IMPROVE</span>
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">SELF-IMPROVE</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
               {'>'} SELF-IMPROVEMENT ENGINE
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data">
               Autonomous Nomic Loop -- goal decomposition, execution, and verification
             </p>
           </div>
@@ -285,7 +285,7 @@ function SelfImprovePageInner() {
           {/* Cross-page seeding banner */}
           {fromSource && fromId && (
             <div className="card p-3 mb-4 border border-blue-400/30">
-              <span className="text-xs font-mono text-blue-400">
+              <span className="text-xs font-theme-data text-blue-400">
                 Seeded from {fromSource === 'debate' ? 'Debate' : 'Pipeline'} #{fromId}
               </span>
             </div>
@@ -297,7 +297,7 @@ function SelfImprovePageInner() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-xs font-mono rounded-t transition-colors ${
+                className={`px-3 py-1.5 text-xs font-theme-data rounded-t transition-colors ${
                   activeTab === tab
                     ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -317,11 +317,11 @@ function SelfImprovePageInner() {
           {activeTab === 'runs' && (<>
           {/* Start Panel */}
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
-            <h2 className="text-sm font-mono text-[var(--acid-green)] mb-3">START CYCLE</h2>
+            <h2 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">START CYCLE</h2>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-mono text-[var(--text-muted)] mb-1">
+                <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-1">
                   Objective
                 </label>
                 <input
@@ -329,7 +329,7 @@ function SelfImprovePageInner() {
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
                   placeholder="e.g. Improve test coverage for debate module"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)]/50 focus:outline-none"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm font-theme-data text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)]/50 focus:outline-none"
                   onKeyDown={(e) => e.key === 'Enter' && startCycle()}
                 />
               </div>
@@ -343,7 +343,7 @@ function SelfImprovePageInner() {
                     onChange={(e) => setDryRun(e.target.checked)}
                     className="accent-[var(--acid-green)]"
                   />
-                  <span className="text-xs font-mono text-[var(--text-muted)]">Dry run</span>
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">Dry run</span>
                 </label>
 
                 {/* Require approval toggle */}
@@ -354,19 +354,19 @@ function SelfImprovePageInner() {
                     onChange={(e) => setRequireApproval(e.target.checked)}
                     className="accent-[var(--acid-green)]"
                   />
-                  <span className="text-xs font-mono text-[var(--text-muted)]">Require approval</span>
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">Require approval</span>
                 </label>
 
                 {/* Budget limit */}
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-mono text-[var(--text-muted)]">Budget $</label>
+                  <label className="text-xs font-theme-data text-[var(--text-muted)]">Budget $</label>
                   <input
                     type="number"
                     min={0}
                     step={1}
                     value={budgetLimit}
                     onChange={(e) => setBudgetLimit(Number(e.target.value))}
-                    className="w-20 bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm font-mono text-[var(--text)] focus:border-[var(--acid-green)]/50 focus:outline-none"
+                    className="w-20 bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-sm font-theme-data text-[var(--text)] focus:border-[var(--acid-green)]/50 focus:outline-none"
                   />
                 </div>
               </div>
@@ -375,7 +375,7 @@ function SelfImprovePageInner() {
                 <button
                   onClick={startCycle}
                   disabled={starting || !goal.trim()}
-                  className={`px-4 py-1.5 text-xs font-mono border transition-colors ${
+                  className={`px-4 py-1.5 text-xs font-theme-data border transition-colors ${
                     starting || !goal.trim()
                       ? 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] cursor-not-allowed'
                       : 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/50 hover:bg-[var(--acid-green)]/30'
@@ -385,7 +385,7 @@ function SelfImprovePageInner() {
                 </button>
 
                 {startError && (
-                  <span className="text-xs font-mono text-red-400">{startError}</span>
+                  <span className="text-xs font-theme-data text-red-400">{startError}</span>
                 )}
               </div>
             </div>
@@ -393,8 +393,8 @@ function SelfImprovePageInner() {
             {/* Plan preview (dry run result) */}
             {planPreview && (
               <div className="mt-4 bg-[var(--bg)] border border-[var(--acid-green)]/30 rounded p-3">
-                <h3 className="text-xs font-mono text-[var(--acid-green)] mb-2">PLAN PREVIEW</h3>
-                <pre className="text-xs font-mono text-[var(--text-muted)] whitespace-pre-wrap overflow-auto max-h-64">
+                <h3 className="text-xs font-theme-data text-[var(--acid-green)] mb-2">PLAN PREVIEW</h3>
+                <pre className="text-xs font-theme-data text-[var(--text-muted)] whitespace-pre-wrap overflow-auto max-h-64">
                   {JSON.stringify(planPreview, null, 2)}
                 </pre>
               </div>
@@ -404,8 +404,8 @@ function SelfImprovePageInner() {
           {/* Active Cycle Monitor */}
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-mono text-[var(--acid-green)]">ACTIVE CYCLE</h2>
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <h2 className="text-sm font-theme-data text-[var(--acid-green)]">ACTIVE CYCLE</h2>
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 {status?.state === 'running'
                   ? `${status.active_runs} active run${status.active_runs !== 1 ? 's' : ''}`
                   : 'IDLE'}
@@ -430,7 +430,7 @@ function SelfImprovePageInner() {
                       }`}
                     />
                     <span
-                      className={`text-[10px] font-mono ${
+                      className={`text-[10px] font-theme-data ${
                         isActive
                           ? 'text-[var(--acid-green)]'
                           : isComplete
@@ -446,7 +446,7 @@ function SelfImprovePageInner() {
             </div>
 
             {status?.state !== 'running' && (
-              <p className="text-xs font-mono text-[var(--text-muted)] mt-3 text-center">
+              <p className="text-xs font-theme-data text-[var(--text-muted)] mt-3 text-center">
                 No active cycles. Start one above.
               </p>
             )}
@@ -455,25 +455,25 @@ function SelfImprovePageInner() {
           {/* Feedback Loop Metrics */}
           {feedback && (
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
-            <h2 className="text-sm font-mono text-[var(--acid-green)] mb-3">FEEDBACK LOOP METRICS</h2>
+            <h2 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">FEEDBACK LOOP METRICS</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
-                <span className="block text-[10px] font-mono text-[var(--text-muted)]">DEBATES PROCESSED</span>
-                <span className="text-lg font-mono text-[var(--text)]">{feedback.feedback_metrics.debates_processed}</span>
+                <span className="block text-[10px] font-theme-data text-[var(--text-muted)]">DEBATES PROCESSED</span>
+                <span className="text-lg font-theme-data text-[var(--text)]">{feedback.feedback_metrics.debates_processed}</span>
               </div>
               <div>
-                <span className="block text-[10px] font-mono text-[var(--text-muted)]">AGENTS TRACKED</span>
-                <span className="text-lg font-mono text-[var(--text)]">{feedback.feedback_metrics.agents_tracked}</span>
+                <span className="block text-[10px] font-theme-data text-[var(--text-muted)]">AGENTS TRACKED</span>
+                <span className="text-lg font-theme-data text-[var(--text)]">{feedback.feedback_metrics.agents_tracked}</span>
               </div>
               <div>
-                <span className="block text-[10px] font-mono text-[var(--text-muted)]">AVG ADJUSTMENT</span>
-                <span className={`text-lg font-mono ${feedback.feedback_metrics.avg_adjustment >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className="block text-[10px] font-theme-data text-[var(--text-muted)]">AVG ADJUSTMENT</span>
+                <span className={`text-lg font-theme-data ${feedback.feedback_metrics.avg_adjustment >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {feedback.feedback_metrics.avg_adjustment >= 0 ? '+' : ''}{feedback.feedback_metrics.avg_adjustment.toFixed(4)}
                 </span>
               </div>
               <div>
-                <span className="block text-[10px] font-mono text-[var(--text-muted)]">RECENT REGRESSIONS</span>
-                <span className={`text-lg font-mono ${feedback.regression_history.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                <span className="block text-[10px] font-theme-data text-[var(--text-muted)]">RECENT REGRESSIONS</span>
+                <span className={`text-lg font-theme-data ${feedback.regression_history.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                   {feedback.regression_history.length}
                 </span>
               </div>
@@ -482,12 +482,12 @@ function SelfImprovePageInner() {
             {/* Agent Selection Weights */}
             {Object.keys(feedback.selection_adjustments).length > 0 && (
               <div className="mb-3">
-                <span className="block text-[10px] font-mono text-[var(--text-muted)] mb-1">AGENT SELECTION WEIGHTS</span>
+                <span className="block text-[10px] font-theme-data text-[var(--text-muted)] mb-1">AGENT SELECTION WEIGHTS</span>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(feedback.selection_adjustments).map(([agent, adj]) => (
                     <span
                       key={agent}
-                      className={`inline-block px-2 py-0.5 text-[10px] font-mono border rounded ${
+                      className={`inline-block px-2 py-0.5 text-[10px] font-theme-data border rounded ${
                         adj >= 0
                           ? 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10'
                           : 'text-red-400 border-red-400/40 bg-red-400/10'
@@ -505,21 +505,21 @@ function SelfImprovePageInner() {
           {/* History Table */}
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-mono text-[var(--acid-green)]">RUN HISTORY</h2>
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <h2 className="text-sm font-theme-data text-[var(--acid-green)]">RUN HISTORY</h2>
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 {runsTotal} total
               </span>
             </div>
 
             {historyLoading ? (
-              <p className="text-xs font-mono text-[var(--text-muted)]">Loading...</p>
+              <p className="text-xs font-theme-data text-[var(--text-muted)]">Loading...</p>
             ) : runs.length === 0 ? (
-              <p className="text-xs font-mono text-[var(--text-muted)] text-center py-6">
+              <p className="text-xs font-theme-data text-[var(--text-muted)] text-center py-6">
                 No runs yet. Start your first self-improvement cycle.
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs font-mono">
+                <table className="w-full text-xs font-theme-data">
                   <thead>
                     <tr className="text-[var(--text-muted)] border-b border-[var(--border)]">
                       <th className="text-left py-2 pr-4">RUN ID</th>
@@ -544,7 +544,7 @@ function SelfImprovePageInner() {
                         <td className="py-2 pr-4">
                           {statusBadge(run.status)}
                           {feedback?.regression_history.some((r) => r.cycle_id === run.run_id) && (
-                            <span className="ml-1 inline-block px-1 py-0.5 text-[9px] font-mono text-red-400 border border-red-400/40 bg-red-400/10 rounded">
+                            <span className="ml-1 inline-block px-1 py-0.5 text-[9px] font-theme-data text-red-400 border border-red-400/40 bg-red-400/10 rounded">
                               REGRESSED
                             </span>
                           )}
@@ -565,22 +565,22 @@ function SelfImprovePageInner() {
 
           {/* Navigation */}
           <div className="mt-8 flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--text-muted)]">Navigate:</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">Navigate:</span>
             <Link
               href="/dashboard"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               DASHBOARD
             </Link>
             <Link
               href="/arena"
-              className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
               NEW DEBATE
             </Link>
             <Link
               href="/nomic-control"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               NOMIC CONTROL
             </Link>

@@ -75,7 +75,7 @@ export function CoverageHeatmap({
           onClick={() => setViewMode('heatmap')}
           className={`px-3 py-1.5 text-xs rounded transition-colors ${
             viewMode === 'heatmap'
-              ? 'bg-acid-green text-black'
+              ? 'bg-[var(--accent)] text-black'
               : 'bg-surface hover:bg-surface-lighter'
           }`}
         >
@@ -85,7 +85,7 @@ export function CoverageHeatmap({
           onClick={() => setViewMode('list')}
           className={`px-3 py-1.5 text-xs rounded transition-colors ${
             viewMode === 'list'
-              ? 'bg-acid-green text-black'
+              ? 'bg-[var(--accent)] text-black'
               : 'bg-surface hover:bg-surface-lighter'
           }`}
         >
@@ -95,7 +95,7 @@ export function CoverageHeatmap({
           onClick={() => setViewMode('gaps')}
           className={`px-3 py-1.5 text-xs rounded transition-colors ${
             viewMode === 'gaps'
-              ? 'bg-acid-green text-black'
+              ? 'bg-[var(--accent)] text-black'
               : 'bg-surface hover:bg-surface-lighter'
           }`}
         >
@@ -106,23 +106,23 @@ export function CoverageHeatmap({
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-3">
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-acid-cyan">{topics.length}</div>
+          <div className="text-2xl font-theme-data font-bold text-[var(--acid-cyan)]">{topics.length}</div>
           <div className="text-xs text-text-muted">Topics</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-green-400">
+          <div className="text-2xl font-theme-data font-bold text-green-400">
             {topics.filter((t) => t.coverage >= 70).length}
           </div>
           <div className="text-xs text-text-muted">Well Covered</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-yellow-400">
+          <div className="text-2xl font-theme-data font-bold text-yellow-400">
             {topics.filter((t) => t.coverage >= 30 && t.coverage < 70).length}
           </div>
           <div className="text-xs text-text-muted">Partial</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-red-400">{gaps.length}</div>
+          <div className="text-2xl font-theme-data font-bold text-red-400">{gaps.length}</div>
           <div className="text-xs text-text-muted">Gaps</div>
         </div>
       </div>
@@ -236,7 +236,7 @@ function ListView({ topics, onTopicClick }: ListViewProps) {
           key={topic.topic}
           onClick={() => onTopicClick?.(topic)}
           className="w-full p-3 bg-surface rounded-lg border border-border
-                     hover:border-acid-green/30 transition-colors flex items-center gap-3"
+                     hover:border-[var(--accent)]/30 transition-colors flex items-center gap-3"
         >
           <div className="flex-1 text-left">
             <div className="font-medium">{topic.name}</div>
@@ -257,7 +257,7 @@ function ListView({ topics, onTopicClick }: ListViewProps) {
                   style={{ width: `${topic.coverage}%` }}
                 />
               </div>
-              <span className="text-xs font-mono w-8">{topic.coverage}%</span>
+              <span className="text-xs font-theme-data w-8">{topic.coverage}%</span>
             </div>
           </div>
 
@@ -318,7 +318,7 @@ function GapsView({ gaps, onTopicClick }: GapsViewProps) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-mono text-red-400">{gap.coverage}%</div>
+              <div className="text-2xl font-theme-data text-red-400">{gap.coverage}%</div>
               <div className="text-xs text-text-muted">coverage</div>
             </div>
           </div>

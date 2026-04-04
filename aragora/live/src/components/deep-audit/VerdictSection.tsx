@@ -14,7 +14,7 @@ export function VerdictSection({ verdict }: VerdictSectionProps) {
           <span className="text-lg">🎯</span>
           <span className="text-sm font-semibold text-purple-400">Final Audit Verdict</span>
           <span
-            className={`ml-auto text-xs font-mono px-2 py-0.5 rounded ${
+            className={`ml-auto text-xs font-theme-data px-2 py-0.5 rounded ${
               verdict.confidence >= 0.8
                 ? 'bg-green-500/20 text-green-400'
                 : verdict.confidence >= 0.6

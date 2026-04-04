@@ -18,15 +18,15 @@ import {
 // ---------------------------------------------------------------------------
 
 const TIER_COLORS: Record<string, string> = {
-  fast: 'text-acid-green',
-  medium: 'text-acid-cyan',
-  slow: 'text-acid-yellow',
+  fast: 'text-[var(--accent)]',
+  medium: 'text-[var(--acid-cyan)]',
+  slow: 'text-[var(--acid-yellow)]',
   glacial: 'text-purple-400',
 };
 
 const TIER_BG: Record<string, string> = {
-  fast: 'bg-acid-green/20',
-  medium: 'bg-acid-cyan/20',
+  fast: 'bg-[var(--accent)]/20',
+  medium: 'bg-[var(--acid-cyan)]/20',
   slow: 'bg-acid-yellow/20',
   glacial: 'bg-purple-400/20',
 };
@@ -83,9 +83,9 @@ const actionIcon = (action: string) => {
 
 const actionColor = (action: string) => {
   switch (action) {
-    case 'archive': return 'text-acid-cyan';
-    case 'delete': return 'text-crimson';
-    case 'demote': return 'text-acid-yellow';
+    case 'archive': return 'text-[var(--acid-cyan)]';
+    case 'delete': return 'text-[var(--crimson)]';
+    case 'demote': return 'text-[var(--acid-yellow)]';
     case 'flag': return 'text-purple-400';
     default: return 'text-text-muted';
   }
@@ -231,13 +231,13 @@ export default function RetentionDashboardPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/admin" className="text-xs font-mono text-text-muted hover:text-acid-green">
+              <Link href="/admin" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]">
                 [ADMIN]
               </Link>
               <BackendSelector compact />
@@ -251,13 +251,13 @@ export default function RetentionDashboardPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-xs font-mono text-text-muted mb-1">
-                  <Link href="/admin" className="hover:text-acid-green">Admin</Link>
+                <div className="text-xs font-theme-data text-text-muted mb-1">
+                  <Link href="/admin" className="hover:text-[var(--accent)]">Admin</Link>
                   <span className="mx-2">/</span>
-                  <span className="text-acid-green">Retention &amp; Pruning</span>
+                  <span className="text-[var(--accent)]">Retention &amp; Pruning</span>
                 </div>
-                <h1 className="text-2xl font-mono text-acid-green">Retention &amp; Pruning Dashboard</h1>
-                <p className="text-text-muted font-mono text-sm mt-1">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)]">Retention &amp; Pruning Dashboard</h1>
+                <p className="text-text-muted font-theme-data text-sm mt-1">
                   Retention gating, confidence decay, and memory lifecycle management
                 </p>
               </div>
@@ -265,21 +265,21 @@ export default function RetentionDashboardPage() {
                 <button
                   onClick={handleDecay}
                   disabled={decaying}
-                  className="px-3 py-1.5 bg-purple-400/20 border border-purple-400 text-purple-400 font-mono text-xs rounded hover:bg-purple-400/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-purple-400/20 border border-purple-400 text-purple-400 font-theme-data text-xs rounded hover:bg-purple-400/30 disabled:opacity-50"
                 >
                   {decaying ? 'Decaying...' : 'Apply Decay'}
                 </button>
                 <button
                   onClick={() => handleAutoPrune(true)}
                   disabled={autoPruning}
-                  className="px-3 py-1.5 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono text-xs rounded hover:bg-acid-cyan/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-theme-data text-xs rounded hover:bg-[var(--acid-cyan)]/30 disabled:opacity-50"
                 >
                   {autoPruning ? 'Running...' : 'Dry Run'}
                 </button>
                 <button
                   onClick={() => handleAutoPrune(false)}
                   disabled={autoPruning}
-                  className="px-3 py-1.5 bg-crimson/20 border border-crimson text-crimson font-mono text-xs rounded hover:bg-crimson/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--crimson)]/20 border border-[var(--crimson)] text-[var(--crimson)] font-theme-data text-xs rounded hover:bg-[var(--crimson)]/30 disabled:opacity-50"
                 >
                   Auto-Prune
                 </button>
@@ -287,14 +287,14 @@ export default function RetentionDashboardPage() {
             </div>
 
             {(error || usingDemo) && (
-              <div className="mb-4 p-3 bg-crimson/20 border border-crimson/30 rounded text-crimson font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--crimson)]/20 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] font-theme-data text-sm">
                 {error || 'Backend unavailable'}
                 <span className="ml-2 text-text-muted">(showing demo data)</span>
               </div>
             )}
 
             {lastResult && (
-              <div className="mb-4 p-3 bg-acid-green/20 border border-acid-green/30 rounded text-acid-green font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded text-[var(--accent)] font-theme-data text-sm">
                 Last prune: {lastResult.items_pruned} pruned, {lastResult.items_archived} archived,{' '}
                 {lastResult.items_deleted} deleted, {lastResult.items_demoted} demoted
               </div>
@@ -302,45 +302,45 @@ export default function RetentionDashboardPage() {
 
             {initialLoad && isLoading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading retention data...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Loading retention data...</div>
               </div>
             ) : (
               <>
                 {/* Retention Gate Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">RETAINED</div>
-                    <div className="text-2xl font-mono text-acid-green">{totalRetained.toLocaleString()}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">RETAINED</div>
+                    <div className="text-2xl font-theme-data text-[var(--accent)]">{totalRetained.toLocaleString()}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">DEMOTED</div>
-                    <div className="text-2xl font-mono text-acid-yellow">{totalDemoted.toLocaleString()}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">DEMOTED</div>
+                    <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">{totalDemoted.toLocaleString()}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">FORGOTTEN</div>
-                    <div className="text-2xl font-mono text-crimson">{totalForgotten.toLocaleString()}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">FORGOTTEN</div>
+                    <div className="text-2xl font-theme-data text-[var(--crimson)]">{totalForgotten.toLocaleString()}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">CONSOLIDATED</div>
-                    <div className="text-2xl font-mono text-acid-cyan">{totalConsolidated.toLocaleString()}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">CONSOLIDATED</div>
+                    <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{totalConsolidated.toLocaleString()}</div>
                   </div>
                 </div>
 
                 {/* Memory Tier Breakdown */}
                 <div className="card p-4 mb-6">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">Memory Tier Breakdown</h3>
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Memory Tier Breakdown</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {displayTiers.map((tier) => (
                       <div key={tier.tier} className={`p-3 rounded border border-border ${TIER_BG[tier.tier] ?? 'bg-surface'}`}>
-                        <div className={`font-mono font-bold text-sm mb-2 ${TIER_COLORS[tier.tier] ?? 'text-text'}`}>
+                        <div className={`font-theme-data font-bold text-sm mb-2 ${TIER_COLORS[tier.tier] ?? 'text-text'}`}>
                           {tier.tier.toUpperCase()}
                         </div>
-                        <div className="text-2xl font-mono mb-2">{tier.count.toLocaleString()}</div>
-                        <div className="grid grid-cols-2 gap-1 text-xs font-mono">
-                          <div className="text-acid-green">Retained: {tier.retained}</div>
-                          <div className="text-acid-yellow">Demoted: {tier.demoted}</div>
-                          <div className="text-crimson">Forgotten: {tier.forgotten}</div>
-                          <div className="text-acid-cyan">Consolidated: {tier.consolidated}</div>
+                        <div className="text-2xl font-theme-data mb-2">{tier.count.toLocaleString()}</div>
+                        <div className="grid grid-cols-2 gap-1 text-xs font-theme-data">
+                          <div className="text-[var(--accent)]">Retained: {tier.retained}</div>
+                          <div className="text-[var(--acid-yellow)]">Demoted: {tier.demoted}</div>
+                          <div className="text-[var(--crimson)]">Forgotten: {tier.forgotten}</div>
+                          <div className="text-[var(--acid-cyan)]">Consolidated: {tier.consolidated}</div>
                         </div>
                       </div>
                     ))}
@@ -349,24 +349,24 @@ export default function RetentionDashboardPage() {
 
                 {/* Surprise-Score Distribution */}
                 <div className="card p-4 mb-6">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
                     Surprise-Score Distribution <span className="text-text-muted">(MIRAS/Titans)</span>
                   </h3>
                   <div className="flex items-end gap-1 h-32">
                     {surpriseData.map((bucket) => (
                       <div key={bucket.bucket} className="flex-1 flex flex-col items-center">
                         <div
-                          className="w-full bg-acid-cyan/60 rounded-t transition-all"
+                          className="w-full bg-[var(--acid-cyan)]/60 rounded-t transition-all"
                           style={{ height: `${(bucket.count / maxSurprise) * 100}%` }}
                           title={`${bucket.bucket}: ${bucket.count}`}
                         />
-                        <div className="text-[9px] font-mono text-text-muted mt-1 truncate w-full text-center">
+                        <div className="text-[9px] font-theme-data text-text-muted mt-1 truncate w-full text-center">
                           {bucket.bucket}
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between text-xs font-mono text-text-muted mt-2">
+                  <div className="flex justify-between text-xs font-theme-data text-text-muted mt-2">
                     <span>Low surprise (forget)</span>
                     <span>High surprise (retain)</span>
                   </div>
@@ -375,21 +375,21 @@ export default function RetentionDashboardPage() {
                 {/* Prunable Items */}
                 <div className="card p-4 mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-mono text-sm text-acid-green">
+                    <h3 className="font-theme-data text-sm text-[var(--accent)]">
                       Prunable Items ({displayPrunable.length})
                     </h3>
                     {selectedItems.size > 0 && (
                       <button
                         onClick={handlePruneSelected}
                         disabled={isLoading}
-                        className="px-3 py-1 bg-crimson/20 border border-crimson text-crimson font-mono text-xs rounded hover:bg-crimson/30 disabled:opacity-50"
+                        className="px-3 py-1 bg-[var(--crimson)]/20 border border-[var(--crimson)] text-[var(--crimson)] font-theme-data text-xs rounded hover:bg-[var(--crimson)]/30 disabled:opacity-50"
                       >
                         Prune Selected ({selectedItems.size})
                       </button>
                     )}
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm font-mono">
+                    <table className="w-full text-sm font-theme-data">
                       <thead>
                         <tr className="border-b border-border">
                           <th className="text-left py-2 pr-2 text-text-muted text-xs w-8"></th>
@@ -420,12 +420,12 @@ export default function RetentionDashboardPage() {
                               {item.tier}
                             </td>
                             <td className="py-2 pr-4 text-center">
-                              <span className={item.staleness_score >= 0.95 ? 'text-crimson' : 'text-acid-yellow'}>
+                              <span className={item.staleness_score >= 0.95 ? 'text-[var(--crimson)]' : 'text-[var(--acid-yellow)]'}>
                                 {(item.staleness_score * 100).toFixed(0)}%
                               </span>
                             </td>
                             <td className="py-2 pr-4 text-center">
-                              <span className={item.confidence < 0.2 ? 'text-crimson' : 'text-text-muted'}>
+                              <span className={item.confidence < 0.2 ? 'text-[var(--crimson)]' : 'text-text-muted'}>
                                 {(item.confidence * 100).toFixed(0)}%
                               </span>
                             </td>
@@ -447,9 +447,9 @@ export default function RetentionDashboardPage() {
 
                 {/* Recent Retention Decisions */}
                 <div className="card p-4">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">Recent Retention Decisions</h3>
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Recent Retention Decisions</h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm font-mono">
+                    <table className="w-full text-sm font-theme-data">
                       <thead>
                         <tr className="border-b border-border">
                           <th className="text-left py-2 pr-4 text-text-muted text-xs">TIMESTAMP</th>
@@ -470,7 +470,7 @@ export default function RetentionDashboardPage() {
                             <td className={`py-2 pr-4 text-xs ${actionColor(entry.action)}`}>
                               {actionIcon(entry.action)} {entry.action}
                             </td>
-                            <td className="py-2 pr-4 text-center text-acid-cyan">{entry.items_pruned}</td>
+                            <td className="py-2 pr-4 text-center text-[var(--acid-cyan)]">{entry.items_pruned}</td>
                             <td className="py-2 pr-4 text-xs text-text-muted max-w-xs truncate" title={entry.reason}>
                               {entry.reason}
                             </td>
@@ -487,8 +487,8 @@ export default function RetentionDashboardPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // RETENTION &amp; PRUNING</p>
         </footer>
       </main>

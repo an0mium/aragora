@@ -23,13 +23,13 @@ interface Document {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    completed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    processing: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    completed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    processing: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     pending: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
     failed: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status] || colors.pending}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -167,16 +167,16 @@ export default function DocumentsPage() {
 
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-mono text-acid-green">{'>'} DOCUMENTS</h1>
+        <h1 className="text-xl font-theme-data text-[var(--accent)]">{'>'} DOCUMENTS</h1>
       </div>
 
       <main>
         <div className="grid grid-cols-5 gap-4 mb-6">
-          <div className="card p-4"><div className="text-xs text-muted font-mono mb-1">TOTAL</div><div className="text-2xl font-bold text-accent">{stats.total}</div></div>
-          <div className="card p-4"><div className="text-xs text-muted font-mono mb-1">PROCESSED</div><div className="text-2xl font-bold text-acid-green">{stats.completed}</div></div>
-          <div className="card p-4"><div className="text-xs text-muted font-mono mb-1">PROCESSING</div><div className="text-2xl font-bold text-acid-yellow">{stats.processing}</div></div>
-          <div className="card p-4"><div className="text-xs text-muted font-mono mb-1">CHUNKS</div><div className="text-2xl font-bold">{stats.totalChunks.toLocaleString()}</div></div>
-          <div className="card p-4"><div className="text-xs text-muted font-mono mb-1">SIZE</div><div className="text-2xl font-bold">{formatFileSize(stats.totalSize)}</div></div>
+          <div className="card p-4"><div className="text-xs text-muted font-theme-data mb-1">TOTAL</div><div className="text-2xl font-bold text-accent">{stats.total}</div></div>
+          <div className="card p-4"><div className="text-xs text-muted font-theme-data mb-1">PROCESSED</div><div className="text-2xl font-bold text-[var(--accent)]">{stats.completed}</div></div>
+          <div className="card p-4"><div className="text-xs text-muted font-theme-data mb-1">PROCESSING</div><div className="text-2xl font-bold text-[var(--acid-yellow)]">{stats.processing}</div></div>
+          <div className="card p-4"><div className="text-xs text-muted font-theme-data mb-1">CHUNKS</div><div className="text-2xl font-bold">{stats.totalChunks.toLocaleString()}</div></div>
+          <div className="card p-4"><div className="text-xs text-muted font-theme-data mb-1">SIZE</div><div className="text-2xl font-bold">{formatFileSize(stats.totalSize)}</div></div>
         </div>
 
         <div
@@ -187,7 +187,7 @@ export default function DocumentsPage() {
         >
           <div className="text-center">
             <div className="text-4xl mb-3">📁</div>
-            <div className="text-lg font-mono mb-2">{uploading ? 'UPLOADING...' : 'DROP FILES HERE'}</div>
+            <div className="text-lg font-theme-data mb-2">{uploading ? 'UPLOADING...' : 'DROP FILES HERE'}</div>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <label className="btn btn-primary cursor-pointer">
                 <input type="file" multiple className="hidden" onChange={(e) => e.target.files && uploadFiles(Array.from(e.target.files))} />
@@ -245,30 +245,30 @@ export default function DocumentsPage() {
         <PanelErrorBoundary panelName="Documents">
           <div className="card overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center animate-pulse text-muted font-mono">LOADING...</div>
+              <div className="p-8 text-center animate-pulse text-muted font-theme-data">LOADING...</div>
             ) : filteredDocuments.length === 0 ? (
-              <div className="p-8 text-center"><div className="text-4xl mb-3">📭</div><div className="text-muted font-mono">NO DOCUMENTS</div></div>
+              <div className="p-8 text-center"><div className="text-4xl mb-3">📭</div><div className="text-muted font-theme-data">NO DOCUMENTS</div></div>
             ) : (
               <table className="w-full">
                 <thead className="bg-surface border-b border-border">
                   <tr>
                     <th className="p-3 text-left"><input type="checkbox" onChange={(e) => setSelectedDocs(e.target.checked ? new Set(filteredDocuments.map(d => d.id)) : new Set())} /></th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">FILE</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">STATUS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">SIZE</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">CHUNKS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">UPLOADED</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">FILE</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">STATUS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">SIZE</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">CHUNKS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">UPLOADED</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredDocuments.map((doc) => (
                     <tr key={doc.id} className="border-b border-border hover:bg-surface/50">
                       <td className="p-3"><input type="checkbox" checked={selectedDocs.has(doc.id)} onChange={(e) => { const n = new Set(selectedDocs); if (e.target.checked) { n.add(doc.id); } else { n.delete(doc.id); } setSelectedDocs(n); }} /></td>
-                      <td className="p-3 font-mono text-sm">{doc.filename}</td>
+                      <td className="p-3 font-theme-data text-sm">{doc.filename}</td>
                       <td className="p-3"><StatusBadge status={doc.status} /></td>
-                      <td className="p-3 font-mono text-sm">{formatFileSize(doc.size_bytes)}</td>
-                      <td className="p-3 font-mono text-sm">{doc.chunk_count}</td>
-                      <td className="p-3 font-mono text-sm text-muted">{formatDate(doc.created_at)}</td>
+                      <td className="p-3 font-theme-data text-sm">{formatFileSize(doc.size_bytes)}</td>
+                      <td className="p-3 font-theme-data text-sm">{doc.chunk_count}</td>
+                      <td className="p-3 font-theme-data text-sm text-muted">{formatDate(doc.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -116,7 +116,7 @@ export default function ForksPage() {
       <CRTVignette />
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -124,7 +124,7 @@ export default function ForksPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
@@ -137,10 +137,10 @@ export default function ForksPage() {
         <div className="container mx-auto px-4 py-8">
           {/* Page Title */}
           <div className="mb-6">
-            <h1 className="text-xl font-mono text-acid-green mb-2">
+            <h1 className="text-xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} FORK EXPLORER
             </h1>
-            <p className="text-sm font-mono text-text-muted">
+            <p className="text-sm font-theme-data text-text-muted">
               Browse counterfactual debate branches. Forks explore &quot;what if&quot;
               scenarios by branching from existing debates with modified context.
             </p>
@@ -149,25 +149,25 @@ export default function ForksPage() {
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 border border-warning/30 bg-warning/10">
-              <p className="text-xs font-mono text-warning">{'>'} {error}</p>
+              <p className="text-xs font-theme-data text-warning">{'>'} {error}</p>
             </div>
           )}
 
           {/* Fork Families */}
           <div className="space-y-4">
             {loading ? (
-              <div className="p-8 text-center border border-acid-green/30 bg-surface/50">
-                <div className="w-6 h-6 border-2 border-acid-green/40 border-t-acid-green rounded-full animate-spin mx-auto" />
-                <p className="mt-2 text-xs font-mono text-text-muted">Loading fork trees...</p>
+              <div className="p-8 text-center border border-[var(--accent)]/30 bg-surface/50">
+                <div className="w-6 h-6 border-2 border-[var(--accent)]/40 border-t-acid-green rounded-full animate-spin mx-auto" />
+                <p className="mt-2 text-xs font-theme-data text-text-muted">Loading fork trees...</p>
               </div>
             ) : families.length === 0 ? (
-              <div className="p-8 text-center border border-acid-green/30 bg-surface/50">
-                <p className="text-xs font-mono text-text-muted mb-4">
+              <div className="p-8 text-center border border-[var(--accent)]/30 bg-surface/50">
+                <p className="text-xs font-theme-data text-text-muted mb-4">
                   No forked debates found. Create your first fork from any completed debate.
                 </p>
                 <Link
                   href="/debates"
-                  className="inline-block px-4 py-2 text-xs font-mono border border-acid-green/40 hover:bg-acid-green/10 transition-colors"
+                  className="inline-block px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/40 hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   [BROWSE DEBATES]
                 </Link>
@@ -176,29 +176,29 @@ export default function ForksPage() {
               families.map((family) => (
                 <div
                   key={family.root_id}
-                  className="border border-acid-green/30 bg-surface/50"
+                  className="border border-[var(--accent)]/30 bg-surface/50"
                 >
                   {/* Family Header */}
                   <button
                     onClick={() => toggleFamily(family.root_id)}
-                    className="w-full px-4 py-3 text-left hover:bg-acid-green/5 transition-colors"
+                    className="w-full px-4 py-3 text-left hover:bg-[var(--accent)]/5 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-acid-green">
+                          <span className="text-xs font-theme-data text-[var(--accent)]">
                             {expandedFamily === family.root_id ? '▼' : '▶'}
                           </span>
-                          <span className="text-sm font-mono text-text truncate">
+                          <span className="text-sm font-theme-data text-text truncate">
                             {family.root_task}
                           </span>
                         </div>
-                        <div className="mt-1 ml-4 flex items-center gap-3 text-xs font-mono text-text-muted">
+                        <div className="mt-1 ml-4 flex items-center gap-3 text-xs font-theme-data text-text-muted">
                           <span>{family.total_forks} fork{family.total_forks !== 1 ? 's' : ''}</span>
                           <span>Latest: {formatDate(family.latest_fork_at)}</span>
                         </div>
                         {family.root_agents.length > 0 && (
-                          <div className="mt-1 ml-4 text-xs font-mono text-acid-cyan">
+                          <div className="mt-1 ml-4 text-xs font-theme-data text-[var(--acid-cyan)]">
                             {family.root_agents.slice(0, 3).join(' vs ')}
                           </div>
                         )}
@@ -206,7 +206,7 @@ export default function ForksPage() {
                       <Link
                         href={`/debate/${family.root_id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-1 text-xs font-mono border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                       >
                         [VIEW ROOT]
                       </Link>
@@ -215,15 +215,15 @@ export default function ForksPage() {
 
                   {/* Expanded Fork Tree */}
                   {expandedFamily === family.root_id && (
-                    <div className="border-t border-acid-green/20 p-4">
+                    <div className="border-t border-[var(--accent)]/20 p-4">
                       <div className="space-y-2">
                         {/* Root node */}
-                        <div className="flex items-center gap-2 text-xs font-mono">
-                          <span className="text-acid-green">●</span>
+                        <div className="flex items-center gap-2 text-xs font-theme-data">
+                          <span className="text-[var(--accent)]">●</span>
                           <span className="text-text">ROOT: {family.root_task.substring(0, 50)}...</span>
                           <Link
                             href={`/debate/${family.root_id}`}
-                            className="ml-auto text-acid-cyan hover:underline"
+                            className="ml-auto text-[var(--acid-cyan)] hover:underline"
                           >
                             [open]
                           </Link>
@@ -233,9 +233,9 @@ export default function ForksPage() {
                         {family.forks.map((fork) => (
                           <div
                             key={fork.id}
-                            className="ml-4 flex items-start gap-2 text-xs font-mono border-l border-acid-green/30 pl-4"
+                            className="ml-4 flex items-start gap-2 text-xs font-theme-data border-l border-[var(--accent)]/30 pl-4"
                           >
-                            <span className="text-acid-cyan mt-0.5">├─</span>
+                            <span className="text-[var(--acid-cyan)] mt-0.5">├─</span>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-text-muted">
@@ -244,9 +244,9 @@ export default function ForksPage() {
                                 <span
                                   className={`px-1 py-0.5 text-[10px] border ${
                                     fork.status === 'completed'
-                                      ? 'border-acid-green/50 text-acid-green'
+                                      ? 'border-[var(--accent)]/50 text-[var(--accent)]'
                                       : fork.status === 'running'
-                                      ? 'border-acid-cyan/50 text-acid-cyan'
+                                      ? 'border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)]'
                                       : 'border-text-muted/50 text-text-muted'
                                   }`}
                                 >
@@ -264,7 +264,7 @@ export default function ForksPage() {
                             </div>
                             <Link
                               href={`/debate/${fork.debate_id}`}
-                              className="text-acid-cyan hover:underline whitespace-nowrap"
+                              className="text-[var(--acid-cyan)] hover:underline whitespace-nowrap"
                             >
                               [open fork]
                             </Link>
@@ -281,12 +281,12 @@ export default function ForksPage() {
           {/* Help Section */}
           <div className="mt-8">
             <details className="group">
-              <summary className="text-xs font-mono text-text-muted cursor-pointer hover:text-acid-green">
+              <summary className="text-xs font-theme-data text-text-muted cursor-pointer hover:text-[var(--accent)]">
                 [?] FORK EXPLORER GUIDE
               </summary>
-              <div className="mt-4 p-4 bg-surface/50 border border-acid-green/20 text-xs font-mono text-text-muted space-y-4">
+              <div className="mt-4 p-4 bg-surface/50 border border-[var(--accent)]/20 text-xs font-theme-data text-text-muted space-y-4">
                 <div>
-                  <div className="text-acid-green mb-1">WHAT ARE FORKS?</div>
+                  <div className="text-[var(--accent)] mb-1">WHAT ARE FORKS?</div>
                   <p>
                     Forks are counterfactual branches of debates. They let you explore
                     &quot;what if&quot; scenarios by taking a debate at a specific point and
@@ -294,21 +294,21 @@ export default function ForksPage() {
                   </p>
                 </div>
                 <div>
-                  <div className="text-acid-green mb-1">BRANCH POINTS</div>
+                  <div className="text-[var(--accent)] mb-1">BRANCH POINTS</div>
                   <p>
                     Each fork has a branch point - the round number where it diverges from
                     the original debate. All messages before the branch point are inherited.
                   </p>
                 </div>
                 <div>
-                  <div className="text-acid-green mb-1">MODIFIED CONTEXT</div>
+                  <div className="text-[var(--accent)] mb-1">MODIFIED CONTEXT</div>
                   <p>
                     When creating a fork, you can provide modified context that changes the
                     premise or constraints. This lets agents explore alternative scenarios.
                   </p>
                 </div>
                 <div>
-                  <div className="text-acid-green mb-1">USE CASES</div>
+                  <div className="text-[var(--accent)] mb-1">USE CASES</div>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Test different assumptions in a debate</li>
                     <li>Explore what happens with different constraints</li>

@@ -381,20 +381,20 @@ export default function WorkspaceAdminPage() {
     <AdminLayout title="Workspace Management">
       {/* Error Banner */}
       {error && (
-        <div className="mb-4 p-3 border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-mono">
+        <div className="mb-4 p-3 border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-theme-data">
           {error}
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 mb-6 border-b border-acid-green/20">
+      <div className="flex items-center gap-1 mb-6 border-b border-[var(--accent)]/20">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-mono text-sm transition-colors relative ${
+            className={`px-4 py-3 font-theme-data text-sm transition-colors relative ${
               activeTab === tab.id
-                ? 'text-acid-green'
+                ? 'text-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -403,7 +403,7 @@ export default function WorkspaceAdminPage() {
               <span className="ml-1.5 text-xs text-text-muted">{tab.count}</span>
             )}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-acid-green" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />
             )}
           </button>
         ))}
@@ -415,34 +415,34 @@ export default function WorkspaceAdminPage() {
           {/* Pending Invites */}
           {pendingInvites.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-mono text-acid-cyan mb-3">
+              <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">
                 PENDING INVITES ({pendingInvites.length})
               </h3>
               <div className="space-y-2">
                 {pendingInvites.map((invite) => (
                   <div
                     key={invite.id}
-                    className="flex items-center justify-between p-3 border border-acid-cyan/20 bg-surface/30"
+                    className="flex items-center justify-between p-3 border border-[var(--acid-cyan)]/20 bg-surface/30"
                   >
                     <div className="flex-1">
-                      <span className="font-mono text-sm text-text">{invite.email}</span>
-                      <span className="ml-3 text-xs font-mono text-text-muted">
+                      <span className="font-theme-data text-sm text-text">{invite.email}</span>
+                      <span className="ml-3 text-xs font-theme-data text-text-muted">
                         {invite.role}
                       </span>
-                      <span className="ml-3 text-xs font-mono text-text-muted/60">
+                      <span className="ml-3 text-xs font-theme-data text-text-muted/60">
                         invited {new Date(invite.invited_at).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleResendInvite(invite.id)}
-                        className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                       >
                         RESEND
                       </button>
                       <button
                         onClick={() => handleRevokeInvite(invite.id)}
-                        className="px-3 py-1 text-xs font-mono border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
                       >
                         REVOKE
                       </button>
@@ -454,9 +454,9 @@ export default function WorkspaceAdminPage() {
           )}
 
           {members.length === 0 && !loading && (
-            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
-              <p className="text-text-muted text-sm font-mono mb-2">No members found</p>
-              <p className="text-text-muted/60 text-xs font-mono">
+            <div className="p-8 text-center border border-[var(--accent)]/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-theme-data mb-2">No members found</p>
+              <p className="text-text-muted/60 text-xs font-theme-data">
                 Invite team members to collaborate on debates and decisions.
               </p>
             </div>
@@ -479,9 +479,9 @@ export default function WorkspaceAdminPage() {
       {activeTab === 'roles' && (
         <>
           {matrixRoles.length === 0 && !loading && (
-            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
-              <p className="text-text-muted text-sm font-mono mb-2">No roles configured</p>
-              <p className="text-text-muted/60 text-xs font-mono">
+            <div className="p-8 text-center border border-[var(--accent)]/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-theme-data mb-2">No roles configured</p>
+              <p className="text-text-muted/60 text-xs font-theme-data">
                 Role-based access control is not configured for this workspace.
               </p>
             </div>
@@ -502,9 +502,9 @@ export default function WorkspaceAdminPage() {
       {activeTab === 'costs' && (
         <>
           {costItems.length === 0 && !loading && (
-            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
-              <p className="text-text-muted text-sm font-mono mb-2">No cost data available</p>
-              <p className="text-text-muted/60 text-xs font-mono">
+            <div className="p-8 text-center border border-[var(--accent)]/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-theme-data mb-2">No cost data available</p>
+              <p className="text-text-muted/60 text-xs font-theme-data">
                 Cost tracking will appear once debates and workflows are executed.
               </p>
             </div>
@@ -527,19 +527,19 @@ export default function WorkspaceAdminPage() {
       {activeTab === 'settings' && settings && (
         <div className="space-y-6">
           {saveSuccess && (
-            <div className="p-3 border border-acid-green/30 bg-acid-green/10 text-acid-green text-sm font-mono">
+            <div className="p-3 border border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-theme-data">
               Settings saved successfully.
             </div>
           )}
 
           {/* Workspace Info */}
-          <div className="border border-acid-green/20 p-6">
+          <div className="border border-[var(--accent)]/20 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-mono text-acid-green">WORKSPACE INFO</h3>
+              <h3 className="text-sm font-theme-data text-[var(--accent)]">WORKSPACE INFO</h3>
               {!editing ? (
                 <button
                   onClick={handleEditSettings}
-                  className="px-4 py-2 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  className="px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   EDIT
                 </button>
@@ -547,17 +547,17 @@ export default function WorkspaceAdminPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditing(false)}
-                    className="px-4 py-2 text-xs font-mono border border-text-muted/30 text-text-muted hover:bg-surface transition-colors"
+                    className="px-4 py-2 text-xs font-theme-data border border-text-muted/30 text-text-muted hover:bg-surface transition-colors"
                   >
                     CANCEL
                   </button>
                   <button
                     onClick={handleSaveSettings}
                     disabled={saving}
-                    className={`px-4 py-2 text-xs font-mono border transition-colors ${
+                    className={`px-4 py-2 text-xs font-theme-data border transition-colors ${
                       saving
                         ? 'border-text-muted/30 text-text-muted cursor-wait'
-                        : 'border-acid-green/30 text-acid-green hover:bg-acid-green/10'
+                        : 'border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10'
                     }`}
                   >
                     {saving ? 'SAVING...' : 'SAVE'}
@@ -568,30 +568,30 @@ export default function WorkspaceAdminPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">NAME</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">NAME</label>
                 {editing ? (
                   <input
                     type="text"
                     value={settingsForm?.name || ''}
                     onChange={(e) => setSettingsForm((prev) => prev ? { ...prev, name: e.target.value } : prev)}
-                    className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+                    className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
                   />
                 ) : (
-                  <p className="font-mono text-sm text-text">{settings.name}</p>
+                  <p className="font-theme-data text-sm text-text">{settings.name}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">DESCRIPTION</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">DESCRIPTION</label>
                 {editing ? (
                   <textarea
                     value={settingsForm?.description || ''}
                     onChange={(e) => setSettingsForm((prev) => prev ? { ...prev, description: e.target.value } : prev)}
                     rows={3}
-                    className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none resize-none"
+                    className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none resize-none"
                   />
                 ) : (
-                  <p className="font-mono text-sm text-text-muted">
+                  <p className="font-theme-data text-sm text-text-muted">
                     {settings.description || 'No description set.'}
                   </p>
                 )}
@@ -600,33 +600,33 @@ export default function WorkspaceAdminPage() {
           </div>
 
           {/* Access & Security */}
-          <div className="border border-acid-green/20 p-6">
-            <h3 className="text-sm font-mono text-acid-green mb-4">ACCESS & SECURITY</h3>
+          <div className="border border-[var(--accent)]/20 p-6">
+            <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">ACCESS & SECURITY</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-mono text-sm text-text">Default role for new members</p>
-                  <p className="text-xs font-mono text-text-muted">Assigned when someone joins via invite</p>
+                  <p className="font-theme-data text-sm text-text">Default role for new members</p>
+                  <p className="text-xs font-theme-data text-text-muted">Assigned when someone joins via invite</p>
                 </div>
                 {editing ? (
                   <select
                     value={settingsForm?.default_role || 'member'}
                     onChange={(e) => setSettingsForm((prev) => prev ? { ...prev, default_role: e.target.value } : prev)}
-                    className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+                    className="bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
                   >
                     {workspaceRoles.map((r) => (
                       <option key={r.id} value={r.name}>{r.name}</option>
                     ))}
                   </select>
                 ) : (
-                  <span className="font-mono text-sm text-acid-cyan">{settings.default_role}</span>
+                  <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{settings.default_role}</span>
                 )}
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-mono text-sm text-text">Maximum members</p>
-                  <p className="text-xs font-mono text-text-muted">Limit on workspace membership</p>
+                  <p className="font-theme-data text-sm text-text">Maximum members</p>
+                  <p className="text-xs font-theme-data text-text-muted">Limit on workspace membership</p>
                 </div>
                 {editing ? (
                   <input
@@ -635,10 +635,10 @@ export default function WorkspaceAdminPage() {
                     max={1000}
                     value={settingsForm?.max_members || 25}
                     onChange={(e) => setSettingsForm((prev) => prev ? { ...prev, max_members: parseInt(e.target.value) || 25 } : prev)}
-                    className="w-20 bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text text-right focus:border-acid-green focus:outline-none"
+                    className="w-20 bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text text-right focus:border-[var(--accent)] focus:outline-none"
                   />
                 ) : (
-                  <span className="font-mono text-sm text-text">{settings.max_members}</span>
+                  <span className="font-theme-data text-sm text-text">{settings.max_members}</span>
                 )}
               </div>
 
@@ -669,8 +669,8 @@ export default function WorkspaceAdminPage() {
           </div>
 
           {/* Workspace Stats */}
-          <div className="border border-acid-green/20 p-6">
-            <h3 className="text-sm font-mono text-acid-green mb-4">WORKSPACE OVERVIEW</h3>
+          <div className="border border-[var(--accent)]/20 p-6">
+            <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">WORKSPACE OVERVIEW</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard label="MEMBERS" value={members.length} />
               <StatCard label="PENDING" value={pendingInvites.length} />
@@ -688,9 +688,9 @@ export default function WorkspaceAdminPage() {
       {activeTab === 'activity' && (
         <div>
           {activityEvents.length === 0 && !loading && (
-            <div className="p-8 text-center border border-acid-green/20 bg-surface/30">
-              <p className="text-text-muted text-sm font-mono mb-2">No recent activity</p>
-              <p className="text-text-muted/60 text-xs font-mono">
+            <div className="p-8 text-center border border-[var(--accent)]/20 bg-surface/30">
+              <p className="text-text-muted text-sm font-theme-data mb-2">No recent activity</p>
+              <p className="text-text-muted/60 text-xs font-theme-data">
                 Activity will appear as members use the workspace.
               </p>
             </div>
@@ -706,7 +706,7 @@ export default function WorkspaceAdminPage() {
                       : 'border-l-acid-green/20'
                   } ${i < activityEvents.length - 1 ? 'border-b border-b-surface' : ''}`}
                 >
-                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center border border-acid-green/20 bg-surface/50 font-mono text-xs text-acid-green">
+                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center border border-[var(--accent)]/20 bg-surface/50 font-theme-data text-xs text-[var(--accent)]">
                     {event.type === 'member_joined' ? '+' :
                      event.type === 'member_removed' ? '-' :
                      event.type === 'debate_created' ? 'D' :
@@ -716,10 +716,10 @@ export default function WorkspaceAdminPage() {
                      event.type === 'invite_sent' ? '@' : '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-sm text-text">{event.description}</p>
+                    <p className="font-theme-data text-sm text-text">{event.description}</p>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs font-mono text-text-muted">{event.actor}</span>
-                      <span className="text-xs font-mono text-text-muted/60">
+                      <span className="text-xs font-theme-data text-text-muted">{event.actor}</span>
+                      <span className="text-xs font-theme-data text-text-muted/60">
                         {formatRelativeTime(event.timestamp)}
                       </span>
                     </div>
@@ -754,14 +754,14 @@ function ToggleSetting({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="font-mono text-sm text-text">{label}</p>
-        <p className="text-xs font-mono text-text-muted">{description}</p>
+        <p className="font-theme-data text-sm text-text">{label}</p>
+        <p className="text-xs font-theme-data text-text-muted">{description}</p>
       </div>
       <button
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative w-10 h-5 rounded-full transition-colors ${
-          checked ? 'bg-acid-green/60' : 'bg-surface'
+          checked ? 'bg-[var(--accent)]/60' : 'bg-surface'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span
@@ -776,9 +776,9 @@ function ToggleSetting({
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="border border-acid-green/20 p-4 bg-surface/30">
-      <p className="text-xs font-mono text-text-muted mb-1">{label}</p>
-      <p className="text-xl font-mono font-bold text-acid-green">{value}</p>
+    <div className="border border-[var(--accent)]/20 p-4 bg-surface/30">
+      <p className="text-xs font-theme-data text-text-muted mb-1">{label}</p>
+      <p className="text-xl font-theme-data font-bold text-[var(--accent)]">{value}</p>
     </div>
   );
 }

@@ -223,7 +223,7 @@ export const ApiPlayground: React.FC = () => {
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  <span className={`${getMethodColor(endpoint.method)} text-white text-xs px-2 py-0.5 rounded font-mono`}>
+                  <span className={`${getMethodColor(endpoint.method)} text-white text-xs px-2 py-0.5 rounded font-theme-data`}>
                     {endpoint.method}
                   </span>
                   <span className="text-sm truncate">{endpoint.path}</span>
@@ -265,7 +265,7 @@ export const ApiPlayground: React.FC = () => {
 
             {/* URL Preview */}
             <div className="flex items-center gap-2">
-              <span className={`${getMethodColor(selectedEndpoint.method)} text-white px-3 py-1 rounded font-mono text-sm`}>
+              <span className={`${getMethodColor(selectedEndpoint.method)} text-white px-3 py-1 rounded font-theme-data text-sm`}>
                 {selectedEndpoint.method}
               </span>
               <code className="flex-1 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded text-sm text-gray-700 dark:text-gray-300">
@@ -293,7 +293,7 @@ export const ApiPlayground: React.FC = () => {
                   <textarea
                     value={requestBody}
                     onChange={(e) => setRequestBody(e.target.value)}
-                    className="w-full h-full font-mono text-sm p-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white resize-none"
+                    className="w-full h-full font-theme-data text-sm p-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white resize-none"
                     placeholder="Request body (JSON)"
                   />
                 ) : (
@@ -335,7 +335,7 @@ export const ApiPlayground: React.FC = () => {
                   </div>
                 )}
                 {requestState.response !== null && requestState.response !== undefined && (
-                  <pre className="font-mono text-sm bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto text-gray-900 dark:text-white">
+                  <pre className="font-theme-data text-sm bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto text-gray-900 dark:text-white">
                     {JSON.stringify(requestState.response, null, 2)}
                   </pre>
                 )}

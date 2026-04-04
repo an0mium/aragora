@@ -21,8 +21,8 @@ export interface HealthOverviewProps {
 
 const STATUS_CONFIG = {
   healthy: { color: 'bg-success', text: 'text-success', label: 'HEALTHY' },
-  degraded: { color: 'bg-acid-yellow', text: 'text-acid-yellow', label: 'DEGRADED' },
-  unhealthy: { color: 'bg-crimson', text: 'text-crimson', label: 'UNHEALTHY' },
+  degraded: { color: 'bg-acid-yellow', text: 'text-[var(--acid-yellow)]', label: 'DEGRADED' },
+  unhealthy: { color: 'bg-[var(--crimson)]', text: 'text-[var(--crimson)]', label: 'UNHEALTHY' },
 } as const;
 
 function formatUptime(seconds: number): string {
@@ -38,10 +38,10 @@ function formatUptime(seconds: number): string {
 export function HealthOverview({ health, loading = false }: HealthOverviewProps) {
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4 animate-pulse">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4 animate-pulse">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-3 h-3 rounded-full bg-acid-green/20" />
-          <div className="w-24 h-4 bg-acid-green/10 rounded" />
+          <div className="w-3 h-3 rounded-full bg-[var(--accent)]/20" />
+          <div className="w-24 h-4 bg-[var(--accent)]/10 rounded" />
         </div>
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -65,16 +65,16 @@ export function HealthOverview({ health, loading = false }: HealthOverviewProps)
   ).length;
 
   return (
-    <div className="bg-surface border border-acid-green/30 p-4">
+    <div className="bg-surface border border-[var(--accent)]/30 p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${statusConfig.color} animate-pulse`} />
-          <span className={`text-sm font-mono font-bold ${statusConfig.text}`}>
+          <span className={`text-sm font-theme-data font-bold ${statusConfig.text}`}>
             {statusConfig.label}
           </span>
         </div>
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           v{displayHealth.version}
         </span>
       </div>
@@ -82,29 +82,29 @@ export function HealthOverview({ health, loading = false }: HealthOverviewProps)
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="bg-bg p-3 rounded text-center">
-          <div className="text-xl font-mono text-acid-green">
+          <div className="text-xl font-theme-data text-[var(--accent)]">
             {formatUptime(displayHealth.uptime_seconds)}
           </div>
-          <div className="text-xs font-mono text-text-muted">UPTIME</div>
+          <div className="text-xs font-theme-data text-text-muted">UPTIME</div>
         </div>
         <div className="bg-bg p-3 rounded text-center">
-          <div className="text-xl font-mono text-text">
+          <div className="text-xl font-theme-data text-text">
             {healthyCount}/{displayHealth.components.length}
           </div>
-          <div className="text-xs font-mono text-text-muted">COMPONENTS</div>
+          <div className="text-xs font-theme-data text-text-muted">COMPONENTS</div>
         </div>
         <div className="bg-bg p-3 rounded text-center">
-          <div className={`text-xl font-mono ${statusConfig.text}`}>
+          <div className={`text-xl font-theme-data ${statusConfig.text}`}>
             {displayHealth.status === 'healthy' ? 'OK' : displayHealth.status.toUpperCase()}
           </div>
-          <div className="text-xs font-mono text-text-muted">OVERALL</div>
+          <div className="text-xs font-theme-data text-text-muted">OVERALL</div>
         </div>
       </div>
 
       {/* Components list */}
       {displayHealth.components.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-mono text-text-muted uppercase mb-2">
+          <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
             COMPONENT STATUS
           </div>
           {displayHealth.components.map((component) => {
@@ -116,17 +116,17 @@ export function HealthOverview({ health, loading = false }: HealthOverviewProps)
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${compStatus.color}`} />
-                  <span className="text-sm font-mono text-text">
+                  <span className="text-sm font-theme-data text-text">
                     {component.name}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   {component.latency_ms !== undefined && (
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       {component.latency_ms}ms
                     </span>
                   )}
-                  <span className={`text-xs font-mono ${compStatus.text}`}>
+                  <span className={`text-xs font-theme-data ${compStatus.text}`}>
                     {component.status}
                   </span>
                 </div>

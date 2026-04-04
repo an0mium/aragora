@@ -70,7 +70,7 @@ type TabId = 'findings' | 'documents' | 'activity' | 'export';
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   high: 'bg-acid-orange/20 text-acid-orange border-acid-orange/40',
-  medium: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+  medium: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
   low: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
   info: 'bg-muted/20 text-muted border-muted/40',
 };
@@ -79,15 +79,15 @@ const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    completed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    running: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40 animate-pulse',
+    completed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    running: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40 animate-pulse',
     pending: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
     paused: 'bg-acid-purple/20 text-acid-purple border-acid-purple/40',
     failed: 'bg-acid-red/20 text-acid-red border-acid-red/40',
     cancelled: 'bg-muted/20 text-muted border-muted/40',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status] || colors.pending}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -95,7 +95,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function SeverityBadge({ severity }: { severity: string }) {
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${SEVERITY_COLORS[severity] || SEVERITY_COLORS.info}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${SEVERITY_COLORS[severity] || SEVERITY_COLORS.info}`}>
       {severity.toUpperCase()}
     </span>
   );
@@ -313,7 +313,7 @@ export default function AuditSessionDetail() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted font-mono animate-pulse">LOADING SESSION...</div>
+        <div className="text-muted font-theme-data animate-pulse">LOADING SESSION...</div>
       </div>
     );
   }
@@ -323,7 +323,7 @@ export default function AuditSessionDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="text-muted font-mono mb-4">No session ID provided</div>
+          <div className="text-muted font-theme-data mb-4">No session ID provided</div>
           <Link href="/audit" className="btn btn-primary">
             Go to Audit Dashboard
           </Link>
@@ -336,7 +336,7 @@ export default function AuditSessionDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="text-acid-red font-mono mb-4">{error}</div>
+          <div className="text-acid-red font-theme-data mb-4">{error}</div>
           <Link href="/audit" className="btn btn-primary">
             Back to Dashboard
           </Link>
@@ -356,7 +356,7 @@ export default function AuditSessionDetail() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} AUDIT SESSION</span>
+            <span className="text-muted font-theme-data text-sm">{'//'} AUDIT SESSION</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -371,10 +371,10 @@ export default function AuditSessionDetail() {
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-xl font-mono">{session?.name || sessionId?.slice(0, 8) || 'New Session'}</h1>
+                <h1 className="text-xl font-theme-data">{session?.name || sessionId?.slice(0, 8) || 'New Session'}</h1>
                 {session && <StatusBadge status={session.status} />}
               </div>
-              <div className="text-sm text-muted font-mono">
+              <div className="text-sm text-muted font-theme-data">
                 {session?.document_ids.length} documents | Model: {session?.model} | Started:{' '}
                 {formatDate(session?.started_at)}
               </div>
@@ -404,7 +404,7 @@ export default function AuditSessionDetail() {
           {/* Progress Bar */}
           {session && ['running', 'paused'].includes(session.status) && (
             <div className="mb-4">
-              <div className="flex items-center justify-between text-xs font-mono text-muted mb-1">
+              <div className="flex items-center justify-between text-xs font-theme-data text-muted mb-1">
                 <span>{session.current_phase || 'Processing'}</span>
                 <span>{Math.round(session.progress * 100)}%</span>
               </div>
@@ -424,7 +424,7 @@ export default function AuditSessionDetail() {
             {severityDistribution.map(({ severity, count }) =>
               count > 0 ? (
                 <div key={severity} className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono ${SEVERITY_COLORS[severity]}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${SEVERITY_COLORS[severity]}`}>
                     {count}
                   </span>
                   <span className="text-xs text-muted capitalize">{severity}</span>
@@ -432,7 +432,7 @@ export default function AuditSessionDetail() {
               ) : null
             )}
             {session?.duration_seconds && (
-              <div className="ml-auto text-xs font-mono text-muted">
+              <div className="ml-auto text-xs font-theme-data text-muted">
                 Duration: {formatDuration(session.duration_seconds)}
               </div>
             )}
@@ -446,7 +446,7 @@ export default function AuditSessionDetail() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 font-mono text-sm transition-colors flex items-center gap-2 ${
+                className={`px-4 py-2 font-theme-data text-sm transition-colors flex items-center gap-2 ${
                   activeTab === tab.id
                     ? 'text-accent border-b-2 border-accent'
                     : 'text-muted hover:text-foreground'
@@ -491,7 +491,7 @@ export default function AuditSessionDetail() {
                     </option>
                   ))}
                 </select>
-                <span className="text-sm text-muted font-mono ml-auto">
+                <span className="text-sm text-muted font-theme-data ml-auto">
                   {filteredFindings.length} findings
                 </span>
               </div>
@@ -501,7 +501,7 @@ export default function AuditSessionDetail() {
                 {filteredFindings.length === 0 ? (
                   <div className="card p-8 text-center">
                     <div className="text-4xl mb-3">🔍</div>
-                    <div className="text-muted font-mono">
+                    <div className="text-muted font-theme-data">
                       {findings.length === 0
                         ? session?.status === 'running'
                           ? 'Scanning for issues...'
@@ -515,21 +515,21 @@ export default function AuditSessionDetail() {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <SeverityBadge severity={finding.severity} />
-                          <span className="text-xs font-mono text-muted px-2 py-0.5 bg-surface rounded">
+                          <span className="text-xs font-theme-data text-muted px-2 py-0.5 bg-surface rounded">
                             {finding.category}
                           </span>
                         </div>
-                        <span className="text-xs font-mono text-muted">
+                        <span className="text-xs font-theme-data text-muted">
                           {Math.round(finding.confidence * 100)}% confidence
                         </span>
                       </div>
 
-                      <h3 className="font-mono font-medium mb-2">{finding.title}</h3>
+                      <h3 className="font-theme-data font-medium mb-2">{finding.title}</h3>
                       <p className="text-sm text-muted mb-3">{finding.description}</p>
 
                       {finding.evidence_text && (
                         <div className="p-3 bg-surface rounded border-l-2 border-accent mb-3">
-                          <div className="text-xs font-mono text-muted mb-1">Evidence:</div>
+                          <div className="text-xs font-theme-data text-muted mb-1">Evidence:</div>
                           <code className="text-sm">{finding.evidence_text}</code>
                           {finding.evidence_location && (
                             <div className="text-xs text-muted mt-1">
@@ -539,11 +539,11 @@ export default function AuditSessionDetail() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between text-xs font-mono text-muted">
+                      <div className="flex items-center justify-between text-xs font-theme-data text-muted">
                         <div className="flex items-center gap-4">
                           <span>Found by: {finding.found_by}</span>
                           {finding.confirmed_by.length > 0 && (
-                            <span className="text-acid-green">
+                            <span className="text-[var(--accent)]">
                               Confirmed: {finding.confirmed_by.join(', ')}
                             </span>
                           )}
@@ -569,9 +569,9 @@ export default function AuditSessionDetail() {
               <table className="w-full">
                 <thead className="bg-surface border-b border-border">
                   <tr>
-                    <th className="p-3 text-left font-mono text-xs text-muted">DOCUMENT</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">FINDINGS</th>
-                    <th className="p-3 text-left font-mono text-xs text-muted">STATUS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">DOCUMENT</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">FINDINGS</th>
+                    <th className="p-3 text-left font-theme-data text-xs text-muted">STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -582,10 +582,10 @@ export default function AuditSessionDetail() {
 
                     return (
                       <tr key={docId} className="border-b border-border">
-                        <td className="p-3 font-mono text-sm">{docId.slice(0, 16)}...</td>
+                        <td className="p-3 font-theme-data text-sm">{docId.slice(0, 16)}...</td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono">{docFindings.length}</span>
+                            <span className="font-theme-data">{docFindings.length}</span>
                             {criticalCount > 0 && (
                               <span className="px-1.5 py-0.5 text-xs rounded bg-acid-red/20 text-acid-red">
                                 {criticalCount} critical
@@ -614,13 +614,13 @@ export default function AuditSessionDetail() {
             <div className="space-y-2">
               {activities.length === 0 ? (
                 <div className="card p-8 text-center">
-                  <div className="text-muted font-mono">No activity recorded yet</div>
+                  <div className="text-muted font-theme-data">No activity recorded yet</div>
                 </div>
               ) : (
                 activities.map((activity, idx) => (
                   <div key={idx} className="card p-3 flex items-center gap-4">
-                    <span className="text-xs font-mono text-muted">{formatDate(activity.timestamp)}</span>
-                    <span className="text-sm font-mono text-accent">{activity.agent}</span>
+                    <span className="text-xs font-theme-data text-muted">{formatDate(activity.timestamp)}</span>
+                    <span className="text-sm font-theme-data text-accent">{activity.agent}</span>
                     <span className="text-sm">{activity.action}</span>
                   </div>
                 ))
@@ -632,16 +632,16 @@ export default function AuditSessionDetail() {
           {activeTab === 'export' && (
             <div className="max-w-xl">
               <div className="card p-6">
-                <h3 className="font-mono text-lg mb-4">Export Audit Report</h3>
+                <h3 className="font-theme-data text-lg mb-4">Export Audit Report</h3>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-mono text-muted mb-2">FORMAT</label>
+                  <label className="block text-sm font-theme-data text-muted mb-2">FORMAT</label>
                   <div className="grid grid-cols-4 gap-2">
                     {['json', 'markdown', 'html', 'csv'].map((format) => (
                       <button
                         key={format}
                         onClick={() => setExportFormat(format)}
-                        className={`px-4 py-2 rounded border font-mono text-sm transition-colors ${
+                        className={`px-4 py-2 rounded border font-theme-data text-sm transition-colors ${
                           exportFormat === format
                             ? 'border-accent bg-accent/10 text-accent'
                             : 'border-border hover:border-accent/50'
@@ -654,7 +654,7 @@ export default function AuditSessionDetail() {
                 </div>
 
                 <div className="mb-6 p-4 bg-surface rounded">
-                  <div className="text-sm font-mono text-muted mb-2">Report will include:</div>
+                  <div className="text-sm font-theme-data text-muted mb-2">Report will include:</div>
                   <ul className="text-sm space-y-1">
                     <li>Session metadata and configuration</li>
                     <li>{findings.length} findings with evidence</li>
@@ -677,7 +677,7 @@ export default function AuditSessionDetail() {
       </main>
 
       <footer className="border-t border-border bg-surface/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-mono">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-theme-data">
           <span>ARAGORA AUDIT ENGINE</span>
           <Link href="/audit" className="hover:text-accent">
             DASHBOARD

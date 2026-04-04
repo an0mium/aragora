@@ -53,7 +53,7 @@ export function LiveActivityFeed({ events, onEventClick }: LiveActivityFeedProps
   if (events.length === 0) {
     return (
       <div className="h-12 border-t border-border bg-surface/50 flex items-center justify-center">
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           Waiting for events...
         </span>
       </div>
@@ -70,7 +70,7 @@ export function LiveActivityFeed({ events, onEventClick }: LiveActivityFeedProps
           <button
             key={event.id}
             onClick={() => onEventClick(event.id)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-bg/50 hover:bg-bg transition-colors text-xs font-mono ${CATEGORY_COLORS[event.category]} ${SEVERITY_RING[event.severity]}`}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border bg-bg/50 hover:bg-bg transition-colors text-xs font-theme-data ${CATEGORY_COLORS[event.category]} ${SEVERITY_RING[event.severity]}`}
             title={event.summary}
           >
             <span>{CATEGORY_ICONS[event.category]}</span>

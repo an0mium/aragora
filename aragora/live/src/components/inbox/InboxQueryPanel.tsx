@@ -43,8 +43,8 @@ export function InboxQueryPanel({ apiBase, userId, authToken }: InboxQueryPanelP
   };
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-      <h3 className="text-acid-green font-mono text-sm mb-4">Ask About Your Inbox</h3>
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+      <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">Ask About Your Inbox</h3>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -53,13 +53,13 @@ export function InboxQueryPanel({ apiBase, userId, authToken }: InboxQueryPanelP
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask a question about your emails..."
             rows={3}
-            className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm rounded focus:outline-none focus:border-acid-green resize-none"
+            className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm rounded focus:outline-none focus:border-[var(--accent)] resize-none"
           />
         </div>
         <button
           type="submit"
           disabled={isQuerying || !query.trim()}
-          className="w-full px-3 py-2 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 disabled:opacity-50 rounded"
+          className="w-full px-3 py-2 text-sm font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50 rounded"
         >
           {isQuerying ? 'Thinking...' : 'Ask'}
         </button>
@@ -72,7 +72,7 @@ export function InboxQueryPanel({ apiBase, userId, authToken }: InboxQueryPanelP
       )}
 
       {answer && (
-        <div className="mt-4 p-3 bg-acid-green/5 border border-acid-green/20 rounded">
+        <div className="mt-4 p-3 bg-[var(--accent)]/5 border border-[var(--accent)]/20 rounded">
           <p className="text-text text-sm whitespace-pre-wrap">{answer}</p>
         </div>
       )}

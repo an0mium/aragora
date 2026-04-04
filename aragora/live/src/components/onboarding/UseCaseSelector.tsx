@@ -47,7 +47,7 @@ export function UseCaseSelector() {
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-5">
-      <div className="text-xs font-mono text-[var(--acid-green)] mb-3">
+      <div className="text-xs font-theme-data text-[var(--acid-green)] mb-3">
         {'>'} WHAT WILL YOU USE ARAGORA FOR?
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -61,10 +61,10 @@ export function UseCaseSelector() {
                 : 'bg-[var(--bg)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
             }`}
           >
-            <div className="text-sm font-mono text-[var(--acid-green)] mb-1">
+            <div className="text-sm font-theme-data text-[var(--acid-green)] mb-1">
               {uc.icon} {uc.name}
             </div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">{uc.example}</div>
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">{uc.example}</div>
           </button>
         ))}
       </div>

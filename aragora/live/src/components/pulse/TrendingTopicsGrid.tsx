@@ -144,13 +144,13 @@ export function TrendingTopicsGrid({
     return (
       <div className="bg-surface border border-border rounded-lg p-8 text-center">
         <div className="text-3xl mb-3 opacity-60">📡</div>
-        <p className="text-text-muted font-mono text-sm mb-1">No topics trending yet</p>
+        <p className="text-text-muted font-theme-data text-sm mb-1">No topics trending yet</p>
         <p className="text-text-muted/60 text-xs mb-4">
           Trending topics will appear here once the Pulse ingestors collect data from HackerNews, Reddit, and other sources.
         </p>
         <button
           onClick={fetchTrending}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] text-sm font-theme-data rounded hover:bg-[var(--accent)]/30"
         >
           Check Again
         </button>
@@ -163,11 +163,11 @@ export function TrendingTopicsGrid({
     return (
       <div className="bg-surface border border-border rounded-lg p-8 text-center">
         <div className="text-3xl mb-3 opacity-60">📡</div>
-        <p className="text-text-muted font-mono text-sm mb-1">Unable to load trending topics</p>
+        <p className="text-text-muted font-theme-data text-sm mb-1">Unable to load trending topics</p>
         <p className="text-text-muted/60 text-xs mb-4">{error}</p>
         <button
           onClick={fetchTrending}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] text-sm font-theme-data rounded hover:bg-[var(--accent)]/30"
         >
           Retry
         </button>
@@ -180,7 +180,7 @@ export function TrendingTopicsGrid({
       {/* Header with stats and controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-sm font-mono text-acid-green uppercase">
+          <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase">
             Trending Topics ({filteredTopics.length})
           </h2>
           {lastUpdated && (
@@ -189,7 +189,7 @@ export function TrendingTopicsGrid({
             </span>
           )}
           {loading && (
-            <span className="text-xs text-acid-cyan animate-pulse">Refreshing...</span>
+            <span className="text-xs text-[var(--acid-cyan)] animate-pulse">Refreshing...</span>
           )}
         </div>
 
@@ -198,9 +198,9 @@ export function TrendingTopicsGrid({
           <div className="flex gap-1 border border-border rounded overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-2 py-1 text-xs font-mono ${
+              className={`px-2 py-1 text-xs font-theme-data ${
                 viewMode === 'grid'
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
               title="Grid view"
@@ -209,9 +209,9 @@ export function TrendingTopicsGrid({
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-2 py-1 text-xs font-mono ${
+              className={`px-2 py-1 text-xs font-theme-data ${
                 viewMode === 'list'
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
               title="List view"
@@ -224,7 +224,7 @@ export function TrendingTopicsGrid({
           <button
             onClick={fetchTrending}
             disabled={loading}
-            className="px-3 py-1 text-xs font-mono text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/10 disabled:opacity-50"
+            className="px-3 py-1 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/10 disabled:opacity-50"
           >
             Refresh
           </button>
@@ -252,7 +252,7 @@ export function TrendingTopicsGrid({
               <p className="text-text-muted mb-2">No topics match your filters</p>
               <button
                 onClick={() => setFilters(defaultFilters)}
-                className="text-xs font-mono text-acid-green hover:underline"
+                className="text-xs font-theme-data text-[var(--accent)] hover:underline"
               >
                 Clear filters
               </button>

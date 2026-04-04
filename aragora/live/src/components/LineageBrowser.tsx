@@ -27,9 +27,9 @@ interface LineageBrowserProps {
 }
 
 const NODE_COLORS = {
-  root: { bg: 'bg-acid-green/20', border: 'border-acid-green', text: 'text-acid-green' },
-  parent: { bg: 'bg-acid-cyan/20', border: 'border-acid-cyan', text: 'text-acid-cyan' },
-  ancestor: { bg: 'bg-acid-yellow/20', border: 'border-acid-yellow', text: 'text-acid-yellow' },
+  root: { bg: 'bg-[var(--accent)]/20', border: 'border-[var(--accent)]', text: 'text-[var(--accent)]' },
+  parent: { bg: 'bg-[var(--acid-cyan)]/20', border: 'border-[var(--acid-cyan)]', text: 'text-[var(--acid-cyan)]' },
+  ancestor: { bg: 'bg-acid-yellow/20', border: 'border-acid-yellow', text: 'text-[var(--acid-yellow)]' },
   origin: { bg: 'bg-accent/20', border: 'border-accent', text: 'text-accent' },
 };
 
@@ -67,20 +67,20 @@ function LineageNode({
       `}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className={`font-mono text-xs uppercase ${colors.text}`}>
+        <span className={`font-theme-data text-xs uppercase ${colors.text}`}>
           {isRoot ? 'CURRENT' : `GEN ${node.generation}`}
         </span>
         {node.fitness_score !== undefined && (
-          <span className="text-xs font-mono text-acid-yellow">
+          <span className="text-xs font-theme-data text-[var(--acid-yellow)]">
             {(node.fitness_score * 100).toFixed(1)}%
           </span>
         )}
       </div>
-      <div className="font-mono text-sm text-text truncate">
+      <div className="font-theme-data text-sm text-text truncate">
         {node.name || node.genome_id.slice(0, 12) + '...'}
       </div>
       {node.event_type && (
-        <div className="text-xs font-mono text-text-muted mt-1">
+        <div className="text-xs font-theme-data text-text-muted mt-1">
           via {node.event_type}
         </div>
       )}
@@ -121,7 +121,7 @@ function LineageTree({
 
   if (!rootNode) {
     return (
-      <div className="text-text-muted font-mono text-sm text-center py-4">
+      <div className="text-text-muted font-theme-data text-sm text-center py-4">
         No lineage data available
       </div>
     );
@@ -134,9 +134,9 @@ function LineageTree({
         {generations.map(([gen, genNodes], genIdx) => (
           <div key={gen} className="mb-4">
             {/* Generation label */}
-            <div className="text-xs font-mono text-text-muted mb-2 flex items-center gap-2">
+            <div className="text-xs font-theme-data text-text-muted mb-2 flex items-center gap-2">
               <span className="w-16">Gen {gen}</span>
-              <div className="flex-1 h-px bg-acid-green/20" />
+              <div className="flex-1 h-px bg-[var(--accent)]/20" />
             </div>
 
             {/* Nodes at this generation */}
@@ -152,7 +152,7 @@ function LineageTree({
                   />
                   {/* Connection lines to children */}
                   {genIdx > 0 && (
-                    <div className="absolute -top-4 left-1/2 w-px h-4 bg-acid-green/30" />
+                    <div className="absolute -top-4 left-1/2 w-px h-4 bg-[var(--accent)]/30" />
                   )}
                 </div>
               ))}
@@ -161,7 +161,7 @@ function LineageTree({
             {/* Vertical connector to next generation */}
             {genIdx < generations.length - 1 && (
               <div className="flex justify-center my-2">
-                <div className="w-px h-6 bg-acid-green/30" />
+                <div className="w-px h-6 bg-[var(--accent)]/30" />
               </div>
             )}
           </div>
@@ -242,9 +242,9 @@ export function LineageBrowser({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h4 className="font-mono text-acid-green text-sm">LINEAGE BROWSER</h4>
+        <h4 className="font-theme-data text-[var(--accent)] text-sm">LINEAGE BROWSER</h4>
         {lineage && (
-          <div className="text-xs font-mono text-text-muted">
+          <div className="text-xs font-theme-data text-text-muted">
             {lineage.generations} generations
           </div>
         )}
@@ -257,12 +257,12 @@ export function LineageBrowser({
           value={searchId}
           onChange={(e) => setSearchId(e.target.value)}
           placeholder="Enter genome ID..."
-          className="flex-1 bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+          className="flex-1 bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
         />
         <button
           type="submit"
           disabled={loading || !searchId.trim()}
-          className="px-4 py-2 font-mono text-xs border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+          className="px-4 py-2 font-theme-data text-xs border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
         >
           {loading ? 'LOADING...' : 'TRACE'}
         </button>
@@ -271,14 +271,14 @@ export function LineageBrowser({
       {/* Error */}
       {error && (
         <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg">
-          <div className="text-warning font-mono text-sm">{error}</div>
+          <div className="text-warning font-theme-data text-sm">{error}</div>
         </div>
       )}
 
       {/* Loading */}
       {loading && (
         <div className="p-4 text-center">
-          <div className="text-acid-green font-mono animate-pulse">
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">
             Tracing lineage...
           </div>
         </div>
@@ -298,15 +298,15 @@ export function LineageBrowser({
           </div>
 
           {/* Selected node details */}
-          <div className="bg-surface border border-acid-cyan/30 rounded-lg p-4">
-            <h5 className="font-mono text-acid-cyan text-sm mb-4">
+          <div className="bg-surface border border-[var(--acid-cyan)]/30 rounded-lg p-4">
+            <h5 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-4">
               NODE DETAILS
             </h5>
             {selectedNode ? (
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-text-muted mb-1">ID</div>
-                  <div className="font-mono text-xs text-acid-green break-all">
+                  <div className="font-theme-data text-xs text-[var(--accent)] break-all">
                     {selectedNode.genome_id}
                   </div>
                 </div>
@@ -314,7 +314,7 @@ export function LineageBrowser({
                 {selectedNode.name && (
                   <div>
                     <div className="text-xs text-text-muted mb-1">NAME</div>
-                    <div className="font-mono text-sm text-text">
+                    <div className="font-theme-data text-sm text-text">
                       {selectedNode.name}
                     </div>
                   </div>
@@ -322,7 +322,7 @@ export function LineageBrowser({
 
                 <div>
                   <div className="text-xs text-text-muted mb-1">GENERATION</div>
-                  <div className="font-mono text-lg text-acid-cyan">
+                  <div className="font-theme-data text-lg text-[var(--acid-cyan)]">
                     {selectedNode.generation}
                   </div>
                 </div>
@@ -330,7 +330,7 @@ export function LineageBrowser({
                 {selectedNode.fitness_score !== undefined && (
                   <div>
                     <div className="text-xs text-text-muted mb-1">FITNESS</div>
-                    <div className="font-mono text-lg text-acid-yellow">
+                    <div className="font-theme-data text-lg text-[var(--acid-yellow)]">
                       {(selectedNode.fitness_score * 100).toFixed(2)}%
                     </div>
                   </div>
@@ -339,7 +339,7 @@ export function LineageBrowser({
                 {selectedNode.event_type && (
                   <div>
                     <div className="text-xs text-text-muted mb-1">CREATED VIA</div>
-                    <div className="font-mono text-sm text-text">
+                    <div className="font-theme-data text-sm text-text">
                       {selectedNode.event_type}
                     </div>
                   </div>
@@ -348,7 +348,7 @@ export function LineageBrowser({
                 {selectedNode.created_at && (
                   <div>
                     <div className="text-xs text-text-muted mb-1">CREATED</div>
-                    <div className="font-mono text-xs text-text-muted">
+                    <div className="font-theme-data text-xs text-text-muted">
                       {new Date(selectedNode.created_at).toLocaleString()}
                     </div>
                   </div>
@@ -362,7 +362,7 @@ export function LineageBrowser({
                         <button
                           key={pid}
                           onClick={() => handleNavigateToNode(pid)}
-                          className="block w-full text-left font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+                          className="block w-full text-left font-theme-data text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                         >
                           {pid.slice(0, 16)}... [TRACE]
                         </button>
@@ -375,14 +375,14 @@ export function LineageBrowser({
                 {selectedNode.genome_id !== lineage.genome_id && (
                   <button
                     onClick={() => handleNavigateToNode(selectedNode.genome_id)}
-                    className="w-full py-2 font-mono text-xs border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors"
+                    className="w-full py-2 font-theme-data text-xs border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                   >
                     TRACE FROM THIS NODE
                   </button>
                 )}
               </div>
             ) : (
-              <div className="text-center text-text-muted font-mono text-sm py-8">
+              <div className="text-center text-text-muted font-theme-data text-sm py-8">
                 Select a node to view details
               </div>
             )}
@@ -392,18 +392,18 @@ export function LineageBrowser({
 
       {/* Empty state */}
       {!loading && !lineage && !error && (
-        <div className="text-center py-8 border border-acid-green/20 rounded-lg bg-surface/50">
-          <div className="text-text-muted font-mono text-sm mb-2">
+        <div className="text-center py-8 border border-[var(--accent)]/20 rounded-lg bg-surface/50">
+          <div className="text-text-muted font-theme-data text-sm mb-2">
             Enter a genome ID to trace its evolutionary lineage
           </div>
-          <div className="text-xs font-mono text-text-muted/50">
+          <div className="text-xs font-theme-data text-text-muted/50">
             View ancestry, mutations, and crossovers
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs font-mono">
+      <div className="flex flex-wrap gap-4 text-xs font-theme-data">
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded ${NODE_COLORS.root.bg} ${NODE_COLORS.root.border} border`} />
           <span className="text-text-muted">Current</span>

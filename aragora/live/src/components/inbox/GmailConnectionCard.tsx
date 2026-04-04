@@ -29,16 +29,16 @@ export function GmailConnectionCard({
 }: GmailConnectionCardProps) {
   if (loading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <h3 className="text-acid-green font-mono text-sm mb-2">Gmail Connection</h3>
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm mb-2">Gmail Connection</h3>
         <p className="text-text-muted text-xs">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-      <h3 className="text-acid-green font-mono text-sm mb-2">Gmail Connection</h3>
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+      <h3 className="text-[var(--accent)] font-theme-data text-sm mb-2">Gmail Connection</h3>
       {status?.connected ? (
         <div className="space-y-2">
           <p className="text-text-muted text-xs">{status.email_address}</p>
@@ -50,7 +50,7 @@ export function GmailConnectionCard({
               <button
                 onClick={onSync}
                 disabled={isSyncing}
-                className="px-3 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50"
               >
                 {isSyncing ? 'Syncing...' : 'Sync Now'}
               </button>
@@ -58,7 +58,7 @@ export function GmailConnectionCard({
             {onDisconnect && (
               <button
                 onClick={onDisconnect}
-                className="px-3 py-1 text-xs font-mono bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20"
+                className="px-3 py-1 text-xs font-theme-data bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20"
               >
                 Disconnect
               </button>
@@ -69,7 +69,7 @@ export function GmailConnectionCard({
         <button
           onClick={onConnect}
           disabled={isConnecting}
-          className="px-3 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 disabled:opacity-50"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50"
         >
           {isConnecting ? 'Connecting...' : 'Connect Gmail'}
         </button>

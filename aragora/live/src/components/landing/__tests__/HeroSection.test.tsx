@@ -22,7 +22,7 @@ jest.mock('../../DebateResultPreview', () => ({
 jest.mock('../CompactDebateResult', () => ({
   CompactDebateResult: (props: Record<string, unknown>) => {
     mockCompactDebateResult(props);
-    return <div data-testid="debate-result-preview">Debate result</div>;
+    return <div data-testid="debate-result-preview">Aragora&apos;s Answer</div>;
   },
 }));
 
@@ -119,8 +119,8 @@ describe('HeroSection', () => {
     it('renders ASCII banner on larger screens', () => {
       render(<HeroSection {...defaultProps} />);
 
-      // ASCII banner is in a pre element with specific class
-      const banner = document.querySelector('pre.text-acid-green');
+      // ASCII banner is rendered in the desktop-only preformatted block.
+      const banner = document.querySelector('pre.hidden.sm\\:block');
       expect(banner).toBeInTheDocument();
       // Banner is stylized ASCII art, just verify it has content
       expect(banner?.textContent?.length).toBeGreaterThan(100);
@@ -251,7 +251,7 @@ describe('HeroSection', () => {
       const user = userEvent.setup();
       const fetchMock = jest.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ status: 'completed' }),
+        json: async () => ({ id: 'debate-demo-123', status: 'completed' }),
       });
       mockBackendConfig.api = '';
       global.fetch = fetchMock as typeof fetch;
@@ -271,7 +271,13 @@ describe('HeroSection', () => {
     it('shows a preflight chooser for ambiguous landing prompts before debating', async () => {
       const user = userEvent.setup();
       const question = 'Should I cook my chickens in a microwave? What if they are alive, and what if they are dead?';
-      const fetchMock = jest.fn().mockResolvedValue(createNuggetsAssessResponse(question));
+      const fetchMock = jest.fn().mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/v1/playground/landing/events')) {
+          return Promise.resolve(createResponse({}));
+        }
+        return Promise.resolve(createNuggetsAssessResponse(question));
+      });
       global.fetch = fetchMock as typeof fetch;
 
       render(<HeroSection />);
@@ -285,10 +291,9 @@ describe('HeroSection', () => {
       expect(await screen.findByText('This question could mean a few things')).toBeInTheDocument();
       expect(screen.getByText('Pick the interpretation you want Aragora to debate.')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /practical food-safety first/i })).toBeInTheDocument();
-      expect(fetchMock).not.toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/playground/debate'),
-        expect.anything(),
-      );
+      expect(
+        fetchMock.mock.calls.some(([input]) => String(input).includes('/api/v1/playground/debate'))
+      ).toBe(false);
     });
 
     it('renders the landing preview in condensed mode after a successful debate', async () => {
@@ -314,33 +319,42 @@ describe('HeroSection', () => {
           });
         }
         if (url.includes('/api/v1/playground/landing/events')) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({}),
-          });
+          return Promise.resolve(createResponse({}));
         }
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            id: 'debate-123',
-            topic: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
-            status: 'completed',
-            rounds_used: 1,
-            consensus_reached: false,
-            confidence: 0.7,
-            verdict: 'needs_review',
-            duration_seconds: 8,
-            participants: ['gpt', 'claude', 'grok'],
-            proposals: { gpt: 'Yes, if heated safely.' },
-            critiques: [],
-            votes: [],
-            dissenting_views: [],
-            final_answer: 'Yes, if heated safely.',
-            receipt: null,
-            receipt_hash: null,
-            result_mode: 'preview',
-          }),
-        });
+        if (url.includes('/api/v1/playground/assess')) {
+          return Promise.resolve(createResponse({
+            type: 'ready',
+            option: {
+              id: 'original',
+              label: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              description: 'Debate the question exactly as written.',
+              originalQuestion: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              interpretedQuestion: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              debatePrompt: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              agents: 3,
+              rounds: 2,
+            },
+          }));
+        }
+        return Promise.resolve(createResponse({
+          id: 'debate-123',
+          topic: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+          status: 'completed',
+          rounds_used: 1,
+          consensus_reached: false,
+          confidence: 0.7,
+          verdict: 'needs_review',
+          duration_seconds: 8,
+          participants: ['gpt', 'claude', 'grok'],
+          proposals: { gpt: 'Yes, if heated safely.' },
+          critiques: [],
+          votes: [],
+          dissenting_views: [],
+          final_answer: 'Yes, if heated safely.',
+          receipt: null,
+          receipt_hash: null,
+          result_mode: 'preview',
+        }));
       });
       global.fetch = fetchMock as typeof fetch;
 
@@ -353,6 +367,7 @@ describe('HeroSection', () => {
       await user.click(screen.getByRole('button', { name: /start debate/i }));
 
       await waitFor(() => {
+        expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /view full debate/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /log in to save/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /sign up free/i })).toBeInTheDocument();

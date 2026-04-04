@@ -133,7 +133,7 @@ export function KnowledgeExplorer({
   );
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.9) return 'text-acid-green';
+    if (confidence >= 0.9) return 'text-[var(--accent)]';
     if (confidence >= 0.7) return 'text-yellow-400';
     return 'text-orange-400';
   };
@@ -153,7 +153,7 @@ export function KnowledgeExplorer({
     <div className="bg-surface border border-border rounded-lg overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg flex-shrink-0">
-        <h3 className="text-sm font-mono font-bold text-acid-green">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
           KNOWLEDGE MOUND EXPLORER
         </h3>
         <p className="text-xs text-text-muted mt-1">
@@ -168,10 +168,10 @@ export function KnowledgeExplorer({
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`
-              px-4 py-2 text-xs font-mono uppercase
+              px-4 py-2 text-xs font-theme-data uppercase
               ${
                 activeTab === tab
-                  ? 'text-acid-green border-b-2 border-acid-green bg-bg'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-bg'
                   : 'text-text-muted hover:text-text'
               }
             `}
@@ -189,7 +189,7 @@ export function KnowledgeExplorer({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search facts..."
-            className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text placeholder:text-text-muted focus:outline-none focus:border-acid-green"
+            className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text placeholder:text-text-muted focus:outline-none focus:border-[var(--accent)]"
           />
         </div>
       )}
@@ -209,7 +209,7 @@ export function KnowledgeExplorer({
                   className={`
                     p-3 bg-bg border border-border rounded-lg cursor-pointer
                     hover:border-text-muted transition-colors
-                    ${expandedFactId === fact.id ? 'border-acid-green' : ''}
+                    ${expandedFactId === fact.id ? 'border-[var(--accent)]' : ''}
                   `}
                   onClick={() => handleFactClick(fact)}
                 >
@@ -219,10 +219,10 @@ export function KnowledgeExplorer({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text">{fact.content}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs font-mono px-1.5 py-0.5 bg-surface border border-border rounded">
+                        <span className="text-xs font-theme-data px-1.5 py-0.5 bg-surface border border-border rounded">
                           {fact.factType}
                         </span>
-                        <span className={`text-xs font-mono ${getConfidenceColor(fact.confidence)}`}>
+                        <span className={`text-xs font-theme-data ${getConfidenceColor(fact.confidence)}`}>
                           {Math.round(fact.confidence * 100)}% confidence
                         </span>
                       </div>
@@ -237,7 +237,7 @@ export function KnowledgeExplorer({
                           <span className="text-text-muted">Sources:</span>
                           <ul className="mt-1 space-y-0.5">
                             {fact.sources.map((source, i) => (
-                              <li key={i} className="font-mono text-cyan-400">
+                              <li key={i} className="font-theme-data text-cyan-400">
                                 {source}
                               </li>
                             ))}
@@ -245,13 +245,13 @@ export function KnowledgeExplorer({
                         </div>
                         <div>
                           <span className="text-text-muted">Extracted:</span>
-                          <p className="mt-1 font-mono">
+                          <p className="mt-1 font-theme-data">
                             {new Date(fact.extractedAt).toLocaleDateString()}
                           </p>
                           {fact.lastVerified && (
                             <>
                               <span className="text-text-muted mt-2 block">Verified:</span>
-                              <p className="mt-1 font-mono text-acid-green">
+                              <p className="mt-1 font-theme-data text-[var(--accent)]">
                                 {new Date(fact.lastVerified).toLocaleDateString()}
                               </p>
                             </>
@@ -261,7 +261,7 @@ export function KnowledgeExplorer({
                       {Object.keys(fact.metadata).length > 0 && (
                         <div className="mt-3">
                           <span className="text-xs text-text-muted">Metadata:</span>
-                          <pre className="mt-1 text-xs font-mono bg-surface p-2 rounded overflow-x-auto">
+                          <pre className="mt-1 text-xs font-theme-data bg-surface p-2 rounded overflow-x-auto">
                             {JSON.stringify(fact.metadata, null, 2)}
                           </pre>
                         </div>
@@ -288,8 +288,8 @@ export function KnowledgeExplorer({
                   onClick={() => onPatternClick?.(pattern)}
                 >
                   <div className="flex items-center justify-between">
-                    <h4 className="font-mono font-bold text-text">{pattern.name}</h4>
-                    <span className="text-xs font-mono text-acid-green">
+                    <h4 className="font-theme-data font-bold text-text">{pattern.name}</h4>
+                    <span className="text-xs font-theme-data text-[var(--accent)]">
                       {Math.round(pattern.successRate * 100)}% success
                     </span>
                   </div>
@@ -308,7 +308,7 @@ export function KnowledgeExplorer({
         {activeTab === 'culture' && (
           <div className="text-center py-8">
             <span className="text-4xl">🐜</span>
-            <h4 className="font-mono font-bold text-text mt-4">
+            <h4 className="font-theme-data font-bold text-text mt-4">
               Organizational Culture
             </h4>
             <p className="text-sm text-text-muted mt-2">
@@ -316,7 +316,7 @@ export function KnowledgeExplorer({
             </p>
             <div className="mt-6 grid grid-cols-3 gap-4 text-center">
               <div className="p-3 bg-bg border border-border rounded">
-                <div className="text-2xl font-bold text-acid-green">47</div>
+                <div className="text-2xl font-bold text-[var(--accent)]">47</div>
                 <div className="text-xs text-text-muted">Patterns</div>
               </div>
               <div className="p-3 bg-bg border border-border rounded">
@@ -334,14 +334,14 @@ export function KnowledgeExplorer({
 
       {/* Footer Stats */}
       <div className="px-4 py-2 border-t border-border bg-bg flex-shrink-0">
-        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
           <span>
             {activeTab === 'facts' && `${filteredFacts.length} facts`}
             {activeTab === 'patterns' && `${filteredPatterns.length} patterns`}
             {activeTab === 'culture' && 'Culture insights'}
           </span>
           {selectedVertical && (
-            <span className="text-acid-green">
+            <span className="text-[var(--accent)]">
               {getVerticalIcon(selectedVertical)} {selectedVertical}
             </span>
           )}

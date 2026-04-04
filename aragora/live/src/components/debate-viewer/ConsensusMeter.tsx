@@ -56,11 +56,11 @@ function getStateConfig(state: ConsensusState) {
     case 'diverging':
       return { color: 'text-yellow-400', bg: 'bg-yellow-400/20', label: 'DIVERGING' };
     case 'converging':
-      return { color: 'text-acid-cyan', bg: 'bg-acid-cyan/20', label: 'CONVERGING' };
+      return { color: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20', label: 'CONVERGING' };
     case 'consensus':
-      return { color: 'text-acid-green', bg: 'bg-acid-green/20', label: 'CONSENSUS' };
+      return { color: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20', label: 'CONSENSUS' };
     case 'deadlock':
-      return { color: 'text-crimson', bg: 'bg-crimson/20', label: 'DEADLOCK' };
+      return { color: 'text-[var(--crimson)]', bg: 'bg-[var(--crimson)]/20', label: 'DEADLOCK' };
   }
 }
 
@@ -120,22 +120,22 @@ export function ConsensusMeter({ events, agents }: ConsensusMeterProps) {
   }, [votes]);
 
   return (
-    <div className="bg-surface border border-acid-green/30">
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+    <div className="bg-surface border border-[var(--accent)]/30">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           {'>'} CONSENSUS METER
         </span>
-        <span className={`text-xs font-mono ${stateConfig.color}`}>{stateConfig.label}</span>
+        <span className={`text-xs font-theme-data ${stateConfig.color}`}>{stateConfig.label}</span>
       </div>
 
       <div className="p-4 space-y-4">
         {/* Agreement Gauge */}
         <div className="space-y-2">
-          <div className="flex justify-between text-xs font-mono text-text-muted">
+          <div className="flex justify-between text-xs font-theme-data text-text-muted">
             <span>Agreement</span>
             <span>{agreementPct.toFixed(0)}%</span>
           </div>
-          <div className="h-3 bg-bg border border-acid-green/20 overflow-hidden">
+          <div className="h-3 bg-bg border border-[var(--accent)]/20 overflow-hidden">
             <div
               className={`h-full transition-all duration-500 ease-out ${stateConfig.bg}`}
               style={{ width: `${agreementPct}%` }}
@@ -150,12 +150,12 @@ export function ConsensusMeter({ events, agents }: ConsensusMeterProps) {
 
         {/* Per-Agent Votes */}
         <div className="space-y-2">
-          <div className="text-xs font-mono text-text-muted">
+          <div className="text-xs font-theme-data text-text-muted">
             Votes ({votes.length}/{agents.length})
           </div>
 
           {agents.length > 0 && votes.length === 0 && (
-            <div className="text-xs font-mono text-text-muted/60 italic py-2">
+            <div className="text-xs font-theme-data text-text-muted/60 italic py-2">
               Waiting for agents to cast votes...
             </div>
           )}
@@ -164,10 +164,10 @@ export function ConsensusMeter({ events, agents }: ConsensusMeterProps) {
           {Array.from(votesByChoice.entries()).map(([choice, choiceVotes]) => (
             <div key={choice} className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-acid-cyan truncate max-w-[120px]">
+                <span className="text-xs font-theme-data text-[var(--acid-cyan)] truncate max-w-[120px]">
                   {choice}
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   ({choiceVotes.length})
                 </span>
               </div>
@@ -178,7 +178,7 @@ export function ConsensusMeter({ events, agents }: ConsensusMeterProps) {
                   return (
                     <div
                       key={vote.agent}
-                      className={`px-2 py-0.5 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                      className={`px-2 py-0.5 text-xs font-theme-data ${colors.bg} ${colors.text} ${colors.border} border`}
                       title={`${vote.agent}: ${confidencePct}% confidence`}
                     >
                       <span>{vote.agent.split('-')[0]}</span>
@@ -193,15 +193,15 @@ export function ConsensusMeter({ events, agents }: ConsensusMeterProps) {
 
         {/* Consensus Result */}
         {consensusData?.reached && (
-          <div className="pt-2 border-t border-acid-green/20">
-            <div className="text-xs font-mono text-acid-green mb-1">CONSENSUS REACHED</div>
+          <div className="pt-2 border-t border-[var(--accent)]/20">
+            <div className="text-xs font-theme-data text-[var(--accent)] mb-1">CONSENSUS REACHED</div>
             {consensusData.answer && (
-              <div className="text-xs font-mono text-text-primary bg-acid-green/10 p-2 border border-acid-green/30">
+              <div className="text-xs font-theme-data text-text-primary bg-[var(--accent)]/10 p-2 border border-[var(--accent)]/30">
                 {consensusData.answer}
               </div>
             )}
             {consensusData.confidence !== undefined && (
-              <div className="text-xs font-mono text-text-muted mt-1">
+              <div className="text-xs font-theme-data text-text-muted mt-1">
                 Confidence: {(consensusData.confidence * 100).toFixed(0)}%
               </div>
             )}

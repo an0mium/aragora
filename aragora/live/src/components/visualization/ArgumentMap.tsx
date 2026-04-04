@@ -212,21 +212,21 @@ export function ArgumentMap({
   if (!data.nodes.length) {
     return (
       <div
-        className="flex items-center justify-center border border-acid-green/20 bg-surface/30"
+        className="flex items-center justify-center border border-[var(--accent)]/20 bg-surface/30"
         style={{ width, height }}
       >
         <div className="text-center text-text-muted">
-          <p className="text-sm font-mono">No argument graph data</p>
+          <p className="text-sm font-theme-data">No argument graph data</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative border border-acid-green/30 bg-bg overflow-hidden" style={{ width, height }}>
+    <div className="relative border border-[var(--accent)]/30 bg-bg overflow-hidden" style={{ width, height }}>
       {/* Legend */}
-      <div className="absolute top-2 left-2 z-10 bg-surface/90 border border-acid-green/20 p-2 text-xs font-mono">
-        <div className="text-acid-cyan mb-2">Node Types</div>
+      <div className="absolute top-2 left-2 z-10 bg-surface/90 border border-[var(--accent)]/20 p-2 text-xs font-theme-data">
+        <div className="text-[var(--acid-cyan)] mb-2">Node Types</div>
         <div className="grid grid-cols-2 gap-1">
           {(Object.keys(NODE_COLORS) as NodeType[]).map((type) => (
             <div key={type} className="flex items-center gap-1">
@@ -244,19 +244,19 @@ export function ArgumentMap({
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
           onClick={() => setTransform((t) => ({ ...t, k: Math.min(3, t.k * 1.2) }))}
-          className="w-8 h-8 bg-surface/90 border border-acid-green/20 text-acid-green hover:bg-surface"
+          className="w-8 h-8 bg-surface/90 border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-surface"
         >
           +
         </button>
         <button
           onClick={() => setTransform((t) => ({ ...t, k: Math.max(0.3, t.k * 0.8) }))}
-          className="w-8 h-8 bg-surface/90 border border-acid-green/20 text-acid-green hover:bg-surface"
+          className="w-8 h-8 bg-surface/90 border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-surface"
         >
           -
         </button>
         <button
           onClick={() => setTransform({ x: 0, y: 0, k: 1 })}
-          className="w-8 h-8 bg-surface/90 border border-acid-green/20 text-acid-green hover:bg-surface text-xs"
+          className="w-8 h-8 bg-surface/90 border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-surface text-xs"
         >
           R
         </button>
@@ -371,12 +371,12 @@ export function ArgumentMap({
 
       {/* Tooltip */}
       {hoveredNode && (
-        <div className="absolute bottom-2 left-2 right-2 z-10 bg-surface/95 border border-acid-green/30 p-3">
+        <div className="absolute bottom-2 left-2 right-2 z-10 bg-surface/95 border border-[var(--accent)]/30 p-3">
           {(() => {
             const node = data.nodes.find((n) => n.id === hoveredNode);
             if (!node) return null;
             return (
-              <div className="text-xs font-mono">
+              <div className="text-xs font-theme-data">
                 <div className="flex items-center gap-2 mb-1">
                   <span
                     className="px-2 py-0.5 rounded text-white"
@@ -384,7 +384,7 @@ export function ArgumentMap({
                   >
                     {node.node_type.toUpperCase()}
                   </span>
-                  <span className="text-acid-green font-bold">{node.agent}</span>
+                  <span className="text-[var(--accent)] font-bold">{node.agent}</span>
                   <span className="text-text-muted">Round {node.round_num}</span>
                 </div>
                 <p className="text-text truncate">{node.summary}</p>

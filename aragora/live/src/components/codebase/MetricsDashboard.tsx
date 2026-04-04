@@ -327,8 +327,8 @@ export function MetricsDashboard({
 
   if (isLoading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <div className="text-center py-8 text-text-muted font-mono text-sm animate-pulse">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm animate-pulse">
           Loading metrics dashboard...
         </div>
       </div>
@@ -338,13 +338,13 @@ export function MetricsDashboard({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-acid-green/30 p-4 bg-surface/50">
+      <div className="border-b border-[var(--accent)]/30 p-4 bg-surface/50">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-mono text-acid-green">Code Metrics</h2>
+            <h2 className="text-lg font-theme-data text-[var(--accent)]">Code Metrics</h2>
             {report && (
               <div className="text-xs text-text-muted mt-1">
-                Repository: <span className="text-acid-cyan">{report.repository}</span>
+                Repository: <span className="text-[var(--acid-cyan)]">{report.repository}</span>
               </div>
             )}
           </div>
@@ -357,10 +357,10 @@ export function MetricsDashboard({
             <button
               onClick={triggerAnalysis}
               disabled={isAnalyzing}
-              className={`px-4 py-2 text-sm font-mono rounded transition-colors ${
+              className={`px-4 py-2 text-sm font-theme-data rounded transition-colors ${
                 isAnalyzing
-                  ? 'bg-acid-green/20 text-acid-green/50 cursor-not-allowed'
-                  : 'bg-acid-green text-bg hover:bg-acid-green/80'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)]/50 cursor-not-allowed'
+                  : 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80'
               }`}
             >
               {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
@@ -374,10 +374,10 @@ export function MetricsDashboard({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-mono rounded-t transition-colors ${
+              className={`px-4 py-2 text-sm font-theme-data rounded-t transition-colors ${
                 activeTab === tab
-                  ? 'bg-acid-green/20 border border-acid-green text-acid-green border-b-0'
-                  : 'bg-surface/50 border border-acid-green/30 text-text-muted hover:text-acid-green'
+                  ? 'bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] border-b-0'
+                  : 'bg-surface/50 border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
               }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -387,7 +387,7 @@ export function MetricsDashboard({
       </div>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border-b border-red-500/30 text-red-400 text-sm font-mono">
+        <div className="p-3 bg-red-500/10 border-b border-red-500/30 text-red-400 text-sm font-theme-data">
           {error}
         </div>
       )}
@@ -399,26 +399,26 @@ export function MetricsDashboard({
           <div className="space-y-6">
             {/* Key Metrics Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 border border-acid-green/30 rounded bg-surface/30">
-                <div className="text-2xl font-mono text-acid-green">
+              <div className="p-4 border border-[var(--accent)]/30 rounded bg-surface/30">
+                <div className="text-2xl font-theme-data text-[var(--accent)]">
                   {formatNumber(report.summary.total_files)}
                 </div>
                 <div className="text-xs text-text-muted mt-1">Total Files</div>
               </div>
-              <div className="p-4 border border-acid-green/30 rounded bg-surface/30">
-                <div className="text-2xl font-mono text-acid-cyan">
+              <div className="p-4 border border-[var(--accent)]/30 rounded bg-surface/30">
+                <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                   {formatNumber(report.summary.total_code_lines)}
                 </div>
                 <div className="text-xs text-text-muted mt-1">Lines of Code</div>
               </div>
-              <div className="p-4 border border-acid-green/30 rounded bg-surface/30">
-                <div className="text-2xl font-mono text-purple-400">
+              <div className="p-4 border border-[var(--accent)]/30 rounded bg-surface/30">
+                <div className="text-2xl font-theme-data text-purple-400">
                   {report.summary.total_functions}
                 </div>
                 <div className="text-xs text-text-muted mt-1">Functions</div>
               </div>
-              <div className="p-4 border border-acid-green/30 rounded bg-surface/30">
-                <div className="text-2xl font-mono text-blue-400">
+              <div className="p-4 border border-[var(--accent)]/30 rounded bg-surface/30">
+                <div className="text-2xl font-theme-data text-blue-400">
                   {report.summary.total_classes}
                 </div>
                 <div className="text-xs text-text-muted mt-1">Classes</div>
@@ -426,10 +426,10 @@ export function MetricsDashboard({
             </div>
 
             {/* Maintainability Index */}
-            <div className="border border-acid-green/30 rounded p-4 bg-surface/30">
-              <h3 className="text-sm font-mono text-acid-green mb-4">Maintainability Index</h3>
+            <div className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">Maintainability Index</h3>
               <div className="flex items-center gap-6">
-                <div className={`text-5xl font-mono ${getMIColor(report.summary.maintainability_index)}`}>
+                <div className={`text-5xl font-theme-data ${getMIColor(report.summary.maintainability_index)}`}>
                   {report.summary.maintainability_index.toFixed(1)}
                 </div>
                 <div className="flex-1">
@@ -454,18 +454,18 @@ export function MetricsDashboard({
             </div>
 
             {/* Complexity */}
-            <div className="border border-acid-green/30 rounded p-4 bg-surface/30">
-              <h3 className="text-sm font-mono text-acid-green mb-4">Complexity</h3>
+            <div className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">Complexity</h3>
               <div className="grid grid-cols-2 gap-8">
                 <div>
                   <div className="text-xs text-text-muted mb-1">Average Cyclomatic</div>
-                  <div className="text-3xl font-mono text-acid-cyan">
+                  <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">
                     {report.summary.avg_complexity.toFixed(1)}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-text-muted mb-1">Maximum Complexity</div>
-                  <div className={`text-3xl font-mono ${
+                  <div className={`text-3xl font-theme-data ${
                     report.summary.max_complexity > 20 ? 'text-red-400' :
                     report.summary.max_complexity > 10 ? 'text-yellow-400' : 'text-green-400'
                   }`}>
@@ -476,8 +476,8 @@ export function MetricsDashboard({
             </div>
 
             {/* All Metrics */}
-            <div className="border border-acid-green/30 rounded p-4 bg-surface/30">
-              <h3 className="text-sm font-mono text-acid-green mb-4">Quality Metrics</h3>
+            <div className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">Quality Metrics</h3>
               <div className="space-y-3">
                 {report.metrics.map((metric, idx) => (
                   <div key={idx} className="flex items-center justify-between p-2 bg-bg/30 rounded">
@@ -491,7 +491,7 @@ export function MetricsDashboard({
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`font-mono ${getStatusColor(metric.status)}`}>
+                      <span className={`font-theme-data ${getStatusColor(metric.status)}`}>
                         {metric.value.toFixed(1)}
                       </span>
                       <span className="text-xs text-text-muted">{metric.unit}</span>
@@ -503,20 +503,20 @@ export function MetricsDashboard({
 
             {/* Quick Stats */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="border border-acid-green/30 rounded p-3 bg-surface/30 text-center">
-                <div className="text-lg font-mono text-acid-green">
+              <div className="border border-[var(--accent)]/30 rounded p-3 bg-surface/30 text-center">
+                <div className="text-lg font-theme-data text-[var(--accent)]">
                   {report.hotspots.length}
                 </div>
                 <div className="text-xs text-text-muted">Hotspots</div>
               </div>
-              <div className="border border-acid-green/30 rounded p-3 bg-surface/30 text-center">
-                <div className="text-lg font-mono text-orange-400">
+              <div className="border border-[var(--accent)]/30 rounded p-3 bg-surface/30 text-center">
+                <div className="text-lg font-theme-data text-orange-400">
                   {report.duplicates.length}
                 </div>
                 <div className="text-xs text-text-muted">Duplicate Blocks</div>
               </div>
-              <div className="border border-acid-green/30 rounded p-3 bg-surface/30 text-center">
-                <div className="text-lg font-mono text-blue-400">
+              <div className="border border-[var(--accent)]/30 rounded p-3 bg-surface/30 text-center">
+                <div className="text-lg font-theme-data text-blue-400">
                   {((report.summary.total_comment_lines / report.summary.total_code_lines) * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-text-muted">Documentation</div>
@@ -533,7 +533,7 @@ export function MetricsDashboard({
             </p>
 
             {report.hotspots.length === 0 ? (
-              <div className="text-center py-8 text-text-muted font-mono text-sm">
+              <div className="text-center py-8 text-text-muted font-theme-data text-sm">
                 No complexity hotspots detected.
               </div>
             ) : (
@@ -541,22 +541,22 @@ export function MetricsDashboard({
                 {report.hotspots.map((hotspot, idx) => (
                   <div
                     key={idx}
-                    className="border border-acid-green/30 rounded p-4 bg-surface/30"
+                    className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <div className="font-mono text-sm text-acid-cyan">
+                        <div className="font-theme-data text-sm text-[var(--acid-cyan)]">
                           {hotspot.file_path}:{hotspot.start_line}-{hotspot.end_line}
                         </div>
                         {hotspot.function_name && (
                           <div className="text-xs text-text-muted mt-1">
-                            Function: <span className="text-acid-green">{hotspot.function_name}</span>
+                            Function: <span className="text-[var(--accent)]">{hotspot.function_name}</span>
                             {hotspot.class_name && <span className="ml-2">in {hotspot.class_name}</span>}
                           </div>
                         )}
                       </div>
                       <div className="text-right">
-                        <div className={`text-2xl font-mono ${getRiskColor(hotspot.risk_score)}`}>
+                        <div className={`text-2xl font-theme-data ${getRiskColor(hotspot.risk_score)}`}>
                           {hotspot.risk_score.toFixed(0)}
                         </div>
                         <div className="text-xs text-text-muted">Risk Score</div>
@@ -566,7 +566,7 @@ export function MetricsDashboard({
                     <div className="grid grid-cols-4 gap-4 text-sm">
                       <div>
                         <div className="text-text-muted text-xs">Cyclomatic</div>
-                        <div className={`font-mono ${
+                        <div className={`font-theme-data ${
                           hotspot.complexity > 15 ? 'text-red-400' :
                           hotspot.complexity > 10 ? 'text-yellow-400' : 'text-green-400'
                         }`}>
@@ -575,15 +575,15 @@ export function MetricsDashboard({
                       </div>
                       <div>
                         <div className="text-text-muted text-xs">Cognitive</div>
-                        <div className="font-mono">{hotspot.cognitive_complexity || 'N/A'}</div>
+                        <div className="font-theme-data">{hotspot.cognitive_complexity || 'N/A'}</div>
                       </div>
                       <div>
                         <div className="text-text-muted text-xs">Lines</div>
-                        <div className="font-mono">{hotspot.lines_of_code}</div>
+                        <div className="font-theme-data">{hotspot.lines_of_code}</div>
                       </div>
                       <div>
                         <div className="text-text-muted text-xs">Changes</div>
-                        <div className="font-mono">{hotspot.change_frequency}</div>
+                        <div className="font-theme-data">{hotspot.change_frequency}</div>
                       </div>
                     </div>
 
@@ -593,7 +593,7 @@ export function MetricsDashboard({
                         {hotspot.contributors.map(contributor => (
                           <span
                             key={contributor}
-                            className="px-2 py-0.5 text-xs bg-acid-green/10 text-acid-green rounded"
+                            className="px-2 py-0.5 text-xs bg-[var(--accent)]/10 text-[var(--accent)] rounded"
                           >
                             {contributor}
                           </span>
@@ -615,7 +615,7 @@ export function MetricsDashboard({
             </p>
 
             {report.duplicates.length === 0 ? (
-              <div className="text-center py-8 text-text-muted font-mono text-sm">
+              <div className="text-center py-8 text-text-muted font-theme-data text-sm">
                 No significant code duplication detected.
               </div>
             ) : (
@@ -637,7 +637,7 @@ export function MetricsDashboard({
                             <span className="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">
                               {dup.lines} lines
                             </span>
-                            <span className="text-sm font-mono">
+                            <span className="text-sm font-theme-data">
                               Duplicated in {dup.occurrences.length} locations
                             </span>
                           </div>
@@ -648,14 +648,14 @@ export function MetricsDashboard({
                       </button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-4 border-t border-acid-green/20 pt-3">
+                        <div className="px-4 pb-4 border-t border-[var(--accent)]/20 pt-3">
                           <div className="space-y-2">
                             {dup.occurrences.map((occ, occIdx) => (
                               <div
                                 key={occIdx}
                                 className="flex items-center justify-between p-2 bg-bg/30 rounded text-sm"
                               >
-                                <span className="font-mono text-acid-cyan">{occ.file}</span>
+                                <span className="font-theme-data text-[var(--acid-cyan)]">{occ.file}</span>
                                 <span className="text-text-muted">
                                   Lines {occ.start}-{occ.end}
                                 </span>
@@ -680,11 +680,11 @@ export function MetricsDashboard({
             </p>
 
             {/* Line Distribution */}
-            <div className="border border-acid-green/30 rounded p-4 bg-surface/30">
-              <h3 className="text-sm font-mono text-acid-green mb-4">Line Distribution</h3>
+            <div className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">Line Distribution</h3>
               <div className="flex h-8 rounded overflow-hidden mb-3">
                 <div
-                  className="bg-acid-green"
+                  className="bg-[var(--accent)]"
                   style={{
                     width: `${(report.summary.total_code_lines / report.summary.total_lines) * 100}%`,
                   }}
@@ -707,7 +707,7 @@ export function MetricsDashboard({
               </div>
               <div className="flex gap-4 text-xs">
                 <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-acid-green rounded" />
+                  <span className="w-3 h-3 bg-[var(--accent)] rounded" />
                   <span>Code ({formatNumber(report.summary.total_code_lines)})</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -722,12 +722,12 @@ export function MetricsDashboard({
             </div>
 
             {/* Analysis Details */}
-            <div className="border border-acid-green/30 rounded p-4 bg-surface/30">
-              <h3 className="text-sm font-mono text-acid-green mb-3">Analysis Details</h3>
+            <div className="border border-[var(--accent)]/30 rounded p-4 bg-surface/30">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">Analysis Details</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-text-muted">Analysis ID:</span>
-                  <span className="ml-2 font-mono">{report.scan_id}</span>
+                  <span className="ml-2 font-theme-data">{report.scan_id}</span>
                 </div>
                 <div>
                   <span className="text-text-muted">Scanned:</span>
@@ -735,11 +735,11 @@ export function MetricsDashboard({
                 </div>
                 <div>
                   <span className="text-text-muted">Total Lines:</span>
-                  <span className="ml-2 font-mono">{formatNumber(report.summary.total_lines)}</span>
+                  <span className="ml-2 font-theme-data">{formatNumber(report.summary.total_lines)}</span>
                 </div>
                 <div>
                   <span className="text-text-muted">Files Analyzed:</span>
-                  <span className="ml-2 font-mono">{report.summary.total_files}</span>
+                  <span className="ml-2 font-theme-data">{report.summary.total_files}</span>
                 </div>
               </div>
             </div>

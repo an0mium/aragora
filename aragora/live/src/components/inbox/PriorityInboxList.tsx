@@ -188,11 +188,11 @@ export function PriorityInboxList({
 
   if (isLoading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <h3 className="text-acid-green font-mono text-sm mb-4">AI Priority Inbox</h3>
-        <div className="text-center py-8 text-text-muted font-mono text-sm">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">AI Priority Inbox</h3>
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm">
           <div className="animate-pulse mb-2">Analyzing emails with AI...</div>
-          <div className="text-xs text-acid-green/60">3-tier prioritization in progress</div>
+          <div className="text-xs text-[var(--accent)]/60">3-tier prioritization in progress</div>
         </div>
       </div>
     );
@@ -200,14 +200,14 @@ export function PriorityInboxList({
 
   if (error) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <h3 className="text-acid-green font-mono text-sm mb-4">AI Priority Inbox</h3>
-        <div className="text-center py-8 text-red-400 font-mono text-sm">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">AI Priority Inbox</h3>
+        <div className="text-center py-8 text-red-400 font-theme-data text-sm">
           {error}
         </div>
         <button
           onClick={() => fetchEmails()}
-          className="mt-4 w-full px-3 py-2 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 rounded"
+          className="mt-4 w-full px-3 py-2 text-sm font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded"
         >
           Retry
         </button>
@@ -217,9 +217,9 @@ export function PriorityInboxList({
 
   if (emails.length === 0) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <h3 className="text-acid-green font-mono text-sm mb-4">AI Priority Inbox</h3>
-        <div className="text-center py-8 text-text-muted font-mono text-sm">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">AI Priority Inbox</h3>
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm">
           No emails to prioritize. Sync your inbox first.
         </div>
       </div>
@@ -227,20 +227,20 @@ export function PriorityInboxList({
   }
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-acid-green font-mono text-sm">AI Priority Inbox</h3>
+        <h3 className="text-[var(--accent)] font-theme-data text-sm">AI Priority Inbox</h3>
         <div className="flex items-center gap-2">
           {processingTime && (
-            <span className="text-xs text-text-muted font-mono">
+            <span className="text-xs text-text-muted font-theme-data">
               {processingTime}ms
             </span>
           )}
           <button
             onClick={() => fetchEmails(true)}
             disabled={isRefreshing}
-            className="px-2 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 disabled:opacity-50 rounded"
+            className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50 rounded"
           >
             {isRefreshing ? '...' : '↻'}
           </button>
@@ -249,8 +249,8 @@ export function PriorityInboxList({
 
       {/* Tier Summary */}
       {tiersSummary && (
-        <div className="mb-4 flex gap-2 text-xs font-mono">
-          <span className="px-2 py-1 bg-acid-green/10 border border-acid-green/20 rounded text-acid-green">
+        <div className="mb-4 flex gap-2 text-xs font-theme-data">
+          <span className="px-2 py-1 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded text-[var(--accent)]">
             T1: {tiersSummary.tier_1_count}
           </span>
           <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-blue-400">
@@ -266,10 +266,10 @@ export function PriorityInboxList({
       <div className="mb-4 flex flex-wrap gap-1">
         <button
           onClick={() => setFilter('all')}
-          className={`px-2 py-1 text-xs font-mono rounded ${
+          className={`px-2 py-1 text-xs font-theme-data rounded ${
             filter === 'all'
-              ? 'bg-acid-green/20 border border-acid-green text-acid-green'
-              : 'bg-surface border border-acid-green/30 text-text-muted hover:text-acid-green'
+              ? 'bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)]'
+              : 'bg-surface border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
           }`}
         >
           All ({emails.length})
@@ -278,10 +278,10 @@ export function PriorityInboxList({
           <button
             key={priority}
             onClick={() => setFilter(priority)}
-            className={`px-2 py-1 text-xs font-mono rounded flex items-center gap-1 ${
+            className={`px-2 py-1 text-xs font-theme-data rounded flex items-center gap-1 ${
               filter === priority
                 ? PRIORITY_CONFIG[priority].color + ' border'
-                : 'bg-surface border border-acid-green/30 text-text-muted hover:text-acid-green'
+                : 'bg-surface border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
             }`}
           >
             <span>{PRIORITY_CONFIG[priority].icon}</span>
@@ -300,22 +300,22 @@ export function PriorityInboxList({
               onClick={() => setSelectedEmail(selectedEmail?.id === email.id ? null : email)}
               className={`border rounded cursor-pointer transition-all ${
                 selectedEmail?.id === email.id
-                  ? 'bg-acid-green/10 border-acid-green'
-                  : 'border-acid-green/20 bg-bg/30 hover:bg-bg/50'
+                  ? 'bg-[var(--accent)]/10 border-[var(--accent)]'
+                  : 'border-[var(--accent)]/20 bg-bg/30 hover:bg-bg/50'
               }`}
             >
               <div className="p-3">
                 <div className="flex items-start justify-between mb-1 gap-2">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className={`px-1.5 py-0.5 text-xs font-mono rounded ${config.color}`}>
+                    <span className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${config.color}`}>
                       {config.icon}
                     </span>
-                    <span className="text-text font-mono text-sm truncate flex-1">
+                    <span className="text-text font-theme-data text-sm truncate flex-1">
                       {email.subject || '(No subject)'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-xs font-mono ${config.color.split(' ')[0]}`}>
+                    <span className={`text-xs font-theme-data ${config.color.split(' ')[0]}`}>
                       {Math.round(email.confidence * 100)}%
                     </span>
                     <span className="text-text-muted text-xs">T{email.tier_used}</span>
@@ -351,10 +351,10 @@ export function PriorityInboxList({
 
               {/* Expanded View */}
               {selectedEmail?.id === email.id && (
-                <div className="border-t border-acid-green/20 p-3 bg-surface/30">
+                <div className="border-t border-[var(--accent)]/20 p-3 bg-surface/30">
                   {email.rationale && (
                     <div className="mb-3">
-                      <span className="text-acid-green text-xs font-mono">AI Rationale:</span>
+                      <span className="text-[var(--accent)] text-xs font-theme-data">AI Rationale:</span>
                       <p className="text-text-muted text-xs mt-1">{email.rationale}</p>
                     </div>
                   )}
@@ -387,7 +387,7 @@ export function PriorityInboxList({
                         e.stopPropagation();
                         setModalEmailId(email.id);
                       }}
-                      className="px-3 py-1 text-xs bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 rounded font-mono"
+                      className="px-3 py-1 text-xs bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 rounded font-theme-data"
                     >
                       View Full Email
                     </button>

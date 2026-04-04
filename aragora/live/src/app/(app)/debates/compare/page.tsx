@@ -145,27 +145,27 @@ function DebatePackageCard({
     <section className={`border ${accentBorder} bg-[var(--surface)] p-5`}>
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <div className={`text-xs font-mono ${accent} mb-1`}>{label}</div>
+          <div className={`text-xs font-theme-data ${accent} mb-1`}>{label}</div>
           <Link
             href={`/debates/${debateId}`}
-            className="text-sm font-mono text-[var(--acid-green)] hover:text-[var(--acid-cyan)] transition-colors"
+            className="text-sm font-theme-data text-[var(--acid-green)] hover:text-[var(--acid-cyan)] transition-colors"
           >
             {debateId}
           </Link>
         </div>
-        <div className="text-xs font-mono text-[var(--text-muted)]">
+        <div className="text-xs font-theme-data text-[var(--text-muted)]">
           {new Date(pkg.created_at).toLocaleString()}
         </div>
       </div>
 
-      <h2 className="text-lg font-mono text-[var(--text)] mb-3">{pkg.question}</h2>
+      <h2 className="text-lg font-theme-data text-[var(--text)] mb-3">{pkg.question}</h2>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className={`px-2 py-1 text-xs font-mono border ${accentBorder} ${accent}`}>
+        <span className={`px-2 py-1 text-xs font-theme-data border ${accentBorder} ${accent}`}>
           {pkg.verdict || 'UNKNOWN'}
         </span>
         <span
-          className={`px-2 py-1 text-xs font-mono border ${
+          className={`px-2 py-1 text-xs font-theme-data border ${
             pkg.consensus_reached
               ? 'border-[var(--acid-green)]/40 text-[var(--acid-green)]'
               : 'border-[var(--warning)]/40 text-[var(--warning)]'
@@ -173,12 +173,12 @@ function DebatePackageCard({
         >
           {pkg.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
         </span>
-        <span className="px-2 py-1 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)]">
+        <span className="px-2 py-1 text-xs font-theme-data border border-[var(--border)] text-[var(--text-muted)]">
           {formatConfidence(pkg.confidence)} confidence
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-5 text-xs font-mono">
+      <div className="grid grid-cols-2 gap-3 mb-5 text-xs font-theme-data">
         <div className="border border-[var(--border)] bg-[var(--bg)] p-3">
           <div className="text-[var(--text-muted)] mb-1">Agents</div>
           <div className="text-[var(--text)]">{pkg.agents.length}</div>
@@ -198,7 +198,7 @@ function DebatePackageCard({
       </div>
 
       <div className="mb-5">
-        <div className="text-xs font-mono text-[var(--text-muted)] mb-2">AGENT CONFIGURATION</div>
+        <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">AGENT CONFIGURATION</div>
         <div className="flex flex-wrap gap-2">
           {pkg.agents.length > 0 ? (
             pkg.agents.map((agent) => {
@@ -206,14 +206,14 @@ function DebatePackageCard({
               return (
                 <span
                   key={agent}
-                  className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text}`}
+                  className={`px-2 py-1 text-xs font-theme-data ${colors.bg} ${colors.text}`}
                 >
                   {agent}
                 </span>
               );
             })
           ) : (
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               No agent roster recorded.
             </span>
           )}
@@ -221,7 +221,7 @@ function DebatePackageCard({
       </div>
 
       <div className="mb-5">
-        <div className="text-xs font-mono text-[var(--text-muted)] mb-2">FINAL ANSWER</div>
+        <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">FINAL ANSWER</div>
         <div className="border border-[var(--border)] bg-[var(--bg)] p-4 text-sm whitespace-pre-wrap">
           {pkg.final_answer || 'No final answer recorded.'}
         </div>
@@ -229,7 +229,7 @@ function DebatePackageCard({
 
       {pkg.explanation && (
         <div className="mb-5">
-          <div className="text-xs font-mono text-[var(--text-muted)] mb-2">RATIONALE SNAPSHOT</div>
+          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">RATIONALE SNAPSHOT</div>
           <div className="border border-[var(--border)] bg-[var(--bg)] p-4 text-sm whitespace-pre-wrap">
             {pkg.explanation}
           </div>
@@ -237,7 +237,7 @@ function DebatePackageCard({
       )}
 
       <div>
-        <div className="text-xs font-mono text-[var(--text-muted)] mb-2">NEXT STEPS</div>
+        <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">NEXT STEPS</div>
         {pkg.next_steps.length > 0 ? (
           <div className="space-y-2">
             {pkg.next_steps.map((step, index) => (
@@ -245,7 +245,7 @@ function DebatePackageCard({
                 key={`${step.action}-${index}`}
                 className="border border-[var(--border)] bg-[var(--bg)] p-3"
               >
-                <div className="text-[10px] font-mono text-[var(--acid-cyan)] mb-1">
+                <div className="text-[10px] font-theme-data text-[var(--acid-cyan)] mb-1">
                   {step.priority.toUpperCase()}
                 </div>
                 <div className="text-sm">{step.action}</div>
@@ -253,7 +253,7 @@ function DebatePackageCard({
             ))}
           </div>
         ) : (
-          <div className="text-xs font-mono text-[var(--text-muted)]">
+          <div className="text-xs font-theme-data text-[var(--text-muted)]">
             No next steps recorded.
           </div>
         )}
@@ -370,7 +370,7 @@ export default function DebateComparePage() {
 
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="container mx-auto px-4 py-6">
-          <div className="mb-4 text-xs font-mono text-[var(--text-muted)]">
+          <div className="mb-4 text-xs font-theme-data text-[var(--text-muted)]">
             <Link href="/debates" className="hover:text-[var(--acid-green)] transition-colors">
               Debates
             </Link>
@@ -381,17 +381,17 @@ export default function DebateComparePage() {
           <div className="border border-[var(--acid-cyan)]/30 bg-[var(--surface)] p-6 mb-6">
             <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-cyan)] mb-2">
+                <h1 className="text-xl font-theme-data text-[var(--acid-cyan)] mb-2">
                   {'>'} DEBATE RESULT COMPARISON
                 </h1>
-                <p className="text-sm font-mono text-[var(--text-muted)] max-w-3xl">
+                <p className="text-sm font-theme-data text-[var(--text-muted)] max-w-3xl">
                   Load two completed debate runs side by side to see how agent
                   rosters, confidence, and final outcomes changed.
                 </p>
               </div>
               <Link
                 href="/debates"
-                className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors"
+                className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors"
               >
                 BACK TO ARCHIVE
               </Link>
@@ -405,33 +405,33 @@ export default function DebateComparePage() {
               }}
             >
               <label className="block">
-                <span className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+                <span className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                   LEFT DEBATE ID
                 </span>
                 <input
                   value={leftInput}
                   onChange={(event) => setLeftInput(event.target.value)}
                   placeholder="debate-123"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-mono text-[var(--text)] focus:outline-none focus:border-[var(--acid-cyan)]/50"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-theme-data text-[var(--text)] focus:outline-none focus:border-[var(--acid-cyan)]/50"
                 />
               </label>
 
               <label className="block">
-                <span className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+                <span className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                   RIGHT DEBATE ID
                 </span>
                 <input
                   value={rightInput}
                   onChange={(event) => setRightInput(event.target.value)}
                   placeholder="debate-456"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-mono text-[var(--text)] focus:outline-none focus:border-[var(--acid-cyan)]/50"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] px-3 py-2 text-sm font-theme-data text-[var(--text)] focus:outline-none focus:border-[var(--acid-cyan)]/50"
                 />
               </label>
 
               <button
                 type="button"
                 onClick={swapSides}
-                className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors self-end"
+                className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors self-end"
               >
                 SWAP
               </button>
@@ -439,37 +439,37 @@ export default function DebateComparePage() {
               <button
                 type="submit"
                 disabled={!readyToCompare}
-                className="px-4 py-2 text-xs font-mono bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
               >
                 LOAD COMPARISON
               </button>
             </form>
 
             {!readyToCompare && leftInput && rightInput && trimId(leftInput) === trimId(rightInput) && (
-              <div className="mt-3 text-xs font-mono text-[var(--warning)]">
+              <div className="mt-3 text-xs font-theme-data text-[var(--warning)]">
                 Select two different debate IDs to compare.
               </div>
             )}
           </div>
 
           {loading && (
-            <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)] p-8 text-center text-sm font-mono text-[var(--acid-green)] animate-pulse">
+            <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)] p-8 text-center text-sm font-theme-data text-[var(--acid-green)] animate-pulse">
               {'>'} LOADING DEBATE PACKAGES...
             </div>
           )}
 
           {!loading && error && (
-            <div className="border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-sm font-mono text-[var(--warning)]">
+            <div className="border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-4 text-sm font-theme-data text-[var(--warning)]">
               {error}
             </div>
           )}
 
           {!loading && !error && (!leftPkg || !rightPkg) && (
             <div className="border border-[var(--border)] bg-[var(--surface)] p-8 text-center">
-              <div className="text-sm font-mono text-[var(--text)] mb-2">
+              <div className="text-sm font-theme-data text-[var(--text)] mb-2">
                 Pick two debates to unlock the side-by-side view.
               </div>
-              <div className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-xs font-theme-data text-[var(--text-muted)]">
                 Start from the archive&apos;s compare queue or paste two debate IDs above.
               </div>
             </div>
@@ -485,7 +485,7 @@ export default function DebateComparePage() {
                 }`}
               >
                 <div
-                  className={`text-xs font-mono mb-2 ${
+                  className={`text-xs font-theme-data mb-2 ${
                     outcomeShift ? 'text-[var(--acid-cyan)]' : 'text-[var(--acid-green)]'
                   }`}
                 >
@@ -499,11 +499,11 @@ export default function DebateComparePage() {
               </div>
 
               <div className="border border-[var(--border)] bg-[var(--surface)] p-5 overflow-x-auto">
-                <div className="text-xs font-mono text-[var(--text-muted)] mb-4">
+                <div className="text-xs font-theme-data text-[var(--text-muted)] mb-4">
                   CONFIGURATION DELTA
                 </div>
                 <div className="min-w-[640px]">
-                  <div className="grid grid-cols-[minmax(120px,1.2fr)_1fr_1fr_1fr] gap-3 text-xs font-mono text-[var(--text-muted)] mb-2">
+                  <div className="grid grid-cols-[minmax(120px,1.2fr)_1fr_1fr_1fr] gap-3 text-xs font-theme-data text-[var(--text-muted)] mb-2">
                     <div>Metric</div>
                     <div>Left</div>
                     <div>Right</div>
@@ -514,10 +514,10 @@ export default function DebateComparePage() {
                       key={row.label}
                       className="grid grid-cols-[minmax(120px,1.2fr)_1fr_1fr_1fr] gap-3 py-3 border-t border-[var(--border)] text-sm"
                     >
-                      <div className="font-mono text-[var(--text-muted)]">{row.label}</div>
+                      <div className="font-theme-data text-[var(--text-muted)]">{row.label}</div>
                       <div>{row.left}</div>
                       <div>{row.right}</div>
-                      <div className="text-[var(--acid-cyan)] font-mono">{row.delta}</div>
+                      <div className="text-[var(--acid-cyan)] font-theme-data">{row.delta}</div>
                     </div>
                   ))}
                 </div>
@@ -525,57 +525,57 @@ export default function DebateComparePage() {
 
               <div className="grid gap-4 lg:grid-cols-3">
                 <div className="border border-[var(--border)] bg-[var(--surface)] p-4">
-                  <div className="text-xs font-mono text-[var(--text-muted)] mb-2">SHARED AGENTS</div>
+                  <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">SHARED AGENTS</div>
                   <div className="flex flex-wrap gap-2">
                     {agentDiff.shared.length > 0 ? (
                       agentDiff.shared.map((agent) => (
                         <span
                           key={agent}
-                          className="px-2 py-1 text-xs font-mono border border-[var(--border)] bg-[var(--bg)]"
+                          className="px-2 py-1 text-xs font-theme-data border border-[var(--border)] bg-[var(--bg)]"
                         >
                           {agent}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         No overlap
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="border border-[var(--border)] bg-[var(--surface)] p-4">
-                  <div className="text-xs font-mono text-[var(--text-muted)] mb-2">LEFT ONLY</div>
+                  <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">LEFT ONLY</div>
                   <div className="flex flex-wrap gap-2">
                     {agentDiff.leftOnly.length > 0 ? (
                       agentDiff.leftOnly.map((agent) => (
                         <span
                           key={agent}
-                          className="px-2 py-1 text-xs font-mono border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 text-[var(--acid-green)]"
+                          className="px-2 py-1 text-xs font-theme-data border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 text-[var(--acid-green)]"
                         >
                           {agent}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         None
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="border border-[var(--border)] bg-[var(--surface)] p-4">
-                  <div className="text-xs font-mono text-[var(--text-muted)] mb-2">RIGHT ONLY</div>
+                  <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">RIGHT ONLY</div>
                   <div className="flex flex-wrap gap-2">
                     {agentDiff.rightOnly.length > 0 ? (
                       agentDiff.rightOnly.map((agent) => (
                         <span
                           key={agent}
-                          className="px-2 py-1 text-xs font-mono border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)]"
+                          className="px-2 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)]"
                         >
                           {agent}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         None
                       </span>
                     )}

@@ -116,7 +116,7 @@ export function RoleMatrixViewer({
     return (
       <div className={`card p-8 ${className}`}>
         <div className="flex items-center justify-center">
-          <div className="font-mono text-text-muted animate-pulse">Loading permission matrix...</div>
+          <div className="font-theme-data text-text-muted animate-pulse">Loading permission matrix...</div>
         </div>
       </div>
     );
@@ -125,11 +125,11 @@ export function RoleMatrixViewer({
   return (
     <div className={`card overflow-hidden ${className}`}>
       {/* Header */}
-      <div className="p-4 border-b border-acid-green/20">
+      <div className="p-4 border-b border-[var(--accent)]/20">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-mono text-lg text-acid-green">PERMISSION MATRIX</h3>
+          <h3 className="font-theme-data text-lg text-[var(--accent)]">PERMISSION MATRIX</h3>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-text-muted">
+            <span className="font-theme-data text-xs text-text-muted">
               {roles.length} roles / {permissions.length} permissions
             </span>
           </div>
@@ -142,14 +142,14 @@ export function RoleMatrixViewer({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search permissions..."
-            className="flex-1 max-w-xs px-3 py-2 bg-surface-elevated border border-acid-green/30 rounded font-mono text-sm text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+            className="flex-1 max-w-xs px-3 py-2 bg-surface-elevated border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
           />
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSelectedResource(null)}
-              className={`px-2 py-1 font-mono text-xs rounded transition-colors ${
+              className={`px-2 py-1 font-theme-data text-xs rounded transition-colors ${
                 !selectedResource
-                  ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -159,7 +159,7 @@ export function RoleMatrixViewer({
               <button
                 key={resource}
                 onClick={() => setSelectedResource(selectedResource === resource ? null : resource)}
-                className={`px-2 py-1 font-mono text-xs rounded transition-colors ${
+                className={`px-2 py-1 font-theme-data text-xs rounded transition-colors ${
                   selectedResource === resource
                     ? `bg-${getResourceColor(resource)}/20 text-${getResourceColor(resource)} border border-${getResourceColor(resource)}/40`
                     : 'text-text-muted hover:text-text'
@@ -169,7 +169,7 @@ export function RoleMatrixViewer({
               </button>
             ))}
             {resources.length > 6 && (
-              <span className="font-mono text-xs text-text-muted">+{resources.length - 6}</span>
+              <span className="font-theme-data text-xs text-text-muted">+{resources.length - 6}</span>
             )}
           </div>
         </div>
@@ -180,20 +180,20 @@ export function RoleMatrixViewer({
         <table className="w-full border-collapse">
           <thead className="bg-surface sticky top-0 z-10">
             <tr>
-              <th className="text-left px-4 py-3 font-mono text-xs text-text-muted border-b border-acid-green/20 min-w-[200px]">
+              <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted border-b border-[var(--accent)]/20 min-w-[200px]">
                 PERMISSION
               </th>
               {roles.map((role) => (
                 <th
                   key={role.id}
-                  className="px-3 py-3 font-mono text-xs text-text-muted border-b border-acid-green/20 text-center cursor-pointer hover:text-acid-green transition-colors min-w-[80px]"
+                  className="px-3 py-3 font-theme-data text-xs text-text-muted border-b border-[var(--accent)]/20 text-center cursor-pointer hover:text-[var(--accent)] transition-colors min-w-[80px]"
                   onClick={() => onRoleClick?.(role)}
                   title={role.description}
                 >
                   <div className="flex flex-col items-center gap-1">
                     <span>{role.name.toUpperCase()}</span>
                     {role.isBuiltin && (
-                      <span className="text-[10px] text-acid-cyan">BUILTIN</span>
+                      <span className="text-[10px] text-[var(--acid-cyan)]">BUILTIN</span>
                     )}
                   </div>
                 </th>
@@ -207,7 +207,7 @@ export function RoleMatrixViewer({
                   <tr className="bg-surface-elevated/50">
                     <td
                       colSpan={roles.length + 1}
-                      className={`px-4 py-2 font-mono text-xs text-${getResourceColor(resource)} border-b border-acid-green/10`}
+                      className={`px-4 py-2 font-theme-data text-xs text-${getResourceColor(resource)} border-b border-[var(--accent)]/10`}
                     >
                       {resource.toUpperCase()} ({perms.length})
                     </td>
@@ -216,17 +216,17 @@ export function RoleMatrixViewer({
                 {perms.map((permission) => (
                   <tr
                     key={permission.id}
-                    className="border-b border-acid-green/5 hover:bg-surface/50"
+                    className="border-b border-[var(--accent)]/5 hover:bg-surface/50"
                   >
                     <td
-                      className="px-4 py-2 font-mono text-sm cursor-pointer hover:text-acid-green transition-colors"
+                      className="px-4 py-2 font-theme-data text-sm cursor-pointer hover:text-[var(--accent)] transition-colors"
                       onClick={() => onPermissionClick?.(permission)}
                       title={permission.description}
                     >
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full bg-${getResourceColor(permission.resource)}`} />
                         <span className="text-text">{permission.resource}:</span>
-                        <span className="text-acid-cyan">{permission.action}</span>
+                        <span className="text-[var(--acid-cyan)]">{permission.action}</span>
                       </div>
                     </td>
                     {roles.map((role) => {
@@ -244,7 +244,7 @@ export function RoleMatrixViewer({
                         >
                           {has ? (
                             <span
-                              className={`inline-block w-6 h-6 rounded bg-acid-green/20 border border-acid-green/40 text-acid-green text-xs leading-6 ${
+                              className={`inline-block w-6 h-6 rounded bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] text-xs leading-6 ${
                                 isHovered ? 'ring-2 ring-acid-green/60' : ''
                               }`}
                               title="Has permission"
@@ -253,7 +253,7 @@ export function RoleMatrixViewer({
                             </span>
                           ) : inherited ? (
                             <span
-                              className={`inline-block w-6 h-6 rounded bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan text-xs leading-6 ${
+                              className={`inline-block w-6 h-6 rounded bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] text-xs leading-6 ${
                                 isHovered ? 'ring-2 ring-acid-cyan/60' : ''
                               }`}
                               title={`Inherited from ${inherited.name}`}
@@ -262,7 +262,7 @@ export function RoleMatrixViewer({
                             </span>
                           ) : (
                             <span
-                              className={`inline-block w-6 h-6 rounded bg-surface-elevated border border-acid-green/10 text-text-muted text-xs leading-6 ${
+                              className={`inline-block w-6 h-6 rounded bg-surface-elevated border border-[var(--accent)]/10 text-text-muted text-xs leading-6 ${
                                 isHovered ? 'ring-2 ring-acid-green/20' : ''
                               }`}
                               title="No permission"
@@ -282,23 +282,23 @@ export function RoleMatrixViewer({
       </div>
 
       {/* Legend */}
-      <div className="p-4 border-t border-acid-green/20 bg-surface">
-        <div className="flex items-center gap-6 font-mono text-xs">
+      <div className="p-4 border-t border-[var(--accent)]/20 bg-surface">
+        <div className="flex items-center gap-6 font-theme-data text-xs">
           <span className="text-text-muted">LEGEND:</span>
           <div className="flex items-center gap-2">
-            <span className="inline-block w-5 h-5 rounded bg-acid-green/20 border border-acid-green/40 text-acid-green text-[10px] leading-5 text-center">
+            <span className="inline-block w-5 h-5 rounded bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] text-[10px] leading-5 text-center">
               Y
             </span>
             <span className="text-text-muted">Direct</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-block w-5 h-5 rounded bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan text-[10px] leading-5 text-center">
+            <span className="inline-block w-5 h-5 rounded bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] text-[10px] leading-5 text-center">
               ^
             </span>
             <span className="text-text-muted">Inherited</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-block w-5 h-5 rounded bg-surface-elevated border border-acid-green/10 text-text-muted text-[10px] leading-5 text-center">
+            <span className="inline-block w-5 h-5 rounded bg-surface-elevated border border-[var(--accent)]/10 text-text-muted text-[10px] leading-5 text-center">
               -
             </span>
             <span className="text-text-muted">None</span>

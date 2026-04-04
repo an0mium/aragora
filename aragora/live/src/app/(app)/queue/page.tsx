@@ -43,13 +43,13 @@ interface Job {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'text-acid-yellow',
-  running: 'text-acid-cyan animate-pulse',
-  completed: 'text-acid-green',
-  failed: 'text-crimson',
+  pending: 'text-[var(--acid-yellow)]',
+  running: 'text-[var(--acid-cyan)] animate-pulse',
+  completed: 'text-[var(--accent)]',
+  failed: 'text-[var(--crimson)]',
   cancelled: 'text-text-muted',
-  idle: 'text-acid-green',
-  busy: 'text-acid-cyan',
+  idle: 'text-[var(--accent)]',
+  busy: 'text-[var(--acid-cyan)]',
   offline: 'text-text-muted',
 };
 
@@ -166,7 +166,7 @@ export default function QueuePage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -182,24 +182,24 @@ export default function QueuePage() {
           {/* Title */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-2xl font-mono font-bold text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data font-bold text-[var(--accent)] mb-2">
                 [QUEUE_MONITOR]
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Job queue status and worker management
               </p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowSubmitModal(true)}
-                className="px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+                className="px-4 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
               >
                 [+ SUBMIT JOB]
               </button>
               <button
                 onClick={fetchData}
                 disabled={refreshing}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
               >
                 {refreshing ? '[REFRESHING...]' : '[REFRESH]'}
               </button>
@@ -213,7 +213,7 @@ export default function QueuePage() {
           <PanelErrorBoundary panelName="Queue Data">
             {loading ? (
               <div className="text-center py-12">
-                <div className="text-acid-green font-mono animate-pulse">
+                <div className="text-[var(--accent)] font-theme-data animate-pulse">
                   Loading queue data...
                 </div>
               </div>
@@ -222,32 +222,32 @@ export default function QueuePage() {
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-acid-yellow">{stats?.pending || 0}</div>
-                    <div className="text-xs font-mono text-text-muted">Pending</div>
+                    <div className="text-3xl font-theme-data text-[var(--acid-yellow)]">{stats?.pending || 0}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Pending</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-acid-cyan">{stats?.running || 0}</div>
-                    <div className="text-xs font-mono text-text-muted">Running</div>
+                    <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">{stats?.running || 0}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Running</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-acid-green">{stats?.completed || 0}</div>
-                    <div className="text-xs font-mono text-text-muted">Completed</div>
+                    <div className="text-3xl font-theme-data text-[var(--accent)]">{stats?.completed || 0}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Completed</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-crimson">{stats?.failed || 0}</div>
-                    <div className="text-xs font-mono text-text-muted">Failed</div>
+                    <div className="text-3xl font-theme-data text-[var(--crimson)]">{stats?.failed || 0}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Failed</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-text">{stats?.total || 0}</div>
-                    <div className="text-xs font-mono text-text-muted">Total</div>
+                    <div className="text-3xl font-theme-data text-text">{stats?.total || 0}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Total</div>
                   </div>
                 </div>
 
                 {/* Workers Section */}
                 <div className="card p-4 mb-8">
-                  <h2 className="text-lg font-mono font-bold text-acid-green mb-4">[WORKERS]</h2>
+                  <h2 className="text-lg font-theme-data font-bold text-[var(--accent)] mb-4">[WORKERS]</h2>
                   {workers.length === 0 ? (
-                    <div className="text-text-muted font-mono text-sm">
+                    <div className="text-text-muted font-theme-data text-sm">
                       No workers registered. Redis queue may not be configured.
                     </div>
                   ) : (
@@ -255,16 +255,16 @@ export default function QueuePage() {
                       {workers.map((worker) => (
                         <div key={worker.id} className="bg-bg p-3 rounded border border-border">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="font-mono text-sm truncate">{worker.id}</span>
-                            <span className={`font-mono text-xs uppercase ${statusColors[worker.status]}`}>
+                            <span className="font-theme-data text-sm truncate">{worker.id}</span>
+                            <span className={`font-theme-data text-xs uppercase ${statusColors[worker.status]}`}>
                               {worker.status}
                             </span>
                           </div>
-                          <div className="text-xs text-text-muted font-mono">
+                          <div className="text-xs text-text-muted font-theme-data">
                             Jobs processed: {worker.jobs_processed}
                           </div>
                           {worker.current_job_id && (
-                            <div className="text-xs text-acid-cyan font-mono mt-1">
+                            <div className="text-xs text-[var(--acid-cyan)] font-theme-data mt-1">
                               Current: {worker.current_job_id}
                             </div>
                           )}
@@ -277,16 +277,16 @@ export default function QueuePage() {
                 {/* Jobs Section */}
                 <div className="card p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-mono font-bold text-acid-green">[JOBS]</h2>
+                    <h2 className="text-lg font-theme-data font-bold text-[var(--accent)]">[JOBS]</h2>
                     <div className="flex gap-2">
                       {['all', 'pending', 'running', 'completed', 'failed'].map((status) => (
                         <button
                           key={status}
                           onClick={() => setStatusFilter(status)}
-                          className={`px-3 py-1 font-mono text-xs border transition-colors ${
+                          className={`px-3 py-1 font-theme-data text-xs border transition-colors ${
                             statusFilter === status
-                              ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                              : 'border-border text-text-muted hover:border-acid-green/50'
+                              ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                              : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                           }`}
                         >
                           {status.toUpperCase()}
@@ -296,12 +296,12 @@ export default function QueuePage() {
                   </div>
 
                   {filteredJobs.length === 0 ? (
-                    <div className="text-text-muted font-mono text-sm text-center py-8">
+                    <div className="text-text-muted font-theme-data text-sm text-center py-8">
                       No jobs found{statusFilter !== 'all' ? ` with status "${statusFilter}"` : ''}.
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full font-mono text-sm">
+                      <table className="w-full font-theme-data text-sm">
                         <thead>
                           <tr className="border-b border-border">
                             <th className="text-left py-2 px-2 text-text-muted">ID</th>
@@ -331,7 +331,7 @@ export default function QueuePage() {
                                   {job.status === 'failed' && (
                                     <button
                                       onClick={() => handleRetryJob(job.id)}
-                                      className="text-acid-cyan hover:text-acid-green text-xs"
+                                      className="text-[var(--acid-cyan)] hover:text-[var(--accent)] text-xs"
                                     >
                                       [RETRY]
                                     </button>
@@ -339,7 +339,7 @@ export default function QueuePage() {
                                   {(job.status === 'pending' || job.status === 'running') && (
                                     <button
                                       onClick={() => handleCancelJob(job.id)}
-                                      className="text-crimson hover:text-crimson/80 text-xs"
+                                      className="text-[var(--crimson)] hover:text-[var(--crimson)]/80 text-xs"
                                     >
                                       [CANCEL]
                                     </button>
@@ -358,14 +358,14 @@ export default function QueuePage() {
                 {stats?.avg_wait_time_ms !== undefined && (
                   <div className="grid grid-cols-2 gap-4 mt-8">
                     <div className="card p-4">
-                      <div className="text-text-muted font-mono text-xs mb-1">Avg Wait Time</div>
-                      <div className="text-xl font-mono text-acid-green">
+                      <div className="text-text-muted font-theme-data text-xs mb-1">Avg Wait Time</div>
+                      <div className="text-xl font-theme-data text-[var(--accent)]">
                         {(stats.avg_wait_time_ms / 1000).toFixed(2)}s
                       </div>
                     </div>
                     <div className="card p-4">
-                      <div className="text-text-muted font-mono text-xs mb-1">Avg Processing Time</div>
-                      <div className="text-xl font-mono text-acid-cyan">
+                      <div className="text-text-muted font-theme-data text-xs mb-1">Avg Processing Time</div>
+                      <div className="text-xl font-theme-data text-[var(--acid-cyan)]">
                         {((stats.avg_processing_time_ms || 0) / 1000).toFixed(2)}s
                       </div>
                     </div>
@@ -382,14 +382,14 @@ export default function QueuePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-mono font-bold text-acid-green">[SUBMIT_JOB]</h2>
+              <h2 className="text-lg font-theme-data font-bold text-[var(--accent)]">[SUBMIT_JOB]</h2>
               <button onClick={() => setShowSubmitModal(false)} className="text-text-muted hover:text-text text-xl">
                 x
               </button>
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                <label className="block text-xs font-theme-data text-text-muted uppercase mb-1">
                   Question / Task
                 </label>
                 <textarea
@@ -397,11 +397,11 @@ export default function QueuePage() {
                   onChange={(e) => setSubmitQuestion(e.target.value)}
                   placeholder="Enter a debate question or task..."
                   rows={3}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none resize-none"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none resize-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                <label className="block text-xs font-theme-data text-text-muted uppercase mb-1">
                   Priority (1-10)
                 </label>
                 <input
@@ -410,20 +410,20 @@ export default function QueuePage() {
                   onChange={(e) => setSubmitPriority(Math.max(1, Math.min(10, parseInt(e.target.value) || 5)))}
                   min={1}
                   max={10}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowSubmitModal(false)}
-                  className="flex-1 px-4 py-2 font-mono text-sm border border-border text-text-muted hover:border-text transition-colors rounded"
+                  className="flex-1 px-4 py-2 font-theme-data text-sm border border-border text-text-muted hover:border-text transition-colors rounded"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitJob}
                   disabled={submitting || !submitQuestion.trim()}
-                  className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors rounded disabled:opacity-50"
+                  className="flex-1 px-4 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors rounded disabled:opacity-50"
                 >
                   {submitting ? '[SUBMITTING...]' : '[SUBMIT]'}
                 </button>

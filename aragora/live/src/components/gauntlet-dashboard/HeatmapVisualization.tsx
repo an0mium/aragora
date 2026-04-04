@@ -10,7 +10,7 @@ interface HeatmapVisualizationProps {
 export function HeatmapVisualization({ data }: HeatmapVisualizationProps) {
   if (!data.cells.length) {
     return (
-      <div className="text-center py-8 text-text-muted font-mono text-sm">
+      <div className="text-center py-8 text-text-muted font-theme-data text-sm">
         No findings to display
       </div>
     );
@@ -25,9 +25,9 @@ export function HeatmapVisualization({ data }: HeatmapVisualizationProps) {
         <table className="w-full">
           <thead>
             <tr>
-              <th className="text-xs font-mono text-text-muted text-left p-2">Category</th>
+              <th className="text-xs font-theme-data text-text-muted text-left p-2">Category</th>
               {data.severities.map(sev => (
-                <th key={sev} className="text-xs font-mono text-text-muted text-center p-2 capitalize">
+                <th key={sev} className="text-xs font-theme-data text-text-muted text-center p-2 capitalize">
                   {sev}
                 </th>
               ))}
@@ -36,7 +36,7 @@ export function HeatmapVisualization({ data }: HeatmapVisualizationProps) {
           <tbody>
             {data.categories.map(category => (
               <tr key={category}>
-                <td className="text-xs font-mono text-text p-2 capitalize">
+                <td className="text-xs font-theme-data text-text p-2 capitalize">
                   {category.replace(/_/g, ' ')}
                 </td>
                 {data.severities.map(severity => {
@@ -48,7 +48,7 @@ export function HeatmapVisualization({ data }: HeatmapVisualizationProps) {
                   return (
                     <td key={severity} className="p-1 text-center">
                       <div
-                        className={`w-12 h-12 mx-auto rounded flex items-center justify-center font-mono text-sm transition-all ${
+                        className={`w-12 h-12 mx-auto rounded flex items-center justify-center font-theme-data text-sm transition-all ${
                           count > 0 ? `${bgColor}` : 'bg-surface'
                         }`}
                         style={{ opacity: count > 0 ? 0.3 + intensity * 0.7 : 0.2 }}
@@ -66,7 +66,7 @@ export function HeatmapVisualization({ data }: HeatmapVisualizationProps) {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 justify-center text-xs font-mono">
+      <div className="flex flex-wrap gap-4 justify-center text-xs font-theme-data">
         {data.severities.map(severity => (
           <div key={severity} className="flex items-center gap-2">
             <div className={`w-4 h-4 rounded ${SEVERITY_COLORS[severity]}`} style={{ opacity: 0.7 }} />

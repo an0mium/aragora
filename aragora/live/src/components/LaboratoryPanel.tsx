@@ -184,13 +184,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text font-mono">Persona Laboratory</h3>
+        <h3 className="text-lg font-semibold text-text font-theme-data">Persona Laboratory</h3>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchData}
             disabled={loading}
             aria-label="Refresh laboratory data"
-            className="text-xs font-mono text-text-muted hover:text-acid-green disabled:opacity-50"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] disabled:opacity-50"
           >
             [REFRESH]
           </button>
@@ -198,7 +198,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
             onClick={() => setExpanded(!expanded)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Collapse laboratory panel' : 'Expand laboratory panel'}
-            className="text-xs font-mono text-text-muted hover:text-text"
+            className="text-xs font-theme-data text-text-muted hover:text-text"
           >
             [{expanded ? '-' : '+'}]
           </button>
@@ -206,12 +206,12 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
       </div>
 
       {/* Summary Stats */}
-      <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-4 border-b border-border pb-3 flex-wrap">
+      <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted mb-4 border-b border-border pb-3 flex-wrap">
         <span>
-          Traits: <span className="text-acid-cyan">{traits.length}</span>
+          Traits: <span className="text-[var(--acid-cyan)]">{traits.length}</span>
         </span>
         <span>
-          Pollinations: <span className="text-acid-green">{pollinations.length}</span>
+          Pollinations: <span className="text-[var(--accent)]">{pollinations.length}</span>
         </span>
         <span>
           Patterns: <span className="text-purple-400">{patterns.length}</span>
@@ -244,9 +244,9 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               aria-selected={activeTab === 'traits'}
               aria-controls="lab-traits-panel"
               onClick={() => setActiveTab('traits')}
-              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+              className={`px-3 py-1 rounded text-sm font-theme-data transition-colors flex-1 ${
                 activeTab === 'traits'
-                  ? 'bg-acid-cyan text-bg font-medium'
+                  ? 'bg-[var(--acid-cyan)] text-bg font-medium'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -258,9 +258,9 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               aria-selected={activeTab === 'pollinations'}
               aria-controls="lab-pollinations-panel"
               onClick={() => setActiveTab('pollinations')}
-              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+              className={`px-3 py-1 rounded text-sm font-theme-data transition-colors flex-1 ${
                 activeTab === 'pollinations'
-                  ? 'bg-acid-green text-bg font-medium'
+                  ? 'bg-[var(--accent)] text-bg font-medium'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -272,7 +272,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               aria-selected={activeTab === 'evolution'}
               aria-controls="lab-evolution-panel"
               onClick={() => setActiveTab('evolution')}
-              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+              className={`px-3 py-1 rounded text-sm font-theme-data transition-colors flex-1 ${
                 activeTab === 'evolution'
                   ? 'bg-yellow-500 text-bg font-medium'
                   : 'text-text-muted hover:text-text'
@@ -286,7 +286,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               aria-selected={activeTab === 'patterns'}
               aria-controls="lab-patterns-panel"
               onClick={() => setActiveTab('patterns')}
-              className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+              className={`px-3 py-1 rounded text-sm font-theme-data transition-colors flex-1 ${
                 activeTab === 'patterns'
                   ? 'bg-purple-500 text-bg font-medium'
                   : 'text-text-muted hover:text-text'
@@ -300,13 +300,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
           {activeTab === 'traits' && (
             <div id="lab-traits-panel" role="tabpanel" aria-labelledby="lab-traits-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && traits.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   Detecting emergent traits...
                 </div>
               )}
 
               {!loading && traits.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   No emergent traits detected yet. Run more debates to discover agent specializations.
                 </div>
               )}
@@ -314,18 +314,18 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               {traits.map((trait, index) => (
                 <div
                   key={`${trait.agent}-${trait.trait}-${index}`}
-                  className="p-3 bg-bg border border-border rounded-lg hover:border-acid-cyan/50 transition-colors"
+                  className="p-3 bg-bg border border-border rounded-lg hover:border-[var(--acid-cyan)]/50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-acid-cyan font-bold">
+                      <span className="text-xs font-theme-data text-[var(--acid-cyan)] font-bold">
                         {trait.agent}
                       </span>
                       <span className={`px-2 py-0.5 text-xs rounded border ${getDomainColor(trait.domain)}`}>
                         {trait.domain}
                       </span>
                     </div>
-                    <span className={`text-xs font-mono ${getConfidenceColor(trait.confidence)}`}>
+                    <span className={`text-xs font-theme-data ${getConfidenceColor(trait.confidence)}`}>
                       {(trait.confidence * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -349,7 +349,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                     </div>
                   )}
 
-                  <div className="mt-2 text-xs text-text-muted font-mono">
+                  <div className="mt-2 text-xs text-text-muted font-theme-data">
                     Detected: {new Date(trait.detected_at).toLocaleDateString()}
                   </div>
                 </div>
@@ -361,13 +361,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
           {activeTab === 'pollinations' && (
             <div id="lab-pollinations-panel" role="tabpanel" aria-labelledby="lab-pollinations-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && pollinations.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   Analyzing cross-pollination opportunities...
                 </div>
               )}
 
               {!loading && pollinations.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   No cross-pollination suggestions yet. Lab needs more trait data.
                 </div>
               )}
@@ -375,12 +375,12 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
               {pollinations.map((pollination, index) => (
                 <div
                   key={`${pollination.source_agent}-${pollination.target_agent}-${index}`}
-                  className="p-3 bg-bg border border-border rounded-lg hover:border-acid-green/50 transition-colors"
+                  className="p-3 bg-bg border border-border rounded-lg hover:border-[var(--accent)]/50 transition-colors"
                 >
-                  <div className="flex items-center gap-2 mb-2 font-mono text-sm">
-                    <span className="text-acid-cyan">{pollination.source_agent}</span>
+                  <div className="flex items-center gap-2 mb-2 font-theme-data text-sm">
+                    <span className="text-[var(--acid-cyan)]">{pollination.source_agent}</span>
                     <span className="text-text-muted">-&gt;</span>
-                    <span className="text-acid-green">{pollination.target_agent}</span>
+                    <span className="text-[var(--accent)]">{pollination.target_agent}</span>
                   </div>
 
                   <p className="text-sm text-text font-medium mb-1">
@@ -391,9 +391,9 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                     {pollination.rationale}
                   </p>
 
-                  <div className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center justify-between text-xs font-theme-data">
                     <span className="text-text-muted">Expected improvement:</span>
-                    <span className="text-acid-green">
+                    <span className="text-[var(--accent)]">
                       +{(pollination.expected_improvement * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -406,13 +406,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
           {activeTab === 'evolution' && (
             <div id="lab-evolution-panel" role="tabpanel" aria-labelledby="lab-evolution-tab" className="space-y-4 max-h-80 overflow-y-auto">
               {loading && !genesisStats && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   Loading evolution data...
                 </div>
               )}
 
               {!loading && !genesisStats && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   No evolution data available yet.
                 </div>
               )}
@@ -422,15 +422,15 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                   {/* Population Stats */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 bg-bg border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono text-green-400">{genesisStats.total_births}</div>
+                      <div className="text-2xl font-theme-data text-green-400">{genesisStats.total_births}</div>
                       <div className="text-xs text-text-muted">Births</div>
                     </div>
                     <div className="p-3 bg-bg border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono text-red-400">{genesisStats.total_deaths}</div>
+                      <div className="text-2xl font-theme-data text-red-400">{genesisStats.total_deaths}</div>
                       <div className="text-xs text-text-muted">Deaths</div>
                     </div>
                     <div className="p-3 bg-bg border border-border rounded-lg text-center">
-                      <div className={`text-2xl font-mono ${genesisStats.net_population_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <div className={`text-2xl font-theme-data ${genesisStats.net_population_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {genesisStats.net_population_change >= 0 ? '+' : ''}{genesisStats.net_population_change}
                       </div>
                       <div className="text-xs text-text-muted">Net Change</div>
@@ -440,8 +440,8 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                   {/* Fitness Trend */}
                   <div className="p-3 bg-bg border border-border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-mono text-text-muted">Avg Fitness Change (Recent)</span>
-                      <span className={`text-lg font-mono ${genesisStats.avg_fitness_change_recent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className="text-sm font-theme-data text-text-muted">Avg Fitness Change (Recent)</span>
+                      <span className={`text-lg font-theme-data ${genesisStats.avg_fitness_change_recent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {genesisStats.avg_fitness_change_recent >= 0 ? '+' : ''}{genesisStats.avg_fitness_change_recent.toFixed(4)}
                       </span>
                     </div>
@@ -456,13 +456,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                   {/* Event Breakdown */}
                   {genesisStats.event_counts && Object.keys(genesisStats.event_counts).length > 0 && (
                     <div className="p-3 bg-bg border border-border rounded-lg">
-                      <div className="text-sm font-mono text-text-muted mb-3">Event Types</div>
+                      <div className="text-sm font-theme-data text-text-muted mb-3">Event Types</div>
                       <div className="space-y-2">
                         {Object.entries(genesisStats.event_counts)
                           .filter(([_, count]) => count > 0)
                           .sort(([_, a], [__, b]) => b - a)
                           .map(([type, count]) => (
-                            <div key={type} className="flex items-center justify-between text-xs font-mono">
+                            <div key={type} className="flex items-center justify-between text-xs font-theme-data">
                               <span className="text-text-muted">{type.replace(/_/g, ' ')}</span>
                               <span className="text-yellow-400">{count}</span>
                             </div>
@@ -472,7 +472,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                   )}
 
                   {/* Integrity Status */}
-                  <div className="flex items-center justify-between p-2 bg-bg border border-border rounded-lg text-xs font-mono">
+                  <div className="flex items-center justify-between p-2 bg-bg border border-border rounded-lg text-xs font-theme-data">
                     <span className="text-text-muted">Ledger Integrity</span>
                     <span className={genesisStats.integrity_verified ? 'text-green-400' : 'text-red-400'}>
                       {genesisStats.integrity_verified ? 'VERIFIED' : 'UNVERIFIED'}
@@ -487,13 +487,13 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
           {activeTab === 'patterns' && (
             <div id="lab-patterns-panel" role="tabpanel" aria-labelledby="lab-patterns-tab" className="space-y-3 max-h-80 overflow-y-auto">
               {loading && patterns.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   Discovering critique patterns...
                 </div>
               )}
 
               {!loading && patterns.length === 0 && (
-                <div className="text-center text-text-muted py-4 font-mono text-sm">
+                <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                   No critique patterns yet. Run more debates to discover effective arguments.
                 </div>
               )}
@@ -507,7 +507,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
                     <span className={`px-2 py-0.5 text-xs rounded border bg-purple-500/20 text-purple-400 border-purple-500/30`}>
                       {pattern.issue_type || 'general'}
                     </span>
-                    <div className="flex items-center gap-2 text-xs font-mono">
+                    <div className="flex items-center gap-2 text-xs font-theme-data">
                       <span className={pattern.success_rate >= 0.7 ? 'text-green-400' : pattern.success_rate >= 0.5 ? 'text-yellow-400' : 'text-orange-400'}>
                         {(pattern.success_rate * 100).toFixed(0)}% success
                       </span>
@@ -523,7 +523,7 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
 
                   {pattern.suggested_rebuttal && (
                     <div className="text-xs text-text-muted p-2 bg-surface rounded border border-border">
-                      <span className="text-purple-400 font-mono">Rebuttal:</span> {pattern.suggested_rebuttal}
+                      <span className="text-purple-400 font-theme-data">Rebuttal:</span> {pattern.suggested_rebuttal}
                     </div>
                   )}
                 </div>
@@ -535,10 +535,10 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
 
       {/* Help text when collapsed */}
       {!expanded && (
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           <p>
-            <span className="text-acid-cyan">Traits:</span> Discovered specializations |{' '}
-            <span className="text-acid-green">Pollinations:</span> Trait transfers |{' '}
+            <span className="text-[var(--acid-cyan)]">Traits:</span> Discovered specializations |{' '}
+            <span className="text-[var(--accent)]">Pollinations:</span> Trait transfers |{' '}
             <span className="text-yellow-400">Evolution:</span> Population dynamics
           </p>
         </div>

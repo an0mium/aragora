@@ -80,12 +80,12 @@ export default function SignupPage() {
       {/* Minimal nav */}
       <nav className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="font-mono text-acid-green font-bold text-sm tracking-wider">
+          <Link href="/" className="font-theme-data text-[var(--accent)] font-bold text-sm tracking-wider">
             ARAGORA
           </Link>
           <Link
             href="/login"
-            className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
           >
             Already have an account? LOG IN
           </Link>
@@ -94,20 +94,20 @@ export default function SignupPage() {
 
       <div className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
-          <div className="border border-acid-green/30 bg-surface/50 p-8">
+          <div className="border border-[var(--accent)]/30 bg-surface/50 p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 CREATE YOUR ACCOUNT
               </h1>
-              <p className="text-text-muted text-sm font-mono">
+              <p className="text-text-muted text-sm font-theme-data">
                 Get your first AI-powered decision in under 2 minutes
               </p>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="mb-6 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+              <div className="mb-6 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
                 {error}
               </div>
             )}
@@ -118,10 +118,10 @@ export default function SignupPage() {
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-acid-green/20" />
+                <div className="w-full border-t border-[var(--accent)]/20" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-4 bg-surface/50 text-xs font-mono text-text-muted uppercase">
+                <span className="px-4 bg-surface/50 text-xs font-theme-data text-text-muted uppercase">
                   Or sign up with email
                 </span>
               </div>
@@ -130,7 +130,7 @@ export default function SignupPage() {
             {/* Email/password form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="signup-name" className="block text-xs font-mono text-acid-cyan mb-1.5">
+                <label htmlFor="signup-name" className="block text-xs font-theme-data text-[var(--acid-cyan)] mb-1.5">
                   YOUR NAME
                 </label>
                 <input
@@ -139,13 +139,13 @@ export default function SignupPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
-                  className="w-full px-4 py-2.5 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                  className="w-full px-4 py-2.5 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] placeholder-text-muted/50"
                   placeholder="Jane Smith"
                 />
               </div>
 
               <div>
-                <label htmlFor="signup-email" className="block text-xs font-mono text-acid-cyan mb-1.5">
+                <label htmlFor="signup-email" className="block text-xs font-theme-data text-[var(--acid-cyan)] mb-1.5">
                   EMAIL ADDRESS *
                 </label>
                 <input
@@ -155,13 +155,13 @@ export default function SignupPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full px-4 py-2.5 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                  className="w-full px-4 py-2.5 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] placeholder-text-muted/50"
                   placeholder="you@company.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="signup-password" className="block text-xs font-mono text-acid-cyan mb-1.5">
+                <label htmlFor="signup-password" className="block text-xs font-theme-data text-[var(--acid-cyan)] mb-1.5">
                   PASSWORD *
                 </label>
                 <input
@@ -171,13 +171,13 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                  className="w-full px-4 py-2.5 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] placeholder-text-muted/50"
                   placeholder="Min 8 characters"
                 />
               </div>
 
               <div>
-                <label htmlFor="signup-confirm" className="block text-xs font-mono text-acid-cyan mb-1.5">
+                <label htmlFor="signup-confirm" className="block text-xs font-theme-data text-[var(--acid-cyan)] mb-1.5">
                   CONFIRM PASSWORD *
                 </label>
                 <input
@@ -187,7 +187,7 @@ export default function SignupPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50"
+                  className="w-full px-4 py-2.5 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] placeholder-text-muted/50"
                   placeholder="Repeat password"
                 />
               </div>
@@ -195,21 +195,21 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={isLoading || authLoading}
-                className="w-full py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {isLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
               </button>
             </form>
 
             {/* Perks reminder */}
-            <div className="mt-6 pt-5 border-t border-acid-green/20 space-y-2">
+            <div className="mt-6 pt-5 border-t border-[var(--accent)]/20 space-y-2">
               {[
                 'Free tier: 10 debates/month',
                 'Real AI models (Claude, GPT, Gemini, Mistral)',
                 'Audit-ready decision receipts',
               ].map((perk) => (
-                <div key={perk} className="flex items-center gap-2 text-xs font-mono text-text-muted">
-                  <span className="text-acid-green">+</span>
+                <div key={perk} className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
+                  <span className="text-[var(--accent)]">+</span>
                   <span>{perk}</span>
                 </div>
               ))}

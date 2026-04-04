@@ -22,7 +22,7 @@ export function LoadingSpinner({
   if (compact) {
     return (
       <div
-        className={`text-accent text-xs font-mono animate-pulse ${className}`}
+        className={`text-accent text-xs font-theme-data animate-pulse ${className}`}
         role="status"
         aria-live="polite"
         aria-label={message}
@@ -39,7 +39,7 @@ export function LoadingSpinner({
       aria-live="polite"
       aria-label={message}
     >
-      <div className="text-accent font-mono text-center">
+      <div className="text-accent font-theme-data text-center">
         <div className="text-lg mb-2 flex items-center justify-center gap-2">
           <span className="animate-pulse" aria-hidden="true">{'>'}</span>
           <span>{message}</span>

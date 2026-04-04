@@ -199,10 +199,10 @@ export function AudioRecorder({
   if (hasPermission === false) {
     return (
       <div className={`p-4 border border-warning/30 bg-warning/5 ${className}`}>
-        <p className="text-warning font-mono text-xs mb-2">
+        <p className="text-warning font-theme-data text-xs mb-2">
           Microphone access denied
         </p>
-        <p className="text-text-muted font-mono text-[10px]">
+        <p className="text-text-muted font-theme-data text-[10px]">
           Please enable microphone permissions in your browser settings to record audio.
         </p>
       </div>
@@ -210,14 +210,14 @@ export function AudioRecorder({
   }
 
   return (
-    <div className={`p-4 border border-acid-green/30 bg-surface/50 ${className}`}>
+    <div className={`p-4 border border-[var(--accent)]/30 bg-surface/50 ${className}`}>
       {/* Audio level indicator */}
       {isRecording && (
         <div className="mb-4">
           <div className="h-2 bg-bg rounded overflow-hidden">
             <div
               className={`h-full transition-all duration-75 ${
-                isPaused ? 'bg-acid-yellow/50' : 'bg-acid-green'
+                isPaused ? 'bg-acid-yellow/50' : 'bg-[var(--accent)]'
               }`}
               style={{ width: `${Math.min(audioLevel * 100, 100)}%` }}
             />
@@ -227,11 +227,11 @@ export function AudioRecorder({
 
       {/* Duration display */}
       <div className="text-center mb-4">
-        <span className={`font-mono text-2xl ${isRecording ? 'text-acid-green' : 'text-text-muted'}`}>
+        <span className={`font-theme-data text-2xl ${isRecording ? 'text-[var(--accent)]' : 'text-text-muted'}`}>
           {formatTime(duration)}
         </span>
         {isRecording && (
-          <span className="text-text-muted font-mono text-xs ml-2">
+          <span className="text-text-muted font-theme-data text-xs ml-2">
             / {formatTime(maxDuration)}
           </span>
         )}
@@ -242,7 +242,7 @@ export function AudioRecorder({
         {!isRecording ? (
           <button
             onClick={startRecording}
-            className="px-4 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors flex items-center gap-2"
           >
             <span className="w-3 h-3 rounded-full bg-warning animate-pulse" />
             START RECORDING
@@ -252,21 +252,21 @@ export function AudioRecorder({
             {isPaused ? (
               <button
                 onClick={resumeRecording}
-                className="px-4 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+                className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
               >
                 RESUME
               </button>
             ) : (
               <button
                 onClick={pauseRecording}
-                className="px-4 py-2 bg-acid-yellow/20 border border-acid-yellow/50 text-acid-yellow font-mono text-sm hover:bg-acid-yellow/30 transition-colors"
+                className="px-4 py-2 bg-acid-yellow/20 border border-acid-yellow/50 text-[var(--acid-yellow)] font-theme-data text-sm hover:bg-acid-yellow/30 transition-colors"
               >
                 PAUSE
               </button>
             )}
             <button
               onClick={stopRecording}
-              className="px-4 py-2 bg-warning/20 border border-warning/50 text-warning font-mono text-sm hover:bg-warning/30 transition-colors"
+              className="px-4 py-2 bg-warning/20 border border-warning/50 text-warning font-theme-data text-sm hover:bg-warning/30 transition-colors"
             >
               STOP
             </button>
@@ -276,7 +276,7 @@ export function AudioRecorder({
 
       {/* Status */}
       {isRecording && (
-        <p className="text-center mt-3 text-[10px] font-mono text-text-muted/60">
+        <p className="text-center mt-3 text-[10px] font-theme-data text-text-muted/60">
           {isPaused ? 'Recording paused' : 'Recording in progress...'}
         </p>
       )}

@@ -50,7 +50,7 @@ export function DAGToolbar({
       <button
         onClick={() => setShowBrainDump(!showBrainDump)}
         disabled={loading}
-        className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-mono rounded hover:bg-indigo-500 transition-colors disabled:opacity-50"
+        className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-theme-data rounded hover:bg-indigo-500 transition-colors disabled:opacity-50"
       >
         Brain Dump
       </button>
@@ -59,7 +59,7 @@ export function DAGToolbar({
       <button
         onClick={() => showBrainDump && handleBrainDumpSubmit()}
         disabled={loading || !showBrainDump || !brainDumpText.trim()}
-        className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-mono rounded hover:bg-emerald-500 transition-colors disabled:opacity-50"
+        className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-theme-data rounded hover:bg-emerald-500 transition-colors disabled:opacity-50"
       >
         {loading ? 'Running...' : 'Auto-Flow'}
       </button>
@@ -70,7 +70,7 @@ export function DAGToolbar({
       {/* Stage filters */}
       <button
         onClick={() => onStageFilterChange(null)}
-        className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+        className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
           stageFilter === null ? 'bg-indigo-600 text-white' : 'text-text-muted hover:text-text'
         }`}
       >
@@ -80,7 +80,7 @@ export function DAGToolbar({
         <button
           key={s}
           onClick={() => onStageFilterChange(s === stageFilter ? null : s)}
-          className={`px-2 py-1 text-xs font-mono rounded capitalize transition-colors ${
+          className={`px-2 py-1 text-xs font-theme-data rounded capitalize transition-colors ${
             stageFilter === s ? 'bg-indigo-600 text-white' : 'text-text-muted hover:text-text'
           }`}
         >
@@ -95,7 +95,7 @@ export function DAGToolbar({
       <button
         onClick={onUndo}
         disabled={!canUndo}
-        className="px-2 py-1 text-sm font-mono text-text-muted hover:text-text disabled:opacity-30 transition-colors"
+        className="px-2 py-1 text-sm font-theme-data text-text-muted hover:text-text disabled:opacity-30 transition-colors"
         title="Undo"
       >
         {'\u21B6'}
@@ -103,7 +103,7 @@ export function DAGToolbar({
       <button
         onClick={onRedo}
         disabled={!canRedo}
-        className="px-2 py-1 text-sm font-mono text-text-muted hover:text-text disabled:opacity-30 transition-colors"
+        className="px-2 py-1 text-sm font-theme-data text-text-muted hover:text-text disabled:opacity-30 transition-colors"
         title="Redo"
       >
         {'\u21B7'}
@@ -119,19 +119,19 @@ export function DAGToolbar({
             value={brainDumpText}
             onChange={(e) => setBrainDumpText(e.target.value)}
             placeholder="Paste your ideas here, one per line..."
-            className="w-full h-32 bg-bg text-text text-sm font-mono p-2 rounded border border-border resize-none focus:outline-none focus:border-indigo-500"
+            className="w-full h-32 bg-bg text-text text-sm font-theme-data p-2 rounded border border-border resize-none focus:outline-none focus:border-indigo-500"
           />
           <div className="flex justify-end gap-2 mt-2">
             <button
               onClick={() => setShowBrainDump(false)}
-              className="px-3 py-1 text-xs font-mono text-text-muted hover:text-text"
+              className="px-3 py-1 text-xs font-theme-data text-text-muted hover:text-text"
             >
               Cancel
             </button>
             <button
               onClick={handleBrainDumpSubmit}
               disabled={!brainDumpText.trim() || loading}
-              className="px-3 py-1 text-xs font-mono bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
+              className="px-3 py-1 text-xs font-theme-data bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
             >
               Process
             </button>

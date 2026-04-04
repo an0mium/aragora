@@ -109,14 +109,14 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-bg/95 backdrop-blur-sm">
-      <div className="w-full max-w-2xl mx-4 border border-acid-green/30 bg-surface rounded-lg overflow-hidden">
+      <div className="w-full max-w-2xl mx-4 border border-[var(--accent)]/30 bg-surface rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="border-b border-acid-green/20 px-6 py-4">
+        <div className="border-b border-[var(--accent)]/20 px-6 py-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-mono text-acid-green">GET STARTED WITH ARAGORA</h2>
+            <h2 className="text-lg font-theme-data text-[var(--accent)]">GET STARTED WITH ARAGORA</h2>
             <button
               onClick={handleSkip}
-              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               [SKIP FOR NOW]
             </button>
@@ -127,11 +127,11 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
             {Object.entries(STEP_LABELS).map(([key, label], i) => (
               <div
                 key={key}
-                className={`flex-1 text-center text-[10px] font-mono py-1 border-b-2 transition-colors ${
+                className={`flex-1 text-center text-[10px] font-theme-data py-1 border-b-2 transition-colors ${
                   i < stepIndex
-                    ? 'text-acid-green border-acid-green'
+                    ? 'text-[var(--accent)] border-[var(--accent)]'
                     : i === stepIndex
-                    ? 'text-acid-green border-acid-green'
+                    ? 'text-[var(--accent)] border-[var(--accent)]'
                     : 'text-text-muted border-border'
                 }`}
               >
@@ -150,11 +150,11 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
 
         {/* Footer */}
         {currentStep !== 'launch' && (
-          <div className="border-t border-acid-green/20 px-6 py-4 flex items-center justify-between">
+          <div className="border-t border-[var(--accent)]/20 px-6 py-4 flex items-center justify-between">
             <button
               onClick={handleBack}
               disabled={isFirstStep}
-              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-acid-green disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-[var(--accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               &larr; BACK
             </button>
@@ -163,7 +163,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
             {currentStep === 'create-account' && !isAuthenticated ? (
               <Link
                 href="/signup"
-                className="px-6 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors inline-block text-center"
+                className="px-6 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 transition-colors inline-block text-center"
               >
                 CREATE ACCOUNT &rarr;
               </Link>
@@ -171,7 +171,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
               <button
                 onClick={handleNext}
                 disabled={!canProceed}
-                className="px-6 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLastStep ? 'FINISH' : 'CONTINUE \u2192'}
               </button>
@@ -192,10 +192,10 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
     return (
       <div className="space-y-4 text-center py-6">
         <div className="text-3xl">&#10003;</div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)]">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)]">
           You&apos;re Signed In
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Great -- you&apos;re ready to choose a template and run your first debate.
         </p>
       </div>
@@ -205,10 +205,10 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           Save Your Results
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Create a free account to unlock real AI models and save your debate history.
         </p>
       </div>
@@ -221,7 +221,7 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
           'Knowledge Mound integration',
           'Team collaboration and sharing',
         ].map((feature) => (
-          <div key={feature} className="flex items-center gap-2 text-sm font-mono">
+          <div key={feature} className="flex items-center gap-2 text-sm font-theme-data">
             <span className="text-[var(--acid-green)]">+</span>
             <span className="text-[var(--text)]">{feature}</span>
           </div>
@@ -231,13 +231,13 @@ function CreateAccountStep({ isAuthenticated }: { isAuthenticated: boolean }) {
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link
           href="/signup"
-          className="flex-1 px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-mono font-bold text-sm text-center hover:opacity-90 transition-opacity"
+          className="flex-1 px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data font-bold text-sm text-center hover:opacity-90 transition-opacity"
         >
           CREATE FREE ACCOUNT
         </Link>
         <Link
           href="/auth/login"
-          className="flex-1 px-6 py-3 border border-[var(--acid-green)]/30 text-[var(--acid-green)] font-mono text-sm text-center hover:border-[var(--acid-green)] transition-colors"
+          className="flex-1 px-6 py-3 border border-[var(--acid-green)]/30 text-[var(--acid-green)] font-theme-data text-sm text-center hover:border-[var(--acid-green)] transition-colors"
         >
           SIGN IN
         </Link>
@@ -279,10 +279,10 @@ function LaunchStep({
   return (
     <div className="space-y-6 py-4">
       <div className="text-center">
-        <h2 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
           Ready to Launch
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Everything is set up. Here is your onboarding progress.
         </p>
       </div>
@@ -292,10 +292,10 @@ function LaunchStep({
 
       {trialTopic && (
         <div className="border border-[var(--border)] bg-[var(--surface)] p-4 text-left">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-1">
+          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-1">
             Your Topic
           </div>
-          <p className="text-sm font-mono text-[var(--text)]">{trialTopic}</p>
+          <p className="text-sm font-theme-data text-[var(--text)]">{trialTopic}</p>
         </div>
       )}
 
@@ -303,13 +303,13 @@ function LaunchStep({
         <Link
           href={arenaUrl}
           onClick={handleLaunch}
-          className="px-8 py-4 bg-[var(--acid-green)] text-[var(--bg)] font-mono font-bold text-sm hover:opacity-90 transition-opacity"
+          className="px-8 py-4 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data font-bold text-sm hover:opacity-90 transition-opacity"
         >
           LAUNCH REAL DEBATE
         </Link>
         <button
           onClick={handleLaunch}
-          className="px-4 py-2 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="px-4 py-2 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           Skip to dashboard
         </button>

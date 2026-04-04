@@ -25,21 +25,21 @@ function TemplateCard({
   const meta = CATEGORY_META[template.category];
 
   return (
-    <div className="p-4 border border-border rounded-lg bg-surface/50 hover:border-acid-green/40 transition-colors group">
+    <div className="p-4 border border-border rounded-lg bg-surface/50 hover:border-[var(--accent)]/40 transition-colors group">
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
           <span
-            className={`text-xs font-mono px-1.5 py-0.5 rounded border border-${meta.accent}/30 text-${meta.accent} bg-${meta.accent}/10`}
+            className={`text-xs font-theme-data px-1.5 py-0.5 rounded border border-${meta.accent}/30 text-${meta.accent} bg-${meta.accent}/10`}
           >
             {meta.icon} {meta.label}
           </span>
         </div>
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           {template.rounds}R / {template.agents.length}A
         </span>
       </div>
 
-      <h4 className="text-sm font-mono text-text mb-1 group-hover:text-acid-green transition-colors">
+      <h4 className="text-sm font-theme-data text-text mb-1 group-hover:text-[var(--accent)] transition-colors">
         {template.name}
       </h4>
       <p className="text-xs text-text-muted line-clamp-2 mb-3">
@@ -51,7 +51,7 @@ function TemplateCard({
         {template.tags.slice(0, 4).map((tag) => (
           <span
             key={tag}
-            className="text-xs font-mono px-1.5 py-0.5 bg-bg rounded text-text-muted"
+            className="text-xs font-theme-data px-1.5 py-0.5 bg-bg rounded text-text-muted"
           >
             {tag}
           </span>
@@ -64,7 +64,7 @@ function TemplateCard({
           {template.agents.slice(0, 3).map((agent) => (
             <span
               key={agent}
-              className="text-xs font-mono px-1 py-0.5 border border-border rounded text-text-muted"
+              className="text-xs font-theme-data px-1 py-0.5 border border-border rounded text-text-muted"
               title={agent}
             >
               {agent.split('-')[0]}
@@ -78,7 +78,7 @@ function TemplateCard({
         {onSelect && (
           <button
             onClick={() => onSelect(template)}
-            className="px-3 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/20 opacity-0 group-hover:opacity-100 transition-all"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/20 opacity-0 group-hover:opacity-100 transition-all"
           >
             Use Template
           </button>
@@ -88,7 +88,7 @@ function TemplateCard({
       {/* Example topics (shown on hover) */}
       {template.exampleTopics.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border hidden group-hover:block">
-          <div className="text-xs font-mono text-text-muted mb-1">Example topics:</div>
+          <div className="text-xs font-theme-data text-text-muted mb-1">Example topics:</div>
           {template.exampleTopics.slice(0, 2).map((topic, i) => (
             <div key={i} className="text-xs text-text-muted/70 truncate">
               &gt; {topic}
@@ -158,8 +158,8 @@ export function WorkflowGallery({ onSelectTemplate, initialCategory }: WorkflowG
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-mono text-acid-green">Workflow Templates</h2>
-          <p className="text-xs text-text-muted font-mono">
+          <h2 className="text-lg font-theme-data text-[var(--accent)]">Workflow Templates</h2>
+          <p className="text-xs text-text-muted font-theme-data">
             {TEMPLATES.length} templates across {categories.length} categories
           </p>
         </div>
@@ -171,17 +171,17 @@ export function WorkflowGallery({ onSelectTemplate, initialCategory }: WorkflowG
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search templates by name, description, or tag..."
-        className="w-full px-3 py-2 bg-bg border border-border rounded text-sm text-text placeholder-text-muted font-mono focus:border-acid-green focus:outline-none"
+        className="w-full px-3 py-2 bg-bg border border-border rounded text-sm text-text placeholder-text-muted font-theme-data focus:border-[var(--accent)] focus:outline-none"
       />
 
       {/* Category filters */}
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setSelectedCategory('all')}
-          className={`px-3 py-1.5 text-xs font-mono border rounded transition-colors ${
+          className={`px-3 py-1.5 text-xs font-theme-data border rounded transition-colors ${
             selectedCategory === 'all'
-              ? 'border-acid-green bg-acid-green/10 text-acid-green'
-              : 'border-border text-text-muted hover:border-acid-green/30'
+              ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+              : 'border-border text-text-muted hover:border-[var(--accent)]/30'
           }`}
         >
           ALL ({categoryCounts.all})
@@ -194,10 +194,10 @@ export function WorkflowGallery({ onSelectTemplate, initialCategory }: WorkflowG
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 text-xs font-mono border rounded transition-colors ${
+              className={`px-3 py-1.5 text-xs font-theme-data border rounded transition-colors ${
                 selectedCategory === cat
                   ? `border-${meta.accent}/50 bg-${meta.accent}/10 text-${meta.accent}`
-                  : 'border-border text-text-muted hover:border-acid-green/30'
+                  : 'border-border text-text-muted hover:border-[var(--accent)]/30'
               }`}
             >
               {meta.icon} {meta.label} ({count})
@@ -215,8 +215,8 @@ export function WorkflowGallery({ onSelectTemplate, initialCategory }: WorkflowG
             return (
               <div key={category}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-mono text-text-muted">{meta.icon}</span>
-                  <h3 className="text-sm font-mono text-text">{meta.label}</h3>
+                  <span className="text-xs font-theme-data text-text-muted">{meta.icon}</span>
+                  <h3 className="text-sm font-theme-data text-text">{meta.label}</h3>
                   <span className="text-xs text-text-muted">({templates.length})</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -238,7 +238,7 @@ export function WorkflowGallery({ onSelectTemplate, initialCategory }: WorkflowG
       )}
 
       {filteredTemplates.length === 0 && (
-        <div className="text-center py-12 text-text-muted text-sm font-mono">
+        <div className="text-center py-12 text-text-muted text-sm font-theme-data">
           No templates match your search. Try different keywords.
         </div>
       )}

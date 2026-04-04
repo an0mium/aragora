@@ -58,7 +58,7 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
   return (
     <div className="border border-accent/30 bg-surface/50 mt-6">
       <div className="px-4 py-3 border-b border-accent/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-accent uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-accent uppercase tracking-wider">
           {'>'} BROADCAST
         </span>
         {hasAudio && <PublishDropdown debateId={debateId} title={debateTitle} />}
@@ -67,11 +67,11 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
       <div className="p-4 space-y-4">
         {!hasAudio && !isGenerating && (
           <div className="space-y-3">
-            <p className="text-xs font-mono text-text-muted">
+            <p className="text-xs font-theme-data text-text-muted">
               Generate an audio version of this debate using text-to-speech.
             </p>
 
-            <label className="flex items-center gap-2 text-xs font-mono text-text-muted cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-theme-data text-text-muted cursor-pointer">
               <input
                 type="checkbox"
                 checked={includeVideo}
@@ -84,7 +84,7 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="w-full px-3 py-2 text-xs font-mono border border-accent/40 hover:bg-accent/10 disabled:opacity-50 transition-colors"
+              className="w-full px-3 py-2 text-xs font-theme-data border border-accent/40 hover:bg-accent/10 disabled:opacity-50 transition-colors"
             >
               {includeVideo ? '[GENERATE AUDIO + VIDEO]' : '[GENERATE AUDIO]'}
             </button>
@@ -94,15 +94,15 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
         {isGenerating && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-acid-green/40 border-t-acid-green rounded-full animate-spin" />
-              <span className="text-xs font-mono text-acid-green animate-pulse">
+              <div className="w-4 h-4 border-2 border-[var(--accent)]/40 border-t-acid-green rounded-full animate-spin" />
+              <span className="text-xs font-theme-data text-[var(--accent)] animate-pulse">
                 RUNNING PIPELINE...
               </span>
             </div>
             {stepsCompleted.length > 0 && (
               <div className="pl-6 space-y-1">
                 {stepsCompleted.map((step) => (
-                  <div key={step} className="text-xs font-mono text-acid-green/70">
+                  <div key={step} className="text-xs font-theme-data text-[var(--accent)]/70">
                     ✓ {stepLabels[step] || step}
                   </div>
                 ))}
@@ -112,7 +112,7 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
         )}
 
         {error && (
-          <div className="p-3 text-xs font-mono text-warning bg-warning/10 border border-warning/30">
+          <div className="p-3 text-xs font-theme-data text-warning bg-warning/10 border border-warning/30">
             {'>'} ERROR: {error}
           </div>
         )}
@@ -121,7 +121,7 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
           <div className="space-y-3">
             <AudioPlayer url={audioUrl} />
             {stepsCompleted.length > 0 && (
-              <div className="text-xs font-mono text-text-muted">
+              <div className="text-xs font-theme-data text-text-muted">
                 Pipeline: {stepsCompleted.map((s) => stepLabels[s] || s).join(' → ')}
               </div>
             )}
@@ -130,7 +130,7 @@ export function BroadcastPanel({ debateId, debateTitle }: BroadcastPanelProps) {
 
         {hasVideo && videoUrl && (
           <div className="space-y-2">
-            <div className="text-xs font-mono text-accent">{'>'} VIDEO</div>
+            <div className="text-xs font-theme-data text-accent">{'>'} VIDEO</div>
             <video
               src={videoUrl}
               controls

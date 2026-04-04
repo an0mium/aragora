@@ -98,8 +98,8 @@ export function GauntletHeatmap({
     return (
       <div className={`${compact ? 'p-2' : 'p-4'} bg-bg border border-border rounded-lg`}>
         <div className="flex items-center justify-center py-4">
-          <div className="animate-spin text-acid-green text-xl">⟳</div>
-          <span className="ml-2 text-text-muted text-sm font-mono">Loading heatmap...</span>
+          <div className="animate-spin text-[var(--accent)] text-xl">⟳</div>
+          <span className="ml-2 text-text-muted text-sm font-theme-data">Loading heatmap...</span>
         </div>
       </div>
     );
@@ -108,7 +108,7 @@ export function GauntletHeatmap({
   if (error) {
     return (
       <div className={`${compact ? 'p-2' : 'p-4'} bg-bg border border-red-500/30 rounded-lg`}>
-        <div className="text-red-400 text-sm font-mono">{error}</div>
+        <div className="text-red-400 text-sm font-theme-data">{error}</div>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export function GauntletHeatmap({
   if (!data || data.cells.length === 0) {
     return (
       <div className={`${compact ? 'p-2' : 'p-4'} bg-bg border border-border rounded-lg`}>
-        <div className="text-center text-text-muted text-sm font-mono py-4">
+        <div className="text-center text-text-muted text-sm font-theme-data py-4">
           No vulnerability data to display
         </div>
       </div>
@@ -130,18 +130,18 @@ export function GauntletHeatmap({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-lg">🔥</span>
-            <h3 className="text-sm font-mono font-bold text-text uppercase">
+            <h3 className="text-sm font-theme-data font-bold text-text uppercase">
               Vulnerability Heatmap
             </h3>
           </div>
-          <div className="text-xs text-text-muted font-mono">
+          <div className="text-xs text-text-muted font-theme-data">
             {data.total_findings} findings
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex items-center gap-2 mb-4 text-xs font-mono">
+      <div className="flex items-center gap-2 mb-4 text-xs font-theme-data">
         <span className="text-text-muted">Severity:</span>
         {severityOrder.map((sev) => (
           <span
@@ -158,13 +158,13 @@ export function GauntletHeatmap({
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="p-2 text-left text-xs font-mono text-text-muted uppercase border-b border-border">
+              <th className="p-2 text-left text-xs font-theme-data text-text-muted uppercase border-b border-border">
                 Category
               </th>
               {severityOrder.map((sev) => (
                 <th
                   key={sev}
-                  className="p-2 text-center text-xs font-mono text-text-muted uppercase border-b border-border"
+                  className="p-2 text-center text-xs font-theme-data text-text-muted uppercase border-b border-border"
                 >
                   {sev.slice(0, 4)}
                 </th>
@@ -174,7 +174,7 @@ export function GauntletHeatmap({
           <tbody>
             {heatmapGrid.categories.map((category) => (
               <tr key={category} className="hover:bg-surface/50">
-                <td className="p-2 text-sm font-mono text-text border-b border-border/50">
+                <td className="p-2 text-sm font-theme-data text-text border-b border-border/50">
                   {category}
                 </td>
                 {severityOrder.map((sev) => {
@@ -190,7 +190,7 @@ export function GauntletHeatmap({
                         <div
                           className={`
                             w-10 h-10 mx-auto rounded flex items-center justify-center
-                            font-mono text-sm font-bold cursor-pointer
+                            font-theme-data text-sm font-bold cursor-pointer
                             transition-all duration-150 hover:scale-110
                             ${severityColors[sev].bg} ${severityColors[sev].text}
                             ${severityColors[sev].border} border
@@ -218,25 +218,25 @@ export function GauntletHeatmap({
         <div className="mt-4 p-3 bg-surface border border-border rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <span
-              className={`px-2 py-0.5 rounded text-xs font-mono ${severityColors[hoveredCell.severity].bg} ${severityColors[hoveredCell.severity].text}`}
+              className={`px-2 py-0.5 rounded text-xs font-theme-data ${severityColors[hoveredCell.severity].bg} ${severityColors[hoveredCell.severity].text}`}
             >
               {hoveredCell.severity.toUpperCase()}
             </span>
-            <span className="text-sm font-mono text-text">
+            <span className="text-sm font-theme-data text-text">
               {hoveredCell.category}
               {hoveredCell.subcategory && ` / ${hoveredCell.subcategory}`}
             </span>
           </div>
-          <div className="text-xs text-text-muted font-mono mb-2">
+          <div className="text-xs text-text-muted font-theme-data mb-2">
             {hoveredCell.count} finding{hoveredCell.count !== 1 ? 's' : ''}
           </div>
           {hoveredCell.examples && hoveredCell.examples.length > 0 && (
             <div className="space-y-1">
-              <span className="text-xs text-text-muted font-mono">Examples:</span>
+              <span className="text-xs text-text-muted font-theme-data">Examples:</span>
               {hoveredCell.examples.slice(0, 3).map((example, i) => (
                 <div
                   key={i}
-                  className="text-xs text-text bg-bg p-1.5 rounded font-mono truncate"
+                  className="text-xs text-text bg-bg p-1.5 rounded font-theme-data truncate"
                 >
                   {example}
                 </div>
@@ -256,14 +256,14 @@ export function GauntletHeatmap({
             return (
               <div key={sev}>
                 <div
-                  className={`text-lg font-mono font-bold ${
+                  className={`text-lg font-theme-data font-bold ${
                     count > 0 ? severityColors[sev].text.replace('text-white', 'text-text').replace('text-black', 'text-text') : 'text-text-muted'
                   }`}
                   style={{ color: count > 0 ? undefined : undefined }}
                 >
                   {count}
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   {sev}
                 </div>
               </div>

@@ -24,7 +24,7 @@ function CodeBlock({
             backgroundColor: 'var(--surface-elevated)',
             borderBottom: '1px solid var(--border)',
             fontSize: '11px',
-            fontFamily: 'var(--font-mono, monospace)',
+            fontFamily: 'var(--font-theme-data, monospace)',
             color: 'var(--text-muted)',
             textTransform: 'uppercase' as const,
             letterSpacing: '0.06em',

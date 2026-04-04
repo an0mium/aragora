@@ -290,42 +290,42 @@ export function LiveDebateView({
   return (
     <div className="space-y-6">
       {/* Live Debate Header */}
-      <div className="bg-surface border border-acid-green/30 p-6">
+      <div className="bg-surface border border-[var(--accent)]/30 p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             {/* Status indicator - small, inline with label */}
-            <div className="flex items-center gap-2 text-xs font-mono mb-2">
+            <div className="flex items-center gap-2 text-xs font-theme-data mb-2">
               <span className={`w-2 h-2 rounded-full animate-pulse ${statusConfig.color}`} />
               <span className="text-text-muted uppercase tracking-wider">{statusConfig.label}</span>
               {status === 'streaming' && (
-                <span className="text-acid-cyan text-xs animate-pulse ml-2">
+                <span className="text-[var(--acid-cyan)] text-xs animate-pulse ml-2">
                   In progress...
                 </span>
               )}
             </div>
             {/* Task/Question - always visible and prominent */}
-            <h1 className="text-lg font-mono text-acid-green mb-4">
+            <h1 className="text-lg font-theme-data text-[var(--accent)] mb-4">
               {task || 'Waiting for debate topic...'}
             </h1>
             {(debateMode || settlement) && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {debateMode && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-cyan/40 text-acid-cyan bg-acid-cyan/10">
+                  <span className="px-2 py-1 text-[11px] font-theme-data border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10">
                     MODE: {formatModeLabel(debateMode)}
                   </span>
                 )}
                 {settlement?.status && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-yellow/40 text-acid-yellow bg-acid-yellow/10">
+                  <span className="px-2 py-1 text-[11px] font-theme-data border border-acid-yellow/40 text-[var(--acid-yellow)] bg-acid-yellow/10">
                     SETTLEMENT: {settlement.status.toUpperCase()}
                   </span>
                 )}
                 {settlement?.resolver_type && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-green/40 text-acid-green bg-acid-green/10">
+                  <span className="px-2 py-1 text-[11px] font-theme-data border border-[var(--accent)]/40 text-[var(--accent)] bg-[var(--accent)]/10">
                     RESOLVER: {settlement.resolver_type.toUpperCase()}
                   </span>
                 )}
                 {settlement?.sla_state && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-accent/40 text-accent bg-accent/10">
+                  <span className="px-2 py-1 text-[11px] font-theme-data border border-accent/40 text-accent bg-accent/10">
                     SLA: {settlement.sla_state.toUpperCase()}
                   </span>
                 )}
@@ -337,7 +337,7 @@ export function LiveDebateView({
                 return (
                   <span
                     key={agent}
-                    className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                    className={`px-2 py-1 text-xs font-theme-data ${colors.bg} ${colors.text} ${colors.border} border`}
                   >
                     {agent}
                   </span>
@@ -345,20 +345,20 @@ export function LiveDebateView({
               })}
             </div>
             {initErrors.length > 0 && (
-              <div className="mt-4 border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs font-mono text-red-300">
+              <div className="mt-4 border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs font-theme-data text-red-300">
                 Missing agents:{' '}
                 {initErrors.map((err) => err.agent).join(', ')}. Check API keys or Secrets
                 Manager.
               </div>
             )}
             {consensusStatus?.status === 'insufficient_participation' && (
-              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-mono text-yellow-200">
+              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-theme-data text-yellow-200">
                 Insufficient participation: {agentFailureAgents.length} agent
                 {agentFailureAgents.length === 1 ? '' : 's'} failed or timed out.
               </div>
             )}
             {runtimeErrors.length > 0 && consensusStatus?.status !== 'insufficient_participation' && (
-              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-mono text-yellow-200">
+              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-theme-data text-yellow-200">
                 Agent errors detected: {runtimeErrors.map((err) => err.agent).join(', ')}.
               </div>
             )}
@@ -367,18 +367,18 @@ export function LiveDebateView({
           <div className="flex flex-col items-end gap-2">
             <button
               onClick={onShare}
-              className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
             >
               {copied ? '[COPIED!]' : '[SHARE LINK]'}
             </button>
-            <div className="text-xs text-text-muted font-mono">ID: {debateId}</div>
+            <div className="text-xs text-text-muted font-theme-data">ID: {debateId}</div>
           </div>
         </div>
       </div>
 
       {/* Phase Progress Indicator - visible during streaming */}
       {status === 'streaming' && (
-        <div className="bg-surface border border-acid-green/30 p-4">
+        <div className="bg-surface border border-[var(--accent)]/30 p-4">
           <PhaseIndicator
             currentRound={currentPhase}
             totalRounds={9}
@@ -426,24 +426,24 @@ export function LiveDebateView({
       {/* Live Transcript + Sidebars Grid */}
       <div className={`grid gap-4 ${showParticipation || showReasoning ? 'lg:grid-cols-3' : 'grid-cols-1'}`}>
         {/* Live Transcript */}
-        <div className={`bg-surface border border-acid-green/30 ${showParticipation || showReasoning ? 'lg:col-span-2' : ''}`}>
-          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+        <div className={`bg-surface border border-[var(--accent)]/30 ${showParticipation || showReasoning ? 'lg:col-span-2' : ''}`}>
+          <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
+            <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
               {'>'} LIVE TRANSCRIPT
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {messages.length} messages
                 {streamingMessages.size > 0 && (
-                  <span className="ml-2 text-acid-cyan animate-pulse">({streamingMessages.size} streaming)</span>
+                  <span className="ml-2 text-[var(--acid-cyan)] animate-pulse">({streamingMessages.size} streaming)</span>
                 )}
               </span>
               {cruxes && cruxes.length > 0 && setShowCruxHighlighting && (
                 <button
                   onClick={() => setShowCruxHighlighting(!showCruxHighlighting)}
-                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                     showCruxHighlighting
-                      ? 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40'
+                      ? 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40'
                       : 'bg-surface text-text-muted border-border hover:border-acid-yellow/40'
                   }`}
                   title={`${cruxes.length} crux claim${cruxes.length !== 1 ? 's' : ''} detected`}
@@ -453,19 +453,19 @@ export function LiveDebateView({
               )}
               <button
                 onClick={() => setShowReasoning(!showReasoning)}
-                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                   showReasoning
-                    ? 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40'
-                    : 'bg-surface text-text-muted border-border hover:border-acid-cyan/40'
+                    ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40'
+                    : 'bg-surface text-text-muted border-border hover:border-[var(--acid-cyan)]/40'
                 }`}
               >
                 {showReasoning ? '[HIDE REASONING]' : '[REASONING]'}
               </button>
               <button
                 onClick={() => setShowIntervention(!showIntervention)}
-                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                   showIntervention
-                    ? 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40'
+                    ? 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40'
                     : 'bg-surface text-text-muted border-border hover:border-acid-yellow/40'
                 }`}
               >
@@ -474,10 +474,10 @@ export function LiveDebateView({
               {status === 'complete' && (
                 <button
                   onClick={() => setShowTimeline(!showTimeline)}
-                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                     showTimeline
-                      ? 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40'
-                      : 'bg-surface text-text-muted border-border hover:border-acid-cyan/40'
+                      ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40'
+                      : 'bg-surface text-text-muted border-border hover:border-[var(--acid-cyan)]/40'
                   }`}
                 >
                   {showTimeline ? '[HIDE TIMELINE]' : '[TIMELINE]'}
@@ -485,7 +485,7 @@ export function LiveDebateView({
               )}
               <button
                 onClick={() => setShowParticipation(!showParticipation)}
-                className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                   showParticipation
                     ? 'bg-accent/20 text-accent border-accent/40'
                     : 'bg-surface text-text-muted border-border hover:border-accent/40'
@@ -546,9 +546,9 @@ export function LiveDebateView({
 
         {/* Agent Reasoning Sidebar */}
         {showReasoning && (
-          <div className="lg:col-span-1 bg-surface border border-acid-cyan/30">
-            <div className="px-4 py-3 border-b border-acid-cyan/20 bg-bg/50">
-              <span className="text-xs font-mono text-acid-cyan uppercase tracking-wider">
+          <div className="lg:col-span-1 bg-surface border border-[var(--acid-cyan)]/30">
+            <div className="px-4 py-3 border-b border-[var(--acid-cyan)]/20 bg-bg/50">
+              <span className="text-xs font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
                 {'>'} AGENT REASONING
               </span>
             </div>
@@ -556,7 +556,7 @@ export function LiveDebateView({
               {Object.entries(agentReasoningSummary).map(([agent, info]) => {
                 const agentColors = getAgentColors(agent);
                 const confColor = info.confidence !== null
-                  ? info.confidence >= 0.8 ? 'bg-acid-green' : info.confidence >= 0.5 ? 'bg-acid-yellow' : 'bg-red-400'
+                  ? info.confidence >= 0.8 ? 'bg-[var(--accent)]' : info.confidence >= 0.5 ? 'bg-acid-yellow' : 'bg-red-400'
                   : '';
                 return (
                   <div key={agent} className="border border-border p-2 space-y-1">
@@ -566,10 +566,10 @@ export function LiveDebateView({
                         {info.confidence !== null && (
                           <span className={`w-2 h-2 rounded-full ${confColor}`} title={`${Math.round(info.confidence * 100)}% confidence`} />
                         )}
-                        <span className={`font-mono text-xs font-bold ${agentColors.text}`}>{agent.toUpperCase()}</span>
+                        <span className={`font-theme-data text-xs font-bold ${agentColors.text}`}>{agent.toUpperCase()}</span>
                       </div>
                       {info.confidence !== null && (
-                        <span className="text-[10px] font-mono text-acid-yellow border border-acid-yellow/30 px-1">
+                        <span className="text-[10px] font-theme-data text-[var(--acid-yellow)] border border-acid-yellow/30 px-1">
                           {Math.round(info.confidence * 100)}%
                         </span>
                       )}
@@ -577,8 +577,8 @@ export function LiveDebateView({
                     {/* Phase indicator */}
                     {info.phase && (
                       <div className="flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-acid-green animate-pulse" />
-                        <span className="text-[9px] font-mono text-acid-green/70 uppercase tracking-wider">
+                        <span className="w-1 h-1 rounded-full bg-[var(--accent)] animate-pulse" />
+                        <span className="text-[9px] font-theme-data text-[var(--accent)]/70 uppercase tracking-wider">
                           {info.phase}
                         </span>
                       </div>
@@ -591,10 +591,10 @@ export function LiveDebateView({
                         />
                       </div>
                     )}
-                    <div className="text-[10px] font-mono text-text-muted">
+                    <div className="text-[10px] font-theme-data text-text-muted">
                       {info.messageCount > 0 ? (
                         <>
-                          <span className="text-acid-green">{info.messageCount}</span> msgs
+                          <span className="text-[var(--accent)]">{info.messageCount}</span> msgs
                           {info.lastRole && <> | {info.lastRole}</>}
                         </>
                       ) : (
@@ -603,7 +603,7 @@ export function LiveDebateView({
                     </div>
                     {/* Position summary - first 1-2 sentences */}
                     {info.positionSummary && (
-                      <div className="text-[10px] font-mono text-text-muted/70 line-clamp-2 leading-tight">
+                      <div className="text-[10px] font-theme-data text-text-muted/70 line-clamp-2 leading-tight">
                         {info.positionSummary}
                       </div>
                     )}
@@ -611,7 +611,7 @@ export function LiveDebateView({
                 );
               })}
               {Object.keys(agentReasoningSummary).length === 0 && (
-                <div className="text-xs font-mono text-text-muted text-center py-4">
+                <div className="text-xs font-theme-data text-text-muted text-center py-4">
                   Waiting for agent data...
                 </div>
               )}
@@ -648,12 +648,12 @@ export function LiveDebateView({
       {hasCitations && (
         <div className="bg-surface border border-accent/30">
           <div className="px-4 py-3 border-b border-accent/20 bg-bg/50 flex items-center justify-between">
-            <span className="text-xs font-mono text-accent uppercase tracking-wider">
+            <span className="text-xs font-theme-data text-accent uppercase tracking-wider">
               {'>'} EVIDENCE & CITATIONS
             </span>
             <button
               onClick={() => setShowCitations(!showCitations)}
-              className="px-2 py-1 text-xs font-mono border transition-colors bg-surface text-text-muted border-border hover:border-accent/40"
+              className="px-2 py-1 text-xs font-theme-data border transition-colors bg-surface text-text-muted border-border hover:border-accent/40"
             >
               {showCitations ? '[HIDE]' : '[SHOW]'}
             </button>
@@ -668,49 +668,49 @@ export function LiveDebateView({
 
       {/* Export & Share Panel - show when complete */}
       {status === 'complete' && (
-        <div className="bg-surface border border-acid-green/30">
-          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+        <div className="bg-surface border border-[var(--accent)]/30">
+          <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+            <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
               {'>'} DOWNLOAD & SHARE
             </span>
           </div>
           <div className="p-4 space-y-4">
             {/* Transcript Downloads */}
             <div>
-              <div className="text-xs font-mono text-text-muted mb-2 uppercase">Download Transcript</div>
+              <div className="text-xs font-theme-data text-text-muted mb-2 uppercase">Download Transcript</div>
               <div className="flex flex-wrap gap-2">
                 <a
                   href={`${API_BASE_URL}/api/debates/${debateId}/export/txt`}
                   download
-                  className="px-3 py-2 text-xs font-mono bg-bg border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-bg border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   [TXT]
                 </a>
                 <a
                   href={`${API_BASE_URL}/api/debates/${debateId}/export/md`}
                   download
-                  className="px-3 py-2 text-xs font-mono bg-bg border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-bg border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   [MARKDOWN]
                 </a>
                 <a
                   href={`${API_BASE_URL}/api/debates/${debateId}/export/json`}
                   download
-                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-bg border border-border text-text-muted hover:border-[var(--accent)]/40 transition-colors"
                 >
                   [JSON]
                 </a>
                 <a
                   href={`${API_BASE_URL}/api/debates/${debateId}/export/html`}
                   download
-                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-bg border border-border text-text-muted hover:border-[var(--accent)]/40 transition-colors"
                 >
                   [HTML]
                 </a>
                 <a
                   href={`${API_BASE_URL}/api/debates/${debateId}/export/csv?table=messages`}
                   download
-                  className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/40 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-bg border border-border text-text-muted hover:border-[var(--accent)]/40 transition-colors"
                 >
                   [CSV]
                 </a>
@@ -719,7 +719,7 @@ export function LiveDebateView({
 
             {/* Audio Generation */}
             <div>
-              <div className="text-xs font-mono text-text-muted mb-2 uppercase">Audio</div>
+              <div className="text-xs font-theme-data text-text-muted mb-2 uppercase">Audio</div>
               <AudioDownloadSection debateId={debateId} />
             </div>
 
@@ -727,17 +727,17 @@ export function LiveDebateView({
             <div>
               <button
                 onClick={() => setShowExportModal(true)}
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors cursor-pointer"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors cursor-pointer"
               >
                 [MORE EXPORT OPTIONS...]
               </button>
             </div>
 
             {/* Permalink */}
-            <div className="pt-2 border-t border-acid-green/20">
+            <div className="pt-2 border-t border-[var(--accent)]/20">
               <button
                 onClick={onShare}
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors cursor-pointer"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors cursor-pointer"
                 title="Click to copy permalink"
               >
                 {'>'} PERMALINK: {debateId} {copied ? '[COPIED!]' : '[CLICK TO COPY]'}
@@ -758,8 +758,8 @@ export function LiveDebateView({
       {userScrolled && status === 'streaming' && (
         <button
           onClick={onResumeAutoScroll}
-          className="fixed bottom-4 right-4 px-3 py-2 bg-acid-green text-bg font-mono text-xs z-50
-                     hover:bg-acid-green/80 transition-colors shadow-lg border border-acid-green/50"
+          className="fixed bottom-4 right-4 px-3 py-2 bg-[var(--accent)] text-bg font-theme-data text-xs z-50
+                     hover:bg-[var(--accent)]/80 transition-colors shadow-lg border border-[var(--accent)]/50"
         >
           {'>'} RESUME AUTO-SCROLL
         </button>

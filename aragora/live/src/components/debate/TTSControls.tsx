@@ -62,10 +62,10 @@ function PlayPauseButton({
       onClick={isPlaying ? onPause : onPlay}
       disabled={disabled || isLoading}
       className={`
-        px-3 py-1.5 text-xs font-mono border transition-colors
+        px-3 py-1.5 text-xs font-theme-data border transition-colors
         ${isPlaying
-          ? 'bg-acid-green/20 text-acid-green border-acid-green/40 hover:bg-acid-green/30'
-          : 'bg-surface text-text-muted border-border hover:border-acid-green/40 hover:text-acid-green'
+          ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40 hover:bg-[var(--accent)]/30'
+          : 'bg-surface text-text-muted border-border hover:border-[var(--accent)]/40 hover:text-[var(--accent)]'
         }
         ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
         ${isLoading ? 'animate-pulse' : ''}
@@ -89,7 +89,7 @@ function StopButton({
       onClick={onStop}
       disabled={disabled}
       className={`
-        px-2 py-1.5 text-xs font-mono border transition-colors
+        px-2 py-1.5 text-xs font-theme-data border transition-colors
         bg-surface text-text-muted border-border hover:border-red-400/40 hover:text-red-400
         ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
       `}
@@ -111,10 +111,10 @@ function MuteButton({
     <button
       onClick={onToggle}
       className={`
-        px-2 py-1.5 text-xs font-mono border transition-colors cursor-pointer
+        px-2 py-1.5 text-xs font-theme-data border transition-colors cursor-pointer
         ${isMuted
           ? 'bg-red-400/20 text-red-400 border-red-400/40'
-          : 'bg-surface text-text-muted border-border hover:border-acid-cyan/40'
+          : 'bg-surface text-text-muted border-border hover:border-[var(--acid-cyan)]/40'
         }
       `}
       title={isMuted ? 'Unmute' : 'Mute'}
@@ -165,12 +165,12 @@ export function TTSControls({
         />
         <MuteButton isMuted={tts.isMuted} onToggle={tts.toggleMute} />
         {tts.state === 'playing' && (
-          <span className="text-[10px] font-mono text-acid-green animate-pulse">
+          <span className="text-[10px] font-theme-data text-[var(--accent)] animate-pulse">
             SPEAKING
           </span>
         )}
         {tts.state === 'error' && (
-          <span className="text-[10px] font-mono text-red-400">
+          <span className="text-[10px] font-theme-data text-red-400">
             TTS ERROR
           </span>
         )}
@@ -182,22 +182,22 @@ export function TTSControls({
     <div className="bg-surface border border-border p-3">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
+        <span className="text-[10px] font-theme-data text-text-muted uppercase tracking-wider">
           {'>'} TEXT-TO-SPEECH
         </span>
         {tts.state === 'playing' && (
-          <span className="text-[10px] font-mono text-acid-green animate-pulse flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-acid-green" />
+          <span className="text-[10px] font-theme-data text-[var(--accent)] animate-pulse flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
             SPEAKING
           </span>
         )}
         {tts.state === 'loading' && (
-          <span className="text-[10px] font-mono text-acid-yellow animate-pulse">
+          <span className="text-[10px] font-theme-data text-[var(--acid-yellow)] animate-pulse">
             SYNTHESIZING...
           </span>
         )}
         {tts.state === 'error' && (
-          <span className="text-[10px] font-mono text-red-400">
+          <span className="text-[10px] font-theme-data text-red-400">
             TTS UNAVAILABLE
           </span>
         )}
@@ -221,13 +221,13 @@ export function TTSControls({
       {/* Voice selector */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
-          <label className="text-[10px] font-mono text-text-muted uppercase block mb-1">
+          <label className="text-[10px] font-theme-data text-text-muted uppercase block mb-1">
             Voice
           </label>
           <select
             value={tts.selectedVoice}
             onChange={handleVoiceChange}
-            className="w-full text-xs font-mono bg-bg text-text border border-border px-2 py-1 focus:border-acid-green/40 outline-none"
+            className="w-full text-xs font-theme-data bg-bg text-text border border-border px-2 py-1 focus:border-[var(--accent)]/40 outline-none"
           >
             {tts.availableVoices.map((voice) => (
               <option key={voice} value={voice}>
@@ -239,13 +239,13 @@ export function TTSControls({
 
         {/* Speed selector */}
         <div>
-          <label className="text-[10px] font-mono text-text-muted uppercase block mb-1">
+          <label className="text-[10px] font-theme-data text-text-muted uppercase block mb-1">
             Speed
           </label>
           <select
             value={tts.speed}
             onChange={handleSpeedChange}
-            className="w-full text-xs font-mono bg-bg text-text border border-border px-2 py-1 focus:border-acid-green/40 outline-none"
+            className="w-full text-xs font-theme-data bg-bg text-text border border-border px-2 py-1 focus:border-[var(--accent)]/40 outline-none"
           >
             {SPEED_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -259,10 +259,10 @@ export function TTSControls({
       {/* Volume control */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-[10px] font-mono text-text-muted uppercase">
+          <label className="text-[10px] font-theme-data text-text-muted uppercase">
             Volume
           </label>
-          <span className="text-[10px] font-mono text-text-muted">
+          <span className="text-[10px] font-theme-data text-text-muted">
             {Math.round(tts.volume * 100)}%
           </span>
         </div>

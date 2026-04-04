@@ -63,7 +63,7 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
 
       {/* Header */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-t-md text-[10px] font-mono font-bold uppercase tracking-wider"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-t-md text-[10px] font-theme-data font-bold uppercase tracking-wider"
         style={{ background: `${stageColor}18`, color: stageColor }}
       >
         <span>{icon}</span>
@@ -90,13 +90,13 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
             {agents.slice(0, 3).map((a) => (
               <span
                 key={a}
-                className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-pink-500/15 text-pink-300 border border-pink-500/20"
+                className="px-1.5 py-0.5 text-[10px] font-theme-data rounded bg-pink-500/15 text-pink-300 border border-pink-500/20"
               >
                 {a}
               </span>
             ))}
             {agents.length > 3 && (
-              <span className="text-[10px] font-mono text-text-muted">+{agents.length - 3}</span>
+              <span className="text-[10px] font-theme-data text-text-muted">+{agents.length - 3}</span>
             )}
           </div>
         )}
@@ -111,7 +111,7 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
             style={{ background: cfg.ring }}
             data-testid={`status-${status}`}
           />
-          <span className="text-[10px] font-mono text-text-muted">{cfg.label}</span>
+          <span className="text-[10px] font-theme-data text-text-muted">{cfg.label}</span>
         </div>
 
         {/* Progress bar for running nodes */}
@@ -131,7 +131,7 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
               e.stopPropagation();
               executeHandler(id);
             }}
-            className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/40 transition-colors"
+            className="px-2 py-0.5 text-[10px] font-theme-data rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/40 transition-colors"
             title={status === 'failed' ? 'Retry execution' : 'Execute this node'}
             data-testid={`run-btn-${id}`}
           >

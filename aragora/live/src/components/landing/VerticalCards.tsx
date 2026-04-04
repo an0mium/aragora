@@ -18,7 +18,7 @@ const VERTICALS: Vertical[] = [
     icon: '{}',
     path: '/verticals/legal',
     description: 'Contract analysis, case research, compliance',
-    color: 'text-acid-cyan hover:text-acid-cyan/80 hover:bg-acid-cyan/10',
+    color: 'text-[var(--acid-cyan)] hover:text-[var(--acid-cyan)]/80 hover:bg-[var(--acid-cyan)]/10',
   },
   {
     id: 'healthcare',
@@ -26,7 +26,7 @@ const VERTICALS: Vertical[] = [
     icon: '+',
     path: '/verticals/healthcare',
     description: 'Clinical decisions, research synthesis',
-    color: 'text-acid-green hover:text-acid-green/80 hover:bg-acid-green/10',
+    color: 'text-[var(--accent)] hover:text-[var(--accent)]/80 hover:bg-[var(--accent)]/10',
   },
   {
     id: 'finance',
@@ -64,8 +64,8 @@ function VerticalChip({ vertical }: VerticalChipProps) {
       href={vertical.path}
       className={`
         inline-flex items-center gap-2 px-3 py-2
-        border border-acid-green/20
-        font-mono text-[10px] tracking-wider
+        border border-[var(--accent)]/20
+        font-theme-data text-[10px] tracking-wider
         transition-all duration-200
         ${vertical.color}
       `}
@@ -81,7 +81,7 @@ export function VerticalCards() {
     <section className="py-6">
       {/* Section Header */}
       <div className="text-center mb-4">
-        <h2 className="text-acid-green/60 font-mono text-[10px] tracking-widest">
+        <h2 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest">
           BY INDUSTRY
         </h2>
       </div>
@@ -94,7 +94,7 @@ export function VerticalCards() {
       </div>
 
       {/* Subtitle */}
-      <p className="text-center text-text-muted/30 font-mono text-[9px] mt-3">
+      <p className="text-center text-text-muted/30 font-theme-data text-[9px] mt-3">
         Pre-configured specialists for domain-specific analysis
       </p>
     </section>

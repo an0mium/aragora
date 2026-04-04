@@ -122,22 +122,22 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
       {/* Current Usage Summary */}
       <div className="bg-surface border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-mono text-text">Current Usage</h3>
-          <span className="px-2 py-1 bg-acid-green/20 text-acid-green text-xs font-mono rounded">
+          <h3 className="text-lg font-theme-data text-text">Current Usage</h3>
+          <span className="px-2 py-1 bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-theme-data rounded">
             {usage.tier.toUpperCase()}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-text-muted text-xs font-mono">RECORDS EXPORTED</p>
-            <p className="text-2xl font-mono text-text">{usage.recordsExported.toLocaleString()}</p>
+            <p className="text-text-muted text-xs font-theme-data">RECORDS EXPORTED</p>
+            <p className="text-2xl font-theme-data text-text">{usage.recordsExported.toLocaleString()}</p>
             <p className="text-xs text-text-muted">
               {remainingFreeRecords.toLocaleString()} free remaining
             </p>
           </div>
           <div>
-            <p className="text-text-muted text-xs font-mono">EXPORTS THIS MONTH</p>
-            <p className="text-2xl font-mono text-text">{usage.exportsThisMonth}</p>
+            <p className="text-text-muted text-xs font-theme-data">EXPORTS THIS MONTH</p>
+            <p className="text-2xl font-theme-data text-text">{usage.exportsThisMonth}</p>
             <p className="text-xs text-text-muted">
               {tierInfo.limits.maxExportsPerDay === -1
                 ? 'Unlimited'
@@ -145,8 +145,8 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
             </p>
           </div>
           <div>
-            <p className="text-text-muted text-xs font-mono">LAST EXPORT</p>
-            <p className="text-lg font-mono text-text">
+            <p className="text-text-muted text-xs font-theme-data">LAST EXPORT</p>
+            <p className="text-lg font-theme-data text-text">
               {usage.lastExportDate
                 ? new Date(usage.lastExportDate).toLocaleDateString()
                 : 'Never'}
@@ -162,7 +162,7 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
           </div>
           <div className="h-2 bg-bg rounded-full overflow-hidden">
             <div
-              className="h-full bg-acid-green transition-all"
+              className="h-full bg-[var(--accent)] transition-all"
               style={{
                 width: `${Math.min(100, (usage.recordsExported / tierInfo.includedRecords) * 100)}%`
               }}
@@ -173,7 +173,7 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
 
       {/* Pricing Tiers */}
       <div>
-        <h3 className="text-lg font-mono text-text mb-4">Pricing Plans</h3>
+        <h3 className="text-lg font-theme-data text-text mb-4">Pricing Plans</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(Object.entries(PRICING_TIERS) as [keyof typeof PRICING_TIERS, typeof PRICING_TIERS[keyof typeof PRICING_TIERS]][]).map(([key, tier]) => (
             <div
@@ -182,14 +182,14 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
               className={`
                 p-4 rounded-lg border cursor-pointer transition-all
                 ${selectedTier === key
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-border hover:border-acid-green/50'}
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-border hover:border-[var(--accent)]/50'}
               `}
             >
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-mono font-bold text-text">{tier.name}</h4>
+                <h4 className="font-theme-data font-bold text-text">{tier.name}</h4>
                 {key === 'pro' && (
-                  <span className="px-2 py-0.5 bg-acid-cyan/20 text-acid-cyan text-xs rounded">
+                  <span className="px-2 py-0.5 bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] text-xs rounded">
                     POPULAR
                   </span>
                 )}
@@ -198,17 +198,17 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
               <div className="mb-4">
                 {tier.price !== null ? (
                   <>
-                    <span className="text-3xl font-mono text-text">${tier.price}</span>
+                    <span className="text-3xl font-theme-data text-text">${tier.price}</span>
                     <span className="text-text-muted text-sm">/month</span>
                   </>
                 ) : (
-                  <span className="text-xl font-mono text-text">Custom Pricing</span>
+                  <span className="text-xl font-theme-data text-text">Custom Pricing</span>
                 )}
               </div>
 
               <div className="space-y-2 mb-4">
                 <div className="text-sm">
-                  <span className="text-acid-green font-mono">
+                  <span className="text-[var(--accent)] font-theme-data">
                     {tier.includedRecords.toLocaleString()}
                   </span>
                   <span className="text-text-muted"> records included</span>
@@ -221,12 +221,12 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
               <ul className="space-y-1">
                 {tier.features.slice(0, 4).map((feature, i) => (
                   <li key={i} className="text-xs text-text-muted flex items-start gap-2">
-                    <span className="text-acid-green">+</span>
+                    <span className="text-[var(--accent)]">+</span>
                     {feature}
                   </li>
                 ))}
                 {tier.features.length > 4 && (
-                  <li className="text-xs text-acid-cyan">
+                  <li className="text-xs text-[var(--acid-cyan)]">
                     +{tier.features.length - 4} more features
                   </li>
                 )}
@@ -234,10 +234,10 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
 
               <button
                 className={`
-                  w-full mt-4 py-2 rounded font-mono text-sm transition-colors
+                  w-full mt-4 py-2 rounded font-theme-data text-sm transition-colors
                   ${selectedTier === key
-                    ? 'bg-acid-green text-bg'
-                    : 'bg-surface border border-border text-text hover:border-acid-green/50'}
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'bg-surface border border-border text-text hover:border-[var(--accent)]/50'}
                 `}
               >
                 {selectedTier === key ? 'Current Plan' : key === 'enterprise' ? 'Contact Sales' : 'Select Plan'}
@@ -249,13 +249,13 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
 
       {/* Format Pricing */}
       <div>
-        <h3 className="text-lg font-mono text-text mb-4">Format Pricing</h3>
+        <h3 className="text-lg font-theme-data text-text mb-4">Format Pricing</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(Object.entries(FORMAT_PRICING) as [keyof typeof FORMAT_PRICING, typeof FORMAT_PRICING[keyof typeof FORMAT_PRICING]][]).map(([key, format]) => (
             <div key={key} className="p-4 bg-surface border border-border rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-mono text-text uppercase text-sm">{key}</h4>
-                <span className="text-acid-green font-mono">
+                <h4 className="font-theme-data text-text uppercase text-sm">{key}</h4>
+                <span className="text-[var(--accent)] font-theme-data">
                   {format.multiplier}x
                 </span>
               </div>
@@ -272,7 +272,7 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
           onClick={() => setShowCalculator(!showCalculator)}
           className="flex items-center justify-between w-full"
         >
-          <h3 className="text-lg font-mono text-text">Cost Calculator</h3>
+          <h3 className="text-lg font-theme-data text-text">Cost Calculator</h3>
           <span className="text-text-muted">{showCalculator ? '[-]' : '[+]'}</span>
         </button>
 
@@ -280,7 +280,7 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-2">
+                <label className="block text-xs font-theme-data text-text-muted mb-2">
                   ESTIMATED RECORDS
                 </label>
                 <input
@@ -290,17 +290,17 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
                   step={1000}
                   value={estimateRecords}
                   onChange={(e) => setEstimateRecords(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-text focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-2">
+                <label className="block text-xs font-theme-data text-text-muted mb-2">
                   EXPORT FORMAT
                 </label>
                 <select
                   value={estimateFormat}
                   onChange={(e) => setEstimateFormat(e.target.value as keyof typeof FORMAT_PRICING)}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-text focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                 >
                   {Object.entries(FORMAT_PRICING).map(([key, format]) => (
                     <option key={key} value={key}>
@@ -316,30 +316,30 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-text-muted">Free records</p>
-                  <p className="text-acid-green font-mono">
+                  <p className="text-[var(--accent)] font-theme-data">
                     {estimatedCost.freeRecords.toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-text-muted">Billable records</p>
-                  <p className="text-text font-mono">
+                  <p className="text-text font-theme-data">
                     {estimatedCost.billableRecords.toLocaleString()}
                   </p>
                 </div>
                 <div>
                   <p className="text-text-muted">Format multiplier</p>
-                  <p className="text-text font-mono">{estimatedCost.formatMultiplier}x</p>
+                  <p className="text-text font-theme-data">{estimatedCost.formatMultiplier}x</p>
                 </div>
                 <div>
                   <p className="text-text-muted">Usage cost</p>
-                  <p className="text-text font-mono">${estimatedCost.baseCost.toFixed(2)}</p>
+                  <p className="text-text font-theme-data">${estimatedCost.baseCost.toFixed(2)}</p>
                 </div>
               </div>
 
               <div className="border-t border-border mt-4 pt-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-text font-mono">Estimated Total</span>
-                  <span className="text-2xl font-mono text-acid-green">
+                  <span className="text-text font-theme-data">Estimated Total</span>
+                  <span className="text-2xl font-theme-data text-[var(--accent)]">
                     ${estimatedCost.totalCost.toFixed(2)}
                     <span className="text-sm text-text-muted">/month</span>
                   </span>
@@ -357,30 +357,30 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
 
       {/* Volume Discounts */}
       <div className="bg-surface border border-border rounded-lg p-4">
-        <h3 className="text-lg font-mono text-text mb-4">Volume Discounts</h3>
+        <h3 className="text-lg font-theme-data text-text mb-4">Volume Discounts</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-text-muted text-left">
-              <th className="pb-2 font-mono">Records/Month</th>
-              <th className="pb-2 font-mono">Discount</th>
-              <th className="pb-2 font-mono">Effective Rate</th>
+              <th className="pb-2 font-theme-data">Records/Month</th>
+              <th className="pb-2 font-theme-data">Discount</th>
+              <th className="pb-2 font-theme-data">Effective Rate</th>
             </tr>
           </thead>
           <tbody className="text-text">
             <tr className="border-t border-border">
               <td className="py-2">100K - 500K</td>
-              <td className="py-2 text-acid-cyan">10% off</td>
-              <td className="py-2 font-mono">${(tierInfo.pricePerRecord * 0.9).toFixed(5)}</td>
+              <td className="py-2 text-[var(--acid-cyan)]">10% off</td>
+              <td className="py-2 font-theme-data">${(tierInfo.pricePerRecord * 0.9).toFixed(5)}</td>
             </tr>
             <tr className="border-t border-border">
               <td className="py-2">500K - 1M</td>
-              <td className="py-2 text-acid-cyan">20% off</td>
-              <td className="py-2 font-mono">${(tierInfo.pricePerRecord * 0.8).toFixed(5)}</td>
+              <td className="py-2 text-[var(--acid-cyan)]">20% off</td>
+              <td className="py-2 font-theme-data">${(tierInfo.pricePerRecord * 0.8).toFixed(5)}</td>
             </tr>
             <tr className="border-t border-border">
               <td className="py-2">1M+</td>
-              <td className="py-2 text-acid-green">30% off</td>
-              <td className="py-2 font-mono">${(tierInfo.pricePerRecord * 0.7).toFixed(5)}</td>
+              <td className="py-2 text-[var(--accent)]">30% off</td>
+              <td className="py-2 font-theme-data">${(tierInfo.pricePerRecord * 0.7).toFixed(5)}</td>
             </tr>
           </tbody>
         </table>
@@ -388,10 +388,10 @@ export function TrainingPricingPanel({ currentUsage, onSelectTier }: TrainingPri
 
       {/* CTA */}
       <div className="flex gap-4">
-        <button className="flex-1 py-3 bg-acid-green text-bg font-mono font-bold rounded hover:bg-acid-green/80 transition-colors">
+        <button className="flex-1 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold rounded hover:bg-[var(--accent)]/80 transition-colors">
           Upgrade Plan
         </button>
-        <button className="px-6 py-3 bg-surface border border-border text-text font-mono rounded hover:border-acid-green/50 transition-colors">
+        <button className="px-6 py-3 bg-surface border border-border text-text font-theme-data rounded hover:border-[var(--accent)]/50 transition-colors">
           Contact Sales
         </button>
       </div>

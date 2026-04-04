@@ -15,7 +15,7 @@ export function ValueNode({ data }: NodeProps) {
     >
       <div style={{ transform: 'rotate(-45deg)' }} className="text-center">
         <Handle type="target" position={Position.Left} className="!bg-violet-500" />
-        <div className="text-xs font-mono font-bold text-violet-400 uppercase tracking-wide mb-1">
+        <div className="text-xs font-theme-data font-bold text-violet-400 uppercase tracking-wide mb-1">
           Value
         </div>
         <div className="text-sm font-medium text-text truncate max-w-[120px]">

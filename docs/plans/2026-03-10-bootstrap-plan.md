@@ -10,12 +10,13 @@ execute a structured hardening backlog against the rest of the codebase.
 
 ## Related Documents
 
-- **Execution gating policy:**
-  [`docs/plans/2026-03-10-bootstrap-gates.md`](2026-03-10-bootstrap-gates.md)
+- **Execution gating policy:** defined in the phase gates below, especially
+  [Phase 0A](#phase-0a-prove-governance) and [Phase 0B](#phase-0b-prove-verified-execution)
 - **First evidence report:**
-  [`docs/plans/2026-03-10-dogfood-6-evidence.md`](2026-03-10-dogfood-6-evidence.md)
-- **Phase 0A campaign manifest:**
-  [`docs/plans/phase0a_campaign_manifest.yaml`](phase0a_campaign_manifest.yaml)
+  [`docs/plans/2026-03-10-campaign-validated.md`](2026-03-10-campaign-validated.md)
+- **Phase 0A surviving manifests:**
+  [`docs/plans/phase0a_proof_manifest.yaml`](phase0a_proof_manifest.yaml) and
+  [`docs/plans/phase0a_campaign2_manifest.yaml`](phase0a_campaign2_manifest.yaml)
 - **Existing roadmap:**
   [`ROADMAP.md`](../../ROADMAP.md)
 
@@ -53,7 +54,7 @@ On March 10, 2026, the first confirmed end-to-end campaign execution:
 - Campaign state was updated to mark the project completed
 - Dependency handling blocked downstream project correctly
 
-See full evidence: `docs/plans/2026-03-10-dogfood-6-evidence.md`
+See full evidence: [`docs/plans/2026-03-10-campaign-validated.md`](2026-03-10-campaign-validated.md)
 
 ### Known gaps in the engine
 
@@ -98,7 +99,10 @@ tasks in a narrow safe lane without human rescue.
 
 ### Campaign 1: artifacts produced manually after failed automation
 
-See `docs/plans/phase0a_campaign_manifest.yaml` for the original manifest.
+The original `phase0a_campaign_manifest.yaml` is no longer in the repo. Use
+[`docs/plans/phase0a_proof_manifest.yaml`](phase0a_proof_manifest.yaml) and
+[`docs/plans/phase0a_campaign2_manifest.yaml`](phase0a_campaign2_manifest.yaml)
+for the surviving Phase 0A manifests.
 
 | Task | Title | Depends On | Est. Cost | Automation Result |
 |------|-------|------------|-----------|-------------------|

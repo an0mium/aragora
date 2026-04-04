@@ -85,8 +85,8 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
 
   const getRatingColor = (rating: number) => {
     if (rating >= 1800) return 'text-purple-400';
-    if (rating >= 1600) return 'text-acid-cyan';
-    if (rating >= 1400) return 'text-acid-green';
+    if (rating >= 1600) return 'text-[var(--acid-cyan)]';
+    if (rating >= 1400) return 'text-[var(--accent)]';
     if (rating >= 1200) return 'text-yellow-500';
     return 'text-white/50';
   };
@@ -125,7 +125,7 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
             className="flex items-center justify-between p-3 border border-white/10 bg-white/5 rounded-lg"
           >
             <div className="flex items-center gap-3">
-              <span className="text-white/30 text-sm font-mono w-6">#{index + 1}</span>
+              <span className="text-white/30 text-sm font-theme-data w-6">#{index + 1}</span>
               <span className="font-medium text-white">{agent}</span>
             </div>
             <span className={`text-lg font-bold ${getRatingColor(rating)}`}>
@@ -170,7 +170,7 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
               </div>
               <div>
                 <div className="text-white/40 text-xs">Win Rate</div>
-                <div className={cal.win_rate >= 0.5 ? 'text-acid-green' : 'text-red-400'}>
+                <div className={cal.win_rate >= 0.5 ? 'text-[var(--accent)]' : 'text-red-400'}>
                   {(cal.win_rate * 100).toFixed(1)}%
                 </div>
               </div>
@@ -223,7 +223,7 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
                     </span>
                   ))}
                   {pattern.topics.map((topic) => (
-                    <span key={topic} className="px-1.5 py-0.5 rounded text-xs bg-acid-cyan/10 text-acid-cyan">
+                    <span key={topic} className="px-1.5 py-0.5 rounded text-xs bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)]">
                       {topic}
                     </span>
                   ))}

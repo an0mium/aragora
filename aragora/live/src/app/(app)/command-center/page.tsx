@@ -9,7 +9,7 @@ function CommandCenterLoading() {
     <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
       <div className="text-center">
         <div className="text-4xl mb-4 animate-pulse">📬</div>
-        <div className="text-[var(--acid-green)] font-mono animate-pulse">
+        <div className="text-[var(--acid-green)] font-theme-data animate-pulse">
           Loading Command Center...
         </div>
       </div>
@@ -29,22 +29,22 @@ export default function CommandCenterPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
                   {'>'} INBOX COMMAND CENTER
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   AI-powered email triage with multi-agent prioritization
                 </p>
               </div>
 
               {/* Status indicators */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-green/30 rounded-full">
-                  <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-                  <span className="text-xs font-mono text-acid-green">Live</span>
+                <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-[var(--accent)]/30 rounded-full">
+                  <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+                  <span className="text-xs font-theme-data text-[var(--accent)]">Live</span>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-cyan/30 rounded-full">
-                  <span className="text-xs font-mono text-acid-cyan">3-Tier Scoring</span>
+                <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-[var(--acid-cyan)]/30 rounded-full">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">3-Tier Scoring</span>
                 </div>
               </div>
             </div>
@@ -57,7 +57,7 @@ export default function CommandCenterPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2">{'═'.repeat(40)}</div>
           <p className="text-[var(--text-muted)]">
             {'>'} COMMAND CENTER // PROCESS UNRULY INBOXES WITH AI

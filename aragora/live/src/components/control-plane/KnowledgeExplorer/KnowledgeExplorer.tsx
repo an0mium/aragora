@@ -189,25 +189,25 @@ export function KnowledgeExplorer({
   const statsSummary = stats ? (
     <div className="grid grid-cols-4 gap-4 mb-4 p-3 bg-surface rounded-lg">
       <div className="text-center">
-        <div className="text-2xl font-mono text-acid-green">
+        <div className="text-2xl font-theme-data text-[var(--accent)]">
           {stats.total_nodes.toLocaleString()}
         </div>
         <div className="text-xs text-text-muted">Total Nodes</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-mono text-acid-cyan">
+        <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
           {stats.total_relationships.toLocaleString()}
         </div>
         <div className="text-xs text-text-muted">Relationships</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-mono text-green-400">
+        <div className="text-2xl font-theme-data text-green-400">
           {Math.round(stats.avg_confidence * 100)}%
         </div>
         <div className="text-xs text-text-muted">Avg Confidence</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-mono text-yellow-400">
+        <div className="text-2xl font-theme-data text-yellow-400">
           {stats.stale_nodes_count}
         </div>
         <div className="text-xs text-text-muted">Stale Nodes</div>
@@ -259,7 +259,7 @@ export function KnowledgeExplorer({
           <button
             onClick={() => loadNodes()}
             disabled={browserLoading}
-            className="text-xs text-acid-green hover:underline disabled:opacity-50"
+            className="text-xs text-[var(--accent)] hover:underline disabled:opacity-50"
           >
             {browserLoading ? 'Loading...' : 'Refresh'}
           </button>
@@ -288,7 +288,7 @@ export function KnowledgeExplorer({
           {graphNodes.length > 0 && (
             <button
               onClick={clearGraph}
-              className="text-xs text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               Clear graph
             </button>

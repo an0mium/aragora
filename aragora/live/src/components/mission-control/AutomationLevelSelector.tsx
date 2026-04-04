@@ -59,7 +59,7 @@ export const AutomationLevelSelector = memo(function AutomationLevelSelector({
             <div className="flex items-center gap-1.5">
               <span className="text-sm">{level.icon}</span>
               <span
-                className={`text-xs font-mono font-bold ${
+                className={`text-xs font-theme-data font-bold ${
                   isSelected ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'
                 }`}
               >

@@ -40,8 +40,8 @@ interface ExportOptions {
 function StatCard({ label, value, color = 'acid-green' }: { label: string; value: number | string; color?: string }) {
   return (
     <div className="card p-4">
-      <div className="font-mono text-xs text-text-muted mb-1">{label}</div>
-      <div className={`font-mono text-2xl text-${color}`}>{value}</div>
+      <div className="font-theme-data text-xs text-text-muted mb-1">{label}</div>
+      <div className={`font-theme-data text-2xl text-${color}`}>{value}</div>
     </div>
   );
 }
@@ -61,7 +61,7 @@ function ExportButton({
     <button
       onClick={onClick}
       disabled={loading || disabled}
-      className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {loading ? 'Exporting...' : children}
     </button>
@@ -86,8 +86,8 @@ function OptionSlider({
   return (
     <div className="space-y-1">
       <div className="flex justify-between">
-        <label className="font-mono text-xs text-text-muted">{label}</label>
-        <span className="font-mono text-xs text-acid-cyan">{value.toFixed(2)}</span>
+        <label className="font-theme-data text-xs text-text-muted">{label}</label>
+        <span className="font-theme-data text-xs text-[var(--acid-cyan)]">{value.toFixed(2)}</span>
       </div>
       <input
         type="range"
@@ -119,7 +119,7 @@ function OptionCheckbox({
         onChange={(e) => onChange(e.target.checked)}
         className="w-4 h-4 accent-acid-green"
       />
-      <span className="font-mono text-xs text-text">{label}</span>
+      <span className="font-theme-data text-xs text-text">{label}</span>
     </label>
   );
 }
@@ -264,7 +264,7 @@ export default function TrainingExportPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -272,7 +272,7 @@ export default function TrainingExportPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [ADMIN]
               </Link>
@@ -283,28 +283,28 @@ export default function TrainingExportPage() {
         </header>
 
         {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4">
             <div className="flex gap-4 overflow-x-auto">
-              <Link href="/admin" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 SYSTEM
               </Link>
-              <Link href="/admin/organizations" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin/organizations" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 ORGANIZATIONS
               </Link>
-              <Link href="/admin/users" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin/users" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 USERS
               </Link>
-              <Link href="/admin/personas" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin/personas" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 PERSONAS
               </Link>
-              <Link href="/admin/audit" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin/audit" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 AUDIT
               </Link>
-              <Link href="/admin/revenue" className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors">
+              <Link href="/admin/revenue" className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors">
                 REVENUE
               </Link>
-              <Link href="/admin/training" className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green">
+              <Link href="/admin/training" className="px-4 py-2 font-theme-data text-sm text-[var(--accent)] border-b-2 border-[var(--accent)]">
                 TRAINING
               </Link>
             </div>
@@ -315,17 +315,17 @@ export default function TrainingExportPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Training Data Export
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Export debate data for ML model training (SFT, DPO, Gauntlet).
               </p>
             </div>
             <button
               onClick={fetchStats}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'Refresh'}
             </button>
@@ -333,7 +333,7 @@ export default function TrainingExportPage() {
 
           {!isAdmin && (
             <div className="card p-6 mb-6 border-acid-yellow/40">
-              <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
+              <div className="flex items-center gap-2 text-[var(--acid-yellow)] font-theme-data text-sm">
                 <span>!</span>
                 <span>Admin access required. Training exports need elevated permissions.</span>
               </div>
@@ -342,13 +342,13 @@ export default function TrainingExportPage() {
 
           {error && (
             <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
+              <p className="text-acid-red font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {loading ? (
             <div className="card p-8 text-center">
-              <div className="font-mono text-text-muted animate-pulse">Loading training stats...</div>
+              <div className="font-theme-data text-text-muted animate-pulse">Loading training stats...</div>
             </div>
           ) : stats && (
             <>
@@ -363,14 +363,14 @@ export default function TrainingExportPage() {
 
               {/* Export Tabs */}
               <div className="card p-6 mb-6">
-                <div className="flex gap-4 mb-6 border-b border-acid-green/20 pb-4">
+                <div className="flex gap-4 mb-6 border-b border-[var(--accent)]/20 pb-4">
                   {(['sft', 'dpo', 'gauntlet'] as ExportTab[]).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 font-mono text-sm rounded transition-colors ${
+                      className={`px-4 py-2 font-theme-data text-sm rounded transition-colors ${
                         activeTab === tab
-                          ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                          ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                           : 'text-text-muted hover:text-text'
                       }`}
                     >
@@ -383,8 +383,8 @@ export default function TrainingExportPage() {
                 {activeTab === 'sft' && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="font-mono text-acid-green mb-4">SFT Export Options</h3>
-                      <p className="font-mono text-xs text-text-muted mb-4">
+                      <h3 className="font-theme-data text-[var(--accent)] mb-4">SFT Export Options</h3>
+                      <p className="font-theme-data text-xs text-text-muted mb-4">
                         Supervised Fine-Tuning data from high-quality debate conclusions.
                       </p>
                     </div>
@@ -438,8 +438,8 @@ export default function TrainingExportPage() {
                 {activeTab === 'dpo' && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="font-mono text-acid-green mb-4">DPO Export Options</h3>
-                      <p className="font-mono text-xs text-text-muted mb-4">
+                      <h3 className="font-theme-data text-[var(--accent)] mb-4">DPO Export Options</h3>
+                      <p className="font-theme-data text-xs text-text-muted mb-4">
                         Direct Preference Optimization pairs from agent comparisons.
                       </p>
                     </div>
@@ -467,20 +467,20 @@ export default function TrainingExportPage() {
                 {activeTab === 'gauntlet' && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="font-mono text-acid-green mb-4">Gauntlet Export Options</h3>
-                      <p className="font-mono text-xs text-text-muted mb-4">
+                      <h3 className="font-theme-data text-[var(--accent)] mb-4">Gauntlet Export Options</h3>
+                      <p className="font-theme-data text-xs text-text-muted mb-4">
                         Adversarial findings from compliance gauntlet tests.
                       </p>
                     </div>
                     <div className="max-w-md space-y-4">
                       <div className="space-y-2">
-                        <label htmlFor="compliance-persona" className="font-mono text-xs text-text-muted">Compliance Persona</label>
+                        <label htmlFor="compliance-persona" className="font-theme-data text-xs text-text-muted">Compliance Persona</label>
                         <select
                           id="compliance-persona"
                           value={options.gauntlet.persona}
                           onChange={e => updateGauntletOption('persona', e.target.value as typeof options.gauntlet.persona)}
                           aria-label="Select compliance persona"
-                          className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm text-text"
+                          className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text"
                         >
                           <option value="all">All Personas</option>
                           <option value="gdpr">GDPR</option>
@@ -508,15 +508,15 @@ export default function TrainingExportPage() {
                 )}
 
                 {/* Export Controls */}
-                <div className="mt-6 pt-6 border-t border-acid-green/20 flex items-center justify-between">
+                <div className="mt-6 pt-6 border-t border-[var(--accent)]/20 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <label htmlFor="export-format" className="font-mono text-xs text-text-muted">Format:</label>
+                    <label htmlFor="export-format" className="font-theme-data text-xs text-text-muted">Format:</label>
                     <select
                       id="export-format"
                       value={format}
                       onChange={e => setFormat(e.target.value as ExportFormat)}
                       aria-label="Select export format"
-                      className="p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm text-text"
+                      className="p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text"
                     >
                       <option value="jsonl">JSONL (line-delimited)</option>
                       <option value="json">JSON (array)</option>
@@ -530,20 +530,20 @@ export default function TrainingExportPage() {
 
               {/* Export Result */}
               {exportResult && (
-                <div className="card p-6 border-acid-green/40">
-                  <h3 className="font-mono text-acid-green mb-4">Export Complete</h3>
+                <div className="card p-6 border-[var(--accent)]/40">
+                  <h3 className="font-theme-data text-[var(--accent)] mb-4">Export Complete</h3>
                   <div className="grid md:grid-cols-3 gap-4">
                     <div>
-                      <div className="font-mono text-xs text-text-muted">Records Exported</div>
-                      <div className="font-mono text-xl text-acid-cyan">{exportResult.total.toLocaleString()}</div>
+                      <div className="font-theme-data text-xs text-text-muted">Records Exported</div>
+                      <div className="font-theme-data text-xl text-[var(--acid-cyan)]">{exportResult.total.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div className="font-mono text-xs text-text-muted">Format</div>
-                      <div className="font-mono text-xl text-text">{exportResult.format.toUpperCase()}</div>
+                      <div className="font-theme-data text-xs text-text-muted">Format</div>
+                      <div className="font-theme-data text-xl text-text">{exportResult.format.toUpperCase()}</div>
                     </div>
                     <div>
-                      <div className="font-mono text-xs text-text-muted">Exported At</div>
-                      <div className="font-mono text-sm text-text">{new Date(exportResult.exported_at).toLocaleString()}</div>
+                      <div className="font-theme-data text-xs text-text-muted">Exported At</div>
+                      <div className="font-theme-data text-sm text-text">{new Date(exportResult.exported_at).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
@@ -551,11 +551,11 @@ export default function TrainingExportPage() {
 
               {/* Format Info */}
               <div className="mt-6 card p-4 bg-surface/50">
-                <h4 className="font-mono text-xs text-text-muted mb-2">Format Documentation</h4>
-                <div className="font-mono text-xs text-text space-y-1">
-                  <p><span className="text-acid-green">SFT:</span> Task-response pairs for instruction fine-tuning</p>
-                  <p><span className="text-acid-cyan">DPO:</span> Chosen/rejected pairs for preference learning</p>
-                  <p><span className="text-acid-yellow">Gauntlet:</span> Adversarial findings for safety training</p>
+                <h4 className="font-theme-data text-xs text-text-muted mb-2">Format Documentation</h4>
+                <div className="font-theme-data text-xs text-text space-y-1">
+                  <p><span className="text-[var(--accent)]">SFT:</span> Task-response pairs for instruction fine-tuning</p>
+                  <p><span className="text-[var(--acid-cyan)]">DPO:</span> Chosen/rejected pairs for preference learning</p>
+                  <p><span className="text-[var(--acid-yellow)]">Gauntlet:</span> Adversarial findings for safety training</p>
                 </div>
               </div>
             </>

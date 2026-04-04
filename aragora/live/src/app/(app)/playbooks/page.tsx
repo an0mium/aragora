@@ -105,10 +105,10 @@ export default function PlaybooksPage() {
         {/* Hero */}
         <div className="border-b border-[var(--acid-green)]/20 bg-[var(--surface)]/30">
           <div className="container mx-auto px-4 py-12 text-center">
-            <h1 className="text-3xl md:text-4xl font-mono text-[var(--acid-green)] mb-4">
+            <h1 className="text-3xl md:text-4xl font-theme-data text-[var(--acid-green)] mb-4">
               {'>'} DECISION PLAYBOOKS
             </h1>
-            <p className="text-[var(--text-muted)] font-mono max-w-2xl mx-auto">
+            <p className="text-[var(--text-muted)] font-theme-data max-w-2xl mx-auto">
               Pre-built decision workflows combining debate templates, vertical scoring,
               compliance artifacts, and approval gates. Choose a playbook and launch it
               with your question.
@@ -122,12 +122,12 @@ export default function PlaybooksPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               {/* Category filters */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-[var(--text-muted)] font-mono">Filter:</span>
+                <span className="text-xs text-[var(--text-muted)] font-theme-data">Filter:</span>
                 {ALL_CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setCategoryFilter(cat)}
-                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                       categoryFilter === cat
                         ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
                         : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/40'
@@ -148,12 +148,12 @@ export default function PlaybooksPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search playbooks..."
-                  className="w-60 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]/50"
+                  className="w-60 bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs font-theme-data text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]/50"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] font-mono text-xs"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] font-theme-data text-xs"
                   >
                     &times;
                   </button>
@@ -161,7 +161,7 @@ export default function PlaybooksPage() {
               </div>
             </div>
 
-            <div className="mt-2 text-xs text-[var(--text-muted)] font-mono">
+            <div className="mt-2 text-xs text-[var(--text-muted)] font-theme-data">
               Showing {filteredPlaybooks.length} of {playbooks.length} playbooks
             </div>
           </div>
@@ -169,7 +169,7 @@ export default function PlaybooksPage() {
           {/* Loading state */}
           {loading && (
             <div className="flex items-center justify-center py-20">
-              <div className="text-[var(--acid-green)] font-mono animate-pulse">
+              <div className="text-[var(--acid-green)] font-theme-data animate-pulse">
                 {'>'} LOADING PLAYBOOKS...
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function PlaybooksPage() {
           {/* Error state */}
           {error && !loading && (
             <div className="bg-red-500/10 border border-red-500/30 p-4 mb-6">
-              <p className="text-sm font-mono text-red-400">
+              <p className="text-sm font-theme-data text-red-400">
                 Failed to load playbooks: {error}
               </p>
             </div>
@@ -187,10 +187,10 @@ export default function PlaybooksPage() {
           {/* Empty state */}
           {!loading && !error && filteredPlaybooks.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20">
-              <div className="text-[var(--acid-green)] font-mono text-lg mb-2">
+              <div className="text-[var(--acid-green)] font-theme-data text-lg mb-2">
                 {'>'} NO PLAYBOOKS FOUND
               </div>
-              <p className="text-xs text-[var(--text-muted)] font-mono">
+              <p className="text-xs text-[var(--text-muted)] font-theme-data">
                 {searchQuery
                   ? 'Try a different search term or clear the filter.'
                   : 'No playbooks match the selected category.'}
@@ -201,7 +201,7 @@ export default function PlaybooksPage() {
                     setSearchQuery('');
                     setCategoryFilter('all');
                   }}
-                  className="mt-4 px-4 py-2 text-xs font-mono bg-[var(--surface)] border border-[var(--acid-green)]/30 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
+                  className="mt-4 px-4 py-2 text-xs font-theme-data bg-[var(--surface)] border border-[var(--acid-green)]/30 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
                 >
                   CLEAR FILTERS
                 </button>
@@ -224,7 +224,7 @@ export default function PlaybooksPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2">
             {'='.repeat(40)}
           </div>
@@ -253,7 +253,7 @@ export default function PlaybooksPage() {
 
       {/* Success toast */}
       {launchSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500/20 border border-emerald-500/40 px-4 py-3 text-sm font-mono text-emerald-400 animate-pulse">
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500/20 border border-emerald-500/40 px-4 py-3 text-sm font-theme-data text-emerald-400 animate-pulse">
           Playbook launched! Run ID: {launchSuccess}
         </div>
       )}

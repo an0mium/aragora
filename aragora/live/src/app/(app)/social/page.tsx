@@ -200,7 +200,7 @@ export default function SocialPage() {
 
   const renderStatusTab = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-mono font-bold text-acid-green mb-4">Platform Connections</h2>
+      <h2 className="text-xl font-theme-data font-bold text-[var(--accent)] mb-4">Platform Connections</h2>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {connectors.map((connector) => (
@@ -209,11 +209,11 @@ export default function SocialPage() {
             className="p-4 bg-surface border border-border rounded-lg"
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="font-mono font-bold text-text">{connector.name}</span>
+              <span className="font-theme-data font-bold text-text">{connector.name}</span>
               <span
-                className={`px-2 py-1 text-xs font-mono rounded ${
+                className={`px-2 py-1 text-xs font-theme-data rounded ${
                   connector.is_connected
-                    ? 'bg-acid-green/20 text-acid-green border border-acid-green/30'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30'
                     : connector.is_configured
                     ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                     : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -238,7 +238,7 @@ export default function SocialPage() {
             {!connector.is_connected && connector.name === 'YouTube' && (
               <button
                 onClick={() => initiateOAuth('YouTube')}
-                className="mt-2 w-full px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+                className="mt-2 w-full px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data text-sm hover:bg-red-500/30 transition-colors rounded"
               >
                 Connect YouTube
               </button>
@@ -254,11 +254,11 @@ export default function SocialPage() {
       </div>
 
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Configuration</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">Configuration</h3>
         <p className="text-sm text-text-muted mb-4">
           Social media integrations require API credentials. Configure them in the environment or settings.
         </p>
-        <div className="grid gap-2 text-xs font-mono text-text-muted">
+        <div className="grid gap-2 text-xs font-theme-data text-text-muted">
           <div>YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET</div>
           <div>TWITTER_API_KEY, TWITTER_API_SECRET</div>
           <div>SLACK_WEBHOOK_URL</div>
@@ -269,19 +269,19 @@ export default function SocialPage() {
 
   const renderPublishTab = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-mono font-bold text-acid-green mb-4">Publish Debate</h2>
+      <h2 className="text-xl font-theme-data font-bold text-[var(--accent)] mb-4">Publish Debate</h2>
 
       <div className="p-4 bg-surface border border-border rounded-lg">
         <div className="space-y-4">
           {/* Debate Selection */}
           <div>
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">
               Select Debate
             </label>
             <select
               value={selectedDebate}
               onChange={(e) => setSelectedDebate(e.target.value)}
-              className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green/50"
+              className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]/50"
             >
               <option value="">Choose a debate...</option>
               {recentDebates.map((debate) => (
@@ -295,7 +295,7 @@ export default function SocialPage() {
 
           {/* Platform Selection */}
           <div>
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">
               Platform
             </label>
             <div className="flex gap-2">
@@ -310,11 +310,11 @@ export default function SocialPage() {
                     key={platform}
                     onClick={() => isAvailable && setSelectedPlatform(platform)}
                     disabled={!isAvailable}
-                    className={`flex-1 px-4 py-3 rounded border-2 transition-all font-mono text-sm ${
+                    className={`flex-1 px-4 py-3 rounded border-2 transition-all font-theme-data text-sm ${
                       selectedPlatform === platform
-                        ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
                         : isAvailable
-                        ? 'border-border text-text hover:border-acid-green/50'
+                        ? 'border-border text-text hover:border-[var(--accent)]/50'
                         : 'border-border/50 text-text-muted cursor-not-allowed opacity-50'
                     }`}
                   >
@@ -331,10 +331,10 @@ export default function SocialPage() {
           <button
             onClick={handlePublish}
             disabled={!selectedDebate || !selectedPlatform || publishing}
-            className={`w-full px-4 py-3 rounded font-mono font-bold transition-all ${
+            className={`w-full px-4 py-3 rounded font-theme-data font-bold transition-all ${
               !selectedDebate || !selectedPlatform || publishing
                 ? 'bg-border text-text-muted cursor-not-allowed'
-                : 'bg-acid-green/20 border-2 border-acid-green text-acid-green hover:bg-acid-green/30'
+                : 'bg-[var(--accent)]/20 border-2 border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30'
             }`}
           >
             {publishing ? 'Publishing...' : 'Publish'}
@@ -344,7 +344,7 @@ export default function SocialPage() {
 
       {/* Instructions */}
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Notes</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">Notes</h3>
         <ul className="text-sm text-text-muted space-y-2">
           <li>• Twitter: Generates a thread summarizing the debate conclusion</li>
           <li>• YouTube: Requires audio/video to be generated first (via /broadcast)</li>
@@ -357,7 +357,7 @@ export default function SocialPage() {
 
   const renderHistoryTab = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-mono font-bold text-acid-green mb-4">Publish History</h2>
+      <h2 className="text-xl font-theme-data font-bold text-[var(--accent)] mb-4">Publish History</h2>
 
       {publishHistory.length === 0 ? (
         <HistoryEmptyState />
@@ -370,17 +370,17 @@ export default function SocialPage() {
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 text-xs font-mono uppercase bg-blue-500/20 text-blue-400 rounded">
+                  <span className="px-2 py-1 text-xs font-theme-data uppercase bg-blue-500/20 text-blue-400 rounded">
                     {job.platform}
                   </span>
-                  <span className="text-sm font-mono text-text">
+                  <span className="text-sm font-theme-data text-text">
                     Debate: {job.debate_id.substring(0, 8)}...
                   </span>
                 </div>
                 <span
-                  className={`px-2 py-1 text-xs font-mono rounded ${
+                  className={`px-2 py-1 text-xs font-theme-data rounded ${
                     job.status === 'completed'
-                      ? 'bg-acid-green/20 text-acid-green'
+                      ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                       : job.status === 'failed'
                       ? 'bg-red-500/20 text-red-400'
                       : 'bg-yellow-500/20 text-yellow-400'
@@ -399,7 +399,7 @@ export default function SocialPage() {
                   href={job.result_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-block text-sm text-acid-green hover:underline"
+                  className="mt-2 inline-block text-sm text-[var(--accent)] hover:underline"
                 >
                   View on {job.platform} &rarr;
                 </a>
@@ -436,8 +436,8 @@ export default function SocialPage() {
 
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-mono font-bold text-acid-green mb-2">Social Media</h1>
-          <p className="text-text-muted font-mono text-sm">
+          <h1 className="text-3xl font-theme-data font-bold text-[var(--accent)] mb-2">Social Media</h1>
+          <p className="text-text-muted font-theme-data text-sm">
             Publish debates to social platforms and manage integrations
           </p>
         </div>
@@ -456,9 +456,9 @@ export default function SocialPage() {
         <div className="flex gap-2 mb-6 border-b border-border pb-2">
           <button
             onClick={() => setActiveTab('status')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'status'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -466,9 +466,9 @@ export default function SocialPage() {
           </button>
           <button
             onClick={() => setActiveTab('publish')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'publish'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -476,9 +476,9 @@ export default function SocialPage() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === 'history'
-                ? 'bg-acid-green/10 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -489,7 +489,7 @@ export default function SocialPage() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+            <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading...</div>
           </div>
         ) : (
           <div>

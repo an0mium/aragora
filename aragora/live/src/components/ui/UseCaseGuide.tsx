@@ -230,7 +230,7 @@ export function UseCaseGuide({
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-mono font-bold text-text">
+        <h2 className="font-theme-data font-bold text-text">
           What would you like to do?
         </h2>
         {showModeFilter && (
@@ -246,10 +246,10 @@ export function UseCaseGuide({
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="
-            flex-1 min-w-48 px-3 py-1.5 text-sm font-mono
-            bg-surface border border-acid-green/30
+            flex-1 min-w-48 px-3 py-1.5 text-sm font-theme-data
+            bg-surface border border-[var(--accent)]/30
             text-text placeholder-text-muted
-            focus:border-acid-green focus:outline-none
+            focus:border-[var(--accent)] focus:outline-none
           "
         />
 
@@ -259,10 +259,10 @@ export function UseCaseGuide({
             onClick={() => setSelectedTag(null)}
             aria-pressed={!selectedTag}
             className={`
-              px-2 py-1 text-xs font-mono
+              px-2 py-1 text-xs font-theme-data
               ${!selectedTag
-                ? 'bg-acid-green text-bg'
-                : 'border border-acid-green/30 text-acid-green/70 hover:border-acid-green/50'
+                ? 'bg-[var(--accent)] text-bg'
+                : 'border border-[var(--accent)]/30 text-[var(--accent)]/70 hover:border-[var(--accent)]/50'
               }
               transition-colors
             `}
@@ -275,10 +275,10 @@ export function UseCaseGuide({
               onClick={() => setSelectedTag(tag === selectedTag ? null : tag)}
               aria-pressed={selectedTag === tag}
               className={`
-                px-2 py-1 text-xs font-mono
+                px-2 py-1 text-xs font-theme-data
                 ${selectedTag === tag
-                  ? 'bg-acid-green text-bg'
-                  : 'border border-acid-green/30 text-acid-green/70 hover:border-acid-green/50'
+                  ? 'bg-[var(--accent)] text-bg'
+                  : 'border border-[var(--accent)]/30 text-[var(--accent)]/70 hover:border-[var(--accent)]/50'
                 }
                 transition-colors
               `}
@@ -299,13 +299,13 @@ export function UseCaseGuide({
       {filteredUseCases.length === 0 && (
         <div className="text-center py-8 text-text-muted">
           <div className="text-2xl mb-2">?</div>
-          <div className="text-sm font-mono">
+          <div className="text-sm font-theme-data">
             No matching use cases found.
             {selectedTag && (
               <button
                 onClick={() => setSelectedTag(null)}
                 aria-label="Clear category filter"
-                className="ml-2 text-acid-green underline"
+                className="ml-2 text-[var(--accent)] underline"
               >
                 Clear filter
               </button>
@@ -324,16 +324,16 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
   return (
     <Link href={useCase.href}>
       <div className="
-        p-4 bg-surface border border-acid-green/20
-        hover:border-acid-green/50 hover:bg-acid-green/5
+        p-4 bg-surface border border-[var(--accent)]/20
+        hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5
         transition-colors cursor-pointer
       ">
         <div className="flex items-start gap-3">
-          <span className="text-2xl text-acid-green font-mono">
+          <span className="text-2xl text-[var(--accent)] font-theme-data">
             {useCase.icon}
           </span>
           <div className="flex-1 min-w-0">
-            <h3 className="font-mono font-bold text-text">
+            <h3 className="font-theme-data font-bold text-text">
               {useCase.title}
             </h3>
             <p className="text-sm text-text-muted mt-1">
@@ -346,8 +346,8 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
                 <span
                   key={feature}
                   className="
-                    px-1.5 py-0.5 text-xs font-mono
-                    bg-acid-green/10 text-acid-green/80
+                    px-1.5 py-0.5 text-xs font-theme-data
+                    bg-[var(--accent)]/10 text-[var(--accent)]/80
                   "
                 >
                   {feature}
@@ -379,16 +379,16 @@ function ModeBadges({
   ];
 
   return (
-    <div className="flex border border-acid-green/30 rounded overflow-hidden">
+    <div className="flex border border-[var(--accent)]/30 rounded overflow-hidden">
       {modes.map(({ mode, label }) => (
         <button
           key={mode}
           onClick={() => onModeChange(mode)}
           className={`
-            px-2 py-1 text-xs font-mono
+            px-2 py-1 text-xs font-theme-data
             ${currentMode === mode
-              ? 'bg-acid-green text-bg'
-              : 'text-acid-green/70 hover:bg-acid-green/10'
+              ? 'bg-[var(--accent)] text-bg'
+              : 'text-[var(--accent)]/70 hover:bg-[var(--accent)]/10'
             }
             transition-colors
           `}
@@ -416,9 +416,9 @@ export function QuickActionDropdown({ className = '' }: { className?: string }) 
         onClick={() => setIsOpen(!isOpen)}
         className="
           flex items-center gap-2 px-3 py-1.5
-          text-sm font-mono
-          border border-acid-green/30
-          text-acid-green hover:border-acid-green/50
+          text-sm font-theme-data
+          border border-[var(--accent)]/30
+          text-[var(--accent)] hover:border-[var(--accent)]/50
           transition-colors
         "
       >
@@ -429,7 +429,7 @@ export function QuickActionDropdown({ className = '' }: { className?: string }) 
       {isOpen && (
         <div className="
           absolute top-full left-0 mt-1 w-64 z-50
-          bg-surface border border-acid-green/30
+          bg-surface border border-[var(--accent)]/30
           shadow-lg
         ">
           {visibleUseCases.map(uc => (
@@ -439,12 +439,12 @@ export function QuickActionDropdown({ className = '' }: { className?: string }) 
               onClick={() => setIsOpen(false)}
               className="
                 flex items-center gap-2 px-3 py-2
-                text-sm font-mono text-text
-                hover:bg-acid-green/10
+                text-sm font-theme-data text-text
+                hover:bg-[var(--accent)]/10
                 transition-colors
               "
             >
-              <span className="w-5 text-center text-acid-green">{uc.icon}</span>
+              <span className="w-5 text-center text-[var(--accent)]">{uc.icon}</span>
               <span>{uc.title}</span>
             </Link>
           ))}
@@ -479,11 +479,11 @@ export function FeatureTooltip({
         <div className="
           absolute bottom-full left-1/2 -translate-x-1/2 mb-2
           px-3 py-2 w-48 z-50
-          bg-surface border border-acid-green/30
-          text-xs font-mono
+          bg-surface border border-[var(--accent)]/30
+          text-xs font-theme-data
           shadow-lg
         ">
-          <div className="text-acid-green font-bold mb-1">{title}</div>
+          <div className="text-[var(--accent)] font-bold mb-1">{title}</div>
           <div className="text-text-muted">{description}</div>
           {/* Arrow */}
           <div className="

@@ -1237,10 +1237,29 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     def _no_timeout(_seconds: float):
         yield
 
+    async def _fake_run_with_cleanup(coro):
+        try:
+            return await coro
+        finally:
+            await asyncio.sleep(0)
+
+    async def _fake_shutdown() -> None:
+        await asyncio.sleep(0)
+
     with (
         patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
         patch.object(debate_cmd, "create_agent", return_value=repair_agent),
+        patch.object(
+            debate_cmd,
+            "_run_coro_with_cmd_ask_cleanup",
+            side_effect=_fake_run_with_cleanup,
+        ),
+        patch.object(
+            debate_cmd,
+            "_shutdown_cmd_ask_resources",
+            new=AsyncMock(side_effect=_fake_shutdown),
+        ),
     ):
         debate_cmd.cmd_ask(args)
 

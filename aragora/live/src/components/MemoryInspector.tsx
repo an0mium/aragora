@@ -43,9 +43,9 @@ const TIER_CONFIG = {
     label: 'FAST',
     description: 'Updates on every event (1h half-life)',
     color: 'acid-cyan',
-    bgColor: 'bg-acid-cyan/20',
-    borderColor: 'border-acid-cyan/30',
-    textColor: 'text-acid-cyan',
+    bgColor: 'bg-[var(--acid-cyan)]/20',
+    borderColor: 'border-[var(--acid-cyan)]/30',
+    textColor: 'text-[var(--acid-cyan)]',
   },
   medium: {
     label: 'MEDIUM',
@@ -174,7 +174,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
   return (
     <div className="panel">
       <div className="panel-header mb-4">
-        <h3 className="panel-title font-mono">Continuum Memory</h3>
+        <h3 className="panel-title font-theme-data">Continuum Memory</h3>
         <button
           onClick={() => setExpanded(!expanded)}
           className="panel-toggle hover:text-text"
@@ -194,7 +194,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
             <button
               key={tier}
               onClick={() => toggleTier(tier)}
-              className={`p-2 rounded border text-xs font-mono transition-all ${
+              className={`p-2 rounded border text-xs font-theme-data transition-all ${
                 isSelected
                   ? `${config.bgColor} ${config.borderColor} ${config.textColor}`
                   : 'bg-bg border-border text-text-muted hover:border-text-muted'
@@ -210,10 +210,10 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
       </div>
 
       {/* Summary Stats */}
-      <div className="flex items-center justify-between text-xs font-mono text-text-muted mb-4 border-b border-border pb-3">
+      <div className="flex items-center justify-between text-xs font-theme-data text-text-muted mb-4 border-b border-border pb-3">
         <div className="flex items-center gap-4">
           <span>Total: <span className="text-text">{getTotalMemories()}</span> memories</span>
-          <span>Selected: <span className="text-acid-green">{selectedTiers.length}</span> tiers</span>
+          <span>Selected: <span className="text-[var(--accent)]">{selectedTiers.length}</span> tiers</span>
         </div>
         <button
           onClick={triggerConsolidation}
@@ -227,14 +227,14 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
 
       {/* Consolidation Result */}
       {consolidationResult && (
-        <div className="mb-4 p-2 bg-acid-green/10 border border-acid-green/30 rounded text-xs font-mono">
+        <div className="mb-4 p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded text-xs font-theme-data">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-acid-green font-bold">✓ CONSOLIDATED</span>
+            <span className="text-[var(--accent)] font-bold">✓ CONSOLIDATED</span>
             <span className="text-text-muted">({consolidationResult.duration_seconds.toFixed(2)}s)</span>
           </div>
           <div className="flex gap-4 text-text-muted">
             <span>Processed: <span className="text-text">{consolidationResult.entries_processed}</span></span>
-            <span>Promoted: <span className="text-acid-cyan">{consolidationResult.entries_promoted}</span></span>
+            <span>Promoted: <span className="text-[var(--acid-cyan)]">{consolidationResult.entries_promoted}</span></span>
             <span>Merged: <span className="text-purple-400">{consolidationResult.entries_consolidated}</span></span>
           </div>
         </div>
@@ -250,12 +250,12 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search memories..."
-                className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 disabled:bg-text-muted transition-colors"
+                className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 disabled:bg-text-muted transition-colors"
               >
                 {loading ? '...' : 'SEARCH'}
               </button>
@@ -263,7 +263,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
           </form>
 
           {error && (
-            <div className="mb-4 p-2 bg-warning/10 border border-warning/30 rounded text-sm text-warning font-mono">
+            <div className="mb-4 p-2 bg-warning/10 border border-warning/30 rounded text-sm text-warning font-theme-data">
               {error}
             </div>
           )}
@@ -271,7 +271,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
           {/* Memory Results */}
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {memories.length === 0 && !loading && !error && (
-              <div className="text-center text-text-muted py-4 font-mono text-sm">
+              <div className="text-center text-text-muted py-4 font-theme-data text-sm">
                 Search the continuum memory system across selected tiers.
               </div>
             )}
@@ -285,11 +285,11 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span
-                      className={`px-2 py-0.5 text-xs rounded border font-mono ${tierConfig.bgColor} ${tierConfig.borderColor} ${tierConfig.textColor}`}
+                      className={`px-2 py-0.5 text-xs rounded border font-theme-data ${tierConfig.bgColor} ${tierConfig.borderColor} ${tierConfig.textColor}`}
                     >
                       {tierConfig.label}
                     </span>
-                    <div className="flex gap-2 text-xs font-mono text-text-muted">
+                    <div className="flex gap-2 text-xs font-theme-data text-text-muted">
                       <span title="Importance">
                         IMP: {(memory.importance * 100).toFixed(0)}%
                       </span>
@@ -303,7 +303,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
                     {memory.content}
                   </p>
 
-                  <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                  <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
                     <span>Updates: {memory.update_count}</span>
                     <span>
                       {memory.updated_at
@@ -315,19 +315,19 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
                   {/* Progress bars */}
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-text-muted w-12">IMP</span>
+                      <span className="text-[10px] font-theme-data text-text-muted w-12">IMP</span>
                       <div className="flex-1 h-1 bg-bg rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-acid-green"
+                          className="h-full bg-[var(--accent)]"
                           style={{ width: `${memory.importance * 100}%` }}
                         />
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-text-muted w-12">CON</span>
+                      <span className="text-[10px] font-theme-data text-text-muted w-12">CON</span>
                       <div className="flex-1 h-1 bg-bg rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-acid-cyan"
+                          className="h-full bg-[var(--acid-cyan)]"
                           style={{ width: `${memory.consolidation_score * 100}%` }}
                         />
                       </div>
@@ -342,7 +342,7 @@ export function MemoryInspector({ apiBase = DEFAULT_API_BASE }: MemoryInspectorP
 
       {/* Tier Legend */}
       {!expanded && (
-        <div className="text-xs font-mono text-text-muted space-y-1">
+        <div className="text-xs font-theme-data text-text-muted space-y-1">
           {(Object.keys(TIER_CONFIG) as Array<keyof typeof TIER_CONFIG>).map((tier) => {
             const config = TIER_CONFIG[tier];
             return (

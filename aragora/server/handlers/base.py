@@ -1101,7 +1101,9 @@ class BaseHandler:
         """Read and parse JSON body from request handler.
 
         Handles missing Content-Length (e.g. Cloudflare HTTP/2 proxying)
-        and Transfer-Encoding: chunked.
+        and Transfer-Encoding: chunked. Also accepts pre-buffered request
+        bodies exposed directly on ``handler.body`` or ``handler.request.body``,
+        which is common in lightweight unit-test and adapter shims.
 
         Args:
             handler: The HTTP request handler with headers and rfile
@@ -1112,6 +1114,19 @@ class BaseHandler:
         """
         max_size = max_size or self.MAX_BODY_SIZE
         try:
+            for raw_body in (
+                getattr(handler, "body", None),
+                getattr(getattr(handler, "request", None), "body", None),
+            ):
+                if isinstance(raw_body, str):
+                    raw_body = raw_body.encode("utf-8")
+                if isinstance(raw_body, (bytes, bytearray)):
+                    if len(raw_body) > max_size:
+                        return None
+                    if not raw_body:
+                        return {}
+                    return json.loads(bytes(raw_body))
+
             content_length = int(handler.headers.get("Content-Length", 0))
             is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
 

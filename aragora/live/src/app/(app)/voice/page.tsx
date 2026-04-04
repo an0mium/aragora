@@ -94,12 +94,12 @@ export default function VoicePage() {
       {/* Header */}
       <header className="border-b border-border p-4">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-acid-green font-mono font-bold">
+          <Link href="/" className="text-[var(--accent)] font-theme-data font-bold">
             ARAGORA
           </Link>
           <Link
             href="/arena"
-            className="text-xs font-mono text-text-muted hover:text-text"
+            className="text-xs font-theme-data text-text-muted hover:text-text"
           >
             [TYPE INSTEAD]
           </Link>
@@ -109,7 +109,7 @@ export default function VoicePage() {
       {/* Offline Indicator */}
       {isOffline && (
         <div className="bg-warning/20 border-b border-warning/30 px-4 py-2 text-center">
-          <span className="text-warning text-sm font-mono">
+          <span className="text-warning text-sm font-theme-data">
             You&apos;re offline - Some features may be limited
           </span>
         </div>
@@ -117,12 +117,12 @@ export default function VoicePage() {
 
       {/* Install Prompt */}
       {isInstallable && (
-        <div className="bg-acid-green/10 border-b border-acid-green/30 px-4 py-2">
+        <div className="bg-[var(--accent)]/10 border-b border-[var(--accent)]/30 px-4 py-2">
           <div className="flex items-center justify-between max-w-md mx-auto">
             <span className="text-sm text-text-muted">Install app for quick access</span>
             <button
               onClick={promptInstall}
-              className="px-3 py-1 bg-acid-green text-bg text-xs font-mono font-bold rounded hover:bg-acid-green/80"
+              className="px-3 py-1 bg-[var(--accent)] text-bg text-xs font-theme-data font-bold rounded hover:bg-[var(--accent)]/80"
             >
               Install
             </button>
@@ -143,7 +143,7 @@ export default function VoicePage() {
         {state === 'idle' && (
           <div className="text-center space-y-8">
             <div>
-              <h1 className="text-2xl font-mono font-bold text-text mb-2">
+              <h1 className="text-2xl font-theme-data font-bold text-text mb-2">
                 Voice Debate
               </h1>
               <p className="text-text-muted text-sm">
@@ -168,7 +168,7 @@ export default function VoicePage() {
             {recentTopics.length > 0 && (
               <div className="mt-8 w-full max-w-md">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                  <h3 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                     Recent Topics
                   </h3>
                   <button
@@ -186,7 +186,7 @@ export default function VoicePage() {
                         setTranscript(topic);
                         setState('confirming');
                       }}
-                      className="w-full text-left p-3 bg-surface border border-border rounded-lg text-sm text-text hover:border-acid-green/50 transition-colors"
+                      className="w-full text-left p-3 bg-surface border border-border rounded-lg text-sm text-text hover:border-[var(--accent)]/50 transition-colors"
                     >
                       {topic}
                     </button>
@@ -203,18 +203,18 @@ export default function VoicePage() {
             <div className="relative">
               {/* Pulsing rings */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full bg-acid-green/20 animate-ping" />
+                <div className="w-32 h-32 rounded-full bg-[var(--accent)]/20 animate-ping" />
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full bg-acid-green/30 animate-pulse" />
+                <div className="w-24 h-24 rounded-full bg-[var(--accent)]/30 animate-pulse" />
               </div>
-              <div className="relative z-10 w-20 h-20 mx-auto rounded-full bg-acid-green flex items-center justify-center">
+              <div className="relative z-10 w-20 h-20 mx-auto rounded-full bg-[var(--accent)] flex items-center justify-center">
                 <span className="text-3xl">🎤</span>
               </div>
             </div>
 
             <div>
-              <h2 className="text-xl font-mono font-bold text-acid-green">
+              <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">
                 Listening...
               </h2>
               <p className="text-text-muted text-sm mt-2">
@@ -236,8 +236,8 @@ export default function VoicePage() {
         {/* Processing State */}
         {state === 'processing' && (
           <div className="text-center space-y-6">
-            <div className="w-16 h-16 mx-auto border-4 border-acid-green/30 border-t-acid-green rounded-full animate-spin" />
-            <h2 className="text-xl font-mono font-bold text-text">
+            <div className="w-16 h-16 mx-auto border-4 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin" />
+            <h2 className="text-xl font-theme-data font-bold text-text">
               Transcribing...
             </h2>
           </div>
@@ -247,10 +247,10 @@ export default function VoicePage() {
         {state === 'confirming' && transcript && (
           <div className="w-full max-w-md space-y-6">
             <div className="text-center">
-              <h2 className="text-lg font-mono text-text-muted mb-4">
+              <h2 className="text-lg font-theme-data text-text-muted mb-4">
                 Your topic:
               </h2>
-              <div className="p-4 bg-surface border border-acid-green/30 rounded-lg">
+              <div className="p-4 bg-surface border border-[var(--accent)]/30 rounded-lg">
                 <p className="text-lg text-text">{transcript}</p>
               </div>
             </div>
@@ -258,13 +258,13 @@ export default function VoicePage() {
             <div className="flex gap-3">
               <button
                 onClick={editTopic}
-                className="flex-1 px-4 py-3 bg-surface border border-border text-text font-mono hover:border-text-muted transition-colors rounded"
+                className="flex-1 px-4 py-3 bg-surface border border-border text-text font-theme-data hover:border-text-muted transition-colors rounded"
               >
                 Try Again
               </button>
               <button
                 onClick={() => startDebate(transcript)}
-                className="flex-1 px-4 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                className="flex-1 px-4 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
               >
                 Start Debate
               </button>
@@ -272,13 +272,13 @@ export default function VoicePage() {
 
             {/* Quick Edit */}
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-2">
+              <label className="block text-xs font-theme-data text-text-muted mb-2">
                 Or edit your topic:
               </label>
               <textarea
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
-                className="w-full p-3 bg-bg border border-border rounded-lg text-text font-mono text-sm focus:border-acid-green focus:outline-none resize-none"
+                className="w-full p-3 bg-bg border border-border rounded-lg text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none"
                 rows={2}
               />
             </div>
@@ -288,9 +288,9 @@ export default function VoicePage() {
         {/* Starting State */}
         {state === 'starting' && (
           <div className="text-center space-y-6">
-            <div className="w-16 h-16 mx-auto border-4 border-acid-green/30 border-t-acid-green rounded-full animate-spin" />
+            <div className="w-16 h-16 mx-auto border-4 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin" />
             <div>
-              <h2 className="text-xl font-mono font-bold text-acid-green">
+              <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">
                 Starting Debate...
               </h2>
               <p className="text-text-muted text-sm mt-2">
@@ -303,9 +303,9 @@ export default function VoicePage() {
 
       {/* Footer */}
       <footer className="border-t border-border p-4">
-        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
           <span>Voice-first debate</span>
-          <Link href="/transcribe" className="hover:text-acid-green">
+          <Link href="/transcribe" className="hover:text-[var(--accent)]">
             [TRANSCRIBE FILES]
           </Link>
         </div>

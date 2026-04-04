@@ -56,7 +56,7 @@ export default function PlaygroundPage() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/landing"
-            className="font-mono text-[var(--acid-green)] font-bold text-sm tracking-wider"
+            className="font-theme-data text-[var(--acid-green)] font-bold text-sm tracking-wider"
           >
             ARAGORA
           </Link>
@@ -65,7 +65,7 @@ export default function PlaygroundPage() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors ${
+                className={`px-3 py-1.5 text-xs font-theme-data font-bold transition-colors ${
                   tab === t
                     ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -78,13 +78,13 @@ export default function PlaygroundPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/docs"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               API DOCS
             </Link>
             <Link
               href="/signup"
-              className="text-xs font-mono px-3 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
+              className="text-xs font-theme-data px-3 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
             >
               SIGN UP FREE
             </Link>
@@ -97,11 +97,11 @@ export default function PlaygroundPage() {
         <>
           <section className="py-12 sm:py-16 px-4">
             <div className="max-w-3xl mx-auto text-center mb-10">
-              <h1 className="font-mono text-2xl sm:text-3xl text-[var(--text)] mb-4 leading-tight">
+              <h1 className="font-theme-data text-2xl sm:text-3xl text-[var(--text)] mb-4 leading-tight">
                 See a debate in action.{' '}
                 <span className="text-[var(--acid-green)]">No signup required.</span>
               </h1>
-              <p className="font-mono text-sm text-[var(--text-muted)] max-w-xl mx-auto leading-relaxed">
+              <p className="font-theme-data text-sm text-[var(--text-muted)] max-w-xl mx-auto leading-relaxed">
                 Watch 3 AI agents argue an architecture decision, critique each other, vote, and
                 produce an audit-ready decision receipt.
               </p>
@@ -118,7 +118,7 @@ export default function PlaygroundPage() {
 
           <section className="py-12 px-4 border-t border-[var(--border)]">
             <div className="max-w-3xl mx-auto">
-              <h2 className="font-mono text-lg text-center text-[var(--acid-green)] mb-8">
+              <h2 className="font-theme-data text-lg text-center text-[var(--acid-green)] mb-8">
                 {'>'} WHY DEBATE BEATS A SINGLE LLM
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -140,10 +140,10 @@ export default function PlaygroundPage() {
                     key={item.title}
                     className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/30 p-5"
                   >
-                    <h3 className="font-mono text-sm text-[var(--acid-green)] mb-2">
+                    <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-2">
                       {item.title}
                     </h3>
-                    <p className="font-mono text-xs text-[var(--text-muted)] leading-relaxed">
+                    <p className="font-theme-data text-xs text-[var(--text-muted)] leading-relaxed">
                       {item.desc}
                     </p>
                   </div>
@@ -154,22 +154,22 @@ export default function PlaygroundPage() {
 
           <section className="py-16 px-4 border-t border-[var(--acid-green)]/30 bg-[var(--surface)]/30">
             <div className="max-w-2xl mx-auto text-center space-y-6">
-              <h2 className="font-mono text-xl text-[var(--text)]">
+              <h2 className="font-theme-data text-xl text-[var(--text)]">
                 Ready to vet your own decisions?
               </h2>
-              <p className="font-mono text-sm text-[var(--text-muted)]">
+              <p className="font-theme-data text-sm text-[var(--text-muted)]">
                 Free tier includes 10 debates/month with real AI models.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
                   href="/signup"
-                  className="px-8 py-3 font-mono text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+                  className="px-8 py-3 font-theme-data text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
                 >
                   CREATE FREE ACCOUNT
                 </Link>
                 <Link
                   href="/landing"
-                  className="px-8 py-3 font-mono text-sm border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
+                  className="px-8 py-3 font-theme-data text-sm border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
                 >
                   BACK TO HOME
                 </Link>

@@ -83,20 +83,20 @@ export function DebateThisModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-surface border border-acid-green/30 rounded-lg shadow-2xl shadow-acid-green/5">
+      <div className="relative w-full max-w-lg mx-4 bg-surface border border-[var(--accent)]/30 rounded-lg shadow-2xl shadow-acid-green/5">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <span className="text-acid-green font-mono text-sm font-bold">DEBATE THIS</span>
+            <span className="text-[var(--accent)] font-theme-data text-sm font-bold">DEBATE THIS</span>
             {source && (
-              <span className="px-2 py-0.5 text-[10px] font-mono text-text-muted border border-border rounded">
+              <span className="px-2 py-0.5 text-[10px] font-theme-data text-text-muted border border-border rounded">
                 {SOURCE_LABELS[source] || source}
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-acid-green transition-colors"
+            className="w-7 h-7 flex items-center justify-center text-text-muted hover:text-[var(--accent)] transition-colors"
             aria-label="Close"
           >
             x
@@ -107,25 +107,25 @@ export function DebateThisModal({
         <div className="px-5 py-4 space-y-4">
           {/* Question */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1.5">QUESTION</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1.5">QUESTION</label>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none resize-none"
+              className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none resize-none"
               placeholder="What should be debated?"
             />
           </div>
 
           {/* Format toggle */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1.5">FORMAT</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1.5">FORMAT</label>
             <div className="flex gap-2">
               <button
                 onClick={() => setFormat('quick')}
-                className={`flex-1 px-3 py-2 text-xs font-mono rounded border transition-all ${
+                className={`flex-1 px-3 py-2 text-xs font-theme-data rounded border transition-all ${
                   format === 'quick'
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-bg border-border text-text-muted hover:border-text-muted'
                 }`}
               >
@@ -134,9 +134,9 @@ export function DebateThisModal({
               </button>
               <button
                 onClick={() => setFormat('thorough')}
-                className={`flex-1 px-3 py-2 text-xs font-mono rounded border transition-all ${
+                className={`flex-1 px-3 py-2 text-xs font-theme-data rounded border transition-all ${
                   format === 'thorough'
-                    ? 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan'
+                    ? 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)]'
                     : 'bg-bg border-border text-text-muted hover:border-text-muted'
                 }`}
               >
@@ -151,13 +151,13 @@ export function DebateThisModal({
             <div>
               <button
                 onClick={() => setShowContext(!showContext)}
-                className="flex items-center gap-1 text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors"
+                className="flex items-center gap-1 text-xs font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
               >
                 <span>{showContext ? 'v' : '>'}</span>
                 <span>Context ({context.length} chars)</span>
               </button>
               {showContext && (
-                <div className="mt-2 px-3 py-2 bg-bg border border-border rounded text-xs font-mono text-text-muted max-h-32 overflow-y-auto">
+                <div className="mt-2 px-3 py-2 bg-bg border border-border rounded text-xs font-theme-data text-text-muted max-h-32 overflow-y-auto">
                   {context}
                 </div>
               )}
@@ -166,7 +166,7 @@ export function DebateThisModal({
 
           {/* Error */}
           {error && (
-            <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-xs font-mono text-red-400">
+            <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-xs font-theme-data text-red-400">
               {error}
             </div>
           )}
@@ -176,14 +176,14 @@ export function DebateThisModal({
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-mono text-text-muted hover:text-text border border-border rounded transition-colors"
+            className="px-4 py-2 text-xs font-theme-data text-text-muted hover:text-text border border-border rounded transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleStart}
             disabled={loading || !question.trim()}
-            className="px-4 py-2 text-xs font-mono font-bold bg-acid-green text-bg rounded hover:bg-acid-green/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Starting...' : 'Start Debate'}
           </button>

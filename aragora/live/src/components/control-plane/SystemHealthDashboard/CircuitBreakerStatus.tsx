@@ -26,14 +26,14 @@ const STATE_CONFIG: Record<BreakerState, { color: string; text: string; label: s
     description: 'Normal operation',
   },
   open: {
-    color: 'bg-crimson',
-    text: 'text-crimson',
+    color: 'bg-[var(--crimson)]',
+    text: 'text-[var(--crimson)]',
     label: 'OPEN',
     description: 'Blocking requests',
   },
   half_open: {
     color: 'bg-acid-yellow',
-    text: 'text-acid-yellow',
+    text: 'text-[var(--acid-yellow)]',
     label: 'HALF-OPEN',
     description: 'Testing recovery',
   },
@@ -42,8 +42,8 @@ const STATE_CONFIG: Record<BreakerState, { color: string; text: string; label: s
 export function CircuitBreakerStatus({ breakers, loading = false }: CircuitBreakerStatusProps) {
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4 animate-pulse">
-        <div className="w-32 h-4 bg-acid-green/20 rounded mb-4" />
+      <div className="bg-surface border border-[var(--accent)]/30 p-4 animate-pulse">
+        <div className="w-32 h-4 bg-[var(--accent)]/20 rounded mb-4" />
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-12 bg-bg rounded" />
@@ -57,27 +57,27 @@ export function CircuitBreakerStatus({ breakers, loading = false }: CircuitBreak
   const halfOpenCount = breakers.filter((b) => b.state === 'half_open').length;
 
   return (
-    <div className="bg-surface border border-acid-green/30 p-4">
+    <div className="bg-surface border border-[var(--accent)]/30 p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-acid-green uppercase">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase">
             {'>'} CIRCUIT BREAKERS
           </span>
         </div>
         <div className="flex items-center gap-2">
           {openCount > 0 && (
-            <span className="px-2 py-0.5 text-xs font-mono bg-crimson/20 text-crimson rounded">
+            <span className="px-2 py-0.5 text-xs font-theme-data bg-[var(--crimson)]/20 text-[var(--crimson)] rounded">
               {openCount} OPEN
             </span>
           )}
           {halfOpenCount > 0 && (
-            <span className="px-2 py-0.5 text-xs font-mono bg-acid-yellow/20 text-acid-yellow rounded">
+            <span className="px-2 py-0.5 text-xs font-theme-data bg-acid-yellow/20 text-[var(--acid-yellow)] rounded">
               {halfOpenCount} TESTING
             </span>
           )}
           {openCount === 0 && halfOpenCount === 0 && (
-            <span className="px-2 py-0.5 text-xs font-mono bg-success/20 text-success rounded">
+            <span className="px-2 py-0.5 text-xs font-theme-data bg-success/20 text-success rounded">
               ALL OK
             </span>
           )}
@@ -86,7 +86,7 @@ export function CircuitBreakerStatus({ breakers, loading = false }: CircuitBreak
 
       {/* Breakers list */}
       {breakers.length === 0 ? (
-        <div className="text-center text-text-muted font-mono text-sm py-4">
+        <div className="text-center text-text-muted font-theme-data text-sm py-4">
           No circuit breakers configured
         </div>
       ) : (
@@ -101,26 +101,26 @@ export function CircuitBreakerStatus({ breakers, loading = false }: CircuitBreak
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${config.color}`} />
-                    <span className="text-sm font-mono text-text">
+                    <span className="text-sm font-theme-data text-text">
                       {breaker.name}
                     </span>
                   </div>
-                  <span className={`text-xs font-mono ${config.text}`}>
+                  <span className={`text-xs font-theme-data ${config.text}`}>
                     {config.label}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
                   <span>
                     Failures: {breaker.failure_count} | Success: {breaker.success_count}
                   </span>
                   {breaker.state === 'open' && breaker.reset_timeout_ms && (
-                    <span className="text-acid-yellow">
+                    <span className="text-[var(--acid-yellow)]">
                       Reset in {Math.round(breaker.reset_timeout_ms / 1000)}s
                     </span>
                   )}
                 </div>
                 {breaker.last_failure && breaker.state !== 'closed' && (
-                  <div className="mt-2 text-xs font-mono text-crimson/80 truncate">
+                  <div className="mt-2 text-xs font-theme-data text-[var(--crimson)]/80 truncate">
                     Last: {breaker.last_failure}
                   </div>
                 )}

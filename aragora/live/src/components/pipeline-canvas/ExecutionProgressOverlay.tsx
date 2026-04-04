@@ -126,7 +126,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
       <div className="pointer-events-auto bg-surface/95 border border-border rounded-xl shadow-2xl px-8 py-6 min-w-[340px] max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">
+          <h3 className="text-sm font-theme-data font-bold text-text uppercase tracking-wide">
             {isDone ? 'Execution Complete' : 'Executing Pipeline'}
           </h3>
           {executing && (
@@ -143,7 +143,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
                 <div className="flex flex-col items-center">
                   <div
                     data-testid={`stage-dot-${stage}`}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold border-2 transition-all ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-theme-data font-bold border-2 transition-all ${
                       state === 'completed'
                         ? 'bg-emerald-500/30 border-emerald-400 text-emerald-300'
                         : state === 'active'
@@ -154,7 +154,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
                     {state === 'completed' ? '\u2713' : i + 1}
                   </div>
                   <span
-                    className={`text-[9px] font-mono mt-1 ${
+                    className={`text-[9px] font-theme-data mt-1 ${
                       state === 'completed'
                         ? 'text-emerald-400'
                         : state === 'active'
@@ -180,7 +180,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
         {/* Progress bar */}
         {totalSubtasks > 0 && (
           <div className="mb-3">
-            <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
+            <div className="flex justify-between text-[10px] font-theme-data text-text-muted mb-1">
               <span data-testid="subtask-count">
                 {completedSubtasks}/{totalSubtasks} subtasks
               </span>
@@ -188,7 +188,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
             </div>
             <div className="w-full h-1.5 bg-bg rounded-full overflow-hidden">
               <div
-                className="h-full bg-acid-green rounded-full transition-all duration-300"
+                className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -196,7 +196,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
         )}
 
         {/* Stats row */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-text-muted">
+        <div className="flex items-center justify-between text-[11px] font-theme-data text-text-muted">
           <div className="flex items-center gap-3">
             {streamedNodeCount > 0 && (
               <span data-testid="streamed-count">
@@ -213,7 +213,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
             {recentEvents.slice(-5).map((evt, i) => (
               <div
                 key={`${evt.nodeId}-${i}`}
-                className={`flex items-center gap-1.5 text-[10px] font-mono ${
+                className={`flex items-center gap-1.5 text-[10px] font-theme-data ${
                   evt.status === 'succeeded' ? 'text-emerald-400' :
                   evt.status === 'failed' ? 'text-red-400' :
                   evt.status === 'in_progress' ? 'text-amber-300' : 'text-text-muted'
@@ -236,7 +236,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
         {isDone && (
           <div
             data-testid="result-badge"
-            className={`mt-4 text-center py-2 rounded text-xs font-mono font-bold ${
+            className={`mt-4 text-center py-2 rounded text-xs font-theme-data font-bold ${
               executeStatus === 'success'
                 ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50'
                 : 'bg-red-500/20 text-red-300 ring-1 ring-red-500/50'

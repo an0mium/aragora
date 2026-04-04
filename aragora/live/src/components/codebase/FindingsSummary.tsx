@@ -74,7 +74,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h3 className="text-lg font-mono text-[var(--acid-green)]">
+            <h3 className="text-lg font-theme-data text-[var(--acid-green)]">
               {'>'} SCAN COMPLETE
             </h3>
             <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -83,7 +83,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
           </div>
           {riskLevel && result.risk_score !== undefined && (
             <div className="text-right">
-              <div className={`text-3xl font-mono ${riskLevel.color}`}>
+              <div className={`text-3xl font-theme-data ${riskLevel.color}`}>
                 {result.risk_score.toFixed(0)}
               </div>
               <div className={`text-xs ${riskLevel.color}`}>{riskLevel.label}</div>
@@ -127,7 +127,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
 
       {/* Severity Breakdown */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h4 className="text-sm font-mono text-[var(--acid-green)] mb-4">Severity Breakdown</h4>
+        <h4 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">Severity Breakdown</h4>
         <div className="flex gap-2 flex-wrap">
           <FilterButton
             active={severityFilter === 'all'}
@@ -170,13 +170,13 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
       {/* Findings List */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded overflow-hidden">
         <div className="p-4 border-b border-[var(--border)]">
-          <h4 className="text-sm font-mono text-[var(--acid-green)]">
+          <h4 className="text-sm font-theme-data text-[var(--acid-green)]">
             {'>'} FINDINGS ({filteredFindings.length})
           </h4>
         </div>
 
         {filteredFindings.length === 0 ? (
-          <div className="p-8 text-center text-[var(--text-muted)] font-mono text-sm">
+          <div className="p-8 text-center text-[var(--text-muted)] font-theme-data text-sm">
             {severityFilter === 'all'
               ? 'No security issues found. Great job!'
               : `No ${severityFilter} severity findings.`}
@@ -196,7 +196,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded border ${config.bgColor} ${config.color}`}>
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${config.bgColor} ${config.color}`}>
                             {config.label.toUpperCase()}
                           </span>
                           <span className="text-xs text-[var(--text-muted)]">
@@ -208,7 +208,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
                             </span>
                           )}
                         </div>
-                        <h5 className="font-mono text-sm text-[var(--text)]">{finding.title}</h5>
+                        <h5 className="font-theme-data text-sm text-[var(--text)]">{finding.title}</h5>
                         <p className="text-xs text-[var(--text-muted)] mt-1">
                           {finding.file_path}:{finding.line_number}
                         </p>
@@ -216,7 +216,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="text-xs text-[var(--text-muted)]">Confidence</div>
-                          <div className={`text-sm font-mono ${
+                          <div className={`text-sm font-theme-data ${
                             finding.confidence >= 0.9 ? 'text-green-400' :
                             finding.confidence >= 0.7 ? 'text-yellow-400' : 'text-red-400'
                           }`}>
@@ -240,7 +240,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
                       {finding.code_snippet && (
                         <div>
                           <span className="text-xs text-[var(--text-muted)] block mb-1">Code</span>
-                          <pre className="p-3 bg-[var(--bg)] rounded font-mono text-xs overflow-x-auto">
+                          <pre className="p-3 bg-[var(--bg)] rounded font-theme-data text-xs overflow-x-auto">
                             <code>{finding.code_snippet}</code>
                           </pre>
                         </div>
@@ -254,13 +254,13 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
                       )}
 
                       <div className="flex gap-2 pt-2">
-                        <button className="px-3 py-1 text-xs font-mono bg-[var(--bg)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors">
+                        <button className="px-3 py-1 text-xs font-theme-data bg-[var(--bg)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors">
                           View File
                         </button>
-                        <button className="px-3 py-1 text-xs font-mono bg-[var(--bg)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors">
+                        <button className="px-3 py-1 text-xs font-theme-data bg-[var(--bg)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors">
                           Mark False Positive
                         </button>
-                        <button className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors">
+                        <button className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors">
                           Generate Fix
                         </button>
                       </div>
@@ -287,7 +287,7 @@ interface StatCardProps {
 function StatCard({ label, value, color, pulse, small }: StatCardProps) {
   return (
     <div className="text-center">
-      <div className={`${small ? 'text-lg' : 'text-2xl'} font-mono ${color} ${pulse ? 'animate-pulse' : ''}`}>
+      <div className={`${small ? 'text-lg' : 'text-2xl'} font-theme-data ${color} ${pulse ? 'animate-pulse' : ''}`}>
         {value}
       </div>
       <div className="text-xs text-[var(--text-muted)]">{label}</div>
@@ -314,7 +314,7 @@ function FilterButton({ active, onClick, color, children }: FilterButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-xs font-mono border rounded transition-colors ${colorClasses[color]} hover:opacity-80`}
+      className={`px-3 py-1.5 text-xs font-theme-data border rounded transition-colors ${colorClasses[color]} hover:opacity-80`}
     >
       {children}
     </button>

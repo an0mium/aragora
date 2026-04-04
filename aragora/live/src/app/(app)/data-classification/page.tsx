@@ -87,7 +87,7 @@ const LEVEL_SEVERITY_ORDER: Record<ClassificationLevel, number> = {
 function LevelBadge({ level }: { level: ClassificationLevel }) {
   const style = LEVEL_COLORS[level] || LEVEL_COLORS.public;
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border ${style}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded border ${style}`}>
       {level}
     </span>
   );
@@ -123,7 +123,7 @@ function BoolIndicator({ value, trueLabel, falseLabel }: {
   falseLabel?: string;
 }) {
   return (
-    <span className={`text-xs font-mono ${value ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+    <span className={`text-xs font-theme-data ${value ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
       {value ? (trueLabel ?? 'YES') : (falseLabel ?? 'NO')}
     </span>
   );
@@ -176,17 +176,17 @@ export default function DataClassificationPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/compliance"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Compliance
               </Link>
               <span className="text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">Data Classification</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Data Classification</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)]">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
               {'>'} DATA CLASSIFICATION
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data mt-1">
               Classify, validate, and enforce data handling policies. Five sensitivity levels from
               public to PII with automated compliance checking.
             </p>
@@ -194,7 +194,7 @@ export default function DataClassificationPage() {
 
           {/* Error State */}
           {policyError && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
               Failed to load classification policy. The data classification module may not be available.
             </div>
           )}
@@ -210,7 +210,7 @@ export default function DataClassificationPage() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === key
                     ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                     : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -234,19 +234,19 @@ export default function DataClassificationPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/compliance"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Compliance
             </Link>
             <Link
               href="/audit-trail"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Audit Trail
             </Link>
             <Link
               href="/backup"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Backup & DR
             </Link>
@@ -254,7 +254,7 @@ export default function DataClassificationPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>
@@ -274,7 +274,7 @@ export default function DataClassificationPage() {
 function PolicyTab({ policy, loading }: { policy: ActivePolicy | undefined; loading: boolean }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-[var(--text-muted)] font-mono animate-pulse">
+      <div className="flex items-center justify-center h-64 text-[var(--text-muted)] font-theme-data animate-pulse">
         Loading classification policy...
       </div>
     );
@@ -283,7 +283,7 @@ function PolicyTab({ policy, loading }: { policy: ActivePolicy | undefined; load
   if (!policy) {
     return (
       <div className="p-6 bg-[var(--surface)] border border-[var(--border)] text-center">
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           No active policy loaded. Start the server with the data classification module enabled.
         </p>
       </div>
@@ -301,7 +301,7 @@ function PolicyTab({ policy, loading }: { policy: ActivePolicy | undefined; load
   return (
     <div>
       {/* Policy Metadata */}
-      <div className="flex gap-4 mb-6 text-xs font-mono text-[var(--text-muted)]">
+      <div className="flex gap-4 mb-6 text-xs font-theme-data text-[var(--text-muted)]">
         {policy.version && <span>Version: {policy.version}</span>}
         {policy.updated_at && (
           <span>Updated: {new Date(policy.updated_at).toLocaleString()}</span>
@@ -325,7 +325,7 @@ function PolicyTab({ policy, loading }: { policy: ActivePolicy | undefined; load
                 <SeverityMeter level={typedLevel} />
               </div>
 
-              <div className="space-y-2 text-xs font-mono">
+              <div className="space-y-2 text-xs font-theme-data">
                 {/* Allowed Operations */}
                 <div>
                   <span className="text-[var(--text-muted)] uppercase text-[10px]">Operations:</span>
@@ -382,8 +382,8 @@ function PolicyTab({ policy, loading }: { policy: ActivePolicy | undefined; load
       {/* Raw policy fallback when levels not structured */}
       {levels.length === 0 && (
         <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-          <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-3">Raw Policy</h3>
-          <pre className="text-xs font-mono text-[var(--text-muted)] overflow-x-auto whitespace-pre-wrap">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-3">Raw Policy</h3>
+          <pre className="text-xs font-theme-data text-[var(--text-muted)] overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(policy, null, 2)}
           </pre>
         </div>
@@ -433,15 +433,15 @@ function ClassifyTab() {
     <div className="space-y-6">
       {/* Input */}
       <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-3">Classify Data</h3>
-        <p className="text-xs font-mono text-[var(--text-muted)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-3">Classify Data</h3>
+        <p className="text-xs font-theme-data text-[var(--text-muted)] mb-4">
           Paste JSON data or plain text to classify. The classifier detects PII patterns,
           sensitivity markers, and content characteristics.
         </p>
 
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Data (JSON or text)
             </label>
             <textarea
@@ -449,11 +449,11 @@ function ClassifyTab() {
               onChange={(e) => setDataInput(e.target.value)}
               placeholder='{"name": "John Doe", "email": "john@example.com", "ssn": "123-45-6789"}'
               rows={6}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50 resize-y"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50 resize-y"
             />
           </div>
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Context (optional)
             </label>
             <input
@@ -461,13 +461,13 @@ function ClassifyTab() {
               value={context}
               onChange={(e) => setContext(e.target.value)}
               placeholder="e.g. user registration form, medical records, public blog"
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             />
           </div>
           <button
             onClick={handleClassify}
             disabled={loading || !dataInput.trim()}
-            className="px-4 py-2 font-mono text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 font-theme-data text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? '[CLASSIFYING...]' : '[CLASSIFY]'}
           </button>
@@ -476,7 +476,7 @@ function ClassifyTab() {
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
           {error}
         </div>
       )}
@@ -484,17 +484,17 @@ function ClassifyTab() {
       {/* Result */}
       {result && (
         <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-          <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">Classification Result</h3>
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">Classification Result</h3>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
               <div className="mb-1">
                 <LevelBadge level={result.classification} />
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Level</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Level</div>
             </div>
             <div className="text-center">
-              <div className={`text-lg font-mono ${
+              <div className={`text-lg font-theme-data ${
                 (result.confidence ?? 0) >= 0.9
                   ? 'text-[var(--acid-green)]'
                   : (result.confidence ?? 0) >= 0.7
@@ -503,29 +503,29 @@ function ClassifyTab() {
               }`}>
                 {result.confidence != null ? `${(result.confidence * 100).toFixed(1)}%` : '--'}
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Confidence</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Confidence</div>
             </div>
             <div className="text-center">
-              <div className={`text-lg font-mono ${result.has_pii ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
+              <div className={`text-lg font-theme-data ${result.has_pii ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
                 {result.has_pii ? 'DETECTED' : 'NONE'}
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">PII</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">PII</div>
             </div>
             <div className="text-center">
               <SeverityMeter level={result.classification} />
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase mt-1">Severity</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mt-1">Severity</div>
             </div>
           </div>
 
           {/* Matched Patterns */}
           {result.matched_patterns && result.matched_patterns.length > 0 && (
             <div className="mb-3">
-              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Matched Patterns:</span>
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Matched Patterns:</span>
               <div className="flex flex-wrap gap-1 mt-1">
                 {result.matched_patterns.map((p) => (
                   <span
                     key={p}
-                    className="px-1.5 py-0.5 text-[10px] font-mono bg-red-500/10 border border-red-500/30 text-red-400"
+                    className="px-1.5 py-0.5 text-[10px] font-theme-data bg-red-500/10 border border-red-500/30 text-red-400"
                   >
                     {p}
                   </span>
@@ -537,10 +537,10 @@ function ClassifyTab() {
           {/* Recommendations */}
           {result.recommendations && result.recommendations.length > 0 && (
             <div>
-              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Recommendations:</span>
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Recommendations:</span>
               <ul className="mt-1 space-y-1">
                 {result.recommendations.map((r, i) => (
-                  <li key={i} className="text-xs font-mono text-[var(--acid-cyan)] flex items-start gap-2">
+                  <li key={i} className="text-xs font-theme-data text-[var(--acid-cyan)] flex items-start gap-2">
                     <span className="text-[var(--text-muted)]">-</span> {r}
                   </li>
                 ))}
@@ -593,21 +593,21 @@ function ValidateTab() {
     <div className="space-y-6">
       {/* Input */}
       <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-3">Validate Handling Operation</h3>
-        <p className="text-xs font-mono text-[var(--text-muted)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-3">Validate Handling Operation</h3>
+        <p className="text-xs font-theme-data text-[var(--text-muted)] mb-4">
           Check whether a specific operation is permitted for a given classification level
           and handling context.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Classification Level
             </label>
             <select
               value={classification}
               onChange={(e) => setClassification(e.target.value as ClassificationLevel)}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               {CLASSIFICATION_LEVELS.map((l) => (
                 <option key={l} value={l}>{l.toUpperCase()}</option>
@@ -616,13 +616,13 @@ function ValidateTab() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Operation
             </label>
             <select
               value={operation}
               onChange={(e) => setOperation(e.target.value)}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               <option value="read">read</option>
               <option value="write">write</option>
@@ -634,7 +634,7 @@ function ValidateTab() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Region (optional)
             </label>
             <input
@@ -642,7 +642,7 @@ function ValidateTab() {
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               placeholder="e.g. us-east-1, eu-west-1"
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             />
           </div>
 
@@ -654,7 +654,7 @@ function ValidateTab() {
                 onChange={(e) => setHasConsent(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">Has Consent</span>
+              <span className="text-xs font-theme-data text-[var(--text)]">Has Consent</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -663,7 +663,7 @@ function ValidateTab() {
                 onChange={(e) => setIsEncrypted(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">Encrypted</span>
+              <span className="text-xs font-theme-data text-[var(--text)]">Encrypted</span>
             </label>
           </div>
         </div>
@@ -671,7 +671,7 @@ function ValidateTab() {
         <button
           onClick={handleValidate}
           disabled={loading}
-          className="mt-4 px-4 py-2 font-mono text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-4 px-4 py-2 font-theme-data text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? '[VALIDATING...]' : '[VALIDATE]'}
         </button>
@@ -679,7 +679,7 @@ function ValidateTab() {
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
           {error}
         </div>
       )}
@@ -692,20 +692,20 @@ function ValidateTab() {
             : 'bg-red-500/5 border-red-500/30'
         }`}>
           <div className="flex items-center gap-3 mb-4">
-            <span className={`text-xl font-mono ${result.allowed ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+            <span className={`text-xl font-theme-data ${result.allowed ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
               {result.allowed ? '[ALLOWED]' : '[DENIED]'}
             </span>
             <LevelBadge level={result.classification} />
-            <span className="text-xs font-mono text-[var(--text-muted)]">{result.operation}</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">{result.operation}</span>
           </div>
 
           {/* Violations */}
           {result.violations && result.violations.length > 0 && (
             <div className="mb-3">
-              <span className="text-[10px] font-mono text-red-400 uppercase">Violations:</span>
+              <span className="text-[10px] font-theme-data text-red-400 uppercase">Violations:</span>
               <ul className="mt-1 space-y-1">
                 {result.violations.map((v, i) => (
-                  <li key={i} className="text-xs font-mono text-red-400 flex items-start gap-2">
+                  <li key={i} className="text-xs font-theme-data text-red-400 flex items-start gap-2">
                     <span className="text-red-400/50">!</span> {v}
                   </li>
                 ))}
@@ -716,12 +716,12 @@ function ValidateTab() {
           {/* Requirements Met */}
           {result.requirements_met && Object.keys(result.requirements_met).length > 0 && (
             <div>
-              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Requirements:</span>
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Requirements:</span>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
                 {Object.entries(result.requirements_met).map(([req, met]) => (
                   <div key={req} className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${met ? 'bg-[var(--acid-green)]' : 'bg-red-400'}`} />
-                    <span className="text-xs font-mono text-[var(--text)]">{req}</span>
+                    <span className="text-xs font-theme-data text-[var(--text)]">{req}</span>
                   </div>
                 ))}
               </div>
@@ -775,21 +775,21 @@ function EnforceTab() {
     <div className="space-y-6">
       {/* Input */}
       <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-3">Enforce Cross-Context Access</h3>
-        <p className="text-xs font-mono text-[var(--text-muted)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-3">Enforce Cross-Context Access</h3>
+        <p className="text-xs font-theme-data text-[var(--text-muted)] mb-4">
           Validate whether data can flow between classification contexts. Checks if the
           source-to-target transfer meets all policy requirements.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Source Classification
             </label>
             <select
               value={sourceLevel}
               onChange={(e) => setSourceLevel(e.target.value as ClassificationLevel)}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               {CLASSIFICATION_LEVELS.map((l) => (
                 <option key={l} value={l}>{l.toUpperCase()}</option>
@@ -798,13 +798,13 @@ function EnforceTab() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Target Classification
             </label>
             <select
               value={targetLevel}
               onChange={(e) => setTargetLevel(e.target.value as ClassificationLevel)}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               {CLASSIFICATION_LEVELS.map((l) => (
                 <option key={l} value={l}>{l.toUpperCase()}</option>
@@ -813,13 +813,13 @@ function EnforceTab() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Operation
             </label>
             <select
               value={operation}
               onChange={(e) => setOperation(e.target.value)}
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               <option value="read">read</option>
               <option value="write">write</option>
@@ -830,7 +830,7 @@ function EnforceTab() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1">
+            <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1">
               Region (optional)
             </label>
             <input
@@ -838,7 +838,7 @@ function EnforceTab() {
               value={region}
               onChange={(e) => setRegion(e.target.value)}
               placeholder="e.g. us-east-1, eu-west-1"
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             />
           </div>
 
@@ -850,7 +850,7 @@ function EnforceTab() {
                 onChange={(e) => setHasConsent(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">Has Consent</span>
+              <span className="text-xs font-theme-data text-[var(--text)]">Has Consent</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -859,13 +859,13 @@ function EnforceTab() {
                 onChange={(e) => setIsEncrypted(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">Encrypted</span>
+              <span className="text-xs font-theme-data text-[var(--text)]">Encrypted</span>
             </label>
           </div>
         </div>
 
         {/* Visual flow indicator */}
-        <div className="flex items-center gap-3 mt-4 mb-4 text-xs font-mono">
+        <div className="flex items-center gap-3 mt-4 mb-4 text-xs font-theme-data">
           <LevelBadge level={sourceLevel} />
           <span className="text-[var(--acid-green)]">
             {'-->'} {operation.toUpperCase()} {'-->'}
@@ -876,7 +876,7 @@ function EnforceTab() {
         <button
           onClick={handleEnforce}
           disabled={loading}
-          className="px-4 py-2 font-mono text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 py-2 font-theme-data text-sm border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? '[ENFORCING...]' : '[CHECK ACCESS]'}
         </button>
@@ -884,7 +884,7 @@ function EnforceTab() {
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
           {error}
         </div>
       )}
@@ -897,13 +897,13 @@ function EnforceTab() {
             : 'bg-red-500/5 border-red-500/30'
         }`}>
           <div className="flex items-center gap-3 mb-4">
-            <span className={`text-xl font-mono ${result.allowed ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+            <span className={`text-xl font-theme-data ${result.allowed ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
               {result.allowed ? '[ACCESS GRANTED]' : '[ACCESS DENIED]'}
             </span>
           </div>
 
           {/* Flow visualization */}
-          <div className="flex items-center gap-3 mb-4 text-xs font-mono">
+          <div className="flex items-center gap-3 mb-4 text-xs font-theme-data">
             <LevelBadge level={result.source_classification} />
             <span className={result.allowed ? 'text-[var(--acid-green)]' : 'text-red-400'}>
               {result.allowed ? '==>' : '=X='}
@@ -915,10 +915,10 @@ function EnforceTab() {
           {/* Violations */}
           {result.violations && result.violations.length > 0 && (
             <div>
-              <span className="text-[10px] font-mono text-red-400 uppercase">Policy Violations:</span>
+              <span className="text-[10px] font-theme-data text-red-400 uppercase">Policy Violations:</span>
               <ul className="mt-1 space-y-1">
                 {result.violations.map((v, i) => (
-                  <li key={i} className="text-xs font-mono text-red-400 flex items-start gap-2">
+                  <li key={i} className="text-xs font-theme-data text-red-400 flex items-start gap-2">
                     <span className="text-red-400/50">!</span> {v}
                   </li>
                 ))}
@@ -928,7 +928,7 @@ function EnforceTab() {
 
           {/* No violations */}
           {result.allowed && (!result.violations || result.violations.length === 0) && (
-            <p className="text-xs font-mono text-[var(--acid-green)]">
+            <p className="text-xs font-theme-data text-[var(--acid-green)]">
               All policy requirements satisfied. Cross-context access is permitted.
             </p>
           )}

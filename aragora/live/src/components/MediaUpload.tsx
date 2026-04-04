@@ -453,7 +453,7 @@ export function MediaUpload({
 
         {/* Error message */}
         {error && (
-          <div className="mt-4 bg-crimson/10 border border-crimson/30 rounded p-2 text-sm text-crimson">
+          <div className="mt-4 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-2 text-sm text-[var(--crimson)]">
             {error}
           </div>
         )}
@@ -478,7 +478,7 @@ export function MediaUpload({
                 </div>
                 <button
                   onClick={() => removeDocument(doc.id)}
-                  className="text-text-muted hover:text-crimson transition-colors p-1"
+                  className="text-text-muted hover:text-[var(--crimson)] transition-colors p-1"
                   aria-label={`Remove ${doc.filename}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -499,7 +499,7 @@ export function MediaUpload({
                     {media.youtube_title || media.filename}
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       media.status === 'completed' ? 'bg-success/20 text-success' :
-                      media.status === 'failed' ? 'bg-crimson/20 text-crimson' :
+                      media.status === 'failed' ? 'bg-[var(--crimson)]/20 text-[var(--crimson)]' :
                       'bg-amber-500/20 text-amber-400'
                     }`}>
                       {media.status === 'completed' ? 'Done' : media.status === 'failed' ? 'Failed' : 'Processing'}
@@ -517,12 +517,12 @@ export function MediaUpload({
                     </div>
                   )}
                   {media.status === 'failed' && media.error && (
-                    <div className="text-xs text-crimson mt-1">Error: {media.error}</div>
+                    <div className="text-xs text-[var(--crimson)] mt-1">Error: {media.error}</div>
                   )}
                 </div>
                 <button
                   onClick={() => removeMedia(media.id)}
-                  className="text-text-muted hover:text-crimson transition-colors p-1"
+                  className="text-text-muted hover:text-[var(--crimson)] transition-colors p-1"
                   aria-label={`Remove ${media.youtube_title || media.filename}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">

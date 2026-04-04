@@ -213,18 +213,18 @@ function TryPageInner() {
         <div className="max-w-2xl mx-auto px-4 py-12">
           {/* Headline */}
           <div className="text-center mb-10">
-            <div className="mb-4 inline-flex items-center rounded-full border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/8 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-[var(--acid-cyan)]">
+            <div className="mb-4 inline-flex items-center rounded-full border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/8 px-3 py-1 text-[11px] font-theme-data font-bold uppercase tracking-[0.2em] text-[var(--acid-cyan)]">
               Public beta
             </div>
-            <h1 className="text-3xl md:text-4xl font-mono text-[var(--acid-green)] mb-4">
+            <h1 className="text-3xl md:text-4xl font-theme-data text-[var(--acid-green)] mb-4">
               Try Aragora Beta
             </h1>
-            <p className="text-sm font-mono text-[var(--text-muted)] max-w-lg mx-auto">
+            <p className="text-sm font-theme-data text-[var(--text-muted)] max-w-lg mx-auto">
               Ask your own question through the public beta flow. `/try` keeps rate limiting,
               persistence, and replay/share behavior intact while `/demo` stays focused on the
               canonical live proof.
             </p>
-            <p className="text-xs font-mono text-[var(--text-muted)]/70 max-w-lg mx-auto mt-3">
+            <p className="text-xs font-theme-data text-[var(--text-muted)]/70 max-w-lg mx-auto mt-3">
               Need the product proof surface first?{' '}
               <Link href="/demo" className="text-[var(--acid-green)] hover:underline">
                 Open /demo
@@ -247,7 +247,7 @@ function TryPageInner() {
               placeholder="Enter your decision question..."
               rows={3}
               disabled={isAnalyzing}
-              className="w-full px-4 py-3 font-mono text-sm bg-[var(--surface)] border border-[var(--acid-green)]/30
+              className="w-full px-4 py-3 font-theme-data text-sm bg-[var(--surface)] border border-[var(--acid-green)]/30
                        text-[var(--text)] placeholder-[var(--text-muted)]/50 focus:border-[var(--acid-green)] focus:outline-none
                        resize-none disabled:opacity-50"
             />
@@ -255,7 +255,7 @@ function TryPageInner() {
             {/* Example Questions */}
             {!result && !isAnalyzing && (
               <div className="mt-3">
-                <span className="text-xs font-mono text-[var(--text-muted)] block mb-2">
+                <span className="text-xs font-theme-data text-[var(--text-muted)] block mb-2">
                   Or try one of these:
                 </span>
                 <div className="flex flex-col gap-2">
@@ -264,7 +264,7 @@ function TryPageInner() {
                       key={eq}
                       onClick={() => setQuestion(eq)}
                       disabled={isAnalyzing}
-                      className="text-left px-3 py-2 text-xs font-mono border border-[var(--acid-cyan)]/20
+                      className="text-left px-3 py-2 text-xs font-theme-data border border-[var(--acid-cyan)]/20
                                text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors
                                disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -279,11 +279,11 @@ function TryPageInner() {
           {/* Error */}
           {error && (
             <div className="mb-6 p-3 border border-[var(--warning)]/30 bg-[var(--warning)]/10">
-              <p className="text-sm font-mono text-[var(--warning)] mb-2">{error}</p>
+              <p className="text-sm font-theme-data text-[var(--warning)] mb-2">{error}</p>
               <button
                 onClick={() => { setError(null); handleAnalyze(); }}
                 disabled={question.length < 10}
-                className="text-xs font-mono px-4 py-1.5 border border-[var(--warning)]/40 text-[var(--warning)] hover:bg-[var(--warning)]/10 transition-colors disabled:opacity-50"
+                className="text-xs font-theme-data px-4 py-1.5 border border-[var(--warning)]/40 text-[var(--warning)] hover:bg-[var(--warning)]/10 transition-colors disabled:opacity-50"
               >
                 Try again
               </button>
@@ -295,7 +295,7 @@ function TryPageInner() {
             <button
               onClick={handleAnalyze}
               disabled={isAnalyzing || question.length < 10}
-              className="w-full py-3 font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)]
+              className="w-full py-3 font-theme-data font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)]
                        hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAnalyzing ? 'ANALYZING...' : 'ANALYZE'}
@@ -317,7 +317,7 @@ function TryPageInner() {
                       style={{ opacity: isDone ? 0.4 : isActive ? 1 : 0.2 }}
                     >
                       <div
-                        className="w-5 h-5 flex items-center justify-center shrink-0 text-xs font-bold font-mono rounded-full border-2 transition-all"
+                        className="w-5 h-5 flex items-center justify-center shrink-0 text-xs font-bold font-theme-data rounded-full border-2 transition-all"
                         style={{
                           borderColor: isActive || isDone ? 'var(--acid-green)' : 'rgba(57,255,20,0.2)',
                           color: isDone ? 'var(--bg)' : isActive ? 'var(--acid-green)' : 'rgba(57,255,20,0.3)',
@@ -327,11 +327,11 @@ function TryPageInner() {
                         {isDone ? '✓' : i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className="text-xs font-mono" style={{ color: isActive ? 'var(--text)' : 'var(--text-muted)' }}>
+                        <span className="text-xs font-theme-data" style={{ color: isActive ? 'var(--text)' : 'var(--text-muted)' }}>
                           {step.label}
                         </span>
                         {isActive && (
-                          <p className="text-xs font-mono text-[var(--text-muted)]/60 mt-0.5">{step.subtext}</p>
+                          <p className="text-xs font-theme-data text-[var(--text-muted)]/60 mt-0.5">{step.subtext}</p>
                         )}
                       </div>
                       {isActive && (
@@ -351,7 +351,7 @@ function TryPageInner() {
                   style={{ width: `${Math.min(((progressStep + 1) / PROGRESS_STEPS.length) * 100, 95)}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs font-mono text-[var(--text-muted)]/60">
+              <div className="flex justify-between text-xs font-theme-data text-[var(--text-muted)]/60">
                 <span>{elapsed}s elapsed</span>
                 <span>~20s remaining</span>
               </div>
@@ -374,7 +374,7 @@ function TryPageInner() {
 
               {/* Follow-up suggestions */}
               <div className="mt-6 border border-[var(--acid-green)]/20 p-4">
-                <p className="text-xs font-mono text-[var(--text-muted)] mb-3">
+                <p className="text-xs font-theme-data text-[var(--text-muted)] mb-3">
                   Follow-up questions to explore:
                 </p>
                 <div className="flex flex-col gap-2">
@@ -386,7 +386,7 @@ function TryPageInner() {
                         setResult(null);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="text-left px-3 py-2 text-xs font-mono border border-[var(--acid-cyan)]/20
+                      className="text-left px-3 py-2 text-xs font-theme-data border border-[var(--acid-cyan)]/20
                                text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                     >
                       {q}
@@ -399,12 +399,12 @@ function TryPageInner() {
               <div className="mt-4 flex flex-col gap-3 items-center">
                 <a
                   href="/signup"
-                  className="w-full py-3 font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)]
+                  className="w-full py-3 font-theme-data font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)]
                              hover:bg-[var(--acid-green)]/80 transition-colors text-center"
                 >
                   Sign up for full debate transcripts
                 </a>
-                <p className="text-xs font-mono text-[var(--text-muted)]/60">
+                <p className="text-xs font-theme-data text-[var(--text-muted)]/60">
                   Free tier includes 5 debates/day with full receipts
                 </p>
               </div>
@@ -420,7 +420,7 @@ function TryPageInner() {
                   setQuestion('');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 [TRY ANOTHER QUESTION]
               </button>

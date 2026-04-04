@@ -960,7 +960,7 @@ export default function ReceiptsPage() {
   const getVerdictColor = (verdict?: string) => {
     switch (normalizeVerdict(verdict)) {
       case 'PASS':
-        return 'text-acid-green bg-acid-green/20 border-acid-green/30';
+        return 'text-[var(--accent)] bg-[var(--accent)]/20 border-[var(--accent)]/30';
       case 'CONDITIONAL':
         return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
       case 'FAIL':
@@ -991,16 +991,16 @@ export default function ReceiptsPage() {
   const renderResultsList = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-mono font-bold text-acid-green">Decision Receipts</h2>
+        <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">Decision Receipts</h2>
         <div className="flex gap-2">
           {(['all', 'PASS', 'CONDITIONAL', 'FAIL'] as const).map((value) => (
             <button
               key={value}
               onClick={() => setFilter(value)}
-              className={`px-3 py-1 text-xs font-mono rounded border transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data rounded border transition-colors ${
                 filter === value
-                  ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                  : 'border-border text-text-muted hover:border-acid-green/50'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-border text-text-muted hover:border-[var(--accent)]/50'
               }`}
             >
               {value}
@@ -1011,22 +1011,22 @@ export default function ReceiptsPage() {
 
       {filteredResults.length === 0 ? (
         <div className="p-8 bg-surface border border-border rounded-lg text-center space-y-4">
-          <div className="text-2xl font-mono text-acid-green/40">[ ]</div>
-          <p className="text-text font-mono font-bold">No decision receipts yet</p>
-          <p className="text-text-muted font-mono text-sm max-w-md mx-auto">
+          <div className="text-2xl font-theme-data text-[var(--accent)]/40">[ ]</div>
+          <p className="text-text font-theme-data font-bold">No decision receipts yet</p>
+          <p className="text-text-muted font-theme-data text-sm max-w-md mx-auto">
             Receipts are generated when a debate completes. Each receipt includes the verdict,
             risk analysis, consensus proof, and a tamper-proof audit trail.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link
               href="/oracle"
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
             >
               Ask the Oracle
             </Link>
             <Link
               href="/debate"
-              className="px-4 py-2 border border-border text-text-muted font-mono text-sm rounded hover:border-acid-green/50 hover:text-acid-green transition-colors"
+              className="px-4 py-2 border border-border text-text-muted font-theme-data text-sm rounded hover:border-[var(--accent)]/50 hover:text-[var(--accent)] transition-colors"
             >
               Start a debate
             </Link>
@@ -1046,24 +1046,24 @@ export default function ReceiptsPage() {
                 disabled={!isClickable}
                 className={`w-full p-4 bg-surface border border-border rounded-lg text-left transition-all ${
                   isClickable
-                    ? 'hover:border-acid-green/50 cursor-pointer'
+                    ? 'hover:border-[var(--accent)]/50 cursor-pointer'
                     : 'opacity-50 cursor-not-allowed'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm text-text-muted">
+                    <span className="font-theme-data text-sm text-text-muted">
                       {truncateId(displayId)}
                     </span>
                     {result.verdict && (
                       <span
-                        className={`px-2 py-0.5 text-xs font-mono rounded border ${getVerdictColor(result.verdict)}`}
+                        className={`px-2 py-0.5 text-xs font-theme-data rounded border ${getVerdictColor(result.verdict)}`}
                       >
                         {result.verdict}
                       </span>
                     )}
                     {typeof result.confidence === 'number' && (
-                      <span className="text-xs font-mono text-text-muted">
+                      <span className="text-xs font-theme-data text-text-muted">
                         {(result.confidence * 100).toFixed(0)}%
                       </span>
                     )}
@@ -1080,7 +1080,7 @@ export default function ReceiptsPage() {
                 )}
 
                 {result.risk_summary && totalFindings(result.risk_summary) > 0 ? (
-                  <div className="flex gap-3 text-xs font-mono">
+                  <div className="flex gap-3 text-xs font-theme-data">
                     {result.risk_summary.critical > 0 && (
                       <span className="text-red-400">C:{result.risk_summary.critical}</span>
                     )}
@@ -1095,7 +1095,7 @@ export default function ReceiptsPage() {
                     )}
                   </div>
                 ) : result.risk_level ? (
-                  <div className="text-xs font-mono text-text-muted">
+                  <div className="text-xs font-theme-data text-text-muted">
                     Risk: {result.risk_level}
                   </div>
                 ) : null}
@@ -1111,7 +1111,7 @@ export default function ReceiptsPage() {
     if (receiptLoading) {
       return (
         <div className="flex items-center justify-center py-12">
-          <div className="text-acid-green font-mono animate-pulse">Loading receipt...</div>
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading receipt...</div>
         </div>
       );
     }
@@ -1133,8 +1133,8 @@ export default function ReceiptsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-mono font-bold text-acid-green">Decision Receipt</h2>
-            <div className="text-xs text-text-muted font-mono mt-1">
+            <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">Decision Receipt</h2>
+            <div className="text-xs text-text-muted font-theme-data mt-1">
               ID: {receipt.receipt_id}
               {receipt.artifact_hash ? ` | Artifact: ${truncateId(receipt.artifact_hash)}` : ''}
             </div>
@@ -1142,26 +1142,26 @@ export default function ReceiptsPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={clearSelection}
-              className="px-3 py-1 text-sm font-mono border border-border rounded hover:border-acid-green/50"
+              className="px-3 py-1 text-sm font-theme-data border border-border rounded hover:border-[var(--accent)]/50"
             >
               Back
             </button>
             {resultHref && (
               <Link
                 href={resultHref}
-                className="px-3 py-1 text-sm font-mono bg-acid-cyan/20 border border-acid-cyan text-acid-cyan rounded hover:bg-acid-cyan/30"
+                className="px-3 py-1 text-sm font-theme-data bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] rounded hover:bg-[var(--acid-cyan)]/30"
               >
                 View result
               </Link>
             )}
             <button
               onClick={() => setDeliveryModalOpen(true)}
-              className="px-3 py-1 text-sm font-mono bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
+              className="px-3 py-1 text-sm font-theme-data bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
             >
               Deliver
             </button>
             <div className="relative group">
-              <button className="px-3 py-1 text-sm font-mono bg-acid-green/20 border border-acid-green text-acid-green rounded">
+              <button className="px-3 py-1 text-sm font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] rounded">
                 Export
               </button>
               <div className="absolute right-0 mt-1 w-32 bg-surface border border-border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
@@ -1191,14 +1191,14 @@ export default function ReceiptsPage() {
         <div className={`p-4 rounded-lg border-2 ${getVerdictColor(receipt.verdict)}`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-2xl font-mono font-bold">{receipt.verdict}</div>
+              <div className="text-2xl font-theme-data font-bold">{receipt.verdict}</div>
               <div className="text-sm opacity-80">
                 Confidence: {(receipt.confidence * 100).toFixed(1)}%
               </div>
             </div>
             <div className="text-right">
               <div className="text-sm">Robustness Score</div>
-              <div className="text-2xl font-mono font-bold">
+              <div className="text-2xl font-theme-data font-bold">
                 {(receipt.robustness_score * 100).toFixed(0)}%
               </div>
             </div>
@@ -1210,31 +1210,31 @@ export default function ReceiptsPage() {
 
         {hasExecutionSummary(receipt) && (
           <div className="p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+            <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
               Execution Summary
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <div className="text-xs text-text-muted">Duration</div>
-                <div className="text-xl font-mono text-text">
+                <div className="text-xl font-theme-data text-text">
                   {formatDuration(receipt.duration_seconds)}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-text-muted">Rounds</div>
-                <div className="text-xl font-mono text-text">
+                <div className="text-xl font-theme-data text-text">
                   {receipt.rounds_completed || 'Unavailable'}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-text-muted">Agents</div>
-                <div className="text-xl font-mono text-text">
+                <div className="text-xl font-theme-data text-text">
                   {receipt.agents_involved.length || 'Unavailable'}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-text-muted">Total Cost</div>
-                <div className="text-xl font-mono text-acid-green">
+                <div className="text-xl font-theme-data text-[var(--accent)]">
                   {formatCurrency(receipt.cost_summary?.total_cost_usd)}
                 </div>
               </div>
@@ -1245,25 +1245,25 @@ export default function ReceiptsPage() {
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border pt-4">
                   <div>
                     <div className="text-xs text-text-muted">API Calls</div>
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {formatCount(receipt.cost_summary.total_calls)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-text-muted">Tokens In</div>
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {formatCount(receipt.cost_summary.total_tokens_in)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-text-muted">Total Tokens</div>
-                    <div className="text-lg font-mono text-text">{formatCount(totalTokens)}</div>
+                    <div className="text-lg font-theme-data text-text">{formatCount(totalTokens)}</div>
                   </div>
                 </div>
 
                 {receipt.cost_summary.per_agent.length > 0 && (
                   <div className="mt-4 border-t border-border pt-4">
-                    <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-3">
+                    <h4 className="text-xs font-theme-data font-bold text-text-muted uppercase mb-3">
                       Per-Agent Cost
                     </h4>
                     <div className="space-y-2">
@@ -1272,11 +1272,11 @@ export default function ReceiptsPage() {
                           key={agent.agent_name}
                           className="flex items-center justify-between gap-3 rounded bg-bg px-3 py-2 text-sm"
                         >
-                          <div className="font-mono text-text">{agent.agent_name}</div>
-                          <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
+                          <div className="font-theme-data text-text">{agent.agent_name}</div>
+                          <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
                             <span>{formatCount(agent.total_tokens_in + agent.total_tokens_out)} tokens</span>
                             <span>{formatCount(agent.call_count)} calls</span>
-                            <span className="text-acid-cyan">
+                            <span className="text-[var(--acid-cyan)]">
                               {formatCurrency(agent.total_cost_usd)}
                             </span>
                           </div>
@@ -1291,35 +1291,35 @@ export default function ReceiptsPage() {
         )}
 
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+          <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
             Risk Summary
           </h3>
           {receipt.risk_level && (
-            <div className="text-xs font-mono text-text-muted mb-3">
+            <div className="text-xs font-theme-data text-text-muted mb-3">
               Overall risk level: {receipt.risk_level}
             </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-red-500">
+              <div className="text-3xl font-theme-data font-bold text-red-500">
                 {receipt.risk_summary.critical}
               </div>
               <div className="text-xs text-text-muted">Critical</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-orange-400">
+              <div className="text-3xl font-theme-data font-bold text-orange-400">
                 {receipt.risk_summary.high}
               </div>
               <div className="text-xs text-text-muted">High</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-yellow-400">
+              <div className="text-3xl font-theme-data font-bold text-yellow-400">
                 {receipt.risk_summary.medium}
               </div>
               <div className="text-xs text-text-muted">Medium</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono font-bold text-blue-400">
+              <div className="text-3xl font-theme-data font-bold text-blue-400">
                 {receipt.risk_summary.low}
               </div>
               <div className="text-xs text-text-muted">Low</div>
@@ -1327,15 +1327,15 @@ export default function ReceiptsPage() {
           </div>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center border-t border-border pt-4">
             <div>
-              <div className="text-xl font-mono">{receipt.attacks_attempted}</div>
+              <div className="text-xl font-theme-data">{receipt.attacks_attempted}</div>
               <div className="text-xs text-text-muted">Attacks Attempted</div>
             </div>
             <div>
-              <div className="text-xl font-mono">{receipt.attacks_successful}</div>
+              <div className="text-xl font-theme-data">{receipt.attacks_successful}</div>
               <div className="text-xs text-text-muted">Successful</div>
             </div>
             <div>
-              <div className="text-xl font-mono">{receipt.probes_run}</div>
+              <div className="text-xl font-theme-data">{receipt.probes_run}</div>
               <div className="text-xs text-text-muted">Probes Run</div>
             </div>
           </div>
@@ -1348,14 +1348,14 @@ export default function ReceiptsPage() {
 
         {receipt.consensus_proof && (
           <div className="p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+            <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
               Consensus Proof
             </h3>
             <div className="flex items-center gap-4 mb-3">
               <span
-                className={`px-2 py-1 text-xs font-mono rounded ${
+                className={`px-2 py-1 text-xs font-theme-data rounded ${
                   receipt.consensus_proof.reached
-                    ? 'bg-acid-green/20 text-acid-green'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                     : 'bg-red-500/20 text-red-400'
                 }`}
               >
@@ -1373,7 +1373,7 @@ export default function ReceiptsPage() {
                   {receipt.consensus_proof.supporting_agents.map((agent) => (
                     <span
                       key={agent}
-                      className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green rounded"
+                      className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] rounded"
                     >
                       {agent}
                     </span>
@@ -1387,7 +1387,7 @@ export default function ReceiptsPage() {
                     {receipt.consensus_proof.dissenting_agents.map((agent) => (
                       <span
                         key={agent}
-                        className="px-2 py-0.5 text-xs font-mono bg-red-500/10 text-red-400 rounded"
+                        className="px-2 py-0.5 text-xs font-theme-data bg-red-500/10 text-red-400 rounded"
                       >
                         {agent}
                       </span>
@@ -1401,7 +1401,7 @@ export default function ReceiptsPage() {
 
         {receipt.vulnerability_details.length > 0 && (
           <div className="p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+            <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
               Vulnerabilities ({receipt.vulnerability_details.length})
             </h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -1409,12 +1409,12 @@ export default function ReceiptsPage() {
                 <div key={vulnerability.id} className="p-2 bg-bg rounded">
                   <div className="flex items-center gap-2 mb-1">
                     <span
-                      className={`px-1.5 py-0.5 text-xs font-mono rounded ${getSeverityColor(vulnerability.severity)}`}
+                      className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${getSeverityColor(vulnerability.severity)}`}
                     >
                       {vulnerability.severity.toUpperCase()}
                     </span>
                     <span className="text-xs text-text-muted">{vulnerability.category}</span>
-                    <span className="text-xs text-text-muted font-mono">{vulnerability.id}</span>
+                    <span className="text-xs text-text-muted font-theme-data">{vulnerability.id}</span>
                   </div>
                   <p className="text-sm text-text">{vulnerability.description}</p>
                 </div>
@@ -1425,7 +1425,7 @@ export default function ReceiptsPage() {
 
         {receipt.dissenting_views.length > 0 && (
           <div className="p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+            <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
               Dissenting Views
             </h3>
             <div className="space-y-2">
@@ -1440,7 +1440,7 @@ export default function ReceiptsPage() {
 
         {receipt.provenance_chain.length > 0 && (
           <div className="p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+            <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
               Provenance Chain
             </h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -1449,15 +1449,15 @@ export default function ReceiptsPage() {
                   <div className="w-20 text-text-muted shrink-0">
                     {record.timestamp ? new Date(record.timestamp).toLocaleTimeString() : '--:--'}
                   </div>
-                  <div className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded font-mono shrink-0">
+                  <div className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded font-theme-data shrink-0">
                     {record.event_type}
                   </div>
                   {record.agent && (
-                    <div className="text-acid-green shrink-0">{record.agent}</div>
+                    <div className="text-[var(--accent)] shrink-0">{record.agent}</div>
                   )}
                   <div className="text-text flex-1">{record.description}</div>
                   {record.evidence_hash && (
-                    <div className="text-text-muted font-mono shrink-0" title={record.evidence_hash}>
+                    <div className="text-text-muted font-theme-data shrink-0" title={record.evidence_hash}>
                       #{record.evidence_hash.slice(0, 8)}
                     </div>
                   )}
@@ -1468,7 +1468,7 @@ export default function ReceiptsPage() {
         )}
 
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+          <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
             Input & Integrity
           </h3>
           <div className="space-y-2 text-sm">
@@ -1476,15 +1476,15 @@ export default function ReceiptsPage() {
               <span className="text-text-muted">Input Summary: </span>
               <span className="text-text">{receipt.input_summary}</span>
             </div>
-            <div className="font-mono text-xs">
+            <div className="font-theme-data text-xs">
               <span className="text-text-muted">Input Hash: </span>
               <span className="text-text">{receipt.input_hash || 'Unavailable'}</span>
             </div>
-            <div className="font-mono text-xs">
+            <div className="font-theme-data text-xs">
               <span className="text-text-muted">Artifact Hash: </span>
               <span className="text-text">{receipt.artifact_hash || 'Unavailable'}</span>
             </div>
-            <div className="font-mono text-xs">
+            <div className="font-theme-data text-xs">
               <span className="text-text-muted">Timestamp: </span>
               <span className="text-text">{receipt.timestamp || 'Unavailable'}</span>
             </div>
@@ -1501,8 +1501,8 @@ export default function ReceiptsPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
         <div className="mb-8">
-          <h1 className="text-xl font-mono font-bold text-acid-green mb-2">Decision Receipts</h1>
-          <p className="text-text-muted font-mono text-sm">
+          <h1 className="text-xl font-theme-data font-bold text-[var(--accent)] mb-2">Decision Receipts</h1>
+          <p className="text-text-muted font-theme-data text-sm">
             Audit-ready records of every AI-debated decision
           </p>
         </div>
@@ -1516,7 +1516,7 @@ export default function ReceiptsPage() {
         <PanelErrorBoundary panelName="Decision Receipts">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+              <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading...</div>
             </div>
           ) : (
             <div>

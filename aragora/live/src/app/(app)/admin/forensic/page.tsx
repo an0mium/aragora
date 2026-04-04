@@ -37,21 +37,21 @@ interface AuditStats {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'text-acid-green',
-  data: 'text-acid-cyan',
+  auth: 'text-[var(--accent)]',
+  data: 'text-[var(--acid-cyan)]',
   admin: 'text-purple-400',
-  system: 'text-acid-yellow',
+  system: 'text-[var(--acid-yellow)]',
   billing: 'text-orange-400',
   access: 'text-blue-400',
   api: 'text-pink-400',
-  security: 'text-crimson',
+  security: 'text-[var(--crimson)]',
   debate: 'text-emerald-400',
 };
 
 const OUTCOME_COLORS: Record<string, string> = {
   success: 'text-success bg-success/20',
-  failure: 'text-crimson bg-crimson/20',
-  denied: 'text-acid-yellow bg-acid-yellow/20',
+  failure: 'text-[var(--crimson)] bg-[var(--crimson)]/20',
+  denied: 'text-[var(--acid-yellow)] bg-acid-yellow/20',
   error: 'text-orange-400 bg-orange-400/20',
 };
 
@@ -286,13 +286,13 @@ export default function ForensicAuditPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/admin" className="text-xs font-mono text-text-muted hover:text-acid-green">
+              <Link href="/admin" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]">
                 [ADMIN]
               </Link>
               <BackendSelector compact />
@@ -306,13 +306,13 @@ export default function ForensicAuditPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-xs font-mono text-text-muted mb-1">
-                  <Link href="/admin" className="hover:text-acid-green">Admin</Link>
+                <div className="text-xs font-theme-data text-text-muted mb-1">
+                  <Link href="/admin" className="hover:text-[var(--accent)]">Admin</Link>
                   <span className="mx-2">/</span>
-                  <span className="text-acid-green">Forensic Audit</span>
+                  <span className="text-[var(--accent)]">Forensic Audit</span>
                 </div>
-                <h1 className="text-2xl font-mono text-acid-green">Forensic Audit Trail</h1>
-                <p className="text-text-muted font-mono text-sm mt-1">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)]">Forensic Audit Trail</h1>
+                <p className="text-text-muted font-theme-data text-sm mt-1">
                   Detailed audit logs with cryptographic integrity verification
                 </p>
               </div>
@@ -320,7 +320,7 @@ export default function ForensicAuditPage() {
                 <button
                   onClick={verifyIntegrity}
                   disabled={verifying}
-                  className="px-3 py-1.5 bg-purple-500/20 border border-purple-500 text-purple-400 font-mono text-xs rounded hover:bg-purple-500/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-purple-500/20 border border-purple-500 text-purple-400 font-theme-data text-xs rounded hover:bg-purple-500/30 disabled:opacity-50"
                 >
                   {verifying ? 'Verifying...' : 'Verify Integrity'}
                 </button>
@@ -331,34 +331,34 @@ export default function ForensicAuditPage() {
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <div className="card p-4">
-                  <div className="text-xs font-mono text-text-muted mb-1">TOTAL EVENTS</div>
-                  <div className="text-2xl font-mono text-acid-green">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">TOTAL EVENTS</div>
+                  <div className="text-2xl font-theme-data text-[var(--accent)]">
                     {stats.total_events.toLocaleString()}
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="text-xs font-mono text-text-muted mb-1">LAST 24H</div>
-                  <div className="text-2xl font-mono text-acid-cyan">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">LAST 24H</div>
+                  <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                     {stats.recent_events_24h.toLocaleString()}
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="text-xs font-mono text-text-muted mb-1">SUCCESS RATE</div>
-                  <div className="text-2xl font-mono text-success">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">SUCCESS RATE</div>
+                  <div className="text-2xl font-theme-data text-success">
                     {stats.total_events > 0
                       ? ((stats.events_by_outcome.success || 0) / stats.total_events * 100).toFixed(1)
                       : 0}%
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="text-xs font-mono text-text-muted mb-1">SECURITY EVENTS</div>
-                  <div className="text-2xl font-mono text-crimson">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">SECURITY EVENTS</div>
+                  <div className="text-2xl font-theme-data text-[var(--crimson)]">
                     {(stats.events_by_category.security || 0).toLocaleString()}
                   </div>
                 </div>
                 <div className="card p-4">
-                  <div className="text-xs font-mono text-text-muted mb-1">INTEGRITY</div>
-                  <div className={`text-2xl font-mono ${stats.integrity_verified ? 'text-success' : 'text-crimson'}`}>
+                  <div className="text-xs font-theme-data text-text-muted mb-1">INTEGRITY</div>
+                  <div className={`text-2xl font-theme-data ${stats.integrity_verified ? 'text-success' : 'text-[var(--crimson)]'}`}>
                     {stats.integrity_verified ? 'VERIFIED' : 'CHECK'}
                   </div>
                 </div>
@@ -369,11 +369,11 @@ export default function ForensicAuditPage() {
             <div className="card p-4 mb-6">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">Category</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">Category</label>
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   >
                     <option value="">All</option>
                     {uniqueCategories.map(c => (
@@ -382,11 +382,11 @@ export default function ForensicAuditPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">Outcome</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">Outcome</label>
                   <select
                     value={outcomeFilter}
                     onChange={(e) => setOutcomeFilter(e.target.value)}
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   >
                     <option value="">All</option>
                     {uniqueOutcomes.map(o => (
@@ -395,41 +395,41 @@ export default function ForensicAuditPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">Actor ID</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">Actor ID</label>
                   <input
                     type="text"
                     value={actorFilter}
                     onChange={(e) => setActorFilter(e.target.value)}
                     placeholder="Filter by actor"
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">Start Date</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">Start Date</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">End Date</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">End Date</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">Search</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">Search</label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Full-text search"
-                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                    className="w-full bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                   />
                 </div>
               </div>
@@ -439,7 +439,7 @@ export default function ForensicAuditPage() {
                 <select
                   value={exportFormat}
                   onChange={(e) => setExportFormat(e.target.value)}
-                  className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono"
+                  className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data"
                 >
                   <option value="json">JSON</option>
                   <option value="csv">CSV</option>
@@ -448,39 +448,39 @@ export default function ForensicAuditPage() {
                 <button
                   onClick={exportAuditLog}
                   disabled={exporting || !startDate || !endDate}
-                  className="px-3 py-1.5 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono text-xs rounded hover:bg-acid-cyan/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-theme-data text-xs rounded hover:bg-[var(--acid-cyan)]/30 disabled:opacity-50"
                 >
                   {exporting ? 'Exporting...' : 'Export'}
                 </button>
                 <div className="flex-1" />
-                <div className="text-xs font-mono text-text-muted">
+                <div className="text-xs font-theme-data text-text-muted">
                   {events.length} events displayed
                 </div>
               </div>
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-crimson/20 border border-crimson/30 rounded text-crimson font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--crimson)]/20 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] font-theme-data text-sm">
                 {error}
                 <span className="ml-2 text-text-muted">(showing demo data)</span>
               </div>
             )}
 
             {verificationResult && (
-              <div className={`mb-4 p-4 rounded ${verificationResult.verified ? 'bg-success/20 border border-success/30' : 'bg-crimson/20 border border-crimson/30'}`}>
+              <div className={`mb-4 p-4 rounded ${verificationResult.verified ? 'bg-success/20 border border-success/30' : 'bg-[var(--crimson)]/20 border border-[var(--crimson)]/30'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`font-mono font-bold ${verificationResult.verified ? 'text-success' : 'text-crimson'}`}>
+                  <span className={`font-theme-data font-bold ${verificationResult.verified ? 'text-success' : 'text-[var(--crimson)]'}`}>
                     {verificationResult.verified ? 'INTEGRITY VERIFIED' : 'INTEGRITY ISSUES DETECTED'}
                   </span>
                 </div>
                 {verificationResult.total_errors > 0 && (
-                  <div className="text-sm font-mono text-text-muted">
+                  <div className="text-sm font-theme-data text-text-muted">
                     {verificationResult.total_errors} error(s) found
                   </div>
                 )}
                 <button
                   onClick={() => setVerificationResult(null)}
-                  className="mt-2 text-xs font-mono text-text-muted hover:text-text"
+                  className="mt-2 text-xs font-theme-data text-text-muted hover:text-text"
                 >
                   Dismiss
                 </button>
@@ -489,7 +489,7 @@ export default function ForensicAuditPage() {
 
             {loading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading audit events...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Loading audit events...</div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -497,33 +497,33 @@ export default function ForensicAuditPage() {
                   <div
                     key={event.id}
                     className={`card p-4 cursor-pointer transition-colors ${
-                      selectedEvent?.id === event.id ? 'border-acid-green' : 'hover:border-acid-green/50'
+                      selectedEvent?.id === event.id ? 'border-[var(--accent)]' : 'hover:border-[var(--accent)]/50'
                     }`}
                     onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <span className={`text-xs font-mono px-2 py-0.5 rounded ${OUTCOME_COLORS[event.outcome] || 'text-text-muted bg-surface'}`}>
+                        <span className={`text-xs font-theme-data px-2 py-0.5 rounded ${OUTCOME_COLORS[event.outcome] || 'text-text-muted bg-surface'}`}>
                           {event.outcome.toUpperCase()}
                         </span>
-                        <span className={`font-mono text-sm ${CATEGORY_COLORS[event.category] || 'text-text'}`}>
+                        <span className={`font-theme-data text-sm ${CATEGORY_COLORS[event.category] || 'text-text'}`}>
                           {event.category}
                         </span>
-                        <span className="font-mono text-sm">{event.action}</span>
+                        <span className="font-theme-data text-sm">{event.action}</span>
                       </div>
-                      <div className="text-xs font-mono text-text-muted">
+                      <div className="text-xs font-theme-data text-text-muted">
                         {new Date(event.timestamp).toLocaleString()}
                       </div>
                     </div>
 
-                    <div className="mt-2 flex items-center gap-4 text-xs font-mono text-text-muted">
+                    <div className="mt-2 flex items-center gap-4 text-xs font-theme-data text-text-muted">
                       <span>Actor: {event.actor_id}</span>
                       <span>Resource: {event.resource_type}/{event.resource_id}</span>
                       {event.ip_address && <span>IP: {event.ip_address}</span>}
                     </div>
 
                     {event.reason && (
-                      <div className="mt-2 text-xs font-mono text-acid-yellow">
+                      <div className="mt-2 text-xs font-theme-data text-[var(--acid-yellow)]">
                         Reason: {event.reason}
                       </div>
                     )}
@@ -531,10 +531,10 @@ export default function ForensicAuditPage() {
                     {/* Expanded Details */}
                     {selectedEvent?.id === event.id && (
                       <div className="mt-4 pt-4 border-t border-border">
-                        <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                        <div className="grid grid-cols-2 gap-4 text-xs font-theme-data">
                           <div>
                             <span className="text-text-muted">Event ID:</span>
-                            <span className="ml-2 text-acid-cyan">{event.id}</span>
+                            <span className="ml-2 text-[var(--acid-cyan)]">{event.id}</span>
                           </div>
                           <div>
                             <span className="text-text-muted">Actor Type:</span>
@@ -558,15 +558,15 @@ export default function ForensicAuditPage() {
                           </div>
                         </div>
                         {event.user_agent && (
-                          <div className="mt-3 text-xs font-mono">
+                          <div className="mt-3 text-xs font-theme-data">
                             <span className="text-text-muted">User Agent:</span>
                             <span className="ml-2 text-text-muted/70 break-all">{event.user_agent}</span>
                           </div>
                         )}
                         {Object.keys(event.details).length > 0 && (
                           <div className="mt-3">
-                            <div className="text-xs font-mono text-text-muted mb-2">Details:</div>
-                            <pre className="bg-surface p-3 rounded text-xs font-mono overflow-x-auto">
+                            <div className="text-xs font-theme-data text-text-muted mb-2">Details:</div>
+                            <pre className="bg-surface p-3 rounded text-xs font-theme-data overflow-x-auto">
                               {JSON.stringify(event.details, null, 2)}
                             </pre>
                           </div>
@@ -578,7 +578,7 @@ export default function ForensicAuditPage() {
 
                 {events.length === 0 && (
                   <div className="card p-8 text-center">
-                    <div className="font-mono text-text-muted">No audit events found matching filters</div>
+                    <div className="font-theme-data text-text-muted">No audit events found matching filters</div>
                   </div>
                 )}
               </div>
@@ -587,8 +587,8 @@ export default function ForensicAuditPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // FORENSIC AUDIT</p>
         </footer>
       </main>

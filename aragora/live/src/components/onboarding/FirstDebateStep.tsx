@@ -265,7 +265,7 @@ export function FirstDebateStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-mono text-acid-green mb-2">
+        <h3 className="text-lg font-theme-data text-[var(--accent)] mb-2">
           Run Your First Debate
         </h3>
         <p className="text-sm text-text-muted">
@@ -275,7 +275,7 @@ export function FirstDebateStep() {
 
       {/* Topic Input */}
       <div>
-        <label className="block text-sm font-mono text-text mb-2">
+        <label className="block text-sm font-theme-data text-text mb-2">
           What decision do you need to make?
         </label>
         <textarea
@@ -287,7 +287,7 @@ export function FirstDebateStep() {
           placeholder="e.g., Should we use microservices or a monolith?"
           rows={3}
           disabled={debateStatus === 'running' || debateStatus === 'completed'}
-          className="w-full px-4 py-2 bg-bg border border-acid-green/30 rounded text-text font-mono focus:border-acid-green focus:outline-none disabled:opacity-50"
+          className="w-full px-4 py-2 bg-bg border border-[var(--accent)]/30 rounded text-text font-theme-data focus:border-[var(--accent)] focus:outline-none disabled:opacity-50"
         />
         {(localError || debateError) && (
           <p className="text-xs text-accent-red mt-1">{localError || debateError}</p>
@@ -298,15 +298,15 @@ export function FirstDebateStep() {
       {/* Debate Status */}
       {debateStatus === 'creating' && (
         <div className="text-center py-4">
-          <div className="text-acid-green font-mono text-sm animate-pulse">
+          <div className="text-[var(--accent)] font-theme-data text-sm animate-pulse">
             Creating debate...
           </div>
         </div>
       )}
 
       {debateStatus === 'running' && (
-        <div className="p-4 border border-acid-cyan/30 rounded-lg bg-acid-cyan/5">
-          <div className="text-sm font-mono text-acid-cyan mb-2">
+        <div className="p-4 border border-[var(--acid-cyan)]/30 rounded-lg bg-[var(--acid-cyan)]/5">
+          <div className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">
             Debate in progress... {wsMessages.length > 0 && `(${wsMessages.length} messages)`}
           </div>
           <div className="text-xs text-text-muted">
@@ -314,19 +314,19 @@ export function FirstDebateStep() {
           </div>
           {/* Show latest message preview */}
           {wsMessages.length > 0 && (
-            <div className="mt-2 text-xs text-acid-cyan/70 italic truncate">
+            <div className="mt-2 text-xs text-[var(--acid-cyan)]/70 italic truncate">
               &quot;{wsMessages[wsMessages.length - 1]?.content?.slice(0, 100)}...&quot;
             </div>
           )}
-          <div className="mt-3 w-full h-1 bg-acid-cyan/20 rounded-full overflow-hidden">
-            <div className="h-full bg-acid-cyan animate-progress-indeterminate" />
+          <div className="mt-3 w-full h-1 bg-[var(--acid-cyan)]/20 rounded-full overflow-hidden">
+            <div className="h-full bg-[var(--acid-cyan)] animate-progress-indeterminate" />
           </div>
         </div>
       )}
 
       {debateStatus === 'completed' && (
-        <div className="p-4 border border-acid-green/30 rounded-lg bg-acid-green/5">
-          <div className="text-sm font-mono text-acid-green mb-2">
+        <div className="p-4 border border-[var(--accent)]/30 rounded-lg bg-[var(--accent)]/5">
+          <div className="text-sm font-theme-data text-[var(--accent)] mb-2">
             Debate completed
           </div>
           <div className="text-xs text-text-muted">
@@ -345,20 +345,20 @@ export function FirstDebateStep() {
             )}
 
             {receiptLoading && (
-              <div className="w-full h-1 bg-acid-green/20 rounded-full overflow-hidden">
-                <div className="h-full bg-acid-green animate-progress-indeterminate" />
+              <div className="w-full h-1 bg-[var(--accent)]/20 rounded-full overflow-hidden">
+                <div className="h-full bg-[var(--accent)] animate-progress-indeterminate" />
               </div>
             )}
 
             {receipt && (
-              <div className="border border-acid-green/20 rounded bg-surface/40 p-3">
+              <div className="border border-[var(--accent)]/20 rounded bg-surface/40 p-3">
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <div className="text-xs font-mono text-text-muted">DECISION RECEIPT</div>
+                  <div className="text-xs font-theme-data text-text-muted">DECISION RECEIPT</div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-[10px] font-mono rounded border border-acid-green/30 text-acid-green bg-acid-green/10">
+                    <span className="px-2 py-0.5 text-[10px] font-theme-data rounded border border-[var(--accent)]/30 text-[var(--accent)] bg-[var(--accent)]/10">
                       {(receipt.verdict || 'NEEDS_REVIEW').toString().toUpperCase()}
                     </span>
-                    <span className="text-[10px] font-mono text-text-muted">
+                    <span className="text-[10px] font-theme-data text-text-muted">
                       {typeof receipt.confidence === 'number' ? `${Math.round(receipt.confidence * 100)}%` : '...'}
                     </span>
                   </div>
@@ -366,12 +366,12 @@ export function FirstDebateStep() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-text">
                   <div>
-                    <div className="text-[10px] text-text-muted font-mono">Receipt ID</div>
-                    <div className="font-mono break-all">{firstReceiptId || receipt.receipt_id || '...'}</div>
+                    <div className="text-[10px] text-text-muted font-theme-data">Receipt ID</div>
+                    <div className="font-theme-data break-all">{firstReceiptId || receipt.receipt_id || '...'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-text-muted font-mono">Risk</div>
-                    <div className="font-mono">
+                    <div className="text-[10px] text-text-muted font-theme-data">Risk</div>
+                    <div className="font-theme-data">
                       {(receipt.risk_level || 'MEDIUM').toString().toUpperCase()}
                     </div>
                   </div>
@@ -380,13 +380,13 @@ export function FirstDebateStep() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => downloadReceiptExport('md').catch((e) => setReceiptError(e instanceof Error ? e.message : 'Export failed'))}
-                    className="px-3 py-1.5 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-1.5 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     DOWNLOAD MD
                   </button>
                   <button
                     onClick={() => downloadReceiptExport('pdf').catch((e) => setReceiptError(e instanceof Error ? e.message : 'Export failed'))}
-                    className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                    className="px-3 py-1.5 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                   >
                     DOWNLOAD PDF
                   </button>
@@ -395,7 +395,7 @@ export function FirstDebateStep() {
                       href={`${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-1.5 text-xs font-mono border border-border text-text-muted hover:border-acid-green/40 hover:text-text transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data border border-border text-text-muted hover:border-[var(--accent)]/40 hover:text-text transition-colors"
                     >
                       OPEN HTML
                     </a>
@@ -411,13 +411,13 @@ export function FirstDebateStep() {
                     console.warn('[FirstDebateStep] Retry receipt fetch failed:', err);
                     setReceiptError(err instanceof Error ? err.message : 'Failed to load receipt');
                   })}
-                  className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  className="px-3 py-1.5 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   RETRY RECEIPT
                 </button>
                 <button
                   onClick={() => updateProgress({ receiptViewed: true })}
-                  className="px-3 py-1.5 text-xs font-mono border border-border text-text-muted hover:border-acid-cyan/40 hover:text-text transition-colors"
+                  className="px-3 py-1.5 text-xs font-theme-data border border-border text-text-muted hover:border-[var(--acid-cyan)]/40 hover:text-text transition-colors"
                 >
                   CONTINUE WITHOUT RECEIPT
                 </button>
@@ -425,7 +425,7 @@ export function FirstDebateStep() {
             )}
 
             {firstDebateId && (
-              <div className="text-[10px] text-text-muted font-mono">
+              <div className="text-[10px] text-text-muted font-theme-data">
                 Debate ID: {firstDebateId}
               </div>
             )}
@@ -438,7 +438,7 @@ export function FirstDebateStep() {
         <button
           onClick={handleStartDebate}
           disabled={!firstDebateTopic.trim()}
-          className="w-full px-4 py-3 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full px-4 py-3 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           START DEBATE
         </button>

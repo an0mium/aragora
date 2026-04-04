@@ -173,16 +173,16 @@ function OAuthCallbackContent() {
 
       <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col items-center justify-center">
         <div className="w-full max-w-md p-8">
-          <div className="border border-acid-green/30 bg-surface/50 p-8 text-center">
+          <div className="border border-[var(--accent)]/30 bg-surface/50 p-8 text-center">
             {/* Status Icon */}
             <div className="mb-6">
               {status === 'processing' && (
-                <div className="inline-block animate-spin text-4xl text-acid-cyan">
+                <div className="inline-block animate-spin text-4xl text-[var(--acid-cyan)]">
                   &#x21BB;
                 </div>
               )}
               {status === 'success' && (
-                <div className="text-4xl text-acid-green">&#x2713;</div>
+                <div className="text-4xl text-[var(--accent)]">&#x2713;</div>
               )}
               {status === 'error' && (
                 <div className="text-4xl text-warning">&#x2717;</div>
@@ -190,27 +190,27 @@ function OAuthCallbackContent() {
             </div>
 
             {/* Title */}
-            <h1 className="text-xl font-mono text-acid-green mb-4">
+            <h1 className="text-xl font-theme-data text-[var(--accent)] mb-4">
               {status === 'processing' && 'AUTHENTICATING...'}
               {status === 'success' && 'ACCESS GRANTED'}
               {status === 'error' && 'AUTHENTICATION FAILED'}
             </h1>
 
             {/* Message */}
-            <p className="text-text-muted text-sm font-mono mb-6">{message}</p>
+            <p className="text-text-muted text-sm font-theme-data mb-6">{message}</p>
 
             {/* Actions */}
             {status === 'error' && (
               <div className="space-y-3">
                 <Link
                   href="/auth/login"
-                  className="block w-full py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors text-center"
+                  className="block w-full py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors text-center"
                 >
                   TRY AGAIN
                 </Link>
                 <Link
                   href="/"
-                  className="block w-full py-3 border border-acid-green/30 text-acid-cyan font-mono hover:border-acid-green transition-colors text-center"
+                  className="block w-full py-3 border border-[var(--accent)]/30 text-[var(--acid-cyan)] font-theme-data hover:border-[var(--accent)] transition-colors text-center"
                 >
                   RETURN HOME
                 </Link>
@@ -218,13 +218,13 @@ function OAuthCallbackContent() {
             )}
 
             {status === 'success' && (
-              <p className="text-acid-cyan text-xs font-mono animate-pulse">
+              <p className="text-[var(--acid-cyan)] text-xs font-theme-data animate-pulse">
                 Redirecting...
               </p>
             )}
 
             {status === 'processing' && (
-              <div className="text-acid-green/50 text-xs font-mono">
+              <div className="text-[var(--accent)]/50 text-xs font-theme-data">
                 <p>{'═'.repeat(25)}</p>
                 <p className="mt-2">Please wait...</p>
               </div>
@@ -243,15 +243,15 @@ function LoadingFallback() {
       <CRTVignette />
       <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col items-center justify-center">
         <div className="w-full max-w-md p-8">
-          <div className="border border-acid-green/30 bg-surface/50 p-8 text-center">
+          <div className="border border-[var(--accent)]/30 bg-surface/50 p-8 text-center">
             <div className="mb-6">
-              <div className="inline-block animate-spin text-4xl text-acid-cyan">
+              <div className="inline-block animate-spin text-4xl text-[var(--acid-cyan)]">
                 &#x21BB;
               </div>
             </div>
-            <h1 className="text-xl font-mono text-acid-green mb-4">AUTHENTICATING...</h1>
-            <p className="text-text-muted text-sm font-mono mb-6">Processing authentication...</p>
-            <div className="text-acid-green/50 text-xs font-mono">
+            <h1 className="text-xl font-theme-data text-[var(--accent)] mb-4">AUTHENTICATING...</h1>
+            <p className="text-text-muted text-sm font-theme-data mb-6">Processing authentication...</p>
+            <div className="text-[var(--accent)]/50 text-xs font-theme-data">
               <p>{'═'.repeat(25)}</p>
               <p className="mt-2">Please wait...</p>
             </div>

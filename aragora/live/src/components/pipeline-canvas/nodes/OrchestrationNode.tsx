@@ -92,10 +92,10 @@ export const OrchestrationNode = memo(function OrchestrationNode({
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-pink-500/30 text-pink-200">
           {config.icon}
         </span>
-        <span className="px-1.5 py-0.5 text-xs bg-pink-500/30 text-pink-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-pink-500/30 text-pink-200 rounded font-theme-data uppercase">
           {config.label}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${statusClass}`}>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${statusClass}`}>
           {status.replace('_', ' ')}
         </span>
       </div>
@@ -121,7 +121,7 @@ export const OrchestrationNode = memo(function OrchestrationNode({
 
       {/* Agent type */}
       {agentType && (
-        <div className="text-xs text-pink-300 font-mono mb-1">{agentType}</div>
+        <div className="text-xs text-pink-300 font-theme-data mb-1">{agentType}</div>
       )}
 
       {/* Capabilities badges */}
@@ -130,13 +130,13 @@ export const OrchestrationNode = memo(function OrchestrationNode({
           {capabilities.slice(0, 3).map((cap) => (
             <span
               key={cap}
-              className="px-1 py-0.5 text-xs bg-pink-500/20 text-pink-200 rounded font-mono"
+              className="px-1 py-0.5 text-xs bg-pink-500/20 text-pink-200 rounded font-theme-data"
             >
               {cap}
             </span>
           ))}
           {capabilities.length > 3 && (
-            <span className="text-xs text-pink-300 font-mono">
+            <span className="text-xs text-pink-300 font-theme-data">
               +{capabilities.length - 3}
             </span>
           )}
@@ -146,7 +146,7 @@ export const OrchestrationNode = memo(function OrchestrationNode({
       {/* ELO score badge */}
       {eloScore != null && (
         <div className="mt-2 flex items-center gap-1.5">
-          <span className="px-1.5 py-0.5 text-xs font-mono bg-acid-green/20 text-acid-green rounded border border-acid-green/30">
+          <span className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded border border-[var(--accent)]/30">
             ELO {eloScore}
           </span>
           {selectionRationale && (
@@ -163,21 +163,21 @@ export const OrchestrationNode = memo(function OrchestrationNode({
           {alternativeAgents.slice(0, 2).map((alt) => (
             <span
               key={alt.name}
-              className="px-1 py-0.5 text-xs bg-pink-500/10 text-pink-300/60 rounded font-mono"
+              className="px-1 py-0.5 text-xs bg-pink-500/10 text-pink-300/60 rounded font-theme-data"
               title={`Alternative: ${alt.name} (${alt.score ?? '?'})`}
             >
               {alt.name}{alt.score != null ? ` ${alt.score}` : ''}
             </span>
           ))}
           {alternativeAgents.length > 2 && (
-            <span className="text-xs text-pink-300/40 font-mono">+{alternativeAgents.length - 2}</span>
+            <span className="text-xs text-pink-300/40 font-theme-data">+{alternativeAgents.length - 2}</span>
           )}
         </div>
       )}
 
       {/* Execution status */}
       {executionStatus && (
-        <div className={`mt-2 flex items-center gap-1.5 text-xs font-mono ${EXECUTION_STATUS_COLORS[executionStatus]?.text || 'text-text-muted'}`}>
+        <div className={`mt-2 flex items-center gap-1.5 text-xs font-theme-data ${EXECUTION_STATUS_COLORS[executionStatus]?.text || 'text-text-muted'}`}>
           {executionStatus === 'in_progress' && (
             <span className="inline-block w-2 h-2 border border-current border-t-transparent rounded-full animate-spin" />
           )}
@@ -196,7 +196,7 @@ export const OrchestrationNode = memo(function OrchestrationNode({
 
       {/* Output preview */}
       {outputPreview && executionStatus && (
-        <div className="mt-1 text-xs text-text-muted font-mono bg-bg/50 rounded px-1.5 py-1 line-clamp-2">
+        <div className="mt-1 text-xs text-text-muted font-theme-data bg-bg/50 rounded px-1.5 py-1 line-clamp-2">
           {outputPreview}
         </div>
       )}

@@ -13,9 +13,9 @@ export function DeliberationStats({ stats, loading = false }: DeliberationStatsP
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-surface border border-acid-green/30 p-4 animate-pulse">
-            <div className="w-20 h-3 bg-acid-green/20 rounded mb-2" />
-            <div className="w-12 h-6 bg-acid-green/10 rounded" />
+          <div key={i} className="bg-surface border border-[var(--accent)]/30 p-4 animate-pulse">
+            <div className="w-20 h-3 bg-[var(--accent)]/20 rounded mb-2" />
+            <div className="w-12 h-6 bg-[var(--accent)]/10 rounded" />
           </div>
         ))}
       </div>
@@ -38,50 +38,50 @@ export function DeliberationStats({ stats, loading = false }: DeliberationStatsP
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted mb-1 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted mb-1 uppercase">
           Active
         </div>
-        <div className="text-2xl font-mono text-acid-green">
+        <div className="text-2xl font-theme-data text-[var(--accent)]">
           {displayStats.active_count}
         </div>
-        <div className="text-xs font-mono text-text-muted mt-1">
+        <div className="text-xs font-theme-data text-text-muted mt-1">
           active debates
         </div>
       </div>
 
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted mb-1 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted mb-1 uppercase">
           Completed
         </div>
-        <div className="text-2xl font-mono text-acid-cyan">
+        <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
           {displayStats.completed_today}
         </div>
-        <div className="text-xs font-mono text-text-muted mt-1">
+        <div className="text-xs font-theme-data text-text-muted mt-1">
           today
         </div>
       </div>
 
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted mb-1 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted mb-1 uppercase">
           Avg Time
         </div>
-        <div className="text-2xl font-mono text-text">
+        <div className="text-2xl font-theme-data text-text">
           {formatTime(displayStats.average_consensus_time)}
         </div>
-        <div className="text-xs font-mono text-text-muted mt-1">
+        <div className="text-xs font-theme-data text-text-muted mt-1">
           to consensus
         </div>
       </div>
 
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted mb-1 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted mb-1 uppercase">
           Avg Rounds
         </div>
-        <div className="text-2xl font-mono text-acid-yellow">
+        <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">
           {displayStats.average_rounds.toFixed(1)}
         </div>
-        <div className="text-xs font-mono text-text-muted mt-1">
+        <div className="text-xs font-theme-data text-text-muted mt-1">
           per debate
         </div>
       </div>

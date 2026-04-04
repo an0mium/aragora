@@ -42,7 +42,7 @@ const CHANNEL_ICONS: Record<OutboundChannelType, string> = {
 function _getStatusColor(status: DeliveryStatus): string {
   switch (status) {
     case 'delivered':
-      return 'text-acid-green';
+      return 'text-[var(--accent)]';
     case 'sent':
       return 'text-cyan-400';
     case 'pending':
@@ -59,7 +59,7 @@ function _getStatusColor(status: DeliveryStatus): string {
 function getStatusBadgeClass(status: DeliveryStatus): string {
   switch (status) {
     case 'delivered':
-      return 'bg-acid-green/20 text-acid-green';
+      return 'bg-[var(--accent)]/20 text-[var(--accent)]';
     case 'sent':
       return 'bg-cyan-400/20 text-cyan-400';
     case 'pending':
@@ -133,19 +133,19 @@ export function DeliveryLog({
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-text">{stats.total}</div>
+          <div className="text-xl font-theme-data font-bold text-text">{stats.total}</div>
           <div className="text-xs text-text-muted">Total</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-acid-green">{stats.delivered}</div>
+          <div className="text-xl font-theme-data font-bold text-[var(--accent)]">{stats.delivered}</div>
           <div className="text-xs text-text-muted">Delivered</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-yellow-400">{stats.pending}</div>
+          <div className="text-xl font-theme-data font-bold text-yellow-400">{stats.pending}</div>
           <div className="text-xs text-text-muted">Pending</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-red-400">{stats.failed}</div>
+          <div className="text-xl font-theme-data font-bold text-red-400">{stats.failed}</div>
           <div className="text-xs text-text-muted">Failed</div>
         </div>
       </div>
@@ -165,7 +165,7 @@ export function DeliveryLog({
             <div
               key={entry.id}
               onClick={() => onViewDetails?.(entry)}
-              className="card p-3 cursor-pointer hover:border-acid-green/50 transition-colors"
+              className="card p-3 cursor-pointer hover:border-[var(--accent)]/50 transition-colors"
             >
               <div className="flex items-start justify-between gap-3">
                 {/* Left side - Channel & Content */}
@@ -175,7 +175,7 @@ export function DeliveryLog({
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-sm font-bold">
+                      <span className="font-theme-data text-sm font-bold">
                         {entry.channel_name}
                       </span>
                       {entry.recipient && (
@@ -203,7 +203,7 @@ export function DeliveryLog({
                 {/* Right side - Status & Time */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-mono ${getStatusBadgeClass(
+                    className={`px-2 py-0.5 rounded text-xs font-theme-data ${getStatusBadgeClass(
                       entry.status
                     )}`}
                   >
@@ -228,7 +228,7 @@ export function DeliveryLog({
                       e.stopPropagation();
                       onRetry(entry);
                     }}
-                    className="px-3 py-1 text-xs font-mono bg-acid-green/20 text-acid-green hover:bg-acid-green/30 rounded transition-colors"
+                    className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)]/30 rounded transition-colors"
                   >
                     Retry Delivery
                   </button>

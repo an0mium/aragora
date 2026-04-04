@@ -188,28 +188,28 @@ function DebatePrecedent({
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-acid-cyan/20 bg-acid-cyan/5 px-3 py-2">
+    <div className="mt-3 rounded-lg border border-[var(--acid-cyan)]/20 bg-[var(--acid-cyan)]/5 px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-mono uppercase tracking-wide text-text-muted">
+          <div className="text-[10px] font-theme-data uppercase tracking-wide text-text-muted">
             Debate Precedent
           </div>
           {debateId ? (
             <div className="mt-1 flex items-center gap-2">
               <span
                 title={debateId}
-                className="truncate font-mono text-xs text-acid-cyan"
+                className="truncate font-theme-data text-xs text-[var(--acid-cyan)]"
               >
                 {formatDebateId(debateId)}
               </span>
-              <span className={`text-xs font-mono ${getConfidenceColor(confidence)}`}>
+              <span className={`text-xs font-theme-data ${getConfidenceColor(confidence)}`}>
                 {Math.round(confidence * 100)}%
               </span>
             </div>
           ) : (
             <div className="mt-1 flex items-center gap-2">
               <span className="text-xs text-text-muted">No linked source debate</span>
-              <span className={`text-xs font-mono ${getConfidenceColor(confidence)}`}>
+              <span className={`text-xs font-theme-data ${getConfidenceColor(confidence)}`}>
                 {Math.round(confidence * 100)}%
               </span>
             </div>
@@ -219,7 +219,7 @@ function DebatePrecedent({
           <Link
             href={getDebateHref(debateId)}
             onClick={(event) => event.stopPropagation()}
-            className="shrink-0 text-xs font-mono text-acid-cyan hover:text-acid-green hover:underline"
+            className="shrink-0 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] hover:underline"
           >
             Open debate
           </Link>
@@ -316,11 +316,11 @@ export default function KnowledgeMoundPage() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Total Nodes</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">{stats.totalNodes}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">{stats.totalNodes}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Relationships</span>
-            <span className="text-sm font-mono text-[var(--text)]">{stats.totalRelationships}</span>
+            <span className="text-sm font-theme-data text-[var(--text)]">{stats.totalRelationships}</span>
           </div>
           {stats.nodesByTier && (
             <div className="pt-2 border-t border-[var(--border)]">
@@ -328,7 +328,7 @@ export default function KnowledgeMoundPage() {
               {Object.entries(stats.nodesByTier).map(([tier, count]) => (
                 <div key={tier} className="flex justify-between items-center text-xs">
                   <span className="text-[var(--text-muted)] capitalize">{tier}</span>
-                  <span className="font-mono text-[var(--text)]">{count}</span>
+                  <span className="font-theme-data text-[var(--text)]">{count}</span>
                 </div>
               ))}
             </div>
@@ -339,19 +339,19 @@ export default function KnowledgeMoundPage() {
         <div className="space-y-2">
           <button
             onClick={() => setShowAddFact(true)}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             + ADD FACT
           </button>
           <button
             onClick={() => setShowIndexRepo(true)}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             INDEX REPO
           </button>
           <button
             onClick={() => setShowStalePanel(true)}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             CHECK STALE
           </button>
@@ -571,7 +571,7 @@ export default function KnowledgeMoundPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+            <h1 className="text-3xl font-theme-data font-bold text-text mb-2">
               Knowledge Mound
             </h1>
             <p className="text-text-muted">
@@ -583,27 +583,27 @@ export default function KnowledgeMoundPage() {
         {stats && (
           <div className="grid grid-cols-6 gap-4 mb-6">
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-acid-green">{stats.totalNodes}</div>
+              <div className="text-2xl font-theme-data text-[var(--accent)]">{stats.totalNodes}</div>
               <div className="text-xs text-text-muted">Total Nodes</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-blue-400">{stats.nodesBySource['continuum'] || 0}</div>
+              <div className="text-2xl font-theme-data text-blue-400">{stats.nodesBySource['continuum'] || 0}</div>
               <div className="text-xs text-text-muted">Continuum</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-green-400">{stats.nodesBySource['consensus'] || 0}</div>
+              <div className="text-2xl font-theme-data text-green-400">{stats.nodesBySource['consensus'] || 0}</div>
               <div className="text-xs text-text-muted">Consensus</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-yellow-400">{stats.nodesBySource['fact'] || 0}</div>
+              <div className="text-2xl font-theme-data text-yellow-400">{stats.nodesBySource['fact'] || 0}</div>
               <div className="text-xs text-text-muted">Facts</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-purple-400">{stats.nodesBySource['evidence'] || 0}</div>
+              <div className="text-2xl font-theme-data text-purple-400">{stats.nodesBySource['evidence'] || 0}</div>
               <div className="text-xs text-text-muted">Evidence</div>
             </div>
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono text-acid-cyan">{stats.totalRelationships}</div>
+              <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{stats.totalRelationships}</div>
               <div className="text-xs text-text-muted">Relationships</div>
             </div>
           </div>
@@ -613,19 +613,19 @@ export default function KnowledgeMoundPage() {
         <div className="flex flex-wrap gap-3 mb-6">
           <button
             onClick={() => setShowAddFact(!showAddFact)}
-            className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono rounded-lg hover:bg-acid-green/30 transition-colors"
+            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data rounded-lg hover:bg-[var(--accent)]/30 transition-colors"
           >
             + Add Fact
           </button>
           <button
             onClick={() => setShowIndexRepo(!showIndexRepo)}
-            className="px-4 py-2 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono rounded-lg hover:bg-acid-cyan/30 transition-colors"
+            className="px-4 py-2 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-theme-data rounded-lg hover:bg-[var(--acid-cyan)]/30 transition-colors"
           >
             Index Repository
           </button>
           <button
             onClick={() => { setShowStalePanel(!showStalePanel); if (!showStalePanel) fetchStaleItems(); }}
-            className="px-4 py-2 bg-yellow-500/20 border border-yellow-500 text-yellow-400 font-mono rounded-lg hover:bg-yellow-500/30 transition-colors"
+            className="px-4 py-2 bg-yellow-500/20 border border-yellow-500 text-yellow-400 font-theme-data rounded-lg hover:bg-yellow-500/30 transition-colors"
           >
             {showStalePanel ? 'Hide' : 'Check'} Staleness
           </button>
@@ -635,9 +635,9 @@ export default function KnowledgeMoundPage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-4 py-2 font-mono text-sm transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm transition-colors ${
                   viewMode === mode
-                    ? 'bg-acid-green text-bg'
+                    ? 'bg-[var(--accent)] text-bg'
                     : 'bg-surface text-text-muted hover:bg-surface/80'
                 }`}
               >
@@ -650,14 +650,14 @@ export default function KnowledgeMoundPage() {
             <button
               onClick={() => exportGraph('d3')}
               disabled={exporting}
-              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-mono rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-theme-data rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
             >
               Export D3 JSON
             </button>
             <button
               onClick={() => exportGraph('graphml')}
               disabled={exporting}
-              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-mono rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-theme-data rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
             >
               Export GraphML
             </button>
@@ -668,20 +668,20 @@ export default function KnowledgeMoundPage() {
         {showStalePanel && (
           <div className="mb-6 p-4 bg-surface border border-yellow-500/30 rounded-lg">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-mono text-yellow-400 uppercase">Stale Knowledge Items</h3>
+              <h3 className="text-sm font-theme-data text-yellow-400 uppercase">Stale Knowledge Items</h3>
               <button
                 onClick={fetchStaleItems}
                 disabled={loadingStale}
-                className="text-xs font-mono text-yellow-400 hover:text-yellow-300 disabled:opacity-50"
+                className="text-xs font-theme-data text-yellow-400 hover:text-yellow-300 disabled:opacity-50"
               >
                 {loadingStale ? 'Checking...' : 'Refresh'}
               </button>
             </div>
 
             {loadingStale ? (
-              <div className="text-center py-4 text-text-muted font-mono">Checking for stale items...</div>
+              <div className="text-center py-4 text-text-muted font-theme-data">Checking for stale items...</div>
             ) : staleItems.length === 0 ? (
-              <div className="text-center py-4 text-text-muted font-mono">
+              <div className="text-center py-4 text-text-muted font-theme-data">
                 No stale knowledge items found. All items are fresh.
               </div>
             ) : (
@@ -707,8 +707,8 @@ export default function KnowledgeMoundPage() {
                       }}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-xs text-text-muted">{item.node_id}</span>
-                        <span className={`px-2 py-0.5 text-xs font-mono rounded border ${stalenessColors[stalenessLevel]}`}>
+                        <span className="font-theme-data text-xs text-text-muted">{item.node_id}</span>
+                        <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${stalenessColors[stalenessLevel]}`}>
                           {stalenessLevel.toUpperCase()} ({Math.round(item.staleness_score * 100)}%)
                         </span>
                       </div>
@@ -719,7 +719,7 @@ export default function KnowledgeMoundPage() {
                         <span className="text-text-muted">
                           Last validated: {item.last_validated_at ? new Date(item.last_validated_at).toLocaleDateString() : 'Never'}
                         </span>
-                        <span className="text-acid-cyan">{item.recommended_action}</span>
+                        <span className="text-[var(--acid-cyan)]">{item.recommended_action}</span>
                       </div>
                     </div>
                   );
@@ -731,14 +731,14 @@ export default function KnowledgeMoundPage() {
 
         {/* Add Fact Form */}
         {showAddFact && (
-          <div className="mb-6 p-4 bg-surface border border-acid-green/30 rounded-lg">
-            <h3 className="text-sm font-mono text-acid-green uppercase mb-3">Add New Fact</h3>
+          <div className="mb-6 p-4 bg-surface border border-[var(--accent)]/30 rounded-lg">
+            <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-3">Add New Fact</h3>
             <div className="space-y-3">
               <textarea
                 value={newFactContent}
                 onChange={(e) => setNewFactContent(e.target.value)}
                 placeholder="Enter fact content..."
-                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono h-24"
+                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-[var(--accent)] focus:outline-none font-theme-data h-24"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
@@ -746,27 +746,27 @@ export default function KnowledgeMoundPage() {
                   value={newFactSource}
                   onChange={(e) => setNewFactSource(e.target.value)}
                   placeholder="Source (optional)"
-                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono"
+                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-[var(--accent)] focus:outline-none font-theme-data"
                 />
                 <input
                   type="text"
                   value={newFactTopics}
                   onChange={(e) => setNewFactTopics(e.target.value)}
                   placeholder="Topics (comma-separated)"
-                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono"
+                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-[var(--accent)] focus:outline-none font-theme-data"
                 />
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={addFact}
                   disabled={addingFact || !newFactContent.trim()}
-                  className="px-4 py-2 bg-acid-green text-bg font-mono rounded-lg hover:bg-acid-green/80 disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data rounded-lg hover:bg-[var(--accent)]/80 disabled:opacity-50"
                 >
                   {addingFact ? 'Adding...' : 'Add Fact'}
                 </button>
                 <button
                   onClick={() => setShowAddFact(false)}
-                  className="px-4 py-2 border border-border text-text-muted font-mono rounded-lg hover:border-text-muted"
+                  className="px-4 py-2 border border-border text-text-muted font-theme-data rounded-lg hover:border-text-muted"
                 >
                   Cancel
                 </button>
@@ -777,18 +777,18 @@ export default function KnowledgeMoundPage() {
 
         {/* Index Repository Form */}
         {showIndexRepo && (
-          <div className="mb-6 p-4 bg-surface border border-acid-cyan/30 rounded-lg">
-            <h3 className="text-sm font-mono text-acid-cyan uppercase mb-3">Index Repository</h3>
+          <div className="mb-6 p-4 bg-surface border border-[var(--acid-cyan)]/30 rounded-lg">
+            <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase mb-3">Index Repository</h3>
             <div className="space-y-3">
               <input
                 type="text"
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
                 placeholder="https://github.com/owner/repo or /path/to/local/repo"
-                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-cyan focus:outline-none font-mono"
+                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-[var(--acid-cyan)] focus:outline-none font-theme-data"
               />
               {indexingStatus && (
-                <div className={`text-sm font-mono ${indexingStatus.includes('failed') ? 'text-red-400' : 'text-acid-green'}`}>
+                <div className={`text-sm font-theme-data ${indexingStatus.includes('failed') ? 'text-red-400' : 'text-[var(--accent)]'}`}>
                   {indexingStatus}
                 </div>
               )}
@@ -796,13 +796,13 @@ export default function KnowledgeMoundPage() {
                 <button
                   onClick={indexRepository}
                   disabled={indexing || !repoUrl.trim()}
-                  className="px-4 py-2 bg-acid-cyan text-bg font-mono rounded-lg hover:bg-acid-cyan/80 disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--acid-cyan)] text-bg font-theme-data rounded-lg hover:bg-[var(--acid-cyan)]/80 disabled:opacity-50"
                 >
                   {indexing ? 'Indexing...' : 'Index Repository'}
                 </button>
                 <button
                   onClick={() => { setShowIndexRepo(false); setIndexingStatus(null); }}
-                  className="px-4 py-2 border border-border text-text-muted font-mono rounded-lg hover:border-text-muted"
+                  className="px-4 py-2 border border-border text-text-muted font-theme-data rounded-lg hover:border-text-muted"
                 >
                   Cancel
                 </button>
@@ -819,11 +819,11 @@ export default function KnowledgeMoundPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search knowledge semantically..."
-              className="flex-1 px-4 py-3 bg-surface border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono"
+              className="flex-1 px-4 py-3 bg-surface border border-border rounded-lg text-text focus:border-[var(--accent)] focus:outline-none font-theme-data"
             />
             <button
               type="submit"
-              className="px-6 py-3 bg-acid-green text-bg font-mono font-bold rounded-lg hover:bg-acid-green/80 transition-colors"
+              className="px-6 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold rounded-lg hover:bg-[var(--accent)]/80 transition-colors"
             >
               Search
             </button>
@@ -833,7 +833,7 @@ export default function KnowledgeMoundPage() {
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-acid-green focus:outline-none"
+              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-[var(--accent)] focus:outline-none"
             >
               <option value="all">All Sources</option>
               <option value="continuum">Continuum Memory</option>
@@ -846,7 +846,7 @@ export default function KnowledgeMoundPage() {
             <select
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-acid-green focus:outline-none"
+              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-[var(--accent)] focus:outline-none"
             >
               <option value="all">All Tiers</option>
               <option value="fast">Fast (1h)</option>
@@ -858,7 +858,7 @@ export default function KnowledgeMoundPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-acid-green focus:outline-none"
+              className="px-3 py-2 bg-surface border border-border rounded text-text focus:border-[var(--accent)] focus:outline-none"
             >
               <option value="all">All Types</option>
               <option value="memory">Memory</option>
@@ -888,7 +888,7 @@ export default function KnowledgeMoundPage() {
           /* Graph View */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="lg:col-span-1">
-              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+              <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
                 Knowledge Graph
               </h2>
               <KnowledgeGraphView
@@ -901,7 +901,7 @@ export default function KnowledgeMoundPage() {
 
             {/* Node Details (shared with list view) */}
             <div>
-              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+              <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
                 Node Details & Provenance
               </h2>
 
@@ -911,7 +911,7 @@ export default function KnowledgeMoundPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-2xl">{NODE_TYPE_ICONS[selectedNode.nodeType] || '📦'}</span>
                     <div>
-                      <div className="font-mono font-bold text-text">{selectedNode.nodeType}</div>
+                      <div className="font-theme-data font-bold text-text">{selectedNode.nodeType}</div>
                       <div className="text-xs text-text-muted">{selectedNode.id}</div>
                     </div>
                   </div>
@@ -925,28 +925,28 @@ export default function KnowledgeMoundPage() {
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="p-2 bg-bg rounded">
                       <div className="text-xs text-text-muted">Confidence</div>
-                      <div className={`font-mono font-bold ${getConfidenceColor(selectedNode.confidence)}`}>
+                      <div className={`font-theme-data font-bold ${getConfidenceColor(selectedNode.confidence)}`}>
                         {Math.round(selectedNode.confidence * 100)}%
                       </div>
                     </div>
                     <div className="p-2 bg-bg rounded">
                       <div className="text-xs text-text-muted">Tier</div>
-                      <div className="font-mono font-bold text-text">{selectedNode.tier}</div>
+                      <div className="font-theme-data font-bold text-text">{selectedNode.tier}</div>
                     </div>
                     <div className="p-2 bg-bg rounded">
                       <div className="text-xs text-text-muted">Source</div>
-                      <div className="font-mono font-bold text-text">{selectedNode.sourceType}</div>
+                      <div className="font-theme-data font-bold text-text">{selectedNode.sourceType}</div>
                     </div>
                     <div className="p-2 bg-bg rounded">
                       <div className="text-xs text-text-muted">Created</div>
-                      <div className="font-mono text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
+                      <div className="font-theme-data text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
                     </div>
                   </div>
 
                   {/* Relationships in graph view */}
                   {relationships.length > 0 && (
                     <div className="border-t border-border pt-4 mt-4">
-                      <h3 className="text-xs font-mono text-acid-green uppercase mb-3">
+                      <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">
                         Relationships ({relationships.length})
                       </h3>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -957,7 +957,7 @@ export default function KnowledgeMoundPage() {
                           >
                             <div>
                               <span className="text-xs text-text-muted">{rel.relationshipType}</span>
-                              <div className="font-mono text-xs text-acid-cyan">
+                              <div className="font-theme-data text-xs text-[var(--acid-cyan)]">
                                 {rel.sourceId === selectedNode.id ? rel.targetId : rel.sourceId}
                               </div>
                             </div>
@@ -973,7 +973,7 @@ export default function KnowledgeMoundPage() {
                   {/* Topics */}
                   {selectedNode.topics && selectedNode.topics.length > 0 && (
                     <div className="border-t border-border pt-4 mt-4">
-                      <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Topics</h3>
+                      <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">Topics</h3>
                       <div className="flex flex-wrap gap-2">
                         {selectedNode.topics.map((topic) => (
                           <span
@@ -1000,12 +1000,12 @@ export default function KnowledgeMoundPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Nodes List */}
             <div>
-              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+              <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
                 Knowledge Nodes ({nodes.length})
               </h2>
 
             {loading ? (
-              <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
+              <div className="text-center py-8 text-text-muted font-theme-data">Loading...</div>
             ) : errorMessage ? (
               <EmptyState
                 icon="⚠️"
@@ -1048,20 +1048,20 @@ export default function KnowledgeMoundPage() {
                       onClick={() => setSelectedNode(node)}
                       className={`p-4 bg-surface border rounded-lg cursor-pointer transition-all ${
                         selectedNode?.id === node.id
-                          ? 'border-acid-green'
+                          ? 'border-[var(--accent)]'
                           : 'border-border hover:border-text-muted'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{NODE_TYPE_ICONS[node.nodeType] || '📦'}</span>
-                          <span className="font-mono text-xs text-text-muted">{node.id}</span>
+                          <span className="font-theme-data text-xs text-text-muted">{node.id}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded ${sourceColors.bg} ${sourceColors.text}`}>
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${sourceColors.bg} ${sourceColors.text}`}>
                             {node.sourceType}
                           </span>
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded ${tierColors.bg} ${tierColors.text}`}>
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${tierColors.bg} ${tierColors.text}`}>
                             {node.tier}
                           </span>
                         </div>
@@ -1106,7 +1106,7 @@ export default function KnowledgeMoundPage() {
 
           {/* Node Details / Provenance */}
           <div>
-            <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+            <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
               Node Details & Provenance
             </h2>
 
@@ -1116,7 +1116,7 @@ export default function KnowledgeMoundPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl">{NODE_TYPE_ICONS[selectedNode.nodeType] || '📦'}</span>
                   <div>
-                    <div className="font-mono font-bold text-text">{selectedNode.nodeType}</div>
+                    <div className="font-theme-data font-bold text-text">{selectedNode.nodeType}</div>
                     <div className="text-xs text-text-muted">{selectedNode.id}</div>
                   </div>
                 </div>
@@ -1130,39 +1130,39 @@ export default function KnowledgeMoundPage() {
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="p-2 bg-bg rounded">
                     <div className="text-xs text-text-muted">Confidence</div>
-                    <div className={`font-mono font-bold ${getConfidenceColor(selectedNode.confidence)}`}>
+                    <div className={`font-theme-data font-bold ${getConfidenceColor(selectedNode.confidence)}`}>
                       {Math.round(selectedNode.confidence * 100)}%
                     </div>
                   </div>
                   <div className="p-2 bg-bg rounded">
                     <div className="text-xs text-text-muted">Tier</div>
-                    <div className="font-mono font-bold text-text">{selectedNode.tier}</div>
+                    <div className="font-theme-data font-bold text-text">{selectedNode.tier}</div>
                   </div>
                   <div className="p-2 bg-bg rounded">
                     <div className="text-xs text-text-muted">Source</div>
-                    <div className="font-mono font-bold text-text">{selectedNode.sourceType}</div>
+                    <div className="font-theme-data font-bold text-text">{selectedNode.sourceType}</div>
                   </div>
                   <div className="p-2 bg-bg rounded">
                     <div className="text-xs text-text-muted">Created</div>
-                    <div className="font-mono text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
+                    <div className="font-theme-data text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="border-t border-border pt-4">
-                  <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Actions</h3>
+                  <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">Actions</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => verifyFact(selectedNode.id)}
                       disabled={verifying}
-                      className="px-3 py-1.5 bg-acid-green/20 border border-acid-green text-acid-green text-xs font-mono rounded hover:bg-acid-green/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] text-xs font-theme-data rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                     >
                       {verifying ? 'Verifying...' : 'Verify with AI'}
                     </button>
                     <button
                       onClick={() => fetchContradictions(selectedNode.id)}
                       disabled={loadingContradictions}
-                      className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500 text-yellow-500 text-xs font-mono rounded hover:bg-yellow-500/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500 text-yellow-500 text-xs font-theme-data rounded hover:bg-yellow-500/30 disabled:opacity-50"
                     >
                       {loadingContradictions ? 'Checking...' : 'Find Contradictions'}
                     </button>
@@ -1173,7 +1173,7 @@ export default function KnowledgeMoundPage() {
                     <div className="mt-3 p-3 bg-bg border border-border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-text-muted">Verification Status</span>
-                        <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                        <span className={`text-xs font-theme-data px-2 py-0.5 rounded ${
                           verificationResult.status === 'verified' ? 'bg-green-900/30 text-green-400' :
                           verificationResult.status === 'disputed' ? 'bg-red-900/30 text-red-400' :
                           'bg-yellow-900/30 text-yellow-400'
@@ -1186,7 +1186,7 @@ export default function KnowledgeMoundPage() {
                       </div>
                       {verificationResult.verified_by && verificationResult.verified_by.length > 0 && (
                         <div className="text-xs text-text-muted mb-1">
-                          Verified by: <span className="text-acid-cyan">{verificationResult.verified_by.join(', ')}</span>
+                          Verified by: <span className="text-[var(--acid-cyan)]">{verificationResult.verified_by.join(', ')}</span>
                         </div>
                       )}
                       {verificationResult.verification_notes && (
@@ -1198,7 +1198,7 @@ export default function KnowledgeMoundPage() {
                   {/* Contradictions */}
                   {contradictions.length > 0 && (
                     <div className="mt-3 p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
-                      <h4 className="text-xs font-mono text-red-400 uppercase mb-2">
+                      <h4 className="text-xs font-theme-data text-red-400 uppercase mb-2">
                         Contradictions Found ({contradictions.length})
                       </h4>
                       <div className="space-y-2">
@@ -1227,14 +1227,14 @@ export default function KnowledgeMoundPage() {
 
                 {/* Provenance */}
                 <div className="border-t border-border pt-4 mt-4">
-                  <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Provenance</h3>
+                  <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">Provenance</h3>
                   <div className="space-y-2 text-sm">
                     {selectedNode.debateId && (
                       <div className="flex items-center gap-2">
                         <span className="text-text-muted">Debate:</span>
                         <Link
                           href={getDebateHref(selectedNode.debateId)}
-                          className="font-mono text-acid-cyan hover:text-acid-green hover:underline"
+                          className="font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] hover:underline"
                         >
                           {selectedNode.debateId}
                         </Link>
@@ -1243,13 +1243,13 @@ export default function KnowledgeMoundPage() {
                     {selectedNode.documentId && (
                       <div className="flex items-center gap-2">
                         <span className="text-text-muted">Document:</span>
-                        <span className="font-mono text-acid-cyan">{selectedNode.documentId}</span>
+                        <span className="font-theme-data text-[var(--acid-cyan)]">{selectedNode.documentId}</span>
                       </div>
                     )}
                     {selectedNode.agentId && (
                       <div className="flex items-center gap-2">
                         <span className="text-text-muted">Agent:</span>
-                        <span className="font-mono text-acid-cyan">{selectedNode.agentId}</span>
+                        <span className="font-theme-data text-[var(--acid-cyan)]">{selectedNode.agentId}</span>
                       </div>
                     )}
                   </div>
@@ -1258,7 +1258,7 @@ export default function KnowledgeMoundPage() {
                 {/* Relationships */}
                 {relationships.length > 0 && (
                   <div className="border-t border-border pt-4 mt-4">
-                    <h3 className="text-xs font-mono text-acid-green uppercase mb-3">
+                    <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">
                       Relationships ({relationships.length})
                     </h3>
                     <div className="space-y-2">
@@ -1269,7 +1269,7 @@ export default function KnowledgeMoundPage() {
                         >
                           <div>
                             <span className="text-xs text-text-muted">{rel.relationshipType}</span>
-                            <div className="font-mono text-xs text-acid-cyan">
+                            <div className="font-theme-data text-xs text-[var(--acid-cyan)]">
                               {rel.sourceId === selectedNode.id ? rel.targetId : rel.sourceId}
                             </div>
                           </div>
@@ -1285,7 +1285,7 @@ export default function KnowledgeMoundPage() {
                 {/* Additional Metadata */}
                 {selectedNode.metadata && Object.keys(selectedNode.metadata).length > 0 && (
                   <div className="border-t border-border pt-4 mt-4">
-                    <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Metadata</h3>
+                    <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-3">Metadata</h3>
                     <pre className="p-2 bg-bg rounded text-xs text-text-muted overflow-x-auto">
                       {JSON.stringify(selectedNode.metadata, null, 2)}
                     </pre>

@@ -86,14 +86,14 @@ export function FleetHealthGauge({
 
       {/* Center text */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-mono font-bold text-text">
+        <span className="text-lg font-theme-data font-bold text-text">
           {Math.round(health)}%
         </span>
       </div>
 
       {/* Label below gauge */}
       {showLabel && (
-        <span className="mt-1 text-xs font-mono text-text-muted">
+        <span className="mt-1 text-xs font-theme-data text-text-muted">
           {label}
         </span>
       )}

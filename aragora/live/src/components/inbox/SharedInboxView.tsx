@@ -253,8 +253,8 @@ export function SharedInboxView({
 
   if (isLoading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <div className="text-center py-8 text-text-muted font-mono text-sm animate-pulse">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm animate-pulse">
           Loading shared inbox...
         </div>
       </div>
@@ -265,11 +265,11 @@ export function SharedInboxView({
     return (
       <div className="border border-red-500/30 bg-red-900/10 p-4 rounded">
         <div className="text-center py-8">
-          <div className="text-red-400 font-mono text-sm mb-2">Failed to load inbox</div>
+          <div className="text-red-400 font-theme-data text-sm mb-2">Failed to load inbox</div>
           <div className="text-text-muted text-xs">{error}</div>
           <button
             onClick={() => fetchInboxes()}
-            className="mt-4 px-4 py-2 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 rounded"
+            className="mt-4 px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded"
           >
             Retry
           </button>
@@ -281,7 +281,7 @@ export function SharedInboxView({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-acid-green/30 p-4 bg-surface/50">
+      <div className="border-b border-[var(--accent)]/30 p-4 bg-surface/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             {/* Inbox Selector */}
@@ -291,7 +291,7 @@ export function SharedInboxView({
                 const inbox = inboxes.find(i => i.id === e.target.value);
                 setSelectedInbox(inbox || null);
               }}
-              className="px-3 py-2 text-sm bg-bg border border-acid-green/30 rounded font-mono focus:border-acid-green focus:outline-none"
+              className="px-3 py-2 text-sm bg-bg border border-[var(--accent)]/30 rounded font-theme-data focus:border-[var(--accent)] focus:outline-none"
             >
               {inboxes.map(inbox => (
                 <option key={inbox.id} value={inbox.id}>
@@ -303,7 +303,7 @@ export function SharedInboxView({
             {selectedInbox && (
               <div className="text-text-muted text-sm">
                 {selectedInbox.email_address && (
-                  <span className="font-mono">{selectedInbox.email_address}</span>
+                  <span className="font-theme-data">{selectedInbox.email_address}</span>
                 )}
               </div>
             )}
@@ -312,17 +312,17 @@ export function SharedInboxView({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRulesPanel(!showRulesPanel)}
-              className={`px-3 py-2 text-xs font-mono border rounded transition-colors ${
+              className={`px-3 py-2 text-xs font-theme-data border rounded transition-colors ${
                 showRulesPanel
-                  ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-acid-green'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
               }`}
             >
               Rules
             </button>
             <button
               onClick={() => fetchMessages()}
-              className="px-3 py-2 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green rounded"
+              className="px-3 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] rounded"
             >
               Refresh
             </button>
@@ -333,10 +333,10 @@ export function SharedInboxView({
         <div className="flex flex-wrap gap-2 mb-3">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1 text-xs font-mono rounded ${
+            className={`px-3 py-1 text-xs font-theme-data rounded ${
               statusFilter === 'all'
-                ? 'bg-acid-green/20 border border-acid-green text-acid-green'
-                : 'bg-surface border border-acid-green/30 text-text-muted hover:text-acid-green'
+                ? 'bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)]'
+                : 'bg-surface border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
             }`}
           >
             All ({messages.length})
@@ -345,10 +345,10 @@ export function SharedInboxView({
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1 text-xs font-mono rounded flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-theme-data rounded flex items-center gap-1 ${
                 statusFilter === status
                   ? STATUS_CONFIG[status].color + ' border'
-                  : 'bg-surface border border-acid-green/30 text-text-muted hover:text-acid-green'
+                  : 'bg-surface border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)]'
               }`}
             >
               <span>{STATUS_CONFIG[status].icon}</span>
@@ -363,7 +363,7 @@ export function SharedInboxView({
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+            className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
           >
             <option value="all">Anyone</option>
             <option value={currentUserId}>Me</option>
@@ -377,9 +377,9 @@ export function SharedInboxView({
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Message List */}
-        <div className={`${showRulesPanel ? 'w-1/2' : 'w-full'} overflow-y-auto border-r border-acid-green/30`}>
+        <div className={`${showRulesPanel ? 'w-1/2' : 'w-full'} overflow-y-auto border-r border-[var(--accent)]/30`}>
           {filteredMessages.length === 0 ? (
-            <div className="text-center py-8 text-text-muted font-mono text-sm">
+            <div className="text-center py-8 text-text-muted font-theme-data text-sm">
               No messages match your filters.
             </div>
           ) : (
@@ -393,7 +393,7 @@ export function SharedInboxView({
                     key={message.id}
                     onClick={() => setSelectedMessage(isSelected ? null : message)}
                     className={`p-4 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-acid-green/10' : 'hover:bg-bg/50'
+                      isSelected ? 'bg-[var(--accent)]/10' : 'hover:bg-bg/50'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -408,7 +408,7 @@ export function SharedInboxView({
                             {statusConfig.icon} {statusConfig.label}
                           </span>
                         </div>
-                        <h4 className="text-sm font-mono text-text truncate">
+                        <h4 className="text-sm font-theme-data text-text truncate">
                           {message.subject}
                         </h4>
                         <div className="text-xs text-text-muted mt-1">
@@ -422,7 +422,7 @@ export function SharedInboxView({
                             {message.tags.map(tag => (
                               <span
                                 key={tag}
-                                className="px-1.5 py-0.5 text-xs bg-acid-cyan/10 text-acid-cyan rounded"
+                                className="px-1.5 py-0.5 text-xs bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] rounded"
                               >
                                 {tag}
                               </span>
@@ -433,7 +433,7 @@ export function SharedInboxView({
                       <div className="text-right text-xs text-text-muted flex-shrink-0">
                         <div>{formatTimeAgo(message.received_at)}</div>
                         {message.assigned_to && (
-                          <div className="mt-1 text-acid-green">
+                          <div className="mt-1 text-[var(--accent)]">
                             {getTeamMemberName(message.assigned_to)}
                           </div>
                         )}
@@ -442,7 +442,7 @@ export function SharedInboxView({
 
                     {/* Expanded View */}
                     {isSelected && (
-                      <div className="mt-4 pt-4 border-t border-acid-green/20">
+                      <div className="mt-4 pt-4 border-t border-[var(--accent)]/20">
                         {/* Actions */}
                         <div className="flex flex-wrap gap-2 mb-4">
                           <button
@@ -450,7 +450,7 @@ export function SharedInboxView({
                               e.stopPropagation();
                               setAssignModalOpen(true);
                             }}
-                            className="px-3 py-1 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded"
+                            className="px-3 py-1 text-xs font-theme-data bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded"
                           >
                             Assign
                           </button>
@@ -460,7 +460,7 @@ export function SharedInboxView({
                                 e.stopPropagation();
                                 handleStatusChange(message.id, 'resolved');
                               }}
-                              className="px-3 py-1 text-xs font-mono bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
+                              className="px-3 py-1 text-xs font-theme-data bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
                             >
                               Resolve
                             </button>
@@ -472,7 +472,7 @@ export function SharedInboxView({
                               handleStatusChange(message.id, e.target.value as MessageStatus);
                             }}
                             onClick={(e) => e.stopPropagation()}
-                            className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                            className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                           >
                             {(['open', 'assigned', 'in_progress', 'waiting', 'resolved', 'closed'] as MessageStatus[]).map(s => (
                               <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
@@ -483,7 +483,7 @@ export function SharedInboxView({
                         {/* Notes */}
                         {message.notes.length > 0 && (
                           <div className="mb-4">
-                            <span className="text-xs text-text-muted font-mono block mb-2">Notes:</span>
+                            <span className="text-xs text-text-muted font-theme-data block mb-2">Notes:</span>
                             <div className="space-y-2">
                               {message.notes.map((note, idx) => (
                                 <div key={idx} className="p-2 bg-bg/50 rounded text-xs">
@@ -503,7 +503,7 @@ export function SharedInboxView({
                             e.stopPropagation();
                             setEmailDetailOpen(true);
                           }}
-                          className="px-4 py-2 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 rounded"
+                          className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 rounded"
                         >
                           View Full Email
                         </button>
@@ -536,7 +536,7 @@ export function SharedInboxView({
             onClick={() => setAssignModalOpen(false)}
           />
           <div className="relative w-full max-w-sm mx-4 bg-bg border border-border rounded-lg shadow-xl p-4">
-            <h3 className="text-acid-green font-mono text-sm mb-4">Assign Message</h3>
+            <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">Assign Message</h3>
             <div className="space-y-2">
               {teamMembers.map(member => (
                 <button
@@ -544,18 +544,18 @@ export function SharedInboxView({
                   onClick={() => handleAssign(selectedMessage.id, member.id)}
                   className={`w-full p-3 text-left rounded border transition-colors ${
                     selectedMessage.assigned_to === member.id
-                      ? 'bg-acid-green/20 border-acid-green'
-                      : 'border-acid-green/30 hover:border-acid-green/50'
+                      ? 'bg-[var(--accent)]/20 border-[var(--accent)]'
+                      : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
                   }`}
                 >
-                  <div className="font-mono text-sm">{member.name}</div>
+                  <div className="font-theme-data text-sm">{member.name}</div>
                   <div className="text-xs text-text-muted">{member.email}</div>
                 </button>
               ))}
             </div>
             <button
               onClick={() => setAssignModalOpen(false)}
-              className="mt-4 w-full px-4 py-2 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-white rounded"
+              className="mt-4 w-full px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-white rounded"
             >
               Cancel
             </button>
@@ -572,7 +572,7 @@ export function SharedInboxView({
           />
           <div className="relative w-full max-w-2xl mx-4 bg-bg border border-border rounded-lg shadow-xl max-h-[80vh] flex flex-col">
             {/* Header */}
-            <div className="p-4 border-b border-acid-green/30 flex items-start justify-between">
+            <div className="p-4 border-b border-[var(--accent)]/30 flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   {selectedMessage.priority && (
@@ -584,7 +584,7 @@ export function SharedInboxView({
                     {STATUS_CONFIG[selectedMessage.status].icon} {STATUS_CONFIG[selectedMessage.status].label}
                   </span>
                 </div>
-                <h2 className="text-lg font-mono text-text">{selectedMessage.subject}</h2>
+                <h2 className="text-lg font-theme-data text-text">{selectedMessage.subject}</h2>
               </div>
               <button
                 onClick={() => setEmailDetailOpen(false)}
@@ -597,8 +597,8 @@ export function SharedInboxView({
             </div>
 
             {/* Email Metadata */}
-            <div className="p-4 border-b border-acid-green/20 text-sm">
-              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 font-mono">
+            <div className="p-4 border-b border-[var(--accent)]/20 text-sm">
+              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 font-theme-data">
                 <span className="text-text-muted">From:</span>
                 <span className="text-text">{selectedMessage.from_address}</span>
                 <span className="text-text-muted">To:</span>
@@ -608,7 +608,7 @@ export function SharedInboxView({
                 {selectedMessage.assigned_to && (
                   <>
                     <span className="text-text-muted">Assigned:</span>
-                    <span className="text-acid-green">{getTeamMemberName(selectedMessage.assigned_to)}</span>
+                    <span className="text-[var(--accent)]">{getTeamMemberName(selectedMessage.assigned_to)}</span>
                   </>
                 )}
               </div>
@@ -617,7 +617,7 @@ export function SharedInboxView({
                   {selectedMessage.tags.map(tag => (
                     <span
                       key={tag}
-                      className="px-1.5 py-0.5 text-xs bg-acid-cyan/10 text-acid-cyan rounded"
+                      className="px-1.5 py-0.5 text-xs bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] rounded"
                     >
                       {tag}
                     </span>
@@ -628,19 +628,19 @@ export function SharedInboxView({
 
             {/* Email Body */}
             <div className="p-4 flex-1 overflow-y-auto">
-              <div className="text-sm text-text whitespace-pre-wrap font-mono">
+              <div className="text-sm text-text whitespace-pre-wrap font-theme-data">
                 {selectedMessage.snippet}
               </div>
             </div>
 
             {/* Footer Actions */}
-            <div className="p-4 border-t border-acid-green/30 flex justify-end gap-2">
+            <div className="p-4 border-t border-[var(--accent)]/30 flex justify-end gap-2">
               <button
                 onClick={() => {
                   setEmailDetailOpen(false);
                   setAssignModalOpen(true);
                 }}
-                className="px-4 py-2 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded"
+                className="px-4 py-2 text-xs font-theme-data bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded"
               >
                 Assign
               </button>
@@ -650,14 +650,14 @@ export function SharedInboxView({
                     handleStatusChange(selectedMessage.id, 'resolved');
                     setEmailDetailOpen(false);
                   }}
-                  className="px-4 py-2 text-xs font-mono bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
+                  className="px-4 py-2 text-xs font-theme-data bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
                 >
                   Resolve
                 </button>
               )}
               <button
                 onClick={() => setEmailDetailOpen(false)}
-                className="px-4 py-2 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-white rounded"
+                className="px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-white rounded"
               >
                 Close
               </button>

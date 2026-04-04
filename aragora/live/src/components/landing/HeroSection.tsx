@@ -191,21 +191,21 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   if (isDashboardMode) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-12 sm:py-16">
-        <pre className="text-acid-green text-[6px] sm:text-[7px] font-mono text-center mb-6 hidden sm:block leading-tight">
+        <pre className="text-[var(--accent)] text-[6px] sm:text-[7px] font-theme-data text-center mb-6 hidden sm:block leading-tight">
           {ASCII_BANNER}
         </pre>
 
-        <h1 className="text-base sm:text-2xl font-mono text-center mb-4 text-text">
+        <h1 className="text-base sm:text-2xl font-theme-data text-center mb-4 text-text">
           What decision should AI debate for you?
         </h1>
 
-        <p className="text-acid-cyan font-mono text-xs sm:text-sm text-center mb-10 max-w-xl">
+        <p className="text-[var(--acid-cyan)] font-theme-data text-xs sm:text-sm text-center mb-10 max-w-xl">
           Ask any question. Multiple AI models will argue every angle and deliver a verdict with confidence scores.
         </p>
 
         {props.error && (
           <div className="w-full max-w-3xl mb-6 bg-warning/10 border border-warning/30 p-4 flex items-center justify-between">
-            <span className="text-warning font-mono text-sm">
+            <span className="text-warning font-theme-data text-sm">
               {(props.error as string).toLowerCase().includes('authentication') || (props.error as string).toLowerCase().includes('unauthorized') ? (
                 <>
                   Please{' '}
@@ -229,13 +229,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         )}
 
         {props.activeDebateId && (
-          <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
+          <div className="w-full max-w-3xl mb-6 bg-[var(--accent)]/10 border border-[var(--accent)]/30 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-              <span className="text-acid-green font-mono text-sm font-bold">DECISION IN PROGRESS</span>
+              <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse"></span>
+              <span className="text-[var(--accent)] font-theme-data text-sm font-bold">DECISION IN PROGRESS</span>
             </div>
-            <p className="text-text font-mono text-sm truncate">{props.activeQuestion as string}</p>
-            <p className="text-text-muted font-mono text-xs mt-2">
+            <p className="text-text font-theme-data text-sm truncate">{props.activeQuestion as string}</p>
+            <p className="text-text-muted font-theme-data text-xs mt-2">
               ID: {props.activeDebateId as string} | Events streaming via WebSocket
             </p>
           </div>
@@ -501,7 +501,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       <div className="max-w-xl mx-auto text-center w-full">
         {/* Mobile-only brand text (ASCII banner is hidden on small screens) */}
         <div className="block sm:hidden text-center mb-4">
-          <span className="text-[var(--acid-green)] font-mono font-bold text-2xl tracking-[0.3em]">ARAGORA</span>
+          <span className="text-[var(--acid-green)] font-theme-data font-bold text-2xl tracking-[0.3em]">ARAGORA</span>
         </div>
 
         {/* ASCII banner — dark theme only, desktop */}
@@ -938,7 +938,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                   });
                   router.push(`/debate/${result.id}`);
                 }}
-                className="w-full text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                className="w-full text-sm font-bold font-theme-data py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--accent)',
                   color: 'var(--bg)',
@@ -962,7 +962,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                   setLastPreparedOption(null);
                   setLastTopic('');
                 }}
-                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                className="flex-1 text-sm font-bold font-theme-data py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: result.id ? 'transparent' : 'var(--accent)',
                   color: result.id ? 'var(--accent)' : 'var(--bg)',
@@ -996,7 +996,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                     result_mode: result.result_mode || 'full',
                   });
                 }}
-                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-80 cursor-pointer"
+                className="flex-1 text-sm font-bold font-theme-data py-3 transition-all hover:opacity-80 cursor-pointer"
                 style={{
                   backgroundColor: 'transparent',
                   color: 'var(--accent)',

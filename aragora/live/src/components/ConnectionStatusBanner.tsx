@@ -40,7 +40,7 @@ export function ConnectionStatusBanner() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[100] px-4 py-2 text-xs font-mono"
+      className="fixed bottom-0 left-0 right-0 z-[100] px-4 py-2 text-xs font-theme-data"
       style={{
         backgroundColor: 'var(--surface)',
         borderTop: '1px solid var(--crimson, #dc2626)',

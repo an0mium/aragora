@@ -201,7 +201,7 @@ export function ReportExportModal({
       <div className="relative bg-background border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 id="export-modal-title" className="font-mono text-lg">Export Audit Report</h2>
+          <h2 id="export-modal-title" className="font-theme-data text-lg">Export Audit Report</h2>
           <button
             onClick={onClose}
             className="text-muted hover:text-foreground"
@@ -215,7 +215,7 @@ export function ReportExportModal({
         <div className="p-4 space-y-6">
           {/* Format Selection */}
           <div>
-            <label className="block text-xs font-mono text-muted mb-2">FORMAT</label>
+            <label className="block text-xs font-theme-data text-muted mb-2">FORMAT</label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.keys(FORMAT_INFO) as ExportFormat[]).map((f) => (
                 <button
@@ -228,7 +228,7 @@ export function ReportExportModal({
                       : 'border-border hover:border-accent/50'
                   }`}
                 >
-                  <div className="font-mono text-sm mb-0.5">{FORMAT_INFO[f].label}</div>
+                  <div className="font-theme-data text-sm mb-0.5">{FORMAT_INFO[f].label}</div>
                   <div className="text-xs text-muted">{FORMAT_INFO[f].description}</div>
                 </button>
               ))}
@@ -237,7 +237,7 @@ export function ReportExportModal({
 
           {/* Severity Filter */}
           <div>
-            <label className="block text-xs font-mono text-muted mb-2">INCLUDE SEVERITIES</label>
+            <label className="block text-xs font-theme-data text-muted mb-2">INCLUDE SEVERITIES</label>
             <div className="flex flex-wrap gap-2">
               {SEVERITY_ORDER.map((sev) => {
                 const count = severityCounts[sev] || 0;
@@ -249,7 +249,7 @@ export function ReportExportModal({
                     disabled={count === 0}
                     aria-pressed={isSelected}
                     aria-label={`${sev} severity: ${count} findings`}
-                    className={`px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
+                    className={`px-3 py-1.5 rounded border text-xs font-theme-data transition-colors ${
                       isSelected
                         ? 'border-accent bg-accent/10 text-accent'
                         : 'border-border text-muted'
@@ -265,7 +265,7 @@ export function ReportExportModal({
           {/* Category Filter */}
           {categories.length > 0 && (
             <div>
-              <label className="block text-xs font-mono text-muted mb-2">INCLUDE CATEGORIES</label>
+              <label className="block text-xs font-theme-data text-muted mb-2">INCLUDE CATEGORIES</label>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => {
                   const isSelected = selectedCategories.has(cat);
@@ -275,7 +275,7 @@ export function ReportExportModal({
                       onClick={() => toggleCategory(cat)}
                       aria-pressed={isSelected}
                       aria-label={`Category: ${cat}`}
-                      className={`px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
+                      className={`px-3 py-1.5 rounded border text-xs font-theme-data transition-colors ${
                         isSelected
                           ? 'border-accent bg-accent/10 text-accent'
                           : 'border-border text-muted'
@@ -299,7 +299,7 @@ export function ReportExportModal({
                 className="rounded"
               />
               <div>
-                <div className="text-sm font-mono">Include evidence text</div>
+                <div className="text-sm font-theme-data">Include evidence text</div>
                 <div className="text-xs text-muted">Quoted sections from documents</div>
               </div>
             </label>
@@ -311,7 +311,7 @@ export function ReportExportModal({
                 className="rounded"
               />
               <div>
-                <div className="text-sm font-mono">Include metadata</div>
+                <div className="text-sm font-theme-data">Include metadata</div>
                 <div className="text-xs text-muted">Session config, timestamps, agent info</div>
               </div>
             </label>
@@ -319,7 +319,7 @@ export function ReportExportModal({
 
           {/* Summary */}
           <div className="p-3 bg-surface rounded">
-            <div className="flex items-center justify-between text-sm font-mono">
+            <div className="flex items-center justify-between text-sm font-theme-data">
               <span>Findings to export:</span>
               <span className="text-accent">
                 {filteredCount} / {findingsCount}
@@ -329,7 +329,7 @@ export function ReportExportModal({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-acid-red/10 border border-acid-red/30 rounded text-acid-red text-sm font-mono">
+            <div className="p-3 bg-acid-red/10 border border-acid-red/30 rounded text-acid-red text-sm font-theme-data">
               {error}
             </div>
           )}

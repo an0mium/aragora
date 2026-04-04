@@ -1936,6 +1936,12 @@ class SwarmSupervisor:
                     "worker exceeded no-progress timeout "
                     f"({int(self._no_progress_timeout_seconds())}s)"
                 )
+                if (
+                    worktree_path
+                    and WorkerLauncher._normalized_pid(item.get("pid")) is None
+                    and WorkerLauncher._active_session_lock_blocks_collection(worktree_path, None)
+                ):
+                    continue
                 # Kill the worker before collecting results so the process
                 # releases file handles and the worktree is stable for git.
                 await self._kill_worker(item)
@@ -3196,6 +3202,9 @@ class SwarmSupervisor:
                     merge_gate["llm_override"] = True
                     item["merge_gate"] = merge_gate
                 else:
+                    for key in ("resource_error", "conflicts", "scope_violation"):
+                        item.pop(key, None)
+                    item.pop("blockers", None)
                     self._mark_needs_human(
                         item,
                         self._merge_gate_failure_reason(merge_gate),
@@ -3409,8 +3418,11 @@ class SwarmSupervisor:
             "merge_gate",
             "verification_missing_reason",
             "scope_violation",
+            "resource_error",
+            "conflicts",
         ):
             item.pop(key, None)
+        item.pop("blockers", None)
         failure_reason = (
             "worker_timeout_no_deliverable" if result.exit_code == -1 else "worker_crash"
         )
@@ -3428,7 +3440,7 @@ class SwarmSupervisor:
             "reason": failure_reason,
             "question": blocking_question,
         }
-        blockers = [str(value).strip() for value in item.get("blockers", []) if str(value).strip()]
+        blockers: list[str] = []
         if item["dispatch_error"] not in blockers:
             blockers.append(item["dispatch_error"])
         item["blockers"] = blockers

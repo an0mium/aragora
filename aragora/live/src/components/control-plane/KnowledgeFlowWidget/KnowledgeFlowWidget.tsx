@@ -231,25 +231,25 @@ export function KnowledgeFlowWidget({
       {stats && (
         <div className="grid grid-cols-4 gap-3 mb-4">
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-xl font-mono font-bold text-acid-green">
+            <div className="text-xl font-theme-data font-bold text-[var(--accent)]">
               {(stats.total_docs / 1000).toFixed(1)}K
             </div>
             <div className="text-xs text-text-muted">Documents</div>
           </div>
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-xl font-mono font-bold text-cyan-400">
+            <div className="text-xl font-theme-data font-bold text-cyan-400">
               {(stats.total_chunks / 1000).toFixed(0)}K
             </div>
             <div className="text-xs text-text-muted">Chunks</div>
           </div>
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-xl font-mono font-bold text-purple-400">
+            <div className="text-xl font-theme-data font-bold text-purple-400">
               {(stats.storage_used_mb / 1000).toFixed(1)}GB
             </div>
             <div className="text-xs text-text-muted">Storage</div>
           </div>
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-xl font-mono font-bold text-yellow-400">
+            <div className="text-xl font-theme-data font-bold text-yellow-400">
               {timeUntilNextRefresh || '--'}
             </div>
             <div className="text-xs text-text-muted">Next Refresh</div>
@@ -262,7 +262,7 @@ export function KnowledgeFlowWidget({
         <div className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full ${
-              autoRefresh ? 'bg-acid-green animate-pulse' : 'bg-text-muted'
+              autoRefresh ? 'bg-[var(--accent)] animate-pulse' : 'bg-text-muted'
             }`}
           />
           <span className="text-xs text-text-muted">
@@ -275,9 +275,9 @@ export function KnowledgeFlowWidget({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
               autoRefresh
-                ? 'bg-acid-green/20 text-acid-green'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                 : 'bg-surface-alt text-text-muted'
             }`}
           >
@@ -285,7 +285,7 @@ export function KnowledgeFlowWidget({
           </button>
           <button
             onClick={handleForceRefresh}
-            className="px-2 py-1 text-xs font-mono bg-surface-alt hover:bg-surface text-text-muted hover:text-text rounded transition-colors"
+            className="px-2 py-1 text-xs font-theme-data bg-surface-alt hover:bg-surface text-text-muted hover:text-text rounded transition-colors"
           >
             Force Refresh
           </button>
@@ -312,7 +312,7 @@ export function KnowledgeFlowWidget({
 
       {/* Refresh Schedules */}
       <div className="card p-4 mt-4">
-        <h3 className="font-mono font-bold text-sm mb-3 flex items-center gap-2">
+        <h3 className="font-theme-data font-bold text-sm mb-3 flex items-center gap-2">
           <span>⏰</span> Refresh Schedules
         </h3>
         <div className="space-y-2">
@@ -329,10 +329,10 @@ export function KnowledgeFlowWidget({
                 <div className="flex items-center gap-3">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      schedule.enabled ? 'bg-acid-green' : 'bg-text-muted'
+                      schedule.enabled ? 'bg-[var(--accent)]' : 'bg-text-muted'
                     }`}
                   />
-                  <span className="font-mono text-sm">{schedule.connector_name}</span>
+                  <span className="font-theme-data text-sm">{schedule.connector_name}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-text-muted">
                   <span>{schedule.schedule}</span>

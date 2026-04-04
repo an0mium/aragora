@@ -23,17 +23,17 @@ function StatCard({ label, value, sublabel, color = 'green' }: {
   color?: 'green' | 'cyan' | 'yellow' | 'red' | 'purple';
 }) {
   const colorClasses = {
-    green: 'border-acid-green/30 text-acid-green',
-    cyan: 'border-acid-cyan/30 text-acid-cyan',
-    yellow: 'border-acid-yellow/30 text-acid-yellow',
-    red: 'border-crimson/30 text-crimson',
+    green: 'border-[var(--accent)]/30 text-[var(--accent)]',
+    cyan: 'border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)]',
+    yellow: 'border-acid-yellow/30 text-[var(--acid-yellow)]',
+    red: 'border-[var(--crimson)]/30 text-[var(--crimson)]',
     purple: 'border-purple-500/30 text-purple-400',
   };
 
   return (
     <div className={`border ${colorClasses[color]} bg-surface/50 p-3 rounded`}>
       <div className="text-text-muted text-xs">{label}</div>
-      <div className={`text-xl font-mono ${colorClasses[color].split(' ')[1]}`}>
+      <div className={`text-xl font-theme-data ${colorClasses[color].split(' ')[1]}`}>
         {value}
       </div>
       {sublabel && <div className="text-text-muted text-[10px] mt-1">{sublabel}</div>}
@@ -43,7 +43,7 @@ function StatCard({ label, value, sublabel, color = 'green' }: {
 
 function FitnessBar({ value, showLabel = true }: { value: number; showLabel?: boolean }) {
   const percentage = Math.round(value * 100);
-  const color = percentage >= 70 ? 'bg-acid-green' : percentage >= 40 ? 'bg-acid-yellow' : 'bg-crimson';
+  const color = percentage >= 70 ? 'bg-[var(--accent)]' : percentage >= 40 ? 'bg-acid-yellow' : 'bg-[var(--crimson)]';
 
   return (
     <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ function FitnessBar({ value, showLabel = true }: { value: number; showLabel?: bo
         />
       </div>
       {showLabel && (
-        <span className="text-xs font-mono text-text-muted w-10 text-right">{percentage}%</span>
+        <span className="text-xs font-theme-data text-text-muted w-10 text-right">{percentage}%</span>
       )}
     </div>
   );
@@ -185,8 +185,8 @@ export default function GenesisPage() {
         <CRTVignette />
         <main className="min-h-screen bg-bg text-text relative z-10 flex items-center justify-center">
           <div className="flex items-center gap-3">
-            <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-            <span className="font-mono text-text-muted">Loading genesis data...</span>
+            <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+            <span className="font-theme-data text-text-muted">Loading genesis data...</span>
           </div>
         </main>
       </>
@@ -214,10 +214,10 @@ export default function GenesisPage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} GENESIS EVOLUTION
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Agent genome evolution, fitness tracking, and population dynamics.
               Watch how agents evolve through debate selection.
             </p>
@@ -228,13 +228,13 @@ export default function GenesisPage() {
             <div className="mb-6 bg-warning/10 border border-warning/30 rounded px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-warning">!</span>
-                <span className="font-mono text-sm text-warning">
+                <span className="font-theme-data text-sm text-warning">
                   Genesis API unavailable - Evolution module may not be initialized
                 </span>
               </div>
               <button
                 onClick={fetchGenesisData}
-                className="font-mono text-xs text-warning hover:text-warning/80 transition-colors"
+                className="font-theme-data text-xs text-warning hover:text-warning/80 transition-colors"
               >
                 [RETRY]
               </button>
@@ -242,14 +242,14 @@ export default function GenesisPage() {
           )}
 
           {/* Tab Navigation */}
-          <div className="flex gap-2 border-b border-acid-green/20 pb-2 mb-6">
+          <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2 mb-6">
             {(['overview', 'genomes', 'events', 'lineage'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-mono text-sm transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm transition-colors ${
                   activeTab === tab
-                    ? 'text-acid-green border-b-2 border-acid-green'
+                    ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                     : 'text-text-muted hover:text-text'
                 }`}
               >
@@ -265,7 +265,7 @@ export default function GenesisPage() {
                 {/* Stats Grid */}
                 {stats && (
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-3">{'>'} EVOLUTION STATS</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-3">{'>'} EVOLUTION STATS</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <StatCard label="Total Events" value={stats.total_events} color="cyan" />
                       <StatCard label="Births" value={stats.total_births} color="green" />
@@ -288,9 +288,9 @@ export default function GenesisPage() {
                         value={stats.integrity_verified ? 'VERIFIED' : 'UNVERIFIED'}
                         color={stats.integrity_verified ? 'green' : 'red'}
                       />
-                      <div className="border border-acid-cyan/30 bg-surface/50 p-3 rounded col-span-2 md:col-span-1">
+                      <div className="border border-[var(--acid-cyan)]/30 bg-surface/50 p-3 rounded col-span-2 md:col-span-1">
                         <div className="text-text-muted text-xs mb-1">Merkle Root</div>
-                        <div className="text-acid-cyan font-mono text-xs break-all">
+                        <div className="text-[var(--acid-cyan)] font-theme-data text-xs break-all">
                           {stats.merkle_root}
                         </div>
                       </div>
@@ -301,15 +301,15 @@ export default function GenesisPage() {
                 {/* Event Type Breakdown */}
                 {stats && Object.keys(stats.event_counts).length > 0 && (
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-3">{'>'} EVENT BREAKDOWN</h2>
-                    <div className="border border-acid-green/30 bg-surface rounded p-4">
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-3">{'>'} EVENT BREAKDOWN</h2>
+                    <div className="border border-[var(--accent)]/30 bg-surface rounded p-4">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {Object.entries(stats.event_counts).map(([type, count]) => (
                           <div key={type} className="flex items-center justify-between p-2 bg-bg rounded">
-                            <span className={`font-mono text-xs ${EVENT_TYPE_COLORS[type] || 'text-text'}`}>
+                            <span className={`font-theme-data text-xs ${EVENT_TYPE_COLORS[type] || 'text-text'}`}>
                               {type.replace('_', ' ').toUpperCase()}
                             </span>
-                            <span className="font-mono text-sm text-acid-green">{count}</span>
+                            <span className="font-theme-data text-sm text-[var(--accent)]">{count}</span>
                           </div>
                         ))}
                       </div>
@@ -320,8 +320,8 @@ export default function GenesisPage() {
                 {/* Population Status */}
                 {population && (
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-3">{'>'} POPULATION STATUS</h2>
-                    <div className="border border-acid-green/30 bg-surface rounded p-4">
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-3">{'>'} POPULATION STATUS</h2>
+                    <div className="border border-[var(--accent)]/30 bg-surface rounded p-4">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                         <StatCard label="Generation" value={population.generation} color="purple" />
                         <StatCard label="Population Size" value={population.size} color="cyan" />
@@ -334,11 +334,11 @@ export default function GenesisPage() {
                       </div>
 
                       {population.best_genome && (
-                        <div className="p-3 bg-acid-green/10 border border-acid-green/30 rounded">
+                        <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded">
                           <div className="text-xs text-text-muted mb-1">Best Genome</div>
                           <div className="flex items-center justify-between">
-                            <span className="font-mono text-acid-green">{population.best_genome.agent_name}</span>
-                            <span className="font-mono text-sm text-acid-cyan">
+                            <span className="font-theme-data text-[var(--accent)]">{population.best_genome.agent_name}</span>
+                            <span className="font-theme-data text-sm text-[var(--acid-cyan)]">
                               {(population.best_genome.fitness_score * 100).toFixed(1)}% fitness
                             </span>
                           </div>
@@ -351,11 +351,11 @@ export default function GenesisPage() {
                 {/* Top Genomes Leaderboard */}
                 {topGenomes.length > 0 && (
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-3">{'>'} TOP GENOMES</h2>
-                    <div className="border border-acid-green/30 bg-surface rounded overflow-hidden">
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-3">{'>'} TOP GENOMES</h2>
+                    <div className="border border-[var(--accent)]/30 bg-surface rounded overflow-hidden">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-acid-green/20 bg-acid-green/5">
+                          <tr className="border-b border-[var(--accent)]/20 bg-[var(--accent)]/5">
                             <th className="text-left p-2 text-text-muted">#</th>
                             <th className="text-left p-2 text-text-muted">Genome</th>
                             <th className="text-right p-2 text-text-muted">Gen</th>
@@ -364,14 +364,14 @@ export default function GenesisPage() {
                         </thead>
                         <tbody>
                           {topGenomes.slice(0, 10).map((genome, idx) => (
-                            <tr key={genome.genome_id} className="border-b border-acid-green/10 hover:bg-acid-green/5">
+                            <tr key={genome.genome_id} className="border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5">
                               <td className="p-2 text-text-muted">{idx + 1}</td>
-                              <td className="p-2 font-mono text-acid-cyan">{genome.name}</td>
+                              <td className="p-2 font-theme-data text-[var(--acid-cyan)]">{genome.name}</td>
                               <td className="p-2 text-right text-text">{genome.generation}</td>
                               <td className="p-2 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <FitnessBar value={genome.fitness_score} showLabel={false} />
-                                  <span className="text-acid-green font-mono w-12">
+                                  <span className="text-[var(--accent)] font-theme-data w-12">
                                     {(genome.fitness_score * 100).toFixed(1)}%
                                   </span>
                                 </div>
@@ -390,17 +390,17 @@ export default function GenesisPage() {
             {activeTab === 'genomes' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-mono text-acid-green">{'>'} ALL GENOMES ({allGenomes.length})</h2>
+                  <h2 className="text-lg font-theme-data text-[var(--accent)]">{'>'} ALL GENOMES ({allGenomes.length})</h2>
                   <button
                     onClick={fetchAllGenomes}
-                    className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 rounded"
+                    className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded"
                   >
                     Refresh
                   </button>
                 </div>
 
                 {allGenomes.length === 0 ? (
-                  <div className="text-center py-8 text-text-muted font-mono">
+                  <div className="text-center py-8 text-text-muted font-theme-data">
                     No genomes found. Run some debates to evolve agents.
                   </div>
                 ) : (
@@ -408,18 +408,18 @@ export default function GenesisPage() {
                     {allGenomes.map((genome) => (
                       <div
                         key={genome.genome_id}
-                        className="border border-acid-green/30 bg-surface rounded p-4"
+                        className="border border-[var(--accent)]/30 bg-surface rounded p-4"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <div className="font-mono text-acid-green text-sm">{genome.name}</div>
-                            <div className="font-mono text-xs text-text-muted">
+                            <div className="font-theme-data text-[var(--accent)] text-sm">{genome.name}</div>
+                            <div className="font-theme-data text-xs text-text-muted">
                               {genome.genome_id.slice(0, 16)}...
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-xs text-purple-400">Gen {genome.generation}</div>
-                            <div className="font-mono text-sm text-acid-cyan">
+                            <div className="font-theme-data text-xs text-purple-400">Gen {genome.generation}</div>
+                            <div className="font-theme-data text-sm text-[var(--acid-cyan)]">
                               {(genome.fitness_score * 100).toFixed(1)}%
                             </div>
                           </div>
@@ -435,7 +435,7 @@ export default function GenesisPage() {
                             setSelectedGenomeId(genome.genome_id);
                             setActiveTab('lineage');
                           }}
-                          className="mt-2 text-xs font-mono text-acid-cyan hover:text-acid-green"
+                          className="mt-2 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)]"
                         >
                           View Lineage &rarr;
                         </button>
@@ -450,17 +450,17 @@ export default function GenesisPage() {
             {activeTab === 'events' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-mono text-acid-green">{'>'} RECENT EVENTS</h2>
+                  <h2 className="text-lg font-theme-data text-[var(--accent)]">{'>'} RECENT EVENTS</h2>
                   <button
                     onClick={fetchGenesisData}
-                    className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 rounded"
+                    className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded"
                   >
                     Refresh
                   </button>
                 </div>
 
                 {events.length === 0 ? (
-                  <div className="text-center py-8 text-text-muted font-mono">
+                  <div className="text-center py-8 text-text-muted font-theme-data">
                     No evolution events recorded yet.
                   </div>
                 ) : (
@@ -468,21 +468,21 @@ export default function GenesisPage() {
                     {events.map((event) => (
                       <div
                         key={event.event_id}
-                        className="border border-acid-green/20 bg-surface rounded p-3"
+                        className="border border-[var(--accent)]/20 bg-surface rounded p-3"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className={`font-mono text-xs uppercase ${EVENT_TYPE_COLORS[event.event_type] || 'text-text'}`}>
+                          <span className={`font-theme-data text-xs uppercase ${EVENT_TYPE_COLORS[event.event_type] || 'text-text'}`}>
                             {event.event_type.replace('_', ' ')}
                           </span>
-                          <span className="font-mono text-xs text-text-muted">
+                          <span className="font-theme-data text-xs text-text-muted">
                             {new Date(event.timestamp).toLocaleString()}
                           </span>
                         </div>
-                        <div className="font-mono text-xs text-text-muted mb-1">
+                        <div className="font-theme-data text-xs text-text-muted mb-1">
                           ID: {event.event_id.slice(0, 16)}...
                         </div>
                         {event.content_hash && (
-                          <div className="font-mono text-xs text-acid-cyan">
+                          <div className="font-theme-data text-xs text-[var(--acid-cyan)]">
                             Hash: {event.content_hash}
                           </div>
                         )}
@@ -503,14 +503,14 @@ export default function GenesisPage() {
             {/* Lineage Tab */}
             {activeTab === 'lineage' && (
               <div className="space-y-4">
-                <h2 className="text-lg font-mono text-acid-green">{'>'} GENOME LINEAGE</h2>
+                <h2 className="text-lg font-theme-data text-[var(--accent)]">{'>'} GENOME LINEAGE</h2>
 
                 {/* Genome selector */}
                 <div className="flex gap-2">
                   <select
                     value={selectedGenomeId}
                     onChange={(e) => setSelectedGenomeId(e.target.value)}
-                    className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm text-text focus:outline-none focus:border-acid-green"
+                    className="flex-1 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)]"
                   >
                     <option value="">Select a genome...</option>
                     {allGenomes.map((g) => (
@@ -522,7 +522,7 @@ export default function GenesisPage() {
                   <button
                     onClick={() => selectedGenomeId && fetchLineage(selectedGenomeId)}
                     disabled={!selectedGenomeId}
-                    className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Trace
                   </button>
@@ -530,33 +530,33 @@ export default function GenesisPage() {
 
                 {/* Lineage visualization */}
                 {!selectedGenomeId ? (
-                  <div className="text-center py-8 text-text-muted font-mono">
+                  <div className="text-center py-8 text-text-muted font-theme-data">
                     Select a genome to trace its ancestry
                   </div>
                 ) : lineage.length === 0 ? (
-                  <div className="text-center py-8 text-text-muted font-mono">
+                  <div className="text-center py-8 text-text-muted font-theme-data">
                     No lineage found for this genome (may be a root genome)
                   </div>
                 ) : (
                   <div className="relative">
                     {/* Vertical timeline */}
-                    <div className="absolute left-4 top-0 bottom-0 w-px bg-acid-green/30" />
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-[var(--accent)]/30" />
 
                     <div className="space-y-4 pl-10">
                       {lineage.map((node, idx) => (
                         <div key={node.genome_id} className="relative">
                           {/* Timeline dot */}
-                          <div className="absolute -left-6 top-3 w-3 h-3 rounded-full bg-acid-green border-2 border-bg" />
+                          <div className="absolute -left-6 top-3 w-3 h-3 rounded-full bg-[var(--accent)] border-2 border-bg" />
 
-                          <div className="border border-acid-green/30 bg-surface rounded p-4">
+                          <div className="border border-[var(--accent)]/30 bg-surface rounded p-4">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-acid-green">{node.name}</span>
+                                <span className="font-theme-data text-[var(--accent)]">{node.name}</span>
                                 <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">
                                   Gen {node.generation}
                                 </span>
                               </div>
-                              <span className="font-mono text-sm text-acid-cyan">
+                              <span className="font-theme-data text-sm text-[var(--acid-cyan)]">
                                 {((node.fitness_score || 0) * 100).toFixed(1)}%
                               </span>
                             </div>
@@ -582,7 +582,7 @@ export default function GenesisPage() {
                             </div>
 
                             {idx === 0 && (
-                              <div className="mt-2 text-xs text-acid-green">
+                              <div className="mt-2 text-xs text-[var(--accent)]">
                                 ^ Current genome
                               </div>
                             )}
@@ -601,7 +601,7 @@ export default function GenesisPage() {
             <button
               onClick={fetchGenesisData}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Refreshing...' : 'Refresh Data'}
             </button>

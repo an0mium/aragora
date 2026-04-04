@@ -60,7 +60,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
         <span className="text-sm">{icon}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-[var(--text)] truncate">{agent.name}</span>
+            <span className="text-xs font-theme-data font-bold text-[var(--text)] truncate">{agent.name}</span>
             <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
           </div>
           {agent.currentTask && (
@@ -68,7 +68,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
           )}
         </div>
         {agent.phase && (
-          <span className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface)] text-[var(--text-muted)] rounded">
+          <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--surface)] text-[var(--text-muted)] rounded">
             {agent.phase}
           </span>
         )}
@@ -85,7 +85,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
                 style={{ width: `${Math.min(100, agent.progress)}%` }}
               />
             </div>
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">{agent.progress}%</span>
+            <span className="text-[10px] font-theme-data text-[var(--text-muted)]">{agent.progress}%</span>
           </div>
         </div>
       )}
@@ -94,18 +94,18 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
       {expanded && (
         <div className="px-4 pb-3 space-y-2">
           {agent.worktreePath && (
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               <span className="text-[var(--text-muted)]">worktree:</span>{' '}
               <span className="text-[var(--text)]">{agent.worktreePath}</span>
             </div>
           )}
           {agent.duration != null && (
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               <span>duration:</span> {Math.round(agent.duration / 1000)}s
             </div>
           )}
           {agent.error && (
-            <div className="text-xs font-mono text-red-400 bg-red-500/10 rounded p-2">{agent.error}</div>
+            <div className="text-xs font-theme-data text-red-400 bg-red-500/10 rounded p-2">{agent.error}</div>
           )}
           {agent.diffPreview && <DiffPreview diff={agent.diffPreview} />}
 
@@ -115,7 +115,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
               {showRejectInput ? (
                 <div className="space-y-1.5">
                   <textarea
-                    className="w-full text-xs font-mono bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] rounded p-2 resize-none"
+                    className="w-full text-xs font-theme-data bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] rounded p-2 resize-none"
                     placeholder="Feedback for rejection..."
                     rows={2}
                     value={rejectFeedback}
@@ -123,7 +123,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
                   />
                   <div className="flex gap-2">
                     <button
-                      className="flex-1 px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
+                      className="flex-1 px-2 py-1 text-xs font-theme-data bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
                       onClick={() => {
                         onReject(agent.id, rejectFeedback);
                         setShowRejectInput(false);
@@ -133,7 +133,7 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
                       Reject
                     </button>
                     <button
-                      className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+                      className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
                       onClick={() => setShowRejectInput(false)}
                     >
                       Cancel
@@ -143,14 +143,14 @@ export const AgentCard = memo(function AgentCard({ agent, onApprove, onReject }:
               ) : (
                 <div className="flex gap-2">
                   <button
-                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
+                    className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
                     onClick={() => onApprove(agent.id)}
                     data-testid={`approve-${agent.id}`}
                   >
                     ✓ Approve
                   </button>
                   <button
-                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                    className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
                     onClick={() => setShowRejectInput(true)}
                     data-testid={`reject-${agent.id}`}
                   >

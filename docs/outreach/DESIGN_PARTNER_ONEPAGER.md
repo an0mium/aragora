@@ -55,7 +55,7 @@ Your input -> multi-agent debate -> consensus + receipt -> KM feedback -> Slack 
 
 Use these phrases consistently in outreach and sales conversations. The full
 internal glossary lives in
-[`docs/strategy/TERMINOLOGY_GLOSSARY.md`](../strategy/TERMINOLOGY_GLOSSARY.md).
+[`docs/strategy/PRECISION_AND_TERMS.md`](../strategy/PRECISION_AND_TERMS.md#part-1-terminology-and-phrase-glossary).
 
 - **Debate** = structured adversarial review, not generic multi-agent chatter.
 - **Receipt** = the audit artifact that records evidence, dissent, confidence,
@@ -108,7 +108,7 @@ Default order for week one:
 3. Bounded repo execution only after receipt review feels trustworthy
 
 See the canonical journey and exit gate:
-`docs/plans/2026-03-25-design-partner-first-week-journey.md`.
+[`docs/outreach/DESIGN_PARTNER_OPERATIONS_PLAYBOOK.md`](./DESIGN_PARTNER_OPERATIONS_PLAYBOOK.md#part-4-first-week-journey).
 
 ## Explicit Truth Boundaries
 
@@ -187,7 +187,7 @@ is:
   critical fixes, and makes an honest go/no-go call instead of dragging the
   pilot out.
 
-See also: [Bounded pilot structure](../plans/2026-03-24-design-partner-pilot-structure.md)
+See also: [Bounded pilot structure](./DESIGN_PARTNER_OPERATIONS_PLAYBOOK.md#part-3-pilot-structure)
 
 ## Who This Is For
 

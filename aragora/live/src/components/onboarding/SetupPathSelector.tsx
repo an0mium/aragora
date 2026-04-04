@@ -97,7 +97,7 @@ export function SetupPathSelector({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-xl font-mono text-acid-green mb-2">
+        <h3 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           What would you like to do first?
         </h3>
         <p className="text-sm text-text-muted">
@@ -116,8 +116,8 @@ export function SetupPathSelector({
               key={setup.path}
               className={`border rounded-lg transition-all ${
                 isSelected
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-border hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-border hover:border-[var(--accent)]/50'
               }`}
             >
               <button
@@ -130,18 +130,18 @@ export function SetupPathSelector({
                   <span className="text-3xl">{setup.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm text-text">{setup.title}</span>
+                      <span className="font-theme-data text-sm text-text">{setup.title}</span>
                       {isRecommended && (
-                        <span className="text-xs px-2 py-0.5 bg-acid-green/20 text-acid-green rounded">
+                        <span className="text-xs px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                           Recommended
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-acid-cyan mt-0.5">{setup.subtitle}</div>
+                    <div className="text-xs text-[var(--acid-cyan)] mt-0.5">{setup.subtitle}</div>
                     <div className="text-xs text-text-muted mt-1">{setup.description}</div>
                     <div className="text-xs text-text-muted mt-2">{setup.timeEstimate}</div>
                   </div>
-                  {isSelected && <span className="text-acid-green text-xl">✓</span>}
+                  {isSelected && <span className="text-[var(--accent)] text-xl">✓</span>}
                 </div>
 
                 {/* Expanded features */}
@@ -151,7 +151,7 @@ export function SetupPathSelector({
                     <div className="grid grid-cols-2 gap-2">
                       {setup.features.map((feature) => (
                         <div key={feature} className="flex items-center gap-1.5">
-                          <span className="text-acid-green text-xs">•</span>
+                          <span className="text-[var(--accent)] text-xs">•</span>
                           <span className="text-xs text-text">{feature}</span>
                         </div>
                       ))}

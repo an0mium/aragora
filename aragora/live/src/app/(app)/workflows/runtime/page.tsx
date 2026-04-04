@@ -166,14 +166,14 @@ export default function WorkflowRuntimePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+            <h1 className="text-3xl font-theme-data font-bold text-text mb-2">
               Workflow Runtime
             </h1>
             <p className="text-text-muted">Monitor active workflow executions</p>
           </div>
           <Link
             href="/workflows"
-            className="px-4 py-2 bg-surface border border-border text-text font-mono hover:border-acid-green transition-colors rounded"
+            className="px-4 py-2 bg-surface border border-border text-text font-theme-data hover:border-[var(--accent)] transition-colors rounded"
           >
             ← Back to Workflows
           </Link>
@@ -182,23 +182,23 @@ export default function WorkflowRuntimePage() {
         {/* Stats Bar */}
         <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-2xl font-mono text-acid-green">{stats.total}</div>
+            <div className="text-2xl font-theme-data text-[var(--accent)]">{stats.total}</div>
             <div className="text-xs text-text-muted">Total</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-2xl font-mono text-blue-400">{stats.running}</div>
+            <div className="text-2xl font-theme-data text-blue-400">{stats.running}</div>
             <div className="text-xs text-text-muted">Running</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-2xl font-mono text-green-400">{stats.completed}</div>
+            <div className="text-2xl font-theme-data text-green-400">{stats.completed}</div>
             <div className="text-xs text-text-muted">Completed</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-2xl font-mono text-red-400">{stats.failed}</div>
+            <div className="text-2xl font-theme-data text-red-400">{stats.failed}</div>
             <div className="text-xs text-text-muted">Failed</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-2xl font-mono text-purple-400">{stats.waitingApproval}</div>
+            <div className="text-2xl font-theme-data text-purple-400">{stats.waitingApproval}</div>
             <div className="text-xs text-text-muted">Awaiting Approval</div>
           </div>
         </div>
@@ -210,9 +210,9 @@ export default function WorkflowRuntimePage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+                className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
                   statusFilter === status
-                    ? 'bg-acid-green text-bg'
+                    ? 'bg-[var(--accent)] text-bg'
                     : 'bg-surface text-text-muted hover:text-text border border-border'
                 }`}
               >
@@ -225,9 +225,9 @@ export default function WorkflowRuntimePage() {
           <div className="flex gap-1 border border-border rounded overflow-hidden">
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 transition-colors ${
+              className={`px-3 py-1.5 text-xs font-theme-data flex items-center gap-1.5 transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
               title="List View"
@@ -236,9 +236,9 @@ export default function WorkflowRuntimePage() {
             </button>
             <button
               onClick={() => setViewMode('dag')}
-              className={`px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 transition-colors ${
+              className={`px-3 py-1.5 text-xs font-theme-data flex items-center gap-1.5 transition-colors ${
                 viewMode === 'dag'
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
               title="DAG View"
@@ -251,10 +251,10 @@ export default function WorkflowRuntimePage() {
         {/* Executions Sidebar - always visible */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 space-y-4">
-            <h2 className="text-sm font-mono text-acid-green uppercase">Executions</h2>
+            <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase">Executions</h2>
 
             {loading ? (
-              <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
+              <div className="text-center py-8 text-text-muted font-theme-data">Loading...</div>
             ) : error ? (
               <div className="text-center py-8 text-red-400">{error}</div>
             ) : filteredExecutions.length === 0 ? (
@@ -268,16 +268,16 @@ export default function WorkflowRuntimePage() {
                     onClick={() => setSelectedExecution(execution.id)}
                     className={`p-4 bg-surface border rounded-lg cursor-pointer transition-all ${
                       selectedExecution === execution.id
-                        ? 'border-acid-green'
+                        ? 'border-[var(--accent)]'
                         : 'border-border hover:border-text-muted'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <h3 className="font-mono font-bold text-text">{execution.workflowName}</h3>
-                        <span className="text-xs text-text-muted font-mono">{execution.id}</span>
+                        <h3 className="font-theme-data font-bold text-text">{execution.workflowName}</h3>
+                        <span className="text-xs text-text-muted font-theme-data">{execution.id}</span>
                       </div>
-                      <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${colors.bg} ${colors.text}`}>
+                      <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${colors.bg} ${colors.text}`}>
                         {execution.status.replace('_', ' ')}
                       </span>
                     </div>
@@ -307,7 +307,7 @@ export default function WorkflowRuntimePage() {
 
           {/* Execution Details - List or DAG view */}
           <div className="lg:col-span-2">
-            <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+            <h2 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
               Execution Details {viewMode === 'dag' && '(DAG View)'}
             </h2>
 
@@ -325,14 +325,14 @@ export default function WorkflowRuntimePage() {
                 /* List View - Original Timeline */
                 <div className="bg-surface border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-mono font-bold text-text text-lg">
+                    <h3 className="font-theme-data font-bold text-text text-lg">
                       {selectedExecutionData.workflowName}
                     </h3>
                     <div className="flex gap-2">
                       {selectedExecutionData.status === 'failed' && (
                         <button
                           onClick={() => handleRetry(selectedExecutionData.id)}
-                          className="px-3 py-1.5 text-xs font-mono bg-yellow-900/30 text-yellow-400 border border-yellow-800/30 rounded hover:bg-yellow-900/50"
+                          className="px-3 py-1.5 text-xs font-theme-data bg-yellow-900/30 text-yellow-400 border border-yellow-800/30 rounded hover:bg-yellow-900/50"
                         >
                           Retry
                         </button>
@@ -342,7 +342,7 @@ export default function WorkflowRuntimePage() {
 
                   {selectedExecutionData.error && (
                     <div className="p-3 bg-red-900/20 border border-red-800/30 rounded mb-4">
-                      <span className="text-xs font-mono text-red-400 uppercase">Error</span>
+                      <span className="text-xs font-theme-data text-red-400 uppercase">Error</span>
                       <p className="text-sm text-red-300 mt-1">{selectedExecutionData.error}</p>
                     </div>
                   )}
@@ -364,10 +364,10 @@ export default function WorkflowRuntimePage() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="text-lg">{STEP_ICONS[step.type] || '📦'}</span>
-                              <span className="font-mono font-bold text-text">{step.name}</span>
+                              <span className="font-theme-data font-bold text-text">{step.name}</span>
                               <span className="text-xs text-text-muted">({step.type})</span>
                             </div>
-                            <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${stepColors.bg} ${stepColors.text}`}>
+                            <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${stepColors.bg} ${stepColors.text}`}>
                               {step.status.replace('_', ' ')}
                             </span>
                           </div>
@@ -395,13 +395,13 @@ export default function WorkflowRuntimePage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleApprove(selectedExecutionData.id, step.id); }}
-                                  className="flex-1 px-3 py-2 text-xs font-mono bg-green-900/30 text-green-400 border border-green-800/30 rounded hover:bg-green-900/50"
+                                  className="flex-1 px-3 py-2 text-xs font-theme-data bg-green-900/30 text-green-400 border border-green-800/30 rounded hover:bg-green-900/50"
                                 >
                                   Approve
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleReject(selectedExecutionData.id, step.id); }}
-                                  className="flex-1 px-3 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50"
+                                  className="flex-1 px-3 py-2 text-xs font-theme-data bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50"
                                 >
                                   Reject
                                 </button>

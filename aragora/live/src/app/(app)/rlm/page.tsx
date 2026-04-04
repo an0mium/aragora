@@ -60,26 +60,26 @@ function MetricCard({
   subtext?: string;
 }) {
   const trendColors = {
-    up: 'text-acid-green',
+    up: 'text-[var(--accent)]',
     down: 'text-warning',
     neutral: 'text-text-muted',
   };
 
   return (
-    <div className="p-4 border border-acid-green/20 bg-surface/30">
-      <div className="text-text-muted font-mono text-[10px] tracking-widest mb-2">
+    <div className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+      <div className="text-text-muted font-theme-data text-[10px] tracking-widest mb-2">
         {title}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`font-mono text-2xl ${trend ? trendColors[trend] : 'text-acid-green'}`}>
+        <span className={`font-theme-data text-2xl ${trend ? trendColors[trend] : 'text-[var(--accent)]'}`}>
           {value}
         </span>
         {unit && (
-          <span className="text-text-muted font-mono text-xs">{unit}</span>
+          <span className="text-text-muted font-theme-data text-xs">{unit}</span>
         )}
       </div>
       {subtext && (
-        <div className="text-text-muted/50 font-mono text-[10px] mt-1">
+        <div className="text-text-muted/50 font-theme-data text-[10px] mt-1">
           {subtext}
         </div>
       )}
@@ -102,11 +102,11 @@ function ProgressBar({
 
   return (
     <div>
-      <div className="flex justify-between text-[10px] font-mono mb-1">
+      <div className="flex justify-between text-[10px] font-theme-data mb-1">
         <span className="text-text-muted">{label}</span>
-        <span className="text-acid-green">{percentage.toFixed(1)}%</span>
+        <span className="text-[var(--accent)]">{percentage.toFixed(1)}%</span>
       </div>
-      <div className="h-2 bg-surface border border-acid-green/20">
+      <div className="h-2 bg-surface border border-[var(--accent)]/20">
         <div
           className={`h-full bg-${color} transition-all duration-300`}
           style={{ width: `${percentage}%` }}
@@ -124,13 +124,13 @@ function QueryTypeChart({ data }: { data: Record<string, number> }) {
     <div className="space-y-2">
       {entries.map(([type, count]) => (
         <div key={type}>
-          <div className="flex justify-between text-[10px] font-mono mb-1">
-            <span className="text-acid-cyan">{type}</span>
+          <div className="flex justify-between text-[10px] font-theme-data mb-1">
+            <span className="text-[var(--acid-cyan)]">{type}</span>
             <span className="text-text-muted">{count} ({((count / total) * 100).toFixed(1)}%)</span>
           </div>
-          <div className="h-1.5 bg-surface border border-acid-green/10">
+          <div className="h-1.5 bg-surface border border-[var(--accent)]/10">
             <div
-              className="h-full bg-acid-cyan/60 transition-all duration-300"
+              className="h-full bg-[var(--acid-cyan)]/60 transition-all duration-300"
               style={{ width: `${(count / total) * 100}%` }}
             />
           </div>
@@ -142,14 +142,14 @@ function QueryTypeChart({ data }: { data: Record<string, number> }) {
 
 function ActiveQueriesTable({ queries }: { queries: ActiveQuery[] }) {
   const statusColors = {
-    running: 'text-acid-green bg-acid-green/10',
-    refining: 'text-acid-yellow bg-acid-yellow/10',
-    complete: 'text-acid-cyan bg-acid-cyan/10',
+    running: 'text-[var(--accent)] bg-[var(--accent)]/10',
+    refining: 'text-[var(--acid-yellow)] bg-acid-yellow/10',
+    complete: 'text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10',
   };
 
   if (queries.length === 0) {
     return (
-      <div className="text-center py-8 text-text-muted font-mono text-xs">
+      <div className="text-center py-8 text-text-muted font-theme-data text-xs">
         No active queries
       </div>
     );
@@ -157,7 +157,7 @@ function ActiveQueriesTable({ queries }: { queries: ActiveQuery[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full font-mono text-xs">
+      <table className="w-full font-theme-data text-xs">
         <thead>
           <tr className="text-text-muted/60 text-[10px] tracking-widest">
             <th className="text-left py-2 px-2">QUERY</th>
@@ -168,11 +168,11 @@ function ActiveQueriesTable({ queries }: { queries: ActiveQuery[] }) {
         </thead>
         <tbody>
           {queries.map((query) => (
-            <tr key={query.id} className="border-t border-acid-green/10">
+            <tr key={query.id} className="border-t border-[var(--accent)]/10">
               <td className="py-2 px-2 text-text max-w-[200px] truncate">
                 {query.query}
               </td>
-              <td className="py-2 px-2 text-center text-acid-green">
+              <td className="py-2 px-2 text-center text-[var(--accent)]">
                 {query.iteration}
               </td>
               <td className="py-2 px-2 text-center">
@@ -292,29 +292,29 @@ export default function RLMDashboard() {
   return (
     <main className="min-h-screen bg-bg text-text">
       {/* Header */}
-      <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
+      <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-acid-green font-mono text-sm hover:opacity-80">
+            <Link href="/" className="text-[var(--accent)] font-theme-data text-sm hover:opacity-80">
               [ARAGORA]
             </Link>
-            <span className="text-acid-green/30">/</span>
-            <span className="text-acid-cyan font-mono text-sm">RLM MONITOR</span>
+            <span className="text-[var(--accent)]/30">/</span>
+            <span className="text-[var(--acid-cyan)] font-theme-data text-sm">RLM MONITOR</span>
           </div>
           <div className="flex items-center gap-4">
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`px-3 py-1 font-mono text-[10px] border transition-colors ${
+              className={`px-3 py-1 font-theme-data text-[10px] border transition-colors ${
                 autoRefresh
-                  ? 'border-acid-green/50 text-acid-green bg-acid-green/10'
-                  : 'border-acid-green/20 text-text-muted'
+                  ? 'border-[var(--accent)]/50 text-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[var(--accent)]/20 text-text-muted'
               }`}
             >
               {autoRefresh ? 'AUTO-REFRESH ON' : 'AUTO-REFRESH OFF'}
             </button>
             <button
               onClick={fetchData}
-              className="px-3 py-1 font-mono text-[10px] border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+              className="px-3 py-1 font-theme-data text-[10px] border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
             >
               REFRESH
             </button>
@@ -325,13 +325,13 @@ export default function RLMDashboard() {
       <div className="container mx-auto px-4 py-8">
         {/* Status Banner */}
         {status && (
-          <div className="mb-6 p-3 border border-acid-green/20 bg-surface/30 flex items-center justify-between">
+          <div className="mb-6 p-3 border border-[var(--accent)]/20 bg-surface/30 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className={`w-2 h-2 rounded-full ${status.available ? 'bg-acid-green' : 'bg-warning'}`} />
-              <span className="text-text font-mono text-xs">
+              <span className={`w-2 h-2 rounded-full ${status.available ? 'bg-[var(--accent)]' : 'bg-warning'}`} />
+              <span className="text-text font-theme-data text-xs">
                 RLM {status.available ? 'ONLINE' : 'OFFLINE'}
               </span>
-              <span className="text-text-muted font-mono text-[10px]">
+              <span className="text-text-muted font-theme-data text-[10px]">
                 Provider: {status.provider} | Version: {status.version}
               </span>
             </div>
@@ -339,7 +339,7 @@ export default function RLMDashboard() {
               {status.features.map((feature) => (
                 <span
                   key={feature}
-                  className="px-2 py-0.5 border border-acid-cyan/30 text-acid-cyan font-mono text-[10px]"
+                  className="px-2 py-0.5 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] font-theme-data text-[10px]"
                 >
                   {feature}
                 </span>
@@ -351,19 +351,19 @@ export default function RLMDashboard() {
         {/* Error Banner */}
         {error && (
           <div className="mb-6 p-3 border border-warning/30 bg-warning/10">
-            <span className="text-warning font-mono text-sm">{error}</span>
+            <span className="text-warning font-theme-data text-sm">{error}</span>
           </div>
         )}
 
         {isLoading ? (
           <div className="text-center py-12">
-            <span className="text-acid-green font-mono animate-pulse">LOADING RLM METRICS...</span>
+            <span className="text-[var(--accent)] font-theme-data animate-pulse">LOADING RLM METRICS...</span>
           </div>
         ) : metrics ? (
           <div className="space-y-8">
             {/* Overview Metrics */}
             <section>
-              <h2 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+              <h2 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                 OVERVIEW
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -397,8 +397,8 @@ export default function RLMDashboard() {
             {/* Cache & Refinement */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Cache Health */}
-              <div className="p-4 border border-acid-green/20 bg-surface/30">
-                <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+              <div className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+                <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                   CACHE HEALTH
                 </h3>
                 <div className="space-y-4">
@@ -409,19 +409,19 @@ export default function RLMDashboard() {
                   />
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className="text-text-muted font-mono text-[10px]">HIT RATE</div>
-                      <div className="text-acid-green font-mono text-xl">
+                      <div className="text-text-muted font-theme-data text-[10px]">HIT RATE</div>
+                      <div className="text-[var(--accent)] font-theme-data text-xl">
                         {(metrics.cache.hitRate * 100).toFixed(1)}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-text-muted font-mono text-[10px]">MEMORY</div>
-                      <div className="text-acid-cyan font-mono text-xl">
+                      <div className="text-text-muted font-theme-data text-[10px]">MEMORY</div>
+                      <div className="text-[var(--acid-cyan)] font-theme-data text-xl">
                         {formatBytes(metrics.cache.memoryBytes)}
                       </div>
                     </div>
                   </div>
-                  <div className="flex justify-between text-[10px] font-mono text-text-muted/60 mt-2">
+                  <div className="flex justify-between text-[10px] font-theme-data text-text-muted/60 mt-2">
                     <span>Hits: {formatNumber(metrics.cache.hits)}</span>
                     <span>Misses: {formatNumber(metrics.cache.misses)}</span>
                   </div>
@@ -429,33 +429,33 @@ export default function RLMDashboard() {
               </div>
 
               {/* Refinement Stats */}
-              <div className="p-4 border border-acid-green/20 bg-surface/30">
-                <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+              <div className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+                <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                   REFINEMENT STATS
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <div className="text-text-muted font-mono text-[10px]">AVG ITERATIONS</div>
-                      <div className="text-acid-cyan font-mono text-xl">
+                      <div className="text-text-muted font-theme-data text-[10px]">AVG ITERATIONS</div>
+                      <div className="text-[var(--acid-cyan)] font-theme-data text-xl">
                         {metrics.refinement.avgIterations.toFixed(1)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-text-muted font-mono text-[10px]">SUCCESS RATE</div>
-                      <div className="text-acid-green font-mono text-xl">
+                      <div className="text-text-muted font-theme-data text-[10px]">SUCCESS RATE</div>
+                      <div className="text-[var(--accent)] font-theme-data text-xl">
                         {(metrics.refinement.successRate * 100).toFixed(0)}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-text-muted font-mono text-[10px]">READY=FALSE</div>
-                      <div className="text-acid-yellow font-mono text-xl">
+                      <div className="text-text-muted font-theme-data text-[10px]">READY=FALSE</div>
+                      <div className="text-[var(--acid-yellow)] font-theme-data text-xl">
                         {formatNumber(metrics.refinement.readyFalseTotal)}
                       </div>
                     </div>
                   </div>
-                  <div className="border-t border-acid-green/10 pt-4">
-                    <div className="text-text-muted/50 font-mono text-[10px]">
+                  <div className="border-t border-[var(--accent)]/10 pt-4">
+                    <div className="text-text-muted/50 font-theme-data text-[10px]">
                       Iterative refinement with Prime Intellect alignment. Lower iterations = better initial context.
                     </div>
                   </div>
@@ -466,16 +466,16 @@ export default function RLMDashboard() {
             {/* Query & Compression Breakdown */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Query Types */}
-              <div className="p-4 border border-acid-green/20 bg-surface/30">
-                <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+              <div className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+                <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                   QUERY TYPES
                 </h3>
                 <QueryTypeChart data={metrics.queries.byType} />
               </div>
 
               {/* Compression Types */}
-              <div className="p-4 border border-acid-green/20 bg-surface/30">
-                <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+              <div className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+                <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                   COMPRESSION SOURCES
                 </h3>
                 <QueryTypeChart data={metrics.compressions.byType} />
@@ -483,31 +483,31 @@ export default function RLMDashboard() {
             </section>
 
             {/* Active Queries */}
-            <section className="p-4 border border-acid-green/20 bg-surface/30">
-              <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+            <section className="p-4 border border-[var(--accent)]/20 bg-surface/30">
+              <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                 ACTIVE QUERIES
               </h3>
               <ActiveQueriesTable queries={activeQueries} />
             </section>
 
             {/* Info Section */}
-            <section className="border-t border-acid-green/20 pt-8">
-              <h3 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+            <section className="border-t border-[var(--accent)]/20 pt-8">
+              <h3 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
                 ABOUT RLM
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-text-muted/60 font-mono text-[10px]">
-                <div className="p-4 border border-acid-green/10 bg-surface/20">
-                  <div className="text-acid-green font-bold mb-2">Compression</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-text-muted/60 font-theme-data text-[10px]">
+                <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+                  <div className="text-[var(--accent)] font-bold mb-2">Compression</div>
                   Build hierarchical context representations with multiple abstraction levels
                   (FULL, DETAILED, SUMMARY, ABSTRACT, METADATA).
                 </div>
-                <div className="p-4 border border-acid-green/10 bg-surface/20">
-                  <div className="text-acid-green font-bold mb-2">Queries</div>
+                <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+                  <div className="text-[var(--accent)] font-bold mb-2">Queries</div>
                   Semantic queries with automatic strategy selection (peek, grep, partition_map,
                   summarize, hierarchical, auto).
                 </div>
-                <div className="p-4 border border-acid-green/10 bg-surface/20">
-                  <div className="text-acid-green font-bold mb-2">Refinement</div>
+                <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+                  <div className="text-[var(--accent)] font-bold mb-2">Refinement</div>
                   Iterative improvement with LLM feedback loops. Continues until ready=True
                   or max iterations reached.
                 </div>
@@ -516,7 +516,7 @@ export default function RLMDashboard() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <span className="text-text-muted font-mono">No RLM data available</span>
+            <span className="text-text-muted font-theme-data">No RLM data available</span>
           </div>
         )}
       </div>

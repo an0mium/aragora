@@ -60,7 +60,7 @@ export function IndividualAgentTab({
           {currentAgent.confidence !== undefined && (
             <span className="text-sm">
               <span className="text-text-muted">Confidence:</span>{' '}
-              <span className={`font-mono font-medium ${getConfidenceColor(currentAgent.confidence)}`}>
+              <span className={`font-theme-data font-medium ${getConfidenceColor(currentAgent.confidence)}`}>
                 {Math.round(currentAgent.confidence * 100)}%
               </span>
             </span>
@@ -82,7 +82,7 @@ export function IndividualAgentTab({
             onClick={onToggleMatchHistory}
             className={`px-2 py-1 text-xs rounded border transition-colors ${
               showMatchHistory
-                ? 'bg-acid-cyan text-black border-acid-cyan'
+                ? 'bg-[var(--acid-cyan)] text-black border-[var(--acid-cyan)]'
                 : 'bg-surface text-text-muted border-border hover:text-text'
             }`}
           >
@@ -225,10 +225,10 @@ function MatchHistoryView({
       {history.map((match, idx) => (
         <div
           key={idx}
-          className="p-3 bg-surface border border-border rounded-lg hover:border-acid-cyan/30 transition-colors"
+          className="p-3 bg-surface border border-border rounded-lg hover:border-[var(--acid-cyan)]/30 transition-colors"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-xs text-text-muted">
+            <span className="font-theme-data text-xs text-text-muted">
               {match.tournament_id.slice(0, 8)}...
             </span>
             <span
@@ -245,7 +245,7 @@ function MatchHistoryView({
           </div>
           <div className="text-sm">
             <span className="text-text-muted">Predicted winner: </span>
-            <span className="text-acid-cyan font-medium">{match.predicted_winner}</span>
+            <span className="text-[var(--acid-cyan)] font-medium">{match.predicted_winner}</span>
           </div>
           {match.created_at && (
             <div className="text-xs text-text-muted mt-2">

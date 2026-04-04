@@ -61,7 +61,7 @@ const CHANNEL_COLORS: Record<OutboundChannelType, string> = {
 function getStatusColor(status: ChannelStatus): string {
   switch (status) {
     case 'active':
-      return 'text-acid-green';
+      return 'text-[var(--accent)]';
     case 'inactive':
       return 'text-text-muted';
     case 'error':
@@ -123,7 +123,7 @@ export function ChannelCard({
   const successRateColor = useMemo(() => {
     if (!channel.stats) return 'text-text-muted';
     const rate = channel.stats.success_rate;
-    if (rate >= 99) return 'text-acid-green';
+    if (rate >= 99) return 'text-[var(--accent)]';
     if (rate >= 95) return 'text-yellow-400';
     return 'text-red-400';
   }, [channel.stats]);
@@ -132,7 +132,7 @@ export function ChannelCard({
     <div
       onClick={() => onSelect?.(channel)}
       className={`card p-4 cursor-pointer transition-all duration-200 ${
-        selected ? 'ring-2 ring-acid-green' : 'hover:border-acid-green/50'
+        selected ? 'ring-2 ring-acid-green' : 'hover:border-[var(--accent)]/50'
       } ${!channel.enabled ? 'opacity-60' : ''}`}
     >
       {/* Header */}
@@ -145,8 +145,8 @@ export function ChannelCard({
             {icon}
           </div>
           <div>
-            <h3 className="font-mono font-bold text-sm">{channel.name}</h3>
-            <span className={`text-xs font-mono ${getStatusColor(channel.status)}`}>
+            <h3 className="font-theme-data font-bold text-sm">{channel.name}</h3>
+            <span className={`text-xs font-theme-data ${getStatusColor(channel.status)}`}>
               ● {getStatusLabel(channel.status)}
             </span>
           </div>
@@ -159,7 +159,7 @@ export function ChannelCard({
             onToggle?.(channel, !channel.enabled);
           }}
           className={`relative w-10 h-5 rounded-full transition-colors ${
-            channel.enabled ? 'bg-acid-green' : 'bg-surface-alt'
+            channel.enabled ? 'bg-[var(--accent)]' : 'bg-surface-alt'
           }`}
         >
           <span
@@ -193,19 +193,19 @@ export function ChannelCard({
       {channel.stats && (
         <div className="grid grid-cols-3 gap-2 mb-3 text-center">
           <div className="bg-surface rounded p-2">
-            <div className="text-lg font-mono font-bold text-acid-green">
+            <div className="text-lg font-theme-data font-bold text-[var(--accent)]">
               {formatNumber(channel.stats.messages_sent_today)}
             </div>
             <div className="text-xs text-text-muted">Today</div>
           </div>
           <div className="bg-surface rounded p-2">
-            <div className={`text-lg font-mono font-bold ${successRateColor}`}>
+            <div className={`text-lg font-theme-data font-bold ${successRateColor}`}>
               {channel.stats.success_rate.toFixed(1)}%
             </div>
             <div className="text-xs text-text-muted">Success</div>
           </div>
           <div className="bg-surface rounded p-2">
-            <div className="text-lg font-mono font-bold text-cyan-400">
+            <div className="text-lg font-theme-data font-bold text-cyan-400">
               {channel.stats.avg_delivery_time_ms}ms
             </div>
             <div className="text-xs text-text-muted">Avg Time</div>
@@ -227,7 +227,7 @@ export function ChannelCard({
             e.stopPropagation();
             onConfigure?.(channel);
           }}
-          className="flex-1 px-3 py-1.5 text-xs font-mono bg-surface hover:bg-surface-alt rounded transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-surface hover:bg-surface-alt rounded transition-colors"
         >
           Configure
         </button>
@@ -236,7 +236,7 @@ export function ChannelCard({
             e.stopPropagation();
             onTest?.(channel);
           }}
-          className="flex-1 px-3 py-1.5 text-xs font-mono bg-acid-green/20 text-acid-green hover:bg-acid-green/30 rounded transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)]/30 rounded transition-colors"
           disabled={!channel.enabled}
         >
           Test

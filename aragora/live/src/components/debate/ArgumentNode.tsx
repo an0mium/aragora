@@ -39,7 +39,7 @@ function ArgumentNodeComponent({ data, selected }: NodeProps) {
 
   return (
     <div
-      className="relative bg-[var(--surface)] border border-[var(--border)] rounded-md min-w-[200px] max-w-[280px] font-mono text-xs"
+      className="relative bg-[var(--surface)] border border-[var(--border)] rounded-md min-w-[200px] max-w-[280px] font-theme-data text-xs"
       style={{
         borderLeftWidth: 4,
         boxShadow: selected

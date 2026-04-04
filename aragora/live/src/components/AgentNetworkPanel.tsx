@@ -377,7 +377,7 @@ function AgentNetworkPanelComponent({
           </h3>
           <div className="flex items-center gap-2">
             {network && (
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {network.rivals?.length || 0} rivals, {network.allies?.length || 0} allies
               </span>
             )}
@@ -590,7 +590,7 @@ function AgentNetworkPanelComponent({
         </div>
       )}
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Agent rivalry and alliance relationship visualization
       </div>
     </div>

@@ -88,15 +88,15 @@ function PressureIndicator({ pressure, status, cleanupRecommended }: {
   return (
     <div className="p-4 bg-surface border border-border rounded-lg">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-mono text-text-muted uppercase">Overall Pressure</h4>
-        <span className={`px-2 py-0.5 text-[10px] font-mono rounded ${statusStyle.bg} ${statusStyle.text}`}>
+        <h4 className="text-xs font-theme-data text-text-muted uppercase">Overall Pressure</h4>
+        <span className={`px-2 py-0.5 text-[10px] font-theme-data rounded ${statusStyle.bg} ${statusStyle.text}`}>
           {status.toUpperCase()}
         </span>
       </div>
 
       {/* Pressure bar */}
       <div className="mb-2">
-        <div className="flex justify-between text-xs font-mono mb-1">
+        <div className="flex justify-between text-xs font-theme-data mb-1">
           <span className="text-text">{pct}%</span>
           <span className="text-text-muted">memory utilization</span>
         </div>
@@ -109,7 +109,7 @@ function PressureIndicator({ pressure, status, cleanupRecommended }: {
       </div>
 
       {cleanupRecommended && (
-        <div className="text-[10px] font-mono text-orange-400 mt-2 flex items-center gap-1">
+        <div className="text-[10px] font-theme-data text-orange-400 mt-2 flex items-center gap-1">
           <span>!</span> Cleanup recommended - memory pressure exceeds 90%
         </div>
       )}
@@ -134,14 +134,14 @@ function TierCard({ tier }: { tier: TierInfo }) {
       {/* Tier header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className={`text-sm font-mono font-bold ${colors.text}`}>
+          <h4 className={`text-sm font-theme-data font-bold ${colors.text}`}>
             {tier.name}
           </h4>
           <p className="text-[10px] text-text-muted">{tier.description}</p>
         </div>
         <div className="text-right">
-          <div className="text-xs font-mono text-text-muted">TTL</div>
-          <div className={`text-sm font-mono font-bold ${colors.text}`}>
+          <div className="text-xs font-theme-data text-text-muted">TTL</div>
+          <div className={`text-sm font-theme-data font-bold ${colors.text}`}>
             {tier.ttl_human}
           </div>
         </div>
@@ -149,7 +149,7 @@ function TierCard({ tier }: { tier: TierInfo }) {
 
       {/* Utilization bar */}
       <div className="mb-3">
-        <div className="flex justify-between text-xs font-mono mb-1">
+        <div className="flex justify-between text-xs font-theme-data mb-1">
           <span className={urgencyColor}>{pct}% utilized</span>
           <span className="text-text-muted">
             {tier.count} / {tier.limit}
@@ -167,21 +167,21 @@ function TierCard({ tier }: { tier: TierInfo }) {
       <div className="grid grid-cols-2 gap-2">
         <div className="p-2 bg-bg rounded">
           <div className="text-[10px] text-text-muted">Count</div>
-          <div className="text-sm font-mono text-text">{tier.count}</div>
+          <div className="text-sm font-theme-data text-text">{tier.count}</div>
         </div>
         <div className="p-2 bg-bg rounded">
           <div className="text-[10px] text-text-muted">Limit</div>
-          <div className="text-sm font-mono text-text">{tier.limit}</div>
+          <div className="text-sm font-theme-data text-text">{tier.limit}</div>
         </div>
         <div className="p-2 bg-bg rounded">
           <div className="text-[10px] text-text-muted">Avg Importance</div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-sm font-theme-data text-text">
             {(tier.avg_importance * 100).toFixed(0)}%
           </div>
         </div>
         <div className="p-2 bg-bg rounded">
           <div className="text-[10px] text-text-muted">Avg Surprise</div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-sm font-theme-data text-text">
             {(tier.avg_surprise * 100).toFixed(0)}%
           </div>
         </div>
@@ -197,11 +197,11 @@ function TiersSummary({ totalMemories, transitions }: {
   return (
     <div className="grid grid-cols-2 gap-3 mb-4">
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-acid-green">{totalMemories}</div>
+        <div className="text-xl font-theme-data text-[var(--accent)]">{totalMemories}</div>
         <div className="text-[10px] text-text-muted">Total Memories</div>
       </div>
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-acid-cyan">{transitions}</div>
+        <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{transitions}</div>
         <div className="text-[10px] text-text-muted">Transitions (24h)</div>
       </div>
     </div>
@@ -239,7 +239,7 @@ export function MemoryTiersPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono text-acid-cyan uppercase tracking-wider">
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
             Memory Tier Visualization
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
@@ -249,7 +249,7 @@ export function MemoryTiersPanel() {
         <button
           onClick={() => refreshTiers()}
           disabled={isLoading}
-          className="px-3 py-1.5 text-xs font-mono bg-acid-cyan/20 border border-acid-cyan/40 text-acid-cyan rounded hover:bg-acid-cyan/30 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-theme-data bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] rounded hover:bg-[var(--acid-cyan)]/30 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Loading...' : 'Refresh'}
         </button>
@@ -257,7 +257,7 @@ export function MemoryTiersPanel() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="text-center py-8 text-text-muted font-mono animate-pulse">
+        <div className="text-center py-8 text-text-muted font-theme-data animate-pulse">
           Loading memory tier data...
         </div>
       )}
@@ -265,12 +265,12 @@ export function MemoryTiersPanel() {
       {/* Error State */}
       {hasError && (
         <div className="p-4 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono text-sm">
+          <p className="text-text-muted font-theme-data text-sm">
             Unable to load memory tier data. The backend may not be running.
           </p>
           <button
             onClick={() => refreshTiers()}
-            className="mt-2 px-3 py-1 text-xs font-mono text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/10"
+            className="mt-2 px-3 py-1 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/10"
           >
             Retry
           </button>
@@ -307,10 +307,10 @@ export function MemoryTiersPanel() {
           ) : (
             <div className="p-8 bg-surface border border-border rounded-lg text-center">
               <div className="text-3xl mb-2">--</div>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No memory tier data available
               </p>
-              <p className="text-text-muted/60 font-mono text-xs mt-1">
+              <p className="text-text-muted/60 font-theme-data text-xs mt-1">
                 The continuum memory system may not be initialized
               </p>
             </div>
@@ -319,7 +319,7 @@ export function MemoryTiersPanel() {
           {/* Tier utilization comparison (horizontal stacked view) */}
           {tiers.length > 0 && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h4 className="text-xs font-mono text-text-muted uppercase mb-3">
+              <h4 className="text-xs font-theme-data text-text-muted uppercase mb-3">
                 Utilization Comparison
               </h4>
               <div className="space-y-2">
@@ -328,7 +328,7 @@ export function MemoryTiersPanel() {
                   const pct = Math.round(tier.utilization * 100);
                   return (
                     <div key={tier.id} className="flex items-center gap-3">
-                      <span className={`w-16 text-xs font-mono ${colors.text} text-right`}>
+                      <span className={`w-16 text-xs font-theme-data ${colors.text} text-right`}>
                         {tier.name}
                       </span>
                       <div className="flex-1 h-4 bg-bg rounded-full overflow-hidden">
@@ -337,7 +337,7 @@ export function MemoryTiersPanel() {
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
-                      <span className="w-12 text-xs font-mono text-text text-right">
+                      <span className="w-12 text-xs font-theme-data text-text text-right">
                         {pct}%
                       </span>
                     </div>

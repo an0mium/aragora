@@ -107,7 +107,7 @@ function MetricCard({
   label,
   value,
   sublabel,
-  tone = 'text-acid-green',
+  tone = 'text-[var(--accent)]',
 }: {
   label: string;
   value: string;
@@ -116,22 +116,22 @@ function MetricCard({
 }) {
   return (
     <div className="card p-4">
-      <div className="font-mono text-xs text-text-muted mb-1">{label}</div>
-      <div className={`font-mono text-2xl ${tone}`}>{value}</div>
-      {sublabel && <div className="font-mono text-xs text-text-muted mt-1">{sublabel}</div>}
+      <div className="font-theme-data text-xs text-text-muted mb-1">{label}</div>
+      <div className={`font-theme-data text-2xl ${tone}`}>{value}</div>
+      {sublabel && <div className="font-theme-data text-xs text-text-muted mt-1">{sublabel}</div>}
     </div>
   );
 }
 
 function Badge({
   children,
-  tone = 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10',
+  tone = 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10',
 }: {
   children: ReactNode;
   tone?: string;
 }) {
   return (
-    <span className={`inline-flex items-center rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${tone}`}>
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 font-theme-data text-[10px] uppercase tracking-wide ${tone}`}>
       {children}
     </span>
   );
@@ -140,13 +140,13 @@ function Badge({
 function reviewStatusTone(status: LandingFeedbackReport['review_status']): string {
   switch (status) {
     case 'reviewed':
-      return 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10';
+      return 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10';
     case 'resolved':
-      return 'text-acid-green border-acid-green/30 bg-acid-green/10';
+      return 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10';
     case 'dismissed':
-      return 'text-acid-magenta border-acid-magenta/30 bg-acid-magenta/10';
+      return 'text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10';
     default:
-      return 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10';
+      return 'text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10';
   }
 }
 
@@ -247,7 +247,7 @@ export default function LandingReviewPage() {
       description="Landing funnel telemetry plus a reviewable queue of wrong-answer reports from the public preview flow."
       actions={(
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 font-mono text-xs text-text-muted">
+          <label className="flex items-center gap-2 font-theme-data text-xs text-text-muted">
             Window
             <select
               value={windowHours}
@@ -259,7 +259,7 @@ export default function LandingReviewPage() {
               <option value={168}>7d</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 font-mono text-xs text-text-muted">
+          <label className="flex items-center gap-2 font-theme-data text-xs text-text-muted">
             Reports
             <select
               value={reportLimit}
@@ -272,14 +272,14 @@ export default function LandingReviewPage() {
             </select>
           </label>
           {lastUpdated && (
-            <span className="font-mono text-xs text-text-muted">
+            <span className="font-theme-data text-xs text-text-muted">
               Updated {formatTimestamp(lastUpdated)}
             </span>
           )}
           <button
             onClick={() => { void refresh(); }}
             disabled={summaryLoading || summaryValidating || feedbackLoading || feedbackValidating}
-            className="rounded border border-acid-green/40 bg-acid-green/10 px-4 py-2 font-mono text-sm text-acid-green transition-colors hover:bg-acid-green/20 disabled:opacity-50"
+            className="rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-2 font-theme-data text-sm text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/20 disabled:opacity-50"
           >
             Refresh
           </button>
@@ -288,7 +288,7 @@ export default function LandingReviewPage() {
     >
       {summaryError && (
         <div className="card mb-6 border-acid-red/40 bg-acid-red/10 p-4">
-          <p className="font-mono text-sm text-acid-red">
+          <p className="font-theme-data text-sm text-acid-red">
             Failed to load landing telemetry summary.
           </p>
         </div>
@@ -296,7 +296,7 @@ export default function LandingReviewPage() {
 
       {feedbackError && (
         <div className="card mb-6 border-acid-yellow/40 bg-acid-yellow/10 p-4">
-          <p className="font-mono text-sm text-acid-yellow">
+          <p className="font-theme-data text-sm text-[var(--acid-yellow)]">
             Raw wrong-answer reports require admin auth. Summary cards remain visible, but the review queue is unavailable for this session.
           </p>
         </div>
@@ -312,13 +312,13 @@ export default function LandingReviewPage() {
           label="Preview Render"
           value={formatPercent(summary?.rates.preview_render_rate)}
           sublabel={`${summary?.preview.rendered_count ?? 0} rendered`}
-          tone="text-acid-cyan"
+          tone="text-[var(--acid-cyan)]"
         />
         <MetricCard
           label="Timeout Rate"
           value={formatPercent(summary?.rates.preview_timeout_rate)}
           sublabel={`${summary?.timeouts.count ?? 0} timeouts`}
-          tone="text-acid-yellow"
+          tone="text-[var(--acid-yellow)]"
         />
         <MetricCard
           label="Wrong Answer"
@@ -330,13 +330,13 @@ export default function LandingReviewPage() {
           label="Open Full Debate"
           value={formatPercent(summary?.rates.open_full_debate_rate)}
           sublabel={`${summary?.event_counts.open_full_debate_clicked ?? 0} clicks`}
-          tone="text-acid-magenta"
+          tone="text-[var(--acid-magenta)]"
         />
         <MetricCard
           label="Reports"
           value={String(feedback?.total_reports ?? 0)}
           sublabel={`${feedback?.stats.review_status_counts.pending ?? 0} pending`}
-          tone="text-acid-cyan"
+          tone="text-[var(--acid-cyan)]"
         />
       </div>
 
@@ -344,57 +344,57 @@ export default function LandingReviewPage() {
         <section className="card p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="font-mono text-lg text-acid-green">Funnel Snapshot</h2>
-              <p className="font-mono text-xs text-text-muted">
+              <h2 className="font-theme-data text-lg text-[var(--accent)]">Funnel Snapshot</h2>
+              <p className="font-theme-data text-xs text-text-muted">
                 Last event {formatTimestamp(summary?.last_event_at)}
               </p>
             </div>
-            <Badge tone="text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10">
+            <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
               Avg question length {formatNumber(summary?.question_length.avg, 0)}
             </Badge>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded border border-border bg-bg/60 p-4">
-              <div className="font-mono text-xs text-text-muted mb-3">Rates</div>
-              <div className="space-y-2 font-mono text-sm">
+              <div className="font-theme-data text-xs text-text-muted mb-3">Rates</div>
+              <div className="space-y-2 font-theme-data text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Preflight selection</span>
-                  <span className="text-acid-green">{formatPercent(summary?.rates.preflight_selection_rate)}</span>
+                  <span className="text-[var(--accent)]">{formatPercent(summary?.rates.preflight_selection_rate)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Clarification requests</span>
-                  <span className="text-acid-yellow">{formatPercent(summary?.rates.preview_clarification_rate)}</span>
+                  <span className="text-[var(--acid-yellow)]">{formatPercent(summary?.rates.preview_clarification_rate)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Share rate</span>
-                  <span className="text-acid-cyan">{formatPercent(summary?.rates.share_rate)}</span>
+                  <span className="text-[var(--acid-cyan)]">{formatPercent(summary?.rates.share_rate)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Retry rate</span>
-                  <span className="text-acid-magenta">{formatPercent(summary?.rates.retry_rate)}</span>
+                  <span className="text-[var(--acid-magenta)]">{formatPercent(summary?.rates.retry_rate)}</span>
                 </div>
               </div>
             </div>
 
             <div className="rounded border border-border bg-bg/60 p-4">
-              <div className="font-mono text-xs text-text-muted mb-3">Preview shape</div>
-              <div className="space-y-2 font-mono text-sm">
+              <div className="font-theme-data text-xs text-text-muted mb-3">Preview shape</div>
+              <div className="space-y-2 font-theme-data text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Avg participants</span>
-                  <span className="text-acid-cyan">{formatNumber(summary?.preview.avg_participant_count)}</span>
+                  <span className="text-[var(--acid-cyan)]">{formatNumber(summary?.preview.avg_participant_count)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Avg timeout seconds</span>
-                  <span className="text-acid-yellow">{formatNumber(summary?.timeouts.avg_timeout_seconds)}</span>
+                  <span className="text-[var(--acid-yellow)]">{formatNumber(summary?.timeouts.avg_timeout_seconds)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Feedback rewritten</span>
-                  <span className="text-acid-green">{formatPercent(feedback?.stats.rewritten_rate)}</span>
+                  <span className="text-[var(--accent)]">{formatPercent(feedback?.stats.rewritten_rate)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-text-muted">Preview-mode reports</span>
-                  <span className="text-acid-magenta">{formatPercent(feedback?.stats.preview_mode_rate)}</span>
+                  <span className="text-[var(--acid-magenta)]">{formatPercent(feedback?.stats.preview_mode_rate)}</span>
                 </div>
               </div>
             </div>
@@ -403,8 +403,8 @@ export default function LandingReviewPage() {
 
         <section className="card p-6">
           <div className="mb-4">
-            <h2 className="font-mono text-lg text-acid-green">Top Preflight Options</h2>
-            <p className="font-mono text-xs text-text-muted">
+            <h2 className="font-theme-data text-lg text-[var(--accent)]">Top Preflight Options</h2>
+            <p className="font-theme-data text-xs text-text-muted">
               Which landing interpretations users actually choose in this window.
             </p>
           </div>
@@ -414,10 +414,10 @@ export default function LandingReviewPage() {
               {summary.top_options.map((option) => (
                 <div key={option.option_id} className="rounded border border-border bg-bg/60 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="font-mono text-sm text-text">{option.option_id}</div>
+                    <div className="font-theme-data text-sm text-text">{option.option_id}</div>
                     <Badge>{`${option.selected_count} picks`}</Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 font-mono text-xs text-text-muted">
+                  <div className="grid grid-cols-2 gap-2 font-theme-data text-xs text-text-muted">
                     <div>Recommended: {option.recommended_count}</div>
                     <div>Rewritten: {option.rewritten_count}</div>
                   </div>
@@ -425,7 +425,7 @@ export default function LandingReviewPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded border border-dashed border-border p-6 font-mono text-sm text-text-muted">
+            <div className="rounded border border-dashed border-border p-6 font-theme-data text-sm text-text-muted">
               No option-selection data in this window yet.
             </div>
           )}
@@ -435,38 +435,38 @@ export default function LandingReviewPage() {
       <section className="card mt-6 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="font-mono text-lg text-acid-green">Wrong-Answer Review Queue</h2>
-            <p className="font-mono text-xs text-text-muted">
+            <h2 className="font-theme-data text-lg text-[var(--accent)]">Wrong-Answer Review Queue</h2>
+            <p className="font-theme-data text-xs text-text-muted">
               Recent reports captured when visitors click “This answer seems wrong”.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10">
+            <Badge tone="text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10">
               Pending {feedback?.stats.review_status_counts.pending ?? 0}
             </Badge>
-            <Badge tone="text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10">
+            <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
               Reviewed {feedback?.stats.review_status_counts.reviewed ?? 0}
             </Badge>
-            <Badge tone="text-acid-green border-acid-green/30 bg-acid-green/10">
+            <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
               Resolved {feedback?.stats.review_status_counts.resolved ?? 0}
             </Badge>
-            <Badge tone="text-acid-magenta border-acid-magenta/30 bg-acid-magenta/10">
+            <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
               Dismissed {feedback?.stats.review_status_counts.dismissed ?? 0}
             </Badge>
-            <div className="font-mono text-xs text-text-muted">
+            <div className="font-theme-data text-xs text-text-muted">
               Last report {formatTimestamp(feedback?.last_report_at)}
             </div>
           </div>
         </div>
 
         {actionError && (
-          <div className="mb-4 rounded border border-acid-red/40 bg-acid-red/10 p-3 font-mono text-xs text-acid-red">
+          <div className="mb-4 rounded border border-acid-red/40 bg-acid-red/10 p-3 font-theme-data text-xs text-acid-red">
             {actionError}
           </div>
         )}
 
         {reports.length === 0 ? (
-          <div className="rounded border border-dashed border-border p-8 font-mono text-sm text-text-muted">
+          <div className="rounded border border-dashed border-border p-8 font-theme-data text-sm text-text-muted">
             No wrong-answer reports captured in this window.
           </div>
         ) : (
@@ -482,36 +482,36 @@ export default function LandingReviewPage() {
                   </Badge>
                   <Badge>{report.result_mode || 'preview'}</Badge>
                   {report.rewritten && (
-                    <Badge tone="text-acid-green border-acid-green/30 bg-acid-green/10">
+                    <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
                       rewritten
                     </Badge>
                   )}
                   {report.participant_count != null && (
-                    <Badge tone="text-acid-magenta border-acid-magenta/30 bg-acid-magenta/10">
+                    <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
                       {`${report.participant_count} agents`}
                     </Badge>
                   )}
-                  <span className="ml-auto font-mono text-[11px] text-text-muted">
+                  <span className="ml-auto font-theme-data text-[11px] text-text-muted">
                     {formatTimestamp(report.timestamp)} · {report.client_tag}
                   </span>
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-3">
                   <div>
-                    <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-text-muted">User Question</div>
-                    <p className="font-mono text-sm text-text">
+                    <div className="mb-1 font-theme-data text-[11px] uppercase tracking-wide text-text-muted">User Question</div>
+                    <p className="font-theme-data text-sm text-text">
                       {report.question || '—'}
                     </p>
                   </div>
                   <div>
-                    <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-text-muted">Aragora Debated</div>
-                    <p className="font-mono text-sm text-text">
+                    <div className="mb-1 font-theme-data text-[11px] uppercase tracking-wide text-text-muted">Aragora Debated</div>
+                    <p className="font-theme-data text-sm text-text">
                       {report.interpreted_question || '—'}
                     </p>
                   </div>
                   <div>
-                    <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-text-muted">Answer Preview</div>
-                    <p className="font-mono text-sm text-text">
+                    <div className="mb-1 font-theme-data text-[11px] uppercase tracking-wide text-text-muted">Answer Preview</div>
+                    <p className="font-theme-data text-sm text-text">
                       {report.final_answer_preview || '—'}
                     </p>
                   </div>
@@ -522,7 +522,7 @@ export default function LandingReviewPage() {
                     type="button"
                     onClick={() => { void updateReviewStatus(report.id, 'reviewed'); }}
                     disabled={updatingReportId === report.id || report.review_status === 'reviewed'}
-                    className="rounded border border-acid-cyan/40 bg-acid-cyan/10 px-3 py-1.5 font-mono text-xs text-acid-cyan transition-colors hover:bg-acid-cyan/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded border border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/10 px-3 py-1.5 font-theme-data text-xs text-[var(--acid-cyan)] transition-colors hover:bg-[var(--acid-cyan)]/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Mark reviewed
                   </button>
@@ -530,7 +530,7 @@ export default function LandingReviewPage() {
                     type="button"
                     onClick={() => { void updateReviewStatus(report.id, 'resolved'); }}
                     disabled={updatingReportId === report.id || report.review_status === 'resolved'}
-                    className="rounded border border-acid-green/40 bg-acid-green/10 px-3 py-1.5 font-mono text-xs text-acid-green transition-colors hover:bg-acid-green/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-1.5 font-theme-data text-xs text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Resolve
                   </button>
@@ -538,15 +538,15 @@ export default function LandingReviewPage() {
                     type="button"
                     onClick={() => { void updateReviewStatus(report.id, 'dismissed'); }}
                     disabled={updatingReportId === report.id || report.review_status === 'dismissed'}
-                    className="rounded border border-acid-magenta/40 bg-acid-magenta/10 px-3 py-1.5 font-mono text-xs text-acid-magenta transition-colors hover:bg-acid-magenta/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded border border-acid-magenta/40 bg-acid-magenta/10 px-3 py-1.5 font-theme-data text-xs text-[var(--acid-magenta)] transition-colors hover:bg-acid-magenta/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Dismiss
                   </button>
                   {updatingReportId === report.id && (
-                    <span className="font-mono text-xs text-text-muted">Saving…</span>
+                    <span className="font-theme-data text-xs text-text-muted">Saving…</span>
                   )}
                   {(report.reviewed_by || report.reviewed_at) && (
-                    <span className="ml-auto font-mono text-[11px] text-text-muted">
+                    <span className="ml-auto font-theme-data text-[11px] text-text-muted">
                       Reviewed {report.reviewed_by || 'admin'} · {formatTimestamp(report.reviewed_at)}
                     </span>
                   )}
@@ -555,12 +555,12 @@ export default function LandingReviewPage() {
                 {(report.result_warning || report.debate_id) && (
                   <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
                     {report.result_warning && (
-                      <span className="font-mono text-xs text-acid-yellow">
+                      <span className="font-theme-data text-xs text-[var(--acid-yellow)]">
                         Warning: {report.result_warning}
                       </span>
                     )}
                     {report.debate_id && (
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         Debate ID: {report.debate_id}
                       </span>
                     )}

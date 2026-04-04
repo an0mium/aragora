@@ -174,13 +174,13 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
   if (!isAuthenticated || !user) {
     return (
       <div className="card p-6 text-center" role="tabpanel" id="panel-account" aria-labelledby="tab-account">
-        <h3 className="font-mono text-acid-green mb-4">Not Signed In</h3>
-        <p className="font-mono text-sm text-text-muted mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Not Signed In</h3>
+        <p className="font-theme-data text-sm text-text-muted mb-4">
           Sign in to manage your account settings and access personalized features.
         </p>
         <a
           href="/auth/login"
-          className="inline-block px-6 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+          className="inline-block px-6 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
         >
           Sign In
         </a>
@@ -191,23 +191,23 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
   return (
     <div className="space-y-6" role="tabpanel" id="panel-account" aria-labelledby="tab-account">
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Account Information</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Account Information</h3>
         <div className="space-y-4">
           <div>
-            <label className="font-mono text-xs text-text-muted">Email</label>
-            <div className="font-mono text-sm text-text">{user.email}</div>
+            <label className="font-theme-data text-xs text-text-muted">Email</label>
+            <div className="font-theme-data text-sm text-text">{user.email}</div>
           </div>
           <div>
-            <label className="font-mono text-xs text-text-muted">Name</label>
-            <div className="font-mono text-sm text-text">{user.name || 'Not set'}</div>
+            <label className="font-theme-data text-xs text-text-muted">Name</label>
+            <div className="font-theme-data text-sm text-text">{user.name || 'Not set'}</div>
           </div>
           <div>
-            <label className="font-mono text-xs text-text-muted">Role</label>
-            <div className="font-mono text-sm text-text capitalize">{user.role}</div>
+            <label className="font-theme-data text-xs text-text-muted">Role</label>
+            <div className="font-theme-data text-sm text-text capitalize">{user.role}</div>
           </div>
           <div>
-            <label className="font-mono text-xs text-text-muted">Member Since</label>
-            <div className="font-mono text-sm text-text">
+            <label className="font-theme-data text-xs text-text-muted">Member Since</label>
+            <div className="font-theme-data text-sm text-text">
               {new Date(user.created_at).toLocaleDateString()}
             </div>
           </div>
@@ -216,8 +216,8 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
 
       {/* Connected Accounts (OAuth) */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Connected Accounts</h3>
-        <p className="font-mono text-xs text-text-muted mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Connected Accounts</h3>
+        <p className="font-theme-data text-xs text-text-muted mb-4">
           Link your social accounts for quick sign-in. You can always use email/password.
         </p>
 
@@ -226,7 +226,7 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
             <div className="h-12 bg-surface rounded" />
           </div>
         ) : oauthProviders.length === 0 ? (
-          <p className="font-mono text-xs text-text-muted">
+          <p className="font-theme-data text-xs text-text-muted">
             No OAuth providers configured.
           </p>
         ) : (
@@ -240,8 +240,8 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
                   key={provider.id}
                   className={`flex items-center justify-between p-3 rounded border ${
                     linked
-                      ? 'border-acid-green/30 bg-acid-green/5'
-                      : 'border-acid-green/20 bg-surface/50'
+                      ? 'border-[var(--accent)]/30 bg-[var(--accent)]/5'
+                      : 'border-[var(--accent)]/20 bg-surface/50'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -269,13 +269,13 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
                     </div>
 
                     <div>
-                      <div className="font-mono text-sm text-text">{provider.name}</div>
+                      <div className="font-theme-data text-sm text-text">{provider.name}</div>
                       {linked ? (
-                        <div className="font-mono text-xs text-acid-green">
+                        <div className="font-theme-data text-xs text-[var(--accent)]">
                           Connected {linked.email ? `as ${linked.email}` : ''}
                         </div>
                       ) : (
-                        <div className="font-mono text-xs text-text-muted">
+                        <div className="font-theme-data text-xs text-text-muted">
                           Not connected
                         </div>
                       )}
@@ -286,7 +286,7 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
                     <button
                       onClick={() => handleOAuthUnlink(provider.id)}
                       disabled={status === 'unlinking'}
-                      className={`px-3 py-1 font-mono text-xs rounded transition-colors ${
+                      className={`px-3 py-1 font-theme-data text-xs rounded transition-colors ${
                         status === 'unlinking'
                           ? 'text-text-muted cursor-wait'
                           : status === 'error'
@@ -300,12 +300,12 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
                     <button
                       onClick={() => handleOAuthLink(provider.id)}
                       disabled={status === 'linking'}
-                      className={`px-3 py-1 font-mono text-xs rounded transition-colors ${
+                      className={`px-3 py-1 font-theme-data text-xs rounded transition-colors ${
                         status === 'linking'
                           ? 'text-text-muted cursor-wait'
                           : status === 'error'
                           ? 'text-acid-red'
-                          : 'text-acid-cyan hover:text-acid-green hover:bg-acid-green/10'
+                          : 'text-[var(--acid-cyan)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10'
                       }`}
                     >
                       {status === 'linking' ? 'Linking...' : status === 'error' ? 'Error' : 'Link'}
@@ -319,23 +319,23 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
       </div>
 
       <div className="card p-6 border-acid-yellow/30">
-        <h3 className="font-mono text-acid-yellow mb-4">Security</h3>
+        <h3 className="font-theme-data text-[var(--acid-yellow)] mb-4">Security</h3>
 
         {/* MFA Settings */}
         <MFASettings user={user} />
 
         <div className="mt-6 pt-4 border-t border-acid-yellow/20">
-          <h4 className="font-mono text-sm text-text mb-4">Session Management</h4>
+          <h4 className="font-theme-data text-sm text-text mb-4">Session Management</h4>
           <SessionHistory className="mb-4" />
           <button
             onClick={handleLogoutAllDevices}
             disabled={logoutAllStatus === 'loading'}
-            className={`w-full px-4 py-2 border font-mono text-sm rounded transition-colors text-left ${
+            className={`w-full px-4 py-2 border font-theme-data text-sm rounded transition-colors text-left ${
               logoutAllStatus === 'success'
-                ? 'border-acid-green/40 text-acid-green bg-acid-green/10'
+                ? 'border-[var(--accent)]/40 text-[var(--accent)] bg-[var(--accent)]/10'
                 : logoutAllStatus === 'error'
                 ? 'border-acid-red/40 text-acid-red bg-acid-red/10'
-                : 'border-acid-yellow/40 text-acid-yellow hover:bg-acid-yellow/10'
+                : 'border-acid-yellow/40 text-[var(--acid-yellow)] hover:bg-acid-yellow/10'
             } disabled:opacity-50`}
           >
             {logoutAllStatus === 'loading'
@@ -346,25 +346,25 @@ export function AccountTab({ user, isAuthenticated, backendApi }: AccountTabProp
               ? 'Failed - try again'
               : 'Logout All Devices (Including Current)'}
           </button>
-          <p className="font-mono text-xs text-text-muted mt-2">
+          <p className="font-theme-data text-xs text-text-muted mt-2">
             Invalidates all sessions including your current one. You will be signed out everywhere.
           </p>
         </div>
       </div>
 
       <div className="card p-6 border-acid-red/30">
-        <h3 className="font-mono text-acid-red mb-4">Danger Zone</h3>
-        <p className="font-mono text-xs text-text-muted mb-4">
+        <h3 className="font-theme-data text-acid-red mb-4">Danger Zone</h3>
+        <p className="font-theme-data text-xs text-text-muted mb-4">
           These actions are irreversible. Please proceed with caution.
         </p>
         <div className="space-y-3">
           <button
-            className="w-full px-4 py-2 border border-acid-yellow/40 text-acid-yellow font-mono text-sm rounded hover:bg-acid-yellow/10 transition-colors text-left"
+            className="w-full px-4 py-2 border border-acid-yellow/40 text-[var(--acid-yellow)] font-theme-data text-sm rounded hover:bg-acid-yellow/10 transition-colors text-left"
           >
             Export All Data
           </button>
           <button
-            className="w-full px-4 py-2 border border-acid-red/40 text-acid-red font-mono text-sm rounded hover:bg-acid-red/10 transition-colors text-left"
+            className="w-full px-4 py-2 border border-acid-red/40 text-acid-red font-theme-data text-sm rounded hover:bg-acid-red/10 transition-colors text-left"
           >
             Delete Account
           </button>

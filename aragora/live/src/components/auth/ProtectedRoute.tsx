@@ -42,10 +42,10 @@ export function ProtectedRoute({
         <CRTVignette />
         <main className="min-h-screen bg-bg text-text flex items-center justify-center">
           <div className="text-center">
-            <div className="font-mono text-acid-green animate-pulse text-lg mb-2">
+            <div className="font-theme-data text-[var(--accent)] animate-pulse text-lg mb-2">
               AUTHENTICATING...
             </div>
-            <div className="font-mono text-text-muted text-xs">
+            <div className="font-theme-data text-text-muted text-xs">
               Verifying credentials
             </div>
           </div>
@@ -62,10 +62,10 @@ export function ProtectedRoute({
         <CRTVignette />
         <main className="min-h-screen bg-bg text-text flex items-center justify-center">
           <div className="text-center">
-            <div className="font-mono text-warning text-lg mb-2">
+            <div className="font-theme-data text-warning text-lg mb-2">
               AUTHENTICATION REQUIRED
             </div>
-            <div className="font-mono text-text-muted text-xs">
+            <div className="font-theme-data text-text-muted text-xs">
               Redirecting to login...
             </div>
           </div>
@@ -87,18 +87,18 @@ export function ProtectedRoute({
           <CRTVignette />
           <main className="min-h-screen bg-bg text-text flex items-center justify-center">
             <div className="text-center max-w-md">
-              <div className="font-mono text-warning text-lg mb-2">
+              <div className="font-theme-data text-warning text-lg mb-2">
                 UPGRADE REQUIRED
               </div>
-              <div className="font-mono text-text-muted text-sm mb-4">
+              <div className="font-theme-data text-text-muted text-sm mb-4">
                 This feature requires the {requiredTier.toUpperCase()} tier or higher.
               </div>
-              <div className="font-mono text-text-muted text-xs mb-6">
+              <div className="font-theme-data text-text-muted text-xs mb-6">
                 Your current tier: {organization.tier.toUpperCase()}
               </div>
               <button
                 onClick={() => router.push('/pricing')}
-                className="font-mono text-sm px-6 py-2 border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors"
+                className="font-theme-data text-sm px-6 py-2 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
               >
                 [VIEW PLANS]
               </button>

@@ -28,11 +28,11 @@ function MetricCard({ label, value, sub, color = 'acid-green' }: {
 }) {
   return (
     <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-      <div className="font-mono text-xs text-[var(--text-muted)] mb-1">{label}</div>
-      <div className="font-mono text-2xl" style={{ color: `var(--${color})` }}>
+      <div className="font-theme-data text-xs text-[var(--text-muted)] mb-1">{label}</div>
+      <div className="font-theme-data text-2xl" style={{ color: `var(--${color})` }}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      {sub && <div className="font-mono text-xs text-[var(--text-muted)] mt-1">{sub}</div>}
+      {sub && <div className="font-theme-data text-xs text-[var(--text-muted)] mt-1">{sub}</div>}
     </div>
   );
 }
@@ -46,7 +46,7 @@ function HorizontalBar({ label, value, max, color }: {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="font-mono text-xs text-[var(--text-muted)] w-32 truncate" title={label}>
+      <div className="font-theme-data text-xs text-[var(--text-muted)] w-32 truncate" title={label}>
         {label}
       </div>
       <div className="flex-1 h-4 bg-[var(--bg)] border border-[var(--border)] relative">
@@ -55,7 +55,7 @@ function HorizontalBar({ label, value, max, color }: {
           style={{ width: `${pct}%`, backgroundColor: `var(--${color})` }}
         />
       </div>
-      <div className="font-mono text-xs text-[var(--text)] w-16 text-right">
+      <div className="font-theme-data text-xs text-[var(--text)] w-16 text-right">
         {value.toLocaleString()}
       </div>
     </div>
@@ -69,7 +69,7 @@ function AccumulationChart({ data }: { data: { date: string; count: number }[] }
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-      <h3 className="font-mono text-sm text-[var(--acid-green)] mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-3">
         KNOWLEDGE ACCUMULATION (7D)
       </h3>
       <div className="flex items-end gap-1" style={{ height: chartHeight }}>
@@ -77,14 +77,14 @@ function AccumulationChart({ data }: { data: { date: string; count: number }[] }
           const h = max > 0 ? (d.count / max) * chartHeight : 0;
           return (
             <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
-              <div className="font-mono text-[10px] text-[var(--text-muted)]">
+              <div className="font-theme-data text-[10px] text-[var(--text-muted)]">
                 {d.count > 0 ? d.count.toLocaleString() : ''}
               </div>
               <div
                 className="w-full bg-[var(--acid-green)] transition-all duration-500"
                 style={{ height: Math.max(h, 1) }}
               />
-              <div className="font-mono text-[10px] text-[var(--text-muted)]">
+              <div className="font-theme-data text-[10px] text-[var(--text-muted)]">
                 {d.date.slice(5)}
               </div>
             </div>
@@ -103,7 +103,7 @@ function ConfidenceHistogram({ distribution }: { distribution: Record<string, nu
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-      <h3 className="font-mono text-sm text-[var(--acid-green)] mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-3">
         CONFIDENCE DISTRIBUTION
       </h3>
       <div className="flex items-end gap-2" style={{ height: chartHeight }}>
@@ -111,7 +111,7 @@ function ConfidenceHistogram({ distribution }: { distribution: Record<string, nu
           const h = max > 0 ? (count / max) * chartHeight : 0;
           return (
             <div key={label} className="flex-1 flex flex-col items-center justify-end gap-1">
-              <div className="font-mono text-[10px] text-[var(--text-muted)]">
+              <div className="font-theme-data text-[10px] text-[var(--text-muted)]">
                 {count > 0 ? count : ''}
               </div>
               <div
@@ -121,7 +121,7 @@ function ConfidenceHistogram({ distribution }: { distribution: Record<string, nu
                   backgroundColor: `var(--${colors[i] || 'acid-green'})`,
                 }}
               />
-              <div className="font-mono text-[10px] text-[var(--text-muted)]">
+              <div className="font-theme-data text-[10px] text-[var(--text-muted)]">
                 {label}
               </div>
             </div>
@@ -175,35 +175,35 @@ export default function KnowledgeVelocityPage() {
           <div className="flex items-center gap-3 mb-2">
             <Link
               href="/dashboard"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               DASHBOARD
             </Link>
-            <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
             <Link
               href="/admin/knowledge"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               KNOWLEDGE
             </Link>
-            <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-            <span className="text-xs font-mono text-[var(--acid-green)]">VELOCITY</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+            <span className="text-xs font-theme-data text-[var(--acid-green)]">VELOCITY</span>
           </div>
 
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+              <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
                 {'>'} LEARNING VELOCITY
               </h1>
-              <p className="text-xs text-[var(--text-muted)] font-mono">
+              <p className="text-xs text-[var(--text-muted)] font-theme-data">
                 Knowledge Mound growth, adapter contributions, and confidence metrics
               </p>
             </div>
             <button
               onClick={fetchData}
               disabled={loading}
-              className="px-4 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
             >
               {loading ? 'LOADING...' : 'REFRESH'}
             </button>
@@ -211,13 +211,13 @@ export default function KnowledgeVelocityPage() {
 
           {error && (
             <div className="p-4 mb-6 bg-[var(--surface)] border border-red-500/40">
-              <p className="text-red-400 font-mono text-sm">{error}</p>
+              <p className="text-red-400 font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {loading && !data && (
             <div className="text-center py-20">
-              <div className="font-mono text-[var(--acid-green)] animate-pulse text-sm">
+              <div className="font-theme-data text-[var(--acid-green)] animate-pulse text-sm">
                 LOADING VELOCITY DATA...
               </div>
             </div>
@@ -260,11 +260,11 @@ export default function KnowledgeVelocityPage() {
 
               {/* Adapter Contributions */}
               <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
-                <h3 className="font-mono text-sm text-[var(--acid-green)] mb-3">
+                <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-3">
                   ADAPTER CONTRIBUTIONS
                 </h3>
                 {adapterEntries.length === 0 ? (
-                  <p className="font-mono text-xs text-[var(--text-muted)]">
+                  <p className="font-theme-data text-xs text-[var(--text-muted)]">
                     No adapter data available yet.
                   </p>
                 ) : (
@@ -285,7 +285,7 @@ export default function KnowledgeVelocityPage() {
               {/* Top Topics */}
               {data.top_topics.length > 0 && (
                 <div className="bg-[var(--surface)] border border-[var(--border)] p-4 mb-6">
-                  <h3 className="font-mono text-sm text-[var(--acid-green)] mb-3">
+                  <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-3">
                     TOP LEARNING TOPICS
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -294,10 +294,10 @@ export default function KnowledgeVelocityPage() {
                         key={t.topic}
                         className="p-3 bg-[var(--bg)] border border-[var(--border)]"
                       >
-                        <div className="font-mono text-xs text-[var(--text-muted)] truncate">
+                        <div className="font-theme-data text-xs text-[var(--text-muted)] truncate">
                           {t.topic}
                         </div>
-                        <div className="font-mono text-lg text-[var(--text)]">
+                        <div className="font-theme-data text-lg text-[var(--text)]">
                           {t.count.toLocaleString()}
                         </div>
                       </div>
@@ -307,7 +307,7 @@ export default function KnowledgeVelocityPage() {
               )}
 
               {/* Footer info */}
-              <div className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-4">
+              <div className="text-xs font-theme-data text-[var(--text-muted)] flex items-center gap-4">
                 <span>Last updated: {new Date(data.timestamp).toLocaleString()}</span>
                 <span>Workspace: {data.workspace_id}</span>
               </div>
@@ -316,22 +316,22 @@ export default function KnowledgeVelocityPage() {
 
           {/* Navigation */}
           <div className="mt-8 flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--text-muted)]">Navigate:</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">Navigate:</span>
             <Link
               href="/admin/knowledge"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               KNOWLEDGE ADMIN
             </Link>
             <Link
               href="/dashboard"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               DASHBOARD
             </Link>
             <Link
               href="/usage"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               USAGE
             </Link>

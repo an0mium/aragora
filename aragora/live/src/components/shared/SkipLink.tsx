@@ -29,8 +29,8 @@ export function SkipLink({ targetId, children = 'Skip to main content' }: SkipLi
         sr-only focus:not-sr-only
         focus:fixed focus:top-2 focus:left-2 focus:z-[9999]
         focus:px-4 focus:py-2
-        focus:bg-acid-green focus:text-bg
-        focus:font-mono focus:text-sm
+        focus:bg-[var(--accent)] focus:text-bg
+        focus:font-theme-data focus:text-sm
         focus:rounded focus:outline-none
         focus:ring-2 focus:ring-acid-green focus:ring-offset-2 focus:ring-offset-bg
       "

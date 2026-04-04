@@ -52,17 +52,17 @@ interface Props {
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-acid-red/20 text-acid-red border-acid-red',
   high: 'bg-acid-orange/20 text-acid-orange border-acid-orange',
-  medium: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow',
+  medium: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow',
   low: 'bg-acid-blue/20 text-acid-blue border-acid-blue',
   info: 'bg-muted/20 text-muted border-muted',
 };
 
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-acid-red/20 text-acid-red',
-  triaging: 'bg-acid-yellow/20 text-acid-yellow',
+  triaging: 'bg-acid-yellow/20 text-[var(--acid-yellow)]',
   investigating: 'bg-acid-blue/20 text-acid-blue',
   remediating: 'bg-acid-purple/20 text-acid-purple',
-  resolved: 'bg-acid-green/20 text-acid-green',
+  resolved: 'bg-[var(--accent)]/20 text-[var(--accent)]',
   false_positive: 'bg-muted/20 text-muted',
   accepted_risk: 'bg-acid-orange/20 text-acid-orange',
   duplicate: 'bg-muted/20 text-muted',
@@ -250,14 +250,14 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
         <div className="sticky top-0 bg-surface border-b border-border p-4 flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className={`px-2 py-0.5 text-xs font-mono rounded border ${SEVERITY_COLORS[finding?.severity || 'info']}`}>
+              <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${SEVERITY_COLORS[finding?.severity || 'info']}`}>
                 {finding?.severity?.toUpperCase()}
               </span>
-              <span className={`px-2 py-0.5 text-xs font-mono rounded ${STATUS_COLORS[currentState]}`}>
+              <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${STATUS_COLORS[currentState]}`}>
                 {currentState.toUpperCase().replace('_', ' ')}
               </span>
             </div>
-            <h2 className="font-mono text-lg truncate">{finding?.title || 'Finding Details'}</h2>
+            <h2 className="font-theme-data text-lg truncate">{finding?.title || 'Finding Details'}</h2>
           </div>
           <button
             onClick={onClose}
@@ -271,15 +271,15 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
           <div className="p-4 space-y-6">
             {/* Description */}
             <section>
-              <h3 className="text-xs font-mono text-muted mb-2">DESCRIPTION</h3>
+              <h3 className="text-xs font-theme-data text-muted mb-2">DESCRIPTION</h3>
               <p className="text-sm">{finding.description}</p>
             </section>
 
             {/* Evidence */}
             {finding.evidence_text && (
               <section>
-                <h3 className="text-xs font-mono text-muted mb-2">EVIDENCE</h3>
-                <div className="bg-surface p-3 rounded border border-border font-mono text-sm whitespace-pre-wrap">
+                <h3 className="text-xs font-theme-data text-muted mb-2">EVIDENCE</h3>
+                <div className="bg-surface p-3 rounded border border-border font-theme-data text-sm whitespace-pre-wrap">
                   {finding.evidence_text}
                 </div>
                 {finding.evidence_location && (
@@ -293,44 +293,44 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
             {/* Recommendation */}
             {finding.recommendation && (
               <section>
-                <h3 className="text-xs font-mono text-muted mb-2">RECOMMENDATION</h3>
+                <h3 className="text-xs font-theme-data text-muted mb-2">RECOMMENDATION</h3>
                 <p className="text-sm">{finding.recommendation}</p>
               </section>
             )}
 
             {/* Metadata */}
             <section>
-              <h3 className="text-xs font-mono text-muted mb-2">DETAILS</h3>
+              <h3 className="text-xs font-theme-data text-muted mb-2">DETAILS</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted">Type:</span>{' '}
-                  <span className="font-mono">{finding.audit_type}</span>
+                  <span className="font-theme-data">{finding.audit_type}</span>
                 </div>
                 <div>
                   <span className="text-muted">Category:</span>{' '}
-                  <span className="font-mono">{finding.category}</span>
+                  <span className="font-theme-data">{finding.category}</span>
                 </div>
                 <div>
                   <span className="text-muted">Confidence:</span>{' '}
-                  <span className="font-mono">{Math.round(finding.confidence * 100)}%</span>
+                  <span className="font-theme-data">{Math.round(finding.confidence * 100)}%</span>
                 </div>
                 <div>
                   <span className="text-muted">Found by:</span>{' '}
-                  <span className="font-mono">{finding.found_by}</span>
+                  <span className="font-theme-data">{finding.found_by}</span>
                 </div>
               </div>
             </section>
 
             {/* Workflow Actions */}
             <section className="border-t border-border pt-4">
-              <h3 className="text-xs font-mono text-muted mb-3">WORKFLOW</h3>
+              <h3 className="text-xs font-theme-data text-muted mb-3">WORKFLOW</h3>
 
               {/* Assignment */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted">Assigned to:</span>
                   {workflow?.assigned_to ? (
-                    <span className="font-mono text-sm">{workflow.assigned_to}</span>
+                    <span className="font-theme-data text-sm">{workflow.assigned_to}</span>
                   ) : (
                     <span className="text-muted text-sm">Unassigned</span>
                   )}
@@ -377,7 +377,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
                       key={p}
                       onClick={() => handleSetPriority(p)}
                       disabled={updating}
-                      className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                      className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
                         workflow?.priority === p
                           ? 'bg-accent text-background'
                           : 'bg-surface hover:bg-accent/20'
@@ -398,7 +398,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
                       key={status}
                       onClick={() => handleStatusChange(status)}
                       disabled={updating}
-                      className={`px-3 py-1 text-xs font-mono rounded transition-colors ${STATUS_COLORS[status]} hover:opacity-80`}
+                      className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${STATUS_COLORS[status]} hover:opacity-80`}
                     >
                       {status.toUpperCase().replace('_', ' ')}
                     </button>
@@ -409,7 +409,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
 
             {/* Comments */}
             <section className="border-t border-border pt-4">
-              <h3 className="text-xs font-mono text-muted mb-3">COMMENTS</h3>
+              <h3 className="text-xs font-theme-data text-muted mb-3">COMMENTS</h3>
 
               {/* Add Comment */}
               <div className="mb-4">
@@ -436,15 +436,15 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
                 {workflow?.history?.slice().reverse().map((event) => (
                   <div key={event.id} className="text-sm border-l-2 border-border pl-3">
                     <div className="flex items-center gap-2 text-muted">
-                      <span className="font-mono">{event.user_name || event.user_id}</span>
+                      <span className="font-theme-data">{event.user_name || event.user_id}</span>
                       <span>•</span>
                       <span>{new Date(event.timestamp).toLocaleString()}</span>
                     </div>
                     {event.event_type === 'state_change' && (
                       <div>
                         Changed status from{' '}
-                        <span className="font-mono">{event.from_state}</span> to{' '}
-                        <span className="font-mono">{event.to_state}</span>
+                        <span className="font-theme-data">{event.from_state}</span> to{' '}
+                        <span className="font-theme-data">{event.to_state}</span>
                       </div>
                     )}
                     {event.event_type === 'comment' && (

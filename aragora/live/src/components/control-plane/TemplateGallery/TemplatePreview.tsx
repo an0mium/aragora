@@ -67,7 +67,7 @@ export function TemplatePreview({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h2 className="font-mono font-medium text-lg">{template.name}</h2>
+            <h2 className="font-theme-data font-medium text-lg">{template.name}</h2>
             <p className="text-xs text-text-muted mt-1">
               {template.category} | v{template.version} | {template.steps.length} steps
             </p>
@@ -87,18 +87,18 @@ export function TemplatePreview({
             <div className="space-y-4">
               {/* Description */}
               <div>
-                <h3 className="text-sm font-mono text-acid-green mb-2">Description</h3>
+                <h3 className="text-sm font-theme-data text-[var(--accent)] mb-2">Description</h3>
                 <p className="text-sm text-text-muted">{template.description}</p>
               </div>
 
               {/* Tags */}
               <div>
-                <h3 className="text-sm font-mono text-acid-green mb-2">Tags</h3>
+                <h3 className="text-sm font-theme-data text-[var(--accent)] mb-2">Tags</h3>
                 <div className="flex flex-wrap gap-1">
                   {template.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-1 text-xs font-mono bg-bg border border-border rounded"
+                      className="px-2 py-1 text-xs font-theme-data bg-bg border border-border rounded"
                     >
                       {tag}
                     </span>
@@ -109,11 +109,11 @@ export function TemplatePreview({
               {/* Inputs */}
               {template.inputs && Object.keys(template.inputs).length > 0 && (
                 <div>
-                  <h3 className="text-sm font-mono text-acid-green mb-2">Required Inputs</h3>
+                  <h3 className="text-sm font-theme-data text-[var(--accent)] mb-2">Required Inputs</h3>
                   <div className="space-y-2">
                     {Object.entries(template.inputs).map(([key, description]) => (
                       <div key={key} className="p-2 bg-bg rounded border border-border">
-                        <div className="font-mono text-sm text-acid-cyan">{key}</div>
+                        <div className="font-theme-data text-sm text-[var(--acid-cyan)]">{key}</div>
                         <div className="text-xs text-text-muted">{description}</div>
                       </div>
                     ))}
@@ -124,11 +124,11 @@ export function TemplatePreview({
               {/* Outputs */}
               {template.outputs && Object.keys(template.outputs).length > 0 && (
                 <div>
-                  <h3 className="text-sm font-mono text-acid-green mb-2">Outputs</h3>
+                  <h3 className="text-sm font-theme-data text-[var(--accent)] mb-2">Outputs</h3>
                   <div className="space-y-2">
                     {Object.entries(template.outputs).map(([key, description]) => (
                       <div key={key} className="p-2 bg-bg rounded border border-border">
-                        <div className="font-mono text-sm text-success">{key}</div>
+                        <div className="font-theme-data text-sm text-success">{key}</div>
                         <div className="text-xs text-text-muted">{description}</div>
                       </div>
                     ))}
@@ -139,14 +139,14 @@ export function TemplatePreview({
 
             {/* Right Column - Workflow Steps */}
             <div>
-              <h3 className="text-sm font-mono text-acid-green mb-3">Workflow Steps</h3>
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">Workflow Steps</h3>
 
               {/* Step Type Summary */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {Object.entries(stepsByType).map(([type, steps]) => (
                   <div
                     key={type}
-                    className="px-2 py-1 rounded text-xs font-mono flex items-center gap-1"
+                    className="px-2 py-1 rounded text-xs font-theme-data flex items-center gap-1"
                     style={{ backgroundColor: `${STEP_TYPE_COLORS[type]}20` }}
                   >
                     <span
@@ -178,11 +178,11 @@ export function TemplatePreview({
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-text-muted">
+                          <span className="text-xs font-theme-data text-text-muted">
                             {String(index + 1).padStart(2, '0')}
                           </span>
                           <div>
-                            <div className="font-mono text-sm">{step.name}</div>
+                            <div className="font-theme-data text-sm">{step.name}</div>
                             <div
                               className="text-xs"
                               style={{ color: STEP_TYPE_COLORS[step.step_type] }}
@@ -204,7 +204,7 @@ export function TemplatePreview({
 
               {/* Flow Legend */}
               <div className="mt-4 p-3 bg-bg rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-2">Step Types</div>
+                <div className="text-xs font-theme-data text-text-muted mb-2">Step Types</div>
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(STEP_TYPE_LABELS).map(([type, label]) => (
                     <div key={type} className="flex items-center gap-2 text-xs">
@@ -226,7 +226,7 @@ export function TemplatePreview({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-mono border border-border rounded hover:border-text-muted transition-colors"
+              className="px-4 py-2 text-sm font-theme-data border border-border rounded hover:border-text-muted transition-colors"
             >
               Close
             </button>
@@ -235,7 +235,7 @@ export function TemplatePreview({
                 onInstantiate?.(template);
                 onClose();
               }}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
             >
               Use This Template
             </button>

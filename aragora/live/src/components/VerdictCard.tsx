@@ -137,9 +137,9 @@ export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
       {events.filter((e) => e.type === 'hollow_consensus').length > 0 && (
         <div className="mx-4 mt-3 p-3 border border-acid-yellow/50 bg-acid-yellow/10 rounded">
           <div className="flex items-center gap-2">
-            <span className="text-acid-yellow font-mono text-sm font-bold">[!] HOLLOW CONSENSUS</span>
+            <span className="text-[var(--acid-yellow)] font-theme-data text-sm font-bold">[!] HOLLOW CONSENSUS</span>
           </div>
-          <p className="text-xs font-mono text-acid-yellow/80 mt-1">
+          <p className="text-xs font-theme-data text-[var(--acid-yellow)]/80 mt-1">
             Agents may have converged superficially without genuine agreement. Review individual positions carefully.
           </p>
         </div>
@@ -168,14 +168,14 @@ export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
         <div className="flex items-center gap-4 mb-4">
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-muted">Confidence:</span>
-            <span className={`text-sm font-mono font-bold ${confidenceColor}`}>
+            <span className={`text-sm font-theme-data font-bold ${confidenceColor}`}>
               {Math.round(verdict.confidence * 100)}%
             </span>
           </div>
           {verdict.grounding > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-muted">Evidence:</span>
-              <span className={`text-sm font-mono font-bold ${groundingColor}`}>
+              <span className={`text-sm font-theme-data font-bold ${groundingColor}`}>
                 {Math.round(verdict.grounding * 100)}%
               </span>
             </div>
@@ -183,7 +183,7 @@ export function VerdictCard({ events, debateId, apiUrl }: VerdictCardProps) {
           {verdict.citationCount > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-muted">📚</span>
-              <span className="text-sm font-mono text-text">
+              <span className="text-sm font-theme-data text-text">
                 {verdict.citationCount}
               </span>
             </div>

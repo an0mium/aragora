@@ -629,7 +629,7 @@ export function TrainingExportPanel() {
                       className="flex items-center justify-between p-3 bg-slate-800 rounded"
                     >
                       <div>
-                        <p className="text-white text-sm font-mono">{file.name}</p>
+                        <p className="text-white text-sm font-theme-data">{file.name}</p>
                         <p className="text-slate-400 text-xs">
                           {(file.size_bytes / 1024).toFixed(1)} KB
                         </p>

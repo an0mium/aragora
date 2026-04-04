@@ -257,10 +257,10 @@ export default function FeaturesPage() {
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} FEATURE DISCOVERY
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Explore the full capabilities of the Aragora Decision Integrity Platform.
             </p>
           </div>
@@ -268,34 +268,34 @@ export default function FeaturesPage() {
           {/* Stats */}
           <div className="grid grid-cols-3 md:grid-cols-4 gap-3 mb-6">
             <div className="p-3 bg-surface border border-border text-center">
-              <div className="text-xl font-mono text-acid-green">{totalFeatures}</div>
-              <div className="text-[10px] font-mono text-text-muted">Total Features</div>
+              <div className="text-xl font-theme-data text-[var(--accent)]">{totalFeatures}</div>
+              <div className="text-[10px] font-theme-data text-text-muted">Total Features</div>
             </div>
             <div className="p-3 bg-surface border border-border text-center">
-              <div className="text-xl font-mono text-emerald-400">{activeCount}</div>
-              <div className="text-[10px] font-mono text-text-muted">Active</div>
+              <div className="text-xl font-theme-data text-emerald-400">{activeCount}</div>
+              <div className="text-[10px] font-theme-data text-text-muted">Active</div>
             </div>
             <div className="p-3 bg-surface border border-border text-center">
-              <div className="text-xl font-mono text-amber-400">{betaCount}</div>
-              <div className="text-[10px] font-mono text-text-muted">Beta</div>
+              <div className="text-xl font-theme-data text-amber-400">{betaCount}</div>
+              <div className="text-[10px] font-theme-data text-text-muted">Beta</div>
             </div>
             <div className="hidden md:block p-3 bg-surface border border-border text-center">
-              <div className="text-xl font-mono text-blue-400">{CATEGORIES.length}</div>
-              <div className="text-[10px] font-mono text-text-muted">Categories</div>
+              <div className="text-xl font-theme-data text-blue-400">{CATEGORIES.length}</div>
+              <div className="text-[10px] font-theme-data text-text-muted">Categories</div>
             </div>
             {backendFeatures && (
               <div className="p-3 bg-surface border border-border text-center">
-                <div className="text-xl font-mono text-acid-cyan">{backendAvailableCount}</div>
-                <div className="text-[10px] font-mono text-text-muted">Backend Ready</div>
+                <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{backendAvailableCount}</div>
+                <div className="text-[10px] font-theme-data text-text-muted">Backend Ready</div>
               </div>
             )}
           </div>
 
           {/* Backend Feature Status */}
           {!featuresLoading && backendFeatures && (
-            <div className="mb-4 p-3 border border-acid-cyan/30 bg-acid-cyan/5 flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-acid-cyan animate-pulse" />
-              <span className="text-xs font-mono text-acid-cyan">
+            <div className="mb-4 p-3 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+              <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
                 Backend connected: {backendAvailableCount} features available, {backendUnavailableCount} unavailable
               </span>
             </div>
@@ -308,16 +308,16 @@ export default function FeaturesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search features..."
-              className="flex-1 min-w-[200px] px-3 py-2 bg-surface border border-border text-text font-mono text-sm focus:border-acid-green focus:outline-none"
+              className="flex-1 min-w-[200px] px-3 py-2 bg-surface border border-border text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none"
             />
             <div className="flex gap-1">
               {(['all', 'active', 'available', 'beta'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setFilter(s)}
-                  className={`px-3 py-2 text-xs font-mono transition-colors ${
+                  className={`px-3 py-2 text-xs font-theme-data transition-colors ${
                     filter === s
-                      ? 'bg-acid-green text-bg'
+                      ? 'bg-[var(--accent)] text-bg'
                       : 'text-text-muted hover:text-text border border-border'
                   }`}
                 >
@@ -332,10 +332,10 @@ export default function FeaturesPage() {
             {filteredCategories.map((category) => (
               <section key={category.id} className="bg-surface border border-border">
                 <div className="p-4 border-b border-border">
-                  <h2 className="text-sm font-mono text-acid-green font-bold uppercase">
+                  <h2 className="text-sm font-theme-data text-[var(--accent)] font-bold uppercase">
                     {'>'} {category.title}
                   </h2>
-                  <p className="text-xs font-mono text-text-muted mt-1">{category.description}</p>
+                  <p className="text-xs font-theme-data text-text-muted mt-1">{category.description}</p>
                 </div>
                 <div className="divide-y divide-border">
                   {category.features.map((feature) => {
@@ -348,30 +348,30 @@ export default function FeaturesPage() {
                       <div className="p-3 flex items-center justify-between hover:bg-bg/50 transition-colors">
                         <div className="flex-1 min-w-0 mr-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-mono text-text">{feature.name}</span>
-                            <span className={`px-1.5 py-0.5 text-[10px] font-mono ${style.bg} ${style.text} border border-current/20`}>
+                            <span className="text-sm font-theme-data text-text">{feature.name}</span>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-theme-data ${style.bg} ${style.text} border border-current/20`}>
                               {style.label}
                             </span>
                             {backendReady === true && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20" title={backendInfo?.description || 'Available on backend'}>
+                              <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/20" title={backendInfo?.description || 'Available on backend'}>
                                 LIVE
                               </span>
                             )}
                             {backendReady === false && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-text-muted/10 text-text-muted border border-text-muted/20" title={backendInfo?.reason || 'Not available on backend'}>
+                              <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-text-muted/10 text-text-muted border border-text-muted/20" title={backendInfo?.reason || 'Not available on backend'}>
                                 OFFLINE
                               </span>
                             )}
                           </div>
-                          <p className="text-xs font-mono text-text-muted mt-0.5 truncate">
+                          <p className="text-xs font-theme-data text-text-muted mt-0.5 truncate">
                             {backendInfo?.description || feature.description}
                           </p>
                           {backendInfo?.reason && (
-                            <p className="text-[10px] font-mono text-acid-yellow mt-0.5">{backendInfo.reason}</p>
+                            <p className="text-[10px] font-theme-data text-[var(--acid-yellow)] mt-0.5">{backendInfo.reason}</p>
                           )}
                         </div>
                         {feature.href && (
-                          <span className="text-xs font-mono text-acid-green/60 flex-shrink-0">
+                          <span className="text-xs font-theme-data text-[var(--accent)]/60 flex-shrink-0">
                             {'->'}
                           </span>
                         )}
@@ -393,14 +393,14 @@ export default function FeaturesPage() {
           </div>
 
           {filteredCategories.length === 0 && (
-            <div className="text-center py-12 text-text-muted font-mono">
+            <div className="text-center py-12 text-text-muted font-theme-data">
               No features match your search.
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
           <p className="text-text-muted">{'>'} ARAGORA // FEATURE DISCOVERY</p>
         </footer>
       </main>

@@ -167,7 +167,7 @@ export default function OrganizationMembersPage() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'owner': return 'text-warning border-warning/30 bg-warning/10';
-      case 'admin': return 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10';
+      case 'admin': return 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10';
       default: return 'text-text-muted border-text-muted/30';
     }
   };
@@ -179,14 +179,14 @@ export default function OrganizationMembersPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <Link
               href="/"
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
             >
               [DASHBOARD]
             </Link>
@@ -196,29 +196,29 @@ export default function OrganizationMembersPage() {
         {/* Content */}
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-mono text-acid-green">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)]">
               ORGANIZATION SETTINGS
             </h1>
           </div>
 
           {/* Sub-navigation */}
-          <div className="flex gap-4 mb-6 border-b border-acid-green/30">
+          <div className="flex gap-4 mb-6 border-b border-[var(--accent)]/30">
             <Link
               href="/organization"
-              className="pb-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              className="pb-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
             >
               SETTINGS
             </Link>
             <Link
               href="/organization/members"
-              className="pb-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+              className="pb-2 font-theme-data text-sm text-[var(--accent)] border-b-2 border-[var(--accent)]"
             >
               MEMBERS
             </Link>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
               {error}
               <button onClick={() => setError(null)} className="ml-4 text-xs underline">
                 Dismiss
@@ -227,7 +227,7 @@ export default function OrganizationMembersPage() {
           )}
 
           {inviteSuccess && (
-            <div className="mb-6 p-4 border border-acid-green/50 bg-acid-green/10 text-acid-green text-sm font-mono">
+            <div className="mb-6 p-4 border border-[var(--accent)]/50 bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-theme-data">
               {inviteSuccess}
               <button onClick={() => setInviteSuccess(null)} className="ml-4 text-xs underline">
                 Dismiss
@@ -236,15 +236,15 @@ export default function OrganizationMembersPage() {
           )}
 
           {loading ? (
-            <div className="text-center py-12 font-mono text-text-muted">
+            <div className="text-center py-12 font-theme-data text-text-muted">
               Loading members...
             </div>
           ) : (
             <div className="space-y-6">
               {/* Invite Form - Admin/Owner Only */}
               {isAdmin && (
-                <div className="border border-acid-green/30 bg-surface/30 p-6">
-                  <h2 className="text-lg font-mono text-acid-cyan mb-4">INVITE MEMBER</h2>
+                <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                  <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">INVITE MEMBER</h2>
                   <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                       <label htmlFor="invite-email" className="sr-only">Email address</label>
@@ -255,7 +255,7 @@ export default function OrganizationMembersPage() {
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="email@example.com"
                         aria-label="Email address to invite"
-                        className="w-full bg-bg border border-acid-green/30 px-4 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+                        className="w-full bg-bg border border-[var(--accent)]/30 px-4 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
                         required
                       />
                     </div>
@@ -266,7 +266,7 @@ export default function OrganizationMembersPage() {
                         value={inviteRole}
                         onChange={(e) => setInviteRole(e.target.value as 'admin' | 'member')}
                         aria-label="Role for invited member"
-                        className="bg-bg border border-acid-green/30 px-4 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+                        className="bg-bg border border-[var(--accent)]/30 px-4 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
                       >
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
@@ -275,13 +275,13 @@ export default function OrganizationMembersPage() {
                     <button
                       type="submit"
                       disabled={inviting || !inviteEmail.trim()}
-                      className="px-6 py-2 font-mono text-sm border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+                      className="px-6 py-2 font-theme-data text-sm border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
                     >
                       {inviting ? 'SENDING...' : 'INVITE'}
                     </button>
                   </form>
                   {orgDetails && (
-                    <div className="mt-3 text-xs font-mono text-text-muted">
+                    <div className="mt-3 text-xs font-theme-data text-text-muted">
                       {members.length} / {orgDetails.member_limit === 999999 ? 'Unlimited' : orgDetails.member_limit} members
                     </div>
                   )}
@@ -289,13 +289,13 @@ export default function OrganizationMembersPage() {
               )}
 
               {/* Member List */}
-              <div className="border border-acid-green/30 bg-surface/30 p-6">
-                <h2 className="text-lg font-mono text-acid-cyan mb-4">
+              <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                   MEMBERS ({members.length})
                 </h2>
 
                 {members.length === 0 ? (
-                  <div className="text-center py-8 font-mono text-text-muted">
+                  <div className="text-center py-8 font-theme-data text-text-muted">
                     No members found
                   </div>
                 ) : (
@@ -303,15 +303,15 @@ export default function OrganizationMembersPage() {
                     {members.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-4 border border-acid-green/20 hover:border-acid-green/40 transition-colors"
+                        className="flex items-center justify-between p-4 border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors"
                       >
                         <div className="flex items-center gap-4">
                           <div>
-                            <div className="font-mono text-sm text-text">
+                            <div className="font-theme-data text-sm text-text">
                               {member.name || member.email}
                             </div>
                             {member.name && (
-                              <div className="text-xs font-mono text-text-muted">
+                              <div className="text-xs font-theme-data text-text-muted">
                                 {member.email}
                               </div>
                             )}
@@ -319,7 +319,7 @@ export default function OrganizationMembersPage() {
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <span className={`px-2 py-1 border font-mono text-xs uppercase ${getRoleBadgeColor(member.role)}`}>
+                          <span className={`px-2 py-1 border font-theme-data text-xs uppercase ${getRoleBadgeColor(member.role)}`}>
                             {member.role}
                           </span>
 
@@ -328,7 +328,7 @@ export default function OrganizationMembersPage() {
                             <select
                               value={member.role}
                               onChange={(e) => handleRoleChange(member.id, e.target.value as 'admin' | 'member')}
-                              className="bg-bg border border-acid-green/30 px-2 py-1 font-mono text-xs text-text focus:border-acid-green focus:outline-none"
+                              className="bg-bg border border-[var(--accent)]/30 px-2 py-1 font-theme-data text-xs text-text focus:border-[var(--accent)] focus:outline-none"
                               aria-label={`Change role for ${member.email}`}
                             >
                               <option value="member">Member</option>
@@ -340,7 +340,7 @@ export default function OrganizationMembersPage() {
                           {isAdmin && member.role !== 'owner' && member.id !== user?.id && (
                             <button
                               onClick={() => handleRemoveMember(member.id, member.email)}
-                              className="text-xs font-mono text-warning hover:text-warning/80 transition-colors"
+                              className="text-xs font-theme-data text-warning hover:text-warning/80 transition-colors"
                               aria-label={`Remove ${member.email} from organization`}
                             >
                               [REMOVE]
@@ -348,7 +348,7 @@ export default function OrganizationMembersPage() {
                           )}
 
                           {member.id === user?.id && (
-                            <span className="text-xs font-mono text-acid-cyan">(you)</span>
+                            <span className="text-xs font-theme-data text-[var(--acid-cyan)]">(you)</span>
                           )}
                         </div>
                       </div>
@@ -358,11 +358,11 @@ export default function OrganizationMembersPage() {
               </div>
 
               {/* Info Box */}
-              <div className="border border-acid-green/20 bg-surface/20 p-4">
-                <h3 className="text-sm font-mono text-acid-cyan mb-2">ROLE PERMISSIONS</h3>
-                <div className="space-y-1 text-xs font-mono text-text-muted">
+              <div className="border border-[var(--accent)]/20 bg-surface/20 p-4">
+                <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">ROLE PERMISSIONS</h3>
+                <div className="space-y-1 text-xs font-theme-data text-text-muted">
                   <div><span className="text-warning">Owner:</span> Full access, billing, delete organization</div>
-                  <div><span className="text-acid-cyan">Admin:</span> Manage members, settings, create debates</div>
+                  <div><span className="text-[var(--acid-cyan)]">Admin:</span> Manage members, settings, create debates</div>
                   <div><span className="text-text">Member:</span> View organization, participate in debates</div>
                 </div>
               </div>

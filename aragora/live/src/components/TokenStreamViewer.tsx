@@ -209,7 +209,7 @@ export function TokenStreamViewer({ events, agents = [] }: TokenStreamViewerProp
           {activeStreamers.map((stat) => (
             <div key={stat.agent} className="mb-2">
               <span className="text-xs font-medium text-text-primary">{stat.agent}:</span>
-              <p className="text-xs text-text-muted mt-1 line-clamp-2 font-mono">
+              <p className="text-xs text-text-muted mt-1 line-clamp-2 font-theme-data">
                 {stat.currentContent.slice(-200) || '...'}
                 <span className="animate-pulse">|</span>
               </p>

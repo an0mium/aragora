@@ -202,7 +202,7 @@ export function RedTeamAnalysisPanel({
           </h3>
           <div className="flex items-center gap-2">
             {hasResult && (
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {findingsCount} vulnerabilities
               </span>
             )}
@@ -435,7 +435,7 @@ export function RedTeamAnalysisPanel({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center">
                 <span className="text-zinc-500 dark:text-zinc-400 text-xs">Probes Run</span>
-                <p className="text-2xl font-bold text-acid-cyan">{probeResult.probes_run}</p>
+                <p className="text-2xl font-bold text-[var(--acid-cyan)]">{probeResult.probes_run}</p>
               </div>
               <div className="text-center">
                 <span className="text-zinc-500 dark:text-zinc-400 text-xs">Passed</span>
@@ -554,7 +554,7 @@ export function RedTeamAnalysisPanel({
         </div>
       )}
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Adversarial red team analysis for debate robustness
       </div>
     </div>

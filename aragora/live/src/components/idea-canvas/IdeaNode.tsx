@@ -22,7 +22,7 @@ export const IdeaNode = memo(function IdeaNode({
         ${selected ? 'ring-2 ring-[var(--acid-green)] ring-offset-2 ring-offset-[var(--bg)]' : ''}
         ${data.lockedBy ? 'opacity-70' : ''}
         ${data.promotedToGoalId ? 'border-dashed' : ''}
-        font-mono transition-all
+        font-theme-data transition-all
       `}
     >
       <Handle type="target" position={Position.Top} className="!bg-[var(--text-muted)]" />

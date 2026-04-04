@@ -124,22 +124,22 @@ export function MultiAgentAnalysis({
   };
 
   return (
-    <div className="border border-acid-cyan/30 bg-surface/50 rounded p-3 mt-3">
+    <div className="border border-[var(--acid-cyan)]/30 bg-surface/50 rounded p-3 mt-3">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-acid-cyan font-mono text-xs">Multi-Agent Analysis</h4>
+        <h4 className="text-[var(--acid-cyan)] font-theme-data text-xs">Multi-Agent Analysis</h4>
         {!result && !isAnalyzing && (
           <div className="flex items-center gap-2">
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as 'fast' | 'thorough')}
-              className="px-2 py-1 text-xs font-mono bg-bg border border-acid-cyan/30 text-text rounded"
+              className="px-2 py-1 text-xs font-theme-data bg-bg border border-[var(--acid-cyan)]/30 text-text rounded"
             >
               <option value="fast">Fast (2 rounds)</option>
               <option value="thorough">Thorough (5 rounds)</option>
             </select>
             <button
               onClick={runAnalysis}
-              className="px-3 py-1 text-xs font-mono bg-acid-cyan/10 border border-acid-cyan/40 text-acid-cyan hover:bg-acid-cyan/20 rounded"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 rounded"
             >
               Analyze
             </button>
@@ -149,7 +149,7 @@ export function MultiAgentAnalysis({
 
       {isAnalyzing && (
         <div className="text-center py-4">
-          <div className="animate-pulse text-acid-cyan text-sm font-mono mb-2">
+          <div className="animate-pulse text-[var(--acid-cyan)] text-sm font-theme-data mb-2">
             Running multi-agent debate...
           </div>
           <div className="text-text-muted text-xs">
@@ -159,7 +159,7 @@ export function MultiAgentAnalysis({
       )}
 
       {error && (
-        <div className="text-red-400 text-xs font-mono py-2">
+        <div className="text-red-400 text-xs font-theme-data py-2">
           {error}
           <button
             onClick={runAnalysis}
@@ -174,31 +174,31 @@ export function MultiAgentAnalysis({
         <div className="space-y-3">
           {/* Priority & Category */}
           <div className="flex items-center gap-3">
-            <span className={`px-2 py-1 text-xs font-mono rounded ${getPriorityColor(result.priority)}`}>
+            <span className={`px-2 py-1 text-xs font-theme-data rounded ${getPriorityColor(result.priority)}`}>
               {result.priority.toUpperCase()}
             </span>
-            <span className="px-2 py-1 text-xs font-mono bg-purple-500/10 border border-purple-500/30 text-purple-400 rounded">
+            <span className="px-2 py-1 text-xs font-theme-data bg-purple-500/10 border border-purple-500/30 text-purple-400 rounded">
               {getCategoryIcon(result.category)} {result.category.replace('_', ' ')}
             </span>
-            <span className="text-xs text-text-muted font-mono">
+            <span className="text-xs text-text-muted font-theme-data">
               {Math.round(result.confidence * 100)}% confidence
             </span>
           </div>
 
           {/* Reasoning */}
           <div>
-            <span className="text-acid-cyan text-xs font-mono">Reasoning:</span>
+            <span className="text-[var(--acid-cyan)] text-xs font-theme-data">Reasoning:</span>
             <p className="text-text-muted text-xs mt-1">{result.reasoning}</p>
           </div>
 
           {/* Action Items */}
           {result.action_items.length > 0 && (
             <div>
-              <span className="text-acid-cyan text-xs font-mono">Action Items:</span>
+              <span className="text-[var(--acid-cyan)] text-xs font-theme-data">Action Items:</span>
               <ul className="mt-1 space-y-1">
                 {result.action_items.map((item, i) => (
                   <li key={i} className="text-text-muted text-xs flex items-start gap-1">
-                    <span className="text-acid-green">-</span>
+                    <span className="text-[var(--accent)]">-</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -209,11 +209,11 @@ export function MultiAgentAnalysis({
           {/* Suggested Labels */}
           {result.suggested_labels.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-acid-cyan text-xs font-mono">Labels:</span>
+              <span className="text-[var(--acid-cyan)] text-xs font-theme-data">Labels:</span>
               {result.suggested_labels.map((label) => (
                 <span
                   key={label}
-                  className="px-1.5 py-0.5 text-xs bg-acid-green/10 border border-acid-green/20 text-acid-green rounded"
+                  className="px-1.5 py-0.5 text-xs bg-[var(--accent)]/10 border border-[var(--accent)]/20 text-[var(--accent)] rounded"
                 >
                   {label}
                 </span>
@@ -238,7 +238,7 @@ export function MultiAgentAnalysis({
           )}
 
           {/* Meta Info */}
-          <div className="text-text-muted text-xs font-mono pt-2 border-t border-acid-cyan/20">
+          <div className="text-text-muted text-xs font-theme-data pt-2 border-t border-[var(--acid-cyan)]/20">
             <span>Analysis took {result.duration_seconds.toFixed(2)}s</span>
             {result.sender_reputation !== null && (
               <span className="ml-4">
@@ -258,7 +258,7 @@ export function MultiAgentAnalysis({
               setResult(null);
               runAnalysis();
             }}
-            className="text-xs text-acid-cyan/70 hover:text-acid-cyan underline"
+            className="text-xs text-[var(--acid-cyan)]/70 hover:text-[var(--acid-cyan)] underline"
           >
             Re-analyze
           </button>

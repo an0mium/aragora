@@ -297,7 +297,7 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
       {/* 5. Receipt row — omitted entirely when receipt_hash is null */}
       {result.receipt_hash && (
         <p
-          className="text-xs font-mono"
+          className="text-xs font-theme-data"
           style={{ color: 'var(--text-muted)' }}
         >
           {result.receipt_hash.slice(0, 16)}…

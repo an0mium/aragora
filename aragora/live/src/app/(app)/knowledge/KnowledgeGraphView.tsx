@@ -273,7 +273,7 @@ export function KnowledgeGraphView({
           <p className="text-text-muted text-sm">{error}</p>
           <button
             onClick={fetchGraphData}
-            className="mt-3 px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"
+            className="mt-3 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] text-sm font-theme-data rounded hover:bg-[var(--accent)]/30"
           >
             Retry
           </button>
@@ -286,13 +286,13 @@ export function KnowledgeGraphView({
     <div className="relative">
       {/* Graph header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           {filteredNodes.length} nodes • {filteredEdges.length} relationships
         </div>
         <button
           onClick={fetchGraphData}
           disabled={loading}
-          className="px-3 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/20 rounded disabled:opacity-50"
+          className="px-3 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded disabled:opacity-50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -320,7 +320,7 @@ export function KnowledgeGraphView({
             if (!hoveredNode) return null;
             return (
               <>
-                <div className="text-xs font-mono text-acid-green mb-1">
+                <div className="text-xs font-theme-data text-[var(--accent)] mb-1">
                   {hoveredNode.node_type.toUpperCase()}
                 </div>
                 <div className="text-xs text-text line-clamp-2">{hoveredNode.content}</div>

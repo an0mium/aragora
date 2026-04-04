@@ -85,7 +85,7 @@ export function AgentCard({
   // Calibration score color (higher is better)
   const getCalibrationColor = (score: number) => {
     if (score >= 0.8) return 'text-green-400';
-    if (score >= 0.6) return 'text-acid-cyan';
+    if (score >= 0.6) return 'text-[var(--acid-cyan)]';
     if (score >= 0.4) return 'text-yellow-400';
     return 'text-red-400';
   };
@@ -96,7 +96,7 @@ export function AgentCard({
         onClick={handleClick}
         className={`flex items-center gap-3 p-3 rounded border transition-colors cursor-pointer ${
           selected
-            ? 'border-acid-green bg-acid-green/10'
+            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
             : 'border-border hover:border-text-muted'
         }`}
       >
@@ -105,13 +105,13 @@ export function AgentCard({
 
         {/* Name and model */}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-mono text-text truncate">{agent.name}</div>
+          <div className="text-sm font-theme-data text-text truncate">{agent.name}</div>
           <div className="text-xs text-text-muted truncate">{agent.model}</div>
         </div>
 
         {/* ELO if available */}
         {agent.elo !== undefined && (
-          <div className="text-xs text-acid-green font-mono">{agent.elo}</div>
+          <div className="text-xs text-[var(--accent)] font-theme-data">{agent.elo}</div>
         )}
       </div>
     );
@@ -122,7 +122,7 @@ export function AgentCard({
       onClick={handleClick}
       className={`p-4 rounded-lg border transition-all cursor-pointer ${
         selected
-          ? 'border-acid-green bg-acid-green/10 shadow-lg shadow-acid-green/20'
+          ? 'border-[var(--accent)] bg-[var(--accent)]/10 shadow-lg shadow-acid-green/20'
           : 'border-border hover:border-text-muted hover:bg-surface/50'
       }`}
     >
@@ -130,7 +130,7 @@ export function AgentCard({
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <h4 className="text-sm font-mono text-text truncate">{agent.name}</h4>
+            <h4 className="text-sm font-theme-data text-text truncate">{agent.name}</h4>
             <TrustBadge calibration={agent.calibration} size="sm" />
           </div>
           <p className="text-xs text-text-muted truncate">{agent.model}</p>
@@ -172,7 +172,7 @@ export function AgentCard({
           {agent.elo !== undefined && (
             <div className="flex items-center gap-1">
               <span className="text-text-muted">ELO:</span>
-              <span className="text-acid-green font-mono">{agent.elo}</span>
+              <span className="text-[var(--accent)] font-theme-data">{agent.elo}</span>
             </div>
           )}
 
@@ -180,7 +180,7 @@ export function AgentCard({
           {agent.win_rate !== undefined && (
             <div className="flex items-center gap-1">
               <span className="text-text-muted">Win:</span>
-              <span className="text-acid-cyan font-mono">
+              <span className="text-[var(--acid-cyan)] font-theme-data">
                 {Math.round(agent.win_rate * 100)}%
               </span>
             </div>
@@ -190,7 +190,7 @@ export function AgentCard({
           {agent.calibration_score !== undefined && (
             <div className="flex items-center gap-1">
               <span className="text-text-muted">Cal:</span>
-              <span className={`font-mono ${getCalibrationColor(agent.calibration_score)}`}>
+              <span className={`font-theme-data ${getCalibrationColor(agent.calibration_score)}`}>
                 {Math.round(agent.calibration_score * 100)}%
               </span>
             </div>
@@ -203,7 +203,7 @@ export function AgentCard({
           {onViewCalibration && (
             <button
               onClick={handleViewCalibration}
-              className="text-text-muted hover:text-acid-cyan transition-colors"
+              className="text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
               title="View calibration curve"
             >
               📊
@@ -214,7 +214,7 @@ export function AgentCard({
           {onConfigure && (
             <button
               onClick={handleConfigure}
-              className="text-text-muted hover:text-acid-green transition-colors"
+              className="text-text-muted hover:text-[var(--accent)] transition-colors"
               title="Configure agent"
             >
               ⚙

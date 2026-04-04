@@ -173,6 +173,61 @@ class TestListReceipts:
         response = client.get("/api/v2/receipts?verdict=APPROVED")
         assert response.status_code == 200
 
+    def test_list_receipts_forwards_debate_id_filter(self, app, sample_stored_receipt):
+        """List receipts forwards debate_id filtering to durable stores."""
+
+        calls: dict[str, dict[str, object]] = {}
+
+        class StorageBackedStore:
+            def list(self, **kwargs):
+                calls["list"] = kwargs
+                return [sample_stored_receipt]
+
+            def count(self, **kwargs):
+                calls["count"] = kwargs
+                return 1
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": StorageBackedStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
+        assert response.status_code == 200
+        assert calls["list"]["debate_id"] == "debate-123"
+        assert calls["count"]["debate_id"] == "debate-123"
+
+    def test_list_receipts_filters_list_all_fallback_by_debate_id(self, app):
+        """List-all fallback should still respect debate_id filtering."""
+
+        class ListAllStore:
+            def list_all(self):
+                return [
+                    {"receipt_id": "receipt-1", "debate_id": "debate-123", "verdict": "APPROVED"},
+                    {"receipt_id": "receipt-2", "debate_id": "debate-999", "verdict": "APPROVED"},
+                ]
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": ListAllStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert [receipt["receipt_id"] for receipt in data["receipts"]] == ["receipt-1"]
+
     def test_list_receipts_with_data(self, client, mock_receipt_store, sample_receipt_dict):
         """List receipts returns receipt summaries."""
         mock_receipt_store.list_recent.return_value = [sample_receipt_dict]

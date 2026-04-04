@@ -136,24 +136,24 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-mono text-acid-green mb-2">
+              <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
                 {currentStep.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </h2>
-              <p className="font-mono text-text-muted text-sm">
+              <p className="font-theme-data text-text-muted text-sm">
                 Continue setting up your Aragora experience
               </p>
             </div>
             <div className="flex gap-3 pt-4">
               <button
                 onClick={previousStep}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/30 text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 Back
               </button>
               <div className="flex-1" />
               <button
                 onClick={nextStep}
-                className="px-6 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+                className="px-6 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
               >
                 Continue
               </button>
@@ -165,25 +165,25 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-bg/95 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="max-w-lg w-full border border-acid-green/50 bg-surface p-6">
+      <div className="max-w-lg w-full border border-[var(--accent)]/50 bg-surface p-6">
         {/* Progress Bar */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               STEP {stepIndex + 1} OF {totalSteps}
             </span>
             {currentStep !== 'completion' && (
               <button
                 onClick={handleSkip}
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [SKIP]
               </button>
             )}
           </div>
-          <div className="h-1 bg-surface border border-acid-green/20">
+          <div className="h-1 bg-surface border border-[var(--accent)]/20">
             <div
-              className="h-full bg-acid-green transition-all duration-300"
+              className="h-full bg-[var(--accent)] transition-all duration-300"
               style={{ width: `${percentage}%` }}
             />
           </div>
@@ -199,10 +199,10 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
               key={idx}
               className={`w-2 h-2 transition-colors ${
                 idx === stepIndex
-                  ? 'bg-acid-green'
+                  ? 'bg-[var(--accent)]'
                   : idx < stepIndex
-                  ? 'bg-acid-green/50'
-                  : 'bg-surface border border-acid-green/30'
+                  ? 'bg-[var(--accent)]/50'
+                  : 'bg-surface border border-[var(--accent)]/30'
               }`}
             />
           ))}

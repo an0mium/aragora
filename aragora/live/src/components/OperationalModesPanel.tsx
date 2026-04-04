@@ -94,7 +94,7 @@ export function OperationalModesPanel({
           </h3>
           <div className="flex items-center gap-2">
             {categories.length > 0 && (
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {categories.length} categories
               </span>
             )}
@@ -244,7 +244,7 @@ export function OperationalModesPanel({
         )}
       </div>
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Available debate and operational mode configurations
       </div>
     </div>

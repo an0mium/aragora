@@ -68,13 +68,13 @@ export function TrainingConfig({
 
   return (
     <div className={`bg-bg border border-border rounded-lg p-4 ${className}`}>
-      <h4 className="font-mono font-bold text-text mb-4">Training Configuration</h4>
+      <h4 className="font-theme-data font-bold text-text mb-4">Training Configuration</h4>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Basic Settings */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">
+            <label className="block text-xs font-theme-data text-text-muted mb-1">
               JOB NAME
             </label>
             <input
@@ -82,19 +82,19 @@ export function TrainingConfig({
               value={params.jobName}
               onChange={(e) => updateParam('jobName', e.target.value)}
               required
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               placeholder="my_specialist_model"
             />
           </div>
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">
+            <label className="block text-xs font-theme-data text-text-muted mb-1">
               DATASET PATH / ID
             </label>
             <input
               type="text"
               value={params.datasetPath}
               onChange={(e) => updateParam('datasetPath', e.target.value)}
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               placeholder="/data/training.jsonl or HF dataset"
             />
           </div>
@@ -102,13 +102,13 @@ export function TrainingConfig({
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">
+            <label className="block text-xs font-theme-data text-text-muted mb-1">
               EPOCHS
             </label>
             <select
               value={params.numEpochs}
               onChange={(e) => updateParam('numEpochs', Number(e.target.value))}
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             >
               <option value={1}>1</option>
               <option value={2}>2</option>
@@ -118,13 +118,13 @@ export function TrainingConfig({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">
+            <label className="block text-xs font-theme-data text-text-muted mb-1">
               BATCH SIZE
             </label>
             <select
               value={params.batchSize}
               onChange={(e) => updateParam('batchSize', Number(e.target.value))}
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             >
               <option value={1}>1</option>
               <option value={2}>2</option>
@@ -134,13 +134,13 @@ export function TrainingConfig({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">
+            <label className="block text-xs font-theme-data text-text-muted mb-1">
               QUANTIZATION
             </label>
             <select
               value={params.quantization}
               onChange={(e) => updateParam('quantization', e.target.value as TrainingParameters['quantization'])}
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             >
               <option value="4bit">4-bit (QLoRA)</option>
               <option value="8bit">8-bit</option>
@@ -152,14 +152,14 @@ export function TrainingConfig({
         {/* Resource Estimate */}
         <div className="flex items-center justify-between p-3 bg-surface border border-border rounded">
           <span className="text-xs text-text-muted">Estimated VRAM:</span>
-          <span className="font-mono text-acid-green">~{estimatedVRAM()} GB</span>
+          <span className="font-theme-data text-[var(--accent)]">~{estimatedVRAM()} GB</span>
         </div>
 
         {/* Advanced Settings Toggle */}
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-2 text-xs font-mono text-text-muted hover:text-text"
+          className="flex items-center gap-2 text-xs font-theme-data text-text-muted hover:text-text"
         >
           <span>{showAdvanced ? '&#x25BC;' : '&#x25B6;'}</span>
           Advanced Settings
@@ -168,16 +168,16 @@ export function TrainingConfig({
         {/* Advanced Settings */}
         {showAdvanced && (
           <div className="space-y-4 p-4 bg-surface border border-border rounded">
-            <h5 className="font-mono text-xs text-text-muted mb-3">LoRA CONFIGURATION</h5>
+            <h5 className="font-theme-data text-xs text-text-muted mb-3">LoRA CONFIGURATION</h5>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   LoRA R
                 </label>
                 <select
                   value={params.loraR}
                   onChange={(e) => updateParam('loraR', Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value={8}>8</option>
                   <option value={16}>16</option>
@@ -186,13 +186,13 @@ export function TrainingConfig({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   LoRA Alpha
                 </label>
                 <select
                   value={params.loraAlpha}
                   onChange={(e) => updateParam('loraAlpha', Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value={16}>16</option>
                   <option value={32}>32</option>
@@ -201,13 +201,13 @@ export function TrainingConfig({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   LoRA Dropout
                 </label>
                 <select
                   value={params.loraDropout}
                   onChange={(e) => updateParam('loraDropout', Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value={0.0}>0.0</option>
                   <option value={0.05}>0.05</option>
@@ -217,10 +217,10 @@ export function TrainingConfig({
               </div>
             </div>
 
-            <h5 className="font-mono text-xs text-text-muted mt-4 mb-3">TRAINING PARAMETERS</h5>
+            <h5 className="font-theme-data text-xs text-text-muted mt-4 mb-3">TRAINING PARAMETERS</h5>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   Learning Rate
                 </label>
                 <input
@@ -230,17 +230,17 @@ export function TrainingConfig({
                   step={0.0001}
                   min={0.00001}
                   max={0.01}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   Max Sequence Length
                 </label>
                 <select
                   value={params.maxSeqLength}
                   onChange={(e) => updateParam('maxSeqLength', Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value={512}>512</option>
                   <option value={1024}>1024</option>
@@ -258,7 +258,7 @@ export function TrainingConfig({
                   onChange={(e) => updateParam('gradientCheckpointing', e.target.checked)}
                   className="rounded"
                 />
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   Gradient Checkpointing (saves memory)
                 </span>
               </label>
@@ -269,7 +269,7 @@ export function TrainingConfig({
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full px-4 py-3 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+          className="w-full px-4 py-3 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
         >
           START TRAINING
         </button>

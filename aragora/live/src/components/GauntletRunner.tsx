@@ -575,7 +575,7 @@ function ReceiptView({ receipt }: { receipt: GauntletReceipt }) {
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className="text-sm font-medium text-white">{response.agent}</span>
                   {response.llm_label && (
-                    <span className="text-xs font-mono text-cyan-300">{response.llm_label}</span>
+                    <span className="text-xs font-theme-data text-cyan-300">{response.llm_label}</span>
                   )}
                   {response.role && (
                     <span className="text-xs text-slate-400 uppercase">{response.role}</span>
@@ -598,7 +598,7 @@ function ReceiptView({ receipt }: { receipt: GauntletReceipt }) {
             {signatures.map((sig, i) => (
               <span
                 key={i}
-                className="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-slate-300"
+                className="px-2 py-1 bg-slate-700 rounded text-xs font-theme-data text-slate-300"
               >
                 {sig}
               </span>

@@ -20,16 +20,16 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const TIER_BG_CLASSES: Record<string, string> = {
-  fast: 'bg-acid-green',
-  medium: 'bg-acid-cyan',
+  fast: 'bg-[var(--accent)]',
+  medium: 'bg-[var(--acid-cyan)]',
   slow: 'bg-acid-yellow',
   glacial: 'bg-gray-500',
 };
 
 const TIER_TEXT_CLASSES: Record<string, string> = {
-  fast: 'text-acid-green',
-  medium: 'text-acid-cyan',
-  slow: 'text-acid-yellow',
+  fast: 'text-[var(--accent)]',
+  medium: 'text-[var(--acid-cyan)]',
+  slow: 'text-[var(--acid-yellow)]',
   glacial: 'text-text-muted',
 };
 
@@ -45,7 +45,7 @@ export function MemoryTierViz({ tiers, loading = false }: MemoryTierVizProps) {
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} MEMORY TIERS</h3>
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} MEMORY TIERS</h3>
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-surface rounded w-full" />
           <div className="grid grid-cols-4 gap-2">
@@ -62,13 +62,13 @@ export function MemoryTierViz({ tiers, loading = false }: MemoryTierVizProps) {
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} MEMORY TIERS</h3>
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} MEMORY TIERS</h3>
 
       {/* Stacked bar */}
-      <div className="flex h-8 rounded overflow-hidden border border-acid-green/20 mb-4">
+      <div className="flex h-8 rounded overflow-hidden border border-[var(--accent)]/20 mb-4">
         {totalCount === 0 ? (
           <div className="flex-1 bg-surface flex items-center justify-center">
-            <span className="text-text-muted text-xs font-mono">No data available</span>
+            <span className="text-text-muted text-xs font-theme-data">No data available</span>
           </div>
         ) : (
           tiers.map((tier) => {
@@ -82,7 +82,7 @@ export function MemoryTierViz({ tiers, loading = false }: MemoryTierVizProps) {
                 title={`${tier.name}: ${tier.count} entries (${pct.toFixed(1)}%)`}
               >
                 {pct > 10 && (
-                  <span className="text-bg text-xs font-mono font-bold">
+                  <span className="text-bg text-xs font-theme-data font-bold">
                     {tier.name.toUpperCase()}
                   </span>
                 )}
@@ -97,29 +97,29 @@ export function MemoryTierViz({ tiers, loading = false }: MemoryTierVizProps) {
         {tiers.map((tier) => (
           <div
             key={tier.name}
-            className="border border-acid-green/10 rounded p-3 bg-surface/30"
+            className="border border-[var(--accent)]/10 rounded p-3 bg-surface/30"
           >
             <div className="flex items-center gap-2 mb-2">
               <div
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: TIER_COLORS[tier.name] ?? '#6b7280' }}
               />
-              <span className={`font-mono text-xs uppercase ${TIER_TEXT_CLASSES[tier.name] ?? 'text-text-muted'}`}>
+              <span className={`font-theme-data text-xs uppercase ${TIER_TEXT_CLASSES[tier.name] ?? 'text-text-muted'}`}>
                 {tier.name}
               </span>
             </div>
             <div className="space-y-1">
               <div className="flex justify-between">
-                <span className="text-text-muted text-xs font-mono">Count</span>
-                <span className="text-text text-xs font-mono">{tier.count.toLocaleString()}</span>
+                <span className="text-text-muted text-xs font-theme-data">Count</span>
+                <span className="text-text text-xs font-theme-data">{tier.count.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted text-xs font-mono">Importance</span>
-                <span className="text-text text-xs font-mono">{tier.avg_importance.toFixed(2)}</span>
+                <span className="text-text-muted text-xs font-theme-data">Importance</span>
+                <span className="text-text text-xs font-theme-data">{tier.avg_importance.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted text-xs font-mono">Size</span>
-                <span className="text-text text-xs font-mono">{formatBytes(tier.size_bytes)}</span>
+                <span className="text-text-muted text-xs font-theme-data">Size</span>
+                <span className="text-text text-xs font-theme-data">{formatBytes(tier.size_bytes)}</span>
               </div>
             </div>
           </div>

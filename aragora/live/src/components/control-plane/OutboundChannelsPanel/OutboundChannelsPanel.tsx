@@ -419,19 +419,19 @@ export function OutboundChannelsPanel({
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-acid-green">{summaryStats.activeChannels}</div>
+          <div className="text-xl font-theme-data font-bold text-[var(--accent)]">{summaryStats.activeChannels}</div>
           <div className="text-xs text-text-muted">Active Channels</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-cyan-400">{summaryStats.totalSentToday}</div>
+          <div className="text-xl font-theme-data font-bold text-cyan-400">{summaryStats.totalSentToday}</div>
           <div className="text-xs text-text-muted">Sent Today</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-acid-green">{summaryStats.avgSuccessRate}%</div>
+          <div className="text-xl font-theme-data font-bold text-[var(--accent)]">{summaryStats.avgSuccessRate}%</div>
           <div className="text-xs text-text-muted">Success Rate</div>
         </div>
         <div className="bg-surface rounded p-3 text-center">
-          <div className="text-xl font-mono font-bold text-yellow-400">{summaryStats.pendingDeliveries}</div>
+          <div className="text-xl font-theme-data font-bold text-yellow-400">{summaryStats.pendingDeliveries}</div>
           <div className="text-xs text-text-muted">Pending</div>
         </div>
       </div>
@@ -442,8 +442,8 @@ export function OutboundChannelsPanel({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 px-4 py-2 text-sm font-mono rounded transition-colors ${
-              activeTab === tab.id ? 'bg-acid-green text-bg' : 'text-text-muted hover:text-text'
+            className={`flex-1 px-4 py-2 text-sm font-theme-data rounded transition-colors ${
+              activeTab === tab.id ? 'bg-[var(--accent)] text-bg' : 'text-text-muted hover:text-text'
             }`}
           >
             {tab.label}
@@ -461,7 +461,7 @@ export function OutboundChannelsPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search channels..."
-              className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
             />
 
             <div className="flex flex-wrap gap-1">
@@ -469,8 +469,8 @@ export function OutboundChannelsPanel({
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
-                    filter === f ? 'bg-acid-green text-bg' : 'bg-surface text-text-muted hover:text-text'
+                  className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
+                    filter === f ? 'bg-[var(--accent)] text-bg' : 'bg-surface text-text-muted hover:text-text'
                   }`}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)} ({filterCounts[f]})
@@ -520,19 +520,19 @@ export function OutboundChannelsPanel({
       {activeTab === 'analytics' && (
         <div className="card p-6 text-center">
           <div className="text-4xl mb-2">📊</div>
-          <h3 className="font-mono text-lg mb-2">Delivery Analytics</h3>
+          <h3 className="font-theme-data text-lg mb-2">Delivery Analytics</h3>
           <p className="text-text-muted text-sm mb-4">
             Detailed analytics and reporting for outbound channel performance.
           </p>
           <div className="grid grid-cols-2 gap-4 mt-6">
             <div className="bg-surface rounded p-4">
-              <div className="text-3xl font-mono font-bold text-acid-green mb-1">
+              <div className="text-3xl font-theme-data font-bold text-[var(--accent)] mb-1">
                 {channels.reduce((sum, c) => sum + (c.stats?.messages_sent_total || 0), 0).toLocaleString()}
               </div>
               <div className="text-sm text-text-muted">Total Messages Sent</div>
             </div>
             <div className="bg-surface rounded p-4">
-              <div className="text-3xl font-mono font-bold text-cyan-400 mb-1">
+              <div className="text-3xl font-theme-data font-bold text-cyan-400 mb-1">
                 {Math.round(
                   channels.reduce((sum, c) => sum + (c.stats?.avg_delivery_time_ms || 0), 0) /
                     Math.max(channels.filter((c) => c.stats).length, 1)

@@ -45,6 +45,8 @@ from typing import Any
 from collections.abc import Callable
 from pathlib import Path
 
+from aragora.backup.manager import get_default_backup_source_path
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -430,7 +432,7 @@ class BackupScheduler:
                 # Create backup
                 logger.info("Starting backup job %s (type=%s)", job.id, job.schedule_type.value)
 
-                backup_metadata = self._manager.create_backup()
+                backup_metadata = self._manager.create_backup(get_default_backup_source_path())
                 job.backup_id = backup_metadata.id
 
                 # Verify if requested

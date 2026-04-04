@@ -99,7 +99,7 @@ export function TemplateSelectStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-mono text-acid-green mb-2">
+        <h3 className="text-lg font-theme-data text-[var(--accent)] mb-2">
           Choose a Debate Template
         </h3>
         <p className="text-sm text-text-muted">
@@ -115,7 +115,7 @@ export function TemplateSelectStep() {
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="text-text-muted font-mono text-sm animate-pulse">
+          <span className="text-text-muted font-theme-data text-sm animate-pulse">
             Loading templates...
           </span>
         </div>
@@ -127,12 +127,12 @@ export function TemplateSelectStep() {
               onClick={() => setSelectedTemplate(template)}
               className={`p-4 border rounded-lg text-left transition-all ${
                 selectedTemplate?.id === template.id
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-acid-green/20 hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/50'
               }`}
             >
-              <div className={`font-mono text-sm mb-1 ${
-                selectedTemplate?.id === template.id ? 'text-acid-green' : 'text-text'
+              <div className={`font-theme-data text-sm mb-1 ${
+                selectedTemplate?.id === template.id ? 'text-[var(--accent)]' : 'text-text'
               }`}>
                 {template.name}
               </div>
@@ -150,8 +150,8 @@ export function TemplateSelectStep() {
       )}
 
       {selectedTemplate && (
-        <div className="p-4 border border-acid-cyan/30 rounded-lg bg-acid-cyan/5">
-          <div className="text-sm font-mono text-acid-cyan mb-1">
+        <div className="p-4 border border-[var(--acid-cyan)]/30 rounded-lg bg-[var(--acid-cyan)]/5">
+          <div className="text-sm font-theme-data text-[var(--acid-cyan)] mb-1">
             Selected: {selectedTemplate.name}
           </div>
           <div className="text-xs text-text-muted">

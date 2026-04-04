@@ -119,27 +119,27 @@ export function AgentPanel({ events }: AgentPanelProps) {
   };
 
   return (
-    <div className="bg-surface border border-acid-green/30 flex flex-col h-full font-mono">
+    <div className="bg-surface border border-[var(--accent)]/30 flex flex-col h-full font-theme-data">
       {/* Terminal-style header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-acid-green/20 bg-bg/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--accent)]/20 bg-bg/50">
         <div className="flex items-center gap-2">
-          <span className="text-acid-green">[</span>
-          <span className="text-xs text-acid-green uppercase tracking-wider">AGENT_STREAM</span>
-          <span className="text-acid-green">]</span>
+          <span className="text-[var(--accent)]">[</span>
+          <span className="text-xs text-[var(--accent)] uppercase tracking-wider">AGENT_STREAM</span>
+          <span className="text-[var(--accent)]">]</span>
           <span className="text-text-muted text-xs">{'// '}{agentEvents.length} events</span>
         </div>
         <div className="flex gap-1">
           <button
             onClick={expandAll}
             aria-label="Expand all events"
-            className="text-xs text-text-muted hover:text-acid-green px-2 py-0.5 border border-transparent hover:border-acid-green/30 transition-colors"
+            className="text-xs text-text-muted hover:text-[var(--accent)] px-2 py-0.5 border border-transparent hover:border-[var(--accent)]/30 transition-colors"
           >
             [+ALL]
           </button>
           <button
             onClick={collapseAll}
             aria-label="Collapse all events"
-            className="text-xs text-text-muted hover:text-acid-green px-2 py-0.5 border border-transparent hover:border-acid-green/30 transition-colors"
+            className="text-xs text-text-muted hover:text-[var(--accent)] px-2 py-0.5 border border-transparent hover:border-[var(--accent)]/30 transition-colors"
           >
             [-ALL]
           </button>
@@ -151,8 +151,8 @@ export function AgentPanel({ events }: AgentPanelProps) {
         className="flex-1 overflow-y-auto p-3 space-y-2"
       >
         {agentEvents.length === 0 ? (
-          <div className="text-center text-text-muted py-8 font-mono text-sm">
-            <span className="text-acid-green animate-pulse">{'>'}</span> Awaiting agent activity...
+          <div className="text-center text-text-muted py-8 font-theme-data text-sm">
+            <span className="text-[var(--accent)] animate-pulse">{'>'}</span> Awaiting agent activity...
           </div>
         ) : (
           agentEvents.map((event, index) => (
@@ -175,7 +175,7 @@ export function AgentPanel({ events }: AgentPanelProps) {
             }
           }}
           aria-label="Scroll to new messages"
-          className="absolute bottom-4 right-4 bg-acid-green text-bg px-3 py-1 text-xs font-mono shadow-glow"
+          className="absolute bottom-4 right-4 bg-[var(--accent)] text-bg px-3 py-1 text-xs font-theme-data shadow-glow"
         >
           [NEW MESSAGES]
         </button>
@@ -266,7 +266,7 @@ const EventCard = memo(function EventCard({ id, event, isExpanded, onToggle }: E
                 R{event.round}
               </span>
             )}
-            <span className="text-[10px] text-text-muted/70 ml-auto font-mono">{timestamp}</span>
+            <span className="text-[10px] text-text-muted/70 ml-auto font-theme-data">{timestamp}</span>
           </div>
           <p className="agent-output text-text-muted text-xs whitespace-pre-wrap break-words line-clamp-4">{preview}</p>
         </div>
@@ -276,7 +276,7 @@ const EventCard = memo(function EventCard({ id, event, isExpanded, onToggle }: E
       </button>
       {isExpanded && (
         <div className="px-2 pb-2 pt-0">
-          <div className="agent-output bg-bg/80 border-l-2 border-acid-green/30 p-2 text-xs whitespace-pre-wrap break-words text-text">
+          <div className="agent-output bg-bg/80 border-l-2 border-[var(--accent)]/30 p-2 text-xs whitespace-pre-wrap break-words text-text">
             {content}
           </div>
         </div>

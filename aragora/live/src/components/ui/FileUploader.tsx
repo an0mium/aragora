@@ -224,8 +224,8 @@ export function FileUploader({
           transition-all duration-200 cursor-pointer
           focus:outline-none focus:ring-2 focus:ring-acid-green focus:ring-offset-2 focus:ring-offset-background
           ${isDragging
-            ? 'border-acid-green bg-acid-green/10'
-            : 'border-acid-green/30 hover:border-acid-green/50 hover:bg-acid-green/5'
+            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+            : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5'
           }
           ${disabled || isUploading ? 'opacity-50 cursor-not-allowed' : ''}
         `}
@@ -243,10 +243,10 @@ export function FileUploader({
 
         {children || (
           <>
-            <div className="text-3xl mb-2 text-acid-green/70">
+            <div className="text-3xl mb-2 text-[var(--accent)]/70">
               {isDragging ? '>' : '+'}
             </div>
-            <div className="font-mono text-sm text-text">
+            <div className="font-theme-data text-sm text-text">
               {isDragging
                 ? 'DROP FILES HERE'
                 : isUploading
@@ -265,13 +265,13 @@ export function FileUploader({
       {files.length > 0 && (
         <div className="mt-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-text-muted font-mono">
+            <span className="text-xs text-text-muted font-theme-data">
               {files.length} file{files.length !== 1 ? 's' : ''}
             </span>
             <button
               onClick={clearFiles}
               aria-label="Clear all uploaded files"
-              className="text-xs text-acid-green/70 hover:text-acid-green font-mono"
+              className="text-xs text-[var(--accent)]/70 hover:text-[var(--accent)] font-theme-data"
             >
               Clear all
             </button>
@@ -302,9 +302,9 @@ function FileItem({
 }) {
   const statusColors = {
     pending: 'text-text-muted',
-    uploading: 'text-acid-cyan',
-    completed: 'text-acid-green',
-    error: 'text-crimson',
+    uploading: 'text-[var(--acid-cyan)]',
+    completed: 'text-[var(--accent)]',
+    error: 'text-[var(--crimson)]',
   };
 
   const statusIcons = {
@@ -315,7 +315,7 @@ function FileItem({
   };
 
   return (
-    <div className="flex items-center gap-3 p-2 bg-surface border border-acid-green/20 rounded text-sm font-mono">
+    <div className="flex items-center gap-3 p-2 bg-surface border border-[var(--accent)]/20 rounded text-sm font-theme-data">
       <span className={`w-6 text-center ${statusColors[file.status]}`}>
         {statusIcons[file.status]}
       </span>
@@ -325,16 +325,16 @@ function FileItem({
         <div className="text-xs text-text-muted">
           {formatFileSize(file.file.size)}
           {file.error && (
-            <span className="text-crimson ml-2">{file.error}</span>
+            <span className="text-[var(--crimson)] ml-2">{file.error}</span>
           )}
         </div>
       </div>
 
       {file.status === 'uploading' && (
         <div className="w-16">
-          <div className="h-1 bg-acid-green/20 rounded overflow-hidden">
+          <div className="h-1 bg-[var(--accent)]/20 rounded overflow-hidden">
             <div
-              className="h-full bg-acid-green transition-all"
+              className="h-full bg-[var(--accent)] transition-all"
               style={{ width: `${file.progress}%` }}
             />
           </div>
@@ -343,7 +343,7 @@ function FileItem({
 
       <button
         onClick={onRemove}
-        className="text-text-muted hover:text-crimson transition-colors"
+        className="text-text-muted hover:text-[var(--crimson)] transition-colors"
         title="Remove file"
         aria-label={`Remove file ${file.file.name}`}
       >
@@ -403,9 +403,9 @@ export function FileUploadButton({
         onClick={handleClick}
         disabled={disabled || isUploading}
         className={`
-          px-3 py-1.5 font-mono text-sm
-          border border-acid-green/30
-          text-acid-green hover:bg-acid-green/10
+          px-3 py-1.5 font-theme-data text-sm
+          border border-[var(--accent)]/30
+          text-[var(--accent)] hover:bg-[var(--accent)]/10
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-colors
           ${className}

@@ -65,7 +65,7 @@ export function ActionBuilder({
             <select
               value={action.type}
               onChange={(e) => handleTypeChange(e.target.value as ActionType)}
-              className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none min-w-[160px]"
+              className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none min-w-[160px]"
             >
               {Object.entries(ACTION_CONFIGS).map(([type, cfg]) => (
                 <option key={type} value={type}>
@@ -87,7 +87,7 @@ export function ActionBuilder({
                 value={action.target || ''}
                 onChange={(e) => handleTargetChange(e.target.value)}
                 placeholder={config.targetPlaceholder}
-                className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+                className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
               />
             </div>
           )}
@@ -102,7 +102,7 @@ export function ActionBuilder({
                 <select
                   value={(action.params?.[field.key] as string) || ''}
                   onChange={(e) => handleParamChange(field.key, e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+                  className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                 >
                   <option value="">Select...</option>
                   {field.options?.map((opt) => (
@@ -121,7 +121,7 @@ export function ActionBuilder({
                       field.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
                     )
                   }
-                  className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+                  className="w-full px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                 />
               )}
             </div>
@@ -185,10 +185,10 @@ export function ActionListBuilder({ actions, onChange }: ActionListBuilderProps)
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-mono text-acid-green">THEN</span>
+        <span className="text-sm font-theme-data text-[var(--accent)]">THEN</span>
         <button
           onClick={handleAddAction}
-          className="px-2 py-1 text-xs font-mono bg-acid-green/20 text-acid-green rounded hover:bg-acid-green/30 transition-colors"
+          className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 transition-colors"
         >
           + Add Action
         </button>

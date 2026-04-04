@@ -30,7 +30,7 @@ export const DebateNode = memo(function DebateNode({
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">💬</span>
-        <span className="text-sm font-mono font-bold text-purple-300 uppercase tracking-wide">
+        <span className="text-sm font-theme-data font-bold text-purple-300 uppercase tracking-wide">
           Debate
         </span>
       </div>
@@ -49,19 +49,19 @@ export const DebateNode = memo(function DebateNode({
         {data.agents.slice(0, 3).map((agent) => (
           <span
             key={agent}
-            className="px-1.5 py-0.5 text-xs bg-purple-500/30 text-purple-200 rounded font-mono"
+            className="px-1.5 py-0.5 text-xs bg-purple-500/30 text-purple-200 rounded font-theme-data"
           >
             {agent}
           </span>
         ))}
         {data.agents.length > 3 && (
-          <span className="px-1.5 py-0.5 text-xs bg-purple-500/30 text-purple-200 rounded font-mono">
+          <span className="px-1.5 py-0.5 text-xs bg-purple-500/30 text-purple-200 rounded font-theme-data">
             +{data.agents.length - 3}
           </span>
         )}
       </div>
 
-      <div className="text-xs font-mono text-purple-300">
+      <div className="text-xs font-theme-data text-purple-300">
         {data.rounds} round{data.rounds !== 1 ? 's' : ''}
       </div>
 

@@ -167,7 +167,7 @@ export const ProvenanceTrail = memo(function ProvenanceTrail({
               <button
                 onClick={() => handleClick(crumb.nodeId, crumb.stage)}
                 className={`
-                  inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-mono
+                  inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-theme-data
                   transition-all duration-150
                   ${stageColors.bg} ${stageColors.text} ${stageColors.border}
                   ${isActive ? 'ring-2 ring-offset-1 ring-offset-bg border' : 'border border-transparent'}
@@ -191,7 +191,7 @@ export const ProvenanceTrail = memo(function ProvenanceTrail({
 
       {/* Metadata row: hash + method for the selected node */}
       {displayTrail.length > 1 && (
-        <div className="flex items-center gap-3 text-xs text-text-muted font-mono pl-1 mt-1">
+        <div className="flex items-center gap-3 text-xs text-text-muted font-theme-data pl-1 mt-1">
           {(() => {
             const selected = displayTrail.find((c) => c.nodeId === selectedNodeId);
             if (!selected?.contentHash) return null;

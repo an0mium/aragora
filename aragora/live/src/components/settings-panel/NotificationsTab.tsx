@@ -93,15 +93,15 @@ function TemplateRow({
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-3">
-          <span className="font-mono text-sm text-white">{template.name}</span>
+          <span className="font-theme-data text-sm text-white">{template.name}</span>
           {template.customized && (
-            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded font-mono">
+            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded font-theme-data">
               custom
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 text-gray-400">
-          <span className="text-xs font-mono">{template.channel}</span>
+          <span className="text-xs font-theme-data">{template.channel}</span>
           <svg
             className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none"
@@ -124,7 +124,7 @@ function TemplateRow({
             {template.variables.map((v) => (
               <span
                 key={v}
-                className="text-xs font-mono px-1.5 py-0.5 bg-gray-700/50 text-gray-400 rounded"
+                className="text-xs font-theme-data px-1.5 py-0.5 bg-gray-700/50 text-gray-400 rounded"
               >
                 {`{{${v}}}`}
               </span>
@@ -133,13 +133,13 @@ function TemplateRow({
 
           {/* Subject */}
           <div>
-            <label className="block text-xs font-mono text-gray-400 mb-1" htmlFor={`subject-${template.id}`}>
+            <label className="block text-xs font-theme-data text-gray-400 mb-1" htmlFor={`subject-${template.id}`}>
               Subject
             </label>
             <input
               id={`subject-${template.id}`}
               type="text"
-              className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-acid-green"
+              className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white font-theme-data focus:outline-none focus:border-[var(--accent)]"
               value={editSubject}
               onChange={(e) => {
                 setEditSubject(e.target.value);
@@ -150,13 +150,13 @@ function TemplateRow({
 
           {/* Body */}
           <div>
-            <label className="block text-xs font-mono text-gray-400 mb-1" htmlFor={`body-${template.id}`}>
+            <label className="block text-xs font-theme-data text-gray-400 mb-1" htmlFor={`body-${template.id}`}>
               Body
             </label>
             <textarea
               id={`body-${template.id}`}
               rows={6}
-              className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-acid-green resize-y"
+              className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white font-theme-data focus:outline-none focus:border-[var(--accent)] resize-y"
               value={editBody}
               onChange={(e) => {
                 setEditBody(e.target.value);
@@ -171,14 +171,14 @@ function TemplateRow({
               type="button"
               disabled={!dirty || saving}
               onClick={handleSave}
-              className="px-3 py-1.5 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/40 rounded hover:bg-acid-green/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/40 rounded hover:bg-[var(--accent)]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={handlePreview}
-              className="px-3 py-1.5 text-xs font-mono bg-gray-700/50 text-gray-300 border border-gray-600 rounded hover:bg-gray-700 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data bg-gray-700/50 text-gray-300 border border-gray-600 rounded hover:bg-gray-700 transition-colors"
             >
               Preview
             </button>
@@ -187,7 +187,7 @@ function TemplateRow({
                 type="button"
                 disabled={resetting}
                 onClick={handleReset}
-                className="px-3 py-1.5 text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/30 rounded hover:bg-red-500/20 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-xs font-theme-data bg-red-500/10 text-red-400 border border-red-500/30 rounded hover:bg-red-500/20 disabled:opacity-40 transition-colors"
               >
                 {resetting ? 'Resetting…' : 'Reset to default'}
               </button>
@@ -198,7 +198,7 @@ function TemplateRow({
           {showPreview && preview && (
             <div className="mt-2 p-3 bg-gray-900 border border-gray-600 rounded space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-gray-400">Preview (sample values)</span>
+                <span className="text-xs font-theme-data text-gray-400">Preview (sample values)</span>
                 <button
                   type="button"
                   className="text-xs text-gray-500 hover:text-gray-300"
@@ -208,7 +208,7 @@ function TemplateRow({
                 </button>
               </div>
               <p className="text-sm font-semibold text-white">{preview.rendered_subject}</p>
-              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono">{preview.rendered_body}</pre>
+              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-theme-data">{preview.rendered_body}</pre>
             </div>
           )}
         </div>
@@ -286,7 +286,7 @@ export function NotificationsTab({ preferences, updateNotification }: Notificati
     >
       {/* Notification toggles */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Email Notifications</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Email Notifications</h3>
         <div className="space-y-4">
           <ToggleSwitch
             label="Debate Completed"
@@ -319,10 +319,10 @@ export function NotificationsTab({ preferences, updateNotification }: Notificati
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-mono text-acid-green">Email Templates</h3>
+            <h3 className="font-theme-data text-[var(--accent)]">Email Templates</h3>
             <p className="text-xs text-gray-400 mt-0.5">
               Customise subject lines and body text. Use{' '}
-              <code className="font-mono bg-gray-700/50 px-1 rounded">{'{{variable}}'}</code>{' '}
+              <code className="font-theme-data bg-gray-700/50 px-1 rounded">{'{{variable}}'}</code>{' '}
               placeholders.
             </p>
           </div>
@@ -330,7 +330,7 @@ export function NotificationsTab({ preferences, updateNotification }: Notificati
             type="button"
             onClick={fetchTemplates}
             disabled={loadingTemplates}
-            className="text-xs font-mono text-gray-400 hover:text-white disabled:opacity-40"
+            className="text-xs font-theme-data text-gray-400 hover:text-white disabled:opacity-40"
             title="Refresh"
           >
             ↺
@@ -338,11 +338,11 @@ export function NotificationsTab({ preferences, updateNotification }: Notificati
         </div>
 
         {loadingTemplates && (
-          <p className="text-sm text-gray-500 font-mono">Loading templates…</p>
+          <p className="text-sm text-gray-500 font-theme-data">Loading templates…</p>
         )}
 
         {templateError && (
-          <p className="text-sm text-red-400 font-mono">{templateError}</p>
+          <p className="text-sm text-red-400 font-theme-data">{templateError}</p>
         )}
 
         {!loadingTemplates && !templateError && templates.length > 0 && (

@@ -144,14 +144,14 @@ export function MemoryAnalyticsPanel({ apiBase = DEFAULT_API_BASE }: MemoryAnaly
         {/* Key Metrics */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-surface rounded p-3">
-            <div className="text-lg font-mono text-text">
+            <div className="text-lg font-theme-data text-text">
               {(promotions.promotion_rate * 100).toFixed(1)}%
             </div>
             <div className="text-xs text-text-muted">Promotion Rate</div>
           </div>
           <div className="bg-surface rounded p-3">
             <div className="flex items-center gap-1">
-              <span className="text-lg font-mono text-text">
+              <span className="text-lg font-theme-data text-text">
                 {learning_velocity.current.toFixed(1)}
               </span>
               <span>{getTrendIcon(learning_velocity.trend)}</span>
@@ -165,7 +165,7 @@ export function MemoryAnalyticsPanel({ apiBase = DEFAULT_API_BASE }: MemoryAnaly
           <div className="text-xs text-text-muted mb-2">RETRIEVAL PERFORMANCE</div>
           <div className="flex justify-between items-center bg-surface rounded p-2">
             <div>
-              <span className="text-sm font-mono text-text">
+              <span className="text-sm font-theme-data text-text">
                 {(retrieval_stats.hit_rate * 100).toFixed(0)}%
               </span>
               <span className="text-xs text-text-muted ml-2">hit rate</span>

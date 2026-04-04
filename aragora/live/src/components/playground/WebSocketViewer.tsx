@@ -98,7 +98,7 @@ export function WebSocketViewer() {
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] shrink-0">
         <button
           onClick={connected ? disconnect : connect}
-          className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors ${
+          className={`px-3 py-1.5 text-xs font-theme-data font-bold transition-colors ${
             connected
               ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
               : 'bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80'
@@ -109,7 +109,7 @@ export function WebSocketViewer() {
         <div
           className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-red-400'}`}
         />
-        <code className="text-xs font-mono text-[var(--text-muted)] truncate flex-1">
+        <code className="text-xs font-theme-data text-[var(--text-muted)] truncate flex-1">
           {wsUrl}
         </code>
         <input
@@ -117,18 +117,18 @@ export function WebSocketViewer() {
           placeholder="Filter events..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="w-40 px-2 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
+          className="w-40 px-2 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
         />
         <button
           onClick={() => setEvents([])}
-          className="text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)]"
+          className="text-[10px] font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)]"
         >
           CLEAR
         </button>
       </div>
 
       {/* Event log */}
-      <div ref={logRef} className="flex-1 overflow-y-auto font-mono">
+      <div ref={logRef} className="flex-1 overflow-y-auto font-theme-data">
         {filtered.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-[var(--text-muted)]">

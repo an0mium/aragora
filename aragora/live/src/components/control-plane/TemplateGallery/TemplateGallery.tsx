@@ -361,7 +361,7 @@ export function TemplateGallery({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search templates..."
-          className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+          className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
         />
       </div>
 
@@ -371,9 +371,9 @@ export function TemplateGallery({
           <button
             key={cat.id}
             onClick={() => setFilter(cat.id)}
-            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
               filter === cat.id
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'bg-surface text-text-muted hover:text-text'
             }`}
           >
@@ -393,7 +393,7 @@ export function TemplateGallery({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="mt-2 text-xs text-acid-green hover:underline"
+              className="mt-2 text-xs text-[var(--accent)] hover:underline"
             >
               Clear search
             </button>

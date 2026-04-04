@@ -119,7 +119,7 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
         className="panel-collapsible-header w-full"
       >
         <div className="flex items-center gap-2">
-          <span className="text-warning font-mono text-sm">[SECURITY]</span>
+          <span className="text-warning font-theme-data text-sm">[SECURITY]</span>
           <span className="text-text-muted text-xs">Vulnerability scanner</span>
           {report && report.summary.critical + report.summary.high > 0 && (
             <span className="bg-red-500 text-white text-[10px] px-1 rounded">
@@ -139,12 +139,12 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
               placeholder="Enter repository path..."
               value={selectedPath}
               onChange={(e) => setSelectedPath(e.target.value)}
-              className="flex-1 bg-bg border border-warning/30 px-2 py-1 text-xs font-mono text-text focus:border-warning focus:outline-none"
+              className="flex-1 bg-bg border border-warning/30 px-2 py-1 text-xs font-theme-data text-text focus:border-warning focus:outline-none"
             />
             <button
               onClick={runSecurityScan}
               disabled={!selectedPath || loading}
-              className="px-3 py-1 bg-warning/20 text-warning text-xs font-mono hover:bg-warning/30 disabled:opacity-50"
+              className="px-3 py-1 bg-warning/20 text-warning text-xs font-theme-data hover:bg-warning/30 disabled:opacity-50"
             >
               {loading ? 'SCANNING...' : 'SCAN'}
             </button>
@@ -172,7 +172,7 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
                         : 'border-text-muted/20 bg-surface hover:border-text-muted/40'
                     }`}
                   >
-                    <div className={`text-lg font-mono font-bold ${
+                    <div className={`text-lg font-theme-data font-bold ${
                       filter === sev ? '' : sev === 'critical' ? 'text-red-500' :
                       sev === 'high' ? 'text-orange-500' :
                       sev === 'medium' ? 'text-yellow-500' :
@@ -192,7 +192,7 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
                 {filter !== 'all' && (
                   <button
                     onClick={() => setFilter('all')}
-                    className="text-acid-cyan hover:underline"
+                    className="text-[var(--acid-cyan)] hover:underline"
                   >
                     Clear filter
                   </button>
@@ -202,7 +202,7 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
               {/* Findings List */}
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {filteredFindings.length === 0 ? (
-                  <div className="text-acid-green text-xs text-center py-4">
+                  <div className="text-[var(--accent)] text-xs text-center py-4">
                     {filter === 'all' ? 'No security issues found!' : `No ${filter} severity issues`}
                   </div>
                 ) : (
@@ -220,7 +220,7 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
                           {finding.severity}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="font-mono font-medium">{finding.title}</div>
+                          <div className="font-theme-data font-medium">{finding.title}</div>
                           <div className="text-text-muted/60 text-[10px] truncate">
                             {finding.file_path}:{finding.line_start}
                             {finding.cwe_id && ` | CWE-${finding.cwe_id}`}
@@ -235,14 +235,14 @@ export function SecurityFindingsPanel({ apiBase, repoPath }: SecurityFindingsPan
                           <div className="text-text-muted mt-2">{finding.description}</div>
 
                           {finding.code_snippet && (
-                            <div className="bg-bg p-2 font-mono text-[10px] overflow-x-auto">
+                            <div className="bg-bg p-2 font-theme-data text-[10px] overflow-x-auto">
                               <pre className="whitespace-pre">{finding.code_snippet}</pre>
                             </div>
                           )}
 
                           {finding.recommendation && (
-                            <div className="border-l-2 border-acid-green/50 pl-2">
-                              <div className="text-acid-green text-[10px] font-bold">Recommendation</div>
+                            <div className="border-l-2 border-[var(--accent)]/50 pl-2">
+                              <div className="text-[var(--accent)] text-[10px] font-bold">Recommendation</div>
                               <div className="text-text-muted">{finding.recommendation}</div>
                             </div>
                           )}

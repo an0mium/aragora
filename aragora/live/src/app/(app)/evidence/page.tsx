@@ -57,7 +57,7 @@ export default function EvidencePage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 {'>'} EVIDENCE & DISSENT
               </h1>
               <DebateThisButton
@@ -67,40 +67,40 @@ export default function EvidencePage() {
                 variant="icon"
               />
             </div>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Explore dissenting views, contrarian perspectives, risk warnings, and evidence trails from debates.
             </p>
           </div>
 
           {/* Evidence Statistics */}
           {stats && (
-            <div className="mb-6 p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
-              <h3 className="text-sm font-mono text-acid-cyan mb-3">Evidence Statistics</h3>
+            <div className="mb-6 p-4 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded">
+              <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">Evidence Statistics</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <div className="text-2xl font-mono text-acid-green">{stats.total_evidence}</div>
-                  <div className="text-xs font-mono text-text-muted">Total Evidence</div>
+                  <div className="text-2xl font-theme-data text-[var(--accent)]">{stats.total_evidence}</div>
+                  <div className="text-xs font-theme-data text-text-muted">Total Evidence</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-acid-cyan">{stats.unique_debates}</div>
-                  <div className="text-xs font-mono text-text-muted">Linked Debates</div>
+                  <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{stats.unique_debates}</div>
+                  <div className="text-xs font-theme-data text-text-muted">Linked Debates</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-gold">{stats.debate_associations}</div>
-                  <div className="text-xs font-mono text-text-muted">Associations</div>
+                  <div className="text-2xl font-theme-data text-gold">{stats.debate_associations}</div>
+                  <div className="text-xs font-theme-data text-text-muted">Associations</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-text">{(stats.average_reliability * 100).toFixed(0)}%</div>
-                  <div className="text-xs font-mono text-text-muted">Avg Reliability</div>
+                  <div className="text-2xl font-theme-data text-text">{(stats.average_reliability * 100).toFixed(0)}%</div>
+                  <div className="text-xs font-theme-data text-text-muted">Avg Reliability</div>
                 </div>
               </div>
               {stats.by_source && Object.keys(stats.by_source).length > 0 && (
-                <div className="mt-4 pt-3 border-t border-acid-cyan/20">
-                  <div className="text-xs font-mono text-text-muted mb-2">By Source</div>
+                <div className="mt-4 pt-3 border-t border-[var(--acid-cyan)]/20">
+                  <div className="text-xs font-theme-data text-text-muted mb-2">By Source</div>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(stats.by_source).map(([source, count]) => (
-                      <span key={source} className="px-2 py-1 text-xs font-mono bg-surface rounded">
-                        {source}: <span className="text-acid-green">{count}</span>
+                      <span key={source} className="px-2 py-1 text-xs font-theme-data bg-surface rounded">
+                        {source}: <span className="text-[var(--accent)]">{count}</span>
                       </span>
                     ))}
                   </div>
@@ -115,8 +115,8 @@ export default function EvidencePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

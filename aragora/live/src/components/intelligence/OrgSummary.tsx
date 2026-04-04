@@ -93,7 +93,7 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
   if (error) {
     return (
       <div className="card p-6 border-red-500/50">
-        <p className="text-red-500 font-mono text-sm">Error: {error}</p>
+        <p className="text-red-500 font-theme-data text-sm">Error: {error}</p>
       </div>
     );
   }
@@ -104,11 +104,11 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
     <div className="card p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-mono text-acid-green">Organization Summary</h2>
+        <h2 className="text-lg font-theme-data text-[var(--accent)]">Organization Summary</h2>
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
-          className="bg-surface border border-acid-green/30 rounded px-2 py-1 text-xs font-mono"
+          className="bg-surface border border-[var(--accent)]/30 rounded px-2 py-1 text-xs font-theme-data"
         >
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
@@ -120,10 +120,10 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {/* Cost KPI */}
-        <div className="bg-surface/50 rounded-lg p-4 border border-acid-green/20">
-          <p className="text-text-muted text-xs font-mono mb-1">Total Cost</p>
-          <p className="text-2xl font-mono text-acid-green">${data.cost_summary.total_cost_usd}</p>
-          <p className="text-xs font-mono mt-1">
+        <div className="bg-surface/50 rounded-lg p-4 border border-[var(--accent)]/20">
+          <p className="text-text-muted text-xs font-theme-data mb-1">Total Cost</p>
+          <p className="text-2xl font-theme-data text-[var(--accent)]">${data.cost_summary.total_cost_usd}</p>
+          <p className="text-xs font-theme-data mt-1">
             <span className={data.cost_summary.cost_trend_percent > 0 ? 'text-red-400' : 'text-green-400'}>
               {data.cost_summary.cost_trend_percent > 0 ? '+' : ''}
               {data.cost_summary.cost_trend_percent}%
@@ -132,7 +132,7 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
           </p>
           <div className="mt-2 h-1 bg-bg rounded-full overflow-hidden">
             <div
-              className="h-full bg-acid-green"
+              className="h-full bg-[var(--accent)]"
               style={{ width: `${data.cost_summary.budget_percentage_used}%` }}
             ></div>
           </div>
@@ -142,20 +142,20 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
         </div>
 
         {/* Debates KPI */}
-        <div className="bg-surface/50 rounded-lg p-4 border border-acid-green/20">
-          <p className="text-text-muted text-xs font-mono mb-1">Debates Completed</p>
-          <p className="text-2xl font-mono text-acid-green">{data.debate_summary.debates_completed}</p>
-          <p className="text-xs font-mono mt-1">
+        <div className="bg-surface/50 rounded-lg p-4 border border-[var(--accent)]/20">
+          <p className="text-text-muted text-xs font-theme-data mb-1">Debates Completed</p>
+          <p className="text-2xl font-theme-data text-[var(--accent)]">{data.debate_summary.debates_completed}</p>
+          <p className="text-xs font-theme-data mt-1">
             <span className="text-yellow-400">{data.debate_summary.debates_in_progress}</span>
             <span className="text-text-muted"> in progress</span>
           </p>
         </div>
 
         {/* Consensus KPI */}
-        <div className="bg-surface/50 rounded-lg p-4 border border-acid-green/20">
-          <p className="text-text-muted text-xs font-mono mb-1">Consensus Rate</p>
-          <p className="text-2xl font-mono text-acid-green">{data.debate_summary.consensus_rate_percent}%</p>
-          <p className="text-xs font-mono mt-1">
+        <div className="bg-surface/50 rounded-lg p-4 border border-[var(--accent)]/20">
+          <p className="text-text-muted text-xs font-theme-data mb-1">Consensus Rate</p>
+          <p className="text-2xl font-theme-data text-[var(--accent)]">{data.debate_summary.consensus_rate_percent}%</p>
+          <p className="text-xs font-theme-data mt-1">
             <span className="text-text-muted">{data.debate_summary.consensus_reached} reached</span>
           </p>
           <p className="text-xs text-text-muted mt-1">
@@ -164,10 +164,10 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
         </div>
 
         {/* Users KPI */}
-        <div className="bg-surface/50 rounded-lg p-4 border border-acid-green/20">
-          <p className="text-text-muted text-xs font-mono mb-1">Active Users</p>
-          <p className="text-2xl font-mono text-acid-green">{data.user_summary.active_users}</p>
-          <p className="text-xs font-mono mt-1">
+        <div className="bg-surface/50 rounded-lg p-4 border border-[var(--accent)]/20">
+          <p className="text-text-muted text-xs font-theme-data mb-1">Active Users</p>
+          <p className="text-2xl font-theme-data text-[var(--accent)]">{data.user_summary.active_users}</p>
+          <p className="text-xs font-theme-data mt-1">
             <span className="text-green-400">+{data.user_summary.new_users_this_period}</span>
             <span className="text-text-muted"> new</span>
           </p>
@@ -178,25 +178,25 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
       </div>
 
       {/* Top Agents */}
-      <div className="bg-surface/30 rounded-lg p-4 border border-acid-green/10">
-        <h3 className="text-sm font-mono text-acid-green mb-3">Top Agents by Efficiency</h3>
+      <div className="bg-surface/30 rounded-lg p-4 border border-[var(--accent)]/10">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">Top Agents by Efficiency</h3>
         <div className="space-y-2">
           {data.agent_summary.top_agents.map((agent, index) => (
             <div key={agent.name} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-text-muted">#{index + 1}</span>
-                <span className="text-sm font-mono">{agent.name}</span>
+                <span className="text-xs font-theme-data text-text-muted">#{index + 1}</span>
+                <span className="text-sm font-theme-data">{agent.name}</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   {agent.debates_participated} debates
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   {(agent.win_rate * 100).toFixed(0)}% win
                 </span>
                 <div className="w-16 h-2 bg-bg rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-acid-green"
+                    className="h-full bg-[var(--accent)]"
                     style={{ width: `${agent.efficiency_score * 100}%` }}
                   ></div>
                 </div>
@@ -207,7 +207,7 @@ export function OrgSummary({ backendUrl }: OrgSummaryProps) {
       </div>
 
       {/* Health Status */}
-      <div className="mt-4 flex items-center justify-between text-xs font-mono">
+      <div className="mt-4 flex items-center justify-between text-xs font-theme-data">
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full ${

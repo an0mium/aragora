@@ -202,25 +202,25 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
 
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-8">
+      <div className="bg-surface border border-[var(--accent)]/30 p-8">
         <div className="flex items-center justify-center gap-2">
-          <div className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-          <span className="text-xs font-mono text-acid-green">LOADING TRAINING DATA...</span>
+          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+          <span className="text-xs font-theme-data text-[var(--accent)]">LOADING TRAINING DATA...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} TRAINING DATA EXPORT
           </span>
           {stats && (
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {stats.available_exporters.length} exporter{stats.available_exporters.length !== 1 ? 's' : ''} available
             </span>
           )}
@@ -229,8 +229,8 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
 
       {/* Error Display */}
       {error && (
-        <div className="px-4 py-3 bg-crimson/10 border-b border-crimson/30">
-          <span className="text-xs font-mono text-crimson">{error}</span>
+        <div className="px-4 py-3 bg-[var(--crimson)]/10 border-b border-[var(--crimson)]/30">
+          <span className="text-xs font-theme-data text-[var(--crimson)]">{error}</span>
         </div>
       )}
 
@@ -238,23 +238,23 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
         {/* Export Configuration */}
         <div className="space-y-4">
           <div className="border border-border p-4">
-            <h3 className="text-xs font-mono text-acid-green uppercase mb-4">EXPORT CONFIGURATION</h3>
+            <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-4">EXPORT CONFIGURATION</h3>
 
             {/* Export Type */}
             <div className="space-y-2 mb-4">
-              <label className="text-xs font-mono text-text-muted">EXPORT TYPE</label>
+              <label className="text-xs font-theme-data text-text-muted">EXPORT TYPE</label>
               <div className="flex gap-2">
                 {(['sft', 'dpo', 'gauntlet'] as ExportType[]).map((type) => (
                   <button
                     key={type}
                     onClick={() => setExportType(type)}
                     disabled={!!stats && !stats.available_exporters.includes(type)}
-                    className={`px-3 py-1.5 text-xs font-mono border transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-theme-data border transition-colors ${
                       exportType === type
-                        ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
+                        ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40'
                         : stats && !stats.available_exporters.includes(type)
                           ? 'text-text-muted border-border cursor-not-allowed opacity-50'
-                          : 'text-text-primary border-border hover:border-acid-green/40'
+                          : 'text-text-primary border-border hover:border-[var(--accent)]/40'
                     }`}
                   >
                     {type.toUpperCase()}
@@ -265,16 +265,16 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
 
             {/* Output Format */}
             <div className="space-y-2 mb-4">
-              <label className="text-xs font-mono text-text-muted">OUTPUT FORMAT</label>
+              <label className="text-xs font-theme-data text-text-muted">OUTPUT FORMAT</label>
               <div className="flex gap-2">
                 {(['json', 'jsonl'] as OutputFormat[]).map((format) => (
                   <button
                     key={format}
                     onClick={() => setOutputFormat(format)}
-                    className={`px-3 py-1.5 text-xs font-mono border transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-theme-data border transition-colors ${
                       outputFormat === format
-                        ? 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40'
-                        : 'text-text-primary border-border hover:border-acid-cyan/40'
+                        ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40'
+                        : 'text-text-primary border-border hover:border-[var(--acid-cyan)]/40'
                     }`}
                   >
                     {format.toUpperCase()}
@@ -288,7 +288,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-mono text-text-muted block mb-1">MIN CONFIDENCE</label>
+                    <label className="text-xs font-theme-data text-text-muted block mb-1">MIN CONFIDENCE</label>
                     <input
                       type="number"
                       min="0"
@@ -296,11 +296,11 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                       step="0.1"
                       value={minConfidence}
                       onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
-                      className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                      className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-text-muted block mb-1">MIN SUCCESS RATE</label>
+                    <label className="text-xs font-theme-data text-text-muted block mb-1">MIN SUCCESS RATE</label>
                     <input
                       type="number"
                       min="0"
@@ -308,19 +308,19 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                       step="0.1"
                       value={minSuccessRate}
                       onChange={(e) => setMinSuccessRate(parseFloat(e.target.value))}
-                      className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                      className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">LIMIT</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">LIMIT</label>
                   <input
                     type="number"
                     min="1"
                     max="10000"
                     value={limit}
                     onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   />
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -331,7 +331,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                       onChange={(e) => setIncludeCritiques(e.target.checked)}
                       className="accent-acid-green"
                     />
-                    <span className="text-xs font-mono text-text-primary">Critiques</span>
+                    <span className="text-xs font-theme-data text-text-primary">Critiques</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -340,7 +340,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                       onChange={(e) => setIncludePatterns(e.target.checked)}
                       className="accent-acid-green"
                     />
-                    <span className="text-xs font-mono text-text-primary">Patterns</span>
+                    <span className="text-xs font-theme-data text-text-primary">Patterns</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -349,7 +349,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                       onChange={(e) => setIncludeDebates(e.target.checked)}
                       className="accent-acid-green"
                     />
-                    <span className="text-xs font-mono text-text-primary">Debates</span>
+                    <span className="text-xs font-theme-data text-text-primary">Debates</span>
                   </label>
                 </div>
               </div>
@@ -359,7 +359,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
             {exportType === 'dpo' && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">MIN CONFIDENCE DIFF</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">MIN CONFIDENCE DIFF</label>
                   <input
                     type="number"
                     min="0"
@@ -367,18 +367,18 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                     step="0.05"
                     value={minConfidenceDiff}
                     onChange={(e) => setMinConfidenceDiff(parseFloat(e.target.value))}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">LIMIT</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">LIMIT</label>
                   <input
                     type="number"
                     min="1"
                     max="5000"
                     value={limit}
                     onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   />
                 </div>
               </div>
@@ -388,11 +388,11 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
             {exportType === 'gauntlet' && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">PERSONA</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">PERSONA</label>
                   <select
                     value={persona}
                     onChange={(e) => setPersona(e.target.value)}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   >
                     <option value="all">ALL</option>
                     <option value="gdpr">GDPR</option>
@@ -401,7 +401,7 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">MIN SEVERITY</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">MIN SEVERITY</label>
                   <input
                     type="number"
                     min="0"
@@ -409,18 +409,18 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
                     step="0.1"
                     value={minSeverity}
                     onChange={(e) => setMinSeverity(parseFloat(e.target.value))}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-mono text-text-muted block mb-1">LIMIT</label>
+                  <label className="text-xs font-theme-data text-text-muted block mb-1">LIMIT</label>
                   <input
                     type="number"
                     min="1"
                     max="5000"
                     value={limit}
                     onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+                    className="w-full bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
                   />
                 </div>
               </div>
@@ -431,12 +431,12 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
               <button
                 onClick={handleExport}
                 disabled={exporting || (!!stats && !stats.available_exporters.includes(exportType))}
-                className={`w-full px-4 py-2 text-xs font-mono border transition-colors ${
+                className={`w-full px-4 py-2 text-xs font-theme-data border transition-colors ${
                   exporting
-                    ? 'bg-acid-green/10 text-acid-green border-acid-green/40 cursor-wait'
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/40 cursor-wait'
                     : stats && !stats.available_exporters.includes(exportType)
                       ? 'bg-bg text-text-muted border-border cursor-not-allowed'
-                      : 'bg-acid-green/20 text-acid-green border-acid-green/40 hover:bg-acid-green/30'
+                      : 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40 hover:bg-[var(--accent)]/30'
                 }`}
               >
                 {exporting ? 'EXPORTING...' : `EXPORT ${exportType.toUpperCase()}`}
@@ -447,11 +447,11 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
           {/* Format Info */}
           {formats && formats.formats[exportType] && (
             <div className="border border-border p-4">
-              <h3 className="text-xs font-mono text-purple uppercase mb-2">FORMAT INFO</h3>
-              <p className="text-xs font-mono text-text-primary mb-2">
+              <h3 className="text-xs font-theme-data text-purple uppercase mb-2">FORMAT INFO</h3>
+              <p className="text-xs font-theme-data text-text-primary mb-2">
                 {formats.formats[exportType].description}
               </p>
-              <p className="text-xs font-mono text-text-muted">
+              <p className="text-xs font-theme-data text-text-muted">
                 {formats.formats[exportType].use_case}
               </p>
             </div>
@@ -462,32 +462,32 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
         <div className="space-y-4">
           {/* Last Export Result */}
           {lastExport && (
-            <div className="border border-acid-green/40 bg-acid-green/5 p-4">
+            <div className="border border-[var(--accent)]/40 bg-[var(--accent)]/5 p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-mono text-acid-green uppercase">EXPORT COMPLETE</h3>
+                <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">EXPORT COMPLETE</h3>
                 <button
                   onClick={downloadExport}
-                  className="px-3 py-1 text-xs font-mono text-acid-cyan border border-acid-cyan/40 hover:bg-acid-cyan/10 transition-colors"
+                  className="px-3 py-1 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40 hover:bg-[var(--acid-cyan)]/10 transition-colors"
                 >
                   DOWNLOAD
                 </button>
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-xs font-mono text-text-muted">Type:</span>
-                  <span className="text-xs font-mono text-text-primary">{lastExport.export_type.toUpperCase()}</span>
+                  <span className="text-xs font-theme-data text-text-muted">Type:</span>
+                  <span className="text-xs font-theme-data text-text-primary">{lastExport.export_type.toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-xs font-mono text-text-muted">Records:</span>
-                  <span className="text-xs font-mono text-acid-green">{lastExport.total_records.toLocaleString()}</span>
+                  <span className="text-xs font-theme-data text-text-muted">Records:</span>
+                  <span className="text-xs font-theme-data text-[var(--accent)]">{lastExport.total_records.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-xs font-mono text-text-muted">Format:</span>
-                  <span className="text-xs font-mono text-text-primary">{lastExport.format.toUpperCase()}</span>
+                  <span className="text-xs font-theme-data text-text-muted">Format:</span>
+                  <span className="text-xs font-theme-data text-text-primary">{lastExport.format.toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-xs font-mono text-text-muted">Exported:</span>
-                  <span className="text-xs font-mono text-text-primary">{formatDate(lastExport.exported_at)}</span>
+                  <span className="text-xs font-theme-data text-text-muted">Exported:</span>
+                  <span className="text-xs font-theme-data text-text-primary">{formatDate(lastExport.exported_at)}</span>
                 </div>
               </div>
             </div>
@@ -496,14 +496,14 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
           {/* Available Exporters */}
           {stats && (
             <div className="border border-border p-4">
-              <h3 className="text-xs font-mono text-acid-cyan uppercase mb-3">AVAILABLE EXPORTERS</h3>
+              <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] uppercase mb-3">AVAILABLE EXPORTERS</h3>
               <div className="flex flex-wrap gap-2">
                 {['sft', 'dpo', 'gauntlet'].map((type) => (
                   <span
                     key={type}
-                    className={`px-2 py-1 text-xs font-mono border ${
+                    className={`px-2 py-1 text-xs font-theme-data border ${
                       stats.available_exporters.includes(type)
-                        ? 'text-acid-green border-acid-green/40 bg-acid-green/10'
+                        ? 'text-[var(--accent)] border-[var(--accent)]/40 bg-[var(--accent)]/10'
                         : 'text-text-muted border-border bg-bg/30'
                     }`}
                   >
@@ -518,16 +518,16 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
           {/* Exported Files */}
           {stats && stats.exported_files.length > 0 && (
             <div className="border border-border p-4">
-              <h3 className="text-xs font-mono text-gold uppercase mb-3">RECENT EXPORTS</h3>
+              <h3 className="text-xs font-theme-data text-gold uppercase mb-3">RECENT EXPORTS</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {stats.exported_files.slice(0, 10).map((file, idx) => (
                   <div key={idx} className="flex items-center justify-between py-1 border-b border-border last:border-0">
-                    <span className="text-xs font-mono text-text-primary truncate max-w-[200px]" title={file.name}>
+                    <span className="text-xs font-theme-data text-text-primary truncate max-w-[200px]" title={file.name}>
                       {file.name}
                     </span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-text-muted">{formatBytes(file.size_bytes)}</span>
-                      <span className="text-xs font-mono text-text-muted">{formatDate(file.created_at)}</span>
+                      <span className="text-xs font-theme-data text-text-muted">{formatBytes(file.size_bytes)}</span>
+                      <span className="text-xs font-theme-data text-text-muted">{formatDate(file.created_at)}</span>
                     </div>
                   </div>
                 ))}
@@ -538,8 +538,8 @@ export function TrainingExportPanel({ apiBase = '/api' }: TrainingExportPanelPro
           {/* Export Directory */}
           {stats && (
             <div className="border border-border p-4">
-              <h3 className="text-xs font-mono text-text-muted uppercase mb-2">EXPORT DIRECTORY</h3>
-              <code className="text-xs font-mono text-text-primary break-all">{stats.export_directory}</code>
+              <h3 className="text-xs font-theme-data text-text-muted uppercase mb-2">EXPORT DIRECTORY</h3>
+              <code className="text-xs font-theme-data text-text-primary break-all">{stats.export_directory}</code>
             </div>
           )}
         </div>

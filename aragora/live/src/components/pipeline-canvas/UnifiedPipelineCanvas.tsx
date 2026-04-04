@@ -411,7 +411,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
       className="w-48 flex-shrink-0 bg-surface border-r border-border h-full overflow-y-auto p-4"
       data-testid="stage-filter-sidebar"
     >
-      <h3 className="text-sm font-mono font-bold text-text-muted uppercase tracking-wide mb-4">
+      <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase tracking-wide mb-4">
         Stages
       </h3>
       <div className="space-y-2">
@@ -426,7 +426,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
               <button
                 onClick={() => onToggle(stage)}
                 className={`
-                  w-full flex items-center justify-between px-3 py-2 rounded font-mono text-xs
+                  w-full flex items-center justify-between px-3 py-2 rounded font-theme-data text-xs
                   transition-all duration-200 border
                   ${enabled
                     ? 'border-current opacity-100'
@@ -438,7 +438,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
               >
                 <span className="font-bold uppercase">{config.label}</span>
                 <span
-                  className="px-1.5 py-0.5 rounded-full text-xs font-mono"
+                  className="px-1.5 py-0.5 rounded-full text-xs font-theme-data"
                   style={{
                     backgroundColor: enabled ? `${color}33` : 'transparent',
                   }}
@@ -449,7 +449,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
               </button>
               <button
                 onClick={() => onFocus(stage)}
-                className="w-full text-center text-xs font-mono text-text-muted hover:text-text transition-colors"
+                className="w-full text-center text-xs font-theme-data text-text-muted hover:text-text transition-colors"
                 data-testid={`stage-focus-${stage}`}
               >
                 Focus
@@ -490,7 +490,7 @@ function AITransitionToolbar({
       <button
         onClick={onGenerateGoals}
         disabled={!hasIdeas || loading}
-        className="px-3 py-1.5 bg-emerald-600 text-white font-mono text-xs font-bold rounded
+        className="px-3 py-1.5 bg-emerald-600 text-white font-theme-data text-xs font-bold rounded
                    hover:bg-emerald-500 transition-colors
                    disabled:opacity-40 disabled:cursor-not-allowed"
         data-testid="btn-generate-goals"
@@ -500,7 +500,7 @@ function AITransitionToolbar({
       <button
         onClick={onGenerateTasks}
         disabled={!hasGoals || loading}
-        className="px-3 py-1.5 bg-amber-600 text-white font-mono text-xs font-bold rounded
+        className="px-3 py-1.5 bg-amber-600 text-white font-theme-data text-xs font-bold rounded
                    hover:bg-amber-500 transition-colors
                    disabled:opacity-40 disabled:cursor-not-allowed"
         data-testid="btn-generate-tasks"
@@ -510,7 +510,7 @@ function AITransitionToolbar({
       <button
         onClick={onGenerateWorkflow}
         disabled={!hasActions || loading}
-        className="px-3 py-1.5 bg-purple-600 text-white font-mono text-xs font-bold rounded
+        className="px-3 py-1.5 bg-purple-600 text-white font-theme-data text-xs font-bold rounded
                    hover:bg-purple-500 transition-colors
                    disabled:opacity-40 disabled:cursor-not-allowed"
         data-testid="btn-generate-workflow"
@@ -544,7 +544,7 @@ function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: Prov
       data-testid="provenance-sidebar"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono font-bold text-text uppercase">Provenance</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text uppercase">Provenance</h3>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-text text-lg leading-none"
@@ -556,12 +556,12 @@ function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: Prov
 
       <div className="mb-4">
         <p className="text-sm text-text truncate">{nodeLabel}</p>
-        <p className="text-xs text-text-muted font-mono">{nodeId}</p>
+        <p className="text-xs text-text-muted font-theme-data">{nodeId}</p>
       </div>
 
       {provenanceChain.length > 0 ? (
         <div className="space-y-2">
-          <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+          <h4 className="text-xs font-theme-data font-bold text-text-muted uppercase mb-2">
             Derivation Chain
           </h4>
           {provenanceChain.map((entry, i) => {
@@ -573,12 +573,12 @@ function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: Prov
                     className="w-2 h-2 rounded-full inline-block"
                     style={{ backgroundColor: stageColor }}
                   />
-                  <span className="text-xs font-mono uppercase" style={{ color: stageColor }}>
+                  <span className="text-xs font-theme-data uppercase" style={{ color: stageColor }}>
                     {entry.stage}
                   </span>
                 </div>
                 <p className="text-xs text-text truncate mb-1">{entry.label}</p>
-                <p className="text-xs text-text-muted font-mono">
+                <p className="text-xs text-text-muted font-theme-data">
                   SHA-256: {entry.hash.slice(0, 12)}...
                 </p>
               </div>
@@ -623,14 +623,14 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
-          <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+          <p className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
             Unified Canvas Live State
           </p>
-          <h3 className="text-sm font-mono font-bold text-text">
+          <h3 className="text-sm font-theme-data font-bold text-text">
             Orchestration, review, and repair
           </h3>
         </div>
-        <span className="rounded-full border border-border px-2 py-1 text-[11px] font-mono text-text">
+        <span className="rounded-full border border-border px-2 py-1 text-[11px] font-theme-data text-text">
           {humanizeLabel(orchestration.status)}
         </span>
       </div>
@@ -641,10 +641,10 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
           data-testid="live-state-orchestration"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+            <span className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
               Orchestration
             </span>
-            <span className="text-xs font-mono text-text">
+            <span className="text-xs font-theme-data text-text">
               {humanizeLabel(orchestration.status)}
             </span>
           </div>
@@ -661,11 +661,11 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs text-text">{node.label}</p>
-                    <p className="text-[11px] font-mono text-text-muted">
+                    <p className="text-[11px] font-theme-data text-text-muted">
                       {humanizeLabel(node.orch_type)}
                     </p>
                   </div>
-                  <span className="text-[11px] font-mono text-text-muted">
+                  <span className="text-[11px] font-theme-data text-text-muted">
                     {humanizeLabel(node.execution_status ?? node.status)}
                   </span>
                 </div>
@@ -679,10 +679,10 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
           data-testid="live-state-review"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+            <span className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
               Review
             </span>
-            <span className="text-xs font-mono text-text">
+            <span className="text-xs font-theme-data text-text">
               {pendingReviews} pending
             </span>
           </div>
@@ -690,7 +690,7 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
             {review.reviewer_agents} reviewers, {review.pending_agents} waiting agents, {review.human_gates} human gates
           </p>
           {review.pending_reviews[0] && isRecord(review.pending_reviews[0]) && (
-            <p className="mt-1 text-[11px] font-mono text-text-muted">
+            <p className="mt-1 text-[11px] font-theme-data text-text-muted">
               Next: {humanizeLabel(String(review.pending_reviews[0].from_stage ?? 'stage'))} {'->'}{' '}
               {humanizeLabel(String(review.pending_reviews[0].to_stage ?? 'stage'))}
             </p>
@@ -702,10 +702,10 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
           data-testid="live-state-repair"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+            <span className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
               Repair
             </span>
-            <span className="text-xs font-mono text-text">
+            <span className="text-xs font-theme-data text-text">
               {humanizeLabel(repair.status)}
             </span>
           </div>
@@ -713,7 +713,7 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
             {repair.attempts} attempt{repair.attempts === 1 ? '' : 's'}
           </p>
           {repair.active_items.length > 0 && (
-            <p className="mt-1 text-[11px] font-mono text-text-muted">
+            <p className="mt-1 text-[11px] font-theme-data text-text-muted">
               Active: {repairLabel}
             </p>
           )}
@@ -724,10 +724,10 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
           data-testid="live-state-merge-gate"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+            <span className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
               Merge Gate
             </span>
-            <span className="text-xs font-mono text-text">
+            <span className="text-xs font-theme-data text-text">
               {mergeGate.merge_eligible ? 'eligible' : mergeGate.checks_passed ? 'ready' : 'blocked'}
             </span>
           </div>
@@ -735,7 +735,7 @@ function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
             {mergeGate.expected_checks.length} expected checks, {mergeGate.merge_nodes} merge nodes
           </p>
           {blockedReason && (
-            <p className="mt-1 text-[11px] font-mono text-text-muted">
+            <p className="mt-1 text-[11px] font-theme-data text-text-muted">
               {blockedReason}
             </p>
           )}
@@ -1117,16 +1117,16 @@ function UnifiedPipelineCanvasInner({
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div>
-                            <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+                            <p className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted">
                               Ideas {'->'} Goals
                             </p>
-                            <h3 className="text-sm font-mono font-bold text-text">
+                            <h3 className="text-sm font-theme-data font-bold text-text">
                               Promote focused ideas
                             </h3>
                           </div>
                           <button
                             onClick={handleGenerateGoals}
-                            className="px-2 py-1 text-[11px] font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                            className="px-2 py-1 text-[11px] font-theme-data rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
                             disabled={loading}
                             data-testid="btn-refresh-goal-draft"
                           >
@@ -1138,7 +1138,7 @@ function UnifiedPipelineCanvasInner({
                           {selectedIdeaNodes.slice(0, 3).map((node) => (
                             <span
                               key={node.id}
-                              className="px-2 py-1 rounded-full bg-indigo-500/15 text-indigo-200 text-[11px] font-mono"
+                              className="px-2 py-1 rounded-full bg-indigo-500/15 text-indigo-200 text-[11px] font-theme-data"
                             >
                               {((node.data as Record<string, unknown>)?.label as string) || node.id}
                             </span>
@@ -1150,7 +1150,7 @@ function UnifiedPipelineCanvasInner({
                             className="mt-3 rounded border border-border bg-bg/60 p-2"
                             data-testid="ideas-to-goals-goal-preview"
                           >
-                            <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
+                            <p className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted mb-1">
                               Goal Draft
                             </p>
                             <p className="text-xs text-text">
@@ -1158,7 +1158,7 @@ function UnifiedPipelineCanvasInner({
                             </p>
                           </div>
                         ) : (
-                          <p className="mt-3 text-xs text-text-muted font-mono">
+                          <p className="mt-3 text-xs text-text-muted font-theme-data">
                             Generate or refresh the goal draft to inspect provenance before approval.
                           </p>
                         )}
@@ -1190,7 +1190,7 @@ function UnifiedPipelineCanvasInner({
 
             {/* Stats + zoom info panel */}
             <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
-              <div className="text-xs font-mono text-text-muted">
+              <div className="text-xs font-theme-data text-text-muted">
                 <span className="text-text">{displayNodes.length}</span> nodes |{' '}
                 <span className="text-text">{displayEdges.length}</span> edges |{' '}
                 <span className="text-text">zoom: {zoomLevel.toFixed(2)}</span>
@@ -1208,7 +1208,7 @@ function UnifiedPipelineCanvasInner({
             {/* Pipeline ID + integrity */}
             {pipelineId && (
               <Panel position="top-right" className="bg-surface/90 border border-border rounded p-2">
-                <div className="text-xs font-mono text-text-muted">
+                <div className="text-xs font-theme-data text-text-muted">
                   Pipeline: <span className="text-text">{pipelineId}</span>
                   {initialData?.integrity_hash && (
                     <span className="ml-2 text-emerald-400">
@@ -1223,7 +1223,7 @@ function UnifiedPipelineCanvasInner({
             {ALL_STAGES.filter((s) => visibleStages.has(s)).map((stage) => (
               <Panel key={stage} position="top-left" className="pointer-events-none">
                 <div
-                  className="font-mono text-xs font-bold uppercase tracking-wide opacity-30 ml-2 mt-1"
+                  className="font-theme-data text-xs font-bold uppercase tracking-wide opacity-30 ml-2 mt-1"
                   style={{
                     color: STAGE_COLORS[stage],
                     transform: `translateX(${STAGE_OFFSET_X[stage]}px)`,

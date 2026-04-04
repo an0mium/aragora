@@ -70,11 +70,11 @@ export class ErrorBoundary extends Component<Props, State> {
       // Terminal-styled default error UI
       return (
         <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full border border-crimson bg-surface p-6 font-mono">
+          <div className="max-w-2xl w-full border border-[var(--crimson)] bg-surface p-6 font-theme-data">
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-crimson text-2xl">{'>'}</div>
+              <div className="text-[var(--crimson)] text-2xl">{'>'}</div>
               <div>
-                <div className="text-crimson font-bold mb-2">
+                <div className="text-[var(--crimson)] font-bold mb-2">
                   RUNTIME ERROR
                 </div>
                 <div className="text-warning text-sm mb-4">
@@ -87,7 +87,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="mb-2 text-text">
                 {'>'} {this.state.error.name}
               </div>
-              <div className="pl-4 text-crimson">
+              <div className="pl-4 text-[var(--crimson)]">
                 {this.state.error.message}
               </div>
               {this.state.error.stack && (

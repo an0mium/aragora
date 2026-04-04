@@ -23,12 +23,12 @@ export function GoalPalette() {
 
   return (
     <div className="w-48 border-r border-[var(--border)] bg-[var(--surface)] p-3 overflow-y-auto">
-      <h3 className="text-xs font-mono uppercase text-text-muted mb-3 tracking-wider">
+      <h3 className="text-xs font-theme-data uppercase text-text-muted mb-3 tracking-wider">
         Goal Types
       </h3>
       {groups.map((group) => (
         <div key={group.key} className="mb-4">
-          <div className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wide">
+          <div className="text-xs font-theme-data text-text-muted mb-2 uppercase tracking-wide">
             {group.label}
           </div>
           <div className="space-y-1.5">

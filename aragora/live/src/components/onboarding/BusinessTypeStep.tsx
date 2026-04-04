@@ -80,7 +80,7 @@ export function BusinessTypeStep({ selectedType, onSelect }: BusinessTypeStepPro
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="text-xl font-mono text-acid-green mb-2">What industry are you in?</h3>
+        <h3 className="text-xl font-theme-data text-[var(--accent)] mb-2">What industry are you in?</h3>
         <p className="text-sm text-text-muted">
           We&apos;ll customize your experience with relevant templates and workflows
         </p>
@@ -95,18 +95,18 @@ export function BusinessTypeStep({ selectedType, onSelect }: BusinessTypeStepPro
             onMouseLeave={() => setHoveredType(null)}
             className={`p-4 border rounded-lg text-left transition-all ${
               selectedType === business.type
-                ? 'border-acid-green bg-acid-green/10'
-                : 'border-border hover:border-acid-green/50'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-border hover:border-[var(--accent)]/50'
             }`}
           >
             <div className="flex items-start gap-3">
               <span className="text-2xl">{business.icon}</span>
               <div className="flex-1 min-w-0">
-                <div className="font-mono text-sm text-text">{business.title}</div>
+                <div className="font-theme-data text-sm text-text">{business.title}</div>
                 <div className="text-xs text-text-muted mt-1">{business.description}</div>
               </div>
               {selectedType === business.type && (
-                <span className="text-acid-green text-lg">✓</span>
+                <span className="text-[var(--accent)] text-lg">✓</span>
               )}
             </div>
           </button>

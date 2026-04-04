@@ -75,7 +75,7 @@ export function GridView({
 
   return (
     <div className="overflow-x-auto" role="grid" aria-label="Scenario comparison grid">
-      <div className="text-xs font-mono text-text-muted mb-2" id="grid-instructions">
+      <div className="text-xs font-theme-data text-text-muted mb-2" id="grid-instructions">
         Click or press Enter on two scenarios to compare them. Use arrow keys to navigate.
         {selectedForCompare !== null && (
           <span className="text-purple ml-2">
@@ -104,25 +104,25 @@ export function GridView({
                 : r.is_baseline
                 ? 'border-gold/40 hover:border-gold'
                 : r.consensus_reached
-                ? 'border-acid-green/40 hover:border-acid-green'
-                : 'border-crimson/40 hover:border-crimson'
+                ? 'border-[var(--accent)]/40 hover:border-[var(--accent)]'
+                : 'border-[var(--crimson)]/40 hover:border-[var(--crimson)]'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-mono ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
+              <span className={`text-xs font-theme-data ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
                 {r.scenario_name}
               </span>
               <span
-                className={`w-2 h-2 rounded-full ${r.consensus_reached ? 'bg-acid-green' : 'bg-crimson'}`}
+                className={`w-2 h-2 rounded-full ${r.consensus_reached ? 'bg-[var(--accent)]' : 'bg-[var(--crimson)]'}`}
               />
             </div>
 
             {/* Mini parameter grid */}
             <div className="space-y-1 mb-2">
               {allParamKeys.slice(0, 3).map(key => (
-                <div key={key} className="flex justify-between text-[10px] font-mono">
+                <div key={key} className="flex justify-between text-[10px] font-theme-data">
                   <span className="text-text-muted">{key}:</span>
-                  <span className="text-acid-cyan">{String(r.parameters[key] || '-')}</span>
+                  <span className="text-[var(--acid-cyan)]">{String(r.parameters[key] || '-')}</span>
                 </div>
               ))}
             </div>
@@ -130,11 +130,11 @@ export function GridView({
             {/* Confidence bar */}
             <div className="h-1 bg-bg rounded-full overflow-hidden">
               <div
-                className={`h-full ${r.consensus_reached ? 'bg-acid-green' : 'bg-crimson'}`}
+                className={`h-full ${r.consensus_reached ? 'bg-[var(--accent)]' : 'bg-[var(--crimson)]'}`}
                 style={{ width: `${r.confidence * 100}%` }}
               />
             </div>
-            <div className="text-[10px] font-mono text-text-muted mt-1 text-right">
+            <div className="text-[10px] font-theme-data text-text-muted mt-1 text-right">
               {(r.confidence * 100).toFixed(0)}%
             </div>
           </div>

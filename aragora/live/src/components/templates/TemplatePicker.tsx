@@ -28,14 +28,14 @@ function TemplateCard({ template, compact }: { template: TemplateData; compact?:
                   hover:border-${meta.accent}/50 hover:bg-surface/50 transition-all group`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className={`text-${meta.accent}/60 font-mono text-xs`}>
+        <span className={`text-${meta.accent}/60 font-theme-data text-xs`}>
           [{meta.label}]
         </span>
       </div>
-      <h3 className={`text-${meta.accent} font-mono text-sm mb-1 group-hover:text-${meta.accent}/80`}>
+      <h3 className={`text-${meta.accent} font-theme-data text-sm mb-1 group-hover:text-${meta.accent}/80`}>
         {template.name}
       </h3>
-      <p className="text-text-muted text-xs font-mono leading-relaxed mb-3">
+      <p className="text-text-muted text-xs font-theme-data leading-relaxed mb-3">
         {template.description}
       </p>
 
@@ -44,7 +44,7 @@ function TemplateCard({ template, compact }: { template: TemplateData; compact?:
           {template.exampleTopics.slice(0, 2).map((topic) => (
             <span
               key={topic}
-              className={`px-2 py-0.5 text-[10px] font-mono bg-${meta.accent}/5 text-${meta.accent}/70 border border-${meta.accent}/10`}
+              className={`px-2 py-0.5 text-[10px] font-theme-data bg-${meta.accent}/5 text-${meta.accent}/70 border border-${meta.accent}/10`}
             >
               {topic.length > 50 ? topic.slice(0, 47) + '...' : topic}
             </span>
@@ -52,7 +52,7 @@ function TemplateCard({ template, compact }: { template: TemplateData; compact?:
         </div>
       )}
 
-      <div className="flex items-center justify-between text-[10px] font-mono text-text-muted/50">
+      <div className="flex items-center justify-between text-[10px] font-theme-data text-text-muted/50">
         <span>{template.agents.length} agents</span>
         <span>{template.rounds} rounds</span>
       </div>
@@ -80,13 +80,13 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
   // In compact mode, show grouped view
   if (compact) {
     return (
-      <section className="py-8 border-t border-acid-green/20">
+      <section className="py-8 border-t border-[var(--accent)]/20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-6">
-            <h2 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-2">
+            <h2 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-2">
               TEMPLATES
             </h2>
-            <p className="text-text-muted font-mono text-xs max-w-xl mx-auto">
+            <p className="text-text-muted font-theme-data text-xs max-w-xl mx-auto">
               25 pre-built deliberation templates across 8 verticals
             </p>
           </div>
@@ -101,10 +101,10 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                  className={`px-2 py-1 text-[10px] font-mono border transition-colors
+                  className={`px-2 py-1 text-[10px] font-theme-data border transition-colors
                     ${selectedCategory === cat
                       ? `border-${meta.accent} bg-${meta.accent}/10 text-${meta.accent}`
-                      : `border-acid-green/20 text-text-muted/50 hover:text-${meta.accent} hover:border-${meta.accent}/40`
+                      : `border-[var(--accent)]/20 text-text-muted/50 hover:text-${meta.accent} hover:border-${meta.accent}/40`
                     }`}
                 >
                   <span className="mr-1">{meta.icon}</span>
@@ -130,7 +130,7 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
                 const meta = CATEGORY_META[cat];
                 return (
                   <div key={cat}>
-                    <h3 className={`text-${meta.accent} font-mono text-xs mb-2 flex items-center gap-2`}>
+                    <h3 className={`text-${meta.accent} font-theme-data text-xs mb-2 flex items-center gap-2`}>
                       <span className="opacity-60">{meta.icon}</span>
                       {meta.label}
                     </h3>
@@ -142,7 +142,7 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
                         <Link
                           href="/templates"
                           className={`flex items-center justify-center border border-${meta.accent}/10
-                                      text-${meta.accent}/40 font-mono text-xs p-4
+                                      text-${meta.accent}/40 font-theme-data text-xs p-4
                                       hover:border-${meta.accent}/30 hover:text-${meta.accent}/60 transition-colors`}
                         >
                           +{items.length - compactLimit} more
@@ -158,7 +158,7 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
           <div className="text-center mt-6">
             <Link
               href="/templates"
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
             >
               [VIEW ALL 25 TEMPLATES]
             </Link>
@@ -176,10 +176,10 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-3 py-1 text-xs font-mono border transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
               !selectedCategory
-                ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                : 'border-acid-green/30 text-text-muted hover:border-acid-green/60'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                : 'border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)]/60'
             }`}
           >
             [ALL] ({TEMPLATES.length})
@@ -192,10 +192,10 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                   selectedCategory === cat
                     ? `border-${meta.accent} bg-${meta.accent}/20 text-${meta.accent}`
-                    : `border-acid-green/30 text-text-muted hover:border-${meta.accent}/60`
+                    : `border-[var(--accent)]/30 text-text-muted hover:border-${meta.accent}/60`
                 }`}
               >
                 [{meta.label}] ({count})
@@ -210,8 +210,8 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter templates..."
-            className="w-full px-4 py-2 text-sm font-mono bg-surface border border-acid-green/30
-                     text-text placeholder-text-muted/50 focus:border-acid-green focus:outline-none"
+            className="w-full px-4 py-2 text-sm font-theme-data bg-surface border border-[var(--accent)]/30
+                     text-text placeholder-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
           />
         </div>
       </div>
@@ -225,7 +225,7 @@ export function TemplatePicker({ compact = false, compactLimit = 2 }: TemplatePi
 
       {filteredTemplates.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-text-muted font-mono">No templates match your search.</p>
+          <p className="text-text-muted font-theme-data">No templates match your search.</p>
         </div>
       )}
     </div>

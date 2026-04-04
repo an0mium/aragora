@@ -56,15 +56,15 @@ function formatCurrency(cents: number, currency = 'USD'): string {
 
 function StatusBadge({ status }: { status: Invoice['status'] }) {
   const colors: Record<string, string> = {
-    paid: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    open: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    paid: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    open: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     draft: 'bg-text-muted/20 text-text-muted border-text-muted/40',
     void: 'bg-acid-red/20 text-acid-red border-acid-red/40',
     uncollectible: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.draft}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status] || colors.draft}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -75,22 +75,22 @@ function TierCard({ tier, current, onUpgrade }: { tier: string; current: boolean
   if (!info) return null;
 
   return (
-    <div className={`card p-4 ${current ? 'border-acid-green' : ''}`}>
+    <div className={`card p-4 ${current ? 'border-[var(--accent)]' : ''}`}>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-mono text-lg text-text capitalize">{tier.replace('_', ' ')}</h3>
+        <h3 className="font-theme-data text-lg text-text capitalize">{tier.replace('_', ' ')}</h3>
         {current && (
-          <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-green/20 text-acid-green border-acid-green/40">
+          <span className="px-2 py-0.5 text-xs font-theme-data rounded border bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40">
             CURRENT
           </span>
         )}
       </div>
-      <div className="font-mono text-2xl text-acid-cyan mb-4">
+      <div className="font-theme-data text-2xl text-[var(--acid-cyan)] mb-4">
         ${info.monthly}<span className="text-sm text-text-muted">/mo</span>
       </div>
       <ul className="space-y-2 mb-4">
         {info.features.map((feature, idx) => (
-          <li key={idx} className="font-mono text-xs text-text-muted flex items-center gap-2">
-            <span className="text-acid-green">*</span>
+          <li key={idx} className="font-theme-data text-xs text-text-muted flex items-center gap-2">
+            <span className="text-[var(--accent)]">*</span>
             {feature}
           </li>
         ))}
@@ -98,7 +98,7 @@ function TierCard({ tier, current, onUpgrade }: { tier: string; current: boolean
       {!current && (
         <button
           onClick={() => onUpgrade(tier)}
-          className="w-full px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+          className="w-full px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
         >
           {info.monthly > (TIER_PRICES[tier]?.monthly || 0) ? 'Upgrade' : 'Change Plan'}
         </button>
@@ -259,7 +259,7 @@ export default function BillingPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -267,51 +267,51 @@ export default function BillingPage() {
     >
       {error && (
         <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-          <p className="text-acid-red font-mono text-sm">{error}</p>
+          <p className="text-acid-red font-theme-data text-sm">{error}</p>
         </div>
       )}
 
       {/* Current Period Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Current Plan</div>
-          <div className="font-mono text-xl text-acid-green capitalize">
+          <div className="font-theme-data text-xs text-text-muted mb-1">Current Plan</div>
+          <div className="font-theme-data text-xl text-[var(--accent)] capitalize">
             {planInfo?.current_tier?.replace('_', ' ') || '-'}
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Debates Used</div>
-          <div className="font-mono text-xl text-acid-cyan">
+          <div className="font-theme-data text-xs text-text-muted mb-1">Debates Used</div>
+          <div className="font-theme-data text-xl text-[var(--acid-cyan)]">
             {planInfo?.debates_used || 0}/{planInfo?.debates_limit || '-'}
           </div>
           <div className="mt-2 h-1.5 bg-bg rounded overflow-hidden">
             <div
-              className={`h-full transition-all ${usagePercent >= 90 ? 'bg-acid-red' : usagePercent >= 70 ? 'bg-acid-yellow' : 'bg-acid-green'}`}
+              className={`h-full transition-all ${usagePercent >= 90 ? 'bg-acid-red' : usagePercent >= 70 ? 'bg-acid-yellow' : 'bg-[var(--accent)]'}`}
               style={{ width: `${usagePercent}%` }}
             />
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Tokens Used</div>
-          <div className="font-mono text-xl text-text">
+          <div className="font-theme-data text-xs text-text-muted mb-1">Tokens Used</div>
+          <div className="font-theme-data text-xl text-text">
             {usage?.tokens_used?.toLocaleString() || '-'}
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">API Calls</div>
-          <div className="font-mono text-xl text-text">
+          <div className="font-theme-data text-xs text-text-muted mb-1">API Calls</div>
+          <div className="font-theme-data text-xl text-text">
             {usage?.api_calls?.toLocaleString() || '-'}
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Estimated Cost</div>
-          <div className="font-mono text-xl text-acid-yellow">
+          <div className="font-theme-data text-xs text-text-muted mb-1">Estimated Cost</div>
+          <div className="font-theme-data text-xl text-[var(--acid-yellow)]">
             ${usage?.estimated_cost_usd?.toFixed(2) || '0.00'}
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Next Billing</div>
-          <div className="font-mono text-lg text-text-muted">
+          <div className="font-theme-data text-xs text-text-muted mb-1">Next Billing</div>
+          <div className="font-theme-data text-lg text-text-muted">
             {planInfo?.next_billing_date
               ? new Date(planInfo.next_billing_date).toLocaleDateString()
               : '-'}
@@ -320,14 +320,14 @@ export default function BillingPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2 mb-6">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2 mb-6">
         {(['usage', 'invoices', 'plans'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -375,35 +375,35 @@ export default function BillingPage() {
               formatValue={(v) => v.toLocaleString()}
             />
             <div className="card p-6">
-              <h3 className="font-mono text-acid-green mb-4">TOKEN BREAKDOWN</h3>
+              <h3 className="font-theme-data text-[var(--accent)] mb-4">TOKEN BREAKDOWN</h3>
               {usage ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="font-mono text-sm text-text-muted">Input Tokens</span>
-                    <span className="font-mono text-sm text-text">{usage.tokens_in?.toLocaleString() || 0}</span>
+                    <span className="font-theme-data text-sm text-text-muted">Input Tokens</span>
+                    <span className="font-theme-data text-sm text-text">{usage.tokens_in?.toLocaleString() || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="font-mono text-sm text-text-muted">Output Tokens</span>
-                    <span className="font-mono text-sm text-text">{usage.tokens_out?.toLocaleString() || 0}</span>
+                    <span className="font-theme-data text-sm text-text-muted">Output Tokens</span>
+                    <span className="font-theme-data text-sm text-text">{usage.tokens_out?.toLocaleString() || 0}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-4 border-t border-acid-green/20">
-                    <span className="font-mono text-sm text-text-muted">Total</span>
-                    <span className="font-mono text-sm text-acid-cyan">{usage.tokens_used?.toLocaleString() || 0}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono text-sm text-text-muted">Total Debates</span>
-                    <span className="font-mono text-sm text-text">{usage.debates_count}</span>
+                  <div className="flex justify-between items-center pt-4 border-t border-[var(--accent)]/20">
+                    <span className="font-theme-data text-sm text-text-muted">Total</span>
+                    <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{usage.tokens_used?.toLocaleString() || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="font-mono text-sm text-text-muted">Period</span>
-                    <span className="font-mono text-xs text-text-muted">
+                    <span className="font-theme-data text-sm text-text-muted">Total Debates</span>
+                    <span className="font-theme-data text-sm text-text">{usage.debates_count}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-theme-data text-sm text-text-muted">Period</span>
+                    <span className="font-theme-data text-xs text-text-muted">
                       {usage.period_start && new Date(usage.period_start).toLocaleDateString()} -
                       {usage.period_end && new Date(usage.period_end).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
               ) : (
-                <div className="font-mono text-sm text-text-muted">Loading...</div>
+                <div className="font-theme-data text-sm text-text-muted">Loading...</div>
               )}
             </div>
           </div>
@@ -415,44 +415,44 @@ export default function BillingPage() {
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-surface border-b border-acid-green/20">
+              <thead className="bg-surface border-b border-[var(--accent)]/20">
                 <tr>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">INVOICE</th>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">PERIOD</th>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">AMOUNT</th>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">STATUS</th>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">DATE</th>
-                  <th className="text-left px-4 py-3 font-mono text-xs text-text-muted">ACTIONS</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">INVOICE</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">PERIOD</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">AMOUNT</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">STATUS</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">DATE</th>
+                  <th className="text-left px-4 py-3 font-theme-data text-xs text-text-muted">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center">
-                      <div className="font-mono text-text-muted animate-pulse">Loading...</div>
+                      <div className="font-theme-data text-text-muted animate-pulse">Loading...</div>
                     </td>
                   </tr>
                 )}
                 {!loading && invoices.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center">
-                      <div className="font-mono text-text-muted">No invoices found</div>
+                      <div className="font-theme-data text-text-muted">No invoices found</div>
                     </td>
                   </tr>
                 )}
                 {!loading && invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b border-acid-green/10 hover:bg-surface/50">
+                  <tr key={invoice.id} className="border-b border-[var(--accent)]/10 hover:bg-surface/50">
                     <td className="px-4 py-3">
-                      <div className="font-mono text-sm text-acid-cyan">{invoice.number}</div>
+                      <div className="font-theme-data text-sm text-[var(--acid-cyan)]">{invoice.number}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-xs text-text-muted">
+                      <div className="font-theme-data text-xs text-text-muted">
                         {new Date(invoice.period_start).toLocaleDateString()} -
                         {new Date(invoice.period_end).toLocaleDateString()}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-sm text-text">
+                      <div className="font-theme-data text-sm text-text">
                         {formatCurrency(invoice.amount_due, invoice.currency)}
                       </div>
                     </td>
@@ -460,7 +460,7 @@ export default function BillingPage() {
                       <StatusBadge status={invoice.status} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-xs text-text-muted">
+                      <div className="font-theme-data text-xs text-text-muted">
                         {new Date(invoice.created_at).toLocaleDateString()}
                       </div>
                     </td>
@@ -470,7 +470,7 @@ export default function BillingPage() {
                           href={invoice.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+                          className="font-theme-data text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                         >
                           Download PDF
                         </a>
@@ -488,7 +488,7 @@ export default function BillingPage() {
       {activeTab === 'plans' && (
         <div>
           <div className="mb-6">
-            <p className="font-mono text-sm text-text-muted">
+            <p className="font-theme-data text-sm text-text-muted">
               Choose the plan that best fits your needs. Upgrade or downgrade anytime.
             </p>
           </div>
@@ -508,14 +508,14 @@ export default function BillingPage() {
             <div className="mt-8 card p-6 border-acid-yellow/40 bg-acid-yellow/5">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h3 className="font-mono text-lg text-acid-yellow mb-1">Need more power?</h3>
-                  <p className="font-mono text-sm text-text-muted">
+                  <h3 className="font-theme-data text-lg text-[var(--acid-yellow)] mb-1">Need more power?</h3>
+                  <p className="font-theme-data text-sm text-text-muted">
                     Contact sales for Enterprise pricing with unlimited debates, SSO, and dedicated support.
                   </p>
                 </div>
                 <a
                   href="mailto:sales@aragora.ai?subject=Enterprise%20Inquiry"
-                  className="px-6 py-3 bg-acid-yellow/20 border border-acid-yellow/40 text-acid-yellow font-mono text-sm rounded hover:bg-acid-yellow/30 transition-colors"
+                  className="px-6 py-3 bg-acid-yellow/20 border border-acid-yellow/40 text-[var(--acid-yellow)] font-theme-data text-sm rounded hover:bg-acid-yellow/30 transition-colors"
                 >
                   Contact Sales
                 </a>

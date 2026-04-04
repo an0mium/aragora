@@ -116,10 +116,10 @@ export function PanelTemplate({
           )}
 
           {/* Icon */}
-          {icon && <span className="text-acid-green">{icon}</span>}
+          {icon && <span className="text-[var(--accent)]">{icon}</span>}
 
           {/* Title */}
-          <h3 className="text-sm font-mono text-text-muted uppercase tracking-wide">
+          <h3 className="text-sm font-theme-data text-text-muted uppercase tracking-wide">
             {title}
           </h3>
 
@@ -182,7 +182,7 @@ export function PanelTemplate({
                     key={tab.id}
                     onClick={() => onTabChange?.(tab.id)}
                     disabled={tab.disabled}
-                    className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
                       activeTab === tab.id
                         ? 'bg-accent text-bg'
                         : tab.disabled

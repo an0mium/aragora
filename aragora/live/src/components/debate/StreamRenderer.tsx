@@ -53,14 +53,14 @@ export interface StreamRendererProps {
 
 const PHASE_LABELS: Record<DebatePhase, { label: string; color: string }> = {
   idle: { label: 'IDLE', color: 'text-text-muted' },
-  initializing: { label: 'INITIALIZING', color: 'text-acid-yellow' },
-  proposal: { label: 'PROPOSAL', color: 'text-acid-green' },
-  critique: { label: 'CRITIQUE', color: 'text-acid-yellow' },
-  revision: { label: 'REVISION', color: 'text-acid-cyan' },
+  initializing: { label: 'INITIALIZING', color: 'text-[var(--acid-yellow)]' },
+  proposal: { label: 'PROPOSAL', color: 'text-[var(--accent)]' },
+  critique: { label: 'CRITIQUE', color: 'text-[var(--acid-yellow)]' },
+  revision: { label: 'REVISION', color: 'text-[var(--acid-cyan)]' },
   cross_examination: { label: 'CROSS-EXAM', color: 'text-purple' },
   synthesis: { label: 'SYNTHESIS', color: 'text-accent' },
   vote: { label: 'VOTING', color: 'text-gold' },
-  complete: { label: 'COMPLETE', color: 'text-acid-green' },
+  complete: { label: 'COMPLETE', color: 'text-[var(--accent)]' },
 };
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ function AgentAvatar({ agent }: { agent: string }) {
 
   return (
     <div
-      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold ${colors.bg} ${colors.text} border ${colors.border} flex-shrink-0`}
+      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-theme-data font-bold ${colors.bg} ${colors.text} border ${colors.border} flex-shrink-0`}
     >
       {initial}
     </div>
@@ -91,15 +91,15 @@ function TypingIndicator({ agent }: { agent: string }) {
     <div className="flex items-center gap-2 px-4 py-2">
       <AgentAvatar agent={agent} />
       <div className="flex items-center gap-1">
-        <span className={`text-xs font-mono font-bold ${colors.text}`}>
+        <span className={`text-xs font-theme-data font-bold ${colors.text}`}>
           {agent.toUpperCase()}
         </span>
         <div className="flex gap-0.5 ml-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-acid-green animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-1.5 h-1.5 rounded-full bg-acid-green animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-1.5 h-1.5 rounded-full bg-acid-green animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
-        <span className="text-[10px] font-mono text-text-muted ml-1">generating</span>
+        <span className="text-[10px] font-theme-data text-text-muted ml-1">generating</span>
       </div>
     </div>
   );
@@ -151,11 +151,11 @@ export function StreamRenderer({
       {/* Phase indicator bar */}
       {isStreaming && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg/50">
-          <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
-          <span className={`text-[10px] font-mono uppercase tracking-wider ${phaseInfo.color}`}>
+          <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+          <span className={`text-[10px] font-theme-data uppercase tracking-wider ${phaseInfo.color}`}>
             {phaseInfo.label}
           </span>
-          <span className="text-[10px] font-mono text-text-muted">
+          <span className="text-[10px] font-theme-data text-text-muted">
             | {messages.length} messages
             {streamingMessages.size > 0 && (
               <> | {streamingMessages.size} streaming</>
@@ -174,10 +174,10 @@ export function StreamRenderer({
         {messages.length === 0 && activeStreams.length === 0 && typingAgents.length === 0 && isStreaming && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-2">
-              <div className="text-acid-green font-mono text-sm animate-pulse">
+              <div className="text-[var(--accent)] font-theme-data text-sm animate-pulse">
                 {'>'} WAITING FOR AGENTS...
               </div>
-              <div className="text-[10px] font-mono text-text-muted">
+              <div className="text-[10px] font-theme-data text-text-muted">
                 Agents are analyzing your question
               </div>
             </div>
@@ -193,37 +193,37 @@ export function StreamRenderer({
             <div
               key={`msg-${msg.agent}-${msg.timestamp ?? idx}-${idx}`}
               className={`flex gap-3 transition-colors duration-300 ${
-                isSpeaking ? 'bg-acid-cyan/5 border-l-2 border-l-acid-cyan pl-2' : ''
+                isSpeaking ? 'bg-[var(--acid-cyan)]/5 border-l-2 border-l-acid-cyan pl-2' : ''
               }`}
             >
               <AgentAvatar agent={msg.agent} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-mono font-bold ${colors.text}`}>
+                  <span className={`text-xs font-theme-data font-bold ${colors.text}`}>
                     {msg.agent.toUpperCase()}
                   </span>
                   {msg.role && msg.role !== 'proposer' && (
-                    <span className="text-[10px] font-mono text-text-muted border border-border px-1">
+                    <span className="text-[10px] font-theme-data text-text-muted border border-border px-1">
                       {msg.role.toUpperCase()}
                     </span>
                   )}
                   {msg.round !== undefined && (
-                    <span className="text-[10px] font-mono text-text-muted">
+                    <span className="text-[10px] font-theme-data text-text-muted">
                       R{msg.round}
                     </span>
                   )}
                   {msg.confidence_score !== undefined && msg.confidence_score !== null && (
-                    <span className="text-[10px] font-mono text-acid-yellow">
+                    <span className="text-[10px] font-theme-data text-[var(--acid-yellow)]">
                       {Math.round(msg.confidence_score * 100)}%
                     </span>
                   )}
                   {isSpeaking && (
-                    <span className="text-[10px] font-mono text-acid-cyan animate-pulse">
+                    <span className="text-[10px] font-theme-data text-[var(--acid-cyan)] animate-pulse">
                       SPEAKING
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-mono text-text whitespace-pre-wrap leading-relaxed">
+                <p className="text-sm font-theme-data text-text whitespace-pre-wrap leading-relaxed">
                   {msg.content}
                 </p>
               </div>
@@ -243,19 +243,19 @@ export function StreamRenderer({
               <AgentAvatar agent={stream.agent} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-mono font-bold ${colors.text}`}>
+                  <span className={`text-xs font-theme-data font-bold ${colors.text}`}>
                     {stream.agent.toUpperCase()}
                   </span>
-                  <span className="text-[10px] font-mono text-acid-cyan animate-pulse border border-acid-cyan/30 px-1">
+                  <span className="text-[10px] font-theme-data text-[var(--acid-cyan)] animate-pulse border border-[var(--acid-cyan)]/30 px-1">
                     STREAMING
                   </span>
-                  <span className="text-[10px] font-mono text-text-muted">
+                  <span className="text-[10px] font-theme-data text-text-muted">
                     {Math.round((Date.now() - stream.startTime) / 1000)}s
                   </span>
                 </div>
-                <p className="text-sm font-mono text-text whitespace-pre-wrap leading-relaxed">
+                <p className="text-sm font-theme-data text-text whitespace-pre-wrap leading-relaxed">
                   {stream.content}
-                  <span className="inline-block w-2 h-4 bg-acid-cyan ml-0.5 animate-pulse">
+                  <span className="inline-block w-2 h-4 bg-[var(--acid-cyan)] ml-0.5 animate-pulse">
                     |
                   </span>
                 </p>
@@ -271,8 +271,8 @@ export function StreamRenderer({
 
         {/* Completion marker */}
         {currentPhase === 'complete' && (
-          <div className="text-center py-4 border-t border-acid-green/20 mt-4">
-            <span className="text-xs font-mono text-acid-green">
+          <div className="text-center py-4 border-t border-[var(--accent)]/20 mt-4">
+            <span className="text-xs font-theme-data text-[var(--accent)]">
               {'>'} DEBATE COMPLETE
             </span>
           </div>

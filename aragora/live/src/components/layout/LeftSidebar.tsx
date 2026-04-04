@@ -532,7 +532,7 @@ export function LeftSidebar() {
         `}
         title={leftSidebarCollapsed ? item.label : undefined}
       >
-        <span className="font-mono text-sm w-5 text-center flex-shrink-0">{item.icon}</span>
+        <span className="font-theme-data text-sm w-5 text-center flex-shrink-0">{item.icon}</span>
         {!leftSidebarCollapsed && (
           <span className="text-sm font-medium truncate">{item.label}</span>
         )}
@@ -587,7 +587,7 @@ export function LeftSidebar() {
               )}
             </span>
             {canCollapse && (
-              <span className="font-mono text-[10px] opacity-50">
+              <span className="font-theme-data text-[10px] opacity-50">
                 {isCollapsed ? '\u25B8' : '\u25BE'}
               </span>
             )}
@@ -619,7 +619,7 @@ export function LeftSidebar() {
             onClick={() => isMobile && closeLeftSidebar()}
             className="flex items-center gap-2 px-3 py-2 mb-1 rounded-md bg-[var(--acid-green)]/10 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/20 transition-colors"
           >
-            <span className="font-mono text-lg">{item.icon}</span>
+            <span className="font-theme-data text-lg">{item.icon}</span>
             {!leftSidebarCollapsed && (
               <span className="text-sm font-medium">{item.label}</span>
             )}
@@ -642,7 +642,7 @@ export function LeftSidebar() {
             className="flex items-center gap-2 px-3 py-2 mb-3 rounded-md bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
             title={leftSidebarCollapsed ? 'Login' : undefined}
           >
-            <span className="font-mono text-lg">{'\u2192'}</span>
+            <span className="font-theme-data text-lg">{'\u2192'}</span>
             {!leftSidebarCollapsed && (
               <span className="text-sm font-medium">Login</span>
             )}
@@ -670,7 +670,7 @@ export function LeftSidebar() {
             aria-label={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <span className="font-mono" aria-hidden="true">
+            <span className="font-theme-data" aria-hidden="true">
               {leftSidebarCollapsed ? '\u00BB' : '\u00AB'}
             </span>
             {!leftSidebarCollapsed && (

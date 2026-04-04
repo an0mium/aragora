@@ -122,7 +122,7 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
   if (!data || data.daily_forecasts.length === 0) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} COST FORECAST
         </h3>
         <div className="text-center py-8 text-[var(--text-muted)]">
@@ -148,12 +148,12 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} COST FORECAST ({forecastDays} days)
         </h3>
         <button
           onClick={() => setShowSimulation(!showSimulation)}
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           {showSimulation ? 'Hide' : 'Show'} Simulation
         </button>
@@ -168,7 +168,7 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
               className={`border rounded p-3 ${SEVERITY_COLORS[alert.severity]}`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-mono">{alert.title}</span>
+                <span className="text-sm font-theme-data">{alert.title}</span>
               </div>
               <div className="text-xs mt-1 opacity-80">{alert.message}</div>
             </div>
@@ -179,19 +179,19 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-[var(--bg)] rounded p-3">
-          <div className="text-lg font-mono text-[var(--acid-green)]">
+          <div className="text-lg font-theme-data text-[var(--acid-green)]">
             ${parseFloat(data.predictions.monthly_cost).toFixed(2)}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Projected Monthly</div>
         </div>
         <div className="bg-[var(--bg)] rounded p-3">
-          <div className="text-lg font-mono text-[var(--acid-cyan)]">
+          <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
             ${parseFloat(data.predictions.daily_average).toFixed(2)}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Daily Average</div>
         </div>
         <div className="bg-[var(--bg)] rounded p-3">
-          <div className={`text-lg font-mono ${
+          <div className={`text-lg font-theme-data ${
             data.budget.projected_usage_percent && data.budget.projected_usage_percent >= 100
               ? 'text-red-400'
               : data.budget.projected_usage_percent && data.budget.projected_usage_percent >= 80
@@ -209,7 +209,7 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
       {/* Trend Analysis */}
       {data.trend && (
         <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-          <span className={`font-mono ${
+          <span className={`font-theme-data ${
             data.trend.direction === 'increasing' ? 'text-red-400' :
             data.trend.direction === 'decreasing' ? 'text-green-400' : 'text-gray-400'
           }`}>
@@ -312,7 +312,7 @@ export function BudgetForecast({ workspaceId = 'default', forecastDays = 30 }: P
           data.budget.days_until_exceeded <= 10 ? 'bg-yellow-500/10 text-yellow-400' :
           'bg-green-500/10 text-green-400'
         }`}>
-          <span className="text-sm font-mono">
+          <span className="text-sm font-theme-data">
             {data.budget.days_until_exceeded === 0
               ? 'Budget exhausted!'
               : `${data.budget.days_until_exceeded} days until budget exhausted`}
@@ -391,7 +391,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
 
   return (
     <div className="border-t border-[var(--border)] pt-4 space-y-4">
-      <h4 className="text-xs font-mono text-[var(--text-muted)]">WHAT-IF SIMULATION</h4>
+      <h4 className="text-xs font-theme-data text-[var(--text-muted)]">WHAT-IF SIMULATION</h4>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -402,7 +402,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
               ...s,
               changes: { ...s.changes, model_change: e.target.value }
             }))}
-            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-xs font-mono text-[var(--text)]"
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 text-xs font-theme-data text-[var(--text)]"
           >
             <option value="">No change</option>
             <option value="haiku">Switch to Haiku</option>
@@ -431,7 +431,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
       <button
         onClick={runSimulation}
         disabled={simulating}
-        className="w-full py-2 text-xs font-mono bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/30 disabled:opacity-50 transition-colors"
+        className="w-full py-2 text-xs font-theme-data bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/30 disabled:opacity-50 transition-colors"
       >
         {simulating ? 'Simulating...' : 'Run Simulation'}
       </button>
@@ -441,18 +441,18 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-[var(--text-muted)]">Baseline</div>
-              <div className="text-sm font-mono text-[var(--text)]">
+              <div className="text-sm font-theme-data text-[var(--text)]">
                 ${parseFloat(result.baseline_cost).toFixed(2)}
               </div>
             </div>
             <div className="text-xl">→</div>
             <div>
               <div className="text-xs text-[var(--text-muted)]">Simulated</div>
-              <div className="text-sm font-mono text-[var(--acid-green)]">
+              <div className="text-sm font-theme-data text-[var(--acid-green)]">
                 ${parseFloat(result.simulated_cost).toFixed(2)}
               </div>
             </div>
-            <div className={`text-lg font-mono ${
+            <div className={`text-lg font-theme-data ${
               result.percentage_change > 0 ? 'text-green-400' : 'text-red-400'
             }`}>
               {result.percentage_change > 0 ? '-' : '+'}

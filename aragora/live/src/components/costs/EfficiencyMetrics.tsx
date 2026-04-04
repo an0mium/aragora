@@ -83,7 +83,7 @@ export function EfficiencyMetrics({ workspaceId = 'default', timeRange = '7d' }:
   if (!data) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} EFFICIENCY METRICS
         </h3>
         <div className="text-center py-8 text-[var(--text-muted)]">
@@ -98,7 +98,7 @@ export function EfficiencyMetrics({ workspaceId = 'default', timeRange = '7d' }:
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4 space-y-4">
       {/* Header */}
-      <h3 className="text-sm font-mono text-[var(--acid-green)]">
+      <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
         {'>'} EFFICIENCY METRICS
       </h3>
 
@@ -127,12 +127,12 @@ export function EfficiencyMetrics({ workspaceId = 'default', timeRange = '7d' }:
       {/* Model Utilization */}
       {model_utilization.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-xs font-mono text-[var(--text-muted)]">Model Utilization</h4>
+          <h4 className="text-xs font-theme-data text-[var(--text-muted)]">Model Utilization</h4>
           <div className="space-y-2">
             {model_utilization.slice(0, 5).map((model, idx) => (
               <div key={model.model} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--text)] font-mono">{model.model}</span>
+                  <span className="text-[var(--text)] font-theme-data">{model.model}</span>
                   <span className="text-[var(--text-muted)]">
                     ${parseFloat(model.cost).toFixed(2)} ({model.percentage.toFixed(1)}%)
                   </span>
@@ -157,7 +157,7 @@ export function EfficiencyMetrics({ workspaceId = 'default', timeRange = '7d' }:
         <span className="text-xs text-[var(--text-muted)]">
           Total: {formatNumber(metrics.total_tokens)} tokens / {formatNumber(metrics.total_calls)} calls
         </span>
-        <span className="text-xs font-mono text-[var(--acid-green)]">
+        <span className="text-xs font-theme-data text-[var(--acid-green)]">
           ${metrics.total_cost.toFixed(2)}
         </span>
       </div>
@@ -179,7 +179,7 @@ function MetricCard({ label, value, color, trend }: MetricCardProps) {
   return (
     <div className="bg-[var(--bg)] rounded p-3">
       <div className="flex items-center gap-2">
-        <span className={`text-lg font-mono ${color}`}>{value}</span>
+        <span className={`text-lg font-theme-data ${color}`}>{value}</span>
         {trend && <span className={`text-xs ${trendColor}`}>{trendIcon}</span>}
       </div>
       <div className="text-xs text-[var(--text-muted)] mt-1">{label}</div>

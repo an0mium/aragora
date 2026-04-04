@@ -61,7 +61,7 @@ export function DashboardHeader({
   onSelectLoop,
 }: DashboardHeaderProps) {
   return (
-    <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+    <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           {/* ASCII Logo */}
@@ -75,7 +75,7 @@ export function DashboardHeader({
             {isMobile && (
               <button
                 onClick={onToggleSidebar}
-                className="px-2 py-1 border border-acid-green/30 text-xs font-mono text-acid-green hover:bg-acid-green/10 transition-colors"
+                className="px-2 py-1 border border-[var(--accent)]/30 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 aria-label={showSidebar ? 'Hide sidebar panels' : 'Show sidebar panels'}
                 aria-expanded={showSidebar}
                 aria-controls="sidebar-panels"
@@ -85,7 +85,7 @@ export function DashboardHeader({
             )}
 
             {/* View Mode Toggle - Hidden on mobile */}
-            <div className="hidden sm:flex items-center gap-0.5 bg-bg border border-acid-green/30 p-0.5 font-mono text-xs" role="tablist" aria-label="View mode selection">
+            <div className="hidden sm:flex items-center gap-0.5 bg-bg border border-[var(--accent)]/30 p-0.5 font-theme-data text-xs" role="tablist" aria-label="View mode selection">
               <button
                 onClick={() => onViewModeChange('tabs')}
                 role="tab"
@@ -93,8 +93,8 @@ export function DashboardHeader({
                 aria-label="Switch to tabbed view"
                 className={`px-2 py-1 transition-colors ${
                   viewMode === 'tabs'
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 [TABS]
@@ -106,8 +106,8 @@ export function DashboardHeader({
                 aria-label="Switch to stream view"
                 className={`px-2 py-1 transition-colors ${
                   viewMode === 'stream'
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 [STREAM]
@@ -155,13 +155,13 @@ export function DashboardHeader({
             {/* Loop Selector - Only show if multiple loops */}
             {activeLoops.length > 1 && (
               <div className="hidden md:flex items-center gap-2">
-                <label htmlFor="loop-selector" className="text-text-muted text-xs font-mono">{activeLoops.length} LOOPS</label>
+                <label htmlFor="loop-selector" className="text-text-muted text-xs font-theme-data">{activeLoops.length} LOOPS</label>
                 <select
                   id="loop-selector"
                   value={selectedLoopId || ''}
                   onChange={(e) => onSelectLoop(e.target.value)}
                   aria-label="Select active loop"
-                  className="bg-bg border border-acid-green/30 px-2 py-1 text-xs font-mono text-acid-green"
+                  className="bg-bg border border-[var(--accent)]/30 px-2 py-1 text-xs font-theme-data text-[var(--accent)]"
                 >
                   {activeLoops.map((loop) => (
                     <option key={loop.loop_id} value={loop.loop_id}>
@@ -174,7 +174,7 @@ export function DashboardHeader({
 
             {/* Single loop indicator */}
             {activeLoops.length === 1 && (
-              <span className="hidden sm:inline text-acid-cyan text-xs font-mono">
+              <span className="hidden sm:inline text-[var(--acid-cyan)] text-xs font-theme-data">
                 {activeLoops[0].name}
               </span>
             )}

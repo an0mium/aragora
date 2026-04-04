@@ -47,14 +47,14 @@ interface MemberTableProps<T extends Member> {
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
-    owner: 'bg-acid-magenta/20 text-acid-magenta border-acid-magenta/40',
-    admin: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
-    member: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+    owner: 'bg-acid-magenta/20 text-[var(--acid-magenta)] border-acid-magenta/40',
+    admin: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
+    member: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
     viewer: 'bg-text-muted/20 text-text-muted border-text-muted/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[role] || colors.member}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[role] || colors.member}`}>
       {role.toUpperCase()}
     </span>
   );
@@ -62,13 +62,13 @@ function RoleBadge({ role }: { role: string }) {
 
 function StatusBadge({ status }: { status: 'active' | 'inactive' | 'pending' }) {
   const colors: Record<string, string> = {
-    active: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+    active: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
     inactive: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    pending: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    pending: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status]}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status]}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -81,12 +81,12 @@ const defaultColumns: Column<Member>[] = [
     sortable: true,
     render: (_, row) => (
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-acid-green/20 flex items-center justify-center font-mono text-acid-green text-sm">
+        <div className="w-8 h-8 rounded-full bg-[var(--accent)]/20 flex items-center justify-center font-theme-data text-[var(--accent)] text-sm">
           {row.name?.charAt(0).toUpperCase() || row.email?.charAt(0).toUpperCase() || '?'}
         </div>
         <div>
-          <div className="font-mono text-sm text-text">{row.name || 'Unknown'}</div>
-          <div className="font-mono text-xs text-acid-cyan">{row.email}</div>
+          <div className="font-theme-data text-sm text-text">{row.name || 'Unknown'}</div>
+          <div className="font-theme-data text-xs text-[var(--acid-cyan)]">{row.email}</div>
         </div>
       </div>
     ),
@@ -110,7 +110,7 @@ const defaultColumns: Column<Member>[] = [
     label: 'Joined',
     sortable: true,
     render: (value) => (
-      <span className="font-mono text-xs text-text-muted">
+      <span className="font-theme-data text-xs text-text-muted">
         {value ? new Date(value as string).toLocaleDateString() : '-'}
       </span>
     ),
@@ -121,7 +121,7 @@ const defaultColumns: Column<Member>[] = [
     label: 'Last Active',
     sortable: true,
     render: (value) => (
-      <span className="font-mono text-xs text-text-muted">
+      <span className="font-theme-data text-xs text-text-muted">
         {value ? new Date(value as string).toLocaleDateString() : 'Never'}
       </span>
     ),
@@ -211,7 +211,7 @@ export function MemberTable<T extends Member>({
       case 'danger':
         return 'text-acid-red hover:bg-acid-red/10';
       case 'success':
-        return 'text-acid-green hover:bg-acid-green/10';
+        return 'text-[var(--accent)] hover:bg-[var(--accent)]/10';
       default:
         return 'text-text hover:bg-surface-elevated';
     }
@@ -221,7 +221,7 @@ export function MemberTable<T extends Member>({
     <div className={`card overflow-hidden ${className}`}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-surface border-b border-acid-green/20">
+          <thead className="bg-surface border-b border-[var(--accent)]/20">
             <tr>
               {selectable && (
                 <th className="w-12 px-4 py-3">
@@ -236,7 +236,7 @@ export function MemberTable<T extends Member>({
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
-                  className={`text-left px-4 py-3 font-mono text-xs text-text-muted ${
+                  className={`text-left px-4 py-3 font-theme-data text-xs text-text-muted ${
                     col.sortable ? 'cursor-pointer hover:text-text transition-colors' : ''
                   }`}
                   style={{ width: col.width }}
@@ -245,7 +245,7 @@ export function MemberTable<T extends Member>({
                   <div className="flex items-center gap-1">
                     <span>{col.label}</span>
                     {col.sortable && sortKey === String(col.key) && (
-                      <span className="text-acid-green">
+                      <span className="text-[var(--accent)]">
                         {sortDirection === 'asc' ? '^' : 'v'}
                       </span>
                     )}
@@ -253,7 +253,7 @@ export function MemberTable<T extends Member>({
                 </th>
               ))}
               {actions.length > 0 && (
-                <th className="w-24 px-4 py-3 text-left font-mono text-xs text-text-muted">
+                <th className="w-24 px-4 py-3 text-left font-theme-data text-xs text-text-muted">
                   ACTIONS
                 </th>
               )}
@@ -263,23 +263,23 @@ export function MemberTable<T extends Member>({
             {loading && (
               <tr>
                 <td colSpan={columns.length + (selectable ? 2 : 1)} className="px-4 py-8 text-center">
-                  <div className="font-mono text-text-muted animate-pulse">Loading...</div>
+                  <div className="font-theme-data text-text-muted animate-pulse">Loading...</div>
                 </td>
               </tr>
             )}
             {!loading && paginatedData.length === 0 && (
               <tr>
                 <td colSpan={columns.length + (selectable ? 2 : 1)} className="px-4 py-8 text-center">
-                  <div className="font-mono text-text-muted">No members found</div>
+                  <div className="font-theme-data text-text-muted">No members found</div>
                 </td>
               </tr>
             )}
             {!loading && paginatedData.map((row) => (
               <tr
                 key={row.id}
-                className={`border-b border-acid-green/10 hover:bg-surface/50 ${
+                className={`border-b border-[var(--accent)]/10 hover:bg-surface/50 ${
                   onRowClick ? 'cursor-pointer' : ''
-                } ${selectedIds.includes(row.id) ? 'bg-acid-green/5' : ''}`}
+                } ${selectedIds.includes(row.id) ? 'bg-[var(--accent)]/5' : ''}`}
                 onClick={() => onRowClick?.(row)}
               >
                 {selectable && (
@@ -304,7 +304,7 @@ export function MemberTable<T extends Member>({
                     <div className="relative">
                       <button
                         onClick={() => setOpenActionMenu(openActionMenu === row.id ? null : row.id)}
-                        className="px-2 py-1 font-mono text-xs text-text-muted hover:text-text hover:bg-surface-elevated rounded transition-colors"
+                        className="px-2 py-1 font-theme-data text-xs text-text-muted hover:text-text hover:bg-surface-elevated rounded transition-colors"
                       >
                         ...
                       </button>
@@ -314,7 +314,7 @@ export function MemberTable<T extends Member>({
                             className="fixed inset-0 z-40"
                             onClick={() => setOpenActionMenu(null)}
                           />
-                          <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-acid-green/40 rounded shadow-lg py-1 min-w-[120px]">
+                          <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-[var(--accent)]/40 rounded shadow-lg py-1 min-w-[120px]">
                             {actions.map((action) => (
                               <button
                                 key={action.value}
@@ -322,7 +322,7 @@ export function MemberTable<T extends Member>({
                                   onAction?.(action.value, row);
                                   setOpenActionMenu(null);
                                 }}
-                                className={`w-full text-left px-3 py-2 font-mono text-xs transition-colors ${getActionButtonClass(action.variant)}`}
+                                className={`w-full text-left px-3 py-2 font-theme-data text-xs transition-colors ${getActionButtonClass(action.variant)}`}
                               >
                                 {action.label}
                               </button>
@@ -341,15 +341,15 @@ export function MemberTable<T extends Member>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-acid-green/20">
-          <div className="font-mono text-xs text-text-muted">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--accent)]/20">
+          <div className="font-theme-data text-xs text-text-muted">
             Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems || data.length)} of {totalItems || data.length}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => onPageChange?.(currentPage - 1)}
               disabled={currentPage <= 1}
-              className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 font-theme-data text-sm text-[var(--acid-cyan)] hover:text-[var(--accent)] disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
             >
               &lt; PREV
             </button>
@@ -369,9 +369,9 @@ export function MemberTable<T extends Member>({
                   <button
                     key={pageNum}
                     onClick={() => onPageChange?.(pageNum)}
-                    className={`w-8 h-8 font-mono text-sm rounded transition-colors ${
+                    className={`w-8 h-8 font-theme-data text-sm rounded transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                        ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                         : 'text-text-muted hover:text-text hover:bg-surface-elevated'
                     }`}
                   >
@@ -383,7 +383,7 @@ export function MemberTable<T extends Member>({
             <button
               onClick={() => onPageChange?.(currentPage + 1)}
               disabled={currentPage >= totalPages}
-              className="px-3 py-1 font-mono text-sm text-acid-cyan hover:text-acid-green disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1 font-theme-data text-sm text-[var(--acid-cyan)] hover:text-[var(--accent)] disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
             >
               NEXT &gt;
             </button>

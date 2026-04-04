@@ -48,7 +48,7 @@ export function EmptyState({
         </div>
       )}
 
-      <h3 className="text-lg font-mono text-text-muted mb-2">
+      <h3 className="text-lg font-theme-data text-text-muted mb-2">
         {title}
       </h3>
 
@@ -62,7 +62,7 @@ export function EmptyState({
         {action && (
           <button
             onClick={action.onClick}
-            className="px-4 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/80 transition-colors"
+            className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/80 transition-colors"
             aria-label={action.label}
           >
             {'>'} {action.label}
@@ -73,14 +73,14 @@ export function EmptyState({
           secondaryAction.href ? (
             <a
               href={secondaryAction.href}
-              className="text-sm text-acid-cyan hover:text-acid-cyan/80 font-mono underline"
+              className="text-sm text-[var(--acid-cyan)] hover:text-[var(--acid-cyan)]/80 font-theme-data underline"
             >
               {secondaryAction.label}
             </a>
           ) : (
             <button
               onClick={secondaryAction.onClick}
-              className="text-sm text-acid-cyan hover:text-acid-cyan/80 font-mono underline"
+              className="text-sm text-[var(--acid-cyan)] hover:text-[var(--acid-cyan)]/80 font-theme-data underline"
             >
               {secondaryAction.label}
             </button>

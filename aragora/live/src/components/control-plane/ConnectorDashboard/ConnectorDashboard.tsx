@@ -367,9 +367,9 @@ export function ConnectorDashboard({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 px-4 py-2 text-sm font-mono rounded transition-colors ${
+            className={`flex-1 px-4 py-2 text-sm font-theme-data rounded transition-colors ${
               activeTab === tab.id
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -388,7 +388,7 @@ export function ConnectorDashboard({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search connectors..."
-              className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
             />
 
             <div className="flex flex-wrap gap-1">
@@ -396,9 +396,9 @@ export function ConnectorDashboard({
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                  className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
                     filter === f
-                      ? 'bg-acid-green text-bg'
+                      ? 'bg-[var(--accent)] text-bg'
                       : 'bg-surface text-text-muted hover:text-text'
                   }`}
                 >
@@ -479,13 +479,13 @@ export function ConnectorDashboard({
       {activeTab === 'scheduled' && (
         <div className="card p-6 text-center">
           <div className="text-4xl mb-2">  </div>
-          <h3 className="font-mono text-lg mb-2">Scheduled Sync Jobs</h3>
+          <h3 className="font-theme-data text-lg mb-2">Scheduled Sync Jobs</h3>
           <p className="text-text-muted text-sm mb-4">
             Configure automatic sync schedules for your connectors.
           </p>
           <button
             onClick={() => setActiveTab('connectors')}
-            className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+            className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
           >
             Configure Connectors First
           </button>

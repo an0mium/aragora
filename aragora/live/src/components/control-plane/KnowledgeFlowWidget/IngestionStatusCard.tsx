@@ -41,7 +41,7 @@ const CONNECTOR_ICONS: Record<string, string> = {
 function _getStatusColor(status: IngestionStatus): string {
   switch (status) {
     case 'complete':
-      return 'text-acid-green';
+      return 'text-[var(--accent)]';
     case 'ingesting':
     case 'processing':
       return 'text-cyan-400';
@@ -55,7 +55,7 @@ function _getStatusColor(status: IngestionStatus): string {
 function getStatusBadgeClass(status: IngestionStatus): string {
   switch (status) {
     case 'complete':
-      return 'bg-acid-green/20 text-acid-green';
+      return 'bg-[var(--accent)]/20 text-[var(--accent)]';
     case 'ingesting':
     case 'processing':
       return 'bg-cyan-400/20 text-cyan-400';
@@ -124,34 +124,34 @@ export function IngestionStatusCard({
 
   return (
     <div className={`card p-4 ${className}`}>
-      <h3 className="font-mono font-bold text-sm mb-3 flex items-center gap-2">
+      <h3 className="font-theme-data font-bold text-sm mb-3 flex items-center gap-2">
         <span>📥</span> Ingestion Status
       </h3>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-2 mb-4">
         <div className="bg-surface rounded p-2 text-center">
-          <div className="text-lg font-mono font-bold text-acid-green">
+          <div className="text-lg font-theme-data font-bold text-[var(--accent)]">
             {formatNumber(summary.totalDocs)}
           </div>
           <div className="text-xs text-text-muted">Indexed</div>
         </div>
         <div className="bg-surface rounded p-2 text-center">
-          <div className="text-lg font-mono font-bold text-cyan-400">
+          <div className="text-lg font-theme-data font-bold text-cyan-400">
             {summary.activeConnectors}
           </div>
           <div className="text-xs text-text-muted">Active</div>
         </div>
         <div className="bg-surface rounded p-2 text-center">
-          <div className="text-lg font-mono font-bold text-red-400">
+          <div className="text-lg font-theme-data font-bold text-red-400">
             {formatNumber(summary.totalFailed)}
           </div>
           <div className="text-xs text-text-muted">Failed</div>
         </div>
         <div className="bg-surface rounded p-2 text-center">
           <div
-            className={`text-lg font-mono font-bold ${
-              summary.errorConnectors > 0 ? 'text-red-400' : 'text-acid-green'
+            className={`text-lg font-theme-data font-bold ${
+              summary.errorConnectors > 0 ? 'text-red-400' : 'text-[var(--accent)]'
             }`}
           >
             {summary.healthyConnectors}/{connectors.length}
@@ -178,10 +178,10 @@ export function IngestionStatusCard({
                   <span className="text-lg">
                     {CONNECTOR_ICONS[connector.connector_type] || '📄'}
                   </span>
-                  <span className="font-mono text-sm">{connector.connector_name}</span>
+                  <span className="font-theme-data text-sm">{connector.connector_name}</span>
                 </div>
                 <span
-                  className={`px-2 py-0.5 rounded text-xs font-mono ${getStatusBadgeClass(
+                  className={`px-2 py-0.5 rounded text-xs font-theme-data ${getStatusBadgeClass(
                     connector.status
                   )}`}
                 >
@@ -238,7 +238,7 @@ export function IngestionStatusCard({
                         e.stopPropagation();
                         onRetry(connector.connector_id);
                       }}
-                      className="ml-2 px-2 py-1 text-xs font-mono bg-acid-green/20 text-acid-green rounded hover:bg-acid-green/30 transition-colors"
+                      className="ml-2 px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 transition-colors"
                     >
                       Retry
                     </button>

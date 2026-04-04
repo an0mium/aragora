@@ -14,9 +14,9 @@ import {
 // ============================================================================
 
 const STATUS_COLORS: Record<BatchStatusValue, { text: string; bg: string }> = {
-  pending: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/10' },
-  processing: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/10' },
-  completed: { text: 'text-acid-green', bg: 'bg-acid-green/10' },
+  pending: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/10' },
+  processing: { text: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/10' },
+  completed: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/10' },
   failed: { text: 'text-acid-red', bg: 'bg-acid-red/10' },
   cancelled: { text: 'text-text-muted', bg: 'bg-surface' },
 };
@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<BatchStatusValue, { text: string; bg: string }> = {
 function StatusBadge({ status }: { status: BatchStatusValue }) {
   const colors = STATUS_COLORS[status] || STATUS_COLORS.pending;
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono uppercase ${colors.text} ${colors.bg} rounded`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data uppercase ${colors.text} ${colors.bg} rounded`}>
       {status}
     </span>
   );
@@ -37,8 +37,8 @@ function StatusBadge({ status }: { status: BatchStatusValue }) {
 function ProgressBar({ progress, status }: { progress: number; status: BatchStatusValue }) {
   const getColor = () => {
     if (status === 'failed') return 'bg-acid-red';
-    if (status === 'completed') return 'bg-acid-green';
-    if (status === 'processing') return 'bg-acid-cyan';
+    if (status === 'completed') return 'bg-[var(--accent)]';
+    if (status === 'processing') return 'bg-[var(--acid-cyan)]';
     return 'bg-acid-yellow';
   };
 
@@ -124,10 +124,10 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
           type="button"
           onClick={() => setInputMode('text')}
           aria-pressed={inputMode === 'text'}
-          className={`px-3 py-1 text-xs font-mono border ${
+          className={`px-3 py-1 text-xs font-theme-data border ${
             inputMode === 'text'
-              ? 'border-acid-green text-acid-green bg-acid-green/10'
-              : 'border-acid-green/30 text-text-muted hover:text-text'
+              ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+              : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
           }`}
         >
           TEXT
@@ -136,10 +136,10 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
           type="button"
           onClick={() => setInputMode('json')}
           aria-pressed={inputMode === 'json'}
-          className={`px-3 py-1 text-xs font-mono border ${
+          className={`px-3 py-1 text-xs font-theme-data border ${
             inputMode === 'json'
-              ? 'border-acid-green text-acid-green bg-acid-green/10'
-              : 'border-acid-green/30 text-text-muted hover:text-text'
+              ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+              : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
           }`}
         >
           JSON
@@ -149,7 +149,7 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
       {/* Input Area */}
       {inputMode === 'text' ? (
         <div>
-          <label htmlFor="batch-questions-input" className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-questions-input" className="block text-xs font-theme-data text-text-muted mb-1">
             Questions (one per line)
           </label>
           <textarea
@@ -158,12 +158,12 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
             onChange={(e) => setTextInput(e.target.value)}
             rows={8}
             placeholder="What is the best programming language for beginners?&#10;Should we use microservices or monolith?&#10;Is AI going to replace programmers?"
-            className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none resize-none"
+            className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none"
           />
         </div>
       ) : (
         <div>
-          <label htmlFor="batch-json-input" className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-json-input" className="block text-xs font-theme-data text-text-muted mb-1">
             JSON Items
           </label>
           <textarea
@@ -172,18 +172,18 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
             onChange={(e) => setJsonInput(e.target.value)}
             rows={8}
             placeholder='[&#10;  { "question": "What is AI?", "agents": "claude,gpt-4o", "rounds": 3 },&#10;  { "question": "Is Rust better than Go?" }&#10;]'
-            className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none resize-none"
+            className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none"
           />
         </div>
       )}
 
       {/* Webhook URL (collapsed by default) */}
       <details className="group">
-        <summary className="text-xs font-mono text-text-muted cursor-pointer hover:text-acid-green">
+        <summary className="text-xs font-theme-data text-text-muted cursor-pointer hover:text-[var(--accent)]">
           <span aria-hidden="true">[+]</span> Webhook Configuration
         </summary>
         <div className="mt-2">
-          <label htmlFor="batch-webhook-url" className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-webhook-url" className="block text-xs font-theme-data text-text-muted mb-1">
             Webhook URL (optional)
           </label>
           <input
@@ -192,9 +192,9 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
             placeholder="https://your-server.com/webhook"
-            className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none"
+            className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none"
           />
-          <p id="batch-webhook-help" className="mt-1 text-xs font-mono text-text-muted">
+          <p id="batch-webhook-help" className="mt-1 text-xs font-theme-data text-text-muted">
             Receive POST notifications when batch completes
           </p>
         </div>
@@ -202,7 +202,7 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
 
       {/* Error Display */}
       {(parseError || error) && (
-        <div className="p-3 text-xs font-mono text-acid-red bg-acid-red/10 border border-acid-red/30">
+        <div className="p-3 text-xs font-theme-data text-acid-red bg-acid-red/10 border border-acid-red/30">
           {'>'} {parseError || error}
         </div>
       )}
@@ -211,7 +211,7 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-2 bg-acid-green/10 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full py-2 bg-[var(--accent)]/10 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {submitting ? 'SUBMITTING...' : 'SUBMIT BATCH'}
       </button>
@@ -249,25 +249,25 @@ function BatchStatusCard({
   isPolling,
 }: BatchStatusCardProps) {
   return (
-    <div className="p-4 bg-surface border border-acid-green/30">
+    <div className="p-4 bg-surface border border-[var(--accent)]/30">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-acid-green">BATCH</span>
+          <span className="text-sm font-theme-data text-[var(--accent)]">BATCH</span>
           <StatusBadge status={status} />
         </div>
         <div className="flex items-center gap-2">
           {isPolling && (
-            <span className="text-xs font-mono text-acid-cyan animate-pulse">POLLING</span>
+            <span className="text-xs font-theme-data text-[var(--acid-cyan)] animate-pulse">POLLING</span>
           )}
           <button
             onClick={onRefresh}
-            className="text-xs font-mono text-text-muted hover:text-acid-green"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]"
           >
             [REFRESH]
           </button>
           <button
             onClick={onClear}
-            className="text-xs font-mono text-text-muted hover:text-acid-red"
+            className="text-xs font-theme-data text-text-muted hover:text-acid-red"
           >
             [CLEAR]
           </button>
@@ -275,27 +275,27 @@ function BatchStatusCard({
       </div>
 
       <div className="mb-3">
-        <code className="text-xs font-mono text-text-muted">{batchId}</code>
+        <code className="text-xs font-theme-data text-text-muted">{batchId}</code>
       </div>
 
       <ProgressBar progress={progress} status={status} />
 
       <div className="mt-3 grid grid-cols-3 gap-4 text-center">
         <div>
-          <div className="text-lg font-mono text-acid-green">{completedItems}</div>
-          <div className="text-xs font-mono text-text-muted">COMPLETED</div>
+          <div className="text-lg font-theme-data text-[var(--accent)]">{completedItems}</div>
+          <div className="text-xs font-theme-data text-text-muted">COMPLETED</div>
         </div>
         <div>
-          <div className="text-lg font-mono text-acid-red">{failedItems}</div>
-          <div className="text-xs font-mono text-text-muted">FAILED</div>
+          <div className="text-lg font-theme-data text-acid-red">{failedItems}</div>
+          <div className="text-xs font-theme-data text-text-muted">FAILED</div>
         </div>
         <div>
-          <div className="text-lg font-mono text-text">{totalItems}</div>
-          <div className="text-xs font-mono text-text-muted">TOTAL</div>
+          <div className="text-lg font-theme-data text-text">{totalItems}</div>
+          <div className="text-xs font-theme-data text-text-muted">TOTAL</div>
         </div>
       </div>
 
-      <div className="mt-3 text-xs font-mono text-text-muted">
+      <div className="mt-3 text-xs font-theme-data text-text-muted">
         Started: {new Date(createdAt).toLocaleString()}
       </div>
     </div>
@@ -313,7 +313,7 @@ interface BatchResultsTableProps {
 function BatchResultsTable({ items }: BatchResultsTableProps) {
   if (items.length === 0) {
     return (
-      <div className="p-4 text-center text-xs font-mono text-text-muted">
+      <div className="p-4 text-center text-xs font-theme-data text-text-muted">
         No items to display
       </div>
     );
@@ -321,9 +321,9 @@ function BatchResultsTable({ items }: BatchResultsTableProps) {
 
   return (
     <div className="overflow-x-auto max-h-96 overflow-y-auto">
-      <table className="w-full text-xs font-mono">
+      <table className="w-full text-xs font-theme-data">
         <thead className="sticky top-0 bg-bg">
-          <tr className="border-b border-acid-green/20">
+          <tr className="border-b border-[var(--accent)]/20">
             <th className="py-2 px-3 text-left text-text-muted">#</th>
             <th className="py-2 px-3 text-left text-text-muted">QUESTION</th>
             <th className="py-2 px-3 text-left text-text-muted">STATUS</th>
@@ -332,7 +332,7 @@ function BatchResultsTable({ items }: BatchResultsTableProps) {
         </thead>
         <tbody>
           {items.map((item, idx) => (
-            <tr key={idx} className="border-b border-acid-green/10 hover:bg-surface/50">
+            <tr key={idx} className="border-b border-[var(--accent)]/10 hover:bg-surface/50">
               <td className="py-2 px-3 text-text-muted">{item.index + 1}</td>
               <td className="py-2 px-3 text-text max-w-xs truncate" title={item.question}>
                 {item.question}
@@ -344,7 +344,7 @@ function BatchResultsTable({ items }: BatchResultsTableProps) {
                 {item.debate_id ? (
                   <Link
                     href={`/debate/${item.debate_id}`}
-                    className="text-acid-cyan hover:underline"
+                    className="text-[var(--acid-cyan)] hover:underline"
                   >
                     [VIEW]
                   </Link>
@@ -384,11 +384,11 @@ function BatchHistoryList({ onSelectBatch }: BatchHistoryListProps) {
     <div>
       {/* Filter */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-mono text-text-muted">FILTER:</span>
+        <span className="text-xs font-theme-data text-text-muted">FILTER:</span>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as BatchStatusValue | '')}
-          className="px-2 py-1 text-xs font-mono bg-bg border border-acid-green/30 text-text focus:outline-none"
+          className="px-2 py-1 text-xs font-theme-data bg-bg border border-[var(--accent)]/30 text-text focus:outline-none"
         >
           <option value="">ALL</option>
           <option value="pending">PENDING</option>
@@ -398,7 +398,7 @@ function BatchHistoryList({ onSelectBatch }: BatchHistoryListProps) {
         </select>
         <button
           onClick={() => listBatches(50, statusFilter || undefined)}
-          className="text-xs font-mono text-text-muted hover:text-acid-green"
+          className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]"
         >
           [REFRESH]
         </button>
@@ -406,19 +406,19 @@ function BatchHistoryList({ onSelectBatch }: BatchHistoryListProps) {
 
       {/* Loading/Error */}
       {batchesLoading && (
-        <div className="p-4 text-xs font-mono text-text-muted animate-pulse">
+        <div className="p-4 text-xs font-theme-data text-text-muted animate-pulse">
           Loading batches...
         </div>
       )}
       {batchesError && (
-        <div className="p-3 text-xs font-mono text-acid-red bg-acid-red/10 border border-acid-red/30">
+        <div className="p-3 text-xs font-theme-data text-acid-red bg-acid-red/10 border border-acid-red/30">
           {batchesError}
         </div>
       )}
 
       {/* Batch List */}
       {!batchesLoading && batches.length === 0 && (
-        <div className="p-4 text-center text-xs font-mono text-text-muted">
+        <div className="p-4 text-center text-xs font-theme-data text-text-muted">
           No batches found
         </div>
       )}
@@ -428,15 +428,15 @@ function BatchHistoryList({ onSelectBatch }: BatchHistoryListProps) {
             <button
               key={batch.batch_id}
               onClick={() => onSelectBatch(batch.batch_id)}
-              className="w-full p-3 text-left bg-surface hover:bg-surface/80 border border-acid-green/20 hover:border-acid-green/40 transition-colors"
+              className="w-full p-3 text-left bg-surface hover:bg-surface/80 border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors"
             >
               <div className="flex items-center justify-between">
-                <code className="text-xs font-mono text-text-muted truncate max-w-[180px]">
+                <code className="text-xs font-theme-data text-text-muted truncate max-w-[180px]">
                   {batch.batch_id}
                 </code>
                 <StatusBadge status={batch.status} />
               </div>
-              <div className="mt-1 flex items-center gap-3 text-xs font-mono text-text-muted">
+              <div className="mt-1 flex items-center gap-3 text-xs font-theme-data text-text-muted">
                 <span>{batch.completed_items}/{batch.total_items} done</span>
                 {batch.failed_items > 0 && (
                   <span className="text-acid-red">{batch.failed_items} failed</span>
@@ -462,7 +462,7 @@ function QueueStatusDisplay() {
   }, [getQueueStatus]);
 
   if (queueLoading) {
-    return <div className="text-xs font-mono text-text-muted">Loading queue status...</div>;
+    return <div className="text-xs font-theme-data text-text-muted">Loading queue status...</div>;
   }
 
   if (!queueStatus) {
@@ -470,18 +470,18 @@ function QueueStatusDisplay() {
   }
 
   return (
-    <div className="p-3 bg-surface/50 border border-acid-green/20">
+    <div className="p-3 bg-surface/50 border border-[var(--accent)]/20">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-acid-green">QUEUE STATUS</span>
-        <span className={`text-xs font-mono ${queueStatus.active ? 'text-acid-green' : 'text-acid-red'}`}>
+        <span className="text-xs font-theme-data text-[var(--accent)]">QUEUE STATUS</span>
+        <span className={`text-xs font-theme-data ${queueStatus.active ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
           {queueStatus.active ? 'ACTIVE' : 'INACTIVE'}
         </span>
       </div>
       {queueStatus.active && (
-        <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+        <div className="grid grid-cols-3 gap-2 text-xs font-theme-data">
           <div>
             <span className="text-text-muted">Active: </span>
-            <span className="text-acid-cyan">{queueStatus.active_count || 0}</span>
+            <span className="text-[var(--acid-cyan)]">{queueStatus.active_count || 0}</span>
           </div>
           <div>
             <span className="text-text-muted">Max: </span>
@@ -519,28 +519,28 @@ export function BatchDebatePanel() {
   }, [batch]);
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50">
+    <div className="border border-[var(--accent)]/30 bg-surface/50">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           {'>'} BATCH DEBATES
         </span>
       </div>
 
       {/* Queue Status */}
-      <div className="px-4 py-2 border-b border-acid-green/10">
+      <div className="px-4 py-2 border-b border-[var(--accent)]/10">
         <QueueStatusDisplay />
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/10">
+      <div className="flex border-b border-[var(--accent)]/10">
         {(['submit', 'status', 'history'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 px-4 py-2 text-xs font-mono uppercase transition-colors ${
+            className={`flex-1 px-4 py-2 text-xs font-theme-data uppercase transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--accent)]/5'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -575,35 +575,35 @@ export function BatchDebatePanel() {
                   onClear={batch.clearBatch}
                   isPolling={batch.isPolling}
                 />
-                <div className="border border-acid-green/20">
-                  <div className="px-3 py-2 border-b border-acid-green/10 bg-bg/50">
-                    <span className="text-xs font-mono text-text-muted">ITEMS</span>
+                <div className="border border-[var(--accent)]/20">
+                  <div className="px-3 py-2 border-b border-[var(--accent)]/10 bg-bg/50">
+                    <span className="text-xs font-theme-data text-text-muted">ITEMS</span>
                   </div>
                   <BatchResultsTable items={batch.currentBatch.items || []} />
                 </div>
               </>
             ) : batch.batchLoading ? (
-              <div className="p-8 text-center text-xs font-mono text-text-muted animate-pulse">
+              <div className="p-8 text-center text-xs font-theme-data text-text-muted animate-pulse">
                 Loading batch status...
               </div>
             ) : batch.batchError ? (
               <div className="p-4 text-center">
-                <div className="text-xs font-mono text-acid-red mb-2">{batch.batchError}</div>
+                <div className="text-xs font-theme-data text-acid-red mb-2">{batch.batchError}</div>
                 <button
                   onClick={() => setActiveTab('submit')}
-                  className="text-xs font-mono text-acid-cyan hover:underline"
+                  className="text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
                 >
                   [SUBMIT NEW BATCH]
                 </button>
               </div>
             ) : (
               <div className="p-8 text-center">
-                <div className="text-xs font-mono text-text-muted mb-2">
+                <div className="text-xs font-theme-data text-text-muted mb-2">
                   No batch selected
                 </div>
                 <button
                   onClick={() => setActiveTab('submit')}
-                  className="text-xs font-mono text-acid-cyan hover:underline"
+                  className="text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
                 >
                   [SUBMIT NEW BATCH]
                 </button>

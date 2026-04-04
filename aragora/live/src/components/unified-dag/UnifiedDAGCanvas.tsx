@@ -216,7 +216,7 @@ export function UnifiedDAGCanvas({ graphId }: UnifiedDAGCanvasProps) {
         <div className="w-px h-6 bg-border" />
         <button
           onClick={() => setShowExecution(!showExecution)}
-          className={`px-3 py-1.5 text-sm font-mono rounded transition-colors ${
+          className={`px-3 py-1.5 text-sm font-theme-data rounded transition-colors ${
             showExecution
               ? 'bg-emerald-600 text-white'
               : 'bg-surface border border-border text-text-muted hover:text-text'

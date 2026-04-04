@@ -17,11 +17,11 @@ export interface KnowledgeAgeHistogramProps {
 }
 
 const BUCKET_COLORS: Record<string, string> = {
-  '< 1 day': 'bg-acid-green',
+  '< 1 day': 'bg-[var(--accent)]',
   '1-7 days': 'bg-cyan-400',
   '1-4 weeks': 'bg-yellow-400',
   '> 1 month': 'bg-red-400',
-  'fresh': 'bg-acid-green',
+  'fresh': 'bg-[var(--accent)]',
   'recent': 'bg-cyan-400',
   'aging': 'bg-yellow-400',
   'stale': 'bg-red-400',
@@ -86,15 +86,15 @@ export function KnowledgeAgeHistogram({
   return (
     <div className={`card p-4 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-mono font-bold text-sm flex items-center gap-2">
+        <h3 className="font-theme-data font-bold text-sm flex items-center gap-2">
           <span>📊</span> Knowledge Age
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-text-muted">Health:</span>
           <span
-            className={`text-sm font-mono font-bold ${
+            className={`text-sm font-theme-data font-bold ${
               healthScore >= 70
-                ? 'text-acid-green'
+                ? 'text-[var(--accent)]'
                 : healthScore >= 40
                 ? 'text-yellow-400'
                 : 'text-red-400'
@@ -111,7 +111,7 @@ export function KnowledgeAgeHistogram({
           <div key={item.bucket}>
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-text-muted">{item.bucket}</span>
-              <span className="font-mono">
+              <span className="font-theme-data">
                 {item.count.toLocaleString()} ({item.percentage.toFixed(1)}%)
               </span>
             </div>
@@ -128,15 +128,15 @@ export function KnowledgeAgeHistogram({
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
         <div className="text-center">
-          <div className="text-xl font-mono font-bold text-text">
+          <div className="text-xl font-theme-data font-bold text-text">
             {totalDocs.toLocaleString()}
           </div>
           <div className="text-xs text-text-muted">Total Docs</div>
         </div>
         <div className="text-center">
           <div
-            className={`text-xl font-mono font-bold ${
-              stalePercentage > 30 ? 'text-red-400' : 'text-acid-green'
+            className={`text-xl font-theme-data font-bold ${
+              stalePercentage > 30 ? 'text-red-400' : 'text-[var(--accent)]'
             }`}
           >
             {stalePercentage.toFixed(1)}%

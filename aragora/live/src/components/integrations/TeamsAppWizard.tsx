@@ -190,49 +190,49 @@ export function TeamsAppWizard({
           <div className="text-center py-8">
             {loading ? (
               <>
-                <div className="animate-pulse font-mono text-acid-cyan mb-4">
+                <div className="animate-pulse font-theme-data text-[var(--acid-cyan)] mb-4">
                   [CHECKING CONFIGURATION...]
                 </div>
-                <p className="font-mono text-sm text-text-muted">
+                <p className="font-theme-data text-sm text-text-muted">
                   Verifying Microsoft Teams OAuth is configured
                 </p>
               </>
             ) : isConfigured === false ? (
               <>
-                <div className="font-mono text-warning text-4xl mb-4">!</div>
-                <h3 className="font-mono text-lg text-text mb-2">
+                <div className="font-theme-data text-warning text-4xl mb-4">!</div>
+                <h3 className="font-theme-data text-lg text-text mb-2">
                   Teams OAuth Not Configured
                 </h3>
-                <p className="font-mono text-sm text-text-muted mb-4">
+                <p className="font-theme-data text-sm text-text-muted mb-4">
                   The server needs Microsoft Entra ID app credentials.
                 </p>
-                <div className="bg-bg/50 border border-acid-green/20 p-4 rounded text-left">
-                  <p className="font-mono text-xs text-text-muted mb-2">
+                <div className="bg-bg/50 border border-[var(--accent)]/20 p-4 rounded text-left">
+                  <p className="font-theme-data text-xs text-text-muted mb-2">
                     1. Register an app in{' '}
                     <a
                       href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-acid-cyan hover:underline"
+                      className="text-[var(--acid-cyan)] hover:underline"
                     >
                       Azure Portal
                     </a>
                   </p>
-                  <p className="font-mono text-xs text-text-muted mb-2">
+                  <p className="font-theme-data text-xs text-text-muted mb-2">
                     2. Add the following environment variables:
                   </p>
-                  <pre className="font-mono text-xs text-acid-green bg-bg p-2 rounded overflow-x-auto">
+                  <pre className="font-theme-data text-xs text-[var(--accent)] bg-bg p-2 rounded overflow-x-auto">
 {`TEAMS_APP_ID=your_application_id
 TEAMS_APP_PASSWORD=your_client_secret
 TEAMS_TENANT_ID=your_tenant_id`}
                   </pre>
-                  <p className="font-mono text-xs text-text-muted mt-2">
+                  <p className="font-theme-data text-xs text-text-muted mt-2">
                     3. Configure API permissions: ChannelMessage.Send, Team.ReadBasic.All
                   </p>
                 </div>
               </>
             ) : (
-              <div className="font-mono text-acid-green">
+              <div className="font-theme-data text-[var(--accent)]">
                 Configuration verified. Proceeding to admin consent...
               </div>
             )}
@@ -242,21 +242,21 @@ TEAMS_TENANT_ID=your_tenant_id`}
       case 'consent':
         return (
           <div className="text-center py-8">
-            <div className="font-mono text-acid-cyan text-4xl mb-4">T#</div>
-            <h3 className="font-mono text-lg text-text mb-2">
+            <div className="font-theme-data text-[var(--acid-cyan)] text-4xl mb-4">T#</div>
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Admin Consent Required
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               A Microsoft 365 admin must grant consent for Aragora to access your organization.
               Click the button below to start the consent flow.
             </p>
             <button
               onClick={startAdminConsent}
-              className="px-6 py-3 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              className="px-6 py-3 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
             >
               [START ADMIN CONSENT]
             </button>
-            <p className="font-mono text-xs text-text-muted mt-4">
+            <p className="font-theme-data text-xs text-text-muted mt-4">
               Required permissions: Send channel messages, Read team info
             </p>
           </div>
@@ -267,31 +267,31 @@ TEAMS_TENANT_ID=your_tenant_id`}
           <div className="py-4">
             <div className="mb-4">
               {workspace && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-acid-green/10 border border-acid-green/30 rounded">
-                  <span className="font-mono text-acid-green">Connected to:</span>
-                  <span className="font-mono text-text">{workspace.tenant_name}</span>
+                <div className="flex items-center gap-2 mb-4 p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded">
+                  <span className="font-theme-data text-[var(--accent)]">Connected to:</span>
+                  <span className="font-theme-data text-text">{workspace.tenant_name}</span>
                 </div>
               )}
-              <h3 className="font-mono text-lg text-text mb-2">
+              <h3 className="font-theme-data text-lg text-text mb-2">
                 Select Channels
               </h3>
-              <p className="font-mono text-sm text-text-muted">
+              <p className="font-theme-data text-sm text-text-muted">
                 Choose which Teams channels should receive debate notifications:
               </p>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 font-mono text-acid-cyan">
+              <div className="text-center py-8 font-theme-data text-[var(--acid-cyan)]">
                 [LOADING CHANNELS...]
               </div>
             ) : channels.length === 0 ? (
               <div className="text-center py-8">
-                <p className="font-mono text-sm text-text-muted mb-4">
+                <p className="font-theme-data text-sm text-text-muted mb-4">
                   No channels found. The app may need to be added to teams first.
                 </p>
                 <button
                   onClick={() => setStep('test')}
-                  className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10"
+                  className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10"
                 >
                   [SKIP - CONFIGURE LATER]
                 </button>
@@ -303,21 +303,21 @@ TEAMS_TENANT_ID=your_tenant_id`}
                     key={channel.id}
                     className={`flex items-center gap-3 p-3 border rounded cursor-pointer transition-colors ${
                       selectedChannels.includes(channel.id)
-                        ? 'border-acid-green bg-acid-green/10'
-                        : 'border-acid-green/20 hover:border-acid-green/40'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={selectedChannels.includes(channel.id)}
                       onChange={() => handleChannelToggle(channel.id)}
-                      className="form-checkbox bg-bg border-acid-green/30"
+                      className="form-checkbox bg-bg border-[var(--accent)]/30"
                     />
                     <div>
-                      <span className="font-mono text-sm text-text block">
+                      <span className="font-theme-data text-sm text-text block">
                         {channel.name}
                       </span>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         {channel.team_name}
                       </span>
                     </div>
@@ -331,22 +331,22 @@ TEAMS_TENANT_ID=your_tenant_id`}
       case 'test':
         return (
           <div className="text-center py-8">
-            <h3 className="font-mono text-lg text-text mb-2">
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Test Connection
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               Send a test Adaptive Card to verify the integration is working.
             </p>
 
             <button
               onClick={testConnection}
               disabled={testStatus === 'testing'}
-              className={`px-6 py-3 font-mono text-sm border transition-colors ${
+              className={`px-6 py-3 font-theme-data text-sm border transition-colors ${
                 testStatus === 'success'
-                  ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                   : testStatus === 'failed'
                   ? 'bg-warning/20 border-warning text-warning'
-                  : 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan hover:bg-acid-cyan/30'
+                  : 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/30'
               }`}
             >
               {testStatus === 'testing' && '[SENDING TEST CARD...]'}
@@ -356,7 +356,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
             </button>
 
             {testStatus === 'success' && (
-              <p className="font-mono text-sm text-acid-green mt-4">
+              <p className="font-theme-data text-sm text-[var(--accent)] mt-4">
                 Check your Teams channel for the test Adaptive Card!
               </p>
             )}
@@ -366,11 +366,11 @@ TEAMS_TENANT_ID=your_tenant_id`}
       case 'complete':
         return (
           <div className="text-center py-8">
-            <div className="font-mono text-acid-green text-4xl mb-4">✓</div>
-            <h3 className="font-mono text-lg text-text mb-2">
+            <div className="font-theme-data text-[var(--accent)] text-4xl mb-4">✓</div>
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Teams Integration Complete!
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               Aragora is now connected to Microsoft Teams.
               Debate results will be posted as Adaptive Cards to your selected channels.
             </p>
@@ -409,22 +409,22 @@ TEAMS_TENANT_ID=your_tenant_id`}
         onClick={onClose}
       />
 
-      <div className="relative bg-surface border border-acid-green/30 rounded-lg w-full max-w-xl max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-acid-green/20 flex items-center justify-between">
+      <div className="relative bg-surface border border-[var(--accent)]/30 rounded-lg w-full max-w-xl max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-[var(--accent)]/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-acid-cyan text-xl">T#</span>
+            <span className="font-theme-data text-[var(--acid-cyan)] text-xl">T#</span>
             <div>
-              <h2 className="font-mono text-acid-green text-lg">
+              <h2 className="font-theme-data text-[var(--accent)] text-lg">
                 Microsoft Teams Setup
               </h2>
-              <p className="font-mono text-xs text-text-muted">
+              <p className="font-theme-data text-xs text-text-muted">
                 Connect Aragora to your Microsoft 365 organization
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text font-mono"
+            className="text-text-muted hover:text-text font-theme-data"
           >
             [X]
           </button>
@@ -433,25 +433,25 @@ TEAMS_TENANT_ID=your_tenant_id`}
         <div className="p-6">
           {error && (
             <div className="mb-4 p-3 border border-warning/30 bg-warning/10 rounded">
-              <p className="text-warning font-mono text-sm">{error}</p>
+              <p className="text-warning font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {renderStep()}
         </div>
 
-        <div className="p-4 border-t border-acid-green/20 flex justify-between">
+        <div className="p-4 border-t border-[var(--accent)]/20 flex justify-between">
           {canGoBack ? (
             <button
               onClick={handleBack}
-              className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
+              className="px-4 py-2 border border-[var(--accent)]/30 text-text-muted font-theme-data text-sm hover:text-text transition-colors"
             >
               [BACK]
             </button>
           ) : (
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
+              className="px-4 py-2 border border-[var(--accent)]/30 text-text-muted font-theme-data text-sm hover:text-text transition-colors"
             >
               [CANCEL]
             </button>
@@ -460,7 +460,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
           {step === 'complete' ? (
             <button
               onClick={onComplete}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
             >
               [DONE]
             </button>
@@ -468,7 +468,7 @@ TEAMS_TENANT_ID=your_tenant_id`}
             <button
               onClick={handleNext}
               disabled={loading}
-              className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+              className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
             >
               {loading ? '[SAVING...]' : '[NEXT]'}
             </button>

@@ -61,23 +61,23 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
   if (!isVisible) return null;
 
   return (
-    <div className="border border-acid-green/30 rounded-lg bg-surface/80 backdrop-blur-sm mt-4">
+    <div className="border border-[var(--accent)]/30 rounded-lg bg-surface/80 backdrop-blur-sm mt-4">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-acid-green/5 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--accent)]/5 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-acid-cyan font-mono text-xs uppercase tracking-wider">
+          <span className="text-[var(--acid-cyan)] font-theme-data text-xs uppercase tracking-wider">
             {'>'} Post-Execution Learning
           </span>
           {summary && !loading && (
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               ({summary.km_entries_stored} KM entries, {summary.elo_changes.length} ELO changes)
             </span>
           )}
         </div>
-        <span className="text-acid-green/50 font-mono text-sm">
+        <span className="text-[var(--accent)]/50 font-theme-data text-sm">
           {collapsed ? '[+]' : '[-]'}
         </span>
       </button>
@@ -85,13 +85,13 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
       {!collapsed && (
         <div className="px-4 pb-4 space-y-4">
           {loading && (
-            <div className="text-acid-green/60 font-mono text-xs animate-pulse py-2">
+            <div className="text-[var(--accent)]/60 font-theme-data text-xs animate-pulse py-2">
               {'>'} Loading feedback data...
             </div>
           )}
 
           {error && (
-            <div className="text-crimson/80 font-mono text-xs py-2">
+            <div className="text-[var(--crimson)]/80 font-theme-data text-xs py-2">
               {'>'} {error}
             </div>
           )}
@@ -101,14 +101,14 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
               {/* ELO Changes */}
               {summary.elo_changes.length > 0 && (
                 <div>
-                  <h4 className="text-acid-green font-mono text-xs uppercase tracking-wider mb-2">
+                  <h4 className="text-[var(--accent)] font-theme-data text-xs uppercase tracking-wider mb-2">
                     ELO Rating Changes
                   </h4>
                   <div className="space-y-1">
                     {summary.elo_changes.map((change, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between text-xs font-mono px-2 py-1 bg-bg/50 rounded"
+                        className="flex items-center justify-between text-xs font-theme-data px-2 py-1 bg-bg/50 rounded"
                       >
                         <span className="text-text">{change.agent}</span>
                         <span
@@ -131,17 +131,17 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
               {/* KM Entries */}
               {summary.km_entries_stored > 0 && (
                 <div>
-                  <h4 className="text-acid-green font-mono text-xs uppercase tracking-wider mb-2">
+                  <h4 className="text-[var(--accent)] font-theme-data text-xs uppercase tracking-wider mb-2">
                     Knowledge Mound Entries ({summary.km_entries_stored})
                   </h4>
                   <div className="space-y-1">
                     {summary.km_entries.map((entry, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between text-xs font-mono px-2 py-1 bg-bg/50 rounded"
+                        className="flex items-center justify-between text-xs font-theme-data px-2 py-1 bg-bg/50 rounded"
                       >
                         <span className="text-text">{entry.type}</span>
-                        <span className="text-acid-cyan">
+                        <span className="text-[var(--acid-cyan)]">
                           {(entry.confidence * 100).toFixed(0)}% confidence
                         </span>
                       </div>
@@ -153,14 +153,14 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
               {/* Regressions */}
               {summary.regression_count > 0 && (
                 <div>
-                  <h4 className="text-crimson font-mono text-xs uppercase tracking-wider mb-2">
+                  <h4 className="text-[var(--crimson)] font-theme-data text-xs uppercase tracking-wider mb-2">
                     Regressions Detected ({summary.regression_count})
                   </h4>
                   <div className="space-y-1">
                     {summary.regressions.map((reg, i) => (
                       <div
                         key={i}
-                        className="text-xs font-mono px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-red-300"
+                        className="text-xs font-theme-data px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-red-300"
                       >
                         {String(reg.description || reg.message || JSON.stringify(reg))}
                       </div>
@@ -173,7 +173,7 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
               {summary.elo_changes.length === 0 &&
                 summary.km_entries_stored === 0 &&
                 summary.regression_count === 0 && (
-                  <div className="text-text-muted font-mono text-xs py-2">
+                  <div className="text-text-muted font-theme-data text-xs py-2">
                     {'>'} No feedback data yet. Execute the pipeline to see learning outcomes.
                   </div>
                 )}
@@ -181,7 +181,7 @@ export function FeedbackLoopPanel({ pipelineId, isVisible = true }: FeedbackLoop
               {/* Refresh */}
               <button
                 onClick={fetchSummary}
-                className="text-xs font-mono text-acid-green/60 hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--accent)]/60 hover:text-[var(--accent)] transition-colors"
               >
                 [refresh]
               </button>

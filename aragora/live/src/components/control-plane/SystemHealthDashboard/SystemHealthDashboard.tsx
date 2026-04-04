@@ -123,40 +123,40 @@ export function SystemHealthDashboard({
 
   if (compact) {
     return (
-      <div className={`bg-surface border border-acid-green/30 p-4 ${className}`}>
+      <div className={`bg-surface border border-[var(--accent)]/30 p-4 ${className}`}>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-mono text-acid-green uppercase">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase">
             {'>'} SYSTEM HEALTH
           </span>
           {lastUpdated && (
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {lastUpdated.toLocaleTimeString()}
             </span>
           )}
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className={`text-lg font-mono ${
+            <div className={`text-lg font-theme-data ${
               data.system?.status === 'healthy' ? 'text-success' :
-              data.system?.status === 'degraded' ? 'text-acid-yellow' : 'text-crimson'
+              data.system?.status === 'degraded' ? 'text-[var(--acid-yellow)]' : 'text-[var(--crimson)]'
             }`}>
               {data.system?.status?.toUpperCase() || 'UNKNOWN'}
             </div>
-            <div className="text-xs font-mono text-text-muted">STATUS</div>
+            <div className="text-xs font-theme-data text-text-muted">STATUS</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-mono text-acid-cyan">
+            <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
               {data.queue?.running || 0}
             </div>
-            <div className="text-xs font-mono text-text-muted">RUNNING</div>
+            <div className="text-xs font-theme-data text-text-muted">RUNNING</div>
           </div>
           <div className="text-center">
-            <div className={`text-lg font-mono ${
-              data.breakers.some(b => b.state === 'open') ? 'text-crimson' : 'text-success'
+            <div className={`text-lg font-theme-data ${
+              data.breakers.some(b => b.state === 'open') ? 'text-[var(--crimson)]' : 'text-success'
             }`}>
               {data.breakers.filter(b => b.state === 'open').length === 0 ? 'OK' : 'OPEN'}
             </div>
-            <div className="text-xs font-mono text-text-muted">BREAKERS</div>
+            <div className="text-xs font-theme-data text-text-muted">BREAKERS</div>
           </div>
         </div>
       </div>
@@ -167,11 +167,11 @@ export function SystemHealthDashboard({
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-mono text-acid-green uppercase">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase">
           {'>'} SYSTEM HEALTH DASHBOARD
         </h3>
         {lastUpdated && (
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             Updated: {lastUpdated.toLocaleTimeString()}
           </span>
         )}

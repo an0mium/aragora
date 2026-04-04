@@ -60,7 +60,7 @@ export function RiskOverview({
       {/* Overall risk gauge */}
       <div className="flex items-center justify-center mb-6">
         <div className="text-center">
-          <div className={`text-6xl font-mono font-bold ${getScoreColor(overallScore)}`}>
+          <div className={`text-6xl font-theme-data font-bold ${getScoreColor(overallScore)}`}>
             {overallScore}
           </div>
           <div className="text-sm text-text-muted mt-1">Overall Risk Score</div>
@@ -74,13 +74,13 @@ export function RiskOverview({
       </div>
 
       {/* Risk by vertical */}
-      <h3 className="font-mono font-bold text-text mb-3">Risk by Vertical</h3>
+      <h3 className="font-theme-data font-bold text-text mb-3">Risk by Vertical</h3>
       <div className="space-y-3">
         {riskByVertical.map((v) => (
           <div key={v.id} className="p-3 bg-bg border border-border rounded-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-mono font-bold text-text">{v.name}</span>
-              <span className={`text-lg font-mono font-bold ${getScoreColor(v.score)}`}>
+              <span className="font-theme-data font-bold text-text">{v.name}</span>
+              <span className={`text-lg font-theme-data font-bold ${getScoreColor(v.score)}`}>
                 {v.score}
               </span>
             </div>
@@ -109,7 +109,7 @@ export function RiskOverview({
 
       {/* Risk legend */}
       <div className="mt-6 p-3 bg-bg border border-border rounded-lg">
-        <h4 className="font-mono text-xs text-text-muted mb-2">RISK SCORE CALCULATION</h4>
+        <h4 className="font-theme-data text-xs text-text-muted mb-2">RISK SCORE CALCULATION</h4>
         <div className="grid grid-cols-4 gap-2 text-xs">
           <div><span className="text-red-400">Critical</span>: 25 pts</div>
           <div><span className="text-orange-400">High</span>: 10 pts</div>

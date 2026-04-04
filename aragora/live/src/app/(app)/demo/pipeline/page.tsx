@@ -214,7 +214,7 @@ function StepIndicator({ currentStep }: { currentStep: DemoStep }) {
             )}
             <div
               className={`
-                flex items-center gap-1.5 px-2 sm:px-3 py-1 text-xs font-mono border transition-all duration-500 whitespace-nowrap
+                flex items-center gap-1.5 px-2 sm:px-3 py-1 text-xs font-theme-data border transition-all duration-500 whitespace-nowrap
                 ${isActive
                   ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/20 text-[var(--acid-green)] shadow-[0_0_10px_var(--acid-green)/30]'
                   : isDone
@@ -258,18 +258,18 @@ function PipelineNodeCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
-              className={`px-1.5 py-0.5 text-[10px] font-mono font-bold border ${colors.badge}`}
+              className={`px-1.5 py-0.5 text-[10px] font-theme-data font-bold border ${colors.badge}`}
             >
               {stageLabel}
             </span>
             {agentLabel && (
-              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-purple-500/20 text-purple-300 border border-purple-500/40">
                 {agentLabel}
               </span>
             )}
             {priority && (
               <span
-                className={`px-1.5 py-0.5 text-[10px] font-mono border ${
+                className={`px-1.5 py-0.5 text-[10px] font-theme-data border ${
                   priority === 'high'
                     ? 'bg-red-500/20 text-red-300 border-red-500/40'
                     : 'bg-gray-500/20 text-gray-300 border-gray-500/40'
@@ -279,13 +279,13 @@ function PipelineNodeCard({
               </span>
             )}
           </div>
-          <p className={`text-sm font-mono ${colors.text} leading-snug truncate`}>
+          <p className={`text-sm font-theme-data ${colors.text} leading-snug truncate`}>
             {node.label}
           </p>
         </div>
       </div>
       {node.hash && (
-        <div className="mt-2 text-[10px] font-mono text-[var(--text-muted)]/40">
+        <div className="mt-2 text-[10px] font-theme-data text-[var(--text-muted)]/40">
           #{node.hash.slice(0, 12)}
         </div>
       )}
@@ -309,7 +309,7 @@ function StageSection({
   return (
     <div className="space-y-2">
       <h2
-        className={`text-sm font-mono uppercase tracking-wider flex items-center gap-2 ${titleColor}`}
+        className={`text-sm font-theme-data uppercase tracking-wider flex items-center gap-2 ${titleColor}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
         {title}
@@ -346,7 +346,7 @@ function ProvenanceSummary({ provenance }: { provenance: Record<string, unknown>
   const outputCount = provenance.output_count != null ? String(provenance.output_count) : null;
 
   return (
-    <div className="text-[10px] font-mono text-[var(--text-muted)]/60 flex items-center gap-3 flex-wrap">
+    <div className="text-[10px] font-theme-data text-[var(--text-muted)]/60 flex items-center gap-3 flex-wrap">
       {method && <span>method: {method}</span>}
       {sourceCount && <span>in: {sourceCount}</span>}
       {outputCount && <span>out: {outputCount}</span>}
@@ -613,28 +613,28 @@ export default function PipelineDemoPage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-mono font-bold text-[var(--acid-green)]">
+              <h1 className="text-2xl sm:text-3xl font-theme-data font-bold text-[var(--acid-green)]">
                 {'>'} 60-SECOND DEMO
               </h1>
-              <p className="text-[var(--text-muted)] font-mono text-sm mt-1">
+              <p className="text-[var(--text-muted)] font-theme-data text-sm mt-1">
                 Paste ideas, watch them become goals, tasks, and agent assignments
               </p>
             </div>
             <div className="flex items-center gap-2">
               {step !== 'input' && (
-                <div className="font-mono text-xs text-[var(--text-muted)] border border-[var(--border)] px-3 py-1.5">
+                <div className="font-theme-data text-xs text-[var(--text-muted)] border border-[var(--border)] px-3 py-1.5">
                   {(elapsedMs / 1000).toFixed(1)}s
                 </div>
               )}
               <Link
                 href="/demo"
-                className="text-xs font-mono text-purple-400 hover:text-purple-300 transition-colors border border-purple-500/50 px-3 py-1.5 hover:border-purple-500"
+                className="text-xs font-theme-data text-purple-400 hover:text-purple-300 transition-colors border border-purple-500/50 px-3 py-1.5 hover:border-purple-500"
               >
                 [DEBATE DEMO]
               </Link>
               <Link
                 href="/"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors border border-[var(--border)] px-3 py-1.5 hover:border-[var(--acid-green)]/50"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors border border-[var(--border)] px-3 py-1.5 hover:border-[var(--acid-green)]/50"
               >
                 [BACK TO HOME]
               </Link>
@@ -645,22 +645,22 @@ export default function PipelineDemoPage() {
         {/* Step Progress */}
         <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+            <span className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
               Pipeline Progress
             </span>
             {loading && (
-              <span className="flex items-center gap-2 text-xs font-mono text-[var(--acid-green)]">
+              <span className="flex items-center gap-2 text-xs font-theme-data text-[var(--acid-green)]">
                 <span className="w-2 h-2 bg-[var(--acid-green)] rounded-full animate-pulse" />
                 PROCESSING
               </span>
             )}
             {step === 'complete' && (
-              <span className="text-xs font-mono text-[var(--acid-green)]">
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">
                 COMPLETE
               </span>
             )}
             {usedFallback && (
-              <span className="text-xs font-mono text-[var(--acid-yellow)]">
+              <span className="text-xs font-theme-data text-[var(--acid-yellow)]">
                 DEMO MODE
               </span>
             )}
@@ -672,10 +672,10 @@ export default function PipelineDemoPage() {
         {step === 'input' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+              <label className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
                 Step 1: Paste Your Ideas
               </label>
-              <p className="text-xs font-mono text-[var(--text-muted)]/60">
+              <p className="text-xs font-theme-data text-[var(--text-muted)]/60">
                 One idea per line, or comma-separated. These will flow through the full pipeline.
               </p>
             </div>
@@ -687,7 +687,7 @@ export default function PipelineDemoPage() {
                 'Build a customer feedback dashboard\nAutomate weekly reports\nImprove onboarding flow\nAdd real-time notifications\nCreate API documentation'
               }
               rows={6}
-              className="w-full px-4 py-3 text-sm font-mono bg-[var(--surface)] border border-[var(--border)]
+              className="w-full px-4 py-3 text-sm font-theme-data bg-[var(--surface)] border border-[var(--border)]
                        text-[var(--text)] placeholder-[var(--text-muted)]/30
                        focus:border-[var(--acid-green)] focus:outline-none
                        resize-y transition-colors"
@@ -695,7 +695,7 @@ export default function PipelineDemoPage() {
 
             {/* Presets */}
             <div className="space-y-2">
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 Or try a preset:
               </span>
               <div className="flex flex-wrap gap-2">
@@ -705,7 +705,7 @@ export default function PipelineDemoPage() {
                     <button
                       key={i}
                       onClick={() => handlePreset(preset)}
-                      className="px-3 py-1.5 text-xs font-mono border border-[var(--acid-green)]/30
+                      className="px-3 py-1.5 text-xs font-theme-data border border-[var(--acid-green)]/30
                                text-[var(--text-muted)] hover:text-[var(--acid-green)]
                                hover:border-[var(--acid-green)]/60 hover:bg-[var(--acid-green)]/5
                                transition-colors text-left"
@@ -720,7 +720,7 @@ export default function PipelineDemoPage() {
             <button
               onClick={handleGenerateGoals}
               disabled={loading || !ideaText.trim()}
-              className="px-6 py-3 font-mono text-sm font-bold
+              className="px-6 py-3 font-theme-data text-sm font-bold
                        bg-[var(--acid-green)] text-[var(--bg)]
                        hover:bg-[var(--acid-green)]/80 transition-colors
                        disabled:opacity-30 disabled:cursor-not-allowed"
@@ -732,7 +732,7 @@ export default function PipelineDemoPage() {
 
         {/* Error display */}
         {error && (
-          <div className="p-3 border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-sm">
+          <div className="p-3 border border-red-500/50 bg-red-500/10 text-red-400 font-theme-data text-sm">
             {error}
           </div>
         )}
@@ -805,7 +805,7 @@ export default function PipelineDemoPage() {
                 <button
                   onClick={handlePlanTasks}
                   disabled={loading}
-                  className="px-5 py-2.5 font-mono text-sm font-bold
+                  className="px-5 py-2.5 font-theme-data text-sm font-bold
                            bg-amber-500 text-[var(--bg)]
                            hover:bg-amber-500/80 transition-colors
                            disabled:opacity-30 disabled:cursor-not-allowed"
@@ -819,7 +819,7 @@ export default function PipelineDemoPage() {
                 <button
                   onClick={handleOrchestrate}
                   disabled={loading}
-                  className="px-5 py-2.5 font-mono text-sm font-bold
+                  className="px-5 py-2.5 font-theme-data text-sm font-bold
                            bg-purple-500 text-white
                            hover:bg-purple-500/80 transition-colors
                            disabled:opacity-30 disabled:cursor-not-allowed"
@@ -829,7 +829,7 @@ export default function PipelineDemoPage() {
               )}
 
               {loading && (
-                <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">
+                <span className="font-theme-data text-sm text-[var(--text-muted)] animate-pulse">
                   Processing...
                 </span>
               )}
@@ -841,52 +841,52 @@ export default function PipelineDemoPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-[var(--acid-green)] rounded-full" />
-                    <span className="font-mono text-lg font-bold text-[var(--acid-green)]">
+                    <span className="font-theme-data text-lg font-bold text-[var(--acid-green)]">
                       PIPELINE COMPLETE
                     </span>
                   </div>
-                  <span className="font-mono text-sm text-[var(--text-muted)]">
+                  <span className="font-theme-data text-sm text-[var(--text-muted)]">
                     {(elapsedMs / 1000).toFixed(1)}s elapsed
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-3 bg-blue-500/10 border border-blue-500/30">
-                    <div className="text-2xl font-mono font-bold text-blue-400">{stageData.ideas.length}</div>
-                    <div className="text-xs font-mono text-[var(--text-muted)]">Ideas</div>
+                    <div className="text-2xl font-theme-data font-bold text-blue-400">{stageData.ideas.length}</div>
+                    <div className="text-xs font-theme-data text-[var(--text-muted)]">Ideas</div>
                   </div>
                   <div className="p-3 bg-emerald-500/10 border border-emerald-500/30">
-                    <div className="text-2xl font-mono font-bold text-emerald-400">{stageData.goals.length}</div>
-                    <div className="text-xs font-mono text-[var(--text-muted)]">Goals</div>
+                    <div className="text-2xl font-theme-data font-bold text-emerald-400">{stageData.goals.length}</div>
+                    <div className="text-xs font-theme-data text-[var(--text-muted)]">Goals</div>
                   </div>
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30">
-                    <div className="text-2xl font-mono font-bold text-amber-400">{stageData.tasks.length}</div>
-                    <div className="text-xs font-mono text-[var(--text-muted)]">Tasks</div>
+                    <div className="text-2xl font-theme-data font-bold text-amber-400">{stageData.tasks.length}</div>
+                    <div className="text-xs font-theme-data text-[var(--text-muted)]">Tasks</div>
                   </div>
                   <div className="p-3 bg-purple-500/10 border border-purple-500/30">
-                    <div className="text-2xl font-mono font-bold text-purple-400">{stageData.agents.length}</div>
-                    <div className="text-xs font-mono text-[var(--text-muted)]">Agents</div>
+                    <div className="text-2xl font-theme-data font-bold text-purple-400">{stageData.agents.length}</div>
+                    <div className="text-xs font-theme-data text-[var(--text-muted)]">Agents</div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">Total Nodes</span>
-                    <span className="font-mono text-sm text-[var(--acid-green)]">{totalNodes}</span>
+                    <span className="text-xs font-theme-data text-[var(--text-muted)] block mb-1">Total Nodes</span>
+                    <span className="font-theme-data text-sm text-[var(--acid-green)]">{totalNodes}</span>
                   </div>
                   <div>
-                    <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">Total Edges</span>
-                    <span className="font-mono text-sm text-[var(--acid-green)]">{stageData.edges.length}</span>
+                    <span className="text-xs font-theme-data text-[var(--text-muted)] block mb-1">Total Edges</span>
+                    <span className="font-theme-data text-sm text-[var(--acid-green)]">{stageData.edges.length}</span>
                   </div>
                 </div>
 
                 {/* Provenance chain */}
                 {provenances.length > 0 && (
                   <div className="border-t border-[var(--border)] pt-3">
-                    <span className="text-xs font-mono text-[var(--text-muted)] block mb-2">
+                    <span className="text-xs font-theme-data text-[var(--text-muted)] block mb-2">
                       Provenance Chain
                     </span>
-                    <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono text-[var(--text-muted)]">
+                    <div className="flex items-center gap-2 flex-wrap text-[10px] font-theme-data text-[var(--text-muted)]">
                       {provenances.map((p, i) => (
                         <div key={i} className="flex items-center gap-1">
                           {i > 0 && <span className="text-[var(--acid-green)]">&rarr;</span>}
@@ -903,21 +903,21 @@ export default function PipelineDemoPage() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
                   <button
                     onClick={handleReset}
-                    className="px-6 py-2 font-mono text-sm border border-[var(--acid-green)]/30
+                    className="px-6 py-2 font-theme-data text-sm border border-[var(--acid-green)]/30
                              text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
                   >
                     [START OVER]
                   </button>
                   <Link
                     href="/pipeline"
-                    className="px-6 py-2 font-mono text-sm bg-[var(--acid-green)] text-[var(--bg)]
+                    className="px-6 py-2 font-theme-data text-sm bg-[var(--acid-green)] text-[var(--bg)]
                              hover:bg-[var(--acid-green)]/80 transition-colors text-center"
                   >
                     OPEN FULL PIPELINE
                   </Link>
                   <Link
                     href="/arena"
-                    className="px-6 py-2 font-mono text-sm border border-[var(--acid-cyan)]/30
+                    className="px-6 py-2 font-theme-data text-sm border border-[var(--acid-cyan)]/30
                              text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors text-center"
                   >
                     TRY LIVE DEBATE
@@ -931,13 +931,13 @@ export default function PipelineDemoPage() {
         {/* Idle state: how it works */}
         {step === 'input' && !ideaText.trim() && (
           <div className="border border-[var(--acid-green)]/20 bg-[var(--surface)]/30 p-6 sm:p-8 text-center space-y-4">
-            <div className="text-3xl sm:text-4xl font-mono text-[var(--acid-green)]/30">
+            <div className="text-3xl sm:text-4xl font-theme-data text-[var(--acid-green)]/30">
               {'{ >> }'}
             </div>
-            <h2 className="text-lg font-mono text-[var(--acid-green)]">
+            <h2 className="text-lg font-theme-data text-[var(--acid-green)]">
               Idea-to-Execution in 60 Seconds
             </h2>
-            <div className="max-w-2xl mx-auto text-left space-y-3 text-sm font-mono text-[var(--text-muted)]">
+            <div className="max-w-2xl mx-auto text-left space-y-3 text-sm font-theme-data text-[var(--text-muted)]">
               <div className="flex gap-3">
                 <span className="text-blue-400 shrink-0">1.</span>
                 <span>
@@ -963,14 +963,14 @@ export default function PipelineDemoPage() {
                 </span>
               </div>
             </div>
-            <p className="text-xs font-mono text-[var(--text-muted)]/60 pt-2">
+            <p className="text-xs font-theme-data text-[var(--text-muted)]/60 pt-2">
               Every node carries a provenance hash. The full DAG is traceable from idea to agent.
             </p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center text-xs font-mono text-[var(--text-muted)]/60 pt-4 border-t border-[var(--border)]">
+        <div className="text-center text-xs font-theme-data text-[var(--text-muted)]/60 pt-4 border-t border-[var(--border)]">
           {usedFallback
             ? 'Running in demo mode with sample data. Start the Aragora server to see live AI-powered pipeline transitions.'
             : 'Powered by Aragora\'s idea-to-execution pipeline. Each transition uses AI to cluster, decompose, and orchestrate.'}

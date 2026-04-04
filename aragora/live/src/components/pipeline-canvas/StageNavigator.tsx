@@ -36,7 +36,7 @@ export const StageNavigator = memo(function StageNavigator({
             <button
               onClick={() => onStageSelect(stage)}
               className={`
-                px-3 py-1.5 rounded font-mono text-xs font-bold uppercase tracking-wide
+                px-3 py-1.5 rounded font-theme-data text-xs font-bold uppercase tracking-wide
                 transition-all duration-200 flex items-center gap-1.5
                 ${isActive ? 'ring-2 ring-acid-green ring-offset-1 ring-offset-bg' : ''}
                 ${isComplete ? 'opacity-100' : 'opacity-50'}
@@ -65,7 +65,7 @@ export const StageNavigator = memo(function StageNavigator({
       {!readOnly && nextPendingStage && onAdvance && (
         <button
           onClick={() => onAdvance(nextPendingStage)}
-          className="ml-2 px-3 py-1.5 bg-acid-green text-bg font-mono text-xs font-bold rounded hover:bg-acid-green/80 transition-colors"
+          className="ml-2 px-3 py-1.5 bg-[var(--accent)] text-bg font-theme-data text-xs font-bold rounded hover:bg-[var(--accent)]/80 transition-colors"
         >
           ADVANCE
         </button>

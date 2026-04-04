@@ -25,7 +25,7 @@ function DataPreviewComponent({ records, exportType }: DataPreviewProps) {
         {sample.map((record, i) => (
           <div
             key={i}
-            className="bg-slate-900 rounded p-2 text-xs font-mono text-slate-300 overflow-x-auto"
+            className="bg-slate-900 rounded p-2 text-xs font-theme-data text-slate-300 overflow-x-auto"
           >
             <pre className="whitespace-pre-wrap break-words">
               {JSON.stringify(record, null, 2).slice(0, 500)}

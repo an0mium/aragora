@@ -70,19 +70,19 @@ function GmailOAuthCallbackContent() {
   }, [searchParams, backendConfig.api, tokens?.access_token, router]);
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-8 rounded max-w-md w-full mx-4">
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-8 rounded max-w-md w-full mx-4">
       <div className="text-center">
         {status === 'processing' && (
           <>
             <div className="animate-pulse text-6xl mb-4">📧</div>
-            <h2 className="text-xl font-mono text-acid-green mb-2">
+            <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
               Connecting Gmail
             </h2>
-            <p className="text-text-muted font-mono text-sm">{message}</p>
+            <p className="text-text-muted font-theme-data text-sm">{message}</p>
             <div className="mt-6 flex justify-center gap-1">
-              <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </>
         )}
@@ -90,11 +90,11 @@ function GmailOAuthCallbackContent() {
         {status === 'success' && (
           <>
             <div className="text-6xl mb-4">✅</div>
-            <h2 className="text-xl font-mono text-acid-green mb-2">
+            <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
               Connected!
             </h2>
-            <p className="text-text-muted font-mono text-sm">{message}</p>
-            <p className="text-text-muted font-mono text-xs mt-4">
+            <p className="text-text-muted font-theme-data text-sm">{message}</p>
+            <p className="text-text-muted font-theme-data text-xs mt-4">
               Redirecting to inbox...
             </p>
           </>
@@ -103,13 +103,13 @@ function GmailOAuthCallbackContent() {
         {status === 'error' && (
           <>
             <div className="text-6xl mb-4">❌</div>
-            <h2 className="text-xl font-mono text-acid-red mb-2">
+            <h2 className="text-xl font-theme-data text-acid-red mb-2">
               Connection Failed
             </h2>
-            <p className="text-text-muted font-mono text-sm mb-6">{message}</p>
+            <p className="text-text-muted font-theme-data text-sm mb-6">{message}</p>
             <button
               onClick={() => router.push('/inbox')}
-              className="px-4 py-2 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20"
             >
               Return to Inbox
             </button>
@@ -122,16 +122,16 @@ function GmailOAuthCallbackContent() {
 
 function LoadingFallback() {
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-8 rounded max-w-md w-full mx-4">
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-8 rounded max-w-md w-full mx-4">
       <div className="text-center">
         <div className="animate-pulse text-6xl mb-4">📧</div>
-        <h2 className="text-xl font-mono text-acid-green mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           Loading...
         </h2>
         <div className="mt-6 flex justify-center gap-1">
-          <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 bg-acid-green rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>

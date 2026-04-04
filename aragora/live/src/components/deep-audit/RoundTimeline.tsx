@@ -99,7 +99,7 @@ function RoundMessages({ messages }: RoundMessagesProps) {
             <div className="flex items-center gap-2">
               {msg.confidence !== undefined && (
                 <span
-                  className={`text-xs font-mono ${
+                  className={`text-xs font-theme-data ${
                     msg.confidence >= 0.8
                       ? 'text-green-400'
                       : msg.confidence >= 0.6

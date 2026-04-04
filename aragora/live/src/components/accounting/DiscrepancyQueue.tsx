@@ -193,7 +193,7 @@ export function DiscrepancyQueue() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <div>
-          <h3 className="text-sm font-mono text-[var(--acid-green)]">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
             {'>'} DISCREPANCY QUEUE
           </h3>
           <p className="text-xs text-[var(--text-muted)] mt-1">
@@ -205,7 +205,7 @@ export function DiscrepancyQueue() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
                 filter === f
                   ? 'bg-[var(--acid-green)]/20 border border-[var(--acid-green)]/40 text-[var(--acid-green)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -244,7 +244,7 @@ export function DiscrepancyQueue() {
                     <div className="flex items-center gap-3">
                       <span className="text-xl">{typeInfo.icon}</span>
                       <div>
-                        <div className={`text-sm font-mono ${typeInfo.color}`}>
+                        <div className={`text-sm font-theme-data ${typeInfo.color}`}>
                           {typeInfo.label}
                         </div>
                         <div className="text-xs text-[var(--text-muted)]">
@@ -256,29 +256,29 @@ export function DiscrepancyQueue() {
                       {disc.difference !== undefined && (
                         <div className="text-right">
                           <div className="text-xs text-[var(--text-muted)]">Difference</div>
-                          <div className="text-sm font-mono text-yellow-400">
+                          <div className="text-sm font-theme-data text-yellow-400">
                             ${Math.abs(disc.difference).toFixed(2)}
                           </div>
                         </div>
                       )}
                       <div>
                         {disc.status === 'pending' && (
-                          <span className="px-2 py-1 text-xs font-mono bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
+                          <span className="px-2 py-1 text-xs font-theme-data bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
                             Pending
                           </span>
                         )}
                         {disc.status === 'investigating' && (
-                          <span className="px-2 py-1 text-xs font-mono bg-blue-500/10 border border-blue-500/30 rounded text-blue-400">
+                          <span className="px-2 py-1 text-xs font-theme-data bg-blue-500/10 border border-blue-500/30 rounded text-blue-400">
                             Investigating
                           </span>
                         )}
                         {disc.status === 'resolved' && (
-                          <span className="px-2 py-1 text-xs font-mono bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                          <span className="px-2 py-1 text-xs font-theme-data bg-green-500/10 border border-green-500/30 rounded text-green-400">
                             Resolved
                           </span>
                         )}
                         {disc.status === 'rejected' && (
-                          <span className="px-2 py-1 text-xs font-mono bg-red-500/10 border border-red-500/30 rounded text-red-400">
+                          <span className="px-2 py-1 text-xs font-theme-data bg-red-500/10 border border-red-500/30 rounded text-red-400">
                             Rejected
                           </span>
                         )}
@@ -298,10 +298,10 @@ export function DiscrepancyQueue() {
                       {disc.bankTransaction && (
                         <div className="p-3 bg-[var(--surface)] rounded border border-[var(--border)]">
                           <div className="text-xs text-[var(--text-muted)] mb-2">Bank Transaction</div>
-                          <div className="text-sm font-mono">{disc.bankTransaction.description}</div>
+                          <div className="text-sm font-theme-data">{disc.bankTransaction.description}</div>
                           <div className="flex justify-between mt-2">
                             <span className="text-xs text-[var(--text-muted)]">{disc.bankTransaction.date}</span>
-                            <span className={`text-sm font-mono ${
+                            <span className={`text-sm font-theme-data ${
                               disc.bankTransaction.amount >= 0 ? 'text-green-400' : 'text-red-400'
                             }`}>
                               ${Math.abs(disc.bankTransaction.amount).toFixed(2)}
@@ -314,10 +314,10 @@ export function DiscrepancyQueue() {
                       {disc.bookTransaction && (
                         <div className="p-3 bg-[var(--surface)] rounded border border-[var(--border)]">
                           <div className="text-xs text-[var(--text-muted)] mb-2">Book Transaction</div>
-                          <div className="text-sm font-mono">{disc.bookTransaction.description}</div>
+                          <div className="text-sm font-theme-data">{disc.bookTransaction.description}</div>
                           <div className="flex justify-between mt-2">
                             <span className="text-xs text-[var(--text-muted)]">{disc.bookTransaction.date}</span>
-                            <span className={`text-sm font-mono ${
+                            <span className={`text-sm font-theme-data ${
                               disc.bookTransaction.amount >= 0 ? 'text-green-400' : 'text-red-400'
                             }`}>
                               ${Math.abs(disc.bookTransaction.amount).toFixed(2)}
@@ -334,7 +334,7 @@ export function DiscrepancyQueue() {
                           <span className="text-xl">🤖</span>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-mono text-[var(--acid-green)]">AI Suggestion</span>
+                              <span className="text-sm font-theme-data text-[var(--acid-green)]">AI Suggestion</span>
                               {disc.aiConfidence && (
                                 <span className="text-xs text-[var(--text-muted)]">
                                   {(disc.aiConfidence * 100).toFixed(0)}% confidence
@@ -364,20 +364,20 @@ export function DiscrepancyQueue() {
                           <button
                             onClick={() => handleInvestigate(disc.id)}
                             disabled={investigating === disc.id}
-                            className="px-4 py-2 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-xs font-theme-data bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded hover:bg-blue-500/20 transition-colors disabled:opacity-50"
                           >
                             {investigating === disc.id ? 'Analyzing...' : 'Investigate with AI'}
                           </button>
                         )}
                         <button
                           onClick={() => handleResolve(disc.id, 'accept')}
-                          className="px-4 py-2 text-xs font-mono bg-green-500/10 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20 transition-colors"
+                          className="px-4 py-2 text-xs font-theme-data bg-green-500/10 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20 transition-colors"
                         >
                           Accept Suggestion
                         </button>
                         <button
                           onClick={() => handleResolve(disc.id, 'reject')}
-                          className="px-4 py-2 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] rounded hover:bg-[var(--surface)] transition-colors"
+                          className="px-4 py-2 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] rounded hover:bg-[var(--surface)] transition-colors"
                         >
                           Reject
                         </button>

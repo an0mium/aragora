@@ -60,7 +60,7 @@ export function DailyDigestWidget({
     return (
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
       >
         <span>📊</span>
         <span className="text-[var(--text-muted)]">Daily Digest</span>
@@ -93,7 +93,7 @@ export function DailyDigestWidget({
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono text-[var(--acid-green)]">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
             {'>'} TODAY'S DIGEST
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -105,7 +105,7 @@ export function DailyDigestWidget({
           </p>
         </div>
         <div className="text-right">
-          <div className="text-lg font-mono font-bold text-[var(--acid-green)]">
+          <div className="text-lg font-theme-data font-bold text-[var(--acid-green)]">
             {stats.timeSaved}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Time Saved</div>
@@ -135,7 +135,7 @@ export function DailyDigestWidget({
 
       {/* Category Breakdown */}
       <div className="p-4 border-b border-[var(--border)]">
-        <h4 className="text-xs font-mono text-[var(--text-muted)] mb-3">
+        <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-3">
           Category Breakdown
         </h4>
         <div className="space-y-2">
@@ -152,14 +152,14 @@ export function DailyDigestWidget({
 
       {/* Top Senders */}
       <div className="p-4">
-        <h4 className="text-xs font-mono text-[var(--text-muted)] mb-3">
+        <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-3">
           Top Senders Today
         </h4>
         <div className="space-y-2">
           {stats.topSenders.map((sender, i) => (
             <div
               key={sender.name}
-              className="flex items-center justify-between text-xs font-mono"
+              className="flex items-center justify-between text-xs font-theme-data"
             >
               <span className="flex items-center gap-2">
                 <span className="text-[var(--text-muted)]">{i + 1}.</span>
@@ -196,7 +196,7 @@ function DigestStat({
   return (
     <div className="text-center">
       <div className="text-lg mb-1">{icon}</div>
-      <div className={`text-xl font-mono font-bold ${colorClasses[color]}`}>
+      <div className={`text-xl font-theme-data font-bold ${colorClasses[color]}`}>
         {value}
       </div>
       <div className="text-xs text-[var(--text-muted)]">{label}</div>

@@ -9,10 +9,10 @@ import { useSystemHealth, useCircuitBreakers, type CircuitBreakerInfo } from '@/
 
 const STATE_BADGE: Record<string, { text: string; border: string; bg: string; dot: string }> = {
   closed: {
-    text: 'text-acid-green',
-    border: 'border-acid-green/40',
-    bg: 'bg-acid-green/10',
-    dot: 'bg-acid-green shadow-[0_0_4px_var(--acid-green)]',
+    text: 'text-[var(--accent)]',
+    border: 'border-[var(--accent)]/40',
+    bg: 'bg-[var(--accent)]/10',
+    dot: 'bg-[var(--accent)] shadow-[0_0_4px_var(--acid-green)]',
   },
   open: {
     text: 'text-red-400',
@@ -21,7 +21,7 @@ const STATE_BADGE: Record<string, { text: string; border: string; bg: string; do
     dot: 'bg-red-400 shadow-[0_0_4px_#f87171]',
   },
   'half-open': {
-    text: 'text-acid-yellow',
+    text: 'text-[var(--acid-yellow)]',
     border: 'border-acid-yellow/40',
     bg: 'bg-acid-yellow/10',
     dot: 'bg-acid-yellow shadow-[0_0_4px_var(--acid-yellow)]',
@@ -62,8 +62,8 @@ function HealthSummaryCard({
 }) {
   return (
     <div className="card p-3 text-center">
-      <div className="text-[10px] font-mono text-text-muted uppercase mb-1">{label}</div>
-      <div className={`text-lg font-mono font-bold ${color || 'text-text'}`}>{value}</div>
+      <div className="text-[10px] font-theme-data text-text-muted uppercase mb-1">{label}</div>
+      <div className={`text-lg font-theme-data font-bold ${color || 'text-text'}`}>{value}</div>
     </div>
   );
 }
@@ -77,7 +77,7 @@ function CircuitBreakerCard({ breaker }: { breaker: CircuitBreakerInfo }) {
 
   const barColor =
     breaker.success_rate > 0.95
-      ? 'bg-acid-green'
+      ? 'bg-[var(--accent)]'
       : breaker.success_rate > 0.7
         ? 'bg-acid-yellow'
         : 'bg-red-400';
@@ -88,12 +88,12 @@ function CircuitBreakerCard({ breaker }: { breaker: CircuitBreakerInfo }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${badge.dot}`} />
-          <span className="font-mono text-xs text-text truncate" title={breaker.name}>
+          <span className="font-theme-data text-xs text-text truncate" title={breaker.name}>
             {breaker.name}
           </span>
         </div>
         <span
-          className={`text-[10px] font-mono px-2 py-0.5 border rounded flex-shrink-0 ${badge.text} ${badge.border} ${badge.bg}`}
+          className={`text-[10px] font-theme-data px-2 py-0.5 border rounded flex-shrink-0 ${badge.text} ${badge.border} ${badge.bg}`}
         >
           {breaker.state.toUpperCase().replace('-', '_')}
         </span>
@@ -108,7 +108,7 @@ function CircuitBreakerCard({ breaker }: { breaker: CircuitBreakerInfo }) {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-1 text-[10px] font-mono text-text-muted">
+      <div className="grid grid-cols-3 gap-1 text-[10px] font-theme-data text-text-muted">
         <div>
           <span className="block text-text-muted">Failures</span>
           <span className={breaker.failure_count > 0 ? 'text-red-400' : 'text-text'}>
@@ -117,7 +117,7 @@ function CircuitBreakerCard({ breaker }: { breaker: CircuitBreakerInfo }) {
         </div>
         <div>
           <span className="block text-text-muted">Success</span>
-          <span className={breaker.success_rate > 0.95 ? 'text-acid-green' : 'text-text'}>
+          <span className={breaker.success_rate > 0.95 ? 'text-[var(--accent)]' : 'text-text'}>
             {(breaker.success_rate * 100).toFixed(1)}%
           </span>
         </div>
@@ -129,7 +129,7 @@ function CircuitBreakerCard({ breaker }: { breaker: CircuitBreakerInfo }) {
 
       {/* Cooldown info for open/half-open */}
       {breaker.state !== 'closed' && breaker.cooldown_seconds > 0 && (
-        <div className="text-[10px] font-mono text-acid-yellow">
+        <div className="text-[10px] font-theme-data text-[var(--acid-yellow)]">
           Cooldown: {breaker.cooldown_seconds}s
         </div>
       )}
@@ -199,9 +199,9 @@ export function ResilienceDashboard() {
 
   const statusColor =
     summary.overallStatus === 'healthy'
-      ? 'text-acid-green'
+      ? 'text-[var(--accent)]'
       : summary.overallStatus === 'degraded'
-        ? 'text-acid-yellow'
+        ? 'text-[var(--acid-yellow)]'
         : 'text-red-400';
 
   const statusGlow =
@@ -213,7 +213,7 @@ export function ResilienceDashboard() {
 
   const statusBg =
     summary.overallStatus === 'healthy'
-      ? 'bg-acid-green'
+      ? 'bg-[var(--accent)]'
       : summary.overallStatus === 'degraded'
         ? 'bg-acid-yellow'
         : 'bg-red-400';
@@ -225,7 +225,7 @@ export function ResilienceDashboard() {
         <div className="flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full ${statusBg} ${statusGlow} animate-pulse`} />
           <div>
-            <h3 className={`font-mono text-sm font-bold ${statusColor}`}>
+            <h3 className={`font-theme-data text-sm font-bold ${statusColor}`}>
               {summary.overallStatus === 'healthy'
                 ? 'RESILIENCE: ALL CIRCUITS HEALTHY'
                 : summary.overallStatus === 'degraded'
@@ -233,13 +233,13 @@ export function ResilienceDashboard() {
                   : 'RESILIENCE: CRITICAL - OPEN CIRCUITS DETECTED'}
             </h3>
             {health && (
-              <p className="font-mono text-[10px] text-text-muted">
+              <p className="font-theme-data text-[10px] text-text-muted">
                 Last check: {health.last_check ? new Date(health.last_check).toLocaleTimeString() : 'N/A'}
               </p>
             )}
           </div>
         </div>
-        <span className="font-mono text-xs text-text-muted">
+        <span className="font-theme-data text-xs text-text-muted">
           {summary.total} breaker{summary.total !== 1 ? 's' : ''} registered
         </span>
       </div>
@@ -253,17 +253,17 @@ export function ResilienceDashboard() {
         <HealthSummaryCard
           label="Avg Success Rate"
           value={`${(summary.avgSuccessRate * 100).toFixed(1)}%`}
-          color={summary.avgSuccessRate > 0.95 ? 'text-acid-green' : summary.avgSuccessRate > 0.7 ? 'text-acid-yellow' : 'text-red-400'}
+          color={summary.avgSuccessRate > 0.95 ? 'text-[var(--accent)]' : summary.avgSuccessRate > 0.7 ? 'text-[var(--acid-yellow)]' : 'text-red-400'}
         />
         <HealthSummaryCard
           label="Open Circuits"
           value={summary.open}
-          color={summary.open > 0 ? 'text-red-400' : 'text-acid-green'}
+          color={summary.open > 0 ? 'text-red-400' : 'text-[var(--accent)]'}
         />
         <HealthSummaryCard
           label="Half-Open"
           value={summary.halfOpen}
-          color={summary.halfOpen > 0 ? 'text-acid-yellow' : 'text-acid-green'}
+          color={summary.halfOpen > 0 ? 'text-[var(--acid-yellow)]' : 'text-[var(--accent)]'}
         />
       </div>
 
@@ -271,15 +271,15 @@ export function ResilienceDashboard() {
       {summary.total > 0 && (
         <div className="card p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-xs text-text-muted">Circuit Health Distribution</span>
-            <span className="font-mono text-[10px] text-acid-green">
+            <span className="font-theme-data text-xs text-text-muted">Circuit Health Distribution</span>
+            <span className="font-theme-data text-[10px] text-[var(--accent)]">
               {summary.closed}/{summary.total} closed
             </span>
           </div>
           <div className="h-3 bg-surface rounded overflow-hidden border border-border flex">
             {summary.closed > 0 && (
               <div
-                className="h-full bg-acid-green transition-all duration-500"
+                className="h-full bg-[var(--accent)] transition-all duration-500"
                 style={{ width: `${(summary.closed / summary.total) * 100}%` }}
                 title={`${summary.closed} closed`}
               />
@@ -299,10 +299,10 @@ export function ResilienceDashboard() {
               />
             )}
           </div>
-          <div className="flex gap-4 mt-1.5 text-[10px] font-mono">
-            <span className="text-acid-green">{summary.closed} Closed</span>
+          <div className="flex gap-4 mt-1.5 text-[10px] font-theme-data">
+            <span className="text-[var(--accent)]">{summary.closed} Closed</span>
             {summary.halfOpen > 0 && (
-              <span className="text-acid-yellow">{summary.halfOpen} Half-Open</span>
+              <span className="text-[var(--acid-yellow)]">{summary.halfOpen} Half-Open</span>
             )}
             {summary.open > 0 && (
               <span className="text-red-400">{summary.open} Open</span>
@@ -314,19 +314,19 @@ export function ResilienceDashboard() {
       {/* Circuit Breaker Grid */}
       {!available ? (
         <div className="card p-6">
-          <p className="text-text-muted font-mono text-xs text-center">
+          <p className="text-text-muted font-theme-data text-xs text-center">
             Resilience registry unavailable. The circuit breaker subsystem may not be initialized.
           </p>
         </div>
       ) : sortedBreakers.length === 0 ? (
         <div className="card p-6">
-          <p className="text-text-muted font-mono text-xs text-center">
+          <p className="text-text-muted font-theme-data text-xs text-center">
             No circuit breakers registered. Breakers are created automatically when services are called.
           </p>
         </div>
       ) : (
         <div>
-          <h4 className="font-mono text-xs text-acid-green mb-3">Circuit Breaker Status Grid</h4>
+          <h4 className="font-theme-data text-xs text-[var(--accent)] mb-3">Circuit Breaker Status Grid</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {sortedBreakers.map((breaker) => (
               <CircuitBreakerCard key={breaker.name} breaker={breaker} />

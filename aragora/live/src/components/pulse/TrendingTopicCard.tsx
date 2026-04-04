@@ -37,7 +37,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string; border: string }
   twitter: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
   github: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
   arxiv: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30' },
-  debate: { bg: 'bg-acid-green/10', text: 'text-acid-green', border: 'border-acid-green/30' },
+  debate: { bg: 'bg-[var(--accent)]/10', text: 'text-[var(--accent)]', border: 'border-[var(--accent)]/30' },
   default: { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/30' },
 };
 
@@ -102,8 +102,8 @@ export function TrendingTopicCard({
       onClick={onClick}
       className={`
         group relative p-4 bg-surface border rounded-lg cursor-pointer
-        transition-all duration-200 hover:border-acid-green/50 hover:shadow-lg hover:shadow-acid-green/5
-        ${isSelected ? 'border-acid-green ring-1 ring-acid-green/30' : 'border-border'}
+        transition-all duration-200 hover:border-[var(--accent)]/50 hover:shadow-lg hover:shadow-acid-green/5
+        ${isSelected ? 'border-[var(--accent)] ring-1 ring-acid-green/30' : 'border-border'}
       `}
     >
       {/* Score indicator bar */}
@@ -118,17 +118,17 @@ export function TrendingTopicCard({
           <span className="text-lg" title={topic.source}>
             {sourceIcon}
           </span>
-          <span className={`px-2 py-0.5 text-xs font-mono rounded border ${sourceColors.bg} ${sourceColors.text} ${sourceColors.border}`}>
+          <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${sourceColors.bg} ${sourceColors.text} ${sourceColors.border}`}>
             {topic.source.toUpperCase()}
           </span>
         </div>
-        <div className={`px-2 py-0.5 text-sm font-mono font-bold rounded ${getScoreBgColor(topic.score)} ${getScoreColor(topic.score)}`}>
+        <div className={`px-2 py-0.5 text-sm font-theme-data font-bold rounded ${getScoreBgColor(topic.score)} ${getScoreColor(topic.score)}`}>
           {Math.round(topic.score * 100)}%
         </div>
       </div>
 
       {/* Topic title */}
-      <h3 className="text-sm font-mono text-text mb-2 line-clamp-2 group-hover:text-acid-green transition-colors">
+      <h3 className="text-sm font-theme-data text-text mb-2 line-clamp-2 group-hover:text-[var(--accent)] transition-colors">
         {topic.topic}
       </h3>
 
@@ -136,12 +136,12 @@ export function TrendingTopicCard({
       <div className="flex items-center gap-3 text-xs text-text-muted mb-3">
         {topic.volume !== undefined && (
           <span title="Engagement volume">
-            <span className="text-acid-cyan">{formatVolume(topic.volume)}</span> engagement
+            <span className="text-[var(--acid-cyan)]">{formatVolume(topic.volume)}</span> engagement
           </span>
         )}
         {topic.debate_count !== undefined && topic.debate_count > 0 && (
           <span>
-            <span className="text-acid-green">{topic.debate_count}</span> debates
+            <span className="text-[var(--accent)]">{topic.debate_count}</span> debates
           </span>
         )}
         {topic.last_active && (
@@ -153,7 +153,7 @@ export function TrendingTopicCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {categoryClass && (
-            <span className={`px-2 py-0.5 text-xs font-mono rounded border ${categoryClass}`}>
+            <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${categoryClass}`}>
               {topic.category}
             </span>
           )}

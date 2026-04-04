@@ -207,30 +207,30 @@ export default function DebateDetailClient() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Confidence</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">
               {Math.round(pkg.confidence * 100)}%
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Agents</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">
               {pkg.agents.length}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Rounds</span>
-            <span className="text-sm font-mono text-[var(--text)]">{pkg.rounds}</span>
+            <span className="text-sm font-theme-data text-[var(--text)]">{pkg.rounds}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Duration</span>
-            <span className="text-sm font-mono text-[var(--text)]">
+            <span className="text-sm font-theme-data text-[var(--text)]">
               {pkg.duration_seconds ? `${Math.round(pkg.duration_seconds)}s` : '--'}
             </span>
           </div>
           {pkg.receipt && (
             <div className="flex justify-between items-center">
               <span className="text-xs text-[var(--text-muted)]">Receipt</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">SIGNED</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">SIGNED</span>
             </div>
           )}
         </div>
@@ -239,28 +239,28 @@ export default function DebateDetailClient() {
             <div className="space-y-2">
               <button
                 onClick={handleShare}
-                className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
               >
                 {shareButtonLabel}
               </button>
-              <p className="text-[10px] font-mono text-[var(--text-muted)]">
+              <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 {shareHelperText}
               </p>
               <Link
                 href={`/debates/compare?left=${id}`}
-                className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
               >
                 COMPARE RUN
               </Link>
               <Link
                 href={`/self-improve?from=debate&id=${id}`}
-                className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
               >
                 IMPROVE FROM THIS
           </Link>
           <Link
             href="/debates"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             BACK TO ARCHIVE
           </Link>
@@ -312,7 +312,7 @@ export default function DebateDetailClient() {
         <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
           <div className="container mx-auto px-4 py-6">
             {/* Breadcrumb */}
-            <div className="mb-4 text-xs font-mono text-[var(--text-muted)]">
+            <div className="mb-4 text-xs font-theme-data text-[var(--text-muted)]">
               <Link href="/debates" className="hover:text-[var(--acid-green)] transition-colors">
                 Debates
               </Link>
@@ -343,7 +343,7 @@ export default function DebateDetailClient() {
             <div className="mt-4">
               <button
                 onClick={() => setShowIntervention((prev) => !prev)}
-                className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                   showIntervention
                     ? 'bg-[var(--acid-yellow)]/20 text-[var(--acid-yellow)] border-[var(--acid-yellow)]/40'
                     : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-yellow)]/40'
@@ -382,7 +382,7 @@ export default function DebateDetailClient() {
         <CRTVignette />
         <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
           <div className="flex items-center justify-center py-20">
-            <div className="text-[var(--acid-green)] font-mono animate-pulse">
+            <div className="text-[var(--acid-green)] font-theme-data animate-pulse">
               {'>'} LOADING DECISION PACKAGE...
             </div>
           </div>
@@ -399,15 +399,15 @@ export default function DebateDetailClient() {
         <CRTVignette />
         <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
           <div className="container mx-auto px-4 py-20 text-center">
-            <div className="text-[var(--warning)] font-mono text-lg mb-4">
+            <div className="text-[var(--warning)] font-theme-data text-lg mb-4">
               {'>'} DEBATE NOT FOUND
             </div>
-            <p className="text-[var(--text-muted)] font-mono text-sm mb-6">
+            <p className="text-[var(--text-muted)] font-theme-data text-sm mb-6">
               The debate with ID {id} does not exist or has been removed.
             </p>
             <Link
               href="/debates"
-              className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
               BACK TO ARCHIVE
             </Link>
@@ -425,10 +425,10 @@ export default function DebateDetailClient() {
         <CRTVignette />
         <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
           <div className="container mx-auto px-4 py-20 text-center">
-            <div className="text-[var(--warning)] font-mono text-lg mb-4">
+            <div className="text-[var(--warning)] font-theme-data text-lg mb-4">
               {'>'} ERROR
             </div>
-            <p className="text-[var(--text-muted)] font-mono text-sm mb-6">{error}</p>
+            <p className="text-[var(--text-muted)] font-theme-data text-sm mb-6">{error}</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => {
@@ -436,13 +436,13 @@ export default function DebateDetailClient() {
                   setDebateStatus('loading');
                   fetchDebatePackage();
                 }}
-                className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+                className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
               >
                 RETRY
               </button>
               <Link
                 href="/debates"
-                className="px-4 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+                className="px-4 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
               >
                 BACK TO ARCHIVE
               </Link>
@@ -463,7 +463,7 @@ export default function DebateDetailClient() {
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="container mx-auto px-4 py-6">
           {/* Breadcrumb */}
-          <div className="mb-4 text-xs font-mono text-[var(--text-muted)]">
+          <div className="mb-4 text-xs font-theme-data text-[var(--text-muted)]">
             <Link href="/debates" className="hover:text-[var(--acid-green)] transition-colors">
               Debates
             </Link>
@@ -475,12 +475,12 @@ export default function DebateDetailClient() {
           <div className="bg-[var(--surface)] border border-[var(--acid-green)]/40 p-6 mb-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h1 className="text-lg font-mono text-[var(--acid-green)] mb-3">
+                <h1 className="text-lg font-theme-data text-[var(--acid-green)] mb-3">
                   {'>'} {pkg.question}
                 </h1>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span
-                    className={`px-2 py-1 text-xs font-mono border ${
+                    className={`px-2 py-1 text-xs font-theme-data border ${
                       pkg.consensus_reached
                         ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)] border-[var(--acid-green)]/40'
                         : 'bg-[var(--warning)]/10 text-[var(--warning)] border-[var(--warning)]/40'
@@ -488,10 +488,10 @@ export default function DebateDetailClient() {
                   >
                     {pkg.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
                   </span>
-                  <span className="px-2 py-1 text-xs font-mono bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40">
+                  <span className="px-2 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40">
                     {Math.round(pkg.confidence * 100)}% CONFIDENCE
                   </span>
-                  <span className="text-xs font-mono text-[var(--text-muted)]">
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">
                     {new Date(pkg.created_at).toLocaleString()}
                   </span>
                 </div>
@@ -499,28 +499,28 @@ export default function DebateDetailClient() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Link
                   href={`/debates/compare?left=${id}`}
-                  className="px-3 py-2 text-xs font-mono bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
                 >
                   COMPARE
                 </Link>
                 <button
                   onClick={handleShare}
-                  className="px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
                 >
                   {shareButtonLabel}
                 </button>
               </div>
             </div>
 
-            <p className="mt-3 text-[10px] font-mono text-[var(--text-muted)]">
+            <p className="mt-3 text-[10px] font-theme-data text-[var(--text-muted)]">
               {shareHelperText}
             </p>
 
             {/* Final answer */}
             {pkg.final_answer && (
               <div className="mt-4 p-3 bg-[var(--bg)] border border-[var(--border)]">
-                <div className="text-xs font-mono text-[var(--text-muted)] mb-1">VERDICT</div>
-                <p className="text-sm font-mono text-[var(--text)]">{pkg.final_answer}</p>
+                <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">VERDICT</div>
+                <p className="text-sm font-theme-data text-[var(--text)]">{pkg.final_answer}</p>
               </div>
             )}
           </div>
@@ -536,7 +536,7 @@ export default function DebateDetailClient() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-xs font-mono transition-colors border-b-2 -mb-px ${
+                className={`px-4 py-2 text-xs font-theme-data transition-colors border-b-2 -mb-px ${
                   activeTab === tab.key
                     ? 'text-[var(--acid-green)] border-[var(--acid-green)]'
                     : 'text-[var(--text-muted)] border-transparent hover:text-[var(--text)]'
@@ -561,25 +561,25 @@ export default function DebateDetailClient() {
                     className="bg-[var(--surface)] border border-[var(--border)] p-4"
                   >
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="px-1.5 py-0.5 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)]">
+                      <span className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)]">
                         {arg.agent}
                       </span>
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         Round {arg.round}
                       </span>
                       {arg.position && (
-                        <span className="text-xs font-mono text-[var(--acid-cyan)]">
+                        <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
                           {arg.position}
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-mono text-[var(--text)] whitespace-pre-wrap">
+                    <p className="text-sm font-theme-data text-[var(--text)] whitespace-pre-wrap">
                       {arg.content}
                     </p>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 text-[var(--text-muted)] font-mono text-sm">
+                <div className="text-center py-12 text-[var(--text-muted)] font-theme-data text-sm">
                   {'>'} No argument transcript available for this debate.
                 </div>
               )}
@@ -595,43 +595,43 @@ export default function DebateDetailClient() {
               {pkg.receipt ? (
                   <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-xs font-mono text-[var(--acid-green)]">
+                    <div className="text-xs font-theme-data text-[var(--acid-green)]">
                       {'>'} CRYPTOGRAPHIC RECEIPT
                     </div>
                     <Link
                       href={receiptHref}
-                      className="px-3 py-2 text-[11px] font-mono text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                      className="px-3 py-2 text-[11px] font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 hover:bg-[var(--acid-cyan)]/20 transition-colors"
                     >
                       OPEN FULL RECEIPT
                     </Link>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                      <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                         SHA-256 HASH
                       </div>
-                      <div className="text-xs font-mono text-[var(--acid-cyan)] break-all bg-[var(--bg)] p-2 border border-[var(--border)]">
+                      <div className="text-xs font-theme-data text-[var(--acid-cyan)] break-all bg-[var(--bg)] p-2 border border-[var(--border)]">
                         {pkg.receipt.hash}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                      <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                         TIMESTAMP
                       </div>
-                      <div className="text-sm font-mono text-[var(--text)]">
+                      <div className="text-sm font-theme-data text-[var(--text)]">
                         {new Date(pkg.receipt.timestamp).toLocaleString()}
                       </div>
                     </div>
                     {pkg.receipt.signers && pkg.receipt.signers.length > 0 && (
                       <div>
-                        <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                        <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                           SIGNERS
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {pkg.receipt.signers.map((signer, i) => (
                             <span
                               key={i}
-                              className="px-1.5 py-0.5 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30"
+                              className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30"
                             >
                               {signer}
                             </span>
@@ -644,34 +644,34 @@ export default function DebateDetailClient() {
                     <div className="border-t border-[var(--border)] pt-4 space-y-4">
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             DURATION
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatDuration(pkg.duration_seconds)}
                           </div>
                         </div>
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             ROUNDS
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatCount(pkg.rounds)}
                           </div>
                         </div>
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             API Calls
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatCount(receiptCostSummary.total_calls)}
                           </div>
                         </div>
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             TOTAL COST
                           </div>
-                          <div className="text-sm font-mono text-[var(--acid-green)]">
+                          <div className="text-sm font-theme-data text-[var(--acid-green)]">
                             {formatCurrency(receiptCostSummary.total_cost_usd)}
                           </div>
                         </div>
@@ -679,26 +679,26 @@ export default function DebateDetailClient() {
 
                       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             AGENTS
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatCount(pkg.agents.length)}
                           </div>
                         </div>
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             TOKENS IN
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatCount(receiptCostSummary.total_tokens_in)}
                           </div>
                         </div>
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-1">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">
                             TOTAL TOKENS
                           </div>
-                          <div className="text-sm font-mono text-[var(--text)]">
+                          <div className="text-sm font-theme-data text-[var(--text)]">
                             {formatCount(totalReceiptTokens)}
                           </div>
                         </div>
@@ -706,7 +706,7 @@ export default function DebateDetailClient() {
 
                       {receiptCostSummary.model_usage.length > 0 && (
                         <div>
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-2">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">
                             MODEL USAGE
                           </div>
                           <div className="space-y-2">
@@ -715,10 +715,10 @@ export default function DebateDetailClient() {
                                 key={usage.key}
                                 className="flex flex-wrap items-center justify-between gap-3 bg-[var(--bg)] border border-[var(--border)] p-3"
                               >
-                                <div className="text-sm font-mono text-[var(--text)]">
+                                <div className="text-sm font-theme-data text-[var(--text)]">
                                   {usage.label}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+                                <div className="flex flex-wrap items-center gap-3 text-xs font-theme-data text-[var(--text-muted)]">
                                   <span>{formatCount(usage.call_count)} calls</span>
                                   <span>
                                     {formatCount(usage.total_tokens_in + usage.total_tokens_out)} tokens
@@ -735,7 +735,7 @@ export default function DebateDetailClient() {
 
                       {receiptCostSummary.per_agent.length > 0 && (
                         <div>
-                          <div className="text-xs font-mono text-[var(--text-muted)] mb-2">
+                          <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">
                             PER-AGENT USAGE
                           </div>
                           <div className="space-y-2">
@@ -745,10 +745,10 @@ export default function DebateDetailClient() {
                                 className="bg-[var(--bg)] border border-[var(--border)] p-3"
                               >
                                 <div className="flex flex-wrap items-center justify-between gap-3">
-                                  <div className="text-sm font-mono text-[var(--text)]">
+                                  <div className="text-sm font-theme-data text-[var(--text)]">
                                     {agent.agent}
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+                                  <div className="flex flex-wrap items-center gap-3 text-xs font-theme-data text-[var(--text-muted)]">
                                     <span>{formatCount(agent.call_count)} calls</span>
                                     <span>
                                       {formatCount(agent.total_tokens_in + agent.total_tokens_out)} tokens
@@ -763,7 +763,7 @@ export default function DebateDetailClient() {
                                     {agent.models_used.map((modelUsage) => (
                                       <span
                                         key={`${agent.agent}-${modelUsage.model}`}
-                                        className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30"
+                                        className="px-2 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30"
                                       >
                                         {`${modelUsage.model} x${modelUsage.call_count}`}
                                       </span>
@@ -779,7 +779,7 @@ export default function DebateDetailClient() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-12 text-[var(--text-muted)] font-mono text-sm">
+                <div className="text-center py-12 text-[var(--text-muted)] font-theme-data text-sm">
                   {'>'} No receipt generated for this debate.
                 </div>
               )}
@@ -789,7 +789,7 @@ export default function DebateDetailClient() {
           {activeTab === 'export' && (
             <div className="space-y-4">
               <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-                <div className="text-xs font-mono text-[var(--acid-green)] mb-4">
+                <div className="text-xs font-theme-data text-[var(--acid-green)] mb-4">
                   {'>'} EXPORT OPTIONS
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -803,7 +803,7 @@ export default function DebateDetailClient() {
                       a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors text-left"
+                    className="px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors text-left"
                   >
                     <div className="text-[var(--acid-green)]">JSON</div>
                     <div className="text-[var(--text-muted)] mt-1">
@@ -829,7 +829,7 @@ export default function DebateDetailClient() {
                       } catch { /* fail silently */ }
                       setExporting(null);
                     }}
-                    className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                    className={`px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
                       exporting === 'md' ? 'opacity-50 cursor-wait' : 'hover:border-[var(--acid-green)]/40'
                     }`}
                   >
@@ -857,7 +857,7 @@ export default function DebateDetailClient() {
                       } catch { /* fail silently */ }
                       setExporting(null);
                     }}
-                    className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                    className={`px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
                       exporting === 'csv' ? 'opacity-50 cursor-wait' : 'hover:border-[var(--acid-green)]/40'
                     }`}
                   >
@@ -868,7 +868,7 @@ export default function DebateDetailClient() {
                   </button>
                   <button
                     onClick={handleShare}
-                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors text-left"
+                    className="px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors text-left"
                   >
                     <div className="text-[var(--acid-cyan)]">PERMALINK</div>
                     <div className="text-[var(--text-muted)] mt-1">
@@ -882,7 +882,7 @@ export default function DebateDetailClient() {
                       setCopiedSummary(true);
                       setTimeout(() => setCopiedSummary(false), 2000);
                     }}
-                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors text-left"
+                    className="px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors text-left"
                   >
                     <div>{copiedSummary ? 'COPIED' : 'SUMMARY'}</div>
                     <div className="text-[var(--text-muted)] mt-1">
@@ -894,10 +894,10 @@ export default function DebateDetailClient() {
 
               {/* Integration bridge — create issues in external tools */}
               <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-                <div className="text-xs font-mono text-[var(--acid-cyan)] mb-4">
+                <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-4">
                   {'>'} INTEGRATIONS
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mb-4 font-mono">
+                <p className="text-xs text-[var(--text-muted)] mb-4 font-theme-data">
                   Push this decision to external project management tools.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -927,7 +927,7 @@ export default function DebateDetailClient() {
                         }
                         setBridging(null);
                       }}
-                      className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                      className={`px-4 py-3 text-xs font-theme-data bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
                         bridging === target
                           ? 'opacity-50 cursor-wait'
                           : 'hover:border-[var(--acid-cyan)]/40'
@@ -953,7 +953,7 @@ export default function DebateDetailClient() {
                   ))}
                 </div>
                 {bridgeResult && (
-                  <div className="mt-3 text-xs font-mono text-[var(--acid-green)]">
+                  <div className="mt-3 text-xs font-theme-data text-[var(--acid-green)]">
                     {'>'} {bridgeResult}
                   </div>
                 )}
@@ -970,25 +970,25 @@ export default function DebateDetailClient() {
           <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-6 pb-4">
             <Link
               href="/arena"
-              className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+              className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
             >
               START ANOTHER DEBATE
             </Link>
             <Link
               href="/debates"
-              className="px-4 py-2 text-xs font-mono font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+              className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
             >
               VIEW ALL DEBATES
             </Link>
             <Link
               href={`/debates/compare?left=${id}`}
-              className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+              className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
             >
               COMPARE SIDE BY SIDE
             </Link>
             <Link
               href={receiptHref}
-              className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+              className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
             >
               VIEW RECEIPTS
             </Link>

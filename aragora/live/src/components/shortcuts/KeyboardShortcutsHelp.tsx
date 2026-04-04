@@ -61,17 +61,17 @@ export function KeyboardShortcutsHelp() {
           relative
           w-full max-w-4xl max-h-[85vh]
           mx-4
-          bg-surface border border-acid-green/30
+          bg-surface border border-[var(--accent)]/30
           rounded-lg shadow-2xl
           overflow-hidden
           flex flex-col
         "
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--accent)]/20">
           <h2
             id="shortcuts-help-title"
-            className="text-lg font-mono text-acid-green"
+            className="text-lg font-theme-data text-[var(--accent)]"
           >
             Keyboard Shortcuts
           </h2>
@@ -119,7 +119,7 @@ export function KeyboardShortcutsHelp() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-acid-green/20 bg-bg/50">
+        <div className="px-6 py-4 border-t border-[var(--accent)]/20 bg-bg/50">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -128,18 +128,18 @@ export function KeyboardShortcutsHelp() {
               className="
                 w-4 h-4
                 rounded
-                border-acid-green/50
+                border-[var(--accent)]/50
                 bg-surface
-                text-acid-green
+                text-[var(--accent)]
                 focus:ring-acid-green/50
                 focus:ring-offset-0
               "
             />
-            <span className="text-sm font-mono text-text-muted">
+            <span className="text-sm font-theme-data text-text-muted">
               Enable keyboard shortcuts
             </span>
           </label>
-          <p className="mt-2 text-xs text-text-muted/70 font-mono">
+          <p className="mt-2 text-xs text-text-muted/70 font-theme-data">
             Press <ShortcutKey keys={{ key: '?' }} size="sm" /> anywhere to open this help.
             Press <ShortcutKey keys={{ key: 'escape' }} size="sm" /> to close.
           </p>
@@ -163,7 +163,7 @@ function ShortcutCategory({
 }) {
   return (
     <div>
-      <h3 className="text-sm font-mono text-acid-green mb-3 pb-2 border-b border-acid-green/20">
+      <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3 pb-2 border-b border-[var(--accent)]/20">
         {CATEGORY_LABELS[category]}
       </h3>
       <ul className="space-y-2">
@@ -178,7 +178,7 @@ function ShortcutCategory({
               key={shortcut.id}
               className="flex items-center justify-between gap-4 text-sm"
             >
-              <span className="text-text-muted font-mono truncate">
+              <span className="text-text-muted font-theme-data truncate">
                 {shortcut.description}
               </span>
               <ShortcutKey keys={primaryKey} size="sm" />

@@ -56,22 +56,22 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-[var(--acid-green)] font-bold truncate">
+            <span className="font-theme-data text-sm text-[var(--acid-green)] font-bold truncate">
               {tool.name}
             </span>
-            <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-mono border rounded ${colorClass}`}>
+            <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-theme-data border rounded ${colorClass}`}>
               {tool.category}
             </span>
           </div>
-          <p className="text-xs font-mono text-[var(--text-muted)] mt-1 truncate">
+          <p className="text-xs font-theme-data text-[var(--text-muted)] mt-1 truncate">
             {tool.description}
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[var(--text-muted)]">
+          <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
             {tool.parameters.length} param{tool.parameters.length !== 1 ? 's' : ''}
           </span>
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             {expanded ? '-' : '+'}
           </span>
         </div>
@@ -80,14 +80,14 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
       {/* Expanded details */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-[var(--border)]">
-          <p className="text-xs font-mono text-[var(--text)] pt-3">
+          <p className="text-xs font-theme-data text-[var(--text)] pt-3">
             {tool.description}
           </p>
 
           {/* Parameter table */}
           {tool.parameters.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px] font-mono">
+              <table className="w-full text-[11px] font-theme-data">
                 <thead>
                   <tr className="text-[var(--text-muted)] border-b border-[var(--border)]">
                     <th className="text-left py-1.5 pr-3">Parameter</th>
@@ -120,13 +120,13 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
 
           {/* SDK snippet */}
           <div className="relative group">
-            <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1">SDK Usage</div>
-            <pre className="bg-[var(--bg)] border border-[var(--border)] rounded p-3 text-xs font-mono text-[var(--text)] overflow-x-auto">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)] mb-1">SDK Usage</div>
+            <pre className="bg-[var(--bg)] border border-[var(--border)] rounded p-3 text-xs font-theme-data text-[var(--text)] overflow-x-auto">
               {snippet}
             </pre>
             <button
               onClick={handleCopy}
-              className="absolute top-7 right-2 px-2 py-1 text-[10px] font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/30 transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-7 right-2 px-2 py-1 text-[10px] font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/30 transition-colors opacity-0 group-hover:opacity-100"
             >
               {copied ? 'COPIED' : 'COPY'}
             </button>
@@ -135,7 +135,7 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
           {/* Execute button — Phase 2 */}
           <button
             disabled
-            className="w-full py-2 text-xs font-mono border border-[var(--border)] rounded text-[var(--text-muted)] bg-[var(--surface)]/30 cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-2 text-xs font-theme-data border border-[var(--border)] rounded text-[var(--text-muted)] bg-[var(--surface)]/30 cursor-not-allowed flex items-center justify-center gap-2"
           >
             Execute
             <span className="px-1.5 py-0.5 text-[10px] border border-[var(--text-muted)]/30 rounded">

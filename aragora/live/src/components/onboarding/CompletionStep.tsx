@@ -23,7 +23,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
             &#127881;
           </span>
         </div>
-        <h3 className="text-xl font-mono text-acid-green mb-2">
+        <h3 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           You&apos;re All Set!
         </h3>
         <p className="text-sm text-text-muted">
@@ -32,24 +32,24 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
       </div>
 
       {/* Summary */}
-      <div className="p-4 border border-acid-green/20 rounded-lg bg-surface text-left">
-        <div className="text-sm font-mono text-acid-green mb-3">
+      <div className="p-4 border border-[var(--accent)]/20 rounded-lg bg-surface text-left">
+        <div className="text-sm font-theme-data text-[var(--accent)] mb-3">
           Onboarding Summary
         </div>
         <div className="space-y-2 text-sm text-text">
           <div className="flex items-center gap-2">
-            <span className="text-acid-green">&#10003;</span>
+            <span className="text-[var(--accent)]">&#10003;</span>
             <span>Workspace created: {organizationName || 'My Workspace'}</span>
           </div>
           {teamMembers.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-acid-green">&#10003;</span>
+              <span className="text-[var(--accent)]">&#10003;</span>
               <span>{teamMembers.length} team member(s) invited</span>
             </div>
           )}
           {firstDebateId && (
             <div className="flex items-center gap-2">
-              <span className="text-acid-green">&#10003;</span>
+              <span className="text-[var(--accent)]">&#10003;</span>
               <span>First debate completed</span>
             </div>
           )}
@@ -58,7 +58,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
 
       {/* Next Steps */}
       <div>
-        <div className="text-sm font-mono text-text mb-3">
+        <div className="text-sm font-theme-data text-text mb-3">
           What&apos;s Next?
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -90,7 +90,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
       {/* CTA */}
       <button
         onClick={onComplete}
-        className="w-full px-6 py-3 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors"
+        className="w-full px-6 py-3 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 transition-colors"
       >
         GO TO DASHBOARD
       </button>
@@ -109,10 +109,10 @@ function NextStepCard({ icon, title, description, href }: NextStepCardProps) {
   return (
     <a
       href={href}
-      className="p-3 border border-acid-green/20 rounded-lg hover:border-acid-green/50 hover:bg-acid-green/5 transition-colors block"
+      className="p-3 border border-[var(--accent)]/20 rounded-lg hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 transition-colors block"
     >
       <div className="text-xl mb-1">{icon}</div>
-      <div className="text-sm font-mono text-acid-green">{title}</div>
+      <div className="text-sm font-theme-data text-[var(--accent)]">{title}</div>
       <div className="text-xs text-text-muted">{description}</div>
     </a>
   );

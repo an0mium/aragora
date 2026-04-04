@@ -65,8 +65,8 @@ export default function ROIDashboard() {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-[var(--surface)] border border-red-500/50 p-6 text-center">
-          <div className="font-mono text-red-400 mb-2">ERROR LOADING DASHBOARD</div>
-          <div className="font-mono text-xs text-[var(--text-muted)]">
+          <div className="font-theme-data text-red-400 mb-2">ERROR LOADING DASHBOARD</div>
+          <div className="font-theme-data text-xs text-[var(--text-muted)]">
             {error.message || 'Failed to load usage data. Please try again.'}
           </div>
         </div>
@@ -79,22 +79,22 @@ export default function ROIDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-mono font-bold text-[var(--acid-green)]">
+          <h1 className="text-2xl font-theme-data font-bold text-[var(--acid-green)]">
             ROI DASHBOARD
           </h1>
-          <p className="text-sm font-mono text-[var(--text-muted)] mt-1">
+          <p className="text-sm font-theme-data text-[var(--text-muted)] mt-1">
             Track spend, measure ROI, and optimize costs
           </p>
         </div>
 
         {/* Time Range Selector */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-[var(--text-muted)]">PERIOD:</span>
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">PERIOD:</span>
           {(['24h', '7d', '30d', '90d'] as TimeRange[]).map((range) => (
             <button
               key={range}
               onClick={() => handleTimeRangeChange(range)}
-              className={`px-3 py-1.5 font-mono text-xs rounded transition-colors ${
+              className={`px-3 py-1.5 font-theme-data text-xs rounded transition-colors ${
                 timeRange === range
                   ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/40'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent'
@@ -157,31 +157,31 @@ export default function ROIDashboard() {
 
       {/* Quick Actions */}
       <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-4 flex items-center gap-2">
           <span>{'>'}</span> QUICK ACTIONS
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button className="p-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/40 transition-colors text-left">
-            <div className="font-mono text-xs text-[var(--acid-green)]">SET BUDGET</div>
-            <div className="font-mono text-[10px] text-[var(--text-muted)] mt-1">
+            <div className="font-theme-data text-xs text-[var(--acid-green)]">SET BUDGET</div>
+            <div className="font-theme-data text-[10px] text-[var(--text-muted)] mt-1">
               Configure monthly limits
             </div>
           </button>
           <button className="p-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded hover:border-[var(--acid-cyan)]/40 transition-colors text-left">
-            <div className="font-mono text-xs text-[var(--acid-cyan)]">EXPORT REPORT</div>
-            <div className="font-mono text-[10px] text-[var(--text-muted)] mt-1">
+            <div className="font-theme-data text-xs text-[var(--acid-cyan)]">EXPORT REPORT</div>
+            <div className="font-theme-data text-[10px] text-[var(--text-muted)] mt-1">
               Download usage data
             </div>
           </button>
           <button className="p-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded hover:border-[var(--acid-yellow)]/40 transition-colors text-left">
-            <div className="font-mono text-xs text-[var(--acid-yellow)]">CONFIGURE ALERTS</div>
-            <div className="font-mono text-[10px] text-[var(--text-muted)] mt-1">
+            <div className="font-theme-data text-xs text-[var(--acid-yellow)]">CONFIGURE ALERTS</div>
+            <div className="font-theme-data text-[10px] text-[var(--text-muted)] mt-1">
               Set spending thresholds
             </div>
           </button>
           <button className="p-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded hover:border-[var(--acid-magenta)]/40 transition-colors text-left">
-            <div className="font-mono text-xs text-[var(--acid-magenta)]">VIEW INVOICES</div>
-            <div className="font-mono text-[10px] text-[var(--text-muted)] mt-1">
+            <div className="font-theme-data text-xs text-[var(--acid-magenta)]">VIEW INVOICES</div>
+            <div className="font-theme-data text-[10px] text-[var(--text-muted)] mt-1">
               Billing history
             </div>
           </button>
@@ -190,7 +190,7 @@ export default function ROIDashboard() {
 
       {/* Footer metadata */}
       <div className="text-center">
-        <span className="font-mono text-[10px] text-[var(--text-muted)]">
+        <span className="font-theme-data text-[10px] text-[var(--text-muted)]">
           Last updated: {new Date().toLocaleString()} | Data refreshes every 30s
         </span>
       </div>

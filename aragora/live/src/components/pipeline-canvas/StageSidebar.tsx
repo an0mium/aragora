@@ -38,7 +38,7 @@ const LearningFeed = dynamic(
 function PanelLoading({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center h-32">
-      <span className="text-xs font-mono text-text-muted animate-pulse">Loading {label}...</span>
+      <span className="text-xs font-theme-data text-text-muted animate-pulse">Loading {label}...</span>
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function StageSidebar({ stage, isOpen, onClose }: StageSidebarProps) {
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className={`text-sm font-mono font-bold uppercase ${config.color}`}>
+              <h3 className={`text-sm font-theme-data font-bold uppercase ${config.color}`}>
                 {config.title}
               </h3>
               <p className="text-xs text-text-muted mt-0.5">{config.subtitle}</p>
@@ -146,7 +146,7 @@ export function StageSidebar({ stage, isOpen, onClose }: StageSidebarProps) {
               <>
                 <GauntletRunner />
                 <div className="mt-4 border-t border-border pt-3">
-                  <h4 className="text-xs font-mono text-text-muted uppercase mb-2">Learning Feed</h4>
+                  <h4 className="text-xs font-theme-data text-text-muted uppercase mb-2">Learning Feed</h4>
                   <LearningFeed />
                 </div>
               </>

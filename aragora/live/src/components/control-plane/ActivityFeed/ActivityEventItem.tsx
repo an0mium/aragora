@@ -54,7 +54,7 @@ const eventConfig: Record<
   },
   agent_error: {
     icon: '!',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
   },
   task_completed: {
@@ -64,32 +64,32 @@ const eventConfig: Record<
   },
   task_failed: {
     icon: '\u2717',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
   },
   deliberation_started: {
     icon: '\u25B6',
-    color: 'text-acid-cyan',
+    color: 'text-[var(--acid-cyan)]',
     bgColor: 'bg-blue-900/20',
   },
   deliberation_consensus: {
     icon: '\u2605',
-    color: 'text-acid-green',
+    color: 'text-[var(--accent)]',
     bgColor: 'bg-green-900/20',
   },
   deliberation_failed: {
     icon: '\u2716',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
   },
   connector_sync: {
     icon: '\u21BB',
-    color: 'text-acid-cyan',
+    color: 'text-[var(--acid-cyan)]',
     bgColor: 'bg-blue-900/20',
   },
   connector_error: {
     icon: '!',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
   },
   policy_violation: {
@@ -104,7 +104,7 @@ const eventConfig: Record<
   },
   sla_violation: {
     icon: '\u23F1',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
   },
 };
@@ -153,10 +153,10 @@ export function ActivityEventItem({
         >
           {config.icon}
         </span>
-        <span className="text-xs font-mono text-text truncate flex-1">
+        <span className="text-xs font-theme-data text-text truncate flex-1">
           {event.title}
         </span>
-        <span className="text-xs font-mono text-text-muted">{formattedTime}</span>
+        <span className="text-xs font-theme-data text-text-muted">{formattedTime}</span>
       </div>
     );
   }
@@ -178,8 +178,8 @@ export function ActivityEventItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-sm font-mono text-text">{event.title}</span>
-          <span className="text-xs font-mono text-text-muted whitespace-nowrap">
+          <span className="text-sm font-theme-data text-text">{event.title}</span>
+          <span className="text-xs font-theme-data text-text-muted whitespace-nowrap">
             {formattedTime}
           </span>
         </div>
@@ -193,7 +193,7 @@ export function ActivityEventItem({
         {event.actor && (
           <div className="flex items-center gap-1 mt-2 text-xs text-text-muted">
             <span className="opacity-60">{event.actor.type}:</span>
-            <span className="text-acid-cyan">{event.actor.name || event.actor.id}</span>
+            <span className="text-[var(--acid-cyan)]">{event.actor.name || event.actor.id}</span>
           </div>
         )}
       </div>

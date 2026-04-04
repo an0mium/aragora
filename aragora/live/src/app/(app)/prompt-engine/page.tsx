@@ -25,20 +25,20 @@ const STAGES: { key: string; label: string }[] = [
 
 function PipelineProgress({ current, completed }: { current: string; completed: string[] }) {
   return (
-    <div className="flex items-center gap-1 font-mono text-xs">
+    <div className="flex items-center gap-1 font-theme-data text-xs">
       {STAGES.map((s, i) => {
         const done = completed.includes(s.key);
         const active = current === s.key;
         return (
           <span key={s.key} className="flex items-center gap-1">
-            {i > 0 && <span className="text-acid-green/30">{'\u2192'}</span>}
+            {i > 0 && <span className="text-[var(--accent)]/30">{'\u2192'}</span>}
             <span
               className={
                 done
-                  ? 'text-acid-green'
+                  ? 'text-[var(--accent)]'
                   : active
-                    ? 'text-acid-cyan animate-pulse'
-                    : 'text-acid-green/30'
+                    ? 'text-[var(--acid-cyan)] animate-pulse'
+                    : 'text-[var(--accent)]/30'
               }
             >
               {done ? '\u2713' : active ? '\u25B6' : '\u25CB'} {s.label}
@@ -60,26 +60,26 @@ function QuestionsPanel({
   if (questions.length === 0) return null;
 
   return (
-    <div className="border border-acid-green/20 rounded p-4 space-y-4">
-      <h3 className="text-acid-cyan font-mono text-sm uppercase tracking-wider">
+    <div className="border border-[var(--accent)]/20 rounded p-4 space-y-4">
+      <h3 className="text-[var(--acid-cyan)] font-theme-data text-sm uppercase tracking-wider">
         Clarifying Questions ({questions.length})
       </h3>
       {questions.map((q, i) => (
         <div key={i} className="space-y-2">
-          <p className="text-acid-green font-mono text-sm">
-            <span className="text-acid-cyan">Q{i + 1}:</span> {q.question}
+          <p className="text-[var(--accent)] font-theme-data text-sm">
+            <span className="text-[var(--acid-cyan)]">Q{i + 1}:</span> {q.question}
           </p>
-          <p className="text-acid-green/60 text-xs font-mono">{q.why_it_matters}</p>
+          <p className="text-[var(--accent)]/60 text-xs font-theme-data">{q.why_it_matters}</p>
           {q.options.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {q.options.map((opt, j) => (
                 <button
                   key={j}
                   onClick={() => onAnswer(i, opt.label)}
-                  className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+                  className={`px-3 py-1 text-xs font-theme-data border rounded transition-colors ${
                     q.answer === opt.label
-                      ? 'border-acid-cyan text-acid-cyan bg-acid-cyan/10'
-                      : 'border-acid-green/30 text-acid-green hover:border-acid-green'
+                      ? 'border-[var(--acid-cyan)] text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
+                      : 'border-[var(--accent)]/30 text-[var(--accent)] hover:border-[var(--accent)]'
                   }`}
                 >
                   {opt.label}
@@ -88,7 +88,7 @@ function QuestionsPanel({
             </div>
           )}
           {q.answer && (
-            <p className="text-acid-green/80 text-xs font-mono">
+            <p className="text-[var(--accent)]/80 text-xs font-theme-data">
               {'\u2713'} {q.answer}
             </p>
           )}
@@ -103,8 +103,8 @@ function ConfidenceBar({ value }: { value: number }) {
   const filled = Math.round(value * 10);
   const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
   return (
-    <span className="font-mono text-xs">
-      <span className={value >= 0.8 ? 'text-acid-green' : value >= 0.5 ? 'text-amber-400' : 'text-crimson'}>
+    <span className="font-theme-data text-xs">
+      <span className={value >= 0.8 ? 'text-[var(--accent)]' : value >= 0.5 ? 'text-amber-400' : 'text-[var(--crimson)]'}>
         {bar}
       </span>{' '}
       {pct}%
@@ -114,10 +114,10 @@ function ConfidenceBar({ value }: { value: number }) {
 
 function ValidationBadge({ validation }: { validation: ValidationResult }) {
   return (
-    <div className="border border-acid-green/20 rounded p-3 space-y-2">
+    <div className="border border-[var(--accent)]/20 rounded p-3 space-y-2">
       <div className="flex items-center gap-2">
         <span
-          className={`font-mono text-sm font-bold ${validation.passed ? 'text-acid-green' : 'text-crimson'}`}
+          className={`font-theme-data text-sm font-bold ${validation.passed ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}`}
         >
           {validation.passed ? '\u2713 PASSED' : '\u2717 FAILED'}
         </span>
@@ -126,7 +126,7 @@ function ValidationBadge({ validation }: { validation: ValidationResult }) {
       {validation.dissenting_opinions.length > 0 && (
         <div className="space-y-1">
           {validation.dissenting_opinions.map((d, i) => (
-            <p key={i} className="text-amber-400/80 text-xs font-mono">
+            <p key={i} className="text-amber-400/80 text-xs font-theme-data">
               {'\u26A0'} {d}
             </p>
           ))}
@@ -138,16 +138,16 @@ function ValidationBadge({ validation }: { validation: ValidationResult }) {
 
 function SpecificationView({ spec, validation }: { spec: Specification; validation: ValidationResult | null }) {
   return (
-    <div className="border border-acid-green/20 rounded p-4 space-y-4">
+    <div className="border border-[var(--accent)]/20 rounded p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-acid-cyan font-mono text-sm uppercase tracking-wider">Specification</h3>
+        <h3 className="text-[var(--acid-cyan)] font-theme-data text-sm uppercase tracking-wider">Specification</h3>
         <ConfidenceBar value={spec.confidence} />
       </div>
 
       <div>
-        <h4 className="text-acid-green font-mono text-lg">{spec.title}</h4>
+        <h4 className="text-[var(--accent)] font-theme-data text-lg">{spec.title}</h4>
         {spec.estimated_effort && (
-          <span className="text-acid-green/60 text-xs font-mono">Effort: {spec.estimated_effort}</span>
+          <span className="text-[var(--accent)]/60 text-xs font-theme-data">Effort: {spec.estimated_effort}</span>
         )}
       </div>
 
@@ -157,7 +157,7 @@ function SpecificationView({ spec, validation }: { spec: Specification; validati
       {spec.implementation_plan.length > 0 && (
         <div>
           <SectionHeader>Implementation Plan</SectionHeader>
-          <ol className="list-decimal list-inside space-y-1 text-acid-green/80 text-sm font-mono">
+          <ol className="list-decimal list-inside space-y-1 text-[var(--accent)]/80 text-sm font-theme-data">
             {spec.implementation_plan.map((step, i) => (
               <li key={i}>{typeof step === 'string' ? step : JSON.stringify(step)}</li>
             ))}
@@ -170,11 +170,11 @@ function SpecificationView({ spec, validation }: { spec: Specification; validati
           <SectionHeader>Risks</SectionHeader>
           <div className="space-y-2">
             {spec.risk_register.map((r: RiskItem, i: number) => (
-              <div key={i} className="text-xs font-mono border-l-2 border-amber-400/30 pl-3">
+              <div key={i} className="text-xs font-theme-data border-l-2 border-amber-400/30 pl-3">
                 <span className="text-amber-400">{r.likelihood}/{r.impact}</span>{' '}
-                <span className="text-acid-green/80">{r.description}</span>
+                <span className="text-[var(--accent)]/80">{r.description}</span>
                 {r.mitigation && (
-                  <p className="text-acid-green/60 mt-0.5">{'\u2192'} {r.mitigation}</p>
+                  <p className="text-[var(--accent)]/60 mt-0.5">{'\u2192'} {r.mitigation}</p>
                 )}
               </div>
             ))}
@@ -187,7 +187,7 @@ function SpecificationView({ spec, validation }: { spec: Specification; validati
           <SectionHeader>Success Criteria</SectionHeader>
           <ul className="space-y-1">
             {spec.success_criteria.map((c, i) => (
-              <li key={i} className="text-acid-green/80 text-sm font-mono">
+              <li key={i} className="text-[var(--accent)]/80 text-sm font-theme-data">
                 {'\u2713'} {typeof c === 'string' ? c : (c as { description: string }).description}
               </li>
             ))}
@@ -201,7 +201,7 @@ function SpecificationView({ spec, validation }: { spec: Specification; validati
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
-  return <h4 className="text-acid-cyan/80 font-mono text-xs uppercase tracking-wider mb-1">{children}</h4>;
+  return <h4 className="text-[var(--acid-cyan)]/80 font-theme-data text-xs uppercase tracking-wider mb-1">{children}</h4>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -209,7 +209,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <SectionHeader>{title}</SectionHeader>
-      <p className="text-acid-green/80 text-sm font-mono whitespace-pre-wrap">{children}</p>
+      <p className="text-[var(--accent)]/80 text-sm font-theme-data whitespace-pre-wrap">{children}</p>
     </div>
   );
 }
@@ -335,17 +335,17 @@ export default function PromptEnginePage() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-acid-green font-mono font-bold text-xl">[SPEC GENERATOR]</h1>
+          <h1 className="text-[var(--accent)] font-theme-data font-bold text-xl">[SPEC GENERATOR]</h1>
           {engine.currentStage !== 'idle' && (
             <button
               onClick={engine.reset}
-              className="text-acid-green/60 hover:text-acid-green text-xs font-mono border border-acid-green/30 px-2 py-1 rounded transition-colors"
+              className="text-[var(--accent)]/60 hover:text-[var(--accent)] text-xs font-theme-data border border-[var(--accent)]/30 px-2 py-1 rounded transition-colors"
             >
               Reset
             </button>
           )}
         </div>
-        <p className="text-acid-green/60 font-mono text-sm">
+        <p className="text-[var(--accent)]/60 font-theme-data text-sm">
           Describe what you want to build. The engine decomposes your idea, asks clarifying
           questions, researches context, and produces a validated specification.
         </p>
@@ -358,16 +358,16 @@ export default function PromptEnginePage() {
             placeholder="I want to improve the onboarding flow..."
             rows={4}
             disabled={engine.isRunning}
-            className="w-full bg-bg border border-acid-green/30 rounded p-3 text-acid-green font-mono text-sm placeholder:text-acid-green/30 focus:outline-none focus:border-acid-cyan resize-y disabled:opacity-50"
+            className="w-full bg-bg border border-[var(--accent)]/30 rounded p-3 text-[var(--accent)] font-theme-data text-sm placeholder:text-[var(--accent)]/30 focus:outline-none focus:border-[var(--acid-cyan)] resize-y disabled:opacity-50"
           />
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-acid-green/60 font-mono text-xs">Profile:</label>
+              <label className="text-[var(--accent)]/60 font-theme-data text-xs">Profile:</label>
               <select
                 value={profile}
                 onChange={(e) => setProfile(e.target.value as ProfileKey)}
                 disabled={engine.isRunning}
-                className="bg-bg border border-acid-green/30 rounded px-2 py-1 text-acid-green font-mono text-xs focus:outline-none focus:border-acid-cyan disabled:opacity-50"
+                className="bg-bg border border-[var(--accent)]/30 rounded px-2 py-1 text-[var(--accent)] font-theme-data text-xs focus:outline-none focus:border-[var(--acid-cyan)] disabled:opacity-50"
               >
                 {PROFILES.map((p) => (
                   <option key={p.key} value={p.key}>
@@ -384,12 +384,12 @@ export default function PromptEnginePage() {
                 disabled={engine.isRunning}
                 className="accent-acid-cyan"
               />
-              <span className="text-acid-green/60 font-mono text-xs">Stream</span>
+              <span className="text-[var(--accent)]/60 font-theme-data text-xs">Stream</span>
             </label>
             <button
               type="submit"
               disabled={!prompt.trim() || engine.isRunning}
-              className="ml-auto px-4 py-2 bg-acid-green/10 border border-acid-green/30 text-acid-green font-mono text-sm rounded hover:bg-acid-green/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="ml-auto px-4 py-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {engine.isRunning ? 'Running...' : 'Generate Specification \u2192'}
             </button>
@@ -406,21 +406,21 @@ export default function PromptEnginePage() {
 
         {/* Error */}
         {engine.error && (
-          <div className="border border-crimson/30 rounded p-3 text-crimson font-mono text-sm">
+          <div className="border border-[var(--crimson)]/30 rounded p-3 text-[var(--crimson)] font-theme-data text-sm">
             {'\u2717'} {engine.error}
           </div>
         )}
 
         {/* Intent summary */}
         {engine.intent && (
-          <div className="border border-acid-green/20 rounded p-3 space-y-1">
-            <h3 className="text-acid-cyan font-mono text-xs uppercase tracking-wider">Intent</h3>
-            <p className="text-acid-green/80 text-sm font-mono">
-              <span className="text-acid-cyan">{engine.intent.intent_type}</span>
+          <div className="border border-[var(--accent)]/20 rounded p-3 space-y-1">
+            <h3 className="text-[var(--acid-cyan)] font-theme-data text-xs uppercase tracking-wider">Intent</h3>
+            <p className="text-[var(--accent)]/80 text-sm font-theme-data">
+              <span className="text-[var(--acid-cyan)]">{engine.intent.intent_type}</span>
               {engine.intent.summary && ` \u2014 ${engine.intent.summary}`}
             </p>
             {engine.intent.domains.length > 0 && (
-              <p className="text-acid-green/50 text-xs font-mono">
+              <p className="text-[var(--accent)]/50 text-xs font-theme-data">
                 Domains: {engine.intent.domains.join(', ')}
               </p>
             )}
@@ -432,15 +432,15 @@ export default function PromptEnginePage() {
 
         {/* Research summary */}
         {engine.research && (
-          <div className="border border-acid-green/20 rounded p-3 space-y-1">
-            <h3 className="text-acid-cyan font-mono text-xs uppercase tracking-wider">Research</h3>
-            <p className="text-acid-green/80 text-sm font-mono whitespace-pre-wrap">
+          <div className="border border-[var(--accent)]/20 rounded p-3 space-y-1">
+            <h3 className="text-[var(--acid-cyan)] font-theme-data text-xs uppercase tracking-wider">Research</h3>
+            <p className="text-[var(--accent)]/80 text-sm font-theme-data whitespace-pre-wrap">
               {engine.research.summary}
             </p>
             {engine.research.recommendations.length > 0 && (
               <div className="mt-2 space-y-1">
                 {engine.research.recommendations.map((r, i) => (
-                  <p key={i} className="text-acid-green/60 text-xs font-mono">
+                  <p key={i} className="text-[var(--accent)]/60 text-xs font-theme-data">
                     {'\u2192'} {r}
                   </p>
                 ))}
@@ -456,26 +456,26 @@ export default function PromptEnginePage() {
 
         {/* Execute — bridge spec to pipeline */}
         {engine.specification && engine.currentStage === 'complete' && (
-          <div className="border border-acid-green/30 rounded p-4 space-y-3">
-            <h3 className="text-acid-cyan font-mono text-sm uppercase tracking-wider">
+          <div className="border border-[var(--accent)]/30 rounded p-4 space-y-3">
+            <h3 className="text-[var(--acid-cyan)] font-theme-data text-sm uppercase tracking-wider">
               Ready to Execute
             </h3>
-            <p className="text-acid-green/60 text-sm font-mono">
+            <p className="text-[var(--accent)]/60 text-sm font-theme-data">
               Send this specification to the Idea-to-Execution pipeline for agent orchestration,
               task decomposition, and automated execution.
             </p>
             {executeError && (
-              <p className="text-crimson font-mono text-sm">{'\u2717'} {executeError}</p>
+              <p className="text-[var(--crimson)] font-theme-data text-sm">{'\u2717'} {executeError}</p>
             )}
             <div className="flex items-center gap-3">
               <button
                 onClick={handleExecute}
                 disabled={executing}
-                className="px-5 py-2.5 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {executing ? 'Creating Pipeline...' : 'Create Execution Plan \u2192'}
               </button>
-              <span className="text-acid-green/40 text-xs font-mono">
+              <span className="text-[var(--accent)]/40 text-xs font-theme-data">
                 Confidence: {Math.round(engine.specification.confidence * 100)}%
               </span>
             </div>

@@ -152,31 +152,31 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
   };
 
   const getConfidenceColor = (conf: number) => {
-    if (conf >= 0.9) return 'text-acid-green';
-    if (conf >= 0.8) return 'text-acid-cyan';
+    if (conf >= 0.9) return 'text-[var(--accent)]';
+    if (conf >= 0.8) return 'text-[var(--acid-cyan)]';
     if (conf >= 0.7) return 'text-warning';
     return 'text-text-muted';
   };
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50">
+    <div className="border border-[var(--accent)]/30 bg-surface/50">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-surface/80 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-acid-green font-mono text-sm">[KNOWLEDGE BASE]</span>
+          <span className="text-[var(--accent)] font-theme-data text-sm">[KNOWLEDGE BASE]</span>
           <span className="text-text-muted text-xs">Settled consensus & history</span>
         </div>
-        <span className="text-acid-green">{expanded ? '[-]' : '[+]'}</span>
+        <span className="text-[var(--accent)]">{expanded ? '[-]' : '[+]'}</span>
       </button>
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           {/* Stats Banner */}
           {stats && (
-            <div className="flex gap-4 text-xs text-text-muted border-b border-acid-green/20 pb-2">
+            <div className="flex gap-4 text-xs text-text-muted border-b border-[var(--accent)]/20 pb-2">
               <span>{stats.total_topics || 0} topics</span>
               <span>{stats.high_confidence_count || 0} high-confidence</span>
               <span>Avg: {((stats.avg_confidence || 0) * 100).toFixed(0)}%</span>
@@ -184,15 +184,15 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
           )}
 
           {/* Tabs */}
-          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2">
+          <div className="flex flex-wrap gap-1 border-b border-[var(--accent)]/20 pb-2">
             {(['settled', 'dissents', 'search', 'stats'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-2 py-1 text-xs font-mono transition-colors whitespace-nowrap ${
+                className={`px-2 py-1 text-xs font-theme-data transition-colors whitespace-nowrap ${
                   activeTab === tab
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 {tab.toUpperCase()}
@@ -218,10 +218,10 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
                   settledTopics.map((topic, idx) => (
                     <div
                       key={idx}
-                      className="border border-acid-green/30 bg-surface p-2 text-xs"
+                      className="border border-[var(--accent)]/30 bg-surface p-2 text-xs"
                     >
                       <div className="flex justify-between items-start">
-                        <span className="font-mono text-acid-cyan truncate max-w-[70%]">
+                        <span className="font-theme-data text-[var(--acid-cyan)] truncate max-w-[70%]">
                           {topic.topic}
                         </span>
                         <span className={getConfidenceColor(topic.confidence)}>
@@ -250,13 +250,13 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
                       key={idx}
                       className="border border-orange-500/30 bg-orange-900/10 p-2 text-xs"
                     >
-                      <div className="font-mono text-orange-400 truncate mb-1">
+                      <div className="font-theme-data text-orange-400 truncate mb-1">
                         {dissent.topic}
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-2">
                         <div>
                           <span className="text-text-muted">Majority: </span>
-                          <span className="text-acid-green">{dissent.majority_view}</span>
+                          <span className="text-[var(--accent)]">{dissent.majority_view}</span>
                         </div>
                         <div>
                           <span className="text-text-muted">Dissent: </span>
@@ -286,12 +286,12 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && searchSimilar()}
                       placeholder="Search for similar debates..."
-                      className="flex-1 bg-bg border border-acid-green/30 px-2 py-1 text-xs font-mono text-acid-green placeholder:text-text-muted/50"
+                      className="flex-1 bg-bg border border-[var(--accent)]/30 px-2 py-1 text-xs font-theme-data text-[var(--accent)] placeholder:text-text-muted/50"
                     />
                     <button
                       onClick={searchSimilar}
                       disabled={!searchQuery.trim()}
-                      className="px-2 py-1 text-xs bg-acid-green/20 text-acid-green hover:bg-acid-green/30 disabled:opacity-50"
+                      className="px-2 py-1 text-xs bg-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)]/30 disabled:opacity-50"
                     >
                       SEARCH
                     </button>
@@ -302,10 +302,10 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
                       {searchResults.map((result, idx) => (
                         <div
                           key={idx}
-                          className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs"
+                          className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-2 text-xs"
                         >
                           <div className="flex justify-between items-start">
-                            <span className="font-mono text-acid-cyan truncate max-w-[60%]">
+                            <span className="font-theme-data text-[var(--acid-cyan)] truncate max-w-[60%]">
                               {result.topic}
                             </span>
                             <span className="text-text-muted">
@@ -325,28 +325,28 @@ export function ConsensusKnowledgeBase({ apiBase, events = [] }: ConsensusKnowle
               {activeTab === 'stats' && stats && (
                 <div className="space-y-2 text-xs">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="border border-acid-green/30 p-2">
+                    <div className="border border-[var(--accent)]/30 p-2">
                       <div className="text-text-muted">Total Topics</div>
-                      <div className="text-acid-green text-lg font-mono">
+                      <div className="text-[var(--accent)] text-lg font-theme-data">
                         {stats.total_topics || 0}
                       </div>
                     </div>
-                    <div className="border border-acid-green/30 p-2">
+                    <div className="border border-[var(--accent)]/30 p-2">
                       <div className="text-text-muted">High Confidence</div>
-                      <div className="text-acid-cyan text-lg font-mono">
+                      <div className="text-[var(--acid-cyan)] text-lg font-theme-data">
                         {stats.high_confidence_count || 0}
                       </div>
                     </div>
                   </div>
 
                   {stats.domains && stats.domains.length > 0 && (
-                    <div className="border border-acid-green/30 p-2">
+                    <div className="border border-[var(--accent)]/30 p-2">
                       <div className="text-text-muted mb-1">Domains</div>
                       <div className="flex flex-wrap gap-1">
                         {stats.domains.map((domain) => (
                           <span
                             key={domain}
-                            className="px-1 py-0.5 bg-acid-green/10 text-acid-green border border-acid-green/30"
+                            className="px-1 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30"
                           >
                             {domain}
                           </span>

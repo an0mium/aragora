@@ -25,7 +25,7 @@ export function MobileGraphListView({
 
   return (
     <div className="space-y-2 p-2">
-      <div className="text-xs font-mono text-text-muted mb-3 px-2">
+      <div className="text-xs font-theme-data text-text-muted mb-3 px-2">
         Showing {sortedNodes.length} nodes (tap for details)
       </div>
       {sortedNodes.map((node) => {
@@ -38,28 +38,28 @@ export function MobileGraphListView({
             onClick={() => onNodeSelect(isSelected ? null : node.id)}
             className={`w-full text-left p-3 border transition-all ${
               isSelected
-                ? 'bg-acid-green/10 border-acid-green'
-                : 'bg-bg border-border hover:border-acid-green/50'
+                ? 'bg-[var(--accent)]/10 border-[var(--accent)]'
+                : 'bg-bg border-border hover:border-[var(--accent)]/50'
             }`}
           >
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <span className={`px-1.5 py-0.5 text-xs font-mono ${colors.bg} ${colors.text}`}>
+                <span className={`px-1.5 py-0.5 text-xs font-theme-data ${colors.bg} ${colors.text}`}>
                   {node.agent_id.slice(0, 8)}
                 </span>
-                <span className={`text-xs font-mono ${getBranchColor(node.branch_id || 'main')}`}>
+                <span className={`text-xs font-theme-data ${getBranchColor(node.branch_id || 'main')}`}>
                   {node.node_type.replace('_', ' ')}
                 </span>
               </div>
-              <span className="text-xs font-mono text-acid-green">
+              <span className="text-xs font-theme-data text-[var(--accent)]">
                 {(node.confidence * 100).toFixed(0)}%
               </span>
             </div>
-            <div className="text-xs font-mono text-text-muted line-clamp-2">
+            <div className="text-xs font-theme-data text-text-muted line-clamp-2">
               {node.content.slice(0, 150)}{node.content.length > 150 ? '...' : ''}
             </div>
             {isSelected && (
-              <div className="mt-2 pt-2 border-t border-border text-xs font-mono text-text">
+              <div className="mt-2 pt-2 border-t border-border text-xs font-theme-data text-text">
                 {node.content}
               </div>
             )}

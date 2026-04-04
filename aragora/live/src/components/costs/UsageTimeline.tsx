@@ -47,13 +47,13 @@ export function UsageTimeline({ data }: UsageTimelineProps) {
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} USAGE TIMELINE
         </h3>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode('cost')}
-            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
               viewMode === 'cost'
                 ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -63,7 +63,7 @@ export function UsageTimeline({ data }: UsageTimelineProps) {
           </button>
           <button
             onClick={() => setViewMode('tokens')}
-            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
               viewMode === 'tokens'
                 ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -80,7 +80,7 @@ export function UsageTimeline({ data }: UsageTimelineProps) {
           <div className="text-xs text-[var(--text-muted)]">
             Total {viewMode === 'cost' ? 'Cost' : 'Tokens'}
           </div>
-          <div className={`text-lg font-mono ${viewMode === 'cost' ? 'text-[var(--acid-green)]' : 'text-[var(--acid-cyan)]'}`}>
+          <div className={`text-lg font-theme-data ${viewMode === 'cost' ? 'text-[var(--acid-green)]' : 'text-[var(--acid-cyan)]'}`}>
             {viewMode === 'cost' ? `$${totalCost.toFixed(2)}` : formatValue(totalTokens)}
           </div>
         </div>
@@ -88,13 +88,13 @@ export function UsageTimeline({ data }: UsageTimelineProps) {
           <div className="text-xs text-[var(--text-muted)]">
             Daily Average
           </div>
-          <div className="text-lg font-mono text-[var(--text)]">
+          <div className="text-lg font-theme-data text-[var(--text)]">
             {viewMode === 'cost' ? `$${avgCost.toFixed(2)}` : formatValue(totalTokens / data.length)}
           </div>
         </div>
         <div>
           <div className="text-xs text-[var(--text-muted)]">Days</div>
-          <div className="text-lg font-mono text-[var(--text)]">{data.length}</div>
+          <div className="text-lg font-theme-data text-[var(--text)]">{data.length}</div>
         </div>
       </div>
 
@@ -127,10 +127,10 @@ export function UsageTimeline({ data }: UsageTimelineProps) {
                 {/* Tooltip */}
                 {isHovered && (
                   <div className="absolute bottom-full mb-2 p-2 bg-[var(--bg)] border border-[var(--border)] rounded shadow-lg z-10 whitespace-nowrap">
-                    <div className="text-xs font-mono text-[var(--text)]">
+                    <div className="text-xs font-theme-data text-[var(--text)]">
                       {formatDate(item.date)}
                     </div>
-                    <div className={`text-sm font-mono ${viewMode === 'cost' ? 'text-[var(--acid-green)]' : 'text-[var(--acid-cyan)]'}`}>
+                    <div className={`text-sm font-theme-data ${viewMode === 'cost' ? 'text-[var(--acid-green)]' : 'text-[var(--acid-cyan)]'}`}>
                       {formatValue(value)}
                     </div>
                     {viewMode === 'cost' && (

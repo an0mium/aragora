@@ -200,7 +200,7 @@ export function CommandCenter() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as CommandCenterTab)}
-            className={`px-4 py-2 text-sm font-mono transition-colors relative ${
+            className={`px-4 py-2 text-sm font-theme-data transition-colors relative ${
               activeTab === tab.id
                 ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -243,7 +243,7 @@ export function CommandCenter() {
 
           {activeTab === 'insights' && (
             <div className="bg-[var(--surface)] border border-[var(--border)] p-6 rounded">
-              <h3 className="text-lg font-mono text-[var(--acid-green)] mb-4">
+              <h3 className="text-lg font-theme-data text-[var(--acid-green)] mb-4">
                 {'>'} INBOX INSIGHTS
               </h3>
               <div className="grid grid-cols-2 gap-4">
@@ -287,7 +287,7 @@ export function CommandCenter() {
           ) : (
             <div className="bg-[var(--surface)] border border-[var(--border)] p-6 rounded text-center">
               <div className="text-4xl mb-4">📧</div>
-              <p className="text-[var(--text-muted)] font-mono text-sm">
+              <p className="text-[var(--text-muted)] font-theme-data text-sm">
                 Select an email to view sender insights
               </p>
             </div>
@@ -296,7 +296,7 @@ export function CommandCenter() {
       </div>
 
       {/* Keyboard Shortcuts Help */}
-      <div className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-4 mt-4">
+      <div className="text-xs font-theme-data text-[var(--text-muted)] flex items-center gap-4 mt-4">
         <span>Shortcuts:</span>
         <span><kbd className="px-1 bg-[var(--surface)] rounded">j/k</kbd> Navigate</span>
         <span><kbd className="px-1 bg-[var(--surface)] rounded">e</kbd> Archive</span>
@@ -318,7 +318,7 @@ interface StatCardProps {
 function StatCard({ label, value, color, pulse }: StatCardProps) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-3 rounded">
-      <div className={`text-2xl font-mono font-bold ${color} ${pulse ? 'animate-pulse' : ''}`}>
+      <div className={`text-2xl font-theme-data font-bold ${color} ${pulse ? 'animate-pulse' : ''}`}>
         {value}
       </div>
       <div className="text-xs text-[var(--text-muted)]">{label}</div>
@@ -336,7 +336,7 @@ function InsightCard({ title, description, icon }: InsightCardProps) {
   return (
     <div className="bg-[var(--bg)] border border-[var(--border)] p-4 rounded hover:border-[var(--acid-green)]/30 transition-colors cursor-pointer">
       <div className="text-2xl mb-2">{icon}</div>
-      <div className="font-mono text-sm text-[var(--text)]">{title}</div>
+      <div className="font-theme-data text-sm text-[var(--text)]">{title}</div>
       <div className="text-xs text-[var(--text-muted)]">{description}</div>
     </div>
   );

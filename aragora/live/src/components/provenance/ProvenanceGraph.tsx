@@ -415,7 +415,7 @@ export function ProvenanceGraph({
       <div className="p-4 bg-[var(--bg)] border border-[var(--border)] rounded-lg">
         <div className="flex items-center justify-center" style={{ height }}>
           <div className="animate-spin text-[var(--acid-green)] text-xl mr-2"></div>
-          <span className="text-[var(--text-muted)] text-sm font-mono">
+          <span className="text-[var(--text-muted)] text-sm font-theme-data">
             Loading provenance graph...
           </span>
         </div>
@@ -426,7 +426,7 @@ export function ProvenanceGraph({
   if (error && !data) {
     return (
       <div className="p-4 bg-[var(--bg)] border border-red-500/30 rounded-lg">
-        <div className="text-red-400 text-sm font-mono">{error}</div>
+        <div className="text-red-400 text-sm font-theme-data">{error}</div>
       </div>
     );
   }
@@ -434,7 +434,7 @@ export function ProvenanceGraph({
   if (!data) {
     return (
       <div className="p-4 bg-[var(--bg)] border border-[var(--border)] rounded-lg">
-        <div className="text-center text-[var(--text-muted)] text-sm font-mono py-8">
+        <div className="text-center text-[var(--text-muted)] text-sm font-theme-data py-8">
           No provenance data available for this debate
         </div>
       </div>
@@ -447,16 +447,16 @@ export function ProvenanceGraph({
       <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
           <span className="text-lg"></span>
-          <h3 className="text-sm font-mono font-bold text-[var(--text)] uppercase">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--text)] uppercase">
             Decision Provenance
           </h3>
           {data.metadata.verified && (
-            <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-400 border border-green-500/50 rounded font-mono">
+            <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-400 border border-green-500/50 rounded font-theme-data">
               VERIFIED
             </span>
           )}
           {data.metadata.status === 'demo' && (
-            <span className="px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded font-mono">
+            <span className="px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded font-theme-data">
               DEMO
             </span>
           )}
@@ -464,13 +464,13 @@ export function ProvenanceGraph({
         <div className="flex items-center gap-2">
           <button
             onClick={handleVerify}
-            className="px-2 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors"
           >
             VERIFY CHAIN
           </button>
           <button
             onClick={handleExport}
-            className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             EXPORT
           </button>
@@ -478,7 +478,7 @@ export function ProvenanceGraph({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 px-3 py-2 bg-[var(--surface)]/50 border-b border-[var(--border)] text-xs font-mono flex-wrap">
+      <div className="flex items-center gap-4 px-3 py-2 bg-[var(--surface)]/50 border-b border-[var(--border)] text-xs font-theme-data flex-wrap">
         {Object.entries(NODE_COLORS).map(([type, color]) => (
           <span key={type} className="flex items-center gap-1">
             <span
@@ -666,7 +666,7 @@ export function ProvenanceGraph({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: NODE_COLORS[selectedNode.type] }}
               />
-              <span className="text-xs font-mono uppercase text-[var(--text-muted)]">
+              <span className="text-xs font-theme-data uppercase text-[var(--text-muted)]">
                 {selectedNode.type}
               </span>
               {selectedNode.verified && (
@@ -681,7 +681,7 @@ export function ProvenanceGraph({
             </button>
           </div>
 
-          <h4 className="font-mono text-sm text-[var(--acid-green)] mb-2">
+          <h4 className="font-theme-data text-sm text-[var(--acid-green)] mb-2">
             {selectedNode.label}
           </h4>
 
@@ -689,7 +689,7 @@ export function ProvenanceGraph({
             {selectedNode.content}
           </p>
 
-          <div className="space-y-1 text-xs font-mono text-[var(--text-muted)]">
+          <div className="space-y-1 text-xs font-theme-data text-[var(--text-muted)]">
             {selectedNode.agent && (
               <div className="flex justify-between">
                 <span>Agent:</span>
@@ -731,7 +731,7 @@ export function ProvenanceGraph({
       )}
 
       {/* Stats footer */}
-      <div className="px-3 py-2 border-t border-[var(--border)] text-xs text-[var(--text-muted)] font-mono flex items-center justify-between">
+      <div className="px-3 py-2 border-t border-[var(--border)] text-xs text-[var(--text-muted)] font-theme-data flex items-center justify-between">
         <div className="flex items-center gap-4">
           <span>
             {data.metadata.total_nodes} nodes | {data.metadata.total_edges} edges

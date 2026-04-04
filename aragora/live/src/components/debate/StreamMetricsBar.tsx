@@ -37,8 +37,8 @@ function formatMs(ms: number | null): string {
 
 function latencyColor(ms: number | null): string {
   if (ms === null) return 'text-text-muted';
-  if (ms < 100) return 'text-acid-green';
-  if (ms < 500) return 'text-acid-yellow';
+  if (ms < 100) return 'text-[var(--accent)]';
+  if (ms < 500) return 'text-[var(--acid-yellow)]';
   return 'text-red-400';
 }
 
@@ -49,9 +49,9 @@ function latencyColor(ms: number | null): string {
 export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarProps) {
   if (compact) {
     return (
-      <div className="flex items-center gap-3 text-[10px] font-mono text-text-muted">
+      <div className="flex items-center gap-3 text-[10px] font-theme-data text-text-muted">
         <span>TTFT: <span className={latencyColor(metrics.ttftMs)}>{formatMs(metrics.ttftMs)}</span></span>
-        <span>Tokens: <span className="text-acid-green">{metrics.tokenCount}</span></span>
+        <span>Tokens: <span className="text-[var(--accent)]">{metrics.tokenCount}</span></span>
         {metrics.stallCount > 0 && (
           <span>Stalls: <span className="text-red-400">{metrics.stallCount}</span></span>
         )}
@@ -65,18 +65,18 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
   return (
     <div className="bg-surface border border-border p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
+        <span className="text-[10px] font-theme-data text-text-muted uppercase tracking-wider">
           {'>'} STREAM QUALITY
         </span>
         {metrics.stallCount > 0 && (
-          <span className="text-[10px] font-mono text-red-400 flex items-center gap-1">
+          <span className="text-[10px] font-theme-data text-red-400 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
             {metrics.stallCount} STALL{metrics.stallCount !== 1 ? 'S' : ''}
           </span>
         )}
         {metrics.stallCount === 0 && metrics.tokenCount > 0 && (
-          <span className="text-[10px] font-mono text-acid-green flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-acid-green" />
+          <span className="text-[10px] font-theme-data text-[var(--accent)] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
             HEALTHY
           </span>
         )}
@@ -85,32 +85,32 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* TTFT */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">TTFT</div>
-          <div className={`text-xs font-mono font-bold ${latencyColor(metrics.ttftMs)}`}>
+          <div className="text-[9px] font-theme-data text-text-muted uppercase">TTFT</div>
+          <div className={`text-xs font-theme-data font-bold ${latencyColor(metrics.ttftMs)}`}>
             {formatMs(metrics.ttftMs)}
           </div>
         </div>
 
         {/* Token Count */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Tokens</div>
-          <div className="text-xs font-mono font-bold text-acid-green">
+          <div className="text-[9px] font-theme-data text-text-muted uppercase">Tokens</div>
+          <div className="text-xs font-theme-data font-bold text-[var(--accent)]">
             {metrics.tokenCount.toLocaleString()}
           </div>
         </div>
 
         {/* Avg Token Latency */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Avg Latency</div>
-          <div className={`text-xs font-mono font-bold ${latencyColor(metrics.avgTokenLatencyMs)}`}>
+          <div className="text-[9px] font-theme-data text-text-muted uppercase">Avg Latency</div>
+          <div className={`text-xs font-theme-data font-bold ${latencyColor(metrics.avgTokenLatencyMs)}`}>
             {formatMs(metrics.avgTokenLatencyMs)}
           </div>
         </div>
 
         {/* Connection Latency */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Conn. Lat</div>
-          <div className={`text-xs font-mono font-bold ${latencyColor(metrics.connectionLatencyMs)}`}>
+          <div className="text-[9px] font-theme-data text-text-muted uppercase">Conn. Lat</div>
+          <div className={`text-xs font-theme-data font-bold ${latencyColor(metrics.connectionLatencyMs)}`}>
             {formatMs(metrics.connectionLatencyMs)}
           </div>
         </div>
@@ -119,7 +119,7 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
       {/* Stream duration */}
       {metrics.streamDurationMs !== null && (
         <div className="mt-2 pt-2 border-t border-border">
-          <span className="text-[10px] font-mono text-text-muted">
+          <span className="text-[10px] font-theme-data text-text-muted">
             Total duration: {formatMs(metrics.streamDurationMs)}
           </span>
         </div>

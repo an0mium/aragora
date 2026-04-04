@@ -182,7 +182,7 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
             />
             <div className="flex justify-between text-xs text-text-muted mt-1">
               <span>1 - Unsure</span>
-              <span className="font-mono">{intensity}</span>
+              <span className="font-theme-data">{intensity}</span>
               <span>10 - Certain</span>
             </div>
           </div>
@@ -337,7 +337,7 @@ export function UserParticipation({ events, onVote, onSuggest, onAck, onError }:
                       <span className="text-xs font-medium truncate max-w-[60%]">{choice}</span>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-text-muted">{totalVotes} votes</span>
-                        <span className="text-accent font-mono">{weightedVote.toFixed(1)}w</span>
+                        <span className="text-accent font-theme-data">{weightedVote.toFixed(1)}w</span>
                       </div>
                     </div>
                     <div className="flex gap-px h-4">

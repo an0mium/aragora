@@ -50,7 +50,7 @@ const statusConfig: Record<
   },
   in_progress: {
     label: 'In Progress',
-    color: 'text-acid-cyan',
+    color: 'text-[var(--acid-cyan)]',
     bgColor: 'bg-blue-900/20',
     icon: '\u25B6',
   },
@@ -68,13 +68,13 @@ const statusConfig: Record<
   },
   failed: {
     label: 'Failed',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
     icon: '\u2717',
   },
   timeout: {
     label: 'Timeout',
-    color: 'text-crimson',
+    color: 'text-[var(--crimson)]',
     bgColor: 'bg-red-900/20',
     icon: '\u23F1',
   },
@@ -84,7 +84,7 @@ const slaColors: Record<string, string> = {
   compliant: 'bg-green-400',
   warning: 'bg-yellow-400',
   critical: 'bg-orange-400',
-  violated: 'bg-crimson',
+  violated: 'bg-[var(--crimson)]',
 };
 
 /**
@@ -131,7 +131,7 @@ export function DeliberationCard({
       >
         <span className={`text-sm ${config.color}`}>{config.icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-mono text-text truncate">
+          <div className="text-sm font-theme-data text-text truncate">
             {deliberation.question.substring(0, 50)}...
           </div>
           <div className="text-xs text-text-muted">
@@ -152,7 +152,7 @@ export function DeliberationCard({
       onClick={handleClick}
       className={`rounded-lg border transition-all ${
         isActive
-          ? 'border-acid-cyan/50 bg-acid-cyan/5'
+          ? 'border-[var(--acid-cyan)]/50 bg-[var(--acid-cyan)]/5'
           : 'border-border hover:border-text-muted/50'
       } ${onClick ? 'cursor-pointer' : ''}`}
     >
@@ -160,7 +160,7 @@ export function DeliberationCard({
       <div className="p-4 border-b border-border/50">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-mono text-text line-clamp-2">
+            <p className="text-sm font-theme-data text-text line-clamp-2">
               {deliberation.question}
             </p>
           </div>
@@ -178,13 +178,13 @@ export function DeliberationCard({
       {/* Progress bar (for in-progress) */}
       {isActive && (
         <div className="px-4 pt-3">
-          <div className="flex items-center justify-between text-xs font-mono text-text-muted mb-1">
+          <div className="flex items-center justify-between text-xs font-theme-data text-text-muted mb-1">
             <span>Round {deliberation.current_round}/{deliberation.max_rounds}</span>
             {elapsedTime && <span>{elapsedTime}</span>}
           </div>
           <div className="h-1.5 bg-surface rounded-full overflow-hidden">
             <div
-              className="h-full bg-acid-cyan transition-all"
+              className="h-full bg-[var(--acid-cyan)] transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -193,7 +193,7 @@ export function DeliberationCard({
 
       {/* Agents */}
       <div className="p-4">
-        <div className="text-xs text-text-muted font-mono mb-2">PARTICIPANTS</div>
+        <div className="text-xs text-text-muted font-theme-data mb-2">PARTICIPANTS</div>
         <div className="flex flex-wrap gap-2">
           {deliberation.agents.map((agent) => (
             <div
@@ -202,10 +202,10 @@ export function DeliberationCard({
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  isActive ? 'bg-acid-cyan animate-pulse' : 'bg-text-muted'
+                  isActive ? 'bg-[var(--acid-cyan)] animate-pulse' : 'bg-text-muted'
                 }`}
               />
-              <span className="font-mono text-text">{agent.name}</span>
+              <span className="font-theme-data text-text">{agent.name}</span>
               {agent.confidence !== undefined && (
                 <span className="text-text-muted">
                   ({Math.round(agent.confidence * 100)}%)
@@ -220,7 +220,7 @@ export function DeliberationCard({
       {deliberation.status === 'consensus_reached' && deliberation.final_answer && (
         <div className="px-4 pb-4">
           <div className="p-3 bg-green-900/10 border border-green-800/30 rounded">
-            <div className="text-xs text-green-400 font-mono mb-1">
+            <div className="text-xs text-green-400 font-theme-data mb-1">
               CONSENSUS ({Math.round((deliberation.consensus_confidence || 0) * 100)}%)
             </div>
             <p className="text-sm text-text line-clamp-3">{deliberation.final_answer}</p>
@@ -235,7 +235,7 @@ export function DeliberationCard({
             <span
               className={`w-2 h-2 rounded-full ${slaColors[deliberation.sla_status]}`}
             />
-            <span className="text-text-muted font-mono">
+            <span className="text-text-muted font-theme-data">
               SLA: {deliberation.sla_status}
             </span>
             {deliberation.timeout_seconds && (

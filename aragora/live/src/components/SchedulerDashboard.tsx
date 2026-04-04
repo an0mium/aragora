@@ -52,8 +52,8 @@ const TRIGGER_TYPE_LABELS: Record<TriggerType, string> = {
 };
 
 const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string; dot: string }> = {
-  active: { bg: 'bg-acid-green/10', text: 'text-acid-green', dot: 'bg-acid-green' },
-  running: { bg: 'bg-acid-cyan/10', text: 'text-acid-cyan', dot: 'bg-acid-cyan animate-pulse' },
+  active: { bg: 'bg-[var(--accent)]/10', text: 'text-[var(--accent)]', dot: 'bg-[var(--accent)]' },
+  running: { bg: 'bg-[var(--acid-cyan)]/10', text: 'text-[var(--acid-cyan)]', dot: 'bg-[var(--acid-cyan)] animate-pulse' },
   paused: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', dot: 'bg-yellow-500' },
   disabled: { bg: 'bg-gray-500/10', text: 'text-gray-500', dot: 'bg-gray-500' },
   error: { bg: 'bg-red-500/10', text: 'text-red-400', dot: 'bg-red-500' },
@@ -258,7 +258,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
     <div className="space-y-6">
       {/* Error display */}
       {error && (
-        <div className="p-4 border border-red-500/30 bg-red-500/10 rounded text-red-400 text-sm font-mono">
+        <div className="p-4 border border-red-500/30 bg-red-500/10 rounded text-red-400 text-sm font-theme-data">
           {error}
           <button
             onClick={() => setError(null)}
@@ -271,7 +271,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
 
       {/* Status bar */}
       {status && (
-        <div className="flex gap-4 p-3 bg-surface border border-acid-green/20 rounded">
+        <div className="flex gap-4 p-3 bg-surface border border-[var(--accent)]/20 rounded">
           <StatusBadge
             label="Scheduler"
             value={status.running ? 'RUNNING' : 'STOPPED'}
@@ -289,7 +289,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
               fetchJobs();
               fetchStatus();
             }}
-            className="ml-auto px-3 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/10 rounded transition-colors"
+            className="ml-auto px-3 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded transition-colors"
           >
             [REFRESH]
           </button>
@@ -297,16 +297,16 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-acid-green/30 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/30 pb-2">
         {(['jobs', 'create', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             disabled={tab === 'history' && !selectedJob}
-            className={`px-4 py-2 text-xs font-mono rounded-t transition-colors ${
+            className={`px-4 py-2 text-xs font-theme-data rounded-t transition-colors ${
               activeTab === tab
-                ? 'bg-acid-green/20 text-acid-green border border-acid-green/50 border-b-0'
-                : 'text-text-muted hover:text-acid-green hover:bg-acid-green/5 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 border-b-0'
+                : 'text-text-muted hover:text-[var(--accent)] hover:bg-[var(--accent)]/5 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
             [{tab.toUpperCase()}]
@@ -320,11 +320,11 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
           {jobs.length === 0 ? (
             <div className="text-center py-12 bg-surface border border-border rounded-lg">
               <div className="text-4xl mb-4">📅</div>
-              <h3 className="text-lg font-mono font-bold text-text mb-2">No scheduled jobs</h3>
+              <h3 className="text-lg font-theme-data font-bold text-text mb-2">No scheduled jobs</h3>
               <p className="text-text-muted mb-4">Create your first scheduled audit job</p>
               <button
                 onClick={() => setActiveTab('create')}
-                className="px-4 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
               >
                 [CREATE JOB]
               </button>
@@ -338,8 +338,8 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                     key={job.job_id}
                     className={`p-4 border rounded transition-all cursor-pointer ${
                       selectedJob?.job_id === job.job_id
-                        ? 'border-acid-green bg-acid-green/5'
-                        : 'border-acid-green/20 hover:border-acid-green/50'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+                        : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/50'
                     }`}
                     onClick={() => setSelectedJob(job)}
                   >
@@ -347,7 +347,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                       <div className="flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${statusStyle.dot}`} />
                         <div>
-                          <h4 className="font-mono text-text">{job.name}</h4>
+                          <h4 className="font-theme-data text-text">{job.name}</h4>
                           <div className="flex gap-2 mt-1">
                             <span className={`px-2 py-0.5 text-xs rounded ${statusStyle.bg} ${statusStyle.text}`}>
                               {job.status.toUpperCase()}
@@ -360,7 +360,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                       </div>
 
                       <div className="flex items-center gap-4">
-                        <div className="text-right text-xs font-mono text-text-muted">
+                        <div className="text-right text-xs font-theme-data text-text-muted">
                           <div>Next: {formatDate(job.next_run)}</div>
                           <div>Last: {formatDate(job.last_run)}</div>
                         </div>
@@ -371,7 +371,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                               e.stopPropagation();
                               handleTrigger(job.job_id);
                             }}
-                            className="px-2 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/20 rounded"
+                            className="px-2 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded"
                             title="Trigger now"
                           >
                             [RUN]
@@ -382,7 +382,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                                 e.stopPropagation();
                                 handlePause(job.job_id);
                               }}
-                              className="px-2 py-1 text-xs font-mono text-yellow-500 hover:bg-yellow-500/20 rounded"
+                              className="px-2 py-1 text-xs font-theme-data text-yellow-500 hover:bg-yellow-500/20 rounded"
                               title="Pause job"
                             >
                               [PAUSE]
@@ -393,7 +393,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                                 e.stopPropagation();
                                 handleResume(job.job_id);
                               }}
-                              className="px-2 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/20 rounded"
+                              className="px-2 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded"
                               title="Resume job"
                             >
                               [RESUME]
@@ -404,7 +404,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                               e.stopPropagation();
                               handleDelete(job.job_id);
                             }}
-                            className="px-2 py-1 text-xs font-mono text-red-400 hover:bg-red-500/20 rounded"
+                            className="px-2 py-1 text-xs font-theme-data text-red-400 hover:bg-red-500/20 rounded"
                             title="Delete job"
                           >
                             [DEL]
@@ -413,7 +413,7 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                       </div>
                     </div>
 
-                    <div className="mt-2 flex gap-4 text-xs font-mono text-text-muted">
+                    <div className="mt-2 flex gap-4 text-xs font-theme-data text-text-muted">
                       <span>Runs: {job.run_count}</span>
                       <span className={job.error_count > 0 ? 'text-red-400' : ''}>
                         Errors: {job.error_count}
@@ -431,27 +431,27 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
       {/* Create Job Tab */}
       {activeTab === 'create' && (
         <form onSubmit={handleCreate} className="card p-6 space-y-4">
-          <h3 className="text-lg font-mono text-acid-green">Create Scheduled Job</h3>
+          <h3 className="text-lg font-theme-data text-[var(--accent)]">Create Scheduled Job</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Job Name *</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Job Name *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Daily Security Scan"
                 required
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Trigger Type</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Trigger Type</label>
               <select
                 value={formData.trigger_type}
                 onChange={e => setFormData({ ...formData, trigger_type: e.target.value as TriggerType })}
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 {Object.entries(TRIGGER_TYPE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -461,19 +461,19 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">Description</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe what this job does..."
-              className="w-full h-20 p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full h-20 p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Trigger-specific fields */}
           {formData.trigger_type === 'cron' && (
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">
+              <label className="block text-xs font-theme-data text-text-muted mb-1">
                 Cron Expression *
                 <span className="ml-2 text-text-muted/50">(minute hour day month weekday)</span>
               </label>
@@ -483,9 +483,9 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
                 onChange={e => setFormData({ ...formData, cron: e.target.value })}
                 placeholder="0 2 * * *"
                 required
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
-              <div className="mt-1 text-xs text-text-muted font-mono">
+              <div className="mt-1 text-xs text-text-muted font-theme-data">
                 Examples: &quot;0 2 * * *&quot; (daily 2 AM), &quot;0 */6 * * *&quot; (every 6 hours), &quot;0 9 * * 1-5&quot; (weekdays 9 AM)
               </div>
             </div>
@@ -493,25 +493,25 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
 
           {formData.trigger_type === 'interval' && (
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Interval (minutes) *</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Interval (minutes) *</label>
               <input
                 type="number"
                 value={formData.interval_minutes}
                 onChange={e => setFormData({ ...formData, interval_minutes: parseInt(e.target.value) || 60 })}
                 min={1}
                 required
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Audit Preset</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Audit Preset</label>
               <select
                 value={formData.preset}
                 onChange={e => setFormData({ ...formData, preset: e.target.value })}
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="">Select preset...</option>
                 <option value="Code Security">Code Security</option>
@@ -522,24 +522,24 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Workspace ID</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Workspace ID</label>
               <input
                 type="text"
                 value={formData.workspace_id}
                 onChange={e => setFormData({ ...formData, workspace_id: e.target.value })}
                 placeholder="ws_123"
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Severity Threshold</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Severity Threshold</label>
               <select
                 value={formData.finding_severity_threshold}
                 onChange={e => setFormData({ ...formData, finding_severity_threshold: e.target.value })}
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -549,34 +549,34 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Tags (comma-separated)</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Tags (comma-separated)</label>
               <input
                 type="text"
                 value={formData.tags}
                 onChange={e => setFormData({ ...formData, tags: e.target.value })}
                 placeholder="security, daily, production"
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           </div>
 
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm font-mono">
+            <label className="flex items-center gap-2 text-sm font-theme-data">
               <input
                 type="checkbox"
                 checked={formData.notify_on_complete}
                 onChange={e => setFormData({ ...formData, notify_on_complete: e.target.checked })}
-                className="rounded border-acid-green/30"
+                className="rounded border-[var(--accent)]/30"
               />
               <span className="text-text-muted">Notify on completion</span>
             </label>
 
-            <label className="flex items-center gap-2 text-sm font-mono">
+            <label className="flex items-center gap-2 text-sm font-theme-data">
               <input
                 type="checkbox"
                 checked={formData.notify_on_findings}
                 onChange={e => setFormData({ ...formData, notify_on_findings: e.target.checked })}
-                className="rounded border-acid-green/30"
+                className="rounded border-[var(--accent)]/30"
               />
               <span className="text-text-muted">Notify on findings</span>
             </label>
@@ -586,14 +586,14 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
             <button
               type="submit"
               disabled={createLoading || !formData.name}
-              className="px-6 py-2 text-sm font-mono bg-acid-green text-bg font-bold rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg font-bold rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createLoading ? '[CREATING...]' : '[CREATE JOB]'}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('jobs')}
-              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text transition-colors"
+              className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-text transition-colors"
             >
               [CANCEL]
             </button>
@@ -605,13 +605,13 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
       {activeTab === 'history' && selectedJob && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-mono text-acid-green">
+            <h3 className="text-lg font-theme-data text-[var(--accent)]">
               Run History: {selectedJob.name}
             </h3>
             <button
               onClick={() => fetchJobHistory(selectedJob.job_id)}
               disabled={historyLoading}
-              className="px-3 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/10 rounded"
+              className="px-3 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded"
             >
               {historyLoading ? '[LOADING...]' : '[REFRESH]'}
             </button>
@@ -625,32 +625,32 @@ export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProp
             </div>
           ) : jobHistory.length === 0 ? (
             <div className="text-center py-8 bg-surface border border-border rounded">
-              <p className="text-text-muted font-mono">No run history yet</p>
+              <p className="text-text-muted font-theme-data">No run history yet</p>
             </div>
           ) : (
             <div className="space-y-2">
               {jobHistory.map(run => (
                 <div
                   key={run.run_id}
-                  className="p-3 border border-acid-green/20 rounded bg-surface"
+                  className="p-3 border border-[var(--accent)]/20 rounded bg-surface"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <RunStatusBadge status={run.status} />
-                      <span className="text-sm font-mono text-text-muted">
+                      <span className="text-sm font-theme-data text-text-muted">
                         {formatDate(run.started_at)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
+                    <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
                       <span>Duration: {formatDuration(run.duration_ms)}</span>
                       <span>Findings: {run.findings_count}</span>
                       {run.session_id && (
-                        <span className="text-acid-cyan">Session: {run.session_id}</span>
+                        <span className="text-[var(--acid-cyan)]">Session: {run.session_id}</span>
                       )}
                     </div>
                   </div>
                   {run.error_message && (
-                    <div className="mt-2 text-xs font-mono text-red-400 bg-red-500/10 p-2 rounded">
+                    <div className="mt-2 text-xs font-theme-data text-red-400 bg-red-500/10 p-2 rounded">
                       {run.error_message}
                     </div>
                   )}
@@ -675,8 +675,8 @@ function StatusBadge({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs font-mono text-text-muted">{label}:</span>
-      <span className={`text-xs font-mono ${active ? 'text-acid-green' : 'text-text'}`}>
+      <span className="text-xs font-theme-data text-text-muted">{label}:</span>
+      <span className={`text-xs font-theme-data ${active ? 'text-[var(--accent)]' : 'text-text'}`}>
         {value}
       </span>
     </div>
@@ -685,15 +685,15 @@ function StatusBadge({
 
 function RunStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; text: string }> = {
-    completed: { bg: 'bg-acid-green/20', text: 'text-acid-green' },
-    running: { bg: 'bg-acid-cyan/20', text: 'text-acid-cyan' },
+    completed: { bg: 'bg-[var(--accent)]/20', text: 'text-[var(--accent)]' },
+    running: { bg: 'bg-[var(--acid-cyan)]/20', text: 'text-[var(--acid-cyan)]' },
     timeout: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
     error: { bg: 'bg-red-500/20', text: 'text-red-400' },
   };
   const style = styles[status] || styles.error;
 
   return (
-    <span className={`px-2 py-0.5 text-xs rounded ${style.bg} ${style.text} font-mono uppercase`}>
+    <span className={`px-2 py-0.5 text-xs rounded ${style.bg} ${style.text} font-theme-data uppercase`}>
       {status}
     </span>
   );

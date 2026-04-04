@@ -35,13 +35,13 @@ export function AllAgentsTab({
         <div className="flex items-center gap-2 text-xs text-text-muted">
           {autoScroll ? (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
               Live
             </span>
           ) : (
             <button
               onClick={onJumpToLatest}
-              className="px-2 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 hover:bg-acid-green/30"
+              className="px-2 py-1 bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/30"
             >
               ↓ Jump to Latest
             </button>

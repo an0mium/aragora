@@ -102,7 +102,7 @@ export function VerticalSelector({
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg">
-        <h3 className="text-sm font-mono font-bold text-acid-green">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
           SELECT VERTICAL SPECIALIST
         </h3>
         <p className="text-xs text-text-muted mt-1">
@@ -123,13 +123,13 @@ export function VerticalSelector({
               flex flex-col items-center gap-2
               ${
                 selectedVertical === vertical.id
-                  ? 'border-acid-green bg-acid-green/10'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
                   : 'border-border hover:border-text-muted bg-bg'
               }
             `}
           >
             <span className="text-2xl">{vertical.icon}</span>
-            <span className="text-xs font-mono text-center leading-tight">
+            <span className="text-xs font-theme-data text-center leading-tight">
               {vertical.displayName}
             </span>
           </button>
@@ -142,7 +142,7 @@ export function VerticalSelector({
           <div className="flex items-start gap-4">
             <span className="text-4xl">{displayVertical.icon}</span>
             <div className="flex-1">
-              <h4 className="font-mono font-bold text-text">
+              <h4 className="font-theme-data font-bold text-text">
                 {displayVertical.displayName}
               </h4>
               <p className="text-sm text-text-muted mt-1">
@@ -151,12 +151,12 @@ export function VerticalSelector({
 
               {/* Expertise Areas */}
               <div className="mt-3">
-                <span className="text-xs font-mono text-text-muted">EXPERTISE:</span>
+                <span className="text-xs font-theme-data text-text-muted">EXPERTISE:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {displayVertical.expertiseAreas.map((area) => (
                     <span
                       key={area}
-                      className="px-2 py-0.5 text-xs bg-bg border border-border rounded font-mono"
+                      className="px-2 py-0.5 text-xs bg-bg border border-border rounded font-theme-data"
                     >
                       {area}
                     </span>
@@ -166,12 +166,12 @@ export function VerticalSelector({
 
               {/* Compliance Frameworks */}
               <div className="mt-3">
-                <span className="text-xs font-mono text-text-muted">COMPLIANCE:</span>
+                <span className="text-xs font-theme-data text-text-muted">COMPLIANCE:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {displayVertical.complianceFrameworks.map((fw) => (
                     <span
                       key={fw}
-                      className="px-2 py-0.5 text-xs bg-acid-green/20 text-acid-green rounded font-mono"
+                      className="px-2 py-0.5 text-xs bg-[var(--accent)]/20 text-[var(--accent)] rounded font-theme-data"
                     >
                       {fw}
                     </span>

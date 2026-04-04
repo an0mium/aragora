@@ -102,17 +102,17 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       <div
         key={session.id}
         className={`p-4 border-b border-border last:border-b-0 ${
-          isCurrent ? 'bg-acid-green/5' : ''
+          isCurrent ? 'bg-[var(--accent)]/5' : ''
         }`}
       >
         <div className="flex items-start justify-between gap-4">
           {/* Session Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-acid-cyan">
+              <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
                 {getDeviceIcon(session.device_name)}
               </span>
-              <span className="text-sm font-mono text-text truncate">
+              <span className="text-sm font-theme-data text-text truncate">
                 {session.device_name}
               </span>
               {isCurrent && (
@@ -123,12 +123,12 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
               )}
             </div>
 
-            <div className="flex items-center gap-3 text-xs font-mono text-text-muted mt-2">
+            <div className="flex items-center gap-3 text-xs font-theme-data text-text-muted mt-2">
               <StatusBadge label={browser.label} variant={browser.variant} size="sm" />
               <span>IP: {session.ip_address}</span>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-mono text-text-muted mt-2">
+            <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted mt-2">
               <span>Created: {formatDate(session.created_at)}</span>
               <span>Last active: {getLastActivityAge(session)}</span>
             </div>
@@ -139,7 +139,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
             <button
               onClick={() => handleRevokeSession(session.id)}
               disabled={isRevoking}
-              className={`px-3 py-1.5 text-xs font-mono border transition-colors focus:outline-none focus:ring-2 focus:ring-warning/50 ${
+              className={`px-3 py-1.5 text-xs font-theme-data border transition-colors focus:outline-none focus:ring-2 focus:ring-warning/50 ${
                 isRevoking
                   ? 'bg-warning/10 border-warning/30 text-warning/50 cursor-wait'
                   : 'bg-transparent border-warning/50 text-warning hover:bg-warning/10'
@@ -158,10 +158,10 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div>
-          <h3 className="text-sm font-mono text-acid-green">
+          <h3 className="text-sm font-theme-data text-[var(--accent)]">
             [ACTIVE SESSIONS]
           </h3>
-          <p className="text-xs font-mono text-text-muted mt-1">
+          <p className="text-xs font-theme-data text-text-muted mt-1">
             Manage your active login sessions across devices
           </p>
         </div>
@@ -170,7 +170,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
           <button
             onClick={fetchSessions}
             disabled={loading}
-            className="px-3 py-1.5 text-xs font-mono text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/10 transition-colors focus:outline-none focus:ring-2 focus:ring-acid-cyan/50"
+            className="px-3 py-1.5 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors focus:outline-none focus:ring-2 focus:ring-acid-cyan/50"
           >
             {loading ? '[REFRESHING...]' : '[REFRESH]'}
           </button>
@@ -180,14 +180,14 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Error State */}
       {error && (
         <div className="p-4 bg-warning/10 border-b border-warning/30">
-          <p className="text-xs font-mono text-warning">{error}</p>
+          <p className="text-xs font-theme-data text-warning">{error}</p>
         </div>
       )}
 
       {/* Loading State */}
       {loading && sessions.length === 0 && (
         <div className="p-8 text-center">
-          <p className="text-sm font-mono text-text-muted animate-pulse">
+          <p className="text-sm font-theme-data text-text-muted animate-pulse">
             Loading sessions...
           </p>
         </div>
@@ -196,7 +196,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Current Session */}
       {currentSession && (
         <div>
-          <div className="px-4 py-2 bg-surface-alt text-xs font-mono text-text-muted">
+          <div className="px-4 py-2 bg-surface-alt text-xs font-theme-data text-text-muted">
             THIS DEVICE
           </div>
           {renderSessionRow(currentSession, true)}
@@ -206,7 +206,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Other Sessions */}
       {otherSessions.length > 0 && (
         <div>
-          <div className="px-4 py-2 bg-surface-alt text-xs font-mono text-text-muted flex items-center justify-between">
+          <div className="px-4 py-2 bg-surface-alt text-xs font-theme-data text-text-muted flex items-center justify-between">
             <span>OTHER DEVICES ({otherSessions.length})</span>
 
             {/* Revoke All Button */}
@@ -216,14 +216,14 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
                 <button
                   onClick={handleRevokeAll}
                   disabled={revokingAll}
-                  className="px-2 py-0.5 text-xs font-mono bg-warning/20 border border-warning/50 text-warning hover:bg-warning/30 transition-colors"
+                  className="px-2 py-0.5 text-xs font-theme-data bg-warning/20 border border-warning/50 text-warning hover:bg-warning/30 transition-colors"
                 >
                   {revokingAll ? 'REVOKING...' : 'YES'}
                 </button>
                 <button
                   onClick={cancelRevokeAll}
                   disabled={revokingAll}
-                  className="px-2 py-0.5 text-xs font-mono border border-border text-text-muted hover:bg-surface-alt transition-colors"
+                  className="px-2 py-0.5 text-xs font-theme-data border border-border text-text-muted hover:bg-surface-alt transition-colors"
                 >
                   NO
                 </button>
@@ -244,7 +244,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Empty State */}
       {sessions.length === 0 && !loading && (
         <div className="p-8 text-center">
-          <p className="text-sm font-mono text-text-muted">
+          <p className="text-sm font-theme-data text-text-muted">
             No active sessions found
           </p>
         </div>
@@ -253,7 +253,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
       {/* Only Current Session */}
       {currentSession && otherSessions.length === 0 && (
         <div className="p-4 text-center border-t border-border">
-          <p className="text-xs font-mono text-text-muted">
+          <p className="text-xs font-theme-data text-text-muted">
             This is your only active session
           </p>
         </div>
@@ -261,7 +261,7 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
 
       {/* Session Info Footer */}
       <div className="p-4 border-t border-border bg-surface-alt">
-        <p className="text-xs font-mono text-text-muted">
+        <p className="text-xs font-theme-data text-text-muted">
           Sessions expire after 24 hours of inactivity. Revoked sessions require re-authentication.
         </p>
       </div>

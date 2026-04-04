@@ -171,12 +171,12 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tools..."
-            className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-2 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
+            className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-2 font-theme-data text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
           />
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 text-xs font-mono border transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                 selectedCategory === 'all'
                   ? 'text-[var(--acid-green)] border-[var(--acid-green)] bg-[var(--acid-green)]/10'
                   : 'text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/50'
@@ -191,7 +191,7 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                     selectedCategory === cat
                       ? 'text-[var(--acid-green)] border-[var(--acid-green)] bg-[var(--acid-green)]/10'
                       : 'text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/50'
@@ -206,7 +206,7 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
       )}
 
       {/* Tool count */}
-      <div className="text-xs font-mono text-[var(--text-muted)]">
+      <div className="text-xs font-theme-data text-[var(--text-muted)]">
         {filteredTools.length} tool{filteredTools.length !== 1 ? 's' : ''} found
       </div>
 
@@ -216,7 +216,7 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
           const meta = CATEGORY_META[category];
           return (
             <div key={category}>
-              <h3 className="text-xs font-mono text-[var(--acid-cyan)] uppercase tracking-wider mb-2 flex items-center gap-2">
+              <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider mb-2 flex items-center gap-2">
                 <span>{meta.icon}</span>
                 {meta.label}
                 <span className="text-[var(--text-muted)]">({tools.length})</span>
@@ -227,10 +227,10 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
                     key={tool.name}
                     className="border border-[var(--border)] bg-[var(--surface)] p-3 hover:border-[var(--acid-green)]/30 transition-colors"
                   >
-                    <div className="text-sm font-mono text-[var(--acid-green)] font-bold">
+                    <div className="text-sm font-theme-data text-[var(--acid-green)] font-bold">
                       {tool.name}
                     </div>
-                    <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                    <div className="text-xs font-theme-data text-[var(--text-muted)] mt-1">
                       {tool.description}
                     </div>
                     {tool.params.length > 0 && (
@@ -238,7 +238,7 @@ export function ToolCatalog({ compact }: ToolCatalogProps) {
                         {tool.params.map((p) => (
                           <span
                             key={p}
-                            className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)]"
+                            className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)]"
                           >
                             {p}
                           </span>

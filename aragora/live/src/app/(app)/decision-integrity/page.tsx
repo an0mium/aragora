@@ -38,7 +38,7 @@ const TABS: { id: TabId; label: string }[] = [
 
 function StatusDot({ status }: { status: 'good' | 'warn' | 'critical' | 'unknown' }) {
   const color = {
-    good: 'bg-acid-green',
+    good: 'bg-[var(--accent)]',
     warn: 'bg-yellow-400',
     critical: 'bg-red-500',
     unknown: 'bg-text-muted/50',
@@ -68,14 +68,14 @@ function MetricCard({
   href?: string;
 }) {
   const content = (
-    <div className="p-4 border border-acid-green/20 rounded bg-surface/30 hover:border-acid-green/40 transition-colors">
+    <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30 hover:border-[var(--accent)]/40 transition-colors">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
           {label}
         </span>
         <StatusDot status={status} />
       </div>
-      <div className="text-2xl font-mono text-acid-green">
+      <div className="text-2xl font-theme-data text-[var(--accent)]">
         {value}
         {unit && <span className="text-sm text-text-muted ml-1">{unit}</span>}
       </div>
@@ -94,10 +94,10 @@ function MetricCard({
 
 function EmptyState({ message, sub }: { message: string; sub?: string }) {
   return (
-    <div className="p-8 border border-acid-green/20 rounded text-center">
-      <p className="font-mono text-text-muted">{message}</p>
+    <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+      <p className="font-theme-data text-text-muted">{message}</p>
       {sub && (
-        <p className="font-mono text-text-muted/60 text-xs mt-2">{sub}</p>
+        <p className="font-theme-data text-text-muted/60 text-xs mt-2">{sub}</p>
       )}
     </div>
   );
@@ -105,7 +105,7 @@ function EmptyState({ message, sub }: { message: string; sub?: string }) {
 
 function LoadingPulse() {
   return (
-    <div className="text-center py-8 text-acid-green font-mono animate-pulse">
+    <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse">
       Loading...
     </div>
   );
@@ -209,43 +209,43 @@ function ConsensusTab({
       {/* Stats row */}
       {consensus && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="text-2xl font-mono text-acid-green">
+          <div className="p-3 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="text-2xl font-theme-data text-[var(--accent)]">
               {consensus.total_topics ?? 0}
             </div>
-            <div className="text-xs font-mono text-text-muted">Total Topics</div>
+            <div className="text-xs font-theme-data text-text-muted">Total Topics</div>
           </div>
-          <div className="p-3 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="text-2xl font-mono text-acid-cyan">
+          <div className="p-3 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
               {consensus.high_confidence_count ?? 0}
             </div>
-            <div className="text-xs font-mono text-text-muted">High Confidence</div>
+            <div className="text-xs font-theme-data text-text-muted">High Confidence</div>
           </div>
-          <div className="p-3 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="text-2xl font-mono text-text">
+          <div className="p-3 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="text-2xl font-theme-data text-text">
               {consensus.avg_confidence
                 ? `${(consensus.avg_confidence * 100).toFixed(0)}%`
                 : '-'}
             </div>
-            <div className="text-xs font-mono text-text-muted">Avg Confidence</div>
+            <div className="text-xs font-theme-data text-text-muted">Avg Confidence</div>
           </div>
-          <div className="p-3 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="text-2xl font-mono text-yellow-400">
+          <div className="p-3 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="text-2xl font-theme-data text-yellow-400">
               {consensus.total_dissents ?? 0}
             </div>
-            <div className="text-xs font-mono text-text-muted">Dissents</div>
+            <div className="text-xs font-theme-data text-text-muted">Dissents</div>
           </div>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Settled Topics */}
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+        <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Recent Settled Topics
           </h3>
           {topics.length === 0 ? (
-            <p className="text-xs font-mono text-text-muted">
+            <p className="text-xs font-theme-data text-text-muted">
               No settled topics yet.
             </p>
           ) : (
@@ -253,15 +253,15 @@ function ConsensusTab({
               {topics.map((t, i) => (
                 <div
                   key={i}
-                  className="p-2 bg-bg/50 rounded border border-acid-green/10"
+                  className="p-2 bg-bg/50 rounded border border-[var(--accent)]/10"
                 >
-                  <div className="font-mono text-sm text-text truncate">
+                  <div className="font-theme-data text-sm text-text truncate">
                     {t.topic}
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs font-mono text-text-muted">
+                  <div className="flex items-center gap-3 mt-1 text-xs font-theme-data text-text-muted">
                     <span>
                       Confidence:{' '}
-                      <span className="text-acid-cyan">
+                      <span className="text-[var(--acid-cyan)]">
                         {(t.confidence * 100).toFixed(0)}%
                       </span>
                     </span>
@@ -285,12 +285,12 @@ function ConsensusTab({
         </div>
 
         {/* Consensus Strength Distribution */}
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+        <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Consensus Strength Distribution
           </h3>
           {strengthEntries.length === 0 ? (
-            <p className="text-xs font-mono text-text-muted">
+            <p className="text-xs font-theme-data text-text-muted">
               No strength data available.
             </p>
           ) : (
@@ -299,18 +299,18 @@ function ConsensusTab({
                 const total = consensus?.total_topics ?? 1;
                 return (
                   <div key={strength} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-text w-24 capitalize">
+                    <span className="text-xs font-theme-data text-text w-24 capitalize">
                       {strength}
                     </span>
                     <div className="flex-1 h-4 bg-bg rounded overflow-hidden">
                       <div
-                        className="h-full bg-acid-green/40 rounded"
+                        className="h-full bg-[var(--accent)]/40 rounded"
                         style={{
                           width: `${Math.min(100, (count / total) * 100)}%`,
                         }}
                       />
                     </div>
-                    <span className="text-xs font-mono text-text-muted w-8 text-right">
+                    <span className="text-xs font-theme-data text-text-muted w-8 text-right">
                       {count}
                     </span>
                   </div>
@@ -324,7 +324,7 @@ function ConsensusTab({
       <div className="text-right">
         <Link
           href="/consensus"
-          className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+          className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
         >
           View full consensus dashboard {'\u2192'}
         </Link>
@@ -346,7 +346,7 @@ function ComplianceTab({
   const findings = compliance?.findings ?? [];
 
   const statusColor: Record<string, string> = {
-    compliant: 'text-acid-green border-acid-green/30 bg-acid-green/10',
+    compliant: 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
     partial: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10',
     non_compliant: 'text-red-400 border-red-400/30 bg-red-400/10',
     not_assessed: 'text-text-muted border-text-muted/30 bg-text-muted/10',
@@ -356,13 +356,13 @@ function ComplianceTab({
     <div className="space-y-6">
       {/* Overall score */}
       {compliance?.overall_score != null && (
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
+        <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-mono text-text-muted uppercase tracking-wider mb-1">
+              <div className="text-xs font-theme-data text-text-muted uppercase tracking-wider mb-1">
                 Overall Compliance Score
               </div>
-              <div className="text-3xl font-mono text-acid-green">
+              <div className="text-3xl font-theme-data text-[var(--accent)]">
                 {Math.round(compliance.overall_score * 100)}%
               </div>
             </div>
@@ -376,14 +376,14 @@ function ComplianceTab({
       {/* Framework status grid */}
       {frameworks.length > 0 ? (
         <div>
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Framework Status
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {frameworks.map((fw, i) => (
               <div
                 key={i}
-                className={`p-3 border rounded font-mono text-sm ${
+                className={`p-3 border rounded font-theme-data text-sm ${
                   statusColor[fw.status] ?? statusColor.not_assessed
                 }`}
               >
@@ -413,7 +413,7 @@ function ComplianceTab({
       {/* Recent findings */}
       {findings.length > 0 && (
         <div>
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Recent Findings
           </h3>
           <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -427,25 +427,25 @@ function ComplianceTab({
               return (
                 <div
                   key={f.id ?? i}
-                  className="p-3 border border-acid-green/10 rounded bg-bg/50"
+                  className="p-3 border border-[var(--accent)]/10 rounded bg-bg/50"
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span
-                      className={`text-xs font-mono px-2 py-0.5 rounded bg-surface uppercase ${
+                      className={`text-xs font-theme-data px-2 py-0.5 rounded bg-surface uppercase ${
                         sevColor[f.severity] ?? 'text-text-muted'
                       }`}
                     >
                       {f.severity}
                     </span>
                     {f.framework && (
-                      <span className="text-xs font-mono text-text-muted">
+                      <span className="text-xs font-theme-data text-text-muted">
                         {f.framework}
                       </span>
                     )}
                   </div>
-                  <p className="font-mono text-sm text-text">{f.description}</p>
+                  <p className="font-theme-data text-sm text-text">{f.description}</p>
                   {f.detected_at && (
-                    <div className="text-xs font-mono text-text-muted/50 mt-1">
+                    <div className="text-xs font-theme-data text-text-muted/50 mt-1">
                       {formatDate(f.detected_at)}
                     </div>
                   )}
@@ -459,7 +459,7 @@ function ComplianceTab({
       <div className="text-right">
         <Link
           href="/compliance"
-          className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+          className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
         >
           View full compliance dashboard {'\u2192'}
         </Link>
@@ -487,7 +487,7 @@ function AuditTab({
     high: 'border-l-orange-400 bg-orange-400/5',
     medium: 'border-l-yellow-400 bg-yellow-400/5',
     low: 'border-l-text-muted bg-surface/30',
-    info: 'border-l-acid-cyan bg-acid-cyan/5',
+    info: 'border-l-acid-cyan bg-[var(--acid-cyan)]/5',
   };
 
   return (
@@ -495,7 +495,7 @@ function AuditTab({
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Audit Events */}
         <div>
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Recent Audit Events
           </h3>
           {events.length === 0 ? (
@@ -513,14 +513,14 @@ function AuditTab({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-sm text-text">
+                    <span className="font-theme-data text-sm text-text">
                       {ev.action}
                     </span>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       {formatDate(ev.timestamp)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+                  <div className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
                     <span>{ev.event_type}</span>
                     {ev.actor && (
                       <>
@@ -536,7 +536,7 @@ function AuditTab({
                     )}
                   </div>
                   {ev.details && (
-                    <p className="text-xs font-mono text-text-muted/70 mt-1 truncate">
+                    <p className="text-xs font-theme-data text-text-muted/70 mt-1 truncate">
                       {ev.details}
                     </p>
                   )}
@@ -548,34 +548,34 @@ function AuditTab({
 
         {/* Receipt Delivery */}
         <div>
-          <h3 className="font-mono text-acid-cyan text-sm mb-3">
+          <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">
             Decision Receipts
           </h3>
 
           {/* Receipt summary stats */}
           {receipts && (
             <div className="grid grid-cols-3 gap-2 mb-3">
-              <div className="p-2 border border-acid-green/20 rounded bg-surface/30 text-center">
-                <div className="text-lg font-mono text-acid-green">
+              <div className="p-2 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+                <div className="text-lg font-theme-data text-[var(--accent)]">
                   {receipts.delivered ?? 0}
                 </div>
-                <div className="text-[10px] font-mono text-text-muted">
+                <div className="text-[10px] font-theme-data text-text-muted">
                   Delivered
                 </div>
               </div>
               <div className="p-2 border border-yellow-400/20 rounded bg-surface/30 text-center">
-                <div className="text-lg font-mono text-yellow-400">
+                <div className="text-lg font-theme-data text-yellow-400">
                   {receipts.pending ?? 0}
                 </div>
-                <div className="text-[10px] font-mono text-text-muted">
+                <div className="text-[10px] font-theme-data text-text-muted">
                   Pending
                 </div>
               </div>
               <div className="p-2 border border-red-500/20 rounded bg-surface/30 text-center">
-                <div className="text-lg font-mono text-red-500">
+                <div className="text-lg font-theme-data text-red-500">
                   {receipts.failed ?? 0}
                 </div>
-                <div className="text-[10px] font-mono text-text-muted">
+                <div className="text-[10px] font-theme-data text-text-muted">
                   Failed
                 </div>
               </div>
@@ -592,7 +592,7 @@ function AuditTab({
               {recentReceipts.slice(0, 10).map((r, i) => {
                 const statusStyle: Record<string, string> = {
                   delivered:
-                    'text-acid-green border-acid-green/30 bg-acid-green/10',
+                    'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
                   pending:
                     'text-yellow-400 border-yellow-400/30 bg-yellow-400/10',
                   failed: 'text-red-400 border-red-400/30 bg-red-400/10',
@@ -600,19 +600,19 @@ function AuditTab({
                 return (
                   <div
                     key={r.id ?? i}
-                    className="p-2 border border-acid-green/10 rounded bg-bg/50 flex items-center justify-between"
+                    className="p-2 border border-[var(--accent)]/10 rounded bg-bg/50 flex items-center justify-between"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-mono text-xs text-text truncate">
+                      <div className="font-theme-data text-xs text-text truncate">
                         {r.debate_id ?? r.id}
                       </div>
-                      <div className="text-[10px] font-mono text-text-muted">
+                      <div className="text-[10px] font-theme-data text-text-muted">
                         {r.channel && <span>{r.channel} | </span>}
                         {formatDate(r.created_at)}
                       </div>
                     </div>
                     <span
-                      className={`ml-2 px-2 py-0.5 text-[10px] font-mono rounded border ${
+                      className={`ml-2 px-2 py-0.5 text-[10px] font-theme-data rounded border ${
                         statusStyle[r.status] ?? statusStyle.pending
                       }`}
                     >
@@ -629,13 +629,13 @@ function AuditTab({
       <div className="flex justify-between">
         <Link
           href="/audit"
-          className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+          className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
         >
           View full audit log {'\u2192'}
         </Link>
         <Link
           href="/receipts"
-          className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+          className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
         >
           View all receipts {'\u2192'}
         </Link>
@@ -671,29 +671,29 @@ function AgentsTab({
   return (
     <div className="space-y-6">
       {/* Top agents table */}
-      <div className="border border-acid-green/20 rounded overflow-hidden">
+      <div className="border border-[var(--accent)]/20 rounded overflow-hidden">
         <table className="w-full">
-          <thead className="bg-surface/50 border-b border-acid-green/20">
+          <thead className="bg-surface/50 border-b border-[var(--accent)]/20">
             <tr>
-              <th className="p-3 text-left font-mono text-xs text-text-muted">
+              <th className="p-3 text-left font-theme-data text-xs text-text-muted">
                 RANK
               </th>
-              <th className="p-3 text-left font-mono text-xs text-text-muted">
+              <th className="p-3 text-left font-theme-data text-xs text-text-muted">
                 AGENT
               </th>
-              <th className="p-3 text-right font-mono text-xs text-text-muted">
+              <th className="p-3 text-right font-theme-data text-xs text-text-muted">
                 ELO
               </th>
-              <th className="p-3 text-right font-mono text-xs text-text-muted hidden md:table-cell">
+              <th className="p-3 text-right font-theme-data text-xs text-text-muted hidden md:table-cell">
                 WINS
               </th>
-              <th className="p-3 text-right font-mono text-xs text-text-muted hidden md:table-cell">
+              <th className="p-3 text-right font-theme-data text-xs text-text-muted hidden md:table-cell">
                 LOSSES
               </th>
-              <th className="p-3 text-right font-mono text-xs text-text-muted">
+              <th className="p-3 text-right font-theme-data text-xs text-text-muted">
                 WIN RATE
               </th>
-              <th className="p-3 text-right font-mono text-xs text-text-muted hidden lg:table-cell">
+              <th className="p-3 text-right font-theme-data text-xs text-text-muted hidden lg:table-cell">
                 DEBATES
               </th>
             </tr>
@@ -714,11 +714,11 @@ function AgentsTab({
                   key={agent.agent_id ?? agent.name}
                   className="hover:bg-surface/30 transition-colors"
                 >
-                  <td className="p-3 font-mono text-sm text-text-muted">
+                  <td className="p-3 font-theme-data text-sm text-text-muted">
                     {idx + 1}
                   </td>
                   <td className="p-3">
-                    <div className="font-mono text-sm text-acid-green">
+                    <div className="font-theme-data text-sm text-[var(--accent)]">
                       {agent.name}
                     </div>
                     {agent.domains && agent.domains.length > 0 && (
@@ -726,7 +726,7 @@ function AgentsTab({
                         {agent.domains.slice(0, 3).map((d) => (
                           <span
                             key={d}
-                            className="text-[10px] font-mono px-1 py-0.5 bg-acid-green/10 text-text-muted rounded"
+                            className="text-[10px] font-theme-data px-1 py-0.5 bg-[var(--accent)]/10 text-text-muted rounded"
                           >
                             {d}
                           </span>
@@ -734,19 +734,19 @@ function AgentsTab({
                       </div>
                     )}
                   </td>
-                  <td className="p-3 text-right font-mono text-sm text-acid-cyan">
+                  <td className="p-3 text-right font-theme-data text-sm text-[var(--acid-cyan)]">
                     {Math.round(agent.elo)}
                   </td>
-                  <td className="p-3 text-right font-mono text-sm text-text hidden md:table-cell">
+                  <td className="p-3 text-right font-theme-data text-sm text-text hidden md:table-cell">
                     {agent.wins ?? '-'}
                   </td>
-                  <td className="p-3 text-right font-mono text-sm text-text hidden md:table-cell">
+                  <td className="p-3 text-right font-theme-data text-sm text-text hidden md:table-cell">
                     {agent.losses ?? '-'}
                   </td>
-                  <td className="p-3 text-right font-mono text-sm text-text">
+                  <td className="p-3 text-right font-theme-data text-sm text-text">
                     {winRate}
                   </td>
-                  <td className="p-3 text-right font-mono text-sm text-text-muted hidden lg:table-cell">
+                  <td className="p-3 text-right font-theme-data text-sm text-text-muted hidden lg:table-cell">
                     {agent.debates_participated ?? '-'}
                   </td>
                 </tr>
@@ -759,7 +759,7 @@ function AgentsTab({
       <div className="text-right">
         <Link
           href="/leaderboard"
-          className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+          className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
         >
           View full leaderboard {'\u2192'}
         </Link>
@@ -785,10 +785,10 @@ export default function DecisionIntegrityPage() {
         <div className="container mx-auto px-4 py-6">
           {/* Title */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} DECISION INTEGRITY WORKBENCH
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Unified view across debates, consensus, compliance, audit trails,
               receipts, and agent performance.
             </p>
@@ -800,10 +800,10 @@ export default function DecisionIntegrityPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === tab.id
-                    ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                    : 'border-acid-green/30 text-text-muted hover:text-text hover:border-acid-green/50'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'border-[var(--accent)]/30 text-text-muted hover:text-text hover:border-[var(--accent)]/50'
                 }`}
               >
                 [{tab.label}]
@@ -858,8 +858,8 @@ export default function DecisionIntegrityPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
@@ -868,37 +868,37 @@ export default function DecisionIntegrityPage() {
           <div className="flex justify-center gap-4 mt-2">
             <Link
               href="/debates"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Debates
             </Link>
             <Link
               href="/consensus"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Consensus
             </Link>
             <Link
               href="/compliance"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Compliance
             </Link>
             <Link
               href="/audit"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Audit
             </Link>
             <Link
               href="/receipts"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Receipts
             </Link>
             <Link
               href="/leaderboard"
-              className="text-text-muted/60 hover:text-acid-green transition-colors"
+              className="text-text-muted/60 hover:text-[var(--accent)] transition-colors"
             >
               Leaderboard
             </Link>

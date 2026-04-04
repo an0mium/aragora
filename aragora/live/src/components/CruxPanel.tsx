@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 const BeliefNetworkGraph = dynamic(() => import('./BeliefNetworkGraph'), {
   ssr: false,
   loading: () => (
-    <div className="p-4 text-center text-text-muted text-sm font-mono">
+    <div className="p-4 text-center text-text-muted text-sm font-theme-data">
       Loading graph...
     </div>
   ),
@@ -202,7 +202,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
   };
 
   const getCentralityColor = (centrality: number): string => {
-    if (centrality >= 0.3) return 'text-acid-cyan';
+    if (centrality >= 0.3) return 'text-[var(--acid-cyan)]';
     if (centrality >= 0.1) return 'text-text';
     return 'text-text-muted';
   };
@@ -210,8 +210,8 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text font-mono">Belief Network Analysis</h3>
-        <span className="text-xs text-text-muted font-mono">[CRUXES]</span>
+        <h3 className="text-lg font-semibold text-text font-theme-data">Belief Network Analysis</h3>
+        <span className="text-xs text-text-muted font-theme-data">[CRUXES]</span>
       </div>
 
       {/* Debate ID Input */}
@@ -222,12 +222,12 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
             value={debateId}
             onChange={(e) => setDebateId(e.target.value)}
             placeholder="Enter debate ID..."
-            className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+            className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
           />
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 disabled:bg-text-muted transition-colors"
+            className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 disabled:bg-text-muted transition-colors"
           >
             {loading ? '...' : 'ANALYZE'}
           </button>
@@ -235,7 +235,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       </form>
 
       {error && (
-        <div className="mb-4 p-2 bg-warning/10 border border-warning/30 rounded text-sm text-warning font-mono">
+        <div className="mb-4 p-2 bg-warning/10 border border-warning/30 rounded text-sm text-warning font-theme-data">
           {error}
         </div>
       )}
@@ -245,9 +245,9 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
         <div className="flex flex-wrap gap-1 bg-bg border border-border rounded p-1 mb-4">
           <button
             onClick={() => setActiveTab('cruxes')}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-theme-data transition-colors ${
               activeTab === 'cruxes'
-                ? 'bg-acid-green text-bg font-medium'
+                ? 'bg-[var(--accent)] text-bg font-medium'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -255,9 +255,9 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           </button>
           <button
             onClick={() => setActiveTab('load-bearing')}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-theme-data transition-colors ${
               activeTab === 'load-bearing'
-                ? 'bg-acid-green text-bg font-medium'
+                ? 'bg-[var(--accent)] text-bg font-medium'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -265,9 +265,9 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           </button>
           <button
             onClick={() => setActiveTab('contested')}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-theme-data transition-colors ${
               activeTab === 'contested'
-                ? 'bg-acid-green text-bg font-medium'
+                ? 'bg-[var(--accent)] text-bg font-medium'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -275,9 +275,9 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           </button>
           <button
             onClick={() => setActiveTab('graph')}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-theme-data transition-colors ${
               activeTab === 'graph'
-                ? 'bg-acid-green text-bg font-medium'
+                ? 'bg-[var(--accent)] text-bg font-medium'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -285,9 +285,9 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           </button>
           <button
             onClick={() => setActiveTab('stats')}
-            className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-theme-data transition-colors ${
               activeTab === 'stats'
-                ? 'bg-acid-green text-bg font-medium'
+                ? 'bg-[var(--accent)] text-bg font-medium'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -300,7 +300,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       {activeTab === 'cruxes' && (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {cruxes.length === 0 && !loading && !error && (
-            <div className="text-center text-text-muted py-4 font-mono text-sm">
+            <div className="text-center text-text-muted py-4 font-theme-data text-sm">
               Enter a debate ID to analyze belief network cruxes.
             </div>
           )}
@@ -308,13 +308,13 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           {cruxes.map((crux, index) => (
             <div
               key={crux.claim_id}
-              className="p-3 bg-bg border border-border rounded-lg hover:border-acid-cyan/50 transition-colors"
+              className="p-3 bg-bg border border-border rounded-lg hover:border-[var(--acid-cyan)]/50 transition-colors"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="px-2 py-0.5 text-xs bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/30 rounded font-mono">
+                <span className="px-2 py-0.5 text-xs bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 rounded font-theme-data">
                   CRUX #{index + 1}
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   score: {crux.crux_score.toFixed(3)}
                 </span>
               </div>
@@ -323,7 +323,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
                 {crux.statement}
               </p>
 
-              <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex items-center gap-4 text-xs font-theme-data">
                 <span className="text-text-muted">
                   by: <span className="text-text">{crux.author}</span>
                 </span>
@@ -336,7 +336,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               </div>
 
               {crux.current_belief && (
-                <div className="mt-2 flex gap-2 text-xs font-mono">
+                <div className="mt-2 flex gap-2 text-xs font-theme-data">
                   <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
                     T: {(crux.current_belief.true_prob * 100).toFixed(0)}%
                   </span>
@@ -357,7 +357,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       {activeTab === 'load-bearing' && (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {loadBearingClaims.length === 0 && !loading && !error && (
-            <div className="text-center text-text-muted py-4 font-mono text-sm">
+            <div className="text-center text-text-muted py-4 font-theme-data text-sm">
               No load-bearing claims found for this debate.
             </div>
           )}
@@ -365,13 +365,13 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           {loadBearingClaims.map((claim, index) => (
             <div
               key={claim.claim_id}
-              className="p-3 bg-bg border border-border rounded-lg hover:border-acid-green/50 transition-colors"
+              className="p-3 bg-bg border border-border rounded-lg hover:border-[var(--accent)]/50 transition-colors"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="px-2 py-0.5 text-xs bg-acid-green/20 text-acid-green border border-acid-green/30 rounded font-mono">
+                <span className="px-2 py-0.5 text-xs bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 rounded font-theme-data">
                   #{index + 1} STRUCTURAL
                 </span>
-                <span className={`text-xs font-mono ${getCentralityColor(claim.centrality)}`}>
+                <span className={`text-xs font-theme-data ${getCentralityColor(claim.centrality)}`}>
                   centrality: {(claim.centrality * 100).toFixed(1)}%
                 </span>
               </div>
@@ -380,7 +380,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
                 {claim.statement}
               </p>
 
-              <div className="text-xs font-mono text-text-muted">
+              <div className="text-xs font-theme-data text-text-muted">
                 by: <span className="text-text">{claim.author}</span>
               </div>
             </div>
@@ -392,7 +392,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       {activeTab === 'contested' && (
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {contestedClaims.length === 0 && !loading && !error && (
-            <div className="text-center text-text-muted py-4 font-mono text-sm">
+            <div className="text-center text-text-muted py-4 font-theme-data text-sm">
               No contested claims found. These are claims with high disagreement between agents.
             </div>
           )}
@@ -403,10 +403,10 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               className="p-3 bg-bg border border-border rounded-lg hover:border-red-500/50 transition-colors"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded font-mono">
+                <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded font-theme-data">
                   #{index + 1} CONTESTED
                 </span>
-                <span className="text-xs font-mono text-red-400">
+                <span className="text-xs font-theme-data text-red-400">
                   disagreement: {(claim.disagreement_score * 100).toFixed(0)}%
                 </span>
               </div>
@@ -415,7 +415,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
                 {claim.statement}
               </p>
 
-              <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex items-center gap-4 text-xs font-theme-data">
                 <span className="text-text-muted">
                   by: <span className="text-text">{claim.author}</span>
                 </span>
@@ -425,7 +425,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               </div>
 
               {claim.current_belief && (
-                <div className="mt-2 flex gap-2 text-xs font-mono">
+                <div className="mt-2 flex gap-2 text-xs font-theme-data">
                   <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
                     T: {(claim.current_belief.true_prob * 100).toFixed(0)}%
                   </span>
@@ -448,7 +448,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
           {debateId ? (
             <BeliefNetworkGraph debateId={debateId} apiBase={apiBase} />
           ) : (
-            <div className="text-center text-text-muted py-8 font-mono text-sm">
+            <div className="text-center text-text-muted py-8 font-theme-data text-sm">
               Enter a debate ID and click ANALYZE to view the belief network graph.
             </div>
           )}
@@ -459,7 +459,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       {activeTab === 'stats' && (
         <div className="space-y-4">
           {!graphStats && !loading && (
-            <div className="text-center text-text-muted py-4 font-mono text-sm">
+            <div className="text-center text-text-muted py-4 font-theme-data text-sm">
               Enter a debate ID and click ANALYZE to view graph statistics.
             </div>
           )}
@@ -469,30 +469,30 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               {/* Overview */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="p-3 bg-bg border border-border rounded">
-                  <div className="text-xs text-text-muted font-mono uppercase mb-1">Nodes</div>
-                  <div className="text-xl font-mono text-acid-green">{graphStats.total_nodes}</div>
+                  <div className="text-xs text-text-muted font-theme-data uppercase mb-1">Nodes</div>
+                  <div className="text-xl font-theme-data text-[var(--accent)]">{graphStats.total_nodes}</div>
                 </div>
                 <div className="p-3 bg-bg border border-border rounded">
-                  <div className="text-xs text-text-muted font-mono uppercase mb-1">Edges</div>
-                  <div className="text-xl font-mono text-acid-cyan">{graphStats.total_edges}</div>
+                  <div className="text-xs text-text-muted font-theme-data uppercase mb-1">Edges</div>
+                  <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{graphStats.total_edges}</div>
                 </div>
                 <div className="p-3 bg-bg border border-border rounded">
-                  <div className="text-xs text-text-muted font-mono uppercase mb-1">Density</div>
-                  <div className="text-xl font-mono text-yellow-400">{(graphStats.density * 100).toFixed(1)}%</div>
+                  <div className="text-xs text-text-muted font-theme-data uppercase mb-1">Density</div>
+                  <div className="text-xl font-theme-data text-yellow-400">{(graphStats.density * 100).toFixed(1)}%</div>
                 </div>
                 <div className="p-3 bg-bg border border-border rounded">
-                  <div className="text-xs text-text-muted font-mono uppercase mb-1">Avg Degree</div>
-                  <div className="text-xl font-mono text-text">{graphStats.avg_degree.toFixed(1)}</div>
+                  <div className="text-xs text-text-muted font-theme-data uppercase mb-1">Avg Degree</div>
+                  <div className="text-xl font-theme-data text-text">{graphStats.avg_degree.toFixed(1)}</div>
                 </div>
               </div>
 
               {/* Agent Stats */}
               {graphStats.agent_stats && Object.keys(graphStats.agent_stats).length > 0 && (
                 <div className="p-3 bg-bg border border-border rounded">
-                  <h4 className="text-xs font-mono text-text-muted uppercase mb-3">Agent Participation</h4>
+                  <h4 className="text-xs font-theme-data text-text-muted uppercase mb-3">Agent Participation</h4>
                   <div className="space-y-2">
                     {Object.entries(graphStats.agent_stats).map(([agent, stats]) => (
-                      <div key={agent} className="flex items-center justify-between text-sm font-mono">
+                      <div key={agent} className="flex items-center justify-between text-sm font-theme-data">
                         <span className="text-text">{agent}</span>
                         <div className="flex gap-4 text-text-muted text-xs">
                           <span>{stats.messages} msgs</span>
@@ -508,10 +508,10 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               {/* Round Stats */}
               {graphStats.round_stats && Object.keys(graphStats.round_stats).length > 0 && (
                 <div className="p-3 bg-bg border border-border rounded">
-                  <h4 className="text-xs font-mono text-text-muted uppercase mb-3">Round Activity</h4>
+                  <h4 className="text-xs font-theme-data text-text-muted uppercase mb-3">Round Activity</h4>
                   <div className="flex gap-2 flex-wrap">
                     {Object.entries(graphStats.round_stats).map(([round, stats]) => (
-                      <div key={round} className="px-3 py-2 bg-surface border border-border rounded text-xs font-mono">
+                      <div key={round} className="px-3 py-2 bg-surface border border-border rounded text-xs font-theme-data">
                         <div className="text-text-muted">Round {round}</div>
                         <div className="text-text">{stats.messages} msgs / {stats.critiques} crit</div>
                       </div>
@@ -528,41 +528,41 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       {debateId && (cruxes.length > 0 || loadBearingClaims.length > 0) && (
         <div className="mt-4 p-3 bg-bg border border-border rounded-lg">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-text-muted uppercase">Export Network</span>
+            <span className="text-xs font-theme-data text-text-muted uppercase">Export Network</span>
             <div className="flex gap-2">
               <button
                 onClick={() => handleExport('json')}
                 disabled={exporting}
-                className="px-3 py-1 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green/50 transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50"
               >
                 JSON
               </button>
               <button
                 onClick={() => handleExport('graphml')}
                 disabled={exporting}
-                className="px-3 py-1 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green/50 transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50"
               >
                 GraphML
               </button>
               <button
                 onClick={() => handleExport('csv')}
                 disabled={exporting}
-                className="px-3 py-1 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green/50 transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50"
               >
                 CSV
               </button>
             </div>
           </div>
           {exporting && (
-            <div className="mt-2 text-xs font-mono text-acid-green animate-pulse">Exporting...</div>
+            <div className="mt-2 text-xs font-theme-data text-[var(--accent)] animate-pulse">Exporting...</div>
           )}
         </div>
       )}
 
       {/* Help text */}
-      <div className="mt-4 text-xs text-text-muted font-mono border-t border-border pt-3">
-        <p><span className="text-acid-cyan">Cruxes:</span> Claims with high uncertainty and high centrality - resolving these would most impact the debate outcome.</p>
-        <p className="mt-1"><span className="text-acid-green">Load-bearing:</span> Claims that many other claims depend on - foundational to the argument structure.</p>
+      <div className="mt-4 text-xs text-text-muted font-theme-data border-t border-border pt-3">
+        <p><span className="text-[var(--acid-cyan)]">Cruxes:</span> Claims with high uncertainty and high centrality - resolving these would most impact the debate outcome.</p>
+        <p className="mt-1"><span className="text-[var(--accent)]">Load-bearing:</span> Claims that many other claims depend on - foundational to the argument structure.</p>
         <p className="mt-1"><span className="text-red-400">Contested:</span> Claims with high disagreement between agents - areas of active debate.</p>
       </div>
     </div>

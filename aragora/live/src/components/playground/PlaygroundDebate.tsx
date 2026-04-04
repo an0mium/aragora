@@ -283,8 +283,8 @@ function Cursor({ visible }: { visible: boolean }) {
 function PhaseLabel({ label, active }: { label: string; active: boolean }) {
   return (
     <div className={`flex items-center gap-2 mb-4 ${active ? 'opacity-100' : 'opacity-40'} transition-opacity duration-500`}>
-      <span className="text-xs font-mono text-[var(--acid-green)]">{'>>'}</span>
-      <span className="text-sm font-mono font-bold text-[var(--acid-green)] uppercase tracking-wider">
+      <span className="text-xs font-theme-data text-[var(--acid-green)]">{'>>'}</span>
+      <span className="text-sm font-theme-data font-bold text-[var(--acid-green)] uppercase tracking-wider">
         {label}
       </span>
       {active && (
@@ -310,14 +310,14 @@ function AgentProposal({
           className="w-2 h-2 rounded-full"
           style={{ backgroundColor: agent.color }}
         />
-        <span className="text-xs font-mono font-bold" style={{ color: agent.color }}>
+        <span className="text-xs font-theme-data font-bold" style={{ color: agent.color }}>
           {agent.name}
         </span>
-        <span className="text-xs font-mono text-[var(--text-muted)]">
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">
           [{agent.role}]
         </span>
       </div>
-      <p className="text-xs font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+      <p className="text-xs font-theme-data text-[var(--text)] leading-relaxed whitespace-pre-wrap">
         {text}
         <Cursor visible={typing && text.length > 0 && text.length < agent.proposal.length} />
       </p>
@@ -520,10 +520,10 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
             <span className="w-3 h-3 rounded-full border border-[var(--acid-green)]/40" />
             <span className="w-3 h-3 rounded-full border border-[var(--acid-green)]/40" />
           </div>
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             aragora://playground{isLive ? '/live' : '/demo'}
           </span>
-          <span className="text-xs font-mono text-[var(--acid-green)]">
+          <span className="text-xs font-theme-data text-[var(--acid-green)]">
             {isLive ? 'LIVE' : 'DEMO'}
           </span>
         </div>
@@ -533,10 +533,10 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
           {!started && !loading && (
             <div className="py-6 space-y-5">
               <div className="text-center space-y-1">
-                <p className="text-sm font-mono text-[var(--text-muted)]">
+                <p className="text-sm font-theme-data text-[var(--text-muted)]">
                   {'>'} Watch AI agents debate any decision with adversarial rigor
                 </p>
-                <p className="text-xs font-mono text-[var(--text-muted)]/60">
+                <p className="text-xs font-theme-data text-[var(--text-muted)]/60">
                   Enter your question below, or pick an example — or leave blank for a demo
                 </p>
               </div>
@@ -547,7 +547,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                   <button
                     key={t}
                     onClick={() => setCustomTopic(t)}
-                    className="text-left px-3 py-2 text-xs font-mono border border-[var(--acid-cyan)]/20
+                    className="text-left px-3 py-2 text-xs font-theme-data border border-[var(--acid-cyan)]/20
                                text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     {t}
@@ -566,17 +566,17 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                     }
                   }}
                   placeholder="Or type your own question..."
-                  className="w-full px-4 py-3 font-mono text-xs bg-[var(--bg)] border border-[var(--acid-green)]/30 text-[var(--text)] placeholder:text-[var(--text-muted)]/40 focus:border-[var(--acid-green)] focus:outline-none resize-none"
+                  className="w-full px-4 py-3 font-theme-data text-xs bg-[var(--bg)] border border-[var(--acid-green)]/30 text-[var(--text)] placeholder:text-[var(--text-muted)]/40 focus:border-[var(--acid-green)] focus:outline-none resize-none"
                   rows={2}
                   maxLength={500}
                 />
                 {error && (
-                  <p className="text-xs font-mono text-[var(--crimson,#ef4444)]">{error}</p>
+                  <p className="text-xs font-theme-data text-[var(--crimson,#ef4444)]">{error}</p>
                 )}
                 <button
                   onClick={startDebate}
                   disabled={loading}
-                  className="w-full py-3 font-mono text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50"
+                  className="w-full py-3 font-theme-data text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50"
                 >
                   {customTopic.trim() ? 'RUN DEBATE' : 'START DEMO'}
                 </button>
@@ -598,13 +598,13 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                         animationDelay: `${i * 200}ms`,
                       }}
                     />
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]/60 text-center hidden sm:block">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]/60 text-center hidden sm:block">
                       {name}
                     </span>
                   </div>
                 ))}
               </div>
-              <p className="text-xs font-mono text-center text-[var(--text-muted)]">
+              <p className="text-xs font-theme-data text-center text-[var(--text-muted)]">
                 Running live debate with 3 AI agents...
               </p>
               <div className="h-1 bg-[var(--acid-green)]/10 overflow-hidden max-w-xs mx-auto">
@@ -613,7 +613,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                   style={{ width: '40%', animation: 'loading-bar 2s ease-in-out infinite' }}
                 />
               </div>
-              <p className="text-[10px] font-mono text-center text-[var(--text-muted)]/40">
+              <p className="text-[10px] font-theme-data text-center text-[var(--text-muted)]/40">
                 Usually 15-30 seconds
               </p>
             </div>
@@ -622,11 +622,11 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
           {/* Topic */}
           {started && phaseIdx >= 0 && (
             <div className="border-l-2 border-[var(--acid-green)] pl-4">
-              <span className="text-xs font-mono text-[var(--text-muted)]">TOPIC</span>
-              <p className="text-sm font-mono text-[var(--text)] mt-1 font-bold">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">TOPIC</span>
+              <p className="text-sm font-theme-data text-[var(--text)] mt-1 font-bold">
                 {topic}
               </p>
-              <div className="flex items-center gap-3 mt-2 text-xs font-mono text-[var(--text-muted)]">
+              <div className="flex items-center gap-3 mt-2 text-xs font-theme-data text-[var(--text-muted)]">
                 <span>{agents.length} agents</span>
                 <span>|</span>
                 <span>2 rounds</span>
@@ -665,7 +665,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                     key={i}
                     className="border-l-2 border-[var(--border)] pl-3 mb-3 animate-in fade-in duration-300"
                   >
-                    <div className="text-xs font-mono mb-1">
+                    <div className="text-xs font-theme-data mb-1">
                       <span style={{ color: critique.fromColor }}>{critique.from}</span>
                       <span className="text-[var(--text-muted)]">{' -> '}</span>
                       <span className="text-[var(--text-muted)]">{critique.to}</span>
@@ -673,7 +673,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                         severity {critique.severity}/10
                       </span>
                     </div>
-                    <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                    <p className="text-xs font-theme-data text-[var(--text-muted)] leading-relaxed">
                       {critique.text}
                     </p>
                   </div>
@@ -690,7 +690,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                 {votes.map((vote, i) => {
                   if (voteIndex < i) return null;
                   return (
-                    <div key={i} className="flex items-center gap-2 text-xs font-mono">
+                    <div key={i} className="flex items-center gap-2 text-xs font-theme-data">
                       <span style={{ color: vote.color }}>{vote.agent}</span>
                       <span className="text-[var(--text-muted)]">voted for</span>
                       <span className="text-[var(--acid-green)] font-bold">{vote.choice}</span>
@@ -710,11 +710,11 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
               <PhaseLabel label="Decision Receipt" active={phase === 'receipt'} />
               <div className="border border-[var(--acid-green)]/30 bg-[var(--bg)] p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="px-3 py-1 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+                  <span className="px-3 py-1 text-sm font-theme-data font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
                     {receipt.verdict}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-[var(--text-muted)]">CONFIDENCE</span>
+                    <span className="text-xs font-theme-data text-[var(--text-muted)]">CONFIDENCE</span>
                     <div className="w-32 h-2.5 bg-[var(--bg)] border border-[var(--border)] overflow-hidden rounded-sm">
                       <div
                         className="h-full transition-all duration-1000 rounded-sm"
@@ -729,7 +729,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                       />
                     </div>
                     <span
-                      className="text-xs font-mono font-bold"
+                      className="text-xs font-theme-data font-bold"
                       style={{
                         color: receipt.confidence >= 0.8
                           ? 'var(--acid-green)'
@@ -743,7 +743,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                   <div>
                     <span className="text-[var(--text-muted)]">Receipt ID: </span>
                     <span className="text-[var(--acid-cyan)]">{receipt.receipt_id}</span>
@@ -778,7 +778,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                       background: 'color-mix(in srgb, var(--acid-green) 5%, transparent)',
                     }}
                   >
-                    <p className="text-xs font-mono text-[var(--text)] leading-relaxed">
+                    <p className="text-xs font-theme-data text-[var(--text)] leading-relaxed">
                       <span className="text-[var(--acid-green)] font-bold">Verdict: </span>
                       {finalAnswer}
                     </p>
@@ -795,7 +795,7 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                           .writeText(url)
                           .catch(() => {});
                       }}
-                      className="w-full py-2 text-xs font-mono font-bold border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
+                      className="w-full py-2 text-xs font-theme-data font-bold border border-[var(--acid-green)] text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
                     >
                       SHARE THIS DEBATE
                     </button>
@@ -806,14 +806,14 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
                           .writeText(`${window.location.origin}/playground`)
                           .catch(() => {});
                       }}
-                      className="w-full py-2 text-xs font-mono font-bold border border-[var(--acid-green)]/50 text-[var(--acid-green)]/70 hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
+                      className="w-full py-2 text-xs font-theme-data font-bold border border-[var(--acid-green)]/50 text-[var(--acid-green)]/70 hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
                     >
                       SHARE ARAGORA PLAYGROUND
                     </button>
                   )}
                   <button
                     onClick={handleReset}
-                    className="w-full py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+                    className="w-full py-2 text-xs font-theme-data border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
                   >
                     TRY ANOTHER QUESTION
                   </button>

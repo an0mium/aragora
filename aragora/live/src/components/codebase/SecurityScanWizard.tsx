@@ -275,7 +275,7 @@ export function SecurityScanWizard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-mono text-[var(--acid-green)]">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
             {'>'} SECURITY SCAN
           </h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -285,7 +285,7 @@ export function SecurityScanWizard() {
         {step !== 'configure' && (
           <button
             onClick={resetWizard}
-            className="px-4 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-4 py-2 text-sm font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
           >
             New Scan
           </button>
@@ -302,7 +302,7 @@ export function SecurityScanWizard() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-mono">
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-theme-data">
           {error}
         </div>
       )}
@@ -341,7 +341,7 @@ function StepIndicator({ step, active, completed, label }: StepIndicatorProps) {
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-sm border transition-colors ${
+        className={`w-8 h-8 rounded-full flex items-center justify-center font-theme-data text-sm border transition-colors ${
           active
             ? 'bg-[var(--acid-green)] text-[var(--bg)] border-[var(--acid-green)]'
             : completed
@@ -351,7 +351,7 @@ function StepIndicator({ step, active, completed, label }: StepIndicatorProps) {
       >
         {completed ? '✓' : step}
       </div>
-      <span className={`text-xs font-mono ${active ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+      <span className={`text-xs font-theme-data ${active ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
         {label}
       </span>
     </div>
@@ -369,7 +369,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
     <div className="space-y-6">
       {/* Scan Type Selection */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} SELECT SCAN TYPE
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -384,7 +384,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
               }`}
             >
               <div className="text-2xl mb-2">{type.icon}</div>
-              <div className="font-mono text-sm text-[var(--text)]">{type.name}</div>
+              <div className="font-theme-data text-sm text-[var(--text)]">{type.name}</div>
               <div className="text-xs text-[var(--text-muted)] mt-1">{type.description}</div>
             </button>
           ))}
@@ -393,7 +393,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
 
       {/* Repository Path */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} REPOSITORY PATH
         </h3>
         <input
@@ -401,7 +401,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
           value={config.repoPath}
           onChange={(e) => onChange({ ...config, repoPath: e.target.value })}
           placeholder="/path/to/repository"
-          className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+          className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
         />
         <p className="text-xs text-[var(--text-muted)] mt-2">
           Enter the absolute path to your repository or leave as default
@@ -411,7 +411,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
       {/* Advanced Options */}
       {config.scanType === 'secrets' && (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-          <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
             {'>'} SECRETS SCAN OPTIONS
           </h3>
           <div className="space-y-3">
@@ -433,7 +433,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
                   onChange={(e) => onChange({ ...config, historyDepth: parseInt(e.target.value) || 100 })}
                   min={10}
                   max={1000}
-                  className="w-24 px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)]"
+                  className="w-24 px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)]"
                 />
               </div>
             )}
@@ -445,7 +445,7 @@ function ConfigureStep({ config, onChange, onStart }: ConfigureStepProps) {
       <div className="flex justify-end">
         <button
           onClick={onStart}
-          className="px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-mono text-sm rounded hover:bg-[var(--acid-green)]/80 transition-colors flex items-center gap-2"
+          className="px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data text-sm rounded hover:bg-[var(--acid-green)]/80 transition-colors flex items-center gap-2"
         >
           <span>Start Scan</span>
           <span>→</span>

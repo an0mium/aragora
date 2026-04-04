@@ -27,8 +27,8 @@ const USE_CASES: UseCase[] = [
     subtitle: 'For Auditors & Compliance Officers',
     description: 'Stress-test decisions with full audit trails. Every debate produces verifiable receipts for regulatory review.',
     icon: '[]',
-    color: 'text-acid-cyan',
-    borderColor: 'border-acid-cyan/30',
+    color: 'text-[var(--acid-cyan)]',
+    borderColor: 'border-[var(--acid-cyan)]/30',
     features: [
       { name: 'Audit Sessions', path: '/audit', description: 'Structured audit workflows' },
       { name: 'Evidence Library', path: '/evidence', description: 'Sourced citations and proof' },
@@ -59,8 +59,8 @@ const USE_CASES: UseCase[] = [
     subtitle: 'For Researchers & Analysts',
     description: 'Multi-model consensus on complex questions. Extract insights from diverse AI perspectives.',
     icon: '<>',
-    color: 'text-acid-green',
-    borderColor: 'border-acid-green/30',
+    color: 'text-[var(--accent)]',
+    borderColor: 'border-[var(--accent)]/30',
     features: [
       { name: 'Debates', path: '/debate', description: 'AI models debate your question' },
       { name: 'Knowledge Mound', path: '/knowledge', description: 'Accumulated insights' },
@@ -108,25 +108,25 @@ function UseCaseCard({ useCase, isExpanded, onToggle }: UseCaseCardProps) {
       >
         <div className="flex items-start gap-3">
           {/* Icon */}
-          <div className={`font-mono text-lg ${useCase.color} opacity-60`}>
+          <div className={`font-theme-data text-lg ${useCase.color} opacity-60`}>
             {useCase.icon}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h3 className={`font-mono text-xs font-bold ${useCase.color} tracking-wider`}>
+            <h3 className={`font-theme-data text-xs font-bold ${useCase.color} tracking-wider`}>
               {useCase.title}
             </h3>
-            <p className="text-[10px] font-mono text-text-muted/70 mt-0.5">
+            <p className="text-[10px] font-theme-data text-text-muted/70 mt-0.5">
               {useCase.subtitle}
             </p>
-            <p className="text-[10px] font-mono text-text-muted/50 mt-2 leading-relaxed">
+            <p className="text-[10px] font-theme-data text-text-muted/50 mt-2 leading-relaxed">
               {useCase.description}
             </p>
           </div>
 
           {/* Expand indicator */}
-          <span className={`text-[10px] font-mono ${useCase.color} opacity-50 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+          <span className={`text-[10px] font-theme-data ${useCase.color} opacity-50 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
             {'>'}
           </span>
         </div>
@@ -139,7 +139,7 @@ function UseCaseCard({ useCase, isExpanded, onToggle }: UseCaseCardProps) {
           ${isExpanded ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'}
         `}
       >
-        <div className="px-4 pb-4 space-y-1 border-t border-acid-green/10 pt-3">
+        <div className="px-4 pb-4 space-y-1 border-t border-[var(--accent)]/10 pt-3">
           {useCase.features.map((feature) => (
             <Link
               key={feature.path}
@@ -147,14 +147,14 @@ function UseCaseCard({ useCase, isExpanded, onToggle }: UseCaseCardProps) {
               className="flex items-center justify-between p-2 hover:bg-surface/50 transition-colors group/link rounded"
             >
               <div>
-                <span className={`font-mono text-[10px] ${useCase.color} group-hover/link:text-acid-green transition-colors`}>
+                <span className={`font-theme-data text-[10px] ${useCase.color} group-hover/link:text-[var(--accent)] transition-colors`}>
                   {feature.name}
                 </span>
-                <p className="text-[9px] font-mono text-text-muted/40 mt-0.5">
+                <p className="text-[9px] font-theme-data text-text-muted/40 mt-0.5">
                   {feature.description}
                 </p>
               </div>
-              <span className="text-[10px] font-mono text-text-muted/30 group-hover/link:text-acid-green transition-colors">
+              <span className="text-[10px] font-theme-data text-text-muted/30 group-hover/link:text-[var(--accent)] transition-colors">
                 {'>'}
               </span>
             </Link>
@@ -172,10 +172,10 @@ export function UseCaseCards() {
     <section className="py-8">
       {/* Section Header */}
       <div className="text-center mb-6">
-        <h2 className="text-acid-green/80 font-mono text-xs tracking-widest mb-2">
+        <h2 className="text-[var(--accent)]/80 font-theme-data text-xs tracking-widest mb-2">
           WHO IS ARAGORA FOR?
         </h2>
-        <p className="text-text-muted/50 font-mono text-[10px]">
+        <p className="text-text-muted/50 font-theme-data text-[10px]">
           Click to explore features for your role
         </p>
       </div>

@@ -65,7 +65,7 @@ export function KPICard({
       className={`bg-[var(--surface)] border ${colors.border} p-4 hover:shadow-lg ${colors.glow} transition-all duration-200`}
     >
       <div className="flex items-start justify-between mb-3">
-        <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
           {title}
         </span>
         {icon && (
@@ -80,18 +80,18 @@ export function KPICard({
         </div>
       ) : (
         <>
-          <div className={`text-2xl font-mono font-bold ${colors.text} mb-1`}>
+          <div className={`text-2xl font-theme-data font-bold ${colors.text} mb-1`}>
             {value}
           </div>
 
           {subtitle && (
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               {subtitle}
             </div>
           )}
 
           {change && (
-            <div className="flex items-center gap-1 mt-2 text-xs font-mono">
+            <div className="flex items-center gap-1 mt-2 text-xs font-theme-data">
               <span
                 className={
                   change.direction === 'up'
@@ -149,8 +149,8 @@ export function KPIMiniCard({
 
   return (
     <div className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
-      <span className="text-xs font-mono text-[var(--text-muted)]">{label}</span>
-      <span className={`text-sm font-mono font-bold ${colors.text}`}>{value}</span>
+      <span className="text-xs font-theme-data text-[var(--text-muted)]">{label}</span>
+      <span className={`text-sm font-theme-data font-bold ${colors.text}`}>{value}</span>
     </div>
   );
 }

@@ -46,10 +46,10 @@ export const GoalNode = memo(function GoalNode({ data, selected }: GoalNodeProps
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-emerald-500/30 text-emerald-200">
           {config.icon}
         </span>
-        <span className="px-1.5 py-0.5 text-xs bg-emerald-500/30 text-emerald-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-emerald-500/30 text-emerald-200 rounded font-theme-data uppercase">
           {config.label}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${priorityClass}`}>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${priorityClass}`}>
           {priority}
         </span>
       </div>
@@ -82,7 +82,7 @@ export const GoalNode = memo(function GoalNode({ data, selected }: GoalNodeProps
               style={{ width: `${Math.round(confidence * 100)}%` }}
             />
           </div>
-          <span className="text-xs text-emerald-300 font-mono">
+          <span className="text-xs text-emerald-300 font-theme-data">
             {Math.round(confidence * 100)}%
           </span>
         </div>

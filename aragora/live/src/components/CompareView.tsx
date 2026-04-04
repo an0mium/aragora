@@ -209,7 +209,7 @@ function ComparisonPane({ agents, selectedAgent, onSelectAgent, agentData, posit
                 </span>
               )}
               {agentData.confidence !== undefined && (
-                <span className={`text-xs font-mono ${
+                <span className={`text-xs font-theme-data ${
                   agentData.confidence >= 0.8 ? 'text-green-400' :
                   agentData.confidence >= 0.6 ? 'text-yellow-400' : 'text-red-400'
                 }`}>

@@ -131,12 +131,12 @@ export function StageTransitionGate({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-          <span className="text-xs font-mono font-bold text-text uppercase">
+          <span className="text-xs font-theme-data font-bold text-text uppercase">
             {transition.from_stage} &rarr; {transition.to_stage}
           </span>
         </div>
         <span
-          className={`px-2 py-1 rounded-full border text-[10px] font-mono uppercase tracking-wide ${statusMeta.className}`}
+          className={`px-2 py-1 rounded-full border text-[10px] font-theme-data uppercase tracking-wide ${statusMeta.className}`}
           data-testid={`transition-status-${transition.id}`}
         >
           {statusMeta.label}
@@ -145,7 +145,7 @@ export function StageTransitionGate({
 
       {focusLabel && (
         <p
-          className="text-xs font-mono text-text-muted mb-2"
+          className="text-xs font-theme-data text-text-muted mb-2"
           data-testid={`transition-focus-${transition.id}`}
         >
           {focusLabel}
@@ -153,14 +153,14 @@ export function StageTransitionGate({
       )}
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs text-text-muted font-mono">Confidence</span>
+        <span className="text-xs text-text-muted font-theme-data">Confidence</span>
         <div className="w-24 h-1 bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-emerald-400 rounded-full"
             style={{ width: `${confidencePct}%` }}
           />
         </div>
-        <span className="text-xs text-text font-mono">{confidencePct}%</span>
+        <span className="text-xs text-text font-theme-data">{confidencePct}%</span>
       </div>
 
       {transition.ai_rationale && (
@@ -172,10 +172,10 @@ export function StageTransitionGate({
           className="mb-2 rounded border border-border bg-bg/60 p-2"
           data-testid={`transition-provenance-${transition.id}`}
         >
-          <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
+          <p className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted mb-1">
             Provenance
           </p>
-          <p className="text-xs text-text-muted font-mono">
+          <p className="text-xs text-text-muted font-theme-data">
             {provenanceSummary.sourceCount} source{provenanceSummary.sourceCount === 1 ? '' : 's'} {'->'}{' '}
             {provenanceSummary.targetCount} draft{provenanceSummary.targetCount === 1 ? '' : 's'}
           </p>
@@ -197,7 +197,7 @@ export function StageTransitionGate({
           className="mb-2 rounded border border-border bg-bg/60 p-2"
           data-testid={`transition-questions-${transition.id}`}
         >
-          <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
+          <p className="text-[11px] font-theme-data uppercase tracking-wide text-text-muted mb-1">
             Clarify Before Promotion
           </p>
           <ul className="space-y-1 text-xs text-text-muted">
@@ -218,7 +218,7 @@ export function StageTransitionGate({
         {canReview && onApprove && (
           <button
             onClick={handleApprove}
-            className="flex-1 px-2 py-1 bg-emerald-600 text-white text-xs font-mono rounded hover:bg-emerald-500 transition-colors"
+            className="flex-1 px-2 py-1 bg-emerald-600 text-white text-xs font-theme-data rounded hover:bg-emerald-500 transition-colors"
             data-testid={`transition-approve-${transition.id}`}
           >
             Approve
@@ -227,7 +227,7 @@ export function StageTransitionGate({
         {canReview && onReject && (
           <button
             onClick={handleReject}
-            className="flex-1 px-2 py-1 bg-red-600 text-white text-xs font-mono rounded hover:bg-red-500 transition-colors"
+            className="flex-1 px-2 py-1 bg-red-600 text-white text-xs font-theme-data rounded hover:bg-red-500 transition-colors"
             data-testid={`transition-reject-${transition.id}`}
           >
             Reject
@@ -237,7 +237,7 @@ export function StageTransitionGate({
 
       {!canReview && reviewedLabel && (
         <p
-          className="mt-2 text-[11px] font-mono text-text-muted"
+          className="mt-2 text-[11px] font-theme-data text-text-muted"
           data-testid={`transition-reviewed-${transition.id}`}
         >
           Reviewed {reviewedLabel}

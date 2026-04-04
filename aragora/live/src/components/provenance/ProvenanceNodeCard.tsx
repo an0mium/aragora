@@ -87,7 +87,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
       type="button"
       onClick={() => onClick?.(node)}
       className={`
-        w-full text-left p-3 font-mono
+        w-full text-left p-3 font-theme-data
         border ${styles.border} ${styles.bg}
         hover:brightness-125 transition-all cursor-pointer
         focus:outline-none focus:ring-2 focus:ring-[var(--acid-green)]/50
@@ -106,7 +106,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
           {node.type}
         </span>
         {node.status && (
-          <span className={`text-[9px] font-mono uppercase ${statusColor}`}>
+          <span className={`text-[9px] font-theme-data uppercase ${statusColor}`}>
             {node.status}
           </span>
         )}
@@ -123,7 +123,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
       {/* Hash */}
       {node.hash && (
         <div
-          className="text-[9px] text-[var(--text-muted)] font-mono truncate"
+          className="text-[9px] text-[var(--text-muted)] font-theme-data truncate"
           title={`SHA-256: ${node.hash}`}
           data-testid="provenance-node-hash"
         >
@@ -133,7 +133,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
 
       {/* Timestamp */}
       {node.timestamp && (
-        <div className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">
+        <div className="text-[9px] text-[var(--text-muted)] font-theme-data mt-0.5">
           {new Date(node.timestamp).toLocaleString()}
         </div>
       )}

@@ -73,10 +73,10 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-mono text-acid-green mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           What brings you to Aragora?
         </h2>
-        <p className="font-mono text-text-muted text-sm">
+        <p className="font-theme-data text-text-muted text-sm">
           We&apos;ll personalize your experience based on your primary use case
         </p>
       </div>
@@ -88,8 +88,8 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
             onClick={() => handleSelect(useCase.id)}
             className={`p-4 text-left border transition-colors ${
               selected === useCase.id
-                ? 'border-acid-green bg-acid-green/10'
-                : 'border-acid-green/20 hover:border-acid-green/50 bg-surface'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/50 bg-surface'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -98,10 +98,10 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
                 dangerouslySetInnerHTML={{ __html: useCase.icon }}
               />
               <div>
-                <div className="font-mono text-sm text-acid-green">
+                <div className="font-theme-data text-sm text-[var(--accent)]">
                   {useCase.label}
                 </div>
-                <div className="font-mono text-xs text-text-muted mt-1">
+                <div className="font-theme-data text-xs text-text-muted mt-1">
                   {useCase.description}
                 </div>
               </div>
@@ -113,7 +113,7 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
       <div className="flex gap-3 pt-4">
         <button
           onClick={onBack}
-          className="px-4 py-2 font-mono text-sm border border-acid-green/30 text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+          className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
         >
           Back
         </button>
@@ -121,10 +121,10 @@ export function UseCaseStep({ onNext, onBack }: UseCaseStepProps) {
         <button
           onClick={handleNext}
           disabled={!selected}
-          className={`px-6 py-2 font-mono text-sm transition-colors ${
+          className={`px-6 py-2 font-theme-data text-sm transition-colors ${
             selected
-              ? 'bg-acid-green text-bg hover:bg-acid-green/80'
-              : 'bg-surface text-text-muted border border-acid-green/20 cursor-not-allowed'
+              ? 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80'
+              : 'bg-surface text-text-muted border border-[var(--accent)]/20 cursor-not-allowed'
           }`}
         >
           Continue

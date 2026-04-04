@@ -175,7 +175,7 @@ export function YouTubeInput({
               w-full px-3 py-2 rounded-lg border bg-surface text-text
               placeholder:text-text-muted
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface
-              ${state === 'error' ? 'border-crimson focus:ring-crimson' : 'border-border focus:ring-accent'}
+              ${state === 'error' ? 'border-[var(--crimson)] focus:ring-crimson' : 'border-border focus:ring-accent'}
               ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
             aria-label="YouTube video URL"
@@ -239,7 +239,7 @@ export function YouTubeInput({
 
       {/* Error message */}
       {error && (
-        <div className="bg-crimson/10 border border-crimson/30 rounded p-2 text-sm text-crimson">
+        <div className="bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-2 text-sm text-[var(--crimson)]">
           {error}
         </div>
       )}
@@ -285,7 +285,7 @@ export function YouTubeInput({
             <div className="text-xs text-text-muted mt-1">
               Duration: {formatDuration(videoInfo.duration)}
               {videoInfo.duration > maxDurationSeconds && (
-                <span className="text-crimson ml-2">(exceeds {formatDuration(maxDurationSeconds)} limit)</span>
+                <span className="text-[var(--crimson)] ml-2">(exceeds {formatDuration(maxDurationSeconds)} limit)</span>
               )}
             </div>
           </div>
@@ -298,7 +298,7 @@ export function YouTubeInput({
               setVideoInfo(null);
               setError(null);
             }}
-            className="p-3 text-text-muted hover:text-crimson transition-colors flex-shrink-0"
+            className="p-3 text-text-muted hover:text-[var(--crimson)] transition-colors flex-shrink-0"
             aria-label="Clear URL"
           >
             <svg

@@ -43,7 +43,7 @@ export function TeamAccessPanel({
   const getRoleColor = (role: WorkspaceMember['role']) => {
     switch (role) {
       case 'owner':
-        return 'bg-acid-green/20 text-acid-green';
+        return 'bg-[var(--accent)]/20 text-[var(--accent)]';
       case 'admin':
         return 'bg-cyan-400/20 text-cyan-400';
       case 'member':
@@ -120,14 +120,14 @@ export function TeamAccessPanel({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h4 className="font-mono font-bold text-text">Team Members</h4>
+          <h4 className="font-theme-data font-bold text-text">Team Members</h4>
           <p className="text-xs text-text-muted mt-1">
             {workspace.members.length} members in this workspace
           </p>
         </div>
         <button
           onClick={() => setShowInviteModal(true)}
-          className="px-3 py-1.5 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+          className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
         >
           + INVITE
         </button>
@@ -141,17 +141,17 @@ export function TeamAccessPanel({
             className="p-4 bg-bg border border-border rounded-lg flex items-center gap-4"
           >
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center font-mono font-bold text-acid-green">
+            <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center font-theme-data font-bold text-[var(--accent)]">
               {member.name.charAt(0).toUpperCase()}
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-text truncate">
+                <span className="font-theme-data font-bold text-text truncate">
                   {member.name}
                 </span>
-                <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${getRoleColor(member.role)}`}>
+                <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${getRoleColor(member.role)}`}>
                   {member.role}
                 </span>
               </div>
@@ -163,7 +163,7 @@ export function TeamAccessPanel({
             {/* Last Active */}
             <div className="text-right text-xs">
               <div className="text-text-muted">Last active</div>
-              <div className="font-mono text-text">
+              <div className="font-theme-data text-text">
                 {formatLastActive(member.lastActive)}
               </div>
             </div>
@@ -174,7 +174,7 @@ export function TeamAccessPanel({
                 <select
                   value={member.role}
                   onChange={(e) => onRoleChange?.(member.id, e.target.value as WorkspaceMember['role'])}
-                  className="px-2 py-1 text-xs font-mono bg-surface border border-border rounded focus:outline-none focus:border-acid-green"
+                  className="px-2 py-1 text-xs font-theme-data bg-surface border border-border rounded focus:outline-none focus:border-[var(--accent)]"
                 >
                   {ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -198,9 +198,9 @@ export function TeamAccessPanel({
       {/* Pending Invites */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-mono font-bold text-text">Pending Invites</h4>
+          <h4 className="font-theme-data font-bold text-text">Pending Invites</h4>
           {invites.length > 0 && (
-            <span className="px-2 py-0.5 text-xs font-mono bg-yellow-500/20 text-yellow-400 rounded">
+            <span className="px-2 py-0.5 text-xs font-theme-data bg-yellow-500/20 text-yellow-400 rounded">
               {invites.length} pending
             </span>
           )}
@@ -229,10 +229,10 @@ export function TeamAccessPanel({
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-text truncate">
+                    <span className="font-theme-data text-text truncate">
                       {invite.email}
                     </span>
-                    <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${getRoleColor(invite.role)}`}>
+                    <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${getRoleColor(invite.role)}`}>
                       {invite.role}
                     </span>
                   </div>
@@ -245,7 +245,7 @@ export function TeamAccessPanel({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleResendInvite(invite)}
-                    className="px-2 py-1 text-xs font-mono text-cyan-400 hover:bg-cyan-400/10 border border-cyan-400/30 rounded transition-colors"
+                    className="px-2 py-1 text-xs font-theme-data text-cyan-400 hover:bg-cyan-400/10 border border-cyan-400/30 rounded transition-colors"
                     title="Resend invite"
                   >
                     RESEND
@@ -266,7 +266,7 @@ export function TeamAccessPanel({
 
       {/* Role Permissions Legend */}
       <div className="mt-6 p-4 bg-bg border border-border rounded-lg">
-        <h4 className="font-mono text-xs text-text-muted mb-3">ROLE PERMISSIONS</h4>
+        <h4 className="font-theme-data text-xs text-text-muted mb-3">ROLE PERMISSIONS</h4>
         <div className="space-y-2">
           {[
             { role: 'owner', perms: ['Full access', 'Delete workspace', 'Transfer ownership'] },
@@ -275,7 +275,7 @@ export function TeamAccessPanel({
             { role: 'viewer', perms: ['View content', 'View analytics'] },
           ].map(({ role, perms }) => (
             <div key={role} className="flex items-start gap-3">
-              <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${getRoleColor(role as WorkspaceMember['role'])}`}>
+              <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${getRoleColor(role as WorkspaceMember['role'])}`}>
                 {role}
               </span>
               <span className="text-xs text-text-muted">
@@ -290,7 +290,7 @@ export function TeamAccessPanel({
       {showInviteModal && (
         <div className="fixed inset-0 bg-bg/80 flex items-center justify-center z-50">
           <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md">
-            <h3 className="font-mono font-bold text-acid-green mb-4">INVITE MEMBER</h3>
+            <h3 className="font-theme-data font-bold text-[var(--accent)] mb-4">INVITE MEMBER</h3>
             <form onSubmit={handleInvite}>
               <div className="space-y-4">
                 {inviteError && (
@@ -299,7 +299,7 @@ export function TeamAccessPanel({
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">
                     EMAIL ADDRESS
                   </label>
                   <input
@@ -308,12 +308,12 @@ export function TeamAccessPanel({
                     onChange={(e) => setInviteEmail(e.target.value)}
                     required
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green disabled:opacity-50"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
                     placeholder="colleague@company.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">
                     ROLE
                   </label>
                   <div className="space-y-2">
@@ -322,7 +322,7 @@ export function TeamAccessPanel({
                         key={option.value}
                         className={`
                           flex items-start gap-3 p-3 bg-bg border rounded-lg cursor-pointer transition-all
-                          ${inviteRole === option.value ? 'border-acid-green' : 'border-border hover:border-text-muted'}
+                          ${inviteRole === option.value ? 'border-[var(--accent)]' : 'border-border hover:border-text-muted'}
                           ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
                         `}
                       >
@@ -336,7 +336,7 @@ export function TeamAccessPanel({
                           className="mt-0.5"
                         />
                         <div>
-                          <div className="font-mono text-sm text-text">{option.label}</div>
+                          <div className="font-theme-data text-sm text-text">{option.label}</div>
                           <div className="text-xs text-text-muted">{option.description}</div>
                         </div>
                       </label>
@@ -352,14 +352,14 @@ export function TeamAccessPanel({
                     setInviteError(null);
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 text-xs font-mono border border-border rounded hover:border-text-muted transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-xs font-theme-data border border-border rounded hover:border-text-muted transition-colors disabled:opacity-50"
                 >
                   CANCEL
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? 'SENDING...' : 'SEND INVITE'}
                 </button>

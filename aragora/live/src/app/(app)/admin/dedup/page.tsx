@@ -83,15 +83,15 @@ const matchTypeLabel = (sim: number) => {
 };
 
 const matchTypeColor = (sim: number) => {
-  if (sim >= 1.0) return 'text-crimson';
-  if (sim >= 0.95) return 'text-acid-yellow';
-  return 'text-acid-cyan';
+  if (sim >= 1.0) return 'text-[var(--crimson)]';
+  if (sim >= 0.95) return 'text-[var(--acid-yellow)]';
+  return 'text-[var(--acid-cyan)]';
 };
 
 const actionColor = (action: string) => {
   switch (action) {
-    case 'merge': return 'text-acid-green';
-    case 'review': return 'text-acid-yellow';
+    case 'merge': return 'text-[var(--accent)]';
+    case 'review': return 'text-[var(--acid-yellow)]';
     case 'keep_separate': return 'text-text-muted';
     default: return 'text-text-muted';
   }
@@ -172,13 +172,13 @@ export default function DedupExplorerPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/admin" className="text-xs font-mono text-text-muted hover:text-acid-green">
+              <Link href="/admin" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]">
                 [ADMIN]
               </Link>
               <BackendSelector compact />
@@ -192,13 +192,13 @@ export default function DedupExplorerPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-xs font-mono text-text-muted mb-1">
-                  <Link href="/admin" className="hover:text-acid-green">Admin</Link>
+                <div className="text-xs font-theme-data text-text-muted mb-1">
+                  <Link href="/admin" className="hover:text-[var(--accent)]">Admin</Link>
                   <span className="mx-2">/</span>
-                  <span className="text-acid-green">Deduplication Explorer</span>
+                  <span className="text-[var(--accent)]">Deduplication Explorer</span>
                 </div>
-                <h1 className="text-2xl font-mono text-acid-green">Deduplication Explorer</h1>
-                <p className="text-text-muted font-mono text-sm mt-1">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)]">Deduplication Explorer</h1>
+                <p className="text-text-muted font-theme-data text-sm mt-1">
                   Cross-system duplicate detection: SHA-256 exact match and Jaccard near-duplicate analysis
                 </p>
               </div>
@@ -206,21 +206,21 @@ export default function DedupExplorerPage() {
                 <button
                   onClick={() => handleAutoMerge(true)}
                   disabled={autoMergeRunning}
-                  className="px-3 py-1.5 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono text-xs rounded hover:bg-acid-cyan/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-theme-data text-xs rounded hover:bg-[var(--acid-cyan)]/30 disabled:opacity-50"
                 >
                   {autoMergeRunning ? 'Running...' : 'Dry Run Auto-Merge'}
                 </button>
                 <button
                   onClick={() => handleAutoMerge(false)}
                   disabled={autoMergeRunning}
-                  className="px-3 py-1.5 bg-crimson/20 border border-crimson text-crimson font-mono text-xs rounded hover:bg-crimson/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--crimson)]/20 border border-[var(--crimson)] text-[var(--crimson)] font-theme-data text-xs rounded hover:bg-[var(--crimson)]/30 disabled:opacity-50"
                 >
                   Execute Auto-Merge
                 </button>
                 <button
                   onClick={loadData}
                   disabled={isLoading}
-                  className="px-3 py-1.5 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-xs rounded hover:bg-acid-green/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-xs rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                 >
                   {isLoading ? 'Scanning...' : 'Rescan'}
                 </button>
@@ -229,67 +229,67 @@ export default function DedupExplorerPage() {
 
             {/* Error / demo notice */}
             {(error || usingDemo) && (
-              <div className="mb-4 p-3 bg-crimson/20 border border-crimson/30 rounded text-crimson font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--crimson)]/20 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] font-theme-data text-sm">
                 {error || 'Backend unavailable'}
                 <span className="ml-2 text-text-muted">(showing demo data)</span>
               </div>
             )}
 
             {autoMergeResult && (
-              <div className="mb-4 p-3 bg-acid-green/20 border border-acid-green/30 rounded text-acid-green font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded text-[var(--accent)] font-theme-data text-sm">
                 {autoMergeResult}
               </div>
             )}
 
             {initialLoad && isLoading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Scanning for duplicates...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Scanning for duplicates...</div>
               </div>
             ) : (
               <>
                 {/* Stats Overview */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">ENTRIES SCANNED</div>
-                    <div className="text-2xl font-mono text-acid-green">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">ENTRIES SCANNED</div>
+                    <div className="text-2xl font-theme-data text-[var(--accent)]">
                       {displayReport.total_nodes_analyzed.toLocaleString()}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">EXACT DUPLICATES</div>
-                    <div className="text-2xl font-mono text-crimson">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">EXACT DUPLICATES</div>
+                    <div className="text-2xl font-theme-data text-[var(--crimson)]">
                       {exactCount}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">SHA-256 match</div>
+                    <div className="text-xs font-theme-data text-text-muted">SHA-256 match</div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">NEAR-DUPLICATES</div>
-                    <div className="text-2xl font-mono text-acid-yellow">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">NEAR-DUPLICATES</div>
+                    <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">
                       {nearCount}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">Jaccard similarity</div>
+                    <div className="text-xs font-theme-data text-text-muted">Jaccard similarity</div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">TOTAL DUPLICATE NODES</div>
-                    <div className="text-2xl font-mono text-acid-cyan">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">TOTAL DUPLICATE NODES</div>
+                    <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                       {totalDupes}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">SPACE SAVINGS</div>
-                    <div className="text-2xl font-mono text-purple-400">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">SPACE SAVINGS</div>
+                    <div className="text-2xl font-theme-data text-purple-400">
                       {displayReport.estimated_reduction_percent.toFixed(1)}%
                     </div>
-                    <div className="text-xs font-mono text-text-muted">estimated</div>
+                    <div className="text-xs font-theme-data text-text-muted">estimated</div>
                   </div>
                 </div>
 
                 {/* Configuration */}
                 <div className="card p-4 mb-6">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">Configuration</h3>
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Configuration</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-mono text-text-muted mb-1">
+                      <label className="block text-xs font-theme-data text-text-muted mb-1">
                         Jaccard Similarity Threshold
                       </label>
                       <div className="flex items-center gap-2">
@@ -302,21 +302,21 @@ export default function DedupExplorerPage() {
                           onChange={(e) => setThreshold(parseFloat(e.target.value))}
                           className="flex-1 accent-acid-green"
                         />
-                        <span className="font-mono text-sm text-acid-green w-12 text-right">
+                        <span className="font-theme-data text-sm text-[var(--accent)] w-12 text-right">
                           {threshold.toFixed(2)}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-end">
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">Exact Match Algorithm</div>
-                        <div className="font-mono text-sm text-acid-cyan">SHA-256 Content Hash</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">Exact Match Algorithm</div>
+                        <div className="font-theme-data text-sm text-[var(--acid-cyan)]">SHA-256 Content Hash</div>
                       </div>
                     </div>
                     <div className="flex items-end">
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">Near-Dup Algorithm</div>
-                        <div className="font-mono text-sm text-acid-cyan">Jaccard Shingling</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">Near-Dup Algorithm</div>
+                        <div className="font-theme-data text-sm text-[var(--acid-cyan)]">Jaccard Shingling</div>
                       </div>
                     </div>
                   </div>
@@ -324,11 +324,11 @@ export default function DedupExplorerPage() {
 
                 {/* Duplicate Clusters Table */}
                 <div className="card p-4">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
                     Duplicate Clusters ({displayClusters.length})
                   </h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm font-mono">
+                    <table className="w-full text-sm font-theme-data">
                       <thead>
                         <tr className="border-b border-border">
                           <th className="text-left py-2 pr-4 text-text-muted text-xs">CLUSTER</th>
@@ -359,7 +359,7 @@ export default function DedupExplorerPage() {
                               <td className="py-2 pr-4 text-center">
                                 {(cluster.avg_similarity * 100).toFixed(0)}%
                               </td>
-                              <td className="py-2 pr-4 text-center text-acid-cyan">
+                              <td className="py-2 pr-4 text-center text-[var(--acid-cyan)]">
                                 {cluster.duplicate_count}
                               </td>
                               <td className="py-2 pr-4 text-xs">
@@ -377,7 +377,7 @@ export default function DedupExplorerPage() {
                                   <button
                                     onClick={() => handleMerge(cluster.cluster_id, cluster.primary_node_id)}
                                     disabled={merging === cluster.cluster_id}
-                                    className="px-2 py-1 bg-acid-green/20 border border-acid-green/50 text-acid-green text-xs rounded hover:bg-acid-green/30 disabled:opacity-50"
+                                    className="px-2 py-1 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] text-xs rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                                   >
                                     {merging === cluster.cluster_id ? '...' : 'Merge'}
                                   </button>
@@ -399,7 +399,7 @@ export default function DedupExplorerPage() {
                 </div>
 
                 {/* Report metadata */}
-                <div className="mt-4 text-xs font-mono text-text-muted text-right">
+                <div className="mt-4 text-xs font-theme-data text-text-muted text-right">
                   Report generated: {displayReport.generated_at ? new Date(displayReport.generated_at).toLocaleString() : 'N/A'}
                   {' | '}Workspace: {displayReport.workspace_id}
                 </div>
@@ -409,8 +409,8 @@ export default function DedupExplorerPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // DEDUPLICATION EXPLORER</p>
         </footer>
       </main>

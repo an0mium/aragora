@@ -338,19 +338,19 @@ export default function TranscribePage() {
       {/* Header */}
       <header className="border-b border-border p-4">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-acid-green font-mono font-bold">
+          <Link href="/" className="text-[var(--accent)] font-theme-data font-bold">
             ARAGORA
           </Link>
           <div className="flex items-center gap-4">
             <Link
               href="/voice"
-              className="text-xs font-mono text-text-muted hover:text-text"
+              className="text-xs font-theme-data text-text-muted hover:text-text"
             >
               [VOICE INPUT]
             </Link>
             <Link
               href="/speech"
-              className="text-xs font-mono text-text-muted hover:text-text"
+              className="text-xs font-theme-data text-text-muted hover:text-text"
             >
               [TEXT-TO-SPEECH]
             </Link>
@@ -361,7 +361,7 @@ export default function TranscribePage() {
       {/* Offline Warning */}
       {isOffline && (
         <div className="bg-warning/20 border-b border-warning/30 px-4 py-2 text-center">
-          <span className="text-warning text-sm font-mono">
+          <span className="text-warning text-sm font-theme-data">
             Transcription requires internet connection
           </span>
         </div>
@@ -370,7 +370,7 @@ export default function TranscribePage() {
       {/* Config Error */}
       {config && !config.available && (
         <div className="bg-warning/20 border-b border-warning/30 px-4 py-2 text-center">
-          <span className="text-warning text-sm font-mono">
+          <span className="text-warning text-sm font-theme-data">
             {config.error || 'Transcription service not available'}
           </span>
         </div>
@@ -380,7 +380,7 @@ export default function TranscribePage() {
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-xl space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-mono font-bold text-text mb-2">
+            <h1 className="text-2xl font-theme-data font-bold text-text mb-2">
               Transcribe Audio & Video
             </h1>
             <p className="text-text-muted text-sm">
@@ -393,9 +393,9 @@ export default function TranscribePage() {
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => setInputMode('file')}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   inputMode === 'file'
-                    ? 'border-acid-green text-acid-green bg-acid-green/10'
+                    ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                     : 'border-border text-text-muted hover:border-text-muted'
                 }`}
               >
@@ -404,9 +404,9 @@ export default function TranscribePage() {
               <button
                 onClick={() => setInputMode('youtube')}
                 disabled={!config?.youtube_enabled}
-                className={`px-4 py-2 font-mono text-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   inputMode === 'youtube'
-                    ? 'border-acid-green text-acid-green bg-acid-green/10'
+                    ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                     : 'border-border text-text-muted hover:border-text-muted'
                 }`}
               >
@@ -419,11 +419,11 @@ export default function TranscribePage() {
           {state === 'idle' && !result && config?.backends && config.backends.length > 1 && (
             <div className="flex gap-4 justify-center">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-text-muted font-mono">Backend:</label>
+                <label className="text-xs text-text-muted font-theme-data">Backend:</label>
                 <select
                   value={selectedBackend}
                   onChange={(e) => setSelectedBackend(e.target.value)}
-                  className="bg-surface border border-border text-text text-sm font-mono px-2 py-1 rounded"
+                  className="bg-surface border border-border text-text text-sm font-theme-data px-2 py-1 rounded"
                 >
                   {config.backends.map((backend) => (
                     <option key={backend} value={backend}>
@@ -433,11 +433,11 @@ export default function TranscribePage() {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-text-muted font-mono">Language:</label>
+                <label className="text-xs text-text-muted font-theme-data">Language:</label>
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-surface border border-border text-text text-sm font-mono px-2 py-1 rounded"
+                  className="bg-surface border border-border text-text text-sm font-theme-data px-2 py-1 rounded"
                 >
                   <option value="">Auto-detect</option>
                   <option value="en">English</option>
@@ -469,8 +469,8 @@ export default function TranscribePage() {
                 p-8 border-2 border-dashed rounded-lg text-center cursor-pointer
                 transition-colors
                 ${isDragging
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-border hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-border hover:border-[var(--accent)]/50'
                 }
               `}
             >
@@ -514,9 +514,9 @@ export default function TranscribePage() {
           {/* File Selected - Preview */}
           {inputMode === 'file' && state === 'idle' && selectedFile && (
             <div className="space-y-4">
-              <div className="p-4 bg-surface border border-acid-green/30 rounded-lg">
+              <div className="p-4 bg-surface border border-[var(--accent)]/30 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded bg-acid-green/20 flex items-center justify-center text-lg">
+                  <div className="w-10 h-10 rounded bg-[var(--accent)]/20 flex items-center justify-center text-lg">
                     {selectedFile.type.startsWith('video/') ? '🎬' : '🎵'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -539,14 +539,14 @@ export default function TranscribePage() {
               <div className="flex gap-3">
                 <button
                   onClick={reset}
-                  className="flex-1 px-4 py-3 bg-surface border border-border text-text font-mono hover:border-text-muted transition-colors rounded"
+                  className="flex-1 px-4 py-3 bg-surface border border-border text-text font-theme-data hover:border-text-muted transition-colors rounded"
                 >
                   Change File
                 </button>
                 <button
                   onClick={transcribeFile}
                   disabled={isOffline || !config?.available}
-                  className="flex-1 px-4 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Transcribe
                 </button>
@@ -557,9 +557,9 @@ export default function TranscribePage() {
           {/* Processing State */}
           {(state === 'uploading' || state === 'processing') && (
             <div className="space-y-6 text-center">
-              <div className="w-16 h-16 mx-auto border-4 border-acid-green/30 border-t-acid-green rounded-full animate-spin" />
+              <div className="w-16 h-16 mx-auto border-4 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin" />
               <div>
-                <h2 className="text-xl font-mono font-bold text-acid-green">
+                <h2 className="text-xl font-theme-data font-bold text-[var(--accent)]">
                   {state === 'uploading' ? 'Uploading...' : 'Transcribing...'}
                 </h2>
                 <p className="text-text-muted text-sm mt-2">
@@ -568,7 +568,7 @@ export default function TranscribePage() {
               </div>
               <div className="w-full bg-surface rounded-full h-2">
                 <div
-                  className="bg-acid-green h-2 rounded-full transition-all duration-300"
+                  className="bg-[var(--accent)] h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -580,7 +580,7 @@ export default function TranscribePage() {
           {state === 'complete' && result && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-mono text-acid-green">Transcription Complete</h2>
+                <h2 className="text-lg font-theme-data text-[var(--accent)]">Transcription Complete</h2>
                 <div className="flex items-center gap-3 text-xs text-text-muted">
                   {result.duration && (
                     <span>{formatDuration(result.duration)}</span>
@@ -609,13 +609,13 @@ export default function TranscribePage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={copyToClipboard}
-                  className="flex-1 min-w-[100px] px-3 py-2 bg-surface border border-border text-text text-sm font-mono hover:border-acid-green/50 rounded"
+                  className="flex-1 min-w-[100px] px-3 py-2 bg-surface border border-border text-text text-sm font-theme-data hover:border-[var(--accent)]/50 rounded"
                 >
                   Copy Text
                 </button>
                 <button
                   onClick={() => downloadTranscript('txt')}
-                  className="px-3 py-2 bg-surface border border-border text-text text-sm font-mono hover:border-acid-green/50 rounded"
+                  className="px-3 py-2 bg-surface border border-border text-text text-sm font-theme-data hover:border-[var(--accent)]/50 rounded"
                 >
                   .txt
                 </button>
@@ -623,13 +623,13 @@ export default function TranscribePage() {
                   <>
                     <button
                       onClick={() => downloadTranscript('srt')}
-                      className="px-3 py-2 bg-surface border border-border text-text text-sm font-mono hover:border-acid-green/50 rounded"
+                      className="px-3 py-2 bg-surface border border-border text-text text-sm font-theme-data hover:border-[var(--accent)]/50 rounded"
                     >
                       .srt
                     </button>
                     <button
                       onClick={() => downloadTranscript('vtt')}
-                      className="px-3 py-2 bg-surface border border-border text-text text-sm font-mono hover:border-acid-green/50 rounded"
+                      className="px-3 py-2 bg-surface border border-border text-text text-sm font-theme-data hover:border-[var(--accent)]/50 rounded"
                     >
                       .vtt
                     </button>
@@ -639,7 +639,7 @@ export default function TranscribePage() {
 
               <button
                 onClick={reset}
-                className="w-full px-4 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                className="w-full px-4 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
               >
                 Transcribe Another
               </button>
@@ -655,7 +655,7 @@ export default function TranscribePage() {
               <p className="text-warning">{error}</p>
               <button
                 onClick={reset}
-                className="px-6 py-3 bg-surface border border-border text-text font-mono hover:border-text-muted rounded"
+                className="px-6 py-3 bg-surface border border-border text-text font-theme-data hover:border-text-muted rounded"
               >
                 Try Again
               </button>
@@ -666,13 +666,13 @@ export default function TranscribePage() {
 
       {/* Footer */}
       <footer className="border-t border-border p-4">
-        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
           <span>Powered by {config?.backends?.join(', ') || 'Whisper AI'}</span>
           <div className="flex gap-4">
-            <Link href="/voice" className="hover:text-acid-green">
+            <Link href="/voice" className="hover:text-[var(--accent)]">
               [VOICE INPUT]
             </Link>
-            <Link href="/speech" className="hover:text-acid-green">
+            <Link href="/speech" className="hover:text-[var(--accent)]">
               [TTS]
             </Link>
           </div>

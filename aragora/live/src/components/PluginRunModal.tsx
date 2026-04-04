@@ -102,15 +102,15 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
     >
       <div
         ref={modalRef}
-        className="w-full max-w-2xl mx-4 border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10"
+        className="w-full max-w-2xl mx-4 border border-[var(--accent)]/40 bg-surface shadow-2xl shadow-acid-green/10"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20 bg-bg/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--accent)]/20 bg-bg/50">
           <div>
-            <h2 id="plugin-modal-title" className="text-lg font-mono text-acid-green">
+            <h2 id="plugin-modal-title" className="text-lg font-theme-data text-[var(--accent)]">
               {'>'} RUN PLUGIN: {plugin.name}
             </h2>
-            <p className="text-xs font-mono text-text-muted mt-1">
+            <p className="text-xs font-theme-data text-text-muted mt-1">
               v{plugin.version} | {plugin.entry_point}
             </p>
           </div>
@@ -118,7 +118,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
             onClick={onClose}
             disabled={running}
             aria-label="Close modal"
-            className="text-text-muted hover:text-text transition-colors disabled:opacity-50 font-mono"
+            className="text-text-muted hover:text-text transition-colors disabled:opacity-50 font-theme-data"
           >
             [X]
           </button>
@@ -128,28 +128,28 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
         <div className="p-6 space-y-6">
           {/* Requirements Warning */}
           {requirementsNotMet && (
-            <div className="p-3 border border-acid-red/30 bg-acid-red/10 text-xs font-mono text-acid-red">
+            <div className="p-3 border border-acid-red/30 bg-acid-red/10 text-xs font-theme-data text-acid-red">
               <div className="font-bold mb-1">REQUIREMENTS NOT MET</div>
               <div>Missing: {plugin.missing_requirements?.join(', ')}</div>
             </div>
           )}
 
           {/* Plugin Info */}
-          <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-            <div className="p-3 border border-acid-green/20 bg-bg/30">
+          <div className="grid grid-cols-2 gap-4 text-xs font-theme-data">
+            <div className="p-3 border border-[var(--accent)]/20 bg-bg/30">
               <div className="text-text-muted mb-1">TIMEOUT</div>
-              <div className="text-acid-cyan">{plugin.timeout_seconds}s</div>
+              <div className="text-[var(--acid-cyan)]">{plugin.timeout_seconds}s</div>
             </div>
-            <div className="p-3 border border-acid-green/20 bg-bg/30">
+            <div className="p-3 border border-[var(--accent)]/20 bg-bg/30">
               <div className="text-text-muted mb-1">MAX MEMORY</div>
-              <div className="text-acid-cyan">{plugin.max_memory_mb}MB</div>
+              <div className="text-[var(--acid-cyan)]">{plugin.max_memory_mb}MB</div>
             </div>
           </div>
 
           {/* Input Form */}
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-2">
+              <label className="block text-xs font-theme-data text-text-muted mb-2">
                 TARGET PATH (optional)
               </label>
               <input
@@ -158,11 +158,11 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
                 onChange={(e) => setTargetPath(e.target.value)}
                 placeholder="/path/to/analyze"
                 disabled={running}
-                className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none disabled:opacity-50"
+                className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-2">
+              <label className="block text-xs font-theme-data text-text-muted mb-2">
                 INPUT DATA (optional)
               </label>
               <textarea
@@ -171,43 +171,43 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
                 placeholder="Additional input for the plugin..."
                 rows={3}
                 disabled={running}
-                className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none resize-none disabled:opacity-50"
+                className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Error Display */}
           {error && (
-            <div className="p-3 border border-acid-red/30 bg-acid-red/10 text-xs font-mono text-acid-red">
+            <div className="p-3 border border-acid-red/30 bg-acid-red/10 text-xs font-theme-data text-acid-red">
               {'>'} ERROR: {error}
             </div>
           )}
 
           {/* Result Display */}
           {result && (
-            <div className={`p-4 border ${result.success ? 'border-acid-green/30 bg-acid-green/5' : 'border-acid-red/30 bg-acid-red/5'}`}>
+            <div className={`p-4 border ${result.success ? 'border-[var(--accent)]/30 bg-[var(--accent)]/5' : 'border-acid-red/30 bg-acid-red/5'}`}>
               <div className="flex items-center justify-between mb-3">
-                <span className={`text-xs font-mono ${result.success ? 'text-acid-green' : 'text-acid-red'}`}>
+                <span className={`text-xs font-theme-data ${result.success ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
                   {result.success ? 'SUCCESS' : 'FAILED'}
                 </span>
                 {result.duration_ms !== undefined && (
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     {result.duration_ms}ms
                   </span>
                 )}
               </div>
               {result.output && (
-                <pre className="text-xs font-mono text-text bg-bg/50 p-3 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+                <pre className="text-xs font-theme-data text-text bg-bg/50 p-3 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
                   {result.output}
                 </pre>
               )}
               {result.error && (
-                <pre className="text-xs font-mono text-acid-red bg-bg/50 p-3 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+                <pre className="text-xs font-theme-data text-acid-red bg-bg/50 p-3 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
                   {result.error}
                 </pre>
               )}
               {result.exit_code !== undefined && result.exit_code !== 0 && (
-                <div className="mt-2 text-xs font-mono text-text-muted">
+                <div className="mt-2 text-xs font-theme-data text-text-muted">
                   Exit code: {result.exit_code}
                 </div>
               )}
@@ -216,16 +216,16 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-acid-green/20 bg-bg/30">
-          <div className="text-xs font-mono text-text-muted">
-            CLI: <code className="text-acid-cyan">aragora plugins run {plugin.name}</code>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--accent)]/20 bg-bg/30">
+          <div className="text-xs font-theme-data text-text-muted">
+            CLI: <code className="text-[var(--acid-cyan)]">aragora plugins run {plugin.name}</code>
           </div>
           <div className="flex gap-3">
             <button
               onClick={onClose}
               disabled={running}
               aria-label="Close plugin runner"
-              className="px-4 py-2 text-xs font-mono text-text-muted hover:text-text transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-xs font-theme-data text-text-muted hover:text-text transition-colors disabled:opacity-50"
             >
               [CLOSE]
             </button>
@@ -233,7 +233,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
               onClick={handleRun}
               disabled={running || requirementsNotMet}
               aria-busy={running}
-              className="px-4 py-2 text-xs font-mono bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {running ? 'RUNNING...' : 'RUN PLUGIN'}
             </button>

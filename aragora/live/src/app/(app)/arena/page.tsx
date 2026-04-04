@@ -77,10 +77,10 @@ function ArenaLoading() {
     <main className="min-h-[calc(100vh-120px)] bg-[var(--bg)] text-[var(--text)] relative z-10">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
+          <h1 className="text-2xl sm:text-3xl font-theme-data text-[var(--acid-green)] mb-3">
             {'>'} DEBATE ARENA
           </h1>
-          <p className="text-sm text-[var(--text-muted)] font-mono animate-pulse">
+          <p className="text-sm text-[var(--text-muted)] font-theme-data animate-pulse">
             Loading...
           </p>
         </div>
@@ -176,15 +176,15 @@ function ArenaContent() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Mode</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">Standard</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">Standard</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Agents</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">4-5</span>
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">4-5</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Rounds</span>
-            <span className="text-sm font-mono text-[var(--text)]">4-9</span>
+            <span className="text-sm font-theme-data text-[var(--text)]">4-9</span>
           </div>
         </div>
       ),
@@ -195,7 +195,7 @@ function ArenaContent() {
             <Link
               key={debate.id}
               href={`/debates/${debate.id}`}
-              className="block w-full px-2 py-1.5 text-xs font-mono text-left bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors truncate"
+              className="block w-full px-2 py-1.5 text-xs font-theme-data text-left bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors truncate"
             >
               {debate.question?.slice(0, 40) || debate.id.slice(0, 8)}...
             </Link>
@@ -216,21 +216,21 @@ function ArenaContent() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
+            <h1 className="text-2xl sm:text-3xl font-theme-data text-[var(--acid-green)] mb-3">
               {'>'} {displayName ? displayName.toUpperCase() : 'DEBATE ARENA'}
             </h1>
-            <p className="text-sm text-[var(--text-muted)] font-mono max-w-xl mx-auto">
+            <p className="text-sm text-[var(--text-muted)] font-theme-data max-w-xl mx-auto">
               {displayDescription
                 ?? 'Harness the collective intelligence of multiple AI models for better decisions. Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.'}
             </p>
             {displayName && (
               <div className="mt-3 flex items-center justify-center gap-4">
-                <span className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+                <span className="px-2 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
                   Using template: {displayName}
                 </span>
                 <Link
                   href="/arena"
-                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] underline"
+                  className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] underline"
                 >
                   Switch to standard arena
                 </Link>
@@ -241,7 +241,7 @@ function ArenaContent() {
           {/* Error Banner */}
           {error && (
             <div className="mb-6 bg-[var(--warning)]/10 border border-[var(--warning)]/30 p-4 flex items-center justify-between">
-              <span className="text-[var(--warning)] font-mono text-sm">{error}</span>
+              <span className="text-[var(--warning)] font-theme-data text-sm">{error}</span>
               <button
                 onClick={() => setError(null)}
                 className="text-[var(--warning)] hover:text-[var(--warning)]/80"
@@ -273,22 +273,22 @@ function ArenaContent() {
           {/* Quick Info */}
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-[var(--surface)]/50 border border-[var(--border)] p-4">
-              <div className="text-[var(--acid-green)] font-mono text-lg mb-2">01</div>
-              <h3 className="text-sm font-mono text-[var(--text)] mb-1">Enter Question</h3>
+              <div className="text-[var(--acid-green)] font-theme-data text-lg mb-2">01</div>
+              <h3 className="text-sm font-theme-data text-[var(--text)] mb-1">Enter Question</h3>
               <p className="text-xs text-[var(--text-muted)]">
                 Pose any question - philosophical, technical, or creative
               </p>
             </div>
             <div className="bg-[var(--surface)]/50 border border-[var(--border)] p-4">
-              <div className="text-[var(--acid-green)] font-mono text-lg mb-2">02</div>
-              <h3 className="text-sm font-mono text-[var(--text)] mb-1">AI Models Collaborate</h3>
+              <div className="text-[var(--acid-green)] font-theme-data text-lg mb-2">02</div>
+              <h3 className="text-sm font-theme-data text-[var(--text)] mb-1">AI Models Collaborate</h3>
               <p className="text-xs text-[var(--text-muted)]">
                 Watch as diverse AI models discuss, critique, and refine answers together
               </p>
             </div>
             <div className="bg-[var(--surface)]/50 border border-[var(--border)] p-4">
-              <div className="text-[var(--acid-green)] font-mono text-lg mb-2">03</div>
-              <h3 className="text-sm font-mono text-[var(--text)] mb-1">Consensus Emerges</h3>
+              <div className="text-[var(--acid-green)] font-theme-data text-lg mb-2">03</div>
+              <h3 className="text-sm font-theme-data text-[var(--text)] mb-1">Consensus Emerges</h3>
               <p className="text-xs text-[var(--text-muted)]">
                 Get a battle-tested answer with citations and confidence scores
               </p>

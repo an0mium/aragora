@@ -37,7 +37,7 @@ const PaletteItem = memo(function PaletteItem({ type, onDragStart }: PaletteItem
     >
       <div className="flex items-center gap-2 mb-1">
         <span className="text-lg">{config.icon}</span>
-        <span className="text-sm font-mono font-bold text-text">{config.label}</span>
+        <span className="text-sm font-theme-data font-bold text-text">{config.label}</span>
       </div>
       <p className="text-xs text-text-muted">{config.description}</p>
     </div>
@@ -49,7 +49,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
   return (
     <div className="h-full overflow-y-auto p-4 bg-surface border-r border-border">
       <div className="mb-4">
-        <h3 className="text-sm font-mono font-bold text-text-muted uppercase tracking-wide mb-1">
+        <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase tracking-wide mb-1">
           Node Palette
         </h3>
         <p className="text-xs text-text-muted">
@@ -60,7 +60,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
       <div className="space-y-3">
         {/* Core Nodes */}
         <div className="mb-4">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wide mb-2">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wide mb-2">
             Core
           </h4>
           <div className="space-y-2">
@@ -71,7 +71,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
 
         {/* Control Flow */}
         <div className="mb-4">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wide mb-2">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wide mb-2">
             Control Flow
           </h4>
           <div className="space-y-2">
@@ -83,7 +83,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
 
         {/* Human Interaction */}
         <div className="mb-4">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wide mb-2">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wide mb-2">
             Human Review
           </h4>
           <div className="space-y-2">
@@ -93,7 +93,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
 
         {/* Memory Operations */}
         <div className="mb-4">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wide mb-2">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wide mb-2">
             Memory
           </h4>
           <div className="space-y-2">
@@ -105,7 +105,7 @@ export function NodePalette({ onDragStart }: NodePaletteProps) {
 
       {/* Help text */}
       <div className="mt-6 p-3 bg-bg border border-border rounded-lg">
-        <h4 className="text-xs font-mono font-bold text-acid-green mb-2">
+        <h4 className="text-xs font-theme-data font-bold text-[var(--accent)] mb-2">
           Tips
         </h4>
         <ul className="text-xs text-text-muted space-y-1">

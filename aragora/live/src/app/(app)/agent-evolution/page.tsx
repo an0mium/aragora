@@ -105,7 +105,7 @@ function TimelinePanel({
 
   if (loading) {
     return (
-      <div className="p-6 text-xs font-mono text-[var(--text-muted)] animate-pulse">
+      <div className="p-6 text-xs font-theme-data text-[var(--text-muted)] animate-pulse">
         Loading timeline...
       </div>
     );
@@ -113,7 +113,7 @@ function TimelinePanel({
 
   if (events.length === 0) {
     return (
-      <div className="p-6 text-center text-xs font-mono text-[var(--text-muted)]">
+      <div className="p-6 text-center text-xs font-theme-data text-[var(--text-muted)]">
         No evolution events recorded yet.
       </div>
     );
@@ -130,30 +130,30 @@ function TimelinePanel({
           <div key={event.id} className="p-4">
             {/* Header row */}
             <div className="flex items-start gap-3">
-              <div className="text-[10px] font-mono text-[var(--text-muted)] w-14 shrink-0 pt-0.5">
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] w-14 shrink-0 pt-0.5">
                 {formatRelativeTime(event.timestamp)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className={`px-1.5 py-0 text-[10px] font-mono rounded ${style.bg} ${style.text}`}>
+                  <span className={`px-1.5 py-0 text-[10px] font-theme-data rounded ${style.bg} ${style.text}`}>
                     {style.label}
                   </span>
-                  <span className="text-xs font-mono text-[var(--acid-green)]">
+                  <span className="text-xs font-theme-data text-[var(--acid-green)]">
                     {event.agent_name}
                   </span>
                   {event.nomic_cycle_id && (
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       [{event.nomic_cycle_id}]
                     </span>
                   )}
                 </div>
-                <div className="text-xs font-mono text-[var(--text)] mb-1">
+                <div className="text-xs font-theme-data text-[var(--text)] mb-1">
                   {event.description}
                 </div>
 
                 {/* ELO change indicator */}
                 {(event.elo_before !== null || event.elo_after !== null) && (
-                  <div className="flex items-center gap-2 text-[10px] font-mono">
+                  <div className="flex items-center gap-2 text-[10px] font-theme-data">
                     <span className="text-[var(--text-muted)]">ELO:</span>
                     <span className="text-[var(--text)]">{event.elo_before ?? '?'}</span>
                     <span className="text-[var(--text-muted)]">&rarr;</span>
@@ -166,7 +166,7 @@ function TimelinePanel({
 
                 {/* Approval status */}
                 {event.approved !== null && (
-                  <div className="flex items-center gap-2 mt-1 text-[10px] font-mono">
+                  <div className="flex items-center gap-2 mt-1 text-[10px] font-theme-data">
                     <span className={event.approved ? 'text-green-400' : 'text-red-400'}>
                       {event.approved ? '[APPROVED]' : '[REJECTED]'}
                     </span>
@@ -180,7 +180,7 @@ function TimelinePanel({
                 {hasDiff && (
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : event.id)}
-                    className="mt-2 text-[10px] font-mono text-[var(--acid-green)] hover:text-cyan-400 transition-colors"
+                    className="mt-2 text-[10px] font-theme-data text-[var(--acid-green)] hover:text-cyan-400 transition-colors"
                   >
                     {isExpanded ? '[-] HIDE DIFF' : '[+] SHOW DIFF'}
                   </button>
@@ -191,14 +191,14 @@ function TimelinePanel({
                   <div className="mt-2 border border-[var(--border)] rounded overflow-hidden">
                     <div className="grid grid-cols-2 divide-x divide-[var(--border)]">
                       <div className="p-3">
-                        <div className="text-[10px] font-mono text-red-400 mb-1">--- BEFORE</div>
-                        <pre className="text-[10px] font-mono text-[var(--text-muted)] whitespace-pre-wrap break-words">
+                        <div className="text-[10px] font-theme-data text-red-400 mb-1">--- BEFORE</div>
+                        <pre className="text-[10px] font-theme-data text-[var(--text-muted)] whitespace-pre-wrap break-words">
                           {event.old_value}
                         </pre>
                       </div>
                       <div className="p-3">
-                        <div className="text-[10px] font-mono text-green-400 mb-1">+++ AFTER</div>
-                        <pre className="text-[10px] font-mono text-[var(--text)] whitespace-pre-wrap break-words">
+                        <div className="text-[10px] font-theme-data text-green-400 mb-1">+++ AFTER</div>
+                        <pre className="text-[10px] font-theme-data text-[var(--text)] whitespace-pre-wrap break-words">
                           {event.new_value}
                         </pre>
                       </div>
@@ -229,7 +229,7 @@ function EloTrendsPanel({
 }) {
   if (loading) {
     return (
-      <div className="p-6 text-xs font-mono text-[var(--text-muted)] animate-pulse">
+      <div className="p-6 text-xs font-theme-data text-[var(--text-muted)] animate-pulse">
         Loading ELO trends...
       </div>
     );
@@ -237,7 +237,7 @@ function EloTrendsPanel({
 
   if (agents.length === 0) {
     return (
-      <div className="p-6 text-center text-xs font-mono text-[var(--text-muted)]">
+      <div className="p-6 text-center text-xs font-theme-data text-[var(--text-muted)]">
         No ELO data available.
       </div>
     );
@@ -247,7 +247,7 @@ function EloTrendsPanel({
     <div className="space-y-6 p-4">
       {/* Summary table */}
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
             <tr className="border-b border-[var(--acid-green)]/30">
               <th className="text-left py-2 px-3 text-[var(--acid-green)]">Agent</th>
@@ -299,7 +299,7 @@ function EloTrendsPanel({
 
       {/* ASCII sparkline trend per agent */}
       <div className="space-y-3">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} TREND SPARKLINES ({period})</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} TREND SPARKLINES ({period})</h3>
         {agents.map((agent, agentIdx) => {
           const trend = agent.trend;
           if (trend.length === 0) return null;
@@ -317,13 +317,13 @@ function EloTrendsPanel({
 
           return (
             <div key={agent.agent_name} className="flex items-center gap-3">
-              <span className={`text-xs font-mono w-28 truncate ${ELO_COLORS[agentIdx % ELO_COLORS.length]}`}>
+              <span className={`text-xs font-theme-data w-28 truncate ${ELO_COLORS[agentIdx % ELO_COLORS.length]}`}>
                 {agent.agent_name}
               </span>
-              <span className="text-sm font-mono text-[var(--acid-green)] tracking-wider">
+              <span className="text-sm font-theme-data text-[var(--acid-green)] tracking-wider">
                 {sparkline}
               </span>
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 {min}-{max}
               </span>
             </div>
@@ -333,11 +333,11 @@ function EloTrendsPanel({
 
       {/* Detailed trend table */}
       <details className="border border-[var(--border)] rounded">
-        <summary className="p-3 cursor-pointer hover:bg-[var(--surface)] transition-colors text-xs font-mono text-[var(--text-muted)]">
+        <summary className="p-3 cursor-pointer hover:bg-[var(--surface)] transition-colors text-xs font-theme-data text-[var(--text-muted)]">
           [+] DETAILED ELO HISTORY
         </summary>
         <div className="p-3 border-t border-[var(--border)] max-h-64 overflow-y-auto">
-          <table className="w-full font-mono text-[10px]">
+          <table className="w-full font-theme-data text-[10px]">
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="text-left py-1 px-2 text-[var(--text-muted)]">Agent</th>
@@ -396,7 +396,7 @@ function PendingChangesPanel({
 
   if (loading) {
     return (
-      <div className="p-6 text-xs font-mono text-[var(--text-muted)] animate-pulse">
+      <div className="p-6 text-xs font-theme-data text-[var(--text-muted)] animate-pulse">
         Loading pending changes...
       </div>
     );
@@ -406,7 +406,7 @@ function PendingChangesPanel({
 
   if (pendingOnly.length === 0) {
     return (
-      <div className="p-6 text-center text-xs font-mono text-[var(--text-muted)]">
+      <div className="p-6 text-center text-xs font-theme-data text-[var(--text-muted)]">
         No pending changes. The Nomic Loop has nothing awaiting review.
       </div>
     );
@@ -442,26 +442,26 @@ function PendingChangesPanel({
             <div className="flex items-start justify-between gap-3 mb-2">
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className={`px-1.5 py-0 text-[10px] font-mono rounded ${style.bg} ${style.text}`}>
+                  <span className={`px-1.5 py-0 text-[10px] font-theme-data rounded ${style.bg} ${style.text}`}>
                     {style.label}
                   </span>
-                  <span className="text-xs font-mono text-[var(--acid-green)]">
+                  <span className="text-xs font-theme-data text-[var(--acid-green)]">
                     {change.agent_name}
                   </span>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     [{change.nomic_cycle_id}]
                   </span>
                 </div>
-                <div className="text-xs font-mono text-[var(--text)] mb-1">
+                <div className="text-xs font-theme-data text-[var(--text)] mb-1">
                   {change.description}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                   {change.diff_summary}
                 </div>
-                <div className="text-[10px] font-mono text-cyan-400/70 mt-1">
+                <div className="text-[10px] font-theme-data text-cyan-400/70 mt-1">
                   Impact: {change.impact_estimate}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5">
                   Proposed {formatRelativeTime(change.proposed_at)} by {change.proposed_by}
                 </div>
               </div>
@@ -472,14 +472,14 @@ function PendingChangesPanel({
                   <button
                     onClick={() => handleApprove(change.id)}
                     disabled={actionInFlight === change.id}
-                    className="px-3 py-1.5 text-[10px] font-mono text-green-400 bg-green-500/10 border border-green-500/30 rounded hover:bg-green-500/20 disabled:opacity-50 transition-colors"
+                    className="px-3 py-1.5 text-[10px] font-theme-data text-green-400 bg-green-500/10 border border-green-500/30 rounded hover:bg-green-500/20 disabled:opacity-50 transition-colors"
                   >
                     {actionInFlight === change.id ? '...' : 'APPROVE'}
                   </button>
                   <button
                     onClick={() => handleReject(change.id)}
                     disabled={actionInFlight === change.id}
-                    className="px-3 py-1.5 text-[10px] font-mono text-red-400 bg-red-500/10 border border-red-500/30 rounded hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+                    className="px-3 py-1.5 text-[10px] font-theme-data text-red-400 bg-red-500/10 border border-red-500/30 rounded hover:bg-red-500/20 disabled:opacity-50 transition-colors"
                   >
                     {actionInFlight === change.id ? '...' : 'REJECT'}
                   </button>
@@ -490,7 +490,7 @@ function PendingChangesPanel({
             {/* Diff toggle */}
             <button
               onClick={() => setExpandedId(isExpanded ? null : change.id)}
-              className="text-[10px] font-mono text-[var(--acid-green)] hover:text-cyan-400 transition-colors"
+              className="text-[10px] font-theme-data text-[var(--acid-green)] hover:text-cyan-400 transition-colors"
             >
               {isExpanded ? '[-] HIDE DIFF' : '[+] VIEW DIFF'}
             </button>
@@ -500,14 +500,14 @@ function PendingChangesPanel({
               <div className="mt-2 border border-[var(--border)] rounded overflow-hidden">
                 <div className="grid grid-cols-2 divide-x divide-[var(--border)]">
                   <div className="p-3 bg-red-500/5">
-                    <div className="text-[10px] font-mono text-red-400 mb-2">--- CURRENT</div>
-                    <pre className="text-[10px] font-mono text-[var(--text-muted)] whitespace-pre-wrap break-words leading-relaxed">
+                    <div className="text-[10px] font-theme-data text-red-400 mb-2">--- CURRENT</div>
+                    <pre className="text-[10px] font-theme-data text-[var(--text-muted)] whitespace-pre-wrap break-words leading-relaxed">
                       {change.old_content}
                     </pre>
                   </div>
                   <div className="p-3 bg-green-500/5">
-                    <div className="text-[10px] font-mono text-green-400 mb-2">+++ PROPOSED</div>
-                    <pre className="text-[10px] font-mono text-[var(--text)] whitespace-pre-wrap break-words leading-relaxed">
+                    <div className="text-[10px] font-theme-data text-green-400 mb-2">+++ PROPOSED</div>
+                    <pre className="text-[10px] font-theme-data text-[var(--text)] whitespace-pre-wrap break-words leading-relaxed">
                       {change.new_content}
                     </pre>
                   </div>
@@ -557,7 +557,7 @@ export default function AgentEvolutionPage() {
             <Link href="/" className="hover:text-[var(--acid-green)]">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-[var(--text-muted)] font-mono text-sm">{'//'} AGENT EVOLUTION</span>
+            <span className="text-[var(--text-muted)] font-theme-data text-sm">{'//'} AGENT EVOLUTION</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -572,17 +572,17 @@ export default function AgentEvolutionPage() {
           <div className="flex items-center gap-3 mb-2">
             <Link
               href="/dashboard"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               DASHBOARD
             </Link>
-            <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-            <span className="text-xs font-mono text-[var(--acid-green)]">AGENT EVOLUTION</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+            <span className="text-xs font-theme-data text-[var(--acid-green)]">AGENT EVOLUTION</span>
           </div>
-          <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
             {'>'} AGENT EVOLUTION DASHBOARD
           </h1>
-          <p className="text-xs text-[var(--text-muted)] font-mono">
+          <p className="text-xs text-[var(--text-muted)] font-theme-data">
             Persona changes, ELO score trends, and pending Nomic Loop proposals
           </p>
         </div>
@@ -593,7 +593,7 @@ export default function AgentEvolutionPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-xs font-mono transition-colors ${
+              className={`px-4 py-2 text-xs font-theme-data transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -619,7 +619,7 @@ export default function AgentEvolutionPage() {
                 <button
                   key={p}
                   onClick={() => setEloPeriod(p)}
-                  className={`px-3 py-2 text-xs font-mono transition-colors ${
+                  className={`px-3 py-2 text-xs font-theme-data transition-colors ${
                     eloPeriod === p
                       ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
                       : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -638,8 +638,8 @@ export default function AgentEvolutionPage() {
           {activeTab === 'timeline' && (
             <PanelErrorBoundary panelName="Evolution Timeline">
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-                <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} EVOLUTION TIMELINE</h3>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} EVOLUTION TIMELINE</h3>
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                   {timeline.total} events
                 </span>
               </div>
@@ -651,8 +651,8 @@ export default function AgentEvolutionPage() {
           {activeTab === 'elo' && (
             <PanelErrorBoundary panelName="ELO Trends">
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-                <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} ELO SCORE TRENDS</h3>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} ELO SCORE TRENDS</h3>
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                   {trends.agents.length} agents tracked
                 </span>
               </div>
@@ -664,15 +664,15 @@ export default function AgentEvolutionPage() {
           {activeTab === 'pending' && (
             <PanelErrorBoundary panelName="Pending Changes">
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-                <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} PENDING NOMIC LOOP CHANGES</h3>
-                <span className={`text-[10px] font-mono ${
+                <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} PENDING NOMIC LOOP CHANGES</h3>
+                <span className={`text-[10px] font-theme-data ${
                   pending.total_pending > 0 ? 'text-orange-400' : 'text-[var(--text-muted)]'
                 }`}>
                   {pending.total_pending} pending
                 </span>
               </div>
               {!isAdmin && pending.total_pending > 0 && (
-                <div className="px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/20 text-[10px] font-mono text-yellow-400">
+                <div className="px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/20 text-[10px] font-theme-data text-yellow-400">
                   Admin access required to approve or reject changes
                 </div>
               )}
@@ -689,28 +689,28 @@ export default function AgentEvolutionPage() {
 
         {/* Quick Links */}
         <div className="flex items-center gap-2 pt-4 mt-6 border-t border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">Related:</span>
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">Related:</span>
           <Link
             href="/evolution"
-            className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             EVOLUTION
           </Link>
           <Link
             href="/leaderboard"
-            className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             LEADERBOARD
           </Link>
           <Link
             href="/analytics"
-            className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             ANALYTICS
           </Link>
           <Link
             href="/self-improve"
-            className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             NOMIC LOOP
           </Link>
@@ -718,7 +718,7 @@ export default function AgentEvolutionPage() {
       </main>
 
       <footer className="border-t border-[var(--border)] bg-[var(--surface)]/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-[var(--text-muted)] font-theme-data">
           <span>Agent personas evolve through Nomic Loop debate cycles</span>
           <div className="flex items-center gap-4">
             <Link href="/evolution" className="hover:text-[var(--acid-green)]">

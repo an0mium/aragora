@@ -20,23 +20,23 @@ const STATUS_CONFIG: Record<OverallConnectionStatus, {
   icon: string;
 }> = {
   connected: {
-    color: 'text-acid-green',
-    bgColor: 'bg-acid-green/10',
-    borderColor: 'border-acid-green/30',
+    color: 'text-[var(--accent)]',
+    bgColor: 'bg-[var(--accent)]/10',
+    borderColor: 'border-[var(--accent)]/30',
     label: 'ALL SYSTEMS ONLINE',
     icon: '●',
   },
   partial: {
-    color: 'text-acid-yellow',
+    color: 'text-[var(--acid-yellow)]',
     bgColor: 'bg-acid-yellow/10',
     borderColor: 'border-acid-yellow/30',
     label: 'PARTIAL CONNECTION',
     icon: '◐',
   },
   connecting: {
-    color: 'text-acid-cyan',
-    bgColor: 'bg-acid-cyan/10',
-    borderColor: 'border-acid-cyan/30',
+    color: 'text-[var(--acid-cyan)]',
+    bgColor: 'bg-[var(--acid-cyan)]/10',
+    borderColor: 'border-[var(--acid-cyan)]/30',
     label: 'CONNECTING...',
     icon: '◌',
   },
@@ -48,9 +48,9 @@ const STATUS_CONFIG: Record<OverallConnectionStatus, {
     icon: '○',
   },
   error: {
-    color: 'text-crimson',
-    bgColor: 'bg-crimson/10',
-    borderColor: 'border-crimson/30',
+    color: 'text-[var(--crimson)]',
+    bgColor: 'bg-[var(--crimson)]/10',
+    borderColor: 'border-[var(--crimson)]/30',
     label: 'CONNECTION ERROR',
     icon: '✕',
   },
@@ -80,18 +80,18 @@ function getLatencyIndicator(service: ServiceConnection): { label: string; color
 
   // If connected within the last 5 seconds, consider it "fresh"
   if (diffMs < 5000) {
-    return { label: 'FAST', color: 'text-acid-green' };
+    return { label: 'FAST', color: 'text-[var(--accent)]' };
   }
   // Connected within last minute
   if (diffMs < 60000) {
-    return { label: 'OK', color: 'text-acid-green' };
+    return { label: 'OK', color: 'text-[var(--accent)]' };
   }
   // Connected within last 5 minutes
   if (diffMs < 300000) {
-    return { label: 'SLOW', color: 'text-acid-yellow' };
+    return { label: 'SLOW', color: 'text-[var(--acid-yellow)]' };
   }
   // Stale connection
-  return { label: 'STALE', color: 'text-acid-yellow' };
+  return { label: 'STALE', color: 'text-[var(--acid-yellow)]' };
 }
 
 export function GlobalConnectionStatus() {
@@ -131,7 +131,7 @@ export function GlobalConnectionStatus() {
   );
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 font-mono text-xs">
+    <div className="fixed bottom-4 right-4 z-50 font-theme-data text-xs">
       {/* Minimal indicator for connected state */}
       {overallStatus === 'connected' && !isExpanded && (
         <button
@@ -186,9 +186,9 @@ export function GlobalConnectionStatus() {
                 >
                   <div className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${
-                      isConnected ? 'bg-acid-green' :
-                      hasError ? 'bg-crimson' :
-                      isConnecting ? 'bg-acid-cyan animate-pulse' :
+                      isConnected ? 'bg-[var(--accent)]' :
+                      hasError ? 'bg-[var(--crimson)]' :
+                      isConnecting ? 'bg-[var(--acid-cyan)] animate-pulse' :
                       'bg-text-muted'
                     }`} />
                     <span className="text-text">{service.displayName}</span>
@@ -202,19 +202,19 @@ export function GlobalConnectionStatus() {
                     )}
                     {/* Reconnect attempt indicator */}
                     {service.reconnectAttempt > 0 && (
-                      <span className="text-acid-yellow text-[10px]">
+                      <span className="text-[var(--acid-yellow)] text-[10px]">
                         retry #{service.reconnectAttempt}
                       </span>
                     )}
                     {/* Error message */}
                     {hasError && service.error && (
-                      <span className="text-crimson text-[10px] truncate max-w-[100px]" title={service.error}>
+                      <span className="text-[var(--crimson)] text-[10px] truncate max-w-[100px]" title={service.error}>
                         {service.error}
                       </span>
                     )}
                     {/* Connected OK indicator */}
                     {isConnected && !latency && (
-                      <span className="text-acid-green text-[10px]">OK</span>
+                      <span className="text-[var(--accent)] text-[10px]">OK</span>
                     )}
                     {/* Individual retry button for disconnected services */}
                     {!isConnected && !isConnecting && (
@@ -223,7 +223,7 @@ export function GlobalConnectionStatus() {
                           e.stopPropagation();
                           requestReconnect(service.name);
                         }}
-                        className="text-[10px] text-acid-cyan hover:text-acid-cyan/80 transition-colors"
+                        className="text-[10px] text-[var(--acid-cyan)] hover:text-[var(--acid-cyan)]/80 transition-colors"
                         title={`Retry ${service.displayName}`}
                       >
                         Retry
@@ -237,7 +237,7 @@ export function GlobalConnectionStatus() {
 
           {/* Reconnecting indicator */}
           {isReconnecting && (
-            <div className="px-3 py-1.5 border-t border-border text-acid-yellow text-center">
+            <div className="px-3 py-1.5 border-t border-border text-[var(--acid-yellow)] text-center">
               Attempting to reconnect...
             </div>
           )}
@@ -248,7 +248,7 @@ export function GlobalConnectionStatus() {
             {disconnectedServices.length > 0 && !isReconnecting && (
               <button
                 onClick={reconnectAll}
-                className="flex-1 px-3 py-2 text-acid-cyan hover:bg-acid-cyan/10 text-center transition-colors border-r border-border"
+                className="flex-1 px-3 py-2 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 text-center transition-colors border-r border-border"
               >
                 Retry All ({disconnectedServices.length})
               </button>

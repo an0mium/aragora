@@ -11,16 +11,16 @@ export function ProgressBar({ current, total }: ProgressBarProps) {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           Step {current} of {total}
         </span>
-        <span className="text-xs font-mono text-acid-green">
+        <span className="text-xs font-theme-data text-[var(--accent)]">
           {percentage}%
         </span>
       </div>
-      <div className="w-full h-1 bg-acid-green/20 rounded-full overflow-hidden">
+      <div className="w-full h-1 bg-[var(--accent)]/20 rounded-full overflow-hidden">
         <div
-          className="h-full bg-acid-green transition-all duration-300 ease-out"
+          className="h-full bg-[var(--accent)] transition-all duration-300 ease-out"
           style={{ width: `${percentage}%` }}
         />
       </div>

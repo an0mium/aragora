@@ -299,18 +299,18 @@ function RBACCoveragePanel({ data, loading }: { data: RBACCoverage; loading: boo
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} RBAC COVERAGE</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} RBAC COVERAGE</h3>
       </div>
       <div className="p-4">
         {loading ? (
-          <div className="text-xs font-mono text-[var(--text-muted)] animate-pulse">Loading...</div>
+          <div className="text-xs font-theme-data text-[var(--text-muted)] animate-pulse">Loading...</div>
         ) : (
           <div className="space-y-4">
             {/* Coverage bar */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-mono text-[var(--text-muted)]">Endpoint Coverage</span>
-                <span className={`text-sm font-mono font-bold ${coverageColor}`}>
+                <span className="text-xs font-theme-data text-[var(--text-muted)]">Endpoint Coverage</span>
+                <span className={`text-sm font-theme-data font-bold ${coverageColor}`}>
                   {data.coverage_percent}%
                 </span>
               </div>
@@ -325,26 +325,26 @@ function RBACCoveragePanel({ data, loading }: { data: RBACCoverage; loading: boo
             {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-xl font-mono text-[var(--acid-green)]">{data.roles_defined}</div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Roles Defined</div>
+                <div className="text-xl font-theme-data text-[var(--acid-green)]">{data.roles_defined}</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Roles Defined</div>
               </div>
               <div>
-                <div className="text-xl font-mono text-[var(--acid-green)]">{data.permissions_defined}</div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Permissions</div>
+                <div className="text-xl font-theme-data text-[var(--acid-green)]">{data.permissions_defined}</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Permissions</div>
               </div>
               <div>
-                <div className="text-xl font-mono text-purple-400">{data.assignments_active}</div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Active Assignments</div>
+                <div className="text-xl font-theme-data text-purple-400">{data.assignments_active}</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Active Assignments</div>
               </div>
               <div>
-                <div className={`text-xl font-mono ${data.unprotected_endpoints > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                <div className={`text-xl font-theme-data ${data.unprotected_endpoints > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
                   {data.unprotected_endpoints}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Unprotected Endpoints</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Unprotected Endpoints</div>
               </div>
             </div>
 
-            <div className="text-[10px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
               {data.total_endpoints} total API endpoints registered
             </div>
           </div>
@@ -373,22 +373,22 @@ function DatabaseModePanel({ dbMode, loading }: { dbMode: string; loading: boole
   return (
     <div className="border border-[var(--border)] bg-[var(--bg-secondary)] rounded p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider">
+        <h3 className="text-xs font-theme-data font-bold text-[var(--text-primary)] uppercase tracking-wider">
           Database Mode
         </h3>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">/api/health</span>
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">/api/health</span>
       </div>
 
       {loading ? (
-        <div className="text-xs font-mono text-[var(--text-muted)] animate-pulse">
+        <div className="text-xs font-theme-data text-[var(--text-muted)] animate-pulse">
           Scanning database status...
         </div>
       ) : (
         <div className="space-y-3">
           <div className={`inline-flex items-center gap-2 px-3 py-2 rounded ${modeBg}`}>
-            <span className={`text-sm font-mono font-bold ${modeColor}`}>{dbMode}</span>
+            <span className={`text-sm font-theme-data font-bold ${modeColor}`}>{dbMode}</span>
           </div>
-          <div className="text-[10px] font-mono text-[var(--text-muted)]">
+          <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
             {isKnown
               ? 'Database mode reported by health endpoint'
               : 'db_mode not present in health response — server may not expose this field'}
@@ -413,22 +413,22 @@ function EncryptionStatusPanel({ data, loading }: { data: EncryptionStatus; load
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} ENCRYPTION STATUS</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} ENCRYPTION STATUS</h3>
       </div>
       <div className="p-4">
         {loading ? (
-          <div className="text-xs font-mono text-[var(--text-muted)] animate-pulse">Loading...</div>
+          <div className="text-xs font-theme-data text-[var(--text-muted)] animate-pulse">Loading...</div>
         ) : (
           <div className="space-y-4">
             {/* At-Rest */}
             <div className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-[var(--text)]">At-Rest Encryption</span>
-                <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded ${statusBg(data.at_rest.status)} ${statusColor(data.at_rest.status)}`}>
+                <span className="text-xs font-theme-data text-[var(--text)]">At-Rest Encryption</span>
+                <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded ${statusBg(data.at_rest.status)} ${statusColor(data.at_rest.status)}`}>
                   {data.at_rest.status}
                 </span>
               </div>
-              <div className="space-y-1 text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="space-y-1 text-[10px] font-theme-data text-[var(--text-muted)]">
                 <div>Algorithm: <span className="text-[var(--text)]">{data.at_rest.algorithm}</span></div>
                 <div>Key Rotation: <span className="text-[var(--text)]">every {data.at_rest.key_rotation_days} days</span></div>
                 {data.at_rest.last_rotation && (
@@ -440,12 +440,12 @@ function EncryptionStatusPanel({ data, loading }: { data: EncryptionStatus; load
             {/* In-Transit */}
             <div className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-[var(--text)]">In-Transit Encryption</span>
-                <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded ${statusBg(data.in_transit.status)} ${statusColor(data.in_transit.status)}`}>
+                <span className="text-xs font-theme-data text-[var(--text)]">In-Transit Encryption</span>
+                <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded ${statusBg(data.in_transit.status)} ${statusColor(data.in_transit.status)}`}>
                   {data.in_transit.status}
                 </span>
               </div>
-              <div className="space-y-1 text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="space-y-1 text-[10px] font-theme-data text-[var(--text-muted)]">
                 <div>Protocol: <span className="text-[var(--text)]">{data.in_transit.protocol}</span></div>
                 <div>Min Version: <span className="text-[var(--text)]">TLS {data.in_transit.min_version}</span></div>
                 {data.in_transit.certificate_expiry && (
@@ -488,14 +488,14 @@ function ComplianceFrameworksPanel({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} COMPLIANCE FRAMEWORKS</h3>
-        <span className={`text-lg font-mono font-bold ${loading ? 'text-[var(--text-muted)]' : scoreColor}`}>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} COMPLIANCE FRAMEWORKS</h3>
+        <span className={`text-lg font-theme-data font-bold ${loading ? 'text-[var(--text-muted)]' : scoreColor}`}>
           {loading ? '--' : `${overallScore}%`}
         </span>
       </div>
 
       {loading ? (
-        <div className="p-4 text-xs font-mono text-[var(--text-muted)] animate-pulse">Loading...</div>
+        <div className="p-4 text-xs font-theme-data text-[var(--text-muted)] animate-pulse">Loading...</div>
       ) : (
         <>
           <div className="divide-y divide-[var(--border)]">
@@ -509,12 +509,12 @@ function ComplianceFrameworksPanel({
                 <div key={fw.name} className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <div className="text-sm font-mono text-[var(--text)]">{fw.name}</div>
+                      <div className="text-sm font-theme-data text-[var(--text)]">{fw.name}</div>
                       {fw.notes && (
-                        <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">{fw.notes}</div>
+                        <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5">{fw.notes}</div>
                       )}
                     </div>
-                    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase ${style.bg} ${style.text} border border-current/30`}>
+                    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase ${style.bg} ${style.text} border border-current/30`}>
                       {style.label}
                     </span>
                   </div>
@@ -529,7 +529,7 @@ function ComplianceFrameworksPanel({
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)] w-16 text-right">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)] w-16 text-right">
                       {fw.controls_met}/{fw.controls_total}
                     </span>
                   </div>
@@ -538,7 +538,7 @@ function ComplianceFrameworksPanel({
             })}
           </div>
 
-          <div className="p-3 border-t border-[var(--border)] flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
+          <div className="p-3 border-t border-[var(--border)] flex items-center justify-between text-[10px] font-theme-data text-[var(--text-muted)]">
             <span>
               {lastAudit ? `Last audit: ${formatRelativeTime(lastAudit)}` : 'No audit recorded'}
             </span>
@@ -560,19 +560,19 @@ function AuditTrailPanel({ entries, loading }: { entries: AuditEntry[]; loading:
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} RECENT AUDIT TRAIL</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} RECENT AUDIT TRAIL</h3>
         <Link
           href="/audit"
-          className="text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-[10px] font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           VIEW ALL
         </Link>
       </div>
 
       {loading ? (
-        <div className="p-4 text-xs font-mono text-[var(--text-muted)] animate-pulse">Loading...</div>
+        <div className="p-4 text-xs font-theme-data text-[var(--text-muted)] animate-pulse">Loading...</div>
       ) : entries.length === 0 ? (
-        <div className="p-6 text-center text-xs font-mono text-[var(--text-muted)]">
+        <div className="p-6 text-center text-xs font-theme-data text-[var(--text-muted)]">
           No audit entries recorded
         </div>
       ) : (
@@ -581,22 +581,22 @@ function AuditTrailPanel({ entries, loading }: { entries: AuditEntry[]; loading:
             const outcomeStyle = OUTCOME_STYLES[entry.outcome] || OUTCOME_STYLES.success;
             return (
               <div key={entry.id} className="p-3 flex items-start gap-3">
-                <div className="text-[10px] font-mono text-[var(--text-muted)] w-14 shrink-0 pt-0.5">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)] w-14 shrink-0 pt-0.5">
                   {formatRelativeTime(entry.timestamp)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-[var(--text)]">{entry.event_type}</span>
-                    <span className={`px-1.5 py-0 text-[10px] font-mono rounded ${outcomeStyle.bg} ${outcomeStyle.text}`}>
+                    <span className="text-xs font-theme-data text-[var(--text)]">{entry.event_type}</span>
+                    <span className={`px-1.5 py-0 text-[10px] font-theme-data rounded ${outcomeStyle.bg} ${outcomeStyle.text}`}>
                       {entry.outcome}
                     </span>
                   </div>
-                  <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5 truncate">
+                  <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5 truncate">
                     {entry.actor} &rarr; {entry.resource}
                     {entry.action !== 'CHECK' && ` (${entry.action})`}
                   </div>
                   {entry.details && (
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5 italic">
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5 italic">
                       {entry.details}
                     </div>
                   )}
@@ -778,7 +778,7 @@ export default function CompliancePage() {
             <Link href="/" className="hover:text-[var(--acid-green)]">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-[var(--text-muted)] font-mono text-sm">{'//'} COMPLIANCE DASHBOARD</span>
+            <span className="text-[var(--text-muted)] font-theme-data text-sm">{'//'} COMPLIANCE DASHBOARD</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -793,17 +793,17 @@ export default function CompliancePage() {
           <div className="flex items-center gap-3 mb-2">
             <Link
               href="/dashboard"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               DASHBOARD
             </Link>
-            <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-            <span className="text-xs font-mono text-[var(--acid-green)]">COMPLIANCE</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+            <span className="text-xs font-theme-data text-[var(--acid-green)]">COMPLIANCE</span>
           </div>
-          <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
             {'>'} COMPLIANCE DASHBOARD
           </h1>
-          <p className="text-xs text-[var(--text-muted)] font-mono">
+          <p className="text-xs text-[var(--text-muted)] font-theme-data">
             RBAC coverage, encryption status, framework readiness, and audit trail
           </p>
         </div>
@@ -837,16 +837,16 @@ export default function CompliancePage() {
           <PanelErrorBoundary panelName="Receipt Anchor Verification">
             <div className="border border-[var(--border)] bg-[var(--bg-secondary)] rounded p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-mono font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                <h3 className="text-xs font-theme-data font-bold text-[var(--text-primary)] uppercase tracking-wider">
                   Receipt Anchor Verification
                 </h3>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">Coming soon</span>
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)]">Coming soon</span>
               </div>
-              <div className="text-xs font-mono text-[var(--text-muted)] space-y-2">
+              <div className="text-xs font-theme-data text-[var(--text-muted)] space-y-2">
                 <p>Verify decision receipt integrity against on-chain anchors.</p>
                 <p>SHA-256 hashes are anchored after each debate settlement.</p>
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded bg-[var(--bg)] border border-dashed border-[var(--border)]">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     Anchor verification will be available once the settlement hook infrastructure is production-ready.
                   </span>
                 </div>
@@ -887,29 +887,29 @@ export default function CompliancePage() {
             href="/policy"
             className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
           >
-            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Policies</div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">Manage rules</div>
+            <div className="text-xs font-theme-data text-[var(--text)] hover:text-[var(--acid-green)]">Policies</div>
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Manage rules</div>
           </Link>
           <Link
             href="/audit"
             className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
           >
-            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Audit</div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">Audit trails</div>
+            <div className="text-xs font-theme-data text-[var(--text)] hover:text-[var(--acid-green)]">Audit</div>
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Audit trails</div>
           </Link>
           <Link
             href="/receipts"
             className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
           >
-            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Receipts</div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">Decision records</div>
+            <div className="text-xs font-theme-data text-[var(--text)] hover:text-[var(--acid-green)]">Receipts</div>
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Decision records</div>
           </Link>
           <Link
             href="/privacy"
             className="p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--acid-green)]/50 transition-colors text-center"
           >
-            <div className="text-xs font-mono text-[var(--text)] hover:text-[var(--acid-green)]">Privacy</div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">GDPR controls</div>
+            <div className="text-xs font-theme-data text-[var(--text)] hover:text-[var(--acid-green)]">Privacy</div>
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">GDPR controls</div>
           </Link>
         </div>
 
@@ -922,12 +922,12 @@ export default function CompliancePage() {
             className="w-full p-4 flex items-center justify-between hover:bg-[var(--bg)]/30 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} EU AI ACT TOOLKIT</h3>
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+              <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} EU AI ACT TOOLKIT</h3>
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 Risk classification, conformity assessment, artifact bundles
               </span>
             </div>
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               {euAiActExpanded ? '[-]' : '[+]'}
             </span>
           </button>
@@ -937,8 +937,8 @@ export default function CompliancePage() {
               {/* Step 1: Risk Classification */}
               <PanelErrorBoundary panelName="Risk Classification">
                 <section>
-                  <h2 className="text-base font-mono mb-1 text-[var(--text)]">1. CLASSIFY AI USE CASE</h2>
-                  <p className="text-xs text-[var(--text-muted)] font-mono mb-4">
+                  <h2 className="text-base font-theme-data mb-1 text-[var(--text)]">1. CLASSIFY AI USE CASE</h2>
+                  <p className="text-xs text-[var(--text-muted)] font-theme-data mb-4">
                     Describe your AI system to determine its risk category under the EU AI Act
                   </p>
 
@@ -947,7 +947,7 @@ export default function CompliancePage() {
                       <button
                         key={sample.label}
                         onClick={() => setUseCase(sample.description)}
-                        className="px-3 py-1 text-xs font-mono border border-[var(--border)] rounded hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data border border-[var(--border)] rounded hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
                       >
                         {sample.label}
                       </button>
@@ -959,13 +959,13 @@ export default function CompliancePage() {
                     onChange={(e) => setUseCase(e.target.value)}
                     placeholder="Describe your AI system's purpose and functionality..."
                     rows={3}
-                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded p-3 font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none resize-none"
+                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded p-3 font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none resize-none"
                   />
 
                   <button
                     onClick={classify}
                     disabled={!useCase.trim() || classifying}
-                    className="mt-3 px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="mt-3 px-4 py-2 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {classifying ? 'CLASSIFYING...' : 'CLASSIFY RISK LEVEL'}
                   </button>
@@ -973,20 +973,20 @@ export default function CompliancePage() {
                   {classification && riskStyle && (
                     <div className={`mt-4 border rounded p-4 ${riskStyle.bg} ${riskStyle.border}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <span className={`text-lg font-mono font-bold ${riskStyle.text}`}>
+                        <span className={`text-lg font-theme-data font-bold ${riskStyle.text}`}>
                           {classification.risk_level.toUpperCase()} RISK
                         </span>
-                        <span className="text-xs font-mono text-[var(--text-muted)]">
+                        <span className="text-xs font-theme-data text-[var(--text-muted)]">
                           Confidence: {(classification.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
 
                       {classification.annex_iii_categories.length > 0 && (
                         <div className="mb-2">
-                          <span className="text-xs font-mono text-[var(--text-muted)]">Annex III Categories:</span>
+                          <span className="text-xs font-theme-data text-[var(--text-muted)]">Annex III Categories:</span>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {classification.annex_iii_categories.map((cat, i) => (
-                              <span key={i} className="px-2 py-0.5 text-xs font-mono bg-[var(--bg)]/50 rounded">
+                              <span key={i} className="px-2 py-0.5 text-xs font-theme-data bg-[var(--bg)]/50 rounded">
                                 {cat}
                               </span>
                             ))}
@@ -995,10 +995,10 @@ export default function CompliancePage() {
                       )}
 
                       <div className="mb-2">
-                        <span className="text-xs font-mono text-[var(--text-muted)]">Applicable Articles:</span>
+                        <span className="text-xs font-theme-data text-[var(--text-muted)]">Applicable Articles:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {classification.applicable_articles.map((art, i) => (
-                            <span key={i} className="px-2 py-0.5 text-xs font-mono bg-[var(--bg)]/50 rounded">
+                            <span key={i} className="px-2 py-0.5 text-xs font-theme-data bg-[var(--bg)]/50 rounded">
                               {art}
                             </span>
                           ))}
@@ -1007,8 +1007,8 @@ export default function CompliancePage() {
 
                       {classification.matched_keywords.length > 0 && (
                         <div>
-                          <span className="text-xs font-mono text-[var(--text-muted)]">Matched Keywords:</span>
-                          <span className="text-xs font-mono ml-2">
+                          <span className="text-xs font-theme-data text-[var(--text-muted)]">Matched Keywords:</span>
+                          <span className="text-xs font-theme-data ml-2">
                             {classification.matched_keywords.join(', ')}
                           </span>
                         </div>
@@ -1018,7 +1018,7 @@ export default function CompliancePage() {
                         <div className="mt-3 pt-3 border-t border-[var(--border)]/50">
                           <button
                             onClick={generateReport}
-                            className="px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
+                            className="px-4 py-2 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
                           >
                             GENERATE CONFORMITY ASSESSMENT
                           </button>
@@ -1033,8 +1033,8 @@ export default function CompliancePage() {
               {showAssessments && (
                 <PanelErrorBoundary panelName="Conformity Assessment">
                   <section>
-                    <h2 className="text-base font-mono mb-1 text-[var(--text)]">2. CONFORMITY ASSESSMENT</h2>
-                    <p className="text-xs text-[var(--text-muted)] font-mono mb-4">
+                    <h2 className="text-base font-theme-data mb-1 text-[var(--text)]">2. CONFORMITY ASSESSMENT</h2>
+                    <p className="text-xs text-[var(--text-muted)] font-theme-data mb-4">
                       Article-by-article compliance status based on your decision receipt
                     </p>
 
@@ -1042,20 +1042,20 @@ export default function CompliancePage() {
                       {assessments.map((assessment) => (
                         <details key={assessment.article} className="border border-[var(--border)] rounded overflow-hidden">
                           <summary className="p-3 bg-[var(--surface)]/50 cursor-pointer hover:bg-[var(--surface)] transition-colors flex items-center justify-between">
-                            <span className="font-mono text-sm text-[var(--text)]">
+                            <span className="font-theme-data text-sm text-[var(--text)]">
                               {assessment.article}: {assessment.title}
                             </span>
-                            <span className={`font-mono text-xs ${STATUS_COLORS[assessment.status]}`}>
+                            <span className={`font-theme-data text-xs ${STATUS_COLORS[assessment.status]}`}>
                               {STATUS_ICONS[assessment.status]}
                             </span>
                           </summary>
                           <div className="p-3 border-t border-[var(--border)] text-sm">
                             {assessment.findings.length > 0 && (
                               <div className="mb-2">
-                                <span className="text-xs font-mono text-[var(--text-muted)]">Findings:</span>
+                                <span className="text-xs font-theme-data text-[var(--text-muted)]">Findings:</span>
                                 <ul className="mt-1 space-y-1">
                                   {assessment.findings.map((f, i) => (
-                                    <li key={i} className="text-xs font-mono pl-3 border-l-2 border-[var(--acid-green)]/40">
+                                    <li key={i} className="text-xs font-theme-data pl-3 border-l-2 border-[var(--acid-green)]/40">
                                       {f}
                                     </li>
                                   ))}
@@ -1064,10 +1064,10 @@ export default function CompliancePage() {
                             )}
                             {assessment.recommendations.length > 0 && (
                               <div>
-                                <span className="text-xs font-mono text-[var(--text-muted)]">Recommendations:</span>
+                                <span className="text-xs font-theme-data text-[var(--text-muted)]">Recommendations:</span>
                                 <ul className="mt-1 space-y-1">
                                   {assessment.recommendations.map((r, i) => (
-                                    <li key={i} className="text-xs font-mono pl-3 border-l-2 border-yellow-400/40">
+                                    <li key={i} className="text-xs font-theme-data pl-3 border-l-2 border-yellow-400/40">
                                       {r}
                                     </li>
                                   ))}
@@ -1082,7 +1082,7 @@ export default function CompliancePage() {
                     <button
                       onClick={generateBundle}
                       disabled={generatingBundle}
-                      className="mt-4 px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 transition-colors"
+                      className="mt-4 px-4 py-2 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-50 transition-colors"
                     >
                       {generatingBundle ? 'GENERATING...' : 'GENERATE FULL ARTIFACT BUNDLE'}
                     </button>
@@ -1094,16 +1094,16 @@ export default function CompliancePage() {
               {bundle && (
                 <PanelErrorBoundary panelName="Compliance Bundle">
                   <section>
-                    <h2 className="text-base font-mono mb-1 text-[var(--text)]">3. COMPLIANCE ARTIFACT BUNDLE</h2>
+                    <h2 className="text-base font-theme-data mb-1 text-[var(--text)]">3. COMPLIANCE ARTIFACT BUNDLE</h2>
                     <div className="flex items-center gap-4 mb-4">
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         Bundle: {bundle.bundle_id}
                       </span>
-                      <span className="text-xs font-mono text-[var(--text-muted)]">
+                      <span className="text-xs font-theme-data text-[var(--text-muted)]">
                         Generated: {new Date(bundle.generated_at).toLocaleString()}
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-[var(--text-muted)] mb-4 break-all">
+                    <div className="text-xs font-theme-data text-[var(--text-muted)] mb-4 break-all">
                       Integrity: {bundle.integrity_hash}
                     </div>
 
@@ -1112,7 +1112,7 @@ export default function CompliancePage() {
                         <button
                           key={art}
                           onClick={() => setActiveArticle(art)}
-                          className={`px-4 py-2 text-sm font-mono border-b-2 transition-colors ${
+                          className={`px-4 py-2 text-sm font-theme-data border-b-2 transition-colors ${
                             activeArticle === art
                               ? 'border-[var(--acid-green)] text-[var(--acid-green)]'
                               : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -1124,7 +1124,7 @@ export default function CompliancePage() {
                     </div>
 
                     <div className="bg-[var(--bg)] border border-[var(--border)] rounded p-4">
-                      <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto max-h-96 text-[var(--text)]">
+                      <pre className="text-xs font-theme-data whitespace-pre-wrap overflow-auto max-h-96 text-[var(--text)]">
                         {JSON.stringify(
                           activeArticle === '12'
                             ? bundle.article_12
@@ -1148,7 +1148,7 @@ export default function CompliancePage() {
                           a.click();
                           URL.revokeObjectURL(url);
                         }}
-                        className="px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)] transition-colors"
+                        className="px-3 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)] transition-colors"
                       >
                         DOWNLOAD JSON
                       </button>
@@ -1162,22 +1162,22 @@ export default function CompliancePage() {
 
         {/* Navigation */}
         <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">Navigate:</span>
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">Navigate:</span>
           <Link
             href="/dashboard"
-            className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             DASHBOARD
           </Link>
           <Link
             href="/arena"
-            className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             NEW DEBATE
           </Link>
           <Link
             href="/settings"
-            className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             SETTINGS
           </Link>
@@ -1185,7 +1185,7 @@ export default function CompliancePage() {
       </main>
 
       <footer className="border-t border-[var(--border)] bg-[var(--surface)]/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-[var(--text-muted)] font-theme-data">
           <span>EU AI Act enforcement: August 2, 2026</span>
           <div className="flex items-center gap-4">
             <Link href="/audit" className="hover:text-[var(--acid-green)]">

@@ -225,12 +225,12 @@ export function ModelSelector({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search models..."
-          className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-bg border border-border rounded font-mono focus:outline-none focus:border-acid-green"
+          className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-bg border border-border rounded font-theme-data focus:outline-none focus:border-[var(--accent)]"
         />
         <select
           value={verticalFilter}
           onChange={(e) => setVerticalFilter(e.target.value)}
-          className="px-3 py-2 text-sm bg-bg border border-border rounded font-mono focus:outline-none focus:border-acid-green"
+          className="px-3 py-2 text-sm bg-bg border border-border rounded font-theme-data focus:outline-none focus:border-[var(--accent)]"
         >
           <option value="">All Verticals</option>
           {verticals.map(v => (
@@ -240,7 +240,7 @@ export function ModelSelector({
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 text-sm bg-bg border border-border rounded font-mono focus:outline-none focus:border-acid-green"
+          className="px-3 py-2 text-sm bg-bg border border-border rounded font-theme-data focus:outline-none focus:border-[var(--accent)]"
         >
           <option value="">All Types</option>
           <option value="primary">Primary (Large)</option>
@@ -258,7 +258,7 @@ export function ModelSelector({
             className={`
               p-4 bg-bg border-2 rounded-lg cursor-pointer transition-all
               ${selectedModel?.id === model.id
-                ? 'border-acid-green bg-acid-green/5'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/5'
                 : 'border-border hover:border-text-muted'
               }
             `}
@@ -270,16 +270,16 @@ export function ModelSelector({
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-mono font-bold text-text truncate">{model.name}</h4>
+                  <h4 className="font-theme-data font-bold text-text truncate">{model.name}</h4>
                   {model.recommended && (
-                    <span className="px-1.5 py-0.5 text-xs bg-acid-green/20 text-acid-green rounded">
+                    <span className="px-1.5 py-0.5 text-xs bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                       REC
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-text-muted mt-1 line-clamp-1">{model.description}</p>
                 <div className="flex items-center gap-3 mt-2 text-xs">
-                  <span className="font-mono text-text-muted">{model.size}</span>
+                  <span className="font-theme-data text-text-muted">{model.size}</span>
                   <span className={`px-1.5 py-0.5 rounded ${
                     model.type === 'primary' ? 'bg-cyan-900/30 text-cyan-400' :
                     model.type === 'small' ? 'bg-yellow-900/30 text-yellow-400' :
@@ -297,7 +297,7 @@ export function ModelSelector({
             </div>
             {(showAllModels || selectedModel?.id === model.id) && (
               <div className="mt-3 pt-3 border-t border-border">
-                <code className="text-xs font-mono text-acid-cyan break-all">
+                <code className="text-xs font-theme-data text-[var(--acid-cyan)] break-all">
                   {model.huggingFaceId}
                 </code>
               </div>

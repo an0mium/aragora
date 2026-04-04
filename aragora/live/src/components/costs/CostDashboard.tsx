@@ -59,7 +59,7 @@ export function CostDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-mono text-[var(--acid-green)]">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
             {'>'} SPEND ANALYTICS
           </h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -71,7 +71,7 @@ export function CostDashboard() {
           <button
             onClick={refresh}
             disabled={isLoading}
-            className="px-3 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
+            className="px-3 py-2 text-sm font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
           >
             {isLoading ? 'Loading...' : 'Refresh'}
           </button>
@@ -84,7 +84,7 @@ export function CostDashboard() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-mono transition-colors ${
+            className={`px-4 py-2 text-sm font-theme-data transition-colors ${
               activeTab === tab
                 ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -130,10 +130,10 @@ export function CostDashboard() {
           {/* Budget Progress */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-mono text-[var(--acid-green)]">
+              <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
                 {'>'} BUDGET PROGRESS
               </h3>
-              <span className={`text-sm font-mono ${
+              <span className={`text-sm font-theme-data ${
                 budgetUsagePercent >= 90 ? 'text-red-400' :
                 budgetUsagePercent >= 75 ? 'text-yellow-400' : 'text-green-400'
               }`}>
@@ -158,7 +158,7 @@ export function CostDashboard() {
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded p-4 text-red-400 text-sm font-mono">
+            <div className="bg-red-500/10 border border-red-500/30 rounded p-4 text-red-400 text-sm font-theme-data">
               Error loading cost data: {error.message}
             </div>
           )}
@@ -275,7 +275,7 @@ function BudgetUtilizationGauge({
   if (!utilization || utilization.budget_usd === 0) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} BUDGET UTILIZATION
         </h3>
         <p className="text-sm text-[var(--text-muted)]">No budget configured for this workspace.</p>
@@ -290,7 +290,7 @@ function BudgetUtilizationGauge({
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6">
-      <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+      <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
         {'>'} BUDGET UTILIZATION
       </h3>
       <div className="flex items-center gap-8">
@@ -315,7 +315,7 @@ function BudgetUtilizationGauge({
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center flex-col">
-            <span className="text-2xl font-mono font-bold" style={{ color: gaugeColor }}>
+            <span className="text-2xl font-theme-data font-bold" style={{ color: gaugeColor }}>
               {pct.toFixed(0)}%
             </span>
             <span className="text-xs text-[var(--text-muted)]">used</span>
@@ -326,26 +326,26 @@ function BudgetUtilizationGauge({
         <div className="flex-1 grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs text-[var(--text-muted)]">Monthly Budget</div>
-            <div className="text-lg font-mono text-[var(--text)]">
+            <div className="text-lg font-theme-data text-[var(--text)]">
               ${utilization.budget_usd.toFixed(2)}
             </div>
           </div>
           <div>
             <div className="text-xs text-[var(--text-muted)]">Spent</div>
-            <div className="text-lg font-mono text-[var(--acid-green)]">
+            <div className="text-lg font-theme-data text-[var(--acid-green)]">
               ${utilization.spent_usd.toFixed(2)}
             </div>
           </div>
           <div>
             <div className="text-xs text-[var(--text-muted)]">Remaining</div>
-            <div className="text-lg font-mono text-[var(--text)]">
+            <div className="text-lg font-theme-data text-[var(--text)]">
               ${utilization.remaining_usd.toFixed(2)}
             </div>
           </div>
           {utilization.daily_budget_usd !== null && (
             <div>
               <div className="text-xs text-[var(--text-muted)]">Daily Budget</div>
-              <div className="text-lg font-mono text-[var(--text)]">
+              <div className="text-lg font-theme-data text-[var(--text)]">
                 ${utilization.daily_budget_usd.toFixed(2)}
                 <span className="text-xs text-[var(--text-muted)] ml-1">
                   ({utilization.daily_utilization_pct.toFixed(0)}% used)
@@ -378,7 +378,7 @@ function SpendTrendChart({
   if (!trend || trend.points.length === 0) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} COST TREND
         </h3>
         <p className="text-sm text-[var(--text-muted)]">No spend data available for this period.</p>
@@ -407,10 +407,10 @@ function SpendTrendChart({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} COST TREND
         </h3>
-        <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-muted)]">
+        <div className="flex items-center gap-4 text-xs font-theme-data text-[var(--text-muted)]">
           <span>Total: <span className="text-[var(--acid-green)]">${trend.total_usd.toFixed(2)}</span></span>
           <span>Avg/day: <span className="text-[var(--acid-cyan)]">${trend.avg_daily_usd.toFixed(2)}</span></span>
         </div>
@@ -498,7 +498,7 @@ function SpendTrendChart({
       </div>
 
       {/* Y-axis labels */}
-      <div className="absolute top-6 right-6 text-xs font-mono text-[var(--text-muted)]">
+      <div className="absolute top-6 right-6 text-xs font-theme-data text-[var(--text-muted)]">
         max ${maxCost.toFixed(2)}
       </div>
     </div>
@@ -531,10 +531,10 @@ function AgentBreakdownPanel({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} COST BY AGENT
         </h3>
-        <span className="text-xs font-mono text-[var(--text-muted)]">
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">
           {agents.length} agents
         </span>
       </div>
@@ -550,10 +550,10 @@ function AgentBreakdownPanel({
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="text-[var(--text)]">{agent.name}</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono" style={{ color: barColor }}>
+                    <span className="font-theme-data" style={{ color: barColor }}>
                       {agent.percentage.toFixed(1)}%
                     </span>
-                    <span className="font-mono text-[var(--text-muted)]">
+                    <span className="font-theme-data text-[var(--text-muted)]">
                       ${agent.cost_usd.toFixed(2)}
                     </span>
                   </div>
@@ -599,10 +599,10 @@ function ModelBreakdownPanel({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} COST BY MODEL
         </h3>
-        <span className="text-xs font-mono text-[var(--text-muted)]">
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">
           {models.length} models
         </span>
       </div>
@@ -617,7 +617,7 @@ function ModelBreakdownPanel({
               {total > 0 && <MiniDonut data={models} colors={colors} />}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-sm font-mono text-[var(--text)]">${total.toFixed(0)}</div>
+                  <div className="text-sm font-theme-data text-[var(--text)]">${total.toFixed(0)}</div>
                 </div>
               </div>
             </div>
@@ -630,7 +630,7 @@ function ModelBreakdownPanel({
                     style={{ backgroundColor: colors[index % colors.length] }}
                   />
                   <span className="text-[var(--text)] truncate flex-1">{model.name}</span>
-                  <span className="font-mono text-[var(--text-muted)]">${model.cost_usd.toFixed(2)}</span>
+                  <span className="font-theme-data text-[var(--text-muted)]">${model.cost_usd.toFixed(2)}</span>
                 </div>
               ))}
               {models.length > 5 && (
@@ -703,10 +703,10 @@ function RecentDebatesPanel({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} RECENT DEBATES WITH COST
         </h3>
-        <span className="text-xs font-mono text-[var(--text-muted)]">
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">
           {debates.length} debates | Total: ${(data?.total_usd ?? 0).toFixed(2)}
         </span>
       </div>
@@ -715,7 +715,7 @@ function RecentDebatesPanel({
         <p className="text-sm text-[var(--text-muted)]">No debate cost data available.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-xs font-theme-data">
             <thead>
               <tr className="text-left text-[var(--text-muted)] border-b border-[var(--border)]">
                 <th className="pb-2 pr-4">Debate ID</th>
@@ -786,7 +786,7 @@ function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
         <button
           key={range.id}
           onClick={() => onChange(range.id)}
-          className={`px-3 py-1.5 text-xs font-mono transition-colors ${
+          className={`px-3 py-1.5 text-xs font-theme-data transition-colors ${
             value === range.id
               ? 'bg-[var(--acid-green)] text-[var(--bg)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg)]'
@@ -810,7 +810,7 @@ interface SummaryCardProps {
 function SummaryCard({ label, value, subtext, color, progress }: SummaryCardProps) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-      <div className={`text-2xl font-mono font-bold ${color}`}>{value}</div>
+      <div className={`text-2xl font-theme-data font-bold ${color}`}>{value}</div>
       <div className="text-xs text-[var(--text-muted)] mt-1">{label}</div>
       <div className="text-xs text-[var(--text-muted)] opacity-70">{subtext}</div>
       {progress !== undefined && (

@@ -148,7 +148,7 @@ export function WorkflowBuilder({
         {/* Left sidebar: Node palette */}
         <div className="w-64 border-r border-border overflow-y-auto bg-surface/50">
           <div className="p-3">
-            <h3 className="text-xs font-mono text-text-muted uppercase tracking-wide mb-3">
+            <h3 className="text-xs font-theme-data text-text-muted uppercase tracking-wide mb-3">
               Node Palette
             </h3>
             <NodePalette onAddNode={handleAddNode} />
@@ -165,7 +165,7 @@ export function WorkflowBuilder({
           <div className="w-80 border-l border-border overflow-y-auto bg-surface/50">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-mono text-text">Configure Step</h3>
+                <h3 className="text-sm font-theme-data text-text">Configure Step</h3>
                 <button
                   onClick={closeConfigPanel}
                   className="text-text-muted hover:text-text"
@@ -186,7 +186,7 @@ export function WorkflowBuilder({
                         name: e.target.value,
                       });
                     }}
-                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                   />
                 </div>
 
@@ -212,7 +212,7 @@ export function WorkflowBuilder({
                         // Invalid JSON, ignore
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded font-mono focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded font-theme-data focus:border-[var(--accent)] focus:outline-none"
                     rows={8}
                   />
                 </div>
@@ -252,7 +252,7 @@ export function WorkflowBuilder({
         <div className="fixed inset-0 bg-bg/80 flex items-center justify-center z-50">
           <div className="bg-surface border border-border rounded-lg w-[600px] max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-mono text-text">Workflow Templates</h2>
+              <h2 className="text-lg font-theme-data text-text">Workflow Templates</h2>
               <button
                 onClick={() => setShowTemplates(false)}
                 className="text-text-muted hover:text-text"
@@ -270,15 +270,15 @@ export function WorkflowBuilder({
                     <button
                       key={template.id}
                       onClick={() => handleSelectTemplate(template.id)}
-                      className="p-4 text-left border border-border rounded-lg hover:border-acid-green transition-colors"
+                      className="p-4 text-left border border-border rounded-lg hover:border-[var(--accent)] transition-colors"
                     >
-                      <div className="text-sm font-mono text-text mb-1">
+                      <div className="text-sm font-theme-data text-text mb-1">
                         {template.name}
                       </div>
                       <div className="text-xs text-text-muted line-clamp-2">
                         {template.description}
                       </div>
-                      <div className="mt-2 text-xs text-acid-green">
+                      <div className="mt-2 text-xs text-[var(--accent)]">
                         {template.category}
                       </div>
                     </button>

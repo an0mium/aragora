@@ -94,8 +94,8 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
           Phase Progress
         </h2>
         {nomicState && (
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-acid-green">Cycle {nomicState.cycle}</span>
+          <div className="flex items-center gap-2 text-xs font-theme-data">
+            <span className="text-[var(--accent)]">Cycle {nomicState.cycle}</span>
             {nomicState.stage && (
               <span className="text-text-muted">• {nomicState.stage.replace(/_/g, ' ')}</span>
             )}
@@ -128,7 +128,7 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
         })}
       </div>
       {nomicState?.saved_at && (
-        <div className="mt-2 text-[10px] text-text-muted font-mono">
+        <div className="mt-2 text-[10px] text-text-muted font-theme-data">
           Last update: {new Date(nomicState.saved_at).toLocaleTimeString()}
         </div>
       )}

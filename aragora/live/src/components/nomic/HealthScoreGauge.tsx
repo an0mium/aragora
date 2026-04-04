@@ -61,7 +61,7 @@ export function HealthScoreGauge({ score, label = 'Health Score' }: HealthScoreG
           y={cy - 2}
           textAnchor="middle"
           dominantBaseline="central"
-          className="font-mono fill-text"
+          className="font-theme-data fill-text"
           fontSize="24"
           fontWeight="bold"
         >
@@ -72,13 +72,13 @@ export function HealthScoreGauge({ score, label = 'Health Score' }: HealthScoreG
           y={cy + 18}
           textAnchor="middle"
           dominantBaseline="central"
-          className="font-mono fill-text-muted"
+          className="font-theme-data fill-text-muted"
           fontSize="10"
         >
           / 100
         </text>
       </svg>
-      <span className="font-mono text-xs text-text-muted mt-1">{label}</span>
+      <span className="font-theme-data text-xs text-text-muted mt-1">{label}</span>
     </div>
   );
 }

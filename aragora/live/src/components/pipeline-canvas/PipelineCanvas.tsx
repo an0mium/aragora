@@ -611,12 +611,12 @@ function PipelineCanvasInner({
               onChange={(e) => setRunInputText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleRunPipeline(); }}
               placeholder="Describe your idea or problem..."
-              className="flex-1 px-3 py-2 text-sm font-mono rounded bg-bg border border-border text-text placeholder:text-text-muted focus:outline-none focus:border-acid-green transition-colors"
+              className="flex-1 px-3 py-2 text-sm font-theme-data rounded bg-bg border border-border text-text placeholder:text-text-muted focus:outline-none focus:border-[var(--accent)] transition-colors"
             />
             <button
               onClick={handleRunPipeline}
               disabled={loading || !runInputText.trim() || !!activePipelineRunId}
-              className="px-6 py-2 text-sm font-mono font-bold rounded bg-acid-green text-bg hover:bg-acid-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              className="px-6 py-2 text-sm font-theme-data font-bold rounded bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
             >
               {activePipelineRunId ? (
                 <>
@@ -640,20 +640,20 @@ function PipelineCanvasInner({
                   <div
                     key={stage}
                     className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                      completedStages.includes(stage) ? 'bg-acid-green' : 'bg-border'
+                      completedStages.includes(stage) ? 'bg-[var(--accent)]' : 'bg-border'
                     }`}
                     title={`${stage}: ${completedStages.includes(stage) ? 'complete' : 'pending'}`}
                   />
                 ))}
                 {isConnected && (
-                  <span className="text-xs font-mono text-text-muted ml-1">LIVE</span>
+                  <span className="text-xs font-theme-data text-text-muted ml-1">LIVE</span>
                 )}
               </div>
             )}
 
             {/* Notification toast */}
             {runNotification && (
-              <span className="text-xs font-mono text-acid-green animate-pulse truncate max-w-xs">
+              <span className="text-xs font-theme-data text-[var(--accent)] animate-pulse truncate max-w-xs">
                 {runNotification}
               </span>
             )}
@@ -665,7 +665,7 @@ function PipelineCanvasInner({
           <ProgressIndicator stageStatus={stageStatus} activeStage={activeStage} />
           <button
             onClick={handleViewAll}
-            className={`px-3 py-1.5 rounded font-mono text-xs font-bold uppercase tracking-wide transition-all duration-200 ${
+            className={`px-3 py-1.5 rounded font-theme-data text-xs font-bold uppercase tracking-wide transition-all duration-200 ${
               viewMode === 'all'
                 ? 'bg-surface ring-2 ring-acid-green ring-offset-1 ring-offset-bg text-text'
                 : 'bg-transparent text-text-muted hover:text-text hover:bg-surface/50'
@@ -730,7 +730,7 @@ function PipelineCanvasInner({
 
             {/* Stats panel */}
             <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
-              <div className="text-xs font-mono text-text-muted flex items-center gap-2">
+              <div className="text-xs font-theme-data text-text-muted flex items-center gap-2">
                 <span>
                   <span className="text-text">{displayNodes.length}</span> nodes |{' '}
                   <span className="text-text">{displayEdges.length}</span> edges
@@ -745,16 +745,16 @@ function PipelineCanvasInner({
                   {viewMode === 'all' && (
                     <>
                       {' | '}
-                      <span className="text-acid-green uppercase font-bold">ALL STAGES</span>
+                      <span className="text-[var(--accent)] uppercase font-bold">ALL STAGES</span>
                     </>
                   )}
                   <span className="ml-2 opacity-50">1-4: stages | A: all</span>
                 </span>
                 <button
                   onClick={() => setShowStageSidebar((s) => !s)}
-                  className={`ml-2 px-2 py-0.5 rounded text-xs font-mono transition-colors ${
+                  className={`ml-2 px-2 py-0.5 rounded text-xs font-theme-data transition-colors ${
                     showStageSidebar
-                      ? 'bg-acid-green/20 text-acid-green'
+                      ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                       : 'text-text-muted hover:text-text'
                   }`}
                   title="Toggle stage tools panel"
@@ -767,7 +767,7 @@ function PipelineCanvasInner({
             {/* Pipeline ID + integrity */}
             {pipelineId && (
               <Panel position="top-right" className="bg-surface/90 border border-border rounded p-2">
-                <div className="text-xs font-mono text-text-muted">
+                <div className="text-xs font-theme-data text-text-muted">
                   Pipeline: <span className="text-text">{pipelineId}</span>
                   {initialData?.integrity_hash && (
                     <span className="ml-2 text-emerald-400">#{initialData.integrity_hash.slice(0, 8)}</span>
@@ -824,7 +824,7 @@ function PipelineCanvasInner({
             {/* Pipeline completion indicator */}
             {pipelineComplete && (
               <Panel position="bottom-center">
-                <div className="bg-emerald-900/80 text-emerald-200 text-xs font-mono px-3 py-1 rounded-full">
+                <div className="bg-emerald-900/80 text-emerald-200 text-xs font-theme-data px-3 py-1 rounded-full">
                   Pipeline complete
                 </div>
               </Panel>

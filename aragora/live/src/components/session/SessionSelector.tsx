@@ -115,7 +115,7 @@ export function SessionSelector({
 
   if (loading && sessions.length === 0) {
     return (
-      <div className={`text-xs font-mono text-text-muted animate-pulse ${className}`}>
+      <div className={`text-xs font-theme-data text-text-muted animate-pulse ${className}`}>
         [LOADING SESSIONS...]
       </div>
     );
@@ -123,7 +123,7 @@ export function SessionSelector({
 
   if (error && sessions.length === 0) {
     return (
-      <div className={`text-xs font-mono text-warning ${className}`}>
+      <div className={`text-xs font-theme-data text-warning ${className}`}>
         [SESSION ERROR]
       </div>
     );
@@ -137,9 +137,9 @@ export function SessionSelector({
         aria-label="Session selector"
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
+        className="flex items-center gap-2 text-xs font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
       >
-        <span className="text-acid-green/70">
+        <span className="text-[var(--accent)]/70">
           {currentSession ? getDeviceIcon(currentSession.device_name) : '[?]'}
         </span>
         <span className="hidden sm:inline truncate max-w-[150px]">
@@ -148,27 +148,27 @@ export function SessionSelector({
         <span className="text-text-muted/50">
           {sessions.length > 1 && `+${sessions.length - 1}`}
         </span>
-        <span className="text-acid-green/50" aria-hidden="true">
+        <span className="text-[var(--accent)]/50" aria-hidden="true">
           {isOpen ? '[^]' : '[v]'}
         </span>
       </button>
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-72 bg-surface border border-acid-green/30 shadow-lg z-50"
+          className="absolute right-0 top-full mt-2 w-72 bg-surface border border-[var(--accent)]/30 shadow-lg z-50"
           role="menu"
           aria-label="Session list"
         >
           {/* Current Session */}
           {currentSession && (
-            <div className="p-3 border-b border-acid-green/20">
-              <div className="text-xs font-mono text-acid-green mb-1">
+            <div className="p-3 border-b border-[var(--accent)]/20">
+              <div className="text-xs font-theme-data text-[var(--accent)] mb-1">
                 [CURRENT SESSION]
               </div>
-              <div className="text-sm font-mono text-text truncate">
+              <div className="text-sm font-theme-data text-text truncate">
                 {currentSession.device_name}
               </div>
-              <div className="text-xs font-mono text-text-muted mt-1">
+              <div className="text-xs font-theme-data text-text-muted mt-1">
                 Active {getLastActivityAge(currentSession)}
               </div>
             </div>
@@ -177,7 +177,7 @@ export function SessionSelector({
           {/* Other Sessions */}
           {otherSessions.length > 0 && (
             <div className="py-2">
-              <div className="px-3 pb-1 text-xs font-mono text-text-muted">
+              <div className="px-3 pb-1 text-xs font-theme-data text-text-muted">
                 [OTHER SESSIONS: {otherSessions.length}]
               </div>
               {otherSessions.map((session, index) => (
@@ -187,10 +187,10 @@ export function SessionSelector({
                   role="menuitem"
                   tabIndex={focusedIndex === index ? 0 : -1}
                   onClick={() => handleSessionClick(session)}
-                  className="w-full px-3 py-2 text-left text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 text-left text-xs font-theme-data text-text-muted hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus:bg-[var(--accent)]/10 focus:text-[var(--accent)] focus:outline-none transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-acid-cyan/70">
+                    <span className="text-[var(--acid-cyan)]/70">
                       {getDeviceIcon(session.device_name)}
                     </span>
                     <span className="truncate flex-1">{session.device_name}</span>
@@ -205,13 +205,13 @@ export function SessionSelector({
 
           {/* No Other Sessions */}
           {otherSessions.length === 0 && (
-            <div className="p-3 text-xs font-mono text-text-muted">
+            <div className="p-3 text-xs font-theme-data text-text-muted">
               No other active sessions
             </div>
           )}
 
           {/* Session Count */}
-          <div className="border-t border-acid-green/20 px-3 py-2 text-xs font-mono text-text-muted">
+          <div className="border-t border-[var(--accent)]/20 px-3 py-2 text-xs font-theme-data text-text-muted">
             {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
           </div>
         </div>

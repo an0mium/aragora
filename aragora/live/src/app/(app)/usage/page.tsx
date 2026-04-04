@@ -54,17 +54,17 @@ export default function UsagePage() {
                 <div className="flex items-center gap-3 mb-2">
                   <Link
                     href="/dashboard"
-                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                    className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
                   >
                     DASHBOARD
                   </Link>
-                  <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-                  <span className="text-xs font-mono text-[var(--acid-green)]">USAGE</span>
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+                  <span className="text-xs font-theme-data text-[var(--acid-green)]">USAGE</span>
                 </div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
                   {'>'} USAGE ANALYTICS
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   {getTimeRangeLabel(timeRange)} {/* Debates, costs, ROI, and budget tracking */}
                 </p>
               </div>
@@ -75,7 +75,7 @@ export default function UsagePage() {
                   <button
                     key={range}
                     onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                    className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                       timeRange === range
                         ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/50'
                         : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
@@ -112,28 +112,28 @@ export default function UsagePage() {
 
           {/* Navigation */}
           <div className="mt-8 flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--text-muted)]">Navigate:</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">Navigate:</span>
             <Link
               href="/dashboard"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               DASHBOARD
             </Link>
             <Link
               href="/arena"
-              className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
               NEW DEBATE
             </Link>
             <Link
               href="/billing"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               BILLING
             </Link>
             <Link
               href="/settings"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               SETTINGS
             </Link>

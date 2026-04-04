@@ -87,10 +87,10 @@ export function WorkspaceSettings({
       <div className="space-y-6">
         {/* Basic Settings */}
         <div>
-          <h4 className="font-mono font-bold text-text mb-4">Basic Settings</h4>
+          <h4 className="font-theme-data font-bold text-text mb-4">Basic Settings</h4>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">
+              <label className="block text-xs font-theme-data text-text-muted mb-1">
                 WORKSPACE NAME
               </label>
               <input
@@ -100,11 +100,11 @@ export function WorkspaceSettings({
                   setName(e.target.value);
                   handleChange();
                 }}
-                className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">
+              <label className="block text-xs font-theme-data text-text-muted mb-1">
                 DESCRIPTION
               </label>
               <textarea
@@ -114,7 +114,7 @@ export function WorkspaceSettings({
                   handleChange();
                 }}
                 rows={3}
-                className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+                className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export function WorkspaceSettings({
 
         {/* Vertical Settings */}
         <div>
-          <h4 className="font-mono font-bold text-text mb-4">Default Vertical</h4>
+          <h4 className="font-theme-data font-bold text-text mb-4">Default Vertical</h4>
           <div className="grid grid-cols-5 gap-2">
             {VERTICALS.map((vertical) => (
               <button
@@ -134,13 +134,13 @@ export function WorkspaceSettings({
                 className={`
                   p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2
                   ${defaultVertical === vertical.id
-                    ? 'border-acid-green bg-acid-green/10'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10'
                     : 'border-border hover:border-text-muted bg-bg'
                   }
                 `}
               >
                 <span className="text-xl" dangerouslySetInnerHTML={{ __html: vertical.icon }} />
-                <span className="text-xs font-mono text-center">{vertical.name}</span>
+                <span className="text-xs font-theme-data text-center">{vertical.name}</span>
               </button>
             ))}
           </div>
@@ -148,16 +148,16 @@ export function WorkspaceSettings({
 
         {/* Compliance Frameworks */}
         <div>
-          <h4 className="font-mono font-bold text-text mb-4">Compliance Frameworks</h4>
+          <h4 className="font-theme-data font-bold text-text mb-4">Compliance Frameworks</h4>
           <div className="flex flex-wrap gap-2">
             {availableFrameworks.map((framework) => (
               <button
                 key={framework.id}
                 onClick={() => toggleFramework(framework.name)}
                 className={`
-                  px-3 py-1.5 text-xs font-mono rounded-lg border transition-all
+                  px-3 py-1.5 text-xs font-theme-data rounded-lg border transition-all
                   ${selectedFrameworks.includes(framework.name)
-                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
                     : 'border-border hover:border-text-muted text-text-muted'
                   }
                 `}
@@ -170,10 +170,10 @@ export function WorkspaceSettings({
 
         {/* Quotas */}
         <div>
-          <h4 className="font-mono font-bold text-text mb-4">Quotas & Limits</h4>
+          <h4 className="font-theme-data font-bold text-text mb-4">Quotas & Limits</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">
+              <label className="block text-xs font-theme-data text-text-muted mb-1">
                 AGENT LIMIT
               </label>
               <select
@@ -182,7 +182,7 @@ export function WorkspaceSettings({
                   setAgentLimit(Number(e.target.value));
                   handleChange();
                 }}
-                className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="5">5 agents</option>
                 <option value="10">10 agents</option>
@@ -191,7 +191,7 @@ export function WorkspaceSettings({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">
+              <label className="block text-xs font-theme-data text-text-muted mb-1">
                 DOCUMENTS QUOTA
               </label>
               <select
@@ -200,7 +200,7 @@ export function WorkspaceSettings({
                   setDocumentsQuota(Number(e.target.value));
                   handleChange();
                 }}
-                className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="1000">1,000 documents</option>
                 <option value="5000">5,000 documents</option>
@@ -213,13 +213,13 @@ export function WorkspaceSettings({
           <div className="mt-3 p-3 bg-bg border border-border rounded">
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="text-text-muted">Current Usage:</span>
-              <span className="font-mono text-text">
+              <span className="font-theme-data text-text">
                 {workspace.settings.documentsUsed.toLocaleString()} / {documentsQuota.toLocaleString()}
               </span>
             </div>
             <div className="h-2 bg-surface rounded-full overflow-hidden">
               <div
-                className="h-full bg-acid-green transition-all"
+                className="h-full bg-[var(--accent)] transition-all"
                 style={{
                   width: `${Math.min(100, (workspace.settings.documentsUsed / documentsQuota) * 100)}%`,
                 }}
@@ -230,18 +230,18 @@ export function WorkspaceSettings({
 
         {/* Danger Zone */}
         <div className="border-t border-border pt-6">
-          <h4 className="font-mono font-bold text-red-400 mb-4">Danger Zone</h4>
+          <h4 className="font-theme-data font-bold text-red-400 mb-4">Danger Zone</h4>
           <div className="p-4 bg-red-900/10 border border-red-800/30 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-mono text-sm text-text">Delete Workspace</p>
+                <p className="font-theme-data text-sm text-text">Delete Workspace</p>
                 <p className="text-xs text-text-muted mt-1">
                   This will permanently delete the workspace and all its data.
                 </p>
               </div>
               <button
                 onClick={onDelete}
-                className="px-4 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors"
+                className="px-4 py-2 text-xs font-theme-data bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors"
               >
                 DELETE
               </button>
@@ -254,7 +254,7 @@ export function WorkspaceSettings({
           <div className="sticky bottom-0 py-4 bg-surface border-t border-border -mx-4 px-4">
             <button
               onClick={handleSave}
-              className="w-full px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+              className="w-full px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
             >
               SAVE CHANGES
             </button>

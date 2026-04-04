@@ -51,7 +51,7 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
   if (loading) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4 flex items-center gap-2">
           <span>#</span> COST BREAKDOWN
         </h3>
         <div className="animate-pulse space-y-3">
@@ -71,7 +71,7 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] flex items-center gap-2">
           <span>#</span> COST BREAKDOWN
         </h3>
         <div className="flex items-center gap-1">
@@ -79,7 +79,7 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-2 py-1 text-[10px] font-mono border transition-colors ${
+              className={`px-2 py-1 text-[10px] font-theme-data border transition-colors ${
                 view === v
                   ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/50'
                   : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
@@ -92,13 +92,13 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
       </div>
 
       {!items || items.length === 0 ? (
-        <p className="text-xs font-mono text-[var(--text-muted)]">
+        <p className="text-xs font-theme-data text-[var(--text-muted)]">
           No cost data available for the selected period.
         </p>
       ) : (
         <div className="space-y-3">
           {/* Total */}
-          <div className="flex items-center justify-between text-xs font-mono pb-2 border-b border-[var(--border)]">
+          <div className="flex items-center justify-between text-xs font-theme-data pb-2 border-b border-[var(--border)]">
             <span className="text-[var(--text-muted)]">TOTAL</span>
             <span className="text-[var(--acid-green)] font-bold">
               {formatCurrency(breakdown?.total_cost_usd ?? 0)}
@@ -112,7 +112,7 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
 
             return (
               <div key={item.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-mono">
+                <div className="flex items-center justify-between text-xs font-theme-data">
                   <span className={textColor}>{item.name}</span>
                   <span className="text-[var(--text-muted)]">
                     {formatCurrency(item.cost_usd)} ({item.percentage.toFixed(1)}%)
@@ -124,7 +124,7 @@ export function CostBreakdown({ breakdown, loading = false }: CostBreakdownProps
                     style={{ width: `${Math.min(item.percentage, 100)}%` }}
                   />
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-mono text-[var(--text-muted)]">
+                <div className="flex items-center gap-3 text-[10px] font-theme-data text-[var(--text-muted)]">
                   <span>{formatNumber(item.tokens)} tokens</span>
                   <span>{formatNumber(item.requests)} requests</span>
                 </div>

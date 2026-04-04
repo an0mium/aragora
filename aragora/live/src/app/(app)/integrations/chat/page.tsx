@@ -89,10 +89,10 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
   const [showConfig, setShowConfig] = useState(false);
 
   const statusColors = {
-    connected: 'text-acid-green bg-acid-green/10 border-acid-green/30',
-    disconnected: 'text-text-muted bg-surface border-acid-green/20',
+    connected: 'text-[var(--accent)] bg-[var(--accent)]/10 border-[var(--accent)]/30',
+    disconnected: 'text-text-muted bg-surface border-[var(--accent)]/20',
     error: 'text-warning bg-warning/10 border-warning/30',
-    unknown: 'text-acid-yellow bg-acid-yellow/10 border-acid-yellow/30',
+    unknown: 'text-[var(--acid-yellow)] bg-acid-yellow/10 border-acid-yellow/30',
   };
 
   const statusLabels = {
@@ -103,23 +103,23 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
   };
 
   return (
-    <div className="border border-acid-green/30 bg-surface/30">
+    <div className="border border-[var(--accent)]/30 bg-surface/30">
       {/* Header */}
       <div className="p-4 flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <span className="text-acid-green font-mono text-lg opacity-60">
+          <span className="text-[var(--accent)] font-theme-data text-lg opacity-60">
             {integration.icon}
           </span>
           <div>
-            <h3 className="text-acid-green font-mono text-sm font-bold">
+            <h3 className="text-[var(--accent)] font-theme-data text-sm font-bold">
               {integration.name}
             </h3>
-            <p className="text-text-muted font-mono text-[10px] mt-1 max-w-xs">
+            <p className="text-text-muted font-theme-data text-[10px] mt-1 max-w-xs">
               {integration.description}
             </p>
           </div>
         </div>
-        <div className={`px-2 py-1 font-mono text-[10px] border ${statusColors[integration.status]}`}>
+        <div className={`px-2 py-1 font-theme-data text-[10px] border ${statusColors[integration.status]}`}>
           {statusLabels[integration.status]}
         </div>
       </div>
@@ -129,27 +129,27 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
         <button
           onClick={onTest}
           disabled={!integration.configured || isLoading}
-          className={`px-3 py-1.5 font-mono text-[10px] border transition-colors ${
+          className={`px-3 py-1.5 font-theme-data text-[10px] border transition-colors ${
             integration.configured && !isLoading
-              ? 'border-acid-green/50 text-acid-green hover:bg-acid-green/10'
-              : 'border-acid-green/20 text-text-muted cursor-not-allowed'
+              ? 'border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10'
+              : 'border-[var(--accent)]/20 text-text-muted cursor-not-allowed'
           }`}
         >
           {isLoading ? 'TESTING...' : 'TEST CONNECTION'}
         </button>
         <button
           onClick={() => setShowConfig(!showConfig)}
-          className="px-3 py-1.5 font-mono text-[10px] border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors"
+          className="px-3 py-1.5 font-theme-data text-[10px] border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors"
         >
           {showConfig ? 'HIDE CONFIG' : 'SHOW CONFIG'}
         </button>
         {integration.configured && (
           <button
             onClick={onToggle}
-            className={`px-3 py-1.5 font-mono text-[10px] border transition-colors ${
+            className={`px-3 py-1.5 font-theme-data text-[10px] border transition-colors ${
               integration.enabled
-                ? 'border-acid-green/50 text-acid-green bg-acid-green/10'
-                : 'border-acid-yellow/50 text-acid-yellow'
+                ? 'border-[var(--accent)]/50 text-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-acid-yellow/50 text-[var(--acid-yellow)]'
             }`}
           >
             {integration.enabled ? 'ENABLED' : 'DISABLED'}
@@ -159,17 +159,17 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
 
       {/* Config Panel */}
       {showConfig && (
-        <div className="px-4 pb-4 border-t border-acid-green/20 pt-3">
-          <p className="text-text-muted/50 font-mono text-[10px] mb-3">
+        <div className="px-4 pb-4 border-t border-[var(--accent)]/20 pt-3">
+          <p className="text-text-muted/50 font-theme-data text-[10px] mb-3">
             Configure via environment variables:
           </p>
           <div className="space-y-2">
             {integration.configFields.map((field) => (
               <div key={field.key} className="flex items-center gap-2">
-                <code className="text-acid-cyan font-mono text-[10px] bg-bg px-2 py-1 border border-acid-green/20">
+                <code className="text-[var(--acid-cyan)] font-theme-data text-[10px] bg-bg px-2 py-1 border border-[var(--accent)]/20">
                   {field.envVar || field.key.toUpperCase()}
                 </code>
-                <span className="text-text-muted font-mono text-[10px]">
+                <span className="text-text-muted font-theme-data text-[10px]">
                   {field.label}
                   {field.required && <span className="text-warning ml-1">*</span>}
                 </span>
@@ -181,8 +181,8 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
 
       {/* Last Message */}
       {integration.lastMessage && (
-        <div className="px-4 pb-3 border-t border-acid-green/10 pt-2">
-          <p className="text-text-muted/40 font-mono text-[9px]">
+        <div className="px-4 pb-3 border-t border-[var(--accent)]/10 pt-2">
+          <p className="text-text-muted/40 font-theme-data text-[9px]">
             Last: {integration.lastMessage}
           </p>
         </div>
@@ -294,18 +294,18 @@ export default function ChatIntegrationsPage() {
   return (
     <main className="min-h-screen bg-bg text-text">
       {/* Header */}
-      <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
+      <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-acid-green font-mono text-sm hover:opacity-80">
+            <Link href="/" className="text-[var(--accent)] font-theme-data text-sm hover:opacity-80">
               [ARAGORA]
             </Link>
-            <span className="text-acid-green/30">/</span>
-            <Link href="/integrations" className="text-acid-cyan font-mono text-sm hover:opacity-80">
+            <span className="text-[var(--accent)]/30">/</span>
+            <Link href="/integrations" className="text-[var(--acid-cyan)] font-theme-data text-sm hover:opacity-80">
               INTEGRATIONS
             </Link>
-            <span className="text-acid-green/30">/</span>
-            <span className="text-acid-cyan font-mono text-sm">CHAT</span>
+            <span className="text-[var(--accent)]/30">/</span>
+            <span className="text-[var(--acid-cyan)] font-theme-data text-sm">CHAT</span>
           </div>
         </div>
       </header>
@@ -313,8 +313,8 @@ export default function ChatIntegrationsPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Title */}
         <div className="text-center mb-8">
-          <h1 className="text-acid-green font-mono text-xl mb-2">CHAT INTEGRATIONS</h1>
-          <p className="text-text-muted font-mono text-xs">
+          <h1 className="text-[var(--accent)] font-theme-data text-xl mb-2">CHAT INTEGRATIONS</h1>
+          <p className="text-text-muted font-theme-data text-xs">
             Connect Aragora to your team communication platforms
           </p>
         </div>
@@ -324,14 +324,14 @@ export default function ChatIntegrationsPage() {
           <div
             className={`mb-6 p-3 border ${
               testResult.success
-                ? 'border-acid-green/30 bg-acid-green/10'
+                ? 'border-[var(--accent)]/30 bg-[var(--accent)]/10'
                 : 'border-warning/30 bg-warning/10'
             }`}
           >
             <div className="flex items-center justify-between">
               <span
-                className={`font-mono text-sm ${
-                  testResult.success ? 'text-acid-green' : 'text-warning'
+                className={`font-theme-data text-sm ${
+                  testResult.success ? 'text-[var(--accent)]' : 'text-warning'
                 }`}
               >
                 {testResult.success ? '✓' : '✗'} {testResult.message}
@@ -349,7 +349,7 @@ export default function ChatIntegrationsPage() {
         {/* Integrations Grid */}
         {isLoading ? (
           <div className="text-center py-12">
-            <span className="text-acid-green font-mono animate-pulse">LOADING...</span>
+            <span className="text-[var(--accent)] font-theme-data animate-pulse">LOADING...</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -366,29 +366,29 @@ export default function ChatIntegrationsPage() {
         )}
 
         {/* Info Section */}
-        <div className="mt-12 border-t border-acid-green/20 pt-8">
-          <h2 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+        <div className="mt-12 border-t border-[var(--accent)]/20 pt-8">
+          <h2 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
             HOW IT WORKS
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border border-acid-green/10 bg-surface/20">
-              <div className="text-acid-green font-mono text-lg mb-2">1</div>
-              <div className="text-text font-mono text-xs mb-1">Configure</div>
-              <div className="text-text-muted/50 font-mono text-[10px]">
+            <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+              <div className="text-[var(--accent)] font-theme-data text-lg mb-2">1</div>
+              <div className="text-text font-theme-data text-xs mb-1">Configure</div>
+              <div className="text-text-muted/50 font-theme-data text-[10px]">
                 Set environment variables for your chosen platforms
               </div>
             </div>
-            <div className="p-4 border border-acid-green/10 bg-surface/20">
-              <div className="text-acid-green font-mono text-lg mb-2">2</div>
-              <div className="text-text font-mono text-xs mb-1">Test</div>
-              <div className="text-text-muted/50 font-mono text-[10px]">
+            <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+              <div className="text-[var(--accent)] font-theme-data text-lg mb-2">2</div>
+              <div className="text-text font-theme-data text-xs mb-1">Test</div>
+              <div className="text-text-muted/50 font-theme-data text-[10px]">
                 Verify connections work with the test button
               </div>
             </div>
-            <div className="p-4 border border-acid-green/10 bg-surface/20">
-              <div className="text-acid-green font-mono text-lg mb-2">3</div>
-              <div className="text-text font-mono text-xs mb-1">Receive Updates</div>
-              <div className="text-text-muted/50 font-mono text-[10px]">
+            <div className="p-4 border border-[var(--accent)]/10 bg-surface/20">
+              <div className="text-[var(--accent)] font-theme-data text-lg mb-2">3</div>
+              <div className="text-text font-theme-data text-xs mb-1">Receive Updates</div>
+              <div className="text-text-muted/50 font-theme-data text-[10px]">
                 Get debate results, consensus alerts, and errors
               </div>
             </div>
@@ -397,7 +397,7 @@ export default function ChatIntegrationsPage() {
 
         {/* Event Types */}
         <div className="mt-8">
-          <h2 className="text-acid-green/60 font-mono text-[10px] tracking-widest mb-4">
+          <h2 className="text-[var(--accent)]/60 font-theme-data text-[10px] tracking-widest mb-4">
             NOTIFICATION EVENTS
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -407,9 +407,9 @@ export default function ChatIntegrationsPage() {
               { name: 'Debate Complete', desc: 'Final results available' },
               { name: 'Errors', desc: 'When something goes wrong' },
             ].map((event) => (
-              <div key={event.name} className="p-3 border border-acid-green/10 bg-surface/10">
-                <div className="text-acid-cyan font-mono text-[10px]">{event.name}</div>
-                <div className="text-text-muted/40 font-mono text-[9px] mt-1">{event.desc}</div>
+              <div key={event.name} className="p-3 border border-[var(--accent)]/10 bg-surface/10">
+                <div className="text-[var(--acid-cyan)] font-theme-data text-[10px]">{event.name}</div>
+                <div className="text-text-muted/40 font-theme-data text-[9px] mt-1">{event.desc}</div>
               </div>
             ))}
           </div>

@@ -95,7 +95,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-acid-green';
+    if (score >= 0.8) return 'text-[var(--accent)]';
     if (score >= 0.5) return 'text-amber-400';
     return 'text-red-500';
   };
@@ -104,7 +104,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
     <div className="bg-surface border border-border rounded-lg">
       <div className="border-b border-border p-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-mono text-acid-green flex items-center gap-2">
+          <h2 className="text-lg font-theme-data text-[var(--accent)] flex items-center gap-2">
             <span className="text-xl">📝</span> CODE REVIEWS
           </h2>
           <p className="text-xs text-text-muted mt-1">
@@ -113,7 +113,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
         </div>
         <button
           onClick={fetchReviews}
-          className="px-3 py-1 text-xs font-mono bg-bg border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-bg border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
         >
           REFRESH
         </button>
@@ -122,13 +122,13 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
       <div className="max-h-[600px] overflow-y-auto">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="inline-block animate-spin text-acid-green text-2xl">⟳</div>
-            <p className="text-text-muted mt-2 font-mono text-sm">Loading reviews...</p>
+            <div className="inline-block animate-spin text-[var(--accent)] text-2xl">⟳</div>
+            <p className="text-text-muted mt-2 font-theme-data text-sm">Loading reviews...</p>
           </div>
         ) : error ? (
-          <div className="p-4 text-center text-red-500 font-mono text-sm">{error}</div>
+          <div className="p-4 text-center text-red-500 font-theme-data text-sm">{error}</div>
         ) : reviews.length === 0 ? (
-          <div className="p-8 text-center text-text-muted font-mono">
+          <div className="p-8 text-center text-text-muted font-theme-data">
             <p className="text-2xl mb-2">∅</p>
             <p>No reviews found</p>
             <p className="text-xs mt-2">Create one with: git diff main | aragora review --share</p>
@@ -144,7 +144,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-text-muted font-mono">
+                        <span className="text-xs text-text-muted font-theme-data">
                           {review.id.slice(0, 8)}
                         </span>
                         {review.pr_url && (
@@ -152,7 +152,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                             href={review.pr_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-acid-cyan hover:text-acid-green font-mono"
+                            className="text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] font-theme-data"
                             onClick={(e) => e.stopPropagation()}
                           >
                             [PR ↗]
@@ -163,26 +163,26 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                         {review.agents.map((agent) => (
                           <span
                             key={agent}
-                            className="px-2 py-0.5 text-xs font-mono bg-bg border border-border"
+                            className="px-2 py-0.5 text-xs font-theme-data bg-bg border border-border"
                           >
                             {agent}
                           </span>
                         ))}
                       </div>
-                      <div className="mt-2 text-xs text-text-muted font-mono">
+                      <div className="mt-2 text-xs text-text-muted font-theme-data">
                         {formatDate(review.created_at)}
                       </div>
                     </div>
                     <div className="text-right">
                       {review.unanimous_count > 0 && (
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-xs font-mono border border-red-500/30 mb-2 inline-block">
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-xs font-theme-data border border-red-500/30 mb-2 inline-block">
                           {review.unanimous_count} UNANIMOUS
                         </span>
                       )}
-                      <div className={`text-lg font-mono ${getScoreColor(review.agreement_score)}`}>
+                      <div className={`text-lg font-theme-data ${getScoreColor(review.agreement_score)}`}>
                         {(review.agreement_score * 100).toFixed(0)}%
                       </div>
-                      <div className="text-xs text-text-muted font-mono">agreement</div>
+                      <div className="text-xs text-text-muted font-theme-data">agreement</div>
                     </div>
                   </div>
                 </div>
@@ -192,12 +192,12 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                     {/* Unanimous Issues */}
                     {expandedDetails.findings.unanimous_critiques.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-mono text-red-500 mb-2">
+                        <h4 className="text-sm font-theme-data text-red-500 mb-2">
                           ⚠️ Unanimous Issues ({expandedDetails.findings.unanimous_critiques.length})
                         </h4>
                         <ul className="space-y-2">
                           {expandedDetails.findings.unanimous_critiques.slice(0, 5).map((critique, i) => (
-                            <li key={i} className="text-xs font-mono text-text-muted pl-4 border-l-2 border-red-500/30">
+                            <li key={i} className="text-xs font-theme-data text-text-muted pl-4 border-l-2 border-red-500/30">
                               <span className="text-red-400">[{critique.severity}]</span> {critique.issue}
                             </li>
                           ))}
@@ -208,12 +208,12 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                     {/* Split Opinions */}
                     {expandedDetails.findings.split_opinions && expandedDetails.findings.split_opinions.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-mono text-amber-400 mb-2">
+                        <h4 className="text-sm font-theme-data text-amber-400 mb-2">
                           ⚖️ Split Opinions ({expandedDetails.findings.split_opinions.length})
                         </h4>
                         <ul className="space-y-2">
                           {expandedDetails.findings.split_opinions.slice(0, 3).map((split, i) => (
-                            <li key={i} className="text-xs font-mono text-text-muted pl-4 border-l-2 border-amber-500/30">
+                            <li key={i} className="text-xs font-theme-data text-text-muted pl-4 border-l-2 border-amber-500/30">
                               {split.topic}
                             </li>
                           ))}
@@ -225,7 +225,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                     <div className="flex items-center gap-2 pt-3 border-t border-border">
                       <button
                         onClick={() => copyShareLink(review.id)}
-                        className="px-3 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/30 text-acid-green hover:bg-acid-green/20 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
                       >
                         📋 COPY LINK
                       </button>
@@ -233,7 +233,7 @@ export function ReviewsPanel({ apiBase }: ReviewsPanelProps) {
                         href={`${apiBase}/api/reviews/${review.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1 text-xs font-mono bg-bg border border-border text-text-muted hover:border-acid-green/30 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data bg-bg border border-border text-text-muted hover:border-[var(--accent)]/30 transition-colors"
                       >
                         {} JSON
                       </a>

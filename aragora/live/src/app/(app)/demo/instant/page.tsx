@@ -206,28 +206,28 @@ function EventCard({
             <span style={{ color }} className="text-sm">
               {icon}
             </span>
-            <span className="font-mono text-xs" style={{ color }}>
+            <span className="font-theme-data text-xs" style={{ color }}>
               {event.model}
             </span>
             <span
-              className={`px-1.5 py-0.5 text-[10px] font-mono ${typeBadge.bg} ${typeBadge.text} border border-current/20`}
+              className={`px-1.5 py-0.5 text-[10px] font-theme-data ${typeBadge.bg} ${typeBadge.text} border border-current/20`}
             >
               {typeBadge.label}
             </span>
           </div>
           {event.confidence !== undefined && (
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">
+            <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
               {Math.round(event.confidence * 100)}% confidence
             </span>
           )}
         </div>
-        <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
+        <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed">
           {event.content}
         </p>
         {event.vote && (
           <div className="mt-2 flex items-center gap-1">
             <span
-              className={`text-xs font-mono ${
+              className={`text-xs font-theme-data ${
                 event.vote === 'support'
                   ? 'text-green-400'
                   : event.vote === 'oppose'
@@ -248,10 +248,10 @@ function ConsensusBar({ confidence }: { confidence: number }) {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
           Consensus Confidence
         </span>
-        <span className="text-sm font-mono text-[var(--acid-green)] font-bold">
+        <span className="text-sm font-theme-data text-[var(--acid-green)] font-bold">
           {Math.round(confidence * 100)}%
         </span>
       </div>
@@ -274,7 +274,7 @@ function AgentRoster({ agents }: { agents: string[] }) {
         return (
           <div
             key={agent}
-            className="flex items-center gap-1.5 px-2 py-1 border text-xs font-mono"
+            className="flex items-center gap-1.5 px-2 py-1 border text-xs font-theme-data"
             style={{ borderColor: `${color}40`, color }}
           >
             <span>{icon}</span>
@@ -339,10 +339,10 @@ export default function InstantDemoPage() {
         <div className="container mx-auto px-4 py-6 max-w-4xl">
           {/* Header */}
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-mono text-[var(--acid-green)] mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--acid-green)] mb-2">
               MULTI-AGENT DECISION VETTING
             </h1>
-            <p className="text-sm font-mono text-[var(--text-muted)] max-w-2xl mx-auto">
+            <p className="text-sm font-theme-data text-[var(--text-muted)] max-w-2xl mx-auto">
               Watch 5 AI models from different providers debate a real decision.
               Each agent proposes, critiques, and votes independently.
               Consensus is measured, not assumed.
@@ -351,10 +351,10 @@ export default function InstantDemoPage() {
 
           {/* Topic */}
           <div className="mb-6 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30">
-            <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-1">
+            <div className="text-[10px] font-theme-data text-[var(--acid-green)] uppercase mb-1">
               Decision Question
             </div>
-            <div className="text-sm font-mono text-[var(--text)]">
+            <div className="text-sm font-theme-data text-[var(--text)]">
               {DEMO_DEBATE.topic}
             </div>
           </div>
@@ -367,17 +367,17 @@ export default function InstantDemoPage() {
             <button
               onClick={play}
               disabled={isPlaying}
-              className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {isPlaying ? 'PLAYING...' : '\u25B6 REPLAY'}
             </button>
             <button
               onClick={showAll}
-              className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+              className="px-4 py-2 text-xs font-theme-data border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
             >
               SHOW ALL
             </button>
-            <span className="text-[10px] font-mono text-[var(--text-muted)] ml-auto">
+            <span className="text-[10px] font-theme-data text-[var(--text-muted)] ml-auto">
               {visibleCount}/{events.length} events | Round{' '}
               {visibleCount > 0
                 ? events[Math.min(visibleCount - 1, events.length - 1)].round
@@ -404,13 +404,13 @@ export default function InstantDemoPage() {
           {/* Verdict */}
           {showVerdict && (
             <div className="mb-8 p-4 bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/40 transition-all duration-700">
-              <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-2">
+              <div className="text-[10px] font-theme-data text-[var(--acid-green)] uppercase mb-2">
                 Consensus Verdict
               </div>
-              <p className="text-sm font-mono text-[var(--text)] leading-relaxed mb-3">
+              <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed mb-3">
                 {DEMO_DEBATE.verdict}
               </p>
-              <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="flex items-center gap-4 text-[10px] font-theme-data text-[var(--text-muted)]">
                 <span>Receipt sample (not cryptographic): {DEMO_DEBATE.receipt_hash}</span>
                 <span>Agents: {DEMO_DEBATE.agents.length}</span>
                 <span>Rounds: {DEMO_DEBATE.rounds}</span>
@@ -422,20 +422,20 @@ export default function InstantDemoPage() {
           {/* What makes this different */}
           <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-purple-400 mb-2">\u2726 Multi-Model</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-sm font-theme-data text-purple-400 mb-2">\u2726 Multi-Model</div>
+              <p className="text-xs font-theme-data text-[var(--text-muted)]">
                 5 different AI models from 5 providers. No single point of failure or bias.
               </p>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-red-400 mb-2">\u2694 Adversarial</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-sm font-theme-data text-red-400 mb-2">\u2694 Adversarial</div>
+              <p className="text-xs font-theme-data text-[var(--text-muted)]">
                 Agents critique each other. Weak arguments get challenged. Consensus is earned.
               </p>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-[var(--acid-green)] mb-2">$ Auditable</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-sm font-theme-data text-[var(--acid-green)] mb-2">$ Auditable</div>
+              <p className="text-xs font-theme-data text-[var(--text-muted)]">
                 Every decision gets a cryptographic receipt. Full provenance trail. Audit-ready.
               </p>
             </div>
@@ -445,26 +445,26 @@ export default function InstantDemoPage() {
           <div className="flex flex-wrap gap-4 justify-center mb-8">
             <Link
               href="/arena"
-              className="px-6 py-3 text-sm font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+              className="px-6 py-3 text-sm font-theme-data bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
             >
               START YOUR OWN DEBATE
             </Link>
             <Link
               href="/oracle"
-              className="px-6 py-3 text-sm font-mono border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 transition-colors"
+              className="px-6 py-3 text-sm font-theme-data border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 transition-colors"
             >
               ASK THE ORACLE
             </Link>
             <Link
               href="/demo/pipeline"
-              className="px-6 py-3 text-sm font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+              className="px-6 py-3 text-sm font-theme-data border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
             >
               PIPELINE DEMO
             </Link>
           </div>
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-4 border-t border-[var(--acid-green)]/20">
+          <footer className="text-center text-xs font-theme-data py-4 border-t border-[var(--acid-green)]/20">
             <p className="text-[var(--text-muted)]">
               {'>'} ARAGORA // DECISION INTEGRITY PLATFORM // NOT ANOTHER CHATGPT WRAPPER
             </p>

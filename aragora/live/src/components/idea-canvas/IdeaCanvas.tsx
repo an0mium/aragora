@@ -201,12 +201,12 @@ export function IdeaCanvas({ canvasId, onGoalsGenerated }: IdeaCanvasProps) {
               onChange={(e) => setIdeasText(e.target.value)}
               placeholder="Paste your ideas here... (one per line)"
               rows={2}
-              className="flex-1 px-3 py-2 text-sm font-mono rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--acid-green)] transition-colors"
+              className="flex-1 px-3 py-2 text-sm font-theme-data rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--acid-green)] transition-colors"
             />
             <button
               onClick={handleSubmitIdeas}
               disabled={isSubmitting || !ideasText.trim()}
-              className="px-4 py-2 text-xs font-mono font-bold rounded bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-4 py-2 text-xs font-theme-data font-bold rounded bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {isSubmitting ? 'Adding...' : 'Add Ideas'}
             </button>
@@ -216,7 +216,7 @@ export function IdeaCanvas({ canvasId, onGoalsGenerated }: IdeaCanvasProps) {
           <div className="flex gap-2 items-center">
             <button
               onClick={saveCanvas}
-              className="px-3 py-1 text-xs font-mono rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-[var(--acid-green)] transition-colors"
+              className="px-3 py-1 text-xs font-theme-data rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-[var(--acid-green)] transition-colors"
             >
               Save
             </button>
@@ -225,7 +225,7 @@ export function IdeaCanvas({ canvasId, onGoalsGenerated }: IdeaCanvasProps) {
             <button
               onClick={handleGenerateGoals}
               disabled={isGeneratingGoals || nodes.length === 0}
-              className="px-4 py-1.5 text-xs font-mono font-bold rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              className="px-4 py-1.5 text-xs font-theme-data font-bold rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
               {isGeneratingGoals ? (
                 <>
@@ -238,7 +238,7 @@ export function IdeaCanvas({ canvasId, onGoalsGenerated }: IdeaCanvasProps) {
             </button>
 
             {submitError && (
-              <span className="text-xs font-mono text-red-400 truncate max-w-xs">
+              <span className="text-xs font-theme-data text-red-400 truncate max-w-xs">
                 {submitError}
               </span>
             )}

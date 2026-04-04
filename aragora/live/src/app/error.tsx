@@ -39,10 +39,10 @@ export default function Error({
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="max-w-md w-full border border-crimson bg-surface p-6 font-mono">
+      <div className="max-w-md w-full border border-[var(--crimson)] bg-surface p-6 font-theme-data">
         <div className="text-center mb-6">
-          <div className="text-crimson text-4xl mb-3">!</div>
-          <h1 className="text-crimson font-bold text-lg mb-2">
+          <div className="text-[var(--crimson)] text-4xl mb-3">!</div>
+          <h1 className="text-[var(--crimson)] font-bold text-lg mb-2">
             SOMETHING WENT WRONG
           </h1>
           <p className="text-text-muted text-sm">
@@ -55,13 +55,13 @@ export default function Error({
         <div className="flex gap-3 mb-4">
           <button
             onClick={reset}
-            className="flex-1 border border-acid-green text-acid-green py-2 px-4 hover:bg-acid-green hover:text-bg transition-colors font-bold text-sm"
+            className="flex-1 border border-[var(--accent)] text-[var(--accent)] py-2 px-4 hover:bg-[var(--accent)] hover:text-bg transition-colors font-bold text-sm"
           >
             RETRY
           </button>
           <button
             onClick={handleHardRefresh}
-            className="flex-1 border border-acid-cyan text-acid-cyan py-2 px-4 hover:bg-acid-cyan hover:text-bg transition-colors font-bold text-sm"
+            className="flex-1 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] py-2 px-4 hover:bg-acid-cyan hover:text-bg transition-colors font-bold text-sm"
           >
             REFRESH PAGE
           </button>
@@ -69,14 +69,14 @@ export default function Error({
 
         <Link
           href="/"
-          className="block w-full border border-text-muted text-text-muted py-2 px-4 hover:border-acid-green hover:text-acid-green transition-colors text-center text-sm mb-4"
+          className="block w-full border border-text-muted text-text-muted py-2 px-4 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors text-center text-sm mb-4"
         >
           GO HOME
         </Link>
 
         {/* Minimal diagnostics — collapsed by default */}
         <details className="text-left">
-          <summary className="text-xs font-mono text-text-muted/50 cursor-pointer hover:text-text-muted">
+          <summary className="text-xs font-theme-data text-text-muted/50 cursor-pointer hover:text-text-muted">
             Technical details
           </summary>
           <pre className="mt-2 p-2 bg-bg border border-border text-xs text-text-muted/40 overflow-auto max-h-24 whitespace-pre-wrap break-all">
