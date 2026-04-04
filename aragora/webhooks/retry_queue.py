@@ -722,6 +722,11 @@ class WebhookRetryQueue:
                 if success:
                     delivery.status = DeliveryStatus.DELIVERED
                     delivery.last_status_code = status_code
+                    # Clear failure metadata from prior failed attempts
+                    delivery.last_error = None
+                    delivery.next_retry_at = None
+                    for _key in ("failure_reason", "failure_timestamp", "failure_count"):
+                        delivery.metadata.pop(_key, None)
 
                     async with self._stats_lock:
                         self._stats["delivered"] += 1
