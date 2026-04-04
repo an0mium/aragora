@@ -411,6 +411,7 @@ class WorkerLauncher:
             "stderr_size": 0,
             "stdout_mtime_ns": 0,
             "stderr_mtime_ns": 0,
+            "has_progress_heartbeat": False,
         }
         if not worktree_path:
             return snapshot
@@ -447,6 +448,13 @@ class WorkerLauncher:
             initial_head=initial_head,
             head_sha=head_sha,
         )
+        # Detect progress heartbeat: stdout activity (size > 0 and recently
+        # modified) signals the worker is still making progress even when no
+        # git commits have landed yet.  This prevents the no-progress timeout
+        # from killing workers that are reading a large codebase.
+        has_progress_heartbeat = bool(stdout_size > 0 and stdout_mtime_ns > 0) or bool(
+            stderr_size > 0 and stderr_mtime_ns > 0
+        )
         snapshot.update(
             {
                 "head_sha": head_sha,
@@ -458,6 +466,7 @@ class WorkerLauncher:
                 "stderr_size": stderr_size,
                 "stdout_mtime_ns": stdout_mtime_ns,
                 "stderr_mtime_ns": stderr_mtime_ns,
+                "has_progress_heartbeat": has_progress_heartbeat,
             }
         )
         return snapshot
