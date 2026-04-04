@@ -841,7 +841,6 @@ def test_refresh_run_requeues_stale_reaped_needs_human_lane(
             },
         ],
     )
-
     lifecycle = MagicMock()
     session_path = repo / "wt-stale-requeue"
     session_path.mkdir()
