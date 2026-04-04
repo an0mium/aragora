@@ -1,8 +1,8 @@
-"""Runs endpoints (FastAPI v2).
+"""Runs endpoints (FastAPI).
 
 Provides read-only access to persisted backbone run ledgers:
-- GET /api/v2/runs
-- GET /api/v2/runs/{run_id}
+- GET /api/runs
+- GET /api/runs/{run_id}
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.runs import handle_run_detail, handle_runs_list
 from aragora.server.fastapi.dependencies.auth import require_permission
 
-router = APIRouter(prefix="/api/v2", tags=["Runs"])
+router = APIRouter(prefix="/api", tags=["Runs"])
 _RUNS_READ_PERMISSION = "orchestration:read"
 
 
@@ -41,13 +41,13 @@ class RunSummary(BaseModel):
 
 
 class RunListResponse(BaseModel):
-    """Response model for GET /api/v2/runs."""
+    """Response model for GET /api/runs."""
 
     runs: list[RunSummary] = Field(default_factory=list)
 
 
 class RunDetailResponse(BaseModel):
-    """Response model for GET /api/v2/runs/{run_id}."""
+    """Response model for GET /api/runs/{run_id}."""
 
     run: RunSummary
 
