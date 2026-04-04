@@ -3177,7 +3177,7 @@ async def test_dispatch_preserves_needs_human_backbone_status():
 
 
 @pytest.mark.asyncio
-async def test_dispatch_records_postprocessed_publish_metadata_in_backbone():
+async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_backbone():
     """Backbone ledger should capture autonomous publish follow-up metadata."""
     issue = _make_issue(45, "Backbone publish wiring")
     loop = BossLoop(
@@ -3226,6 +3226,14 @@ async def test_dispatch_records_postprocessed_publish_metadata_in_backbone():
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value=fake_result),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.BossLoop._harvest_worker_commits_for_publish",
+            return_value={
+                "action": "harvested",
+                "branch": "aragora/boss-harvest/issue-45",
+                "commit_shas": ["abc123"],
+            },
         ),
         patch(
             "aragora.swarm.tranche_integrate.publish_lane_deliverable",
