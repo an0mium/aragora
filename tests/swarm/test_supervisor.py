@@ -1343,6 +1343,161 @@ def test_start_run_preserves_rerun_when_existing_failed_validation_lane_has_no_d
         assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
 
 
+def test_start_run_preserves_rerun_when_existing_clean_exit_no_deliverable_lane_has_no_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2066] Add run-ledger read API for operator visibility"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Update runs.py",
+                "status": "needs_human",
+                "worker_outcome": "clean_exit_no_effect",
+                "failure_reason": "clean_exit_no_deliverable",
+                "dispatch_error": "worker exited 0 with no commits and no changed paths",
+                "blocking_question": (
+                    "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                ),
+                "blocker": {
+                    "reason": "clean_exit_no_deliverable",
+                    "question": (
+                        "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                    ),
+                },
+                "file_scope": ["aragora/server/handlers/runs.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "acceptance_criteria": [
+                        "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                    ],
+                    "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Update runs.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "acceptance_criteria": [
+                        "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                    ],
+                    "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                },
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Update runs.py",
+                    "description": "Add the read-only RunLedger handler.",
+                    "file_scope": ["aragora/server/handlers/runs.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Update runs.py",
+                    "description": "Expose the new read-only route entries.",
+                    "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-3",
+                    "pipeline_task_id": "micro-task-3",
+                    "title": "Write tests for runs.py",
+                    "description": "Add focused coverage for the new read endpoints.",
+                    "file_scope": ["tests/server/handlers/test_runs_handler.py"],
+                    "dependency_ids": ["micro-task-1", "micro-task-2"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-4",
+                    "pipeline_task_id": "micro-task-4",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance test and fix anything that breaks.",
+                    "file_scope": [
+                        "aragora/server/handlers/runs.py",
+                        "aragora/server/fastapi/routes/runs.py",
+                        "tests/server/handlers/test_runs_handler.py",
+                    ],
+                    "dependency_ids": ["micro-task-1", "micro-task-2", "micro-task-3"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                    },
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued", "queued", "queued"]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
     repo: Path, store: DevCoordinationStore
 ) -> None:
