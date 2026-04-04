@@ -29,6 +29,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from aragora.server.handlers.utils.receipt_delivery_history import (
+    get_receipt_delivery_history_store,
+)
+
 from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
 
@@ -203,6 +207,29 @@ class ReceiptStatsResponse(BaseModel):
     by_risk_level: dict[str, int] = Field(default_factory=dict)
     by_framework: dict[str, int] = Field(default_factory=dict)
     generated_at: str = ""
+
+
+class ReceiptDeliveryRecord(BaseModel):
+    """Single receipt delivery event."""
+
+    id: str | None = None
+    receiptId: str | None = None
+    receipt_id: str | None = None
+    status: str = "pending"
+    deliveredAt: str | None = None
+    delivered_at: str | None = None
+    channel: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class ReceiptDeliveryHistoryResponse(BaseModel):
+    """Response for receipt delivery history."""
+
+    deliveries: list[ReceiptDeliveryRecord] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
 
 
 class CreateShareRequest(BaseModel):
@@ -694,6 +721,44 @@ async def get_receipt_stats(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting receipt stats: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get receipt stats")
+
+
+@router.get("/receipts/deliveries", response_model=ReceiptDeliveryHistoryResponse)
+async def get_receipt_deliveries(
+    request: Request,
+    limit: int = Query(50, ge=1, le=100, description="Max results to return"),
+    offset: int = Query(0, ge=0, description="Results to skip"),
+    receipt_id: str | None = Query(None, description="Filter by receipt ID"),
+    channel: str | None = Query(None, description="Filter by channel type"),
+    status: str | None = Query(None, description="Filter by delivery status"),
+    _auth: Any = Depends(require_permission("receipts:read")),
+) -> ReceiptDeliveryHistoryResponse:
+    """Return receipt delivery history in the lightweight frontend shape."""
+    try:
+        history = list(get_receipt_delivery_history_store())
+        filtered = [
+            item
+            for item in history
+            if (not receipt_id or item.get("receiptId") == receipt_id)
+            and (not channel or item.get("channel") == channel)
+            and (not status or item.get("status") == status)
+        ]
+        filtered.sort(
+            key=lambda item: str(item.get("deliveredAt") or item.get("delivered_at") or ""),
+            reverse=True,
+        )
+        paginated = filtered[offset : offset + limit]
+
+        return ReceiptDeliveryHistoryResponse(
+            deliveries=[ReceiptDeliveryRecord.model_validate(item) for item in paginated],
+            total=len(filtered),
+            limit=limit,
+            offset=offset,
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing receipt deliveries: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list receipt deliveries")
 
 
 @router.get("/receipts/share/{token}", response_model=SharedReceiptResponse)

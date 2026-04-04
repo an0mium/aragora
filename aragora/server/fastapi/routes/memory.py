@@ -91,6 +91,28 @@ class MemoryRecallResponse(BaseModel):
     tiers: list[str]
 
 
+class MemoryTierStats(BaseModel):
+    """Per-tier memory statistics."""
+
+    count: int = 0
+    avg_importance: float | None = None
+    avg_surprise: float | None = None
+    avg_consolidation: float | None = None
+    limit: int | None = None
+    utilization: float | None = None
+
+
+class MemoryStatsResponse(BaseModel):
+    """Response for GET /memory/stats."""
+
+    total_entries: int = 0
+    memory_pressure: float = 0.0
+    status: str = "normal"
+    tiers: dict[str, MemoryTierStats] = Field(default_factory=dict)
+    hit_rate: float | None = None
+    eviction_count: int = 0
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -177,6 +199,89 @@ def _format_memory_entry(entry: Any, preview_chars: int = 300) -> MemoryEntry:
 
 _VALID_TIERS = {"fast", "medium", "slow", "glacial"}
 _VALID_SORT = {"relevance", "importance", "recency"}
+_TIER_LIMITS = {
+    "fast": 100,
+    "medium": 500,
+    "slow": 1000,
+    "glacial": 5000,
+}
+
+
+def _pressure_status(pressure: float) -> str:
+    """Convert pressure ratio into a human-readable status label."""
+    if pressure < 0.5:
+        return "normal"
+    if pressure < 0.8:
+        return "elevated"
+    if pressure < 0.9:
+        return "high"
+    return "critical"
+
+
+@router.get("/stats", response_model=MemoryStatsResponse)
+async def get_memory_stats(
+    request: Request,
+    _auth: AuthorizationContext = Depends(require_permission("memory:read")),
+    continuum=Depends(get_continuum_memory),
+) -> MemoryStatsResponse:
+    """
+    Return high-level continuum memory stats for dashboard consumers.
+
+    This restores the missing FastAPI v2 equivalent for the frontend's
+    decision-integrity dashboard without depending on the legacy aiohttp
+    analytics surface.
+    """
+    try:
+        raw_stats = continuum.get_stats() if hasattr(continuum, "get_stats") else {}
+        pressure = (
+            float(continuum.get_memory_pressure())
+            if hasattr(continuum, "get_memory_pressure")
+            else 0.0
+        )
+
+        tiers: dict[str, MemoryTierStats] = {}
+        for tier_name, tier_data in (raw_stats.get("by_tier") or {}).items():
+            tier_key = str(tier_name).lower()
+            if not isinstance(tier_data, dict):
+                continue
+
+            limit = _TIER_LIMITS.get(tier_key)
+            count = int(tier_data.get("count") or 0)
+            utilization = (count / limit) if limit else None
+
+            tiers[tier_key] = MemoryTierStats(
+                count=count,
+                avg_importance=(
+                    round(float(tier_data["avg_importance"]), 3)
+                    if tier_data.get("avg_importance") is not None
+                    else None
+                ),
+                avg_surprise=(
+                    round(float(tier_data["avg_surprise"]), 3)
+                    if tier_data.get("avg_surprise") is not None
+                    else None
+                ),
+                avg_consolidation=(
+                    round(float(tier_data["avg_consolidation"]), 3)
+                    if tier_data.get("avg_consolidation") is not None
+                    else None
+                ),
+                limit=limit,
+                utilization=round(utilization, 3) if utilization is not None else None,
+            )
+
+        return MemoryStatsResponse(
+            total_entries=int(raw_stats.get("total_memories") or 0),
+            memory_pressure=round(max(0.0, min(pressure, 1.0)), 3),
+            status=_pressure_status(pressure),
+            tiers=tiers,
+        )
+
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting memory stats: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to get memory stats")
 
 
 @router.get("/search", response_model=MemorySearchResponse)

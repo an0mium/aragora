@@ -20,6 +20,9 @@ from fastapi.testclient import TestClient
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi import create_app
 from aragora.server.fastapi.dependencies.auth import require_authenticated
+from aragora.server.handlers.utils.receipt_delivery_history import (
+    get_receipt_delivery_history_store,
+)
 from aragora.storage.receipt_store import StoredReceipt
 
 
@@ -536,6 +539,47 @@ class TestReceiptStats:
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 0
+
+
+class TestReceiptDeliveries:
+    """Tests for GET /api/v2/receipts/deliveries."""
+
+    def test_receipt_deliveries_require_auth(self, client):
+        response = client.get("/api/v2/receipts/deliveries")
+        assert response.status_code == 401
+
+    def test_receipt_deliveries_return_recent_history(self, client):
+        history = get_receipt_delivery_history_store()
+        original = list(history)
+        history[:] = [
+            {
+                "id": "delivery-older",
+                "receiptId": "rcpt-old",
+                "status": "failed",
+                "deliveredAt": "2026-03-31T18:00:00Z",
+                "channel": "email",
+            },
+            {
+                "id": "delivery-newer",
+                "receiptId": "rcpt-new",
+                "status": "success",
+                "deliveredAt": "2026-03-31T20:00:00Z",
+                "channel": "slack",
+            },
+        ]
+
+        try:
+            _override_auth(client, permissions={"receipts:read"})
+            response = client.get("/api/v2/receipts/deliveries?limit=10")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"] == 2
+            assert data["deliveries"][0]["id"] == "delivery-newer"
+            assert data["deliveries"][0]["receiptId"] == "rcpt-new"
+            assert data["deliveries"][1]["id"] == "delivery-older"
+        finally:
+            history[:] = original
+            client.app.dependency_overrides.clear()
 
 
 class TestShareReceipt:
