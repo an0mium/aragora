@@ -95,11 +95,12 @@ async def list_runs(
     store: Any = Depends(get_runs_store),
 ) -> RunListResponse:
     """List persisted backbone runs. Requires `orchestration:read`."""
-    del auth, request  # request is kept for route signature parity with other route modules
+    del request  # request is kept for route signature parity with other route modules
     payload = _unwrap_handler_result(
         handle_runs_list(
             {"status": status, "limit": limit, "offset": offset},
             store=store,
+            auth_context=auth,
         )
     )
     return RunListResponse(**payload)
@@ -112,8 +113,7 @@ async def get_run(
     store: Any = Depends(get_runs_store),
 ) -> RunDetailResponse:
     """Fetch one persisted backbone run. Requires `orchestration:read`."""
-    del auth
-    payload = _unwrap_handler_result(handle_run_detail(run_id, store=store))
+    payload = _unwrap_handler_result(handle_run_detail(run_id, store=store, auth_context=auth))
     return RunDetailResponse(**payload)
 
 

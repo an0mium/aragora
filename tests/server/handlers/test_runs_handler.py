@@ -28,15 +28,25 @@ def _make_run(
     receipt_id: str = "",
     safety_mode: str | None = None,
     stage_events: list[RunStageEvent] | None = None,
+    org_id: str | None = None,
+    owner_id: str | None = None,
 ) -> RunLedger:
     """Build a test RunLedger."""
+    metadata: dict[str, Any] = {}
+    if safety_mode:
+        metadata["safety_mode"] = safety_mode
+    if org_id:
+        metadata["org_id"] = org_id
+    if owner_id:
+        metadata["owner_id"] = owner_id
+
     run = RunLedger(
         run_id=run_id,
         entrypoint="prompt_engine.run",
         status=status,
         execution_id=execution_id,
         receipt_id=receipt_id,
-        metadata={"safety_mode": safety_mode} if safety_mode else {},
+        metadata=metadata,
     )
     for event in stage_events or []:
         run.add_event(event)
@@ -65,6 +75,7 @@ def authorized_http_handler(monkeypatch: pytest.MonkeyPatch) -> Any:
     auth_ctx = MagicMock()
     auth_ctx.is_authenticated = True
     auth_ctx.user_id = "runs-reader"
+    auth_ctx.org_id = "runs-org"
     auth_ctx.role = "admin"
     auth_ctx.error_reason = None
 
@@ -208,6 +219,7 @@ def test_runs_handler_routes_list_requests(
         "run-handler-list",
         status="plan_ready",
         stage_events=[RunStageEvent.create(BackboneStage.PLAN, status="completed")],
+        org_id="runs-org",
     )
     isolated_plan_store.create_run(run)
 
@@ -230,6 +242,7 @@ def test_runs_handler_routes_detail_requests(
         "run-handler-detail",
         status="execution_started",
         stage_events=[RunStageEvent.create(BackboneStage.EXECUTION, status="running")],
+        org_id="runs-org",
     )
     isolated_plan_store.create_run(run)
 
@@ -242,6 +255,81 @@ def test_runs_handler_routes_detail_requests(
 
     assert parsed["status"] == 200
     assert parsed["body"]["run"]["run_id"] == "run-handler-detail"
+
+
+def test_runs_handler_filters_cross_org_list_requests(
+    isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
+) -> None:
+    isolated_plan_store.create_run(_make_run("run-visible", status="plan_ready", org_id="runs-org"))
+    isolated_plan_store.create_run(_make_run("run-hidden", status="plan_ready", org_id="other-org"))
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs",
+        {},
+        authorized_http_handler,
+    )
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"] == {
+        "runs": [
+            {
+                "run_id": "run-visible",
+                "status": "plan_ready",
+                "stages": [],
+                "execution_id": None,
+                "receipt_id": None,
+                "safety_mode": None,
+            }
+        ]
+    }
+
+
+def test_runs_handler_hides_cross_org_detail_requests(
+    isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
+) -> None:
+    isolated_plan_store.create_run(_make_run("run-hidden", status="plan_ready", org_id="other-org"))
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs/run-hidden",
+        {},
+        authorized_http_handler,
+    )
+    parsed = _parse(result)
+
+    assert parsed["status"] == 404
+    assert parsed["body"] == {"error": "Run not found"}
+
+
+def test_runs_handler_falls_back_to_owner_scope(
+    isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
+) -> None:
+    isolated_plan_store.create_run(_make_run("run-owned", status="running", owner_id="runs-reader"))
+    isolated_plan_store.create_run(
+        _make_run("run-other", status="running", owner_id="someone-else")
+    )
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs",
+        {"status": "running"},
+        authorized_http_handler,
+    )
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"]["runs"] == [
+        {
+            "run_id": "run-owned",
+            "status": "running",
+            "stages": [],
+            "execution_id": None,
+            "receipt_id": None,
+            "safety_mode": None,
+        }
+    ]
 
 
 def test_runs_handler_requires_auth(

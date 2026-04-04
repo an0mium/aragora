@@ -25,6 +25,70 @@ def _get_plan_store() -> Any:
     return get_plan_store()
 
 
+def _scope_value(value: Any) -> str | None:
+    """Normalize one optional scope value."""
+    normalized = str(value or "").strip()
+    return normalized or None
+
+
+def _is_global_run_reader(auth_context: Any | None) -> bool:
+    """Allow explicit platform-global admins to inspect any run."""
+    if auth_context is None:
+        return False
+
+    roles = getattr(auth_context, "roles", set()) or set()
+    normalized_roles = {str(role).strip().lower() for role in roles if str(role).strip()}
+    role = str(getattr(auth_context, "role", "") or "").strip().lower()
+    if role:
+        normalized_roles.add(role)
+
+    return bool(normalized_roles & {"platform_admin", "superadmin", "super_admin"})
+
+
+def _run_scope_kwargs(auth_context: Any | None) -> dict[str, str | None]:
+    """Extract coarse store filters from the current caller."""
+    if auth_context is None or _is_global_run_reader(auth_context):
+        return {"org_id": None, "workspace_id": None, "owner_id": None}
+
+    return {
+        "org_id": _scope_value(getattr(auth_context, "org_id", None)),
+        "workspace_id": _scope_value(getattr(auth_context, "workspace_id", None)),
+        "owner_id": _scope_value(getattr(auth_context, "user_id", None))
+        or _scope_value(getattr(auth_context, "id", None)),
+    }
+
+
+def _run_visible_to_auth(run: RunLedger, auth_context: Any | None) -> bool:
+    """Fail closed unless run metadata matches the caller's scope."""
+    if auth_context is None:
+        return False
+    if _is_global_run_reader(auth_context):
+        return True
+
+    metadata = run.metadata if isinstance(run.metadata, dict) else {}
+    auth_scope = _run_scope_kwargs(auth_context)
+
+    run_org_id = _scope_value(metadata.get("org_id"))
+    if run_org_id is not None:
+        return auth_scope["org_id"] == run_org_id
+
+    run_workspace_id = _scope_value(metadata.get("workspace_id")) or _scope_value(
+        metadata.get("tenant_id")
+    )
+    if run_workspace_id is not None:
+        return auth_scope["workspace_id"] == run_workspace_id
+
+    run_owner_id = (
+        _scope_value(metadata.get("owner_id"))
+        or _scope_value(metadata.get("user_id"))
+        or _scope_value(metadata.get("requested_by"))
+    )
+    if run_owner_id is not None:
+        return auth_scope["owner_id"] == run_owner_id
+
+    return False
+
+
 def _coerce_int(
     value: Any,
     *,
@@ -90,15 +154,27 @@ def _run_payload(run: RunLedger) -> dict[str, Any]:
     }
 
 
-def _get_backbone_run(store: Any, run_id: str) -> RunLedger | None:
+def _get_backbone_run(
+    store: Any,
+    run_id: str,
+    *,
+    auth_context: Any | None = None,
+) -> RunLedger | None:
     """Read a single run, preferring the explicit backbone accessor when available."""
+    scope_kwargs = _run_scope_kwargs(auth_context)
     getter = getattr(store, "get_backbone_run", None)
     if callable(getter):
-        return cast(RunLedger | None, getter(run_id))
+        try:
+            return cast(RunLedger | None, getter(run_id, **scope_kwargs))
+        except TypeError:
+            return cast(RunLedger | None, getter(run_id))
 
     getter = getattr(store, "get_run", None)
     if callable(getter):
-        return cast(RunLedger | None, getter(run_id))
+        try:
+            return cast(RunLedger | None, getter(run_id, **scope_kwargs))
+        except TypeError:
+            return cast(RunLedger | None, getter(run_id))
 
     return None
 
@@ -109,15 +185,29 @@ def _list_backbone_runs(
     status: str | None,
     limit: int,
     offset: int,
+    auth_context: Any | None = None,
 ) -> list[RunLedger]:
     """List runs, preferring the explicit backbone accessor when available."""
+    scope_kwargs = _run_scope_kwargs(auth_context)
     lister = getattr(store, "list_backbone_runs", None)
     if callable(lister):
-        return cast(list[RunLedger], lister(status=status, limit=limit, offset=offset))
+        try:
+            return cast(
+                list[RunLedger],
+                lister(status=status, limit=limit, offset=offset, **scope_kwargs),
+            )
+        except TypeError:
+            return cast(list[RunLedger], lister(status=status, limit=limit, offset=offset))
 
     lister = getattr(store, "list_runs", None)
     if callable(lister):
-        return cast(list[RunLedger], lister(status=status, limit=limit, offset=offset))
+        try:
+            return cast(
+                list[RunLedger],
+                lister(status=status, limit=limit, offset=offset, **scope_kwargs),
+            )
+        except TypeError:
+            return cast(list[RunLedger], lister(status=status, limit=limit, offset=offset))
 
     return []
 
@@ -126,6 +216,7 @@ def handle_runs_list(
     query_params: dict[str, Any] | None = None,
     *,
     store: Any | None = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """Handle GET /api/runs."""
     params = query_params or {}
@@ -135,7 +226,15 @@ def handle_runs_list(
     limit = _coerce_int(params.get("limit", 50), default=50, min_value=1, max_value=100)
     offset = _coerce_int(params.get("offset", 0), default=0, min_value=0)
 
-    runs = _list_backbone_runs(run_store, status=status, limit=limit, offset=offset)
+    runs = _list_backbone_runs(
+        run_store,
+        status=status,
+        limit=limit,
+        offset=offset,
+        auth_context=auth_context,
+    )
+    if auth_context is not None:
+        runs = [run for run in runs if _run_visible_to_auth(run, auth_context)]
     return json_response({"runs": [_run_payload(run) for run in runs]})
 
 
@@ -143,6 +242,7 @@ def handle_run_detail(
     run_id: str,
     *,
     store: Any | None = None,
+    auth_context: Any | None = None,
 ) -> HandlerResult:
     """Handle GET /api/runs/{run_id}."""
     normalized_run_id = str(run_id or "").strip()
@@ -150,8 +250,8 @@ def handle_run_detail(
         return error_response("run_id is required", 400)
 
     run_store = store or _get_plan_store()
-    run = _get_backbone_run(run_store, normalized_run_id)
-    if run is None:
+    run = _get_backbone_run(run_store, normalized_run_id, auth_context=auth_context)
+    if run is None or (auth_context is not None and not _run_visible_to_auth(run, auth_context)):
         return error_response("Run not found", 404)
 
     return json_response({"run": _run_payload(run)})
@@ -182,15 +282,16 @@ class RunsHandler(BaseHandler):
 
         normalized_path = strip_version_prefix(path)
         store = self.ctx.get("plan_store") or _get_plan_store()
+        auth_context = self.get_current_user(handler)
 
         if normalized_path == "/api/runs":
-            return handle_runs_list(query_params, store=store)
+            return handle_runs_list(query_params, store=store, auth_context=auth_context)
 
         if normalized_path.startswith("/api/runs/"):
             run_id = normalized_path.removeprefix("/api/runs/").strip("/")
             if not run_id or "/" in run_id:
                 return error_response("Run not found", 404)
-            return handle_run_detail(run_id, store=store)
+            return handle_run_detail(run_id, store=store, auth_context=auth_context)
 
         return None
 

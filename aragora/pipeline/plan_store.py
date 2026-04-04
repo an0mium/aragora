@@ -87,6 +87,53 @@ def _parse_metadata_json(raw: str | None) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _normalize_scope_value(value: Any) -> str | None:
+    """Normalize one optional scope value."""
+    normalized = str(value or "").strip()
+    return normalized or None
+
+
+def _append_backbone_run_scope_filters(
+    clauses: builtins.list[str],
+    params: builtins.list[Any],
+    *,
+    org_id: str | None = None,
+    workspace_id: str | None = None,
+    owner_id: str | None = None,
+) -> None:
+    """Append coarse backbone-run scope filters based on stored metadata."""
+    scope_clauses: builtins.list[str] = []
+
+    normalized_org_id = _normalize_scope_value(org_id)
+    if normalized_org_id is not None:
+        scope_clauses.append("json_extract(metadata_json, '$.org_id') = ?")
+        params.append(normalized_org_id)
+
+    normalized_workspace_id = _normalize_scope_value(workspace_id)
+    if normalized_workspace_id is not None:
+        scope_clauses.append(
+            "("
+            "json_extract(metadata_json, '$.workspace_id') = ? "
+            "OR json_extract(metadata_json, '$.tenant_id') = ?"
+            ")"
+        )
+        params.extend([normalized_workspace_id, normalized_workspace_id])
+
+    normalized_owner_id = _normalize_scope_value(owner_id)
+    if normalized_owner_id is not None:
+        scope_clauses.append(
+            "("
+            "json_extract(metadata_json, '$.owner_id') = ? "
+            "OR json_extract(metadata_json, '$.user_id') = ? "
+            "OR json_extract(metadata_json, '$.requested_by') = ?"
+            ")"
+        )
+        params.extend([normalized_owner_id, normalized_owner_id, normalized_owner_id])
+
+    if scope_clauses:
+        clauses.append("(" + " OR ".join(scope_clauses) + ")")
+
+
 def _load_json_value(raw: str | None) -> Any:
     """Parse arbitrary JSON payloads safely."""
     if not raw:
@@ -1007,13 +1054,31 @@ class PlanStore:
         finally:
             conn.close()
 
-    def get_run(self, run_id: str) -> RunLedger | None:
+    def get_run(
+        self,
+        run_id: str,
+        *,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        owner_id: str | None = None,
+    ) -> RunLedger | None:
         """Fetch one backbone run ledger by ID."""
+        clauses = ["run_id = ?"]
+        params: builtins.list[Any] = [run_id]
+        _append_backbone_run_scope_filters(
+            clauses,
+            params,
+            org_id=org_id,
+            workspace_id=workspace_id,
+            owner_id=owner_id,
+        )
+
         conn = self._connect()
         try:
+            query = "SELECT * FROM backbone_runs WHERE " + " AND ".join(clauses)
             row = conn.execute(
-                "SELECT * FROM backbone_runs WHERE run_id = ?",
-                (run_id,),
+                query,
+                params,
             ).fetchone()
             if row is None:
                 return None
@@ -1036,6 +1101,9 @@ class PlanStore:
         plan_id: str | None = None,
         debate_id: str | None = None,
         execution_id: str | None = None,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        owner_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> builtins.list[RunLedger]:
@@ -1055,6 +1123,13 @@ class PlanStore:
         if execution_id is not None:
             clauses.append("execution_id = ?")
             params.append(execution_id)
+        _append_backbone_run_scope_filters(
+            clauses,
+            params,
+            org_id=org_id,
+            workspace_id=workspace_id,
+            owner_id=owner_id,
+        )
 
         where = ""
         if clauses:
