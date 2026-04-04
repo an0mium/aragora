@@ -33,33 +33,14 @@ export default function DeliberationsPage() {
         // API error - show empty state (component handles gracefully)
         console.error('Failed to fetch deliberations:', response.status);
         setDeliberations([]);
-        setAgentInfluence([]);
         return;
       }
       const data = await response.json();
       setDeliberations(data.deliberations || []);
-
-      // Extract agent influence from decisionmaking sessions
-      const agentMap = new Map<string, AgentInfluence>();
-      (data.deliberations || []).forEach((d: Deliberation) => {
-        d.agents.forEach(agent => {
-          if (!agentMap.has(agent)) {
-            agentMap.set(agent, {
-              agent_id: agent,
-              influence_score: Math.random() * 0.5 + 0.5, // Placeholder until real data
-              message_count: 0,
-              consensus_contributions: Math.random() * 0.3 + 0.7,
-              average_confidence: Math.random() * 0.2 + 0.8,
-            });
-          }
-        });
-      });
-      setAgentInfluence(Array.from(agentMap.values()));
     } catch (error) {
       // Network error - show empty state
       console.error('Error fetching deliberations:', error);
       setDeliberations([]);
-      setAgentInfluence([]);
     }
   }, [backendConfig.api]);
 
@@ -71,14 +52,17 @@ export default function DeliberationsPage() {
         // API error - show null stats (component handles gracefully)
         console.error('Failed to fetch deliberation stats:', response.status);
         setStats(null);
+        setAgentInfluence([]);
         return;
       }
       const data = await response.json();
       setStats(data);
+      setAgentInfluence(Array.isArray(data.top_agents) ? data.top_agents as AgentInfluence[] : []);
     } catch (error) {
       // Network error - show null stats
       console.error('Error fetching deliberation stats:', error);
       setStats(null);
+      setAgentInfluence([]);
     } finally {
       setLoading(false);
     }

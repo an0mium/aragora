@@ -252,6 +252,23 @@ class TestActiveDeliberations:
         assert formatted["agents"] == ["claude", "gpt-4"]
         assert formatted["message_count"] == 2
 
+    def test_format_deliberation_preserves_explicit_message_count(self, deliberations_handler):
+        """Explicit message_count should survive formatting for in-memory sessions."""
+        debate = {
+            "id": "debate-456",
+            "task": "Test task",
+            "status": "running",
+            "agents": ["claude", "gpt-4"],
+            "message_count": 7,
+            "total_rounds": 5,
+            "consensus_score": 0.7,
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+
+        formatted = deliberations_handler._format_deliberation(debate)
+
+        assert formatted["message_count"] == 7
+
     def test_status_mapping(self, deliberations_handler):
         """Test debate status to deliberation status mapping."""
         assert deliberations_handler._map_debate_status("pending") == "initializing"
@@ -309,6 +326,52 @@ class TestDeliberationStats:
         assert status == 200
         # Only active and consensus_forming should be counted
         assert result["active_count"] >= 2
+
+    @pytest.mark.asyncio
+    async def test_stats_derive_top_agents_from_active_store_data(self, deliberations_handler):
+        """Stats should derive top-agent metrics from active debate payloads."""
+        request = MagicMock()
+        request.path = "/api/v1/deliberations/stats"
+        request.method = "GET"
+
+        store = MagicMock()
+        store.get_recent.return_value = [
+            {
+                "id": "debate-1",
+                "status": "running",
+                "agents": ["claude", "gpt-4"],
+                "messages": [
+                    {"agent": "claude", "content": "Proposal", "confidence": 0.9, "round": 1},
+                    {"agent": "gpt-4", "content": "Critique", "confidence": 0.6, "round": 1},
+                    {"agent": "claude", "content": "Revision", "confidence": 0.8, "round": 2},
+                ],
+                "votes": {"claude": 2, "gpt-4": 1},
+                "consensus_score": 0.75,
+                "rounds": 3,
+            }
+        ]
+
+        with patch("aragora.server.handlers.deliberations.get_debate_store", return_value=store):
+            result, status = _unpack(await deliberations_handler.handle_request(request))
+
+        assert status == 200
+        assert result["active_count"] == 1
+        assert result["top_agents"] == [
+            {
+                "agent_id": "claude",
+                "influence_score": 0.703,
+                "message_count": 2,
+                "consensus_contributions": 0.667,
+                "average_confidence": 0.85,
+            },
+            {
+                "agent_id": "gpt-4",
+                "influence_score": 0.387,
+                "message_count": 1,
+                "consensus_contributions": 0.333,
+                "average_confidence": 0.6,
+            },
+        ]
 
 
 # =============================================================================

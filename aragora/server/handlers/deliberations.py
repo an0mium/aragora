@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
@@ -81,6 +82,7 @@ class DeliberationsHandler(BaseHandler):
         "/api/v1/deliberations/stream",
         "/api/v1/deliberations/{deliberation_id}",
     ]
+    _LIVE_DELIVERATION_STATUSES = {"initializing", "active", "consensus_forming"}
 
     def _get_auth_context(self, request: Any) -> AuthorizationContext | None:
         """Build RBAC authorization context from request.
@@ -191,24 +193,10 @@ class DeliberationsHandler(BaseHandler):
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
         """Fetch active vetted decisionmaking sessions from the debate store."""
         deliberations = []
-
-        try:
-            # Try to get from debate store
-            store = get_debate_store()
-            if store:
-                # Get recent debates
-                recent = store.get_recent(limit=50)
-                for debate in recent:
-                    status = self._map_debate_status(debate.get("status", "unknown"))
-                    if status in ("active", "consensus_forming", "initializing"):
-                        deliberations.append(self._format_deliberation(debate))
-        except ImportError:
-            pass
-
-        # Fall back to in-memory tracking
-        for delib_id, delib in _active_deliberations.items():
-            deliberations.append(delib)
-
+        for debate in self._get_recent_deliberations():
+            status = self._map_debate_status(str(debate.get("status", "unknown")))
+            if status in self._LIVE_DELIVERATION_STATUSES:
+                deliberations.append(self._format_deliberation(debate))
         return deliberations
 
     def _map_debate_status(self, status: str) -> str:
@@ -227,14 +215,20 @@ class DeliberationsHandler(BaseHandler):
 
     def _format_deliberation(self, debate: dict[str, Any]) -> dict[str, Any]:
         """Format a debate as a deliberation."""
-        agents = debate.get("agents", [])
-        if isinstance(agents, str):
-            agents = [agents]
+        agents = self._normalize_agents(debate.get("agents", []))
 
         messages = debate.get("messages", [])
+        if not isinstance(messages, list):
+            messages = []
         current_round = debate.get("current_round", 0)
         if not current_round and messages:
             current_round = max((m.get("round", 0) for m in messages), default=0)
+
+        explicit_message_count = debate.get("message_count")
+        if isinstance(explicit_message_count, int) and explicit_message_count >= 0:
+            message_count = explicit_message_count
+        else:
+            message_count = len(messages)
 
         return {
             "id": debate.get("id", debate.get("debate_id", "")),
@@ -246,15 +240,229 @@ class DeliberationsHandler(BaseHandler):
             "consensus_score": debate.get("consensus_score", 0),
             "started_at": debate.get("started_at", debate.get("created_at", "")),
             "updated_at": debate.get("updated_at", debate.get("started_at", "")),
-            "message_count": len(messages),
+            "message_count": message_count,
             "votes": debate.get("votes", {}),
         }
+
+    def _get_recent_deliberations(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Collect recent debates from durable and in-memory sources."""
+        recent_by_id: dict[str, dict[str, Any]] = {}
+
+        try:
+            store = get_debate_store()
+            if store:
+                recent = store.get_recent(limit=limit)
+                if isinstance(recent, list):
+                    for debate in recent:
+                        if not isinstance(debate, dict):
+                            continue
+                        debate_id = str(debate.get("id", debate.get("debate_id", ""))).strip()
+                        key = debate_id or f"store-{len(recent_by_id)}"
+                        recent_by_id[key] = debate
+        except ImportError:
+            pass
+
+        for delib_id, delib in _active_deliberations.items():
+            if isinstance(delib, dict):
+                recent_by_id[str(delib_id)] = delib
+
+        return list(recent_by_id.values())
+
+    def _normalize_agents(self, agents: Any) -> list[str]:
+        """Normalize agent lists that may mix strings and lightweight objects."""
+        if isinstance(agents, str):
+            raw_agents: list[Any] = [agents]
+        elif isinstance(agents, list):
+            raw_agents = agents
+        else:
+            raw_agents = []
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for agent in raw_agents:
+            agent_id = ""
+            if isinstance(agent, str):
+                agent_id = agent.strip()
+            elif isinstance(agent, dict):
+                for key in ("agent_id", "agent", "name", "id"):
+                    value = agent.get(key)
+                    if isinstance(value, str) and value.strip():
+                        agent_id = value.strip()
+                        break
+            if agent_id and agent_id not in seen:
+                normalized.append(agent_id)
+                seen.add(agent_id)
+        return normalized
+
+    @staticmethod
+    def _normalize_ratio(value: Any, default: float = 0.0) -> float:
+        """Clamp ratio-like values into the UI's expected 0..1 range."""
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            number = default
+        return max(0.0, min(1.0, number))
+
+    def _extract_message_agent(self, message: Any) -> str | None:
+        """Extract the originating agent name from a stored debate message."""
+        if not isinstance(message, dict):
+            return None
+
+        for key in ("agent", "author", "name"):
+            value = message.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, dict):
+                for nested_key in ("agent", "agent_id", "name", "id"):
+                    nested_value = value.get(nested_key)
+                    if isinstance(nested_value, str) and nested_value.strip():
+                        return nested_value.strip()
+        return None
+
+    def _derive_top_agents(
+        self, debates: list[dict[str, Any]], limit: int = 5
+    ) -> list[dict[str, Any]]:
+        """Build stable agent influence metrics from active debate payloads."""
+        aggregates: dict[str, dict[str, float]] = defaultdict(
+            lambda: {
+                "debates": 0.0,
+                "message_count": 0.0,
+                "influence_total": 0.0,
+                "consensus_total": 0.0,
+                "confidence_total": 0.0,
+            }
+        )
+
+        for debate in debates:
+            if not isinstance(debate, dict):
+                continue
+
+            status = self._map_debate_status(str(debate.get("status", "unknown")))
+            if status not in self._LIVE_DELIVERATION_STATUSES:
+                continue
+
+            agents = self._normalize_agents(debate.get("agents", []))
+            if not agents:
+                continue
+
+            messages = debate.get("messages", [])
+            if not isinstance(messages, list):
+                messages = []
+            votes = debate.get("votes", {})
+            if not isinstance(votes, dict):
+                votes = {}
+
+            message_counts = {agent: 0 for agent in agents}
+            confidence_totals: dict[str, float] = defaultdict(float)
+            confidence_counts: dict[str, int] = defaultdict(int)
+            total_known_messages = 0
+
+            for message in messages:
+                agent_id = self._extract_message_agent(message)
+                if not agent_id or agent_id not in message_counts:
+                    continue
+
+                message_counts[agent_id] += 1
+                total_known_messages += 1
+
+                if isinstance(message, dict) and "confidence" in message:
+                    confidence = self._normalize_ratio(message.get("confidence"), default=-1.0)
+                    if confidence >= 0:
+                        confidence_totals[agent_id] += confidence
+                        confidence_counts[agent_id] += 1
+
+            total_votes = 0.0
+            normalized_votes: dict[str, float] = {}
+            for agent in agents:
+                try:
+                    vote_value = float(votes.get(agent, 0) or 0)
+                except (TypeError, ValueError):
+                    vote_value = 0.0
+                if vote_value > 0:
+                    normalized_votes[agent] = vote_value
+                    total_votes += vote_value
+
+            total_rounds = debate.get("total_rounds", debate.get("rounds", DEFAULT_ROUNDS))
+            current_round = debate.get("current_round", 0)
+            try:
+                round_progress = float(current_round) / max(float(total_rounds), 1.0)
+            except (TypeError, ValueError):
+                round_progress = 0.0
+            round_progress = self._normalize_ratio(round_progress)
+            consensus_score = self._normalize_ratio(
+                debate.get("consensus_score"), default=round_progress
+            )
+
+            for agent in agents:
+                actual_messages = message_counts.get(agent, 0)
+                message_share = (
+                    actual_messages / total_known_messages
+                    if total_known_messages > 0
+                    else 1 / len(agents)
+                )
+                vote_share = (
+                    normalized_votes.get(agent, 0.0) / total_votes
+                    if total_votes > 0
+                    else message_share
+                )
+                average_confidence = (
+                    confidence_totals[agent] / confidence_counts[agent]
+                    if confidence_counts[agent] > 0
+                    else consensus_score
+                )
+                consensus_contribution = (
+                    vote_share if total_votes > 0 else consensus_score * message_share
+                )
+                influence_score = (
+                    (message_share * 0.5)
+                    + (consensus_contribution * 0.3)
+                    + (average_confidence * 0.2)
+                )
+
+                aggregate = aggregates[agent]
+                aggregate["debates"] += 1
+                aggregate["message_count"] += actual_messages
+                aggregate["influence_total"] += self._normalize_ratio(influence_score)
+                aggregate["consensus_total"] += self._normalize_ratio(consensus_contribution)
+                aggregate["confidence_total"] += self._normalize_ratio(average_confidence)
+
+        top_agents = []
+        for agent_id, metrics in aggregates.items():
+            debates_participated = max(int(metrics["debates"]), 1)
+            top_agents.append(
+                {
+                    "agent_id": agent_id,
+                    "influence_score": round(
+                        self._normalize_ratio(metrics["influence_total"] / debates_participated),
+                        3,
+                    ),
+                    "message_count": int(metrics["message_count"]),
+                    "consensus_contributions": round(
+                        self._normalize_ratio(metrics["consensus_total"] / debates_participated),
+                        3,
+                    ),
+                    "average_confidence": round(
+                        self._normalize_ratio(metrics["confidence_total"] / debates_participated),
+                        3,
+                    ),
+                }
+            )
+
+        top_agents.sort(
+            key=lambda agent: (
+                -agent["influence_score"],
+                -agent["message_count"],
+                agent["agent_id"],
+            )
+        )
+        return top_agents[:limit]
 
     async def _get_stats(self, request: Any) -> tuple[dict[str, Any], int]:
         """Get deliberation statistics."""
         try:
             # Calculate live stats
             active = await self._fetch_active_from_store()
+            recent_debates = self._get_recent_deliberations()
             active_count = len(
                 [d for d in active if d["status"] in ("active", "consensus_forming")]
             )
@@ -286,7 +494,7 @@ class DeliberationsHandler(BaseHandler):
                 "completed_today": completed_today,
                 "average_consensus_time": _stats.get("average_consensus_time", 420),
                 "average_rounds": _stats.get("average_rounds", 4.2),
-                "top_agents": _stats.get("top_agents", []),
+                "top_agents": self._derive_top_agents(recent_debates),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }, 200
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
