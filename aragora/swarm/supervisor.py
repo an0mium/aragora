@@ -1052,7 +1052,13 @@ class SwarmSupervisor:
                 if self._should_requeue_stale_work_order(item, active_leases):
                     self._reset_work_order_for_requeue(item)
                     continue
+            if self._should_requeue_recoverable_work_order_leasing_failed(item, active_leases):
+                self._reset_work_order_for_requeue(item)
+                continue
             if self._should_requeue_reaped_needs_human(item, active_leases):
+                self._reset_work_order_for_requeue(item)
+                continue
+            if self._should_requeue_terminal_dependency_failure(item, work_orders):
                 self._reset_work_order_for_requeue(item)
                 continue
             if self._should_requeue_conflict_only_needs_human(item):
@@ -1496,6 +1502,84 @@ class SwarmSupervisor:
         return True
 
     @staticmethod
+    def _should_requeue_recoverable_work_order_leasing_failed(
+        item: dict[str, Any],
+        active_leases: dict[str, Any],
+    ) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if (
+            failure_reason != "work_order_leasing_failed"
+            and archived_due_to != "work_order_leasing_failed"
+        ):
+            return False
+        lease_id = str(item.get("lease_id", "")).strip()
+        if lease_id and lease_id in active_leases:
+            return False
+        if str(item.get("receipt_id") or "").strip():
+            return False
+        if item.get("commit_shas") or item.get("changed_paths") or item.get("pr_url"):
+            return False
+        dispatch_error = str(item.get("dispatch_error", "")).strip().lower()
+        if not dispatch_error:
+            return False
+        return (
+            "autopilot ensure failed" in dispatch_error
+            and "a branch named" in dispatch_error
+            and "already exists" in dispatch_error
+        )
+
+    @staticmethod
+    def _should_requeue_terminal_dependency_failure(
+        item: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if (
+            failure_reason != "terminal_dependency_failure"
+            and archived_due_to != "terminal_dependency_failure"
+        ):
+            return False
+        dependency_id = ""
+        if isinstance(metadata, dict):
+            dependency_id = str(metadata.get("blocking_dependency_id", "")).strip()
+        blocker = item.get("blocker")
+        if not dependency_id and isinstance(blocker, dict):
+            dependency_id = str(blocker.get("dependency_id", "")).strip()
+        if not dependency_id:
+            return False
+        dependency_lookup: dict[str, dict[str, Any]] = {}
+        for candidate in work_orders:
+            if not isinstance(candidate, dict):
+                continue
+            for key in ("pipeline_task_id", "work_order_id", "task_key"):
+                candidate_id = str(candidate.get(key, "")).strip()
+                if candidate_id:
+                    dependency_lookup[candidate_id] = candidate
+        dependency = dependency_lookup.get(dependency_id)
+        if not isinstance(dependency, dict):
+            return False
+        dependency_status = str(dependency.get("status", "")).strip().lower()
+        return dependency_status not in {"discarded", "failed", "timed_out", "scope_violation"}
+
+    @staticmethod
     def _reset_work_order_for_requeue(item: dict[str, Any]) -> None:
         item["status"] = "queued"
         item["review_status"] = "pending"
@@ -1543,6 +1627,24 @@ class SwarmSupervisor:
         ):
             item.pop(key, None)
         item.pop("blockers", None)
+        metadata = dict(item.get("metadata") or {})
+        for key in (
+            "archived_due_to",
+            "archived_at",
+            "archive_reason",
+            "previous_status",
+            "canonical_task_key",
+            "canonical_work_order_id",
+            "canonical_run_id",
+            "blocking_dependency_id",
+            "blocking_dependency_status",
+            "blocking_dependency_reason",
+        ):
+            metadata.pop(key, None)
+        if metadata:
+            item["metadata"] = metadata
+        else:
+            item.pop("metadata", None)
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""
