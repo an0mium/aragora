@@ -25,6 +25,7 @@ class RunStageSummary(BaseModel):
 
     stage: str
     status: str
+    created_at: str | None = None
 
 
 class RunSummary(BaseModel):
@@ -36,6 +37,7 @@ class RunSummary(BaseModel):
     execution_id: str | None = None
     receipt_id: str | None = None
     safety_mode: str | None = None
+    created_at: str | None = None
 
 
 class RunListResponse(BaseModel):
