@@ -131,9 +131,13 @@ describe('LandingReviewPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: {
+        get: () => 'application/json',
+      },
       json: async () => ({ ok: true }),
     });
 
@@ -181,6 +185,10 @@ describe('LandingReviewPage', () => {
 
   it('posts review updates and refreshes the feedback queue', async () => {
     const user = userEvent.setup();
+    window.localStorage.setItem(
+      'aragora_tokens',
+      JSON.stringify({ access_token: 'admin-token' }),
+    );
 
     render(<LandingReviewPage />);
 
@@ -191,11 +199,16 @@ describe('LandingReviewPage', () => {
         'http://localhost:8080/api/v1/playground/landing/feedback/review',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer admin-token',
+          },
           body: JSON.stringify({ id: 'lfb_1', review_status: 'resolved' }),
         }),
       );
     });
-    expect(mutateFeedback).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mutateFeedback).toHaveBeenCalled();
+    });
   });
 });

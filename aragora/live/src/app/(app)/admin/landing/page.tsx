@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useBackend } from '@/components/BackendSelector';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { apiPost } from '@/lib/api';
 
 interface LandingSummary {
   generated_at: string;
@@ -211,18 +212,11 @@ export default function LandingReviewPage() {
       setUpdatingReportId(reportId);
       setActionError(null);
       try {
-        const response = await fetch(
-          `${backendConfig.api.replace(/\/$/, '')}/api/v1/playground/landing/feedback/review`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: reportId, review_status: reviewStatus }),
-          },
+        await apiPost(
+          '/api/v1/playground/landing/feedback/review',
+          { id: reportId, review_status: reviewStatus },
+          { baseUrl: backendConfig.api },
         );
-
-        if (!response.ok) {
-          throw new Error(`Request failed with ${response.status}`);
-        }
 
         await mutateFeedback();
       } catch (error) {
