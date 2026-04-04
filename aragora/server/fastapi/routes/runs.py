@@ -31,15 +31,51 @@ class RunStageSummary(BaseModel):
 
 
 class RunSummary(BaseModel):
-    """Compact backbone run summary."""
+    """Operator-facing backbone run summary."""
 
     run_id: str
+    entrypoint: str | None = None
     status: str
     stages: list[RunStageSummary] = Field(default_factory=list)
     execution_id: str | None = None
+    correlation_id: str | None = None
+    debate_id: str | None = None
     receipt_id: str | None = None
+    receipt_url: str | None = None
     safety_mode: str | None = None
     created_at: str | None = None
+    updated_at: str | None = None
+
+
+class RunStageEventPayload(BaseModel):
+    """Full persisted stage event timeline entry."""
+
+    event_id: str | None = None
+    stage: str
+    status: str
+    artifact_ref: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: str | None = None
+
+
+class RunDetail(BaseModel):
+    """Expanded run detail payload."""
+
+    run_id: str
+    entrypoint: str | None = None
+    status: str
+    stages: list[RunStageSummary] = Field(default_factory=list)
+    stage_events: list[RunStageEventPayload] = Field(default_factory=list)
+    execution_id: str | None = None
+    correlation_id: str | None = None
+    debate_id: str | None = None
+    plan_id: str | None = None
+    receipt_id: str | None = None
+    receipt_url: str | None = None
+    receipt_envelope: dict[str, Any] | None = None
+    safety_mode: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class RunListResponse(BaseModel):
@@ -51,7 +87,7 @@ class RunListResponse(BaseModel):
 class RunDetailResponse(BaseModel):
     """Response model for GET /api/runs/{run_id} and GET /api/v2/runs/{run_id}."""
 
-    run: RunSummary
+    run: RunDetail
 
 
 async def get_runs_store(request: Request) -> Any:
@@ -123,6 +159,8 @@ async def get_run(
 
 __all__ = [
     "RunDetailResponse",
+    "RunDetail",
+    "RunStageEventPayload",
     "RunListResponse",
     "RunStageSummary",
     "RunSummary",
