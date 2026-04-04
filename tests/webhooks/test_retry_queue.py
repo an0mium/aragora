@@ -754,6 +754,61 @@ class TestWebhookRetryQueue:
         assert dead_letters[0].id == "test-1"
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="Bug: _attempt_delivery does not clear last_error/next_retry_at on success",
+        strict=True,
+    )
+    async def test_successful_retry_clears_stale_failure_metadata(self, queue):
+        """Test that a successful retry clears last_error and next_retry_at from a prior failure.
+
+        Scenario: first attempt fails with HTTP 500, second attempt succeeds with 200.
+        After success the delivery should have DELIVERED status with last_error and
+        next_retry_at cleared.
+        """
+        delivery = WebhookDelivery(
+            id="test-retry-clear",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=5,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False, 500, "HTTP 500 Internal Server Error"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        # Enqueue and perform first attempt (should fail)
+        await queue.store.save(delivery)
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored.status == DeliveryStatus.PENDING
+        assert stored.attempts == 1
+        assert stored.last_error == "HTTP 500 Internal Server Error"
+        assert stored.next_retry_at is not None
+
+        # Perform second attempt (should succeed)
+        # Reset status to allow retry
+        stored.status = DeliveryStatus.PENDING
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored.status == DeliveryStatus.DELIVERED
+        assert stored.attempts == 2
+        assert stored.last_error is None, "last_error should be cleared after successful delivery"
+        assert stored.next_retry_at is None, (
+            "next_retry_at should be cleared after successful delivery"
+        )
+
+    @pytest.mark.asyncio
     async def test_get_delivery(self, queue, delivery):
         """Test getting a delivery by ID."""
         await queue.enqueue(delivery)
