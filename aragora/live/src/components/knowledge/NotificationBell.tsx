@@ -394,7 +394,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               }}
             >
               <a
-                href="/knowledge/notifications"
+                href="/knowledge"
                 style={{
                   color: '#00ffff',
                   fontSize: '12px',
@@ -402,7 +402,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   textDecoration: 'none',
                 }}
               >
-                View all notifications
+                Open knowledge workspace
               </a>
             </div>
           )}

@@ -137,12 +137,13 @@ export default function MarketplacePage() {
           >
             PUBLISH TEMPLATE
           </button>
-          <Link
-            href="/marketplace/my-templates"
+          <button
+            type="button"
+            onClick={() => setActiveTab('templates')}
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             MY TEMPLATES
-          </Link>
+          </button>
         </div>
       ),
     });

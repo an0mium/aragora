@@ -374,7 +374,7 @@ export default function VerticalsPage() {
             {selectedVertical.agents.map((agent, i) => (
               <Link
                 key={i}
-                href={`/agents/${agent}`}
+                href={`/agent/${encodeURIComponent(agent)}`}
                 className="px-3 py-1 text-sm font-mono bg-acid-green/10 border border-acid-green/30 text-acid-green rounded hover:bg-acid-green/20 transition-colors"
               >
                 {agent}
@@ -449,7 +449,7 @@ export default function VerticalsPage() {
                 Agent created: {agentCreation.result.name} ({agentCreation.result.agent_id})
               </p>
               <Link
-                href={`/agents/${agentCreation.result.agent_id}`}
+                href={`/agent/${encodeURIComponent(agentCreation.result.agent_id)}`}
                 className="text-xs font-mono text-acid-cyan hover:underline mt-2 inline-block"
               >
                 [VIEW AGENT]

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import type { UserPreferences, ApiKey } from './types';
 import {
   LLM_PROVIDERS,
@@ -502,20 +503,20 @@ export function ApiKeysTab({
           Use your API key to authenticate requests to the Aragora API.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <a
-            href="/docs/api"
+          <Link
+            href="/docs"
             className="flex items-center gap-2 p-3 bg-surface border border-acid-green/20 rounded hover:border-acid-green/40 transition-colors"
           >
             <span className="text-acid-green">{">"}</span>
             <span className="font-mono text-sm text-text">Full API Reference</span>
-          </a>
-          <a
-            href="/docs/api#rate-limits"
+          </Link>
+          <Link
+            href="/docs"
             className="flex items-center gap-2 p-3 bg-surface border border-acid-green/20 rounded hover:border-acid-green/40 transition-colors"
           >
             <span className="text-acid-green">{">"}</span>
             <span className="font-mono text-sm text-text">Rate Limits & Quotas</span>
-          </a>
+          </Link>
         </div>
       </div>
     </div>
