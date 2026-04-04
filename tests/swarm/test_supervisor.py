@@ -7083,6 +7083,76 @@ def test_refresh_run_work_order_leasing_failure_clears_stale_deliverable_state(
         assert cleared_key not in work_order
 
 
+def test_refresh_run_continues_after_work_order_leasing_failure_for_independent_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="continue after lane-specific leasing failure",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "continue after lane-specific leasing failure"},
+        metadata={"max_concurrency": 2},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "First lane fails to lease",
+                "description": "First lane fails to lease",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/handlers/runs.py"],
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Second independent lane still leases",
+                "description": "Second independent lane still leases",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+            },
+        ],
+        status="active",
+    )
+
+    def fake_lease_work_order(
+        *,
+        run_id: str,
+        target_branch: str,
+        work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        managed_dir_pattern: str,
+        approval_policy: SwarmApprovalPolicy,
+    ) -> bool:
+        del run_id, target_branch, work_orders, managed_dir_pattern, approval_policy
+        if work_order["work_order_id"] == "micro-1":
+            raise RuntimeError("autopilot ensure failed (1): branch already exists")
+        work_order["status"] = "leased"
+        work_order["lease_id"] = "lease-micro-2"
+        work_order["owner_session_id"] = "swarm-session-micro-2"
+        return True
+
+    supervisor._lease_work_order = fake_lease_work_order  # type: ignore[method-assign]
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert refreshed.status == "needs_human"
+    assert work_orders["micro-1"]["status"] == "needs_human"
+    assert work_orders["micro-1"]["failure_reason"] == "work_order_leasing_failed"
+    assert work_orders["micro-2"]["status"] == "leased"
+    assert work_orders["micro-2"]["lease_id"] == "lease-micro-2"
+
+
 def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branch(
     repo: Path, store: DevCoordinationStore
 ) -> None:

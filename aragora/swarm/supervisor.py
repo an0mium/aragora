@@ -768,6 +768,7 @@ class SwarmSupervisor:
                         self._clear_waiting_state(item)
                         item["status"] = "waiting_resource"
                         item["resource_error"] = str(exc)
+                        break
                     else:
                         self._clear_stale_prelaunch_deliverable_state(item)
                         self._mark_needs_human(
@@ -775,7 +776,7 @@ class SwarmSupervisor:
                             str(exc),
                             failure_reason="work_order_leasing_failed",
                         )
-                    break
+                        continue
 
         refreshed = self.store.update_supervisor_run(
             run_id,
