@@ -131,6 +131,11 @@ class TestStripSessionArtifacts:
         result = SwarmSupervisor._strip_session_artifacts(paths)
         assert result == ["aragora/live/app.ts"]
 
+    def test_runtime_node_modules_path_stripped(self) -> None:
+        paths = ["aragora/live/node_modules/react/index.js", "aragora/live/app.ts"]
+        result = SwarmSupervisor._strip_session_artifacts(paths)
+        assert result == ["aragora/live/app.ts"]
+
 
 # ---------------------------------------------------------------------------
 # Worker prompt regression
@@ -509,6 +514,15 @@ class TestWorkingTreeChangeFiltering:
         with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
             assert not WorkerLauncher._has_working_tree_changes_sync("/tmp/wt")
 
+    @pytest.mark.asyncio
+    async def test_has_working_tree_changes_ignores_runtime_node_modules(self) -> None:
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            assert args[:2] == ("status", "--porcelain")
+            return "?? aragora/live/node_modules/react/index.js\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            assert not await WorkerLauncher._has_working_tree_changes("/tmp/wt")
+
 
 # ---------------------------------------------------------------------------
 # _collect_changed_paths filtering
@@ -573,6 +587,24 @@ class TestCollectChangedPathsFiltering:
         assert "real.py" in paths
         assert "subdir/.codex_session_meta.json" not in paths
         assert "subdir/.swarm_worker_stdout.log" not in paths
+
+    def test_collect_excludes_runtime_node_modules(self, repo: Path) -> None:
+        """Runtime dependency directories must not count as deliverable paths."""
+        initial = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        node_modules = repo / "aragora" / "live" / "node_modules" / "react"
+        node_modules.mkdir(parents=True)
+        (node_modules / "index.js").write_text("module.exports = {}\n", encoding="utf-8")
+        (repo / "real.py").write_text("x = 1\n", encoding="utf-8")
+        _run(repo, "git", "add", "-A")
+        _run(repo, "git", "commit", "-m", "test runtime artifacts")
+        head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        paths = asyncio.run(
+            WorkerLauncher._collect_changed_paths(str(repo), initial_head=initial, head_sha=head)
+        )
+        assert "real.py" in paths
+        assert "aragora/live/node_modules/react/index.js" not in paths
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ from aragora.swarm.worker_process import (
     UTC,
     WorkerProcess,
     _SALVAGEABLE_EXIT_CODES,
+    is_ignored_changed_path,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,8 +72,8 @@ class WorkerLauncher:
 
     @staticmethod
     def _strip_session_artifacts(paths: set[str]) -> list[str]:
-        """Normalize changed paths by removing harness-owned artifacts by basename."""
-        return sorted(path for path in paths if Path(path).name not in SESSION_ARTIFACTS)
+        """Normalize changed paths by removing harness/runtime-owned artifacts."""
+        return sorted(path for path in paths if not is_ignored_changed_path(path))
 
     async def launch(
         self,
@@ -930,7 +931,7 @@ class WorkerLauncher:
             if len(line) < 4:
                 continue
             path = line[3:].strip()
-            if path and Path(path).name not in SESSION_ARTIFACTS:
+            if path and not is_ignored_changed_path(path):
                 return True
         return False
 
@@ -946,7 +947,7 @@ class WorkerLauncher:
             if len(line) < 4:
                 continue
             path = line[3:].strip()
-            if path and Path(path).name not in SESSION_ARTIFACTS:
+            if path and not is_ignored_changed_path(path):
                 return True
         return False
 
