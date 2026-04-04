@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.agents.errors import AgentCircuitOpenError
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _DEFAULT_AGENTS,
@@ -476,3 +477,19 @@ class TestGracefulDegradation:
             assert "id" in data
             assert data["topic"] == "test topic"
             assert len(data["participants"]) == 3
+
+    def test_tldr_circuit_open_keeps_live_response(self, handler, mock_http_handler):
+        """TL;DR synthesis failures should not discard an otherwise successful live result."""
+        h = mock_http_handler({})
+
+        with patch.object(
+            handler,
+            "_call_frontier_model",
+            side_effect=AgentCircuitOpenError("Circuit breaker is open for agent"),
+        ):
+            result = handler.handle_post("/api/v1/playground/debate", {}, h)
+
+        data, status = _parse_result(result)
+        assert status == 200
+        assert data["is_live"] is True
+        assert data["tldr"] == "The group reached consensus."
