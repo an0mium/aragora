@@ -11,8 +11,10 @@ platform.
 
 Routes:
     POST /api/v1/playground/debate              - Run a mock debate
+    POST /api/v1/playground/assess              - Assess question ambiguity for landing preflight
     POST /api/v1/playground/debate/live          - Run a live debate with real agents
     POST /api/v1/playground/debate/live/cost-estimate - Pre-flight cost estimate
+    POST /api/v1/playground/landing/events      - Capture bounded landing telemetry
     POST /api/v1/playground/landing/feedback    - Capture bounded landing wrong-answer reports
     GET  /api/v1/playground/landing/feedback    - List recent landing wrong-answer reports
     GET  /api/v1/playground/landing/events/summary - Aggregate recent landing telemetry
@@ -2308,6 +2310,7 @@ class PlaygroundHandler(BaseHandler):
 
     ROUTES = [
         "/api/v1/playground/debate",
+        "/api/v1/playground/assess",
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
         "/api/v1/playground/landing/events",
@@ -2329,6 +2332,7 @@ class PlaygroundHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         if path in (
             *self._CREATE_PATHS,
+            "/api/v1/playground/assess",
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/landing/events",

@@ -386,3 +386,15 @@ class TestLivePathsNotExempt:
 
     def test_playground_status_still_exempt(self, exempt_paths):
         assert "/api/v1/playground/status" in exempt_paths
+
+    def test_assess_still_exempt(self, exempt_paths):
+        """The landing question-assessment path is public and should remain exempt."""
+        assert "/api/v1/playground/assess" in exempt_paths
+
+    def test_landing_events_still_exempt(self, exempt_paths):
+        """Landing telemetry capture should remain public for unauthenticated visitors."""
+        assert "/api/v1/playground/landing/events" in exempt_paths
+
+    def test_landing_feedback_still_exempt(self, exempt_paths):
+        """Wrong-answer feedback capture should remain public for the landing flow."""
+        assert "/api/v1/playground/landing/feedback" in exempt_paths

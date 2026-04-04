@@ -138,6 +138,9 @@ class TestCanHandle:
     def test_cost_estimate_path(self, handler):
         assert handler.can_handle("/api/v1/playground/debate/live/cost-estimate")
 
+    def test_assess_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/assess")
+
     def test_status_path(self, handler):
         assert handler.can_handle("/api/v1/playground/status")
 
@@ -1687,6 +1690,7 @@ class TestHandlerInit:
 
     def test_routes_attribute(self):
         assert "/api/v1/playground/debate" in PlaygroundHandler.ROUTES
+        assert "/api/v1/playground/assess" in PlaygroundHandler.ROUTES
         assert "/api/v1/playground/status" in PlaygroundHandler.ROUTES
         assert "/api/v1/playground/debate/live" in PlaygroundHandler.ROUTES
         assert "/api/v1/playground/debate/live/cost-estimate" in PlaygroundHandler.ROUTES
