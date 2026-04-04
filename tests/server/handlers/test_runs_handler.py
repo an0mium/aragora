@@ -6,10 +6,12 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
+from aragora.server.fastapi.routes.runs import _unwrap_handler_result, get_runs_store
 from aragora.server.handlers.runs import RunsHandler, handle_run_detail, handle_runs_list
 
 
@@ -151,6 +153,76 @@ def test_handle_runs_list_prefers_backbone_lister() -> None:
     ]
 
 
+def test_handle_runs_list_collapses_stage_timeline_from_serialized_events() -> None:
+    run = _make_run("run-timeline", status="receipt_ready")
+    run.stage_events = [
+        {"stage": BackboneStage.INTAKE.value, "status": "received"},
+        {"stage": BackboneStage.PLAN.value, "status": "running"},
+        {"stage": BackboneStage.PLAN.value, "status": "completed"},
+        {"stage": BackboneStage.RECEIPT.value, "status": ""},
+        {"stage": "", "status": "ignored"},
+    ]
+
+    class _FallbackStore:
+        def list_runs(
+            self,
+            *,
+            status: str | None = None,
+            limit: int = 50,
+            offset: int = 0,
+        ) -> list[RunLedger]:
+            assert status is None
+            assert limit == 50
+            assert offset == 0
+            return [run]
+
+    result = handle_runs_list(store=_FallbackStore())
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"] == {
+        "runs": [
+            {
+                "run_id": "run-timeline",
+                "status": "receipt_ready",
+                "stages": [
+                    {"stage": BackboneStage.INTAKE.value, "status": "received"},
+                    {"stage": BackboneStage.PLAN.value, "status": "completed"},
+                    {"stage": BackboneStage.RECEIPT.value, "status": "unknown"},
+                ],
+                "execution_id": None,
+                "receipt_id": None,
+                "safety_mode": None,
+            }
+        ]
+    }
+
+
+def test_handle_runs_list_coerces_query_params_before_listing() -> None:
+    class _CompatStore:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str | None, int, int]] = []
+
+        def list_backbone_runs(
+            self,
+            *,
+            status: str | None = None,
+            limit: int = 50,
+            offset: int = 0,
+        ) -> list[RunLedger]:
+            self.calls.append((status, limit, offset))
+            return []
+
+    store = _CompatStore()
+
+    result = handle_runs_list({"status": "   ", "limit": "999", "offset": "-7"}, store=store)
+    parsed = _parse(result)
+
+    assert parsed["status"] == 200
+    assert parsed["body"] == {"runs": []}
+    assert store.calls == [(None, 100, 0)]
+
+
 def test_handle_run_detail_prefers_get_backbone_run() -> None:
     run = _make_run(
         "run-detail",
@@ -186,6 +258,14 @@ def test_handle_run_detail_prefers_get_backbone_run() -> None:
             "safety_mode": ExecutionMode.AUTONOMOUS.value,
         }
     }
+
+
+def test_handle_run_detail_returns_400_when_run_id_is_blank() -> None:
+    result = handle_run_detail("   ", store=MagicMock())
+    parsed = _parse(result)
+
+    assert parsed["status"] == 400
+    assert parsed["body"] == {"error": "run_id is required"}
 
 
 def test_handle_run_detail_returns_404_when_missing() -> None:
@@ -244,6 +324,57 @@ def test_runs_handler_routes_detail_requests(
     assert parsed["body"]["run"]["run_id"] == "run-handler-detail"
 
 
+def test_runs_handler_accepts_versioned_paths_and_rejects_nested_detail_paths(
+    isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
+) -> None:
+    run = _make_run(
+        "run-versioned-detail",
+        status="execution_started",
+        stage_events=[RunStageEvent.create(BackboneStage.EXECUTION, status="running")],
+    )
+    isolated_plan_store.create_run(run)
+    handler = RunsHandler({"plan_store": isolated_plan_store})
+
+    assert handler.can_handle("/api/v2/runs") is True
+    assert handler.can_handle("/api/v2/runs/run-versioned-detail") is True
+
+    ok_result = handler.handle(
+        "/api/v2/runs/run-versioned-detail",
+        {},
+        authorized_http_handler,
+    )
+    ok_parsed = _parse(ok_result)
+
+    assert ok_parsed["status"] == 200
+    assert ok_parsed["body"]["run"]["run_id"] == "run-versioned-detail"
+
+    missing_result = handler.handle(
+        "/api/runs/run-versioned-detail/extra",
+        {},
+        authorized_http_handler,
+    )
+    missing_parsed = _parse(missing_result)
+
+    assert missing_parsed["status"] == 404
+    assert missing_parsed["body"] == {"error": "Run not found"}
+
+
+def test_runs_handler_ignores_non_get_requests(
+    isolated_plan_store: PlanStore,
+    authorized_http_handler: Any,
+) -> None:
+    authorized_http_handler.command = "POST"
+
+    result = RunsHandler({"plan_store": isolated_plan_store}).handle(
+        "/api/runs",
+        {},
+        authorized_http_handler,
+    )
+
+    assert result is None
+
+
 def test_runs_handler_requires_auth(
     isolated_plan_store: PlanStore,
     monkeypatch: pytest.MonkeyPatch,
@@ -269,3 +400,39 @@ def test_runs_handler_requires_auth(
 
     assert parsed["status"] == 401
     assert parsed["body"] == {"error": "Authentication required"}
+
+
+@pytest.mark.asyncio
+async def test_get_runs_store_prefers_context_plan_store(
+    isolated_plan_store: PlanStore,
+) -> None:
+    request = MagicMock()
+    request.app.state.context = {"plan_store": isolated_plan_store}
+
+    store = await get_runs_store(request)
+
+    assert store is isolated_plan_store
+
+
+@pytest.mark.asyncio
+async def test_get_runs_store_falls_back_to_global_plan_store(
+    isolated_plan_store: PlanStore,
+) -> None:
+    request = MagicMock()
+    request.app.state.context = {}
+
+    store = await get_runs_store(request)
+
+    assert store is isolated_plan_store
+
+
+def test_unwrap_handler_result_raises_http_exception_for_handler_errors() -> None:
+    class _MissingStore:
+        def get_backbone_run(self, run_id: str) -> None:
+            return None
+
+    with pytest.raises(HTTPException) as excinfo:
+        _unwrap_handler_result(handle_run_detail("missing-run", store=_MissingStore()))
+
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail == "Run not found"
