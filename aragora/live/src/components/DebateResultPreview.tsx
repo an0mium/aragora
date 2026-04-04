@@ -65,6 +65,7 @@ export interface DebateResponse {
   mock_fallback_reason?: string;
   original_question?: string;
   interpreted_question?: string;
+  tldr?: string;
   short_answer?: string;
   result_mode?: string;
   result_warning?: string;
@@ -417,15 +418,15 @@ export function DebateResultPreview({
       </div>
 
       {/* Interpretation notice */}
-      {(result as Record<string, unknown>).interpreted_question &&
-        (result as Record<string, unknown>).interpreted_question !== ((result as Record<string, unknown>).original_question || result.topic) && (
+      {result.interpreted_question &&
+        result.interpreted_question !== (result.original_question || result.topic) && (
         <p className="text-xs text-[var(--text-muted)] italic">
-          Aragora interpreted this as: {(result as Record<string, unknown>).interpreted_question as string}
+          Aragora interpreted this as: {result.interpreted_question}
         </p>
       )}
 
       {/* TL;DR answer */}
-      {(result as Record<string, unknown>).tldr && (
+      {result.tldr && (
         <div
           className="rounded-2xl border p-5"
           style={{
@@ -437,7 +438,7 @@ export function DebateResultPreview({
             Summary
           </div>
           <div className="text-base font-semibold leading-relaxed text-[var(--text)]">
-            {(result as Record<string, unknown>).tldr as string}
+            {result.tldr}
           </div>
         </div>
       )}

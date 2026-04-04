@@ -69,9 +69,7 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
 
-  // Cast to access fields not yet on the TS type (tldr from Task 3)
-  const resultExtra = result as Record<string, unknown>;
-  const tldr = (resultExtra.tldr as string | undefined)
+  const tldr = result.tldr
     || (result.final_answer ? stripMarkdown(result.final_answer).slice(0, 200) : '');
 
   const originalQuestion = result.original_question || result.topic;
