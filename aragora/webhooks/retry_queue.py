@@ -721,6 +721,8 @@ class WebhookRetryQueue:
 
                 if success:
                     delivery.status = DeliveryStatus.DELIVERED
+                    delivery.next_retry_at = None
+                    delivery.last_error = None
                     delivery.last_status_code = status_code
 
                     async with self._stats_lock:
