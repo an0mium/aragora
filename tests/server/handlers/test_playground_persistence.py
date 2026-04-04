@@ -37,14 +37,25 @@ class TestCanHandle:
     def test_debate_id_32_chars(self, handler):
         assert handler.can_handle("/api/v1/playground/debate/abcdef1234567890abcdef1234567890")
 
+    def test_accepts_landing_style_debate_id(self, handler):
+        assert handler.can_handle("/api/v1/playground/debate/LV-20260404-abc123")
+
+    def test_accepts_live_playground_debate_id(self, handler):
+        assert handler.can_handle("/api/v1/playground/debate/playground_1234abcd")
+
     def test_rejects_short_debate_id(self, handler):
         assert not handler.can_handle("/api/v1/playground/debate/abc123")
 
-    def test_rejects_non_hex_debate_id(self, handler):
-        assert not handler.can_handle("/api/v1/playground/debate/ghijklmnopqrstuv")
+    def test_live_segment_is_reserved_for_live_debate_route(self, handler):
+        response = handler.handle(
+            "/api/v1/playground/debate/live",
+            {},
+            MagicMock(),
+        )
+        assert response is None
 
     def test_rejects_too_long_debate_id(self, handler):
-        long_id = "a" * 33
+        long_id = "a" * 129
         assert not handler.can_handle(f"/api/v1/playground/debate/{long_id}")
 
 
@@ -69,6 +80,27 @@ class TestHandleGetDebate:
         body = json.loads(response.body.decode("utf-8"))
         assert body["id"] == debate_id
         assert body["topic"] == "Test"
+
+    @pytest.mark.parametrize("debate_id", ["LV-20260404-abc123", "playground_1234abcd"])
+    def test_returns_saved_debate_for_shareable_custom_id(self, handler, debate_id):
+        from aragora.storage.debate_store import get_debate_store
+
+        result_data = {"id": debate_id, "topic": "Custom ID", "verdict": "approved"}
+
+        store = get_debate_store()
+        store.save(debate_id, "Custom ID", result_data)
+
+        response = handler.handle(
+            f"/api/v1/playground/debate/{debate_id}",
+            {},
+            MagicMock(),
+        )
+
+        assert response is not None
+        assert response.status_code == 200
+        body = json.loads(response.body.decode("utf-8"))
+        assert body["id"] == debate_id
+        assert body["topic"] == "Custom ID"
 
     def test_returns_404_for_nonexistent(self, handler):
         response = handler.handle(

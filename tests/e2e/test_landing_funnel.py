@@ -14,6 +14,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from aragora.server.handlers.base import json_response
 
 pytestmark = pytest.mark.e2e
 
@@ -179,6 +180,36 @@ def test_shared_debate_retrievable_via_public_viewer(playground_handler, public_
     assert viewer_body.get("id") == debate_id or viewer_body.get("topic"), (
         "Public viewer response must include the debate content"
     )
+
+
+def test_client_supplied_landing_id_retrievable_via_playground_store(playground_handler):
+    """Landing-generated LV IDs should remain fetchable via the legacy playground endpoint."""
+    debate_id = "LV-20260404-abc123"
+    persisted = playground_handler._persist_and_respond(
+        json_response(
+            {
+                "id": debate_id,
+                "topic": "Should we standardize on Python 3.11 for all services?",
+                "verdict": "approved",
+            }
+        ),
+        "Should we standardize on Python 3.11 for all services?",
+        "landing",
+    )
+
+    body = json.loads(persisted.body.decode("utf-8"))
+    assert body.get("id") == debate_id
+
+    fallback_result = playground_handler.handle(
+        f"/api/v1/playground/debate/{debate_id}",
+        {},
+        MagicMock(client_address=("10.0.0.1", 12345)),
+    )
+
+    assert fallback_result is not None
+    assert fallback_result.status_code == 200
+    fallback_body = json.loads(fallback_result.body.decode("utf-8"))
+    assert fallback_body.get("id") == debate_id
 
 
 def test_mock_debate_source_landing_sets_share_fields(playground_handler):

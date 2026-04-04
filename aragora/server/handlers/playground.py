@@ -45,6 +45,7 @@ from aragora.server.handlers.base import (
     json_response,
     handle_errors,
 )
+from aragora.server.validation import validate_debate_id
 from aragora.server.validation.query_params import safe_query_float, safe_query_int
 from aragora.storage.landing_review_store import get_landing_review_store
 
@@ -2492,7 +2493,8 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/tts",
     ]
 
-    _DEBATE_ID_PATTERN = re.compile(r"^/api/v1/playground/debate/([a-f0-9]{16,32})$")
+    _DEBATE_ID_ROUTE_PREFIX = "/api/v1/playground/debate/"
+    _RESERVED_DEBATE_ROUTE_SEGMENTS = frozenset({"live"})
     _CREATE_PATHS = {
         "/api/v1/playground/debate",
         "/api/v1/playground/debate/",
@@ -2500,6 +2502,24 @@ class PlaygroundHandler(BaseHandler):
 
     def __init__(self, ctx: dict | None = None):
         self.ctx = ctx or {}
+
+    @classmethod
+    def _match_debate_id_path(cls, path: str) -> str | None:
+        """Return the debate ID for shareable GET paths, if valid."""
+        if not path.startswith(cls._DEBATE_ID_ROUTE_PREFIX):
+            return None
+
+        debate_id = path.removeprefix(cls._DEBATE_ID_ROUTE_PREFIX)
+        if (
+            not debate_id
+            or "/" in debate_id
+            or debate_id in cls._RESERVED_DEBATE_ROUTE_SEGMENTS
+            or len(debate_id) < 8
+        ):
+            return None
+
+        is_valid, _ = validate_debate_id(debate_id)
+        return debate_id if is_valid else None
 
     def can_handle(self, path: str) -> bool:
         if path in (
@@ -2516,7 +2536,7 @@ class PlaygroundHandler(BaseHandler):
             "/api/v1/playground/tts",
         ):
             return True
-        return bool(self._DEBATE_ID_PATTERN.match(path))
+        return self._match_debate_id_path(path) is not None
 
     # ------------------------------------------------------------------
     # GET /api/v1/playground/status | /api/v1/playground/debate/{id}
@@ -2536,9 +2556,9 @@ class PlaygroundHandler(BaseHandler):
             return self._handle_landing_feedback_list(query_params, handler)
 
         # GET /api/v1/playground/debate/{debate_id} — retrieve saved debate
-        m = self._DEBATE_ID_PATTERN.match(path)
-        if m:
-            return self._handle_get_debate(m.group(1))
+        debate_id = self._match_debate_id_path(path)
+        if debate_id is not None:
+            return self._handle_get_debate(debate_id)
 
         return None
 
