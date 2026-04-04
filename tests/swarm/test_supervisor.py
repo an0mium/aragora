@@ -7153,6 +7153,112 @@ def test_refresh_run_continues_after_work_order_leasing_failure_for_independent_
     assert work_orders["micro-2"]["lease_id"] == "lease-micro-2"
 
 
+def test_refresh_run_requeues_recoverable_work_order_leasing_failed_lane_and_dependency_children(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="requeue recoverable leasing failure lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "requeue recoverable leasing failure lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Primary lane",
+                "description": "Primary lane",
+                "status": "discarded",
+                "failure_reason": "work_order_leasing_failed",
+                "dispatch_error": (
+                    "autopilot ensure failed (1): fatal: a branch named "
+                    "'codex/swarm-requeue-micro-1-a123' already exists"
+                ),
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/handlers/runs.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "work_order_leasing_failed",
+                    "archived_at": "2026-04-04T00:00:00+00:00",
+                    "archive_reason": "work_order_leasing_failed",
+                    "previous_status": "needs_human",
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Dependent test lane",
+                "description": "Dependent test lane",
+                "status": "discarded",
+                "failure_reason": "terminal_dependency_failure",
+                "dependency_ids": ["micro-task-1"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["tests/server/handlers/test_runs_handler.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "terminal_dependency_failure",
+                    "archived_at": "2026-04-04T00:00:01+00:00",
+                    "archive_reason": "terminal_dependency_failure:micro-task-1",
+                    "previous_status": "queued",
+                    "blocking_dependency_id": "micro-task-1",
+                    "blocking_dependency_status": "discarded",
+                    "blocking_dependency_reason": "work_order_leasing_failed",
+                },
+                "blocker": {
+                    "reason": "terminal_dependency_failure",
+                    "dependency_id": "micro-task-1",
+                    "dependency_status": "discarded",
+                    "dependency_reason": "work_order_leasing_failed",
+                },
+                "blocking_question": (
+                    "Dependency micro-task-1 ended in discarded; should that dependency be rerun "
+                    "or replaced before retrying this lane?"
+                ),
+            },
+        ],
+        status="active",
+    )
+
+    def fake_lease_work_order(
+        *,
+        run_id: str,
+        target_branch: str,
+        work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        managed_dir_pattern: str,
+        approval_policy: SwarmApprovalPolicy,
+    ) -> bool:
+        del run_id, target_branch, work_orders, managed_dir_pattern, approval_policy
+        work_order["status"] = "leased"
+        work_order["lease_id"] = "lease-requeued-micro-1"
+        work_order["owner_session_id"] = "swarm-session-micro-1"
+        return True
+
+    supervisor._lease_work_order = fake_lease_work_order  # type: ignore[method-assign]
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert refreshed.status == "active"
+    assert work_orders["micro-1"]["status"] == "leased"
+    assert work_orders["micro-1"]["lease_id"] == "lease-requeued-micro-1"
+    assert work_orders["micro-1"].get("failure_reason") in {"", None}
+    assert "archived_due_to" not in work_orders["micro-1"].get("metadata", {})
+    assert work_orders["micro-2"]["status"] == "queued"
+    assert work_orders["micro-2"].get("failure_reason") in {"", None}
+    assert work_orders["micro-2"].get("blocking_question") in {"", None}
+    assert "archived_due_to" not in work_orders["micro-2"].get("metadata", {})
+
+
 def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branch(
     repo: Path, store: DevCoordinationStore
 ) -> None:
