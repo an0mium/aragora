@@ -795,6 +795,8 @@ _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
+_PUBLIC_PREVIEW_TENTACLE_TIMEOUT = 5.0  # seconds — landing/demo must fast-fail
+_TENTACLE_COMPLETION_GRACE_SECONDS = 0.25
 
 
 def _get_api_key(name: str) -> str | None:
@@ -2075,6 +2077,13 @@ def _build_tentacle_prompt(
     return f"{context}{summary_block}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
 
 
+def _tentacle_timeout_for_source(source: str) -> float:
+    """Return the per-provider timeout budget for the given public source."""
+    if source in {"landing", "demo"}:
+        return _PUBLIC_PREVIEW_TENTACLE_TIMEOUT
+    return _ORACLE_CALL_TIMEOUT
+
+
 def _try_oracle_tentacles(
     mode: str,
     question: str,
@@ -2095,6 +2104,8 @@ def _try_oracle_tentacles(
     if not available:
         logger.warning("No tentacle models available (no API keys)")
         return None
+
+    timeout_seconds = _tentacle_timeout_for_source(source)
 
     # Assign roles to available models (up to agent_count)
     role_prompts = (
@@ -2127,14 +2138,18 @@ def _try_oracle_tentacles(
             model_cfg["model"],
             prompt,
             max_tokens=800,
-            timeout=_ORACLE_CALL_TIMEOUT,
+            timeout=timeout_seconds,
             openrouter_model=model_cfg.get("openrouter_model"),
         )
         return model_cfg["name"], text
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(count, 6)) as pool:
-        futures = [pool.submit(_call_tentacle, m, r) for m, r in assignments]
-        for future in concurrent.futures.as_completed(futures, timeout=_ORACLE_CALL_TIMEOUT + 2):
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=min(count, 6))
+    futures = [pool.submit(_call_tentacle, m, r) for m, r in assignments]
+    try:
+        for future in concurrent.futures.as_completed(
+            futures,
+            timeout=timeout_seconds + _TENTACLE_COMPLETION_GRACE_SECONDS,
+        ):
             try:
                 name, text = future.result()
                 if text:
@@ -2155,6 +2170,18 @@ def _try_oracle_tentacles(
                 logger.warning("Tentacle future failed", exc_info=True)
             except Exception:
                 logger.warning("Tentacle future failed (unexpected)", exc_info=True)
+    except concurrent.futures.TimeoutError:
+        logger.warning(
+            "Tentacle fan-out timed out for source=%s after %.2fs (%d/%d completed)",
+            source,
+            timeout_seconds,
+            len(results),
+            count,
+        )
+    finally:
+        # Do not block the public request path waiting for already-running provider
+        # calls after the wall-clock budget has been exhausted.
+        pool.shutdown(wait=False, cancel_futures=True)
 
     if not results:
         logger.warning("All %d tentacle calls failed — no results", count)

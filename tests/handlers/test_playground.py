@@ -1593,6 +1593,48 @@ class TestTryOracleTentacles:
         assert result["code"] == "landing_preview_needs_clarification"
         assert "drifted" in result["message"].lower()
 
+    @pytest.mark.parametrize("source", ["landing", "demo"])
+    def test_public_preview_timeout_returns_promptly(self, source):
+        models = [
+            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-6"},
+        ]
+
+        def slow_call(*args, **kwargs):
+            time.sleep(0.2)
+            return "Delayed response"
+
+        with (
+            patch(
+                "aragora.server.handlers.playground._get_available_tentacle_models",
+                return_value=models,
+            ),
+            patch(
+                "aragora.server.handlers.playground._call_provider_llm",
+                side_effect=slow_call,
+            ),
+            patch(
+                "aragora.server.handlers.playground._PUBLIC_PREVIEW_TENTACLE_TIMEOUT",
+                0.01,
+            ),
+            patch(
+                "aragora.server.handlers.playground._TENTACLE_COMPLETION_GRACE_SECONDS",
+                0.01,
+            ),
+        ):
+            started = time.monotonic()
+            result = _try_oracle_tentacles(
+                mode="consult",
+                question="Should I microwave chicken nuggets for my kid?",
+                agent_count=2,
+                source=source,
+                summary_depth="none",
+            )
+            elapsed = time.monotonic() - started
+
+        assert result is None
+        assert elapsed < 0.12
+
 
 # ============================================================================
 # Upgrade CTA
