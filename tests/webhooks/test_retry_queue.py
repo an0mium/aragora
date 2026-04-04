@@ -886,6 +886,71 @@ class TestHTTPRequests:
 
 
 # =============================================================================
+# Retry Metadata Cleanup Tests
+# =============================================================================
+
+
+class TestRetryMetadataCleanup:
+    """Tests for stale metadata cleanup after successful retry."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="Bug #2196: _attempt_delivery does not clear last_error/next_retry_at on success",
+        strict=True,
+    )
+    async def test_successful_retry_clears_stale_metadata(self, queue):
+        """Test that a successful delivery after a failure clears last_error and next_retry_at.
+
+        Reproduces issue #2196: webhook fails with HTTP 500 on first attempt,
+        succeeds with 200 on retry, then asserts that successful delivery clears
+        both last_error and next_retry_at fields while maintaining delivered status.
+        """
+        delivery = WebhookDelivery(
+            id="retry-clear-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=3,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False, 500, "HTTP 500 Internal Server Error"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        # First attempt: fails with 500
+        await queue.store.save(delivery)
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored.status == DeliveryStatus.PENDING
+        assert stored.attempts == 1
+        assert stored.last_error == "HTTP 500 Internal Server Error"
+        assert stored.next_retry_at is not None
+
+        # Second attempt: succeeds with 200
+        # Make delivery ready for retry by clearing future next_retry_at
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        stored.status = DeliveryStatus.PENDING
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        final = await queue.store.get(delivery.id)
+        assert final.status == DeliveryStatus.DELIVERED
+        assert final.attempts == 2
+        # These are the key assertions: stale metadata should be cleared
+        assert final.last_error is None, "last_error should be cleared after successful delivery"
+        assert final.next_retry_at is None, (
+            "next_retry_at should be cleared after successful delivery"
+        )
+
+
+# =============================================================================
 # Concurrency Tests
 # =============================================================================
 
