@@ -366,7 +366,7 @@ describe('HeroSection', () => {
       await user.click(screen.getByRole('button', { name: /start debate/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/Aragora's Answer/i)).toBeInTheDocument();
+        expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /view full debate/i })).toBeInTheDocument();
       });
 
@@ -380,7 +380,6 @@ describe('HeroSection', () => {
           }),
         }),
       );
-      expect(screen.getByRole('button', { name: /try another/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /try another/i })).toBeInTheDocument();
     });
   });

@@ -101,14 +101,15 @@ def test_list_runs_route_is_registered(client) -> None:
                 "status": "plan_ready",
                 "stages": [
                     {
-                        "created_at": None,
                         "stage": BackboneStage.PLAN.value,
                         "status": "completed",
+                        "created_at": None,
                     }
                 ],
                 "execution_id": "exec-fastapi",
                 "receipt_id": "receipt-fastapi",
                 "safety_mode": ExecutionMode.INTERACTIVE.value,
+                "created_at": None,
             }
         ]
     }
@@ -142,14 +143,15 @@ def test_get_run_route_is_registered(client) -> None:
             "status": "execution_started",
             "stages": [
                 {
-                    "created_at": None,
                     "stage": BackboneStage.EXECUTION.value,
                     "status": "running",
+                    "created_at": None,
                 }
             ],
             "execution_id": None,
             "receipt_id": None,
             "safety_mode": None,
+            "created_at": None,
         }
     }
 
