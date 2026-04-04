@@ -792,6 +792,8 @@ def _autogenerate_missing_paths(paths: dict[str, Any]) -> dict[str, Any]:
         logger.warning("Failed to autogenerate OpenAPI paths: %s", exc)
         return paths
     for template, (methods, inferred) in auto_paths.items():
+        if template == "/api/v2/dr" and "/api/v2/dr/status" in paths:
+            continue
         normalized = _normalize_template(template)
         if normalized in existing_norm:
             continue

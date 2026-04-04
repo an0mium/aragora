@@ -9,6 +9,247 @@ from aragora.server.openapi.helpers import (
     STANDARD_ERRORS,
 )
 
+_BACKUP_RECORD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "backup_type": {
+            "type": "string",
+            "enum": ["full", "incremental", "differential"],
+        },
+        "status": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "in_progress",
+                "completed",
+                "verified",
+                "failed",
+                "expired",
+            ],
+        },
+        "source_path": {"type": "string"},
+        "backup_path": {"type": "string"},
+        "size_bytes": {"type": "integer"},
+        "compressed_size_bytes": {"type": "integer"},
+        "checksum": {"type": ["string", "null"]},
+        "row_counts": {
+            "type": "object",
+            "additionalProperties": {"type": "integer"},
+        },
+        "tables": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "duration_seconds": {"type": ["number", "null"]},
+        "verified": {"type": "boolean"},
+        "verified_at": {"type": ["string", "null"], "format": "date-time"},
+        "restore_tested": {"type": "boolean"},
+        "error": {"type": ["string", "null"]},
+        "storage_backend": {"type": "string"},
+        "encryption_key_id": {"type": ["string", "null"]},
+        "metadata": {
+            "type": "object",
+            "additionalProperties": True,
+        },
+        "schema_hash": {"type": "string"},
+        "table_checksums": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+        },
+        "foreign_keys": {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "indexes": {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+    },
+}
+
+_BACKUP_LIST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "backups": {
+            "type": "array",
+            "items": _BACKUP_RECORD_SCHEMA,
+        },
+        "pagination": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer"},
+                "offset": {"type": "integer"},
+                "total": {"type": "integer"},
+                "has_more": {"type": "boolean"},
+            },
+        },
+    },
+}
+
+_BACKUP_STATS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "stats": {
+            "type": "object",
+            "properties": {
+                "total_backups": {"type": "integer"},
+                "verified_backups": {"type": "integer"},
+                "failed_backups": {"type": "integer"},
+                "total_size_bytes": {"type": "integer"},
+                "total_size_mb": {"type": "number"},
+                "latest_backup": {
+                    "type": ["object", "null"],
+                    "properties": _BACKUP_RECORD_SCHEMA["properties"],
+                },
+                "retention_policy": {
+                    "type": "object",
+                    "properties": {
+                        "keep_daily": {"type": "integer"},
+                        "keep_weekly": {"type": "integer"},
+                        "keep_monthly": {"type": "integer"},
+                        "min_backups": {"type": "integer"},
+                    },
+                },
+            },
+        },
+        "generated_at": {"type": "string", "format": "date-time"},
+    },
+}
+
+_DR_STATUS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["healthy", "warning", "critical"],
+        },
+        "readiness_score": {"type": "integer"},
+        "backup_status": {
+            "type": "object",
+            "properties": {
+                "total_backups": {"type": "integer"},
+                "verified_backups": {"type": "integer"},
+                "failed_backups": {"type": "integer"},
+                "latest_backup": {
+                    "type": ["object", "null"],
+                    "properties": _BACKUP_RECORD_SCHEMA["properties"],
+                },
+                "hours_since_backup": {"type": ["number", "null"]},
+            },
+        },
+        "rpo_status": {
+            "type": "object",
+            "properties": {
+                "target_hours": {"type": "integer"},
+                "compliant": {"type": "boolean"},
+                "current_hours": {"type": ["number", "null"]},
+            },
+        },
+        "issues": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "recommendations": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "checked_at": {"type": "string", "format": "date-time"},
+    },
+}
+
+_DR_OBJECTIVES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "rpo": {
+            "type": "object",
+            "properties": {
+                "target_hours": {"type": "integer"},
+                "current_hours": {"type": ["number", "null"]},
+                "compliant": {"type": "boolean"},
+                "violations_last_7_days": {"type": "integer"},
+            },
+        },
+        "rto": {
+            "type": "object",
+            "properties": {
+                "target_minutes": {"type": "integer"},
+                "estimated_minutes": {"type": ["number", "null"]},
+                "compliant": {"type": "boolean"},
+            },
+        },
+        "backup_coverage": {
+            "type": "object",
+            "properties": {
+                "total_backups": {"type": "integer"},
+                "backups_last_7_days": {"type": "integer"},
+                "latest_backup": {
+                    "type": ["object", "null"],
+                    "properties": _BACKUP_RECORD_SCHEMA["properties"],
+                },
+            },
+        },
+        "generated_at": {"type": "string", "format": "date-time"},
+    },
+}
+
+_DR_DRILL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "drill_id": {"type": "string"},
+        "drill_type": {
+            "type": "string",
+            "enum": ["restore_test", "full_recovery_sim", "failover_test"],
+        },
+        "backup_id": {"type": "string"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": {"type": "string", "format": "date-time"},
+        "duration_seconds": {"type": "number"},
+        "success": {"type": "boolean"},
+        "error": {"type": ["string", "null"]},
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "step": {"type": "string"},
+                    "status": {"type": "string"},
+                    "details": {
+                        "type": "object",
+                        "additionalProperties": True,
+                    },
+                },
+            },
+        },
+    },
+}
+
+_DR_VALIDATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "valid": {"type": "boolean"},
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "status": {"type": "string"},
+                    "details": {"type": "string"},
+                    "recommendation": {"type": ["string", "null"]},
+                },
+            },
+        },
+    },
+}
+
 ADMIN_SECURITY_ENDPOINTS = {
     "/api/v1/admin/security/status": {
         "get": {
@@ -482,8 +723,8 @@ ADMIN_SECURITY_ENDPOINTS = {
             "tags": ["Admin", "Backups"],
             "summary": "List backups",
             "description": (
-                "List all backups with optional filtering by status and type. "
-                "Returns backup metadata including size, duration, and retention policy."
+                "List backups for the Backup & DR admin surface with filtering and pagination "
+                "that match the live handler contract."
             ),
             "operationId": "listBackups",
             "parameters": [
@@ -493,11 +734,33 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "description": "Filter by backup status",
                     "schema": {
                         "type": "string",
-                        "enum": ["pending", "in_progress", "completed", "failed"],
+                        "enum": [
+                            "pending",
+                            "in_progress",
+                            "completed",
+                            "verified",
+                            "failed",
+                            "expired",
+                        ],
                     },
                 },
                 {
-                    "name": "type",
+                    "name": "source",
+                    "in": "query",
+                    "description": "Filter by source database path",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "since",
+                    "in": "query",
+                    "description": "Filter by backups created since the given ISO timestamp",
+                    "schema": {
+                        "type": "string",
+                        "format": "date-time",
+                    },
+                },
+                {
+                    "name": "backup_type",
                     "in": "query",
                     "description": "Filter by backup type",
                     "schema": {
@@ -509,7 +772,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "name": "limit",
                     "in": "query",
                     "description": "Maximum number of results",
-                    "schema": {"type": "integer", "default": 50, "maximum": 200},
+                    "schema": {"type": "integer", "default": 20, "maximum": 100},
                 },
                 {
                     "name": "offset",
@@ -523,43 +786,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "description": "List of backups",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "backups": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "id": {"type": "string"},
-                                                "type": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "full",
-                                                        "incremental",
-                                                        "differential",
-                                                    ],
-                                                },
-                                                "status": {"type": "string"},
-                                                "size_bytes": {"type": "integer"},
-                                                "created_at": {
-                                                    "type": "string",
-                                                    "format": "date-time",
-                                                },
-                                                "completed_at": {
-                                                    "type": ["string", "null"],
-                                                    "format": "date-time",
-                                                },
-                                                "retention_days": {"type": "integer"},
-                                            },
-                                        },
-                                    },
-                                    "total": {"type": "integer"},
-                                },
-                            }
+                            "schema": _BACKUP_LIST_SCHEMA,
                         }
                     },
                 },
+                "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "500": STANDARD_ERRORS["500"],
@@ -570,8 +801,8 @@ ADMIN_SECURITY_ENDPOINTS = {
             "tags": ["Admin", "Backups"],
             "summary": "Create backup",
             "description": (
-                "Initiate a new backup. Supports full, incremental, and differential backup types. "
-                "Returns immediately with a backup ID; use GET to poll for completion."
+                "Create a new backup using an optional source override and the canonical "
+                "default source path when none is provided."
             ),
             "operationId": "createBackup",
             "requestBody": {
@@ -581,25 +812,23 @@ ADMIN_SECURITY_ENDPOINTS = {
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "type": {
+                                "source_path": {
+                                    "type": ["string", "null"],
+                                    "description": (
+                                        "Optional database path to back up. "
+                                        "When omitted, the server uses its default source."
+                                    ),
+                                },
+                                "backup_type": {
                                     "type": "string",
                                     "enum": ["full", "incremental", "differential"],
-                                    "default": "incremental",
+                                    "default": "full",
                                     "description": "Backup type",
                                 },
-                                "label": {
-                                    "type": ["string", "null"],
-                                    "description": "Optional human-readable label",
-                                },
-                                "retention_days": {
-                                    "type": "integer",
-                                    "default": 30,
-                                    "description": "Number of days to retain the backup",
-                                },
-                                "include_knowledge_mound": {
-                                    "type": "boolean",
-                                    "default": True,
-                                    "description": "Include Knowledge Mound data",
+                                "metadata": {
+                                    "type": "object",
+                                    "additionalProperties": True,
+                                    "description": "Additional metadata stored with the backup",
                                 },
                             },
                         }
@@ -607,20 +836,14 @@ ADMIN_SECURITY_ENDPOINTS = {
                 },
             },
             "responses": {
-                "202": {
-                    "description": "Backup initiated",
+                "201": {
+                    "description": "Backup created",
                     "content": {
                         "application/json": {
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "backup_id": {"type": "string"},
-                                    "type": {"type": "string"},
-                                    "status": {"type": "string"},
-                                    "started_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
+                                    "backup": _BACKUP_RECORD_SCHEMA,
                                     "message": {"type": "string"},
                                 },
                             }
@@ -630,14 +853,32 @@ ADMIN_SECURITY_ENDPOINTS = {
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
-                "409": {
-                    "description": "Another backup is already in progress",
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v2/backups/stats": {
+        "get": {
+            "tags": ["Admin", "Backups"],
+            "summary": "Get backup statistics",
+            "description": (
+                "Return aggregate backup counts, retention policy settings, "
+                "and the latest known backup record for the admin Backup & DR page."
+            ),
+            "operationId": "getBackupStats",
+            "responses": {
+                "200": {
+                    "description": "Backup statistics",
                     "content": {
                         "application/json": {
-                            "schema": {"$ref": "#/components/schemas/Error"},
-                        },
+                            "schema": _BACKUP_STATS_SCHEMA,
+                        }
                     },
                 },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
                 "500": STANDARD_ERRORS["500"],
             },
             "security": [{"bearerAuth": []}],
@@ -666,45 +907,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "description": "Backup details",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {"type": "string"},
-                                    "type": {"type": "string"},
-                                    "status": {"type": "string"},
-                                    "label": {
-                                        "type": ["string", "null"],
-                                    },
-                                    "size_bytes": {"type": "integer"},
-                                    "duration_seconds": {
-                                        "type": ["number", "null"],
-                                    },
-                                    "components": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "status": {"type": "string"},
-                                                "size_bytes": {"type": "integer"},
-                                            },
-                                        },
-                                    },
-                                    "created_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                    "completed_at": {
-                                        "type": ["string", "null"],
-                                        "format": "date-time",
-                                    },
-                                    "retention_days": {"type": "integer"},
-                                    "expires_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                },
-                            }
+                            "schema": _BACKUP_RECORD_SCHEMA,
                         }
                     },
                 },
@@ -739,6 +942,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                                 "properties": {
                                     "deleted": {"type": "boolean"},
                                     "backup_id": {"type": "string"},
+                                    "message": {"type": "string"},
                                 },
                             }
                         }
@@ -907,14 +1111,13 @@ ADMIN_SECURITY_ENDPOINTS = {
     # =========================================================================
     # V2 Disaster Recovery
     # =========================================================================
-    "/api/v2/dr": {
+    "/api/v2/dr/status": {
         "get": {
             "tags": ["Admin", "Disaster Recovery"],
             "summary": "Get disaster recovery status",
             "description": (
-                "Get the current disaster recovery readiness status including "
-                "backup health, recovery point objective (RPO), recovery time objective (RTO), "
-                "and last drill results."
+                "Get the current disaster recovery readiness score and supporting "
+                "backup health metrics for the admin Backup & DR dashboard."
             ),
             "operationId": "getDRStatus",
             "responses": {
@@ -922,61 +1125,7 @@ ADMIN_SECURITY_ENDPOINTS = {
                     "description": "Disaster recovery status",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "status": {
-                                        "type": "string",
-                                        "enum": ["ready", "degraded", "not_ready"],
-                                    },
-                                    "rpo_hours": {
-                                        "type": "number",
-                                        "description": "Recovery Point Objective in hours",
-                                    },
-                                    "rto_hours": {
-                                        "type": "number",
-                                        "description": "Recovery Time Objective in hours",
-                                    },
-                                    "last_backup": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {"type": "string"},
-                                            "completed_at": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                            },
-                                            "status": {"type": "string"},
-                                        },
-                                    },
-                                    "last_drill": {
-                                        "type": ["object", "null"],
-                                        "properties": {
-                                            "id": {"type": "string"},
-                                            "completed_at": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                            },
-                                            "result": {"type": "string"},
-                                            "recovery_time_seconds": {"type": "number"},
-                                        },
-                                    },
-                                    "plans": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "id": {"type": "string"},
-                                                "name": {"type": "string"},
-                                                "status": {"type": "string"},
-                                            },
-                                        },
-                                    },
-                                    "checked_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                },
-                            }
+                            "schema": _DR_STATUS_SCHEMA,
                         }
                     },
                 },
@@ -987,110 +1136,40 @@ ADMIN_SECURITY_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
-    "/api/v2/dr/{plan_id}": {
+    "/api/v2/dr/objectives": {
         "get": {
             "tags": ["Admin", "Disaster Recovery"],
-            "summary": "Get DR plan",
+            "summary": "Get DR objectives",
             "description": (
-                "Retrieve a specific disaster recovery plan including its configuration, "
-                "schedule, component coverage, and execution history."
+                "Return current RPO/RTO compliance metrics and recent backup coverage "
+                "for the Backup & DR dashboard."
             ),
-            "operationId": "getDRPlan",
-            "parameters": [
-                {
-                    "name": "plan_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "DR plan ID",
-                    "schema": {"type": "string"},
-                }
-            ],
+            "operationId": "getDRObjectives",
             "responses": {
                 "200": {
-                    "description": "DR plan details",
+                    "description": "Current DR objectives and compliance status",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {"type": "string"},
-                                    "name": {"type": "string"},
-                                    "description": {"type": "string"},
-                                    "status": {
-                                        "type": "string",
-                                        "enum": ["active", "inactive", "testing"],
-                                    },
-                                    "components": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "priority": {"type": "integer"},
-                                                "recovery_strategy": {"type": "string"},
-                                            },
-                                        },
-                                    },
-                                    "schedule": {
-                                        "type": "object",
-                                        "properties": {
-                                            "backup_frequency": {"type": "string"},
-                                            "drill_frequency": {"type": "string"},
-                                            "next_drill": {
-                                                "type": ["string", "null"],
-                                                "format": "date-time",
-                                            },
-                                        },
-                                    },
-                                    "last_execution": {
-                                        "type": ["object", "null"],
-                                        "properties": {
-                                            "executed_at": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                            },
-                                            "result": {"type": "string"},
-                                            "duration_seconds": {"type": "number"},
-                                        },
-                                    },
-                                    "created_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                    "updated_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                },
-                            }
+                            "schema": _DR_OBJECTIVES_SCHEMA,
                         }
                     },
                 },
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
-                "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
             "security": [{"bearerAuth": []}],
         },
+    },
+    "/api/v2/dr/drill": {
         "post": {
             "tags": ["Admin", "Disaster Recovery"],
-            "summary": "Execute DR plan",
+            "summary": "Run DR drill",
             "description": (
-                "Execute a disaster recovery plan. This can be a drill (test) execution "
-                "or an actual recovery operation. Drill mode is the default and recommended "
-                "for regular testing."
+                "Run a simulated disaster-recovery drill using the latest verified backup "
+                "or a caller-provided backup ID."
             ),
-            "operationId": "executeDRPlan",
-            "parameters": [
-                {
-                    "name": "plan_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "DR plan ID",
-                    "schema": {"type": "string"},
-                }
-            ],
+            "operationId": "runDRDrill",
             "requestBody": {
                 "required": True,
                 "content": {
@@ -1098,25 +1177,23 @@ ADMIN_SECURITY_ENDPOINTS = {
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "mode": {
-                                    "type": "string",
-                                    "enum": ["drill", "recovery"],
-                                    "default": "drill",
-                                    "description": "Execution mode (drill for testing, recovery for actual restore)",
-                                },
-                                "components": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "description": "Specific components to recover (default: all)",
-                                },
                                 "backup_id": {
-                                    "type": "string",
-                                    "description": "Specific backup to restore from (default: latest)",
+                                    "type": ["string", "null"],
+                                    "description": "Optional backup ID to use for the drill",
                                 },
-                                "notify": {
-                                    "type": "boolean",
-                                    "default": True,
-                                    "description": "Send notifications on completion",
+                                "drill_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "restore_test",
+                                        "full_recovery_sim",
+                                        "failover_test",
+                                    ],
+                                    "default": "restore_test",
+                                    "description": "Type of drill to run",
+                                },
+                                "target_path": {
+                                    "type": ["string", "null"],
+                                    "description": "Optional restore target path for dry-run drills",
                                 },
                             },
                         }
@@ -1124,24 +1201,11 @@ ADMIN_SECURITY_ENDPOINTS = {
                 },
             },
             "responses": {
-                "202": {
-                    "description": "DR plan execution started",
+                "200": {
+                    "description": "DR drill completed",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "execution_id": {"type": "string"},
-                                    "plan_id": {"type": "string"},
-                                    "mode": {"type": "string"},
-                                    "status": {"type": "string"},
-                                    "started_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                    "message": {"type": "string"},
-                                },
-                            }
+                            "schema": _DR_DRILL_SCHEMA,
                         }
                     },
                 },
@@ -1149,14 +1213,55 @@ ADMIN_SECURITY_ENDPOINTS = {
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
-                "409": {
-                    "description": "Another DR execution is already in progress",
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v2/dr/validate": {
+        "post": {
+            "tags": ["Admin", "Disaster Recovery"],
+            "summary": "Validate DR configuration",
+            "description": (
+                "Validate storage access, RBAC permissions, encryption settings, "
+                "and recent backup coverage for the DR configuration."
+            ),
+            "operationId": "validateDRConfiguration",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "check_storage": {
+                                    "type": "boolean",
+                                    "default": True,
+                                },
+                                "check_permissions": {
+                                    "type": "boolean",
+                                    "default": True,
+                                },
+                                "check_encryption": {
+                                    "type": "boolean",
+                                    "default": True,
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "DR configuration validation results",
                     "content": {
                         "application/json": {
-                            "schema": {"$ref": "#/components/schemas/Error"},
-                        },
+                            "schema": _DR_VALIDATE_SCHEMA,
+                        }
                     },
                 },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
                 "500": STANDARD_ERRORS["500"],
             },
             "security": [{"bearerAuth": []}],

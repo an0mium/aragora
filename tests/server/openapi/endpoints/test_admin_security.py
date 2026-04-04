@@ -1114,17 +1114,56 @@ class TestBackupEndpoints:
         assert "post" in ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
 
     def test_backup_types_defined(self):
-        """Backup types should include full, incremental, differential."""
+        """Backup filters should include the handler-backed backup_type param."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
         endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
         get_params = endpoint["get"]["parameters"]
 
-        type_param = next((p for p in get_params if p["name"] == "type"), None)
+        type_param = next((p for p in get_params if p["name"] == "backup_type"), None)
         assert type_param is not None
         assert "full" in type_param["schema"]["enum"]
         assert "incremental" in type_param["schema"]["enum"]
         assert "differential" in type_param["schema"]["enum"]
+
+    def test_backup_list_response_uses_pagination_object(self):
+        """List backups should expose pagination metadata, not a top-level total only."""
+        from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
+
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
+        schema = endpoint["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+
+        assert "pagination" in schema["properties"]
+        assert "total" in schema["properties"]["pagination"]["properties"]
+
+    def test_create_backup_request_matches_handler_contract(self):
+        """Create backup should use backup_type/source_path instead of the old type payload."""
+        from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
+
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
+        request_schema = endpoint["post"]["requestBody"]["content"]["application/json"]["schema"]
+
+        assert "backup_type" in request_schema["properties"]
+        assert "source_path" in request_schema["properties"]
+        assert "type" not in request_schema["properties"]
+
+    def test_create_backup_response_is_created(self):
+        """Create backup should reflect the handler's 201 + backup envelope response."""
+        from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
+
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
+
+        assert "201" in endpoint["post"]["responses"]
+        schema = endpoint["post"]["responses"]["201"]["content"]["application/json"]["schema"]
+        assert "backup" in schema["properties"]
+        assert "message" in schema["properties"]
+
+    def test_backup_stats_endpoint_exists(self):
+        """Backup stats endpoint should be defined for the live admin dashboard."""
+        from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
+
+        assert "/api/v2/backups/stats" in ADMIN_SECURITY_ENDPOINTS
+        assert "get" in ADMIN_SECURITY_ENDPOINTS["/api/v2/backups/stats"]
 
     def test_backup_details_endpoint(self):
         """Get backup details endpoint should exist."""
@@ -1139,12 +1178,13 @@ class TestBackupEndpoints:
 
         assert "delete" in ADMIN_SECURITY_ENDPOINTS["/api/v2/backups/{backup_id}"]
 
-    def test_backup_conflict_response(self):
-        """Backup endpoints should handle conflicts (409)."""
+    def test_delete_backup_response_includes_message(self):
+        """Delete backup should include a human-readable message from the handler."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups"]
-        assert "409" in endpoint["post"]["responses"]
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/backups/{backup_id}"]
+        schema = endpoint["delete"]["responses"]["200"]["content"]["application/json"]["schema"]
+        assert "message" in schema["properties"]
 
 
 class TestDisasterRecoveryEndpoints:
@@ -1154,42 +1194,51 @@ class TestDisasterRecoveryEndpoints:
         """DR status endpoint should be defined."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        assert "/api/v2/dr" in ADMIN_SECURITY_ENDPOINTS
+        assert "/api/v2/dr/status" in ADMIN_SECURITY_ENDPOINTS
 
     def test_dr_status_includes_rpo_rto(self):
-        """DR status should include RPO and RTO."""
+        """DR status should expose readiness and RPO status from the handler."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr"]
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/status"]
         schema = endpoint["get"]["responses"]["200"]["content"]["application/json"]["schema"]
 
-        assert "rpo_hours" in schema["properties"]
-        assert "rto_hours" in schema["properties"]
+        assert "readiness_score" in schema["properties"]
+        assert "rpo_status" in schema["properties"]
 
-    def test_dr_plan_endpoint_exists(self):
-        """DR plan endpoint should be defined."""
+    def test_dr_objectives_endpoint_exists(self):
+        """DR objectives endpoint should be defined."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        assert "/api/v2/dr/{plan_id}" in ADMIN_SECURITY_ENDPOINTS
+        assert "/api/v2/dr/objectives" in ADMIN_SECURITY_ENDPOINTS
+        assert "get" in ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/objectives"]
 
-    def test_dr_plan_execute_is_post(self):
-        """Executing DR plan should be POST."""
+    def test_dr_drill_endpoint_exists(self):
+        """Running a DR drill should be documented as POST /api/v2/dr/drill."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/{plan_id}"]
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/drill"]
         assert "post" in endpoint
 
-    def test_dr_execution_modes(self):
-        """DR execution should support drill and recovery modes."""
+    def test_dr_drill_types(self):
+        """DR drill should support the handler's drill_type values."""
         from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
 
-        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/{plan_id}"]
+        endpoint = ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/drill"]
         request_schema = endpoint["post"]["requestBody"]["content"]["application/json"]["schema"]
 
-        mode = request_schema["properties"]["mode"]
-        assert "enum" in mode
-        assert "drill" in mode["enum"]
-        assert "recovery" in mode["enum"]
+        drill_type = request_schema["properties"]["drill_type"]
+        assert "enum" in drill_type
+        assert "restore_test" in drill_type["enum"]
+        assert "full_recovery_sim" in drill_type["enum"]
+        assert "failover_test" in drill_type["enum"]
+
+    def test_dr_validate_endpoint_exists(self):
+        """DR validation endpoint should be present for config checks."""
+        from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPOINTS
+
+        assert "/api/v2/dr/validate" in ADMIN_SECURITY_ENDPOINTS
+        assert "post" in ADMIN_SECURITY_ENDPOINTS["/api/v2/dr/validate"]
 
 
 # =============================================================================

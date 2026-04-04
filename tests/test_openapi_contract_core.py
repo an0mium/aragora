@@ -35,11 +35,25 @@ PIPELINE_CANVAS_ENDPOINTS = {
     "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {"post"},
 }
 
+BACKUP_DR_ADMIN_ENDPOINTS = {
+    "/api/v2/backups": {"get", "post"},
+    "/api/v2/backups/stats": {"get"},
+    "/api/v2/dr/status": {"get"},
+    "/api/v2/dr/objectives": {"get"},
+    "/api/v2/dr/drill": {"post"},
+    "/api/v2/dr/validate": {"post"},
+}
+
 ABSENT_ADMIN_SECURITY_PLACEHOLDERS = {
     "/api/v1/admin/security/audit",
     "/api/v1/admin/security/compliance",
     "/api/v1/admin/security/scan",
     "/api/v1/admin/security/threats",
+}
+
+ABSENT_STALE_BACKUP_DR_ENDPOINTS = {
+    "/api/v2/dr",
+    "/api/v2/dr/{plan_id}",
 }
 
 
@@ -81,9 +95,36 @@ def test_pipeline_canvas_endpoint_methods() -> None:
         )
 
 
+def test_backup_dr_admin_endpoints_present() -> None:
+    """Backup/DR endpoints used by the live admin page must exist in the schema."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    missing = [path for path in BACKUP_DR_ADMIN_ENDPOINTS if path not in paths]
+    assert not missing, f"Missing backup/DR admin endpoints: {missing}"
+
+
+def test_backup_dr_admin_endpoint_methods() -> None:
+    """Backup/DR admin endpoints must expose the methods used by the live admin page."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    for path, expected_methods in BACKUP_DR_ADMIN_ENDPOINTS.items():
+        methods = {m for m in paths[path].keys() if m not in ("parameters", "servers")}
+        assert expected_methods.issubset(methods), (
+            f"{path} missing methods: {expected_methods - methods}"
+        )
+
+
 def test_admin_security_placeholder_endpoints_absent() -> None:
     """Undocumented admin security placeholder routes must not leak into the schema."""
     schema = generate_openapi_schema()
     paths = schema["paths"]
     unexpected = sorted(path for path in ABSENT_ADMIN_SECURITY_PLACEHOLDERS if path in paths)
     assert not unexpected, f"Unexpected admin security placeholders present: {unexpected}"
+
+
+def test_stale_backup_dr_endpoints_absent() -> None:
+    """Stale DR plan-style endpoints must not remain in the merged schema."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    unexpected = sorted(path for path in ABSENT_STALE_BACKUP_DR_ENDPOINTS if path in paths)
+    assert not unexpected, f"Unexpected stale backup/DR endpoints present: {unexpected}"
