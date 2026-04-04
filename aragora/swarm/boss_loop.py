@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -1103,16 +1104,27 @@ class BossLoop:
             from aragora.swarm.tranche_integrate import publish_lane_deliverable
 
             repo_root = Path.cwd().resolve()
+            harvest_result = self._harvest_worker_commits_for_publish(
+                issue=issue,
+                repo_root=repo_root,
+                source_branch=branch,
+                commit_shas=commit_shas,
+            )
+            if harvest_result is not None:
+                worker_result["harvest_result"] = harvest_result
+                branch = str(harvest_result.get("branch") or branch).strip() or branch
             artifact = _BossDeliverableArtifact(
                 branch=branch,
                 metadata={
                     "branch": branch,
+                    "source_branch": str(deliverable.get("branch", "")).strip() or None,
                     "deliverable": {
                         **dict(deliverable),
                         "branch": branch,
                         "commit_shas": commit_shas,
                     },
                     "receipt_id": worker_result.get("receipt_id"),
+                    "harvest_result": dict(worker_result.get("harvest_result") or {}),
                 },
             )
             publish_result = publish_lane_deliverable(
@@ -1149,6 +1161,119 @@ class BossLoop:
             worker_result["pr_url"] = pr_url
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
         return dict(publish_result)
+
+    def _harvest_worker_commits_for_publish(
+        self,
+        *,
+        issue: GitHubIssue,
+        repo_root: Path,
+        source_branch: str,
+        commit_shas: list[str],
+    ) -> dict[str, Any] | None:
+        unique_commit_shas = list(
+            dict.fromkeys(str(sha).strip() for sha in commit_shas if str(sha).strip())
+        )
+        if not source_branch or not unique_commit_shas:
+            return None
+
+        base_ref = self.config.target_branch
+        remote_base_ref = f"origin/{self.config.target_branch}"
+        verify_proc = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--verify", remote_base_ref],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if verify_proc.returncode == 0:
+            base_ref = remote_base_ref
+
+        safe_run_id = re.sub(r"[^A-Za-z0-9._/-]+", "-", self.run_id).strip("-") or "boss"
+        harvest_branch = f"aragora/boss-harvest/issue-{issue.number}-{safe_run_id}"
+        with tempfile.TemporaryDirectory(prefix="aragora-boss-harvest-") as temp_dir:
+            add_proc = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "worktree",
+                    "add",
+                    "--force",
+                    "-B",
+                    harvest_branch,
+                    temp_dir,
+                    base_ref,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            if add_proc.returncode != 0:
+                detail = (add_proc.stderr or add_proc.stdout or "").strip()
+                raise RuntimeError(detail or f"git worktree add failed for {harvest_branch}")
+
+            try:
+                for sha in unique_commit_shas:
+                    cherry_pick_proc = subprocess.run(
+                        ["git", "-C", temp_dir, "cherry-pick", "-x", sha],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                        check=False,
+                    )
+                    if cherry_pick_proc.returncode != 0:
+                        subprocess.run(
+                            ["git", "-C", temp_dir, "cherry-pick", "--abort"],
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            check=False,
+                        )
+                        detail = (cherry_pick_proc.stderr or cherry_pick_proc.stdout or "").strip()
+                        raise RuntimeError(detail or f"git cherry-pick failed for {sha}")
+
+                push_proc = subprocess.run(
+                    ["git", "-C", temp_dir, "push", "-u", "origin", f"HEAD:{harvest_branch}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=False,
+                )
+                push_detail = (push_proc.stderr or push_proc.stdout or "").strip()
+                if push_proc.returncode != 0:
+                    logger.warning(
+                        "Boss auto-harvest push failed for issue #%s branch %s: %s",
+                        issue.number,
+                        harvest_branch,
+                        push_detail or "git push failed",
+                    )
+                return {
+                    "action": "harvested",
+                    "source_branch": source_branch,
+                    "branch": harvest_branch,
+                    "base_ref": base_ref,
+                    "commit_shas": unique_commit_shas,
+                    "pushed": push_proc.returncode == 0,
+                    "push_error": None
+                    if push_proc.returncode == 0
+                    else push_detail or "git push failed",
+                }
+            finally:
+                remove_proc = subprocess.run(
+                    ["git", "-C", str(repo_root), "worktree", "remove", "--force", temp_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )
+                if remove_proc.returncode != 0:
+                    detail = (remove_proc.stderr or remove_proc.stdout or "").strip()
+                    logger.warning(
+                        "Boss auto-harvest cleanup failed for branch %s: %s",
+                        harvest_branch,
+                        detail or "git worktree remove failed",
+                    )
 
     @staticmethod
     def _published_pr_url(worker_result: dict[str, Any]) -> str | None:
@@ -1267,6 +1392,11 @@ class BossLoop:
             normalized_publish = dict(publish_result)
             receipt_metadata["publish_result"] = normalized_publish
             postprocess["publish_result"] = normalized_publish
+        harvest_result = worker_result.get("harvest_result")
+        if isinstance(harvest_result, dict):
+            normalized_harvest = dict(harvest_result)
+            receipt_metadata["harvest_result"] = normalized_harvest
+            postprocess["harvest_result"] = normalized_harvest
         issue_comment_result = worker_result.get("issue_comment_result")
         if isinstance(issue_comment_result, dict):
             normalized_comment = dict(issue_comment_result)
