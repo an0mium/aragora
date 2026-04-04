@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+import sys
 from typing import Any
+import types
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,8 +15,50 @@ from fastapi import HTTPException
 from aragora.pipeline.backbone_contracts import BackboneStage, RunLedger, RunStageEvent
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.pipeline.plan_store import PlanStore
-from aragora.server.fastapi.routes.runs import _unwrap_handler_result, get_runs_store
 from aragora.server.handlers.runs import RunsHandler, handle_run_detail, handle_runs_list
+
+
+def _load_runs_route_module() -> Any:
+    """Load the runs route module without importing the full FastAPI package."""
+    fastapi_pkg = sys.modules.setdefault(
+        "aragora.server.fastapi",
+        types.ModuleType("aragora.server.fastapi"),
+    )
+    if not hasattr(fastapi_pkg, "__path__"):
+        fastapi_pkg.__path__ = []  # type: ignore[attr-defined]
+
+    dependencies_pkg = sys.modules.setdefault(
+        "aragora.server.fastapi.dependencies",
+        types.ModuleType("aragora.server.fastapi.dependencies"),
+    )
+    if not hasattr(dependencies_pkg, "__path__"):
+        dependencies_pkg.__path__ = []  # type: ignore[attr-defined]
+
+    if "aragora.server.fastapi.dependencies.auth" not in sys.modules:
+        auth_module = types.ModuleType("aragora.server.fastapi.dependencies.auth")
+
+        def require_permission(_: str) -> Any:
+            async def _check_permission(*args: Any, **kwargs: Any) -> None:
+                return None
+
+            return _check_permission
+
+        auth_module.require_permission = require_permission
+        sys.modules["aragora.server.fastapi.dependencies.auth"] = auth_module
+
+    path = Path(__file__).resolve().parents[3] / "aragora/server/fastapi/routes/runs.py"
+    spec = importlib.util.spec_from_file_location("tests.server.handlers._runs_route_module", path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"Unable to load runs route module from {path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_RUNS_ROUTE_MODULE = _load_runs_route_module()
+_unwrap_handler_result = _RUNS_ROUTE_MODULE._unwrap_handler_result
+get_runs_store = _RUNS_ROUTE_MODULE.get_runs_store
 
 
 def _parse(result: Any) -> dict[str, Any]:
