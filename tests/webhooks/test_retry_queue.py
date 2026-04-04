@@ -566,6 +566,48 @@ class TestWebhookRetryQueue:
         assert stored.last_error == "HTTP 500"
 
     @pytest.mark.asyncio
+    async def test_successful_retry_clears_stale_failure_state(self, queue):
+        """Test that a successful retry clears stale failure metadata."""
+        delivery = WebhookDelivery(
+            id="test-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=3,
+        )
+
+        responses = iter(
+            [
+                (False, 500, "HTTP 500"),
+                (True, 200, None),
+            ]
+        )
+
+        async def mock_send(d):
+            return next(responses)
+
+        queue._send_webhook = mock_send
+
+        await queue.enqueue(delivery)
+        await queue._attempt_delivery(delivery)
+
+        failed_state = await queue.store.get(delivery.id)
+        assert failed_state is not None
+        assert failed_state.status == DeliveryStatus.PENDING
+        assert failed_state.attempts == 1
+        assert failed_state.last_error == "HTTP 500"
+        assert failed_state.next_retry_at is not None
+
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored is not None
+        assert stored.status == DeliveryStatus.DELIVERED
+        assert stored.attempts == 2
+        assert stored.last_error is None
+        assert stored.next_retry_at is None
+        assert stored.last_status_code == 200
+
+    @pytest.mark.asyncio
     async def test_dead_letter_after_max_attempts(self, queue):
         """Test that deliveries move to dead-letter after max attempts."""
         delivery = WebhookDelivery(
