@@ -2974,7 +2974,17 @@ class PlaygroundHandler(BaseHandler):
 
         # Keep the readiness gate aligned with the actual live debate resolver.
         # Otherwise provider-specific keys can incorrectly fall back to mock mode.
-        if len(_get_available_live_agents(agent_count)) < 2:
+        try:
+            live_agents = _get_available_live_agents(agent_count)
+        except ValueError as exc:
+            logger.info(
+                "Live playground agents unavailable during readiness check, "
+                "falling back to mock debate: %s",
+                exc,
+            )
+            live_agents = []
+
+        if len(live_agents) < 2:
             # Fall back to mock debate with a note
             result = self._run_debate(
                 topic,
