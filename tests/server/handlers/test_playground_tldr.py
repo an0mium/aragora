@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.agents.errors.exceptions import AgentCircuitOpenError
 from aragora.server.handlers.playground import PlaygroundHandler
 
 
@@ -95,6 +96,23 @@ class TestSynthesizeTldr:
                 fallback_text="First sentence here. Second sentence.",
             )
         assert result == "First sentence here."
+
+    def test_falls_back_on_agent_circuit_open(self, handler: PlaygroundHandler) -> None:
+        """Circuit-breaker errors should not break public beta fallback responses."""
+        with patch.object(
+            handler,
+            "_call_frontier_model",
+            side_effect=AgentCircuitOpenError(
+                "Circuit breaker is open for agent",
+                agent_name="tldr-synth",
+            ),
+        ):
+            result = handler._synthesize_tldr(
+                question="Test?",
+                proposals={"a": "Text"},
+                fallback_text="Use the deterministic fallback answer. More detail follows.",
+            )
+        assert result == "Use the deterministic fallback answer."
 
     def test_empty_fallback_text_returns_empty_string(self, handler: PlaygroundHandler) -> None:
         """When fallback_text is empty and model fails, return empty string."""

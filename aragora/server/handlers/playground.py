@@ -3171,7 +3171,7 @@ class PlaygroundHandler(BaseHandler):
 
         try:
             return self._call_frontier_model(prompt, timeout=5.0)
-        except (TimeoutError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
+        except Exception as exc:  # noqa: BLE001 - TL;DR failures must not break fallback responses
             logger.debug("TL;DR synthesis failed, using fallback: %s", exc)
 
         # Fallback: extract first sentence from fallback_text
