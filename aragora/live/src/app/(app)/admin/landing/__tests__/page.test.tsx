@@ -131,9 +131,16 @@ describe('LandingReviewPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.setItem(
+      'aragora_tokens',
+      JSON.stringify({ access_token: 'admin-token' }),
+    );
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: {
+        get: jest.fn().mockReturnValue('application/json'),
+      },
       json: async () => ({ ok: true }),
     });
 
@@ -191,7 +198,10 @@ describe('LandingReviewPage', () => {
         'http://localhost:8080/api/v1/playground/landing/feedback/review',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer admin-token',
+          },
           body: JSON.stringify({ id: 'lfb_1', review_status: 'resolved' }),
         }),
       );
