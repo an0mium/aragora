@@ -754,6 +754,62 @@ class TestWebhookRetryQueue:
         assert dead_letters[0].id == "test-1"
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(reason="Bug #2210: successful retry does not clear stale failure metadata")
+    async def test_stale_failure_metadata_after_successful_retry(self, queue):
+        """Test that successful retry clears stale last_error and next_retry_at.
+
+        Reproduces issue #2210: first attempt fails with HTTP 500,
+        second attempt succeeds with 200, but delivered entry retains
+        stale last_error and next_retry_at fields from the failed attempt.
+        """
+        delivery = WebhookDelivery(
+            id="stale-meta-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=3,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False, 500, "HTTP 500 Internal Server Error"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        await queue.store.save(delivery)
+
+        # First attempt: fails with 500
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored.status == DeliveryStatus.PENDING
+        assert stored.attempts == 1
+        assert stored.last_error == "HTTP 500 Internal Server Error"
+        assert stored.next_retry_at is not None
+
+        # Second attempt: succeeds with 200
+        # Simulate retry by making it ready
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        delivered = await queue.store.get(delivery.id)
+        assert delivered.status == DeliveryStatus.DELIVERED
+        assert delivered.attempts == 2
+        # These are the key assertions for the stale metadata bug:
+        # After successful delivery, failure metadata should be cleared
+        assert delivered.last_error is None, (
+            f"last_error should be None after successful delivery, got: {delivered.last_error!r}"
+        )
+        assert delivered.next_retry_at is None, (
+            f"next_retry_at should be None after successful delivery, got: {delivered.next_retry_at!r}"
+        )
+
+    @pytest.mark.asyncio
     async def test_get_delivery(self, queue, delivery):
         """Test getting a delivery by ID."""
         await queue.enqueue(delivery)
