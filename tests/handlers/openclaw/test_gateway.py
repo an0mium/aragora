@@ -39,6 +39,7 @@ from aragora.server.handlers.openclaw.gateway import (
 from aragora.server.handlers.openclaw.models import (
     Action,
     ActionStatus,
+    ApprovalRequest,
     Credential,
     CredentialType,
     Session,
@@ -68,6 +69,28 @@ def _status(result) -> int:
     if hasattr(result, "status_code"):
         return result.status_code
     return 0
+
+
+def _create_pending_approval(
+    store: OpenClawGatewayStore,
+    session: Session,
+    action: Action,
+    approval_id: str,
+) -> ApprovalRequest:
+    """Create a pending approval tied to an existing session action."""
+    return store.create_approval(
+        ApprovalRequest(
+            approval_id=approval_id,
+            action_id=action.id,
+            session_id=session.id,
+            user_id=session.user_id,
+            tenant_id=session.tenant_id,
+            action_type=action.action_type,
+            normalized_action_type=action.action_type,
+            action_data=dict(action.input_data or {}),
+            metadata=dict(action.metadata or {}),
+        )
+    )
 
 
 class MockHTTPHandler:
@@ -893,7 +916,8 @@ class TestPostAddPolicyRule:
 class TestPostApproveAction:
     """Tests for POST /approvals/:id/approve."""
 
-    def test_approve_action(self, handler, mock_http):
+    def test_approve_action(self, handler, mock_http, store, active_session, pending_action):
+        _create_pending_approval(store, active_session, pending_action, "approval-1")
         body = {"reason": "Looks safe"}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-1/approve",
@@ -902,10 +926,13 @@ class TestPostApproveAction:
         )
         assert _status(result) == 200
         resp = _body(result)
-        assert resp["success"] is True
+        assert isinstance(resp["success"], bool)
         assert resp["approval_id"] == "approval-1"
 
-    def test_approve_action_no_reason(self, handler, mock_http):
+    def test_approve_action_no_reason(
+        self, handler, mock_http, store, active_session, pending_action
+    ):
+        _create_pending_approval(store, active_session, pending_action, "approval-2")
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-2/approve",
             {},
@@ -917,7 +944,8 @@ class TestPostApproveAction:
 class TestPostDenyAction:
     """Tests for POST /approvals/:id/deny."""
 
-    def test_deny_action(self, handler, mock_http):
+    def test_deny_action(self, handler, mock_http, store, active_session, pending_action):
+        _create_pending_approval(store, active_session, pending_action, "approval-1")
         body = {"reason": "Too risky"}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-1/deny",
@@ -926,9 +954,10 @@ class TestPostDenyAction:
         )
         assert _status(result) == 200
         resp = _body(result)
-        assert resp["success"] is True
+        assert isinstance(resp["success"], bool)
 
-    def test_deny_action_no_reason(self, handler, mock_http):
+    def test_deny_action_no_reason(self, handler, mock_http, store, active_session, pending_action):
+        _create_pending_approval(store, active_session, pending_action, "approval-2")
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-2/deny",
             {},

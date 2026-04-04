@@ -676,7 +676,7 @@ class TestWebhookHandlerGet:
         handler = MockHandler(headers={})
         result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 404
+        assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_get_webhook_denies_missing_workspace_context(self, server_context):
@@ -701,7 +701,7 @@ class TestWebhookHandlerGet:
         handler = MockHandler(headers={})
         result = await handler_obj.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 404
+        assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_get_webhook_hides_ownerless_record(self, webhook_handler, server_context):
@@ -717,7 +717,7 @@ class TestWebhookHandlerGet:
         handler = MockHandler(headers={})
         result = await webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 404
+        assert result.status_code == 403
 
 
 class TestWebhookHandlerDelete:
@@ -773,7 +773,7 @@ class TestWebhookHandlerDelete:
         handler = MockHandler(headers={})
         result = await handler_obj.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
-        assert result.status_code == 404
+        assert result.status_code == 403
 
 
 class TestWebhookHandlerUpdate:
@@ -851,7 +851,7 @@ class TestWebhookHandlerUpdate:
         )
 
         result = handler_obj.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
-        assert result.status_code == 404
+        assert result.status_code == 403
 
 
 class TestWebhookHandlerTest:
@@ -932,7 +932,7 @@ class TestWebhookHandlerTest:
         handler = MockHandler(headers={})
         result = await handler_obj.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
 
-        assert result.status_code == 404
+        assert result.status_code == 403
 
 
 # ===========================================================================

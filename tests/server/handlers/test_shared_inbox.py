@@ -680,7 +680,10 @@ class TestGetInboxMessages:
             == latest.receipt.receipt_id
         )
         assert result["messages"][0]["trust_wedge"]["receipt"]["state"] == "created"
-        assert result["messages"][0]["trust_wedge"]["decision"]["final_action"] == "star"
+        assert (
+            result["messages"][0]["trust_wedge"]["decision"]["final_action"]
+            == latest.decision.final_action.value
+        )
 
 
 # =============================================================================
