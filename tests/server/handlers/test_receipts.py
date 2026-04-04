@@ -560,6 +560,9 @@ class TestGetStats:
         data = _parse_body(result)
         assert "stats" in data
         assert "generated_at" in data
+        assert data["total"] == 3
+        assert data["verified"] == 0
+        assert data["by_risk_level"] == {"LOW": 3}
         assert data["stats"]["total"] == 3
 
 
@@ -1188,6 +1191,7 @@ class TestHandleRouting:
         assert result.status_code == 200
         data = _parse_body(result)
         assert "stats" in data
+        assert data["total"] == 3
 
     @pytest.mark.asyncio
     async def test_handle_routes_to_search(self, handler):

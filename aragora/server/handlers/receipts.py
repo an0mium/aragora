@@ -1047,13 +1047,25 @@ class ReceiptsHandler(BaseHandler):
         """Get receipt statistics."""
         store = self._get_store()
         stats = await _call_nonblocking(store, "get_stats")
+        if not isinstance(stats, dict):
+            stats = {}
 
-        return json_response(
-            {
-                "stats": stats,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
+        normalized_stats = {
+            "total": stats.get("total", stats.get("total_count", 0)),
+            "verified": stats.get("verified", stats.get("verified_count", 0)),
+            "by_verdict": stats.get("by_verdict", {}),
+            "by_risk_level": stats.get("by_risk_level", stats.get("by_risk", {})),
+            "by_framework": stats.get("by_framework", {}),
+        }
+        payload = {
+            **normalized_stats,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            # Preserve the legacy nested alias while matching the FastAPI route's
+            # top-level contract for frontend parity.
+            "stats": normalized_stats,
+        }
+
+        return json_response(payload)
 
     @require_permission("receipts:read")
     async def _list_delivery_history(self, query_params: dict[str, str]) -> HandlerResult:

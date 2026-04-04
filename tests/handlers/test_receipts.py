@@ -1183,6 +1183,7 @@ class TestReceiptStats:
         result = await handler.handle("GET", "/api/v2/receipts/stats")
         body = _body(result)
         assert _status(result) == 200
+        assert body["total"] == 42
         assert body["stats"]["total"] == 42
         assert "generated_at" in body
 

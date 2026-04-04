@@ -788,6 +788,7 @@ class TestReceiptsHandlerStats:
 
         assert result.status_code == 200
         data = parse_handler_response(result)
+        assert data["total"] == 1
         assert "stats" in data
         assert "generated_at" in data
 
