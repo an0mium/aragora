@@ -22,7 +22,7 @@ jest.mock('../../DebateResultPreview', () => ({
 jest.mock('../CompactDebateResult', () => ({
   CompactDebateResult: (props: Record<string, unknown>) => {
     mockCompactDebateResult(props);
-    return <div data-testid="debate-result-preview">Debate result</div>;
+    return <div data-testid="debate-result-preview">Aragora&apos;s Answer</div>;
   },
 }));
 
