@@ -18,7 +18,7 @@ import time
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock, PropertyMock, AsyncMock
 
 from aragora.storage.webhook_config_store import (
     WebhookConfig,
@@ -1720,6 +1720,28 @@ class TestPostgresWebhookConfigStoreSyncWrappers:
 
         assert result is None
         mock_run.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_record_delivery_async_updates_revision_timestamp(self) -> None:
+        """Postgres delivery updates should advance updated_at like SQLite does."""
+        conn = AsyncMock()
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        await store.record_delivery_async("webhook-123", 200, success=True)
+
+        query = conn.execute.await_args.args[0]
+        assert "updated_at = NOW()" in query
+
+        conn.reset_mock()
+        await store.record_delivery_async("webhook-123", 500, success=False)
+
+        query = conn.execute.await_args.args[0]
+        assert "updated_at = NOW()" in query
 
     def test_row_to_config_accepts_native_jsonb_sequence(self, postgres_store) -> None:
         """Postgres JSONB rows may already be decoded into Python sequences."""

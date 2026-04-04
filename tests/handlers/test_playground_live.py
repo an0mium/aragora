@@ -89,7 +89,7 @@ class TestCostEstimate:
         handler = _make_handler()
         result = pg.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, handler)
         data = _parse(result)
-        assert data["agent_count"] == 3  # default
+        assert data["agent_count"] == 4  # default
         assert data["rounds"] == 2  # default
 
 
@@ -274,7 +274,7 @@ class TestMockFallback:
             patch.dict("os.environ", env, clear=False),
             patch(
                 "aragora.server.handlers.playground._get_available_live_agents",
-                side_effect=ValueError("No API keys configured"),
+                return_value=[],
             ),
         ):
             # Mock the aragora_debate imports used by _run_debate

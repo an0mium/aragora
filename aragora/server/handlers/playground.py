@@ -13,6 +13,7 @@ Routes:
     POST /api/v1/playground/debate              - Run a mock debate
     POST /api/v1/playground/debate/live          - Run a live debate with real agents
     POST /api/v1/playground/debate/live/cost-estimate - Pre-flight cost estimate
+    GET  /api/v1/playground/landing/events/summary - Aggregate recent landing telemetry
     GET  /api/v1/playground/debate/{id}          - Retrieve a saved debate (shareable link)
     GET  /api/v1/playground/status               - Health check for the playground
 """
@@ -20,6 +21,7 @@ Routes:
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 import hashlib
 import json
 import logging
@@ -39,6 +41,7 @@ from aragora.server.handlers.base import (
     json_response,
     handle_errors,
 )
+from aragora.server.validation.query_params import safe_query_float, safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +79,7 @@ _live_request_timestamps: dict[str, list[float]] = {}
 _landing_event_lock = threading.Lock()
 _landing_events: list[dict[str, Any]] = []
 _LANDING_EVENT_LIMIT = 5000
-_LANDING_EVENT_TYPES = {
+_LANDING_EVENT_TYPE_ORDER = (
     "preflight_shown",
     "preflight_selected",
     "preview_rendered",
@@ -86,7 +89,8 @@ _LANDING_EVENT_TYPES = {
     "wrong_answer_clicked",
     "open_full_debate_clicked",
     "share_clicked",
-}
+)
+_LANDING_EVENT_TYPES = set(_LANDING_EVENT_TYPE_ORDER)
 
 
 def _check_rate_limit(
@@ -229,6 +233,158 @@ def _record_landing_event(
         )
         if len(_landing_events) > _LANDING_EVENT_LIMIT:
             del _landing_events[:-_LANDING_EVENT_LIMIT]
+
+
+def _parse_landing_event_timestamp(value: Any) -> datetime | None:
+    """Parse an event timestamp into UTC."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _ratio(numerator: int, denominator: int) -> float | None:
+    """Return a rounded ratio when the denominator is present."""
+    if denominator <= 0:
+        return None
+    return round(numerator / denominator, 4)
+
+
+def _build_landing_event_summary(
+    *,
+    window_seconds: float = 86_400.0,
+    option_limit: int = 5,
+) -> dict[str, Any]:
+    """Aggregate recent landing telemetry into a compact funnel summary."""
+    now = datetime.now(timezone.utc)
+    cutoff = now.timestamp() - window_seconds
+
+    with _landing_event_lock:
+        snapshot = list(_landing_events)
+
+    recent_events: list[tuple[datetime, dict[str, Any]]] = []
+    for event in snapshot:
+        event_dt = _parse_landing_event_timestamp(event.get("timestamp"))
+        if event_dt is None or event_dt.timestamp() < cutoff:
+            continue
+        recent_events.append((event_dt, event))
+
+    event_counts = {event_type: 0 for event_type in _LANDING_EVENT_TYPE_ORDER}
+    option_counts: Counter[str] = Counter()
+    option_recommended: Counter[str] = Counter()
+    option_rewritten: Counter[str] = Counter()
+    unique_clients: set[str] = set()
+    question_lengths: list[int] = []
+    preview_participants: list[int] = []
+    timeout_seconds: list[float] = []
+    last_event_at: datetime | None = None
+
+    for event_dt, event in recent_events:
+        event_type = str(event.get("event_type", "") or "")
+        if event_type in event_counts:
+            event_counts[event_type] += 1
+
+        client_ip = str(event.get("client_ip", "") or "").strip()
+        if client_ip and client_ip != "unknown":
+            unique_clients.add(client_ip)
+
+        if last_event_at is None or event_dt > last_event_at:
+            last_event_at = event_dt
+
+        data = event.get("data")
+        if not isinstance(data, dict):
+            continue
+
+        question_length = data.get("question_length")
+        if isinstance(question_length, int):
+            question_lengths.append(question_length)
+
+        if event_type == "preflight_selected":
+            option_id = str(data.get("option_id", "") or "").strip()[:64]
+            if option_id:
+                option_counts[option_id] += 1
+                if data.get("recommended") is True:
+                    option_recommended[option_id] += 1
+                if data.get("rewritten") is True:
+                    option_rewritten[option_id] += 1
+
+        if event_type == "preview_rendered":
+            participant_count = data.get("participant_count")
+            if isinstance(participant_count, int):
+                preview_participants.append(participant_count)
+
+        if event_type == "preview_timeout":
+            timeout_seconds_value = data.get("timeout_seconds")
+            if isinstance(timeout_seconds_value, (int, float)):
+                timeout_seconds.append(float(timeout_seconds_value))
+
+    top_options = [
+        {
+            "option_id": option_id,
+            "selected_count": count,
+            "recommended_count": option_recommended[option_id],
+            "rewritten_count": option_rewritten[option_id],
+        }
+        for option_id, count in option_counts.most_common(option_limit)
+    ]
+
+    retries_needed = (
+        event_counts["preview_timeout"] + event_counts["preview_clarification_requested"]
+    )
+
+    return {
+        "generated_at": now.isoformat(),
+        "window_seconds": window_seconds,
+        "total_events": len(recent_events),
+        "unique_client_count": len(unique_clients),
+        "last_event_at": last_event_at.isoformat() if last_event_at else None,
+        "event_counts": event_counts,
+        "rates": {
+            "preflight_selection_rate": _ratio(
+                event_counts["preflight_selected"], event_counts["preflight_shown"]
+            ),
+            "preview_render_rate": _ratio(
+                event_counts["preview_rendered"], event_counts["preflight_selected"]
+            ),
+            "preview_timeout_rate": _ratio(
+                event_counts["preview_timeout"], event_counts["preflight_selected"]
+            ),
+            "preview_clarification_rate": _ratio(
+                event_counts["preview_clarification_requested"],
+                event_counts["preflight_selected"],
+            ),
+            "wrong_answer_rate": _ratio(
+                event_counts["wrong_answer_clicked"], event_counts["preview_rendered"]
+            ),
+            "open_full_debate_rate": _ratio(
+                event_counts["open_full_debate_clicked"], event_counts["preview_rendered"]
+            ),
+            "share_rate": _ratio(event_counts["share_clicked"], event_counts["preview_rendered"]),
+            "retry_rate": _ratio(event_counts["retry_clicked"], retries_needed),
+        },
+        "question_length": {
+            "samples": len(question_lengths),
+            "avg": round(sum(question_lengths) / len(question_lengths), 2)
+            if question_lengths
+            else None,
+            "max": max(question_lengths) if question_lengths else None,
+        },
+        "preview": {
+            "rendered_count": event_counts["preview_rendered"],
+            "avg_participant_count": round(sum(preview_participants) / len(preview_participants), 2)
+            if preview_participants
+            else None,
+        },
+        "timeouts": {
+            "count": event_counts["preview_timeout"],
+            "avg_timeout_seconds": round(sum(timeout_seconds) / len(timeout_seconds), 2)
+            if timeout_seconds
+            else None,
+        },
+        "top_options": top_options,
+    }
 
 
 def _extract_client_ip(handler: Any) -> str:
@@ -2051,6 +2207,7 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
         "/api/v1/playground/landing/events",
+        "/api/v1/playground/landing/events/summary",
         "/api/v1/playground/status",
         "/api/v1/playground/tts",
     ]
@@ -2070,6 +2227,7 @@ class PlaygroundHandler(BaseHandler):
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/landing/events",
+            "/api/v1/playground/landing/events/summary",
             "/api/v1/playground/status",
             "/api/v1/playground/tts",
         ):
@@ -2088,6 +2246,8 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/status":
             return self._handle_status()
+        if path == "/api/v1/playground/landing/events/summary":
+            return self._handle_landing_event_summary(query_params)
 
         # GET /api/v1/playground/debate/{debate_id} — retrieve saved debate
         m = self._DEBATE_ID_PATTERN.match(path)
@@ -2121,6 +2281,23 @@ class PlaygroundHandler(BaseHandler):
                 "rate_limit": f"{_PLAYGROUND_RATE_LIMIT} requests per {int(_PLAYGROUND_RATE_WINDOW)}s",
                 "landing_event_count": len(_landing_events),
             }
+        )
+
+    def _handle_landing_event_summary(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Summarize recent landing telemetry without exposing raw events."""
+        window_seconds = safe_query_float(
+            query_params,
+            "window",
+            default=86_400.0,
+            min_val=60.0,
+            max_val=604_800.0,
+        )
+        option_limit = safe_query_int(query_params, "limit", default=5, min_val=1, max_val=20)
+        return json_response(
+            _build_landing_event_summary(
+                window_seconds=window_seconds,
+                option_limit=option_limit,
+            )
         )
 
     # ------------------------------------------------------------------

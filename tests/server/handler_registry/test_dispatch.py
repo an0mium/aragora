@@ -155,6 +155,10 @@ class TestModuleAttributes:
             assert attr_name.startswith("_"), f"{attr_name} should start with _"
             assert attr_name.endswith("_handler"), f"{attr_name} should end with _handler"
 
+    def test_runs_handler_is_registered(self) -> None:
+        registry_names = [attr_name for attr_name, _ in HANDLER_REGISTRY]
+        assert "_runs_handler" in registry_names
+
 
 # ---------------------------------------------------------------------------
 # HandlerRegistryMixin tests

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -129,6 +130,9 @@ class TestCanHandle:
 
     def test_status_path(self, handler):
         assert handler.can_handle("/api/v1/playground/status")
+
+    def test_landing_summary_path(self, handler):
+        assert handler.can_handle("/api/v1/playground/landing/events/summary")
 
     def test_tts_path(self, handler):
         assert handler.can_handle("/api/v1/playground/tts")
@@ -534,6 +538,94 @@ class TestLandingTelemetry:
         )
         result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
         assert _status(result) == 400
+
+    def test_returns_recent_landing_summary(self, handler):
+        from aragora.server.handlers import playground as playground_module
+
+        now = datetime.now(timezone.utc)
+        playground_module._landing_events.extend(
+            [
+                {
+                    "event_type": "preflight_shown",
+                    "client_ip": "203.0.113.10",
+                    "data": {"question_length": 120},
+                    "timestamp": now.isoformat(),
+                },
+                {
+                    "event_type": "preflight_selected",
+                    "client_ip": "203.0.113.10",
+                    "data": {
+                        "option_id": "practical-food",
+                        "recommended": True,
+                        "rewritten": True,
+                        "question_length": 120,
+                    },
+                    "timestamp": now.isoformat(),
+                },
+                {
+                    "event_type": "preview_rendered",
+                    "client_ip": "203.0.113.10",
+                    "data": {"participant_count": 3, "has_warning": True},
+                    "timestamp": now.isoformat(),
+                },
+                {
+                    "event_type": "wrong_answer_clicked",
+                    "client_ip": "203.0.113.10",
+                    "data": {"result_mode": "preview", "rewritten": True},
+                    "timestamp": now.isoformat(),
+                },
+                {
+                    "event_type": "preflight_shown",
+                    "client_ip": "198.51.100.8",
+                    "data": {"question_length": 40},
+                    "timestamp": (now - timedelta(days=2)).isoformat(),
+                },
+            ]
+        )
+
+        result = handler.handle(
+            "/api/v1/playground/landing/events/summary",
+            {"window": "3600", "limit": "3"},
+            _MockHTTPHandler("GET"),
+        )
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["window_seconds"] == 3600.0
+        assert body["total_events"] == 4
+        assert body["unique_client_count"] == 1
+        assert body["event_counts"]["preflight_shown"] == 1
+        assert body["event_counts"]["preflight_selected"] == 1
+        assert body["event_counts"]["preview_rendered"] == 1
+        assert body["event_counts"]["wrong_answer_clicked"] == 1
+        assert body["rates"]["preflight_selection_rate"] == 1.0
+        assert body["rates"]["preview_render_rate"] == 1.0
+        assert body["rates"]["wrong_answer_rate"] == 1.0
+        assert body["question_length"]["samples"] == 2
+        assert body["question_length"]["avg"] == 120.0
+        assert body["preview"]["avg_participant_count"] == 3.0
+        assert body["top_options"] == [
+            {
+                "option_id": "practical-food",
+                "selected_count": 1,
+                "recommended_count": 1,
+                "rewritten_count": 1,
+            }
+        ]
+
+    def test_summary_returns_empty_funnel_when_no_events_exist(self, handler):
+        result = handler.handle(
+            "/api/v1/playground/landing/events/summary",
+            {},
+            _MockHTTPHandler("GET"),
+        )
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["total_events"] == 0
+        assert body["top_options"] == []
+        assert body["rates"]["preflight_selection_rate"] is None
+        assert body["question_length"]["samples"] == 0
 
 
 # ============================================================================

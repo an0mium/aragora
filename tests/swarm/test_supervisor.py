@@ -4354,6 +4354,19 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
                 "target_agent": "claude",
                 "reviewer_agent": "codex",
                 "lease_id": lease.lease_id,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.97,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-03T00:00:00+00:00",
+                "exit_code": 0,
+                "head_sha": "abc123",
+                "commit_shas": ["abc123"],
+                "changed_paths": ["docs/notes.md"],
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "old-state",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
+                "scope_violation": {"violations": []},
             }
         ],
         status="active",
@@ -4399,6 +4412,22 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
     assert "worker dispatch blocked" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_type_blocked"
     assert "worker type or capacity issue" in work_order["blocking_question"]
+    for key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "exit_code",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "verification_missing_reason",
+        "pr_url",
+        "adopted_pr",
+        "scope_violation",
+    ):
+        assert key not in work_order
     assert updated["status"] == "needs_human"
     assert updated["metadata"][CAMPAIGN_OUTCOME_METADATA_KEY] == "needs_human"
     assert store.status_summary()["counts"]["active_leases"] == 0
@@ -6166,6 +6195,73 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
         "blocking_question",
         "blocker",
         "blockers",
+    ):
+        assert cleared_key not in work_order
+
+
+def test_refresh_run_work_order_leasing_failure_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = RuntimeError(
+        "managed worktree metadata unreadable"
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="leasing failure clears stale deliverable state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "leasing failure clears stale deliverable state"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-leasing-failed-cleanup",
+                "title": "Leasing failure lane",
+                "description": "Leasing failure lane",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "review_status": "pending_heterogeneous_review",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "verification_missing_reason": "missing_verification_plan",
+                "scope_violation": {
+                    "violations": [{"path": "aragora/swarm/supervisor.py"}],
+                },
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert refreshed.status == "needs_human"
+    assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
+    assert work_order["dispatch_error"] == "managed worktree metadata unreadable"
+    assert work_order["failure_reason"] == "work_order_leasing_failed"
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "pr_url",
+        "verification_missing_reason",
+        "scope_violation",
     ):
         assert cleared_key not in work_order
 

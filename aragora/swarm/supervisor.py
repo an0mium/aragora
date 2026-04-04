@@ -755,6 +755,7 @@ class SwarmSupervisor:
                         item["status"] = "waiting_resource"
                         item["resource_error"] = str(exc)
                     else:
+                        self._clear_stale_prelaunch_deliverable_state(item)
                         self._mark_needs_human(
                             item,
                             str(exc),
@@ -3885,6 +3886,7 @@ class SwarmSupervisor:
         worker_type: str,
         detail: str,
     ) -> None:
+        self._clear_stale_prelaunch_deliverable_state(item)
         metadata = dict(item.get("metadata") or {})
         metadata.update(
             {

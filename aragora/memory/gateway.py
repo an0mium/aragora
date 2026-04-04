@@ -77,6 +77,7 @@ class UnifiedMemoryResponse:
     results: list[UnifiedMemoryResult] = field(default_factory=list)
     total_found: int = 0
     sources_queried: list[str] = field(default_factory=list)
+    sources_with_results: list[str] = field(default_factory=list)
     duplicates_removed: int = 0
     query_time_ms: float = 0.0
     errors: dict[str, str] = field(default_factory=dict)
@@ -120,6 +121,17 @@ class MemoryGateway:
         self.retention_gate = retention_gate
         self._dedup_engine = CrossSystemDedupEngine()
 
+    @staticmethod
+    def _normalize_source_name(source: str) -> str:
+        """Map external source aliases to the gateway's canonical source ids."""
+        aliases = {
+            "knowledge_mound": "km",
+            "knowledge-mound": "km",
+            "super_memory": "supermemory",
+            "claude-mem": "claude_mem",
+        }
+        return aliases.get(source, source)
+
     def _available_sources(self) -> list[str]:
         """Get list of available memory sources."""
         sources = []
@@ -145,11 +157,13 @@ class MemoryGateway:
         start = time.time()
         available = self._available_sources()
         sources_to_query = q.sources or self.config.default_sources or available
+        sources_to_query = [self._normalize_source_name(source) for source in sources_to_query]
         # Only query sources that are actually available
-        sources_to_query = [s for s in sources_to_query if s in available]
+        sources_to_query = list(dict.fromkeys(s for s in sources_to_query if s in available))
 
         all_results: list[UnifiedMemoryResult] = []
         errors: dict[str, str] = {}
+        sources_with_results: list[str] = []
 
         if self.config.parallel_queries:
             # Fan-out in parallel
@@ -162,6 +176,8 @@ class MemoryGateway:
                     results = await asyncio.wait_for(
                         task, timeout=self.config.query_timeout_seconds
                     )
+                    if results:
+                        sources_with_results.append(source)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
                     errors[source] = "timeout"
@@ -177,6 +193,8 @@ class MemoryGateway:
                         self._query_source(source, q.query, q.limit),
                         timeout=self.config.query_timeout_seconds,
                     )
+                    if results:
+                        sources_with_results.append(source)
                     all_results.extend(results)
                 except asyncio.TimeoutError:
                     errors[source] = "timeout"
@@ -206,6 +224,7 @@ class MemoryGateway:
             results=all_results,
             total_found=total_found,
             sources_queried=sources_to_query,
+            sources_with_results=sources_with_results,
             duplicates_removed=duplicates_removed,
             query_time_ms=query_time_ms,
             errors=errors,
@@ -410,6 +429,25 @@ class MemoryGateway:
 
         return sorted(results, key=sort_key, reverse=True)
 
+    @staticmethod
+    def _resolve_surprise_score(result: UnifiedMemoryResult) -> float:
+        """Resolve a normalized surprise score for retention evaluation."""
+        if result.surprise_score is not None:
+            raw_surprise: Any = result.surprise_score
+        else:
+            metadata = result.metadata or {}
+            raw_surprise = metadata.get(
+                "surprise_score",
+                metadata.get("outcome_surprise", metadata.get("surprise", 0.5)),
+            )
+
+        try:
+            surprise = float(raw_surprise)
+        except (TypeError, ValueError):
+            return 0.5
+
+        return max(0.0, min(1.0, surprise))
+
     def evaluate_retention(
         self,
         results: list[UnifiedMemoryResult],
@@ -423,6 +461,12 @@ class MemoryGateway:
         optional per-item confidence/access overrides to produce
         RetentionDecisions via the configured RetentionGate.
 
+        Edge-case handling:
+        - surprise_score clamped to [0.0, 1.0]
+        - confidence clamped to [0.0, 1.0]
+        - negative access_count treated as 0
+        - results with empty id get a synthetic id for tracking
+
         Returns a list of dicts, each containing the original result
         and its retention decision.
         """
@@ -435,14 +479,23 @@ class MemoryGateway:
         red_line_ids = red_line_ids or set()
 
         evaluated: list[dict[str, Any]] = []
-        for result in results:
-            surprise = result.surprise_score if result.surprise_score is not None else 0.5
+        for idx, result in enumerate(results):
+            surprise = self._resolve_surprise_score(result)
             confidence = current_confidences.get(result.id, result.confidence)
+            # Clamp confidence to valid range
+            confidence = min(1.0, max(0.0, confidence))
+
             access = access_counts.get(result.id, 0)
+            # Guard against negative access counts
+            access = max(0, access)
+
+            # Ensure item_id is non-empty for tracking
+            item_id = result.id or f"_anon_{idx}"
+
             is_red_line = result.id in red_line_ids
 
             decision = self.retention_gate.evaluate(
-                item_id=result.id,
+                item_id=item_id,
                 source=result.source_system,
                 content=result.content,
                 outcome_surprise=surprise,
@@ -458,6 +511,25 @@ class MemoryGateway:
             )
 
         return evaluated
+
+    @staticmethod
+    def retention_summary(
+        evaluations: list[dict[str, Any]],
+    ) -> dict[str, list[str]]:
+        """Summarise retention evaluations by action.
+
+        Returns a dict mapping each action ("retain", "demote",
+        "forget", "consolidate") to the list of item_ids that
+        received that action.  Useful for tests and monitoring.
+        """
+        by_action: dict[str, list[str]] = {}
+        for ev in evaluations:
+            decision = ev.get("decision")
+            if decision is None:
+                continue
+            action = getattr(decision, "action", None) or "unknown"
+            by_action.setdefault(action, []).append(getattr(decision, "item_id", ""))
+        return by_action
 
     async def query_with_retention(
         self,

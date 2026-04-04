@@ -1334,7 +1334,8 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 await conn.execute(
                     """UPDATE webhook_configs SET
                        last_delivery_at = NOW(), last_delivery_status = $1,
-                       delivery_count = delivery_count + 1
+                       delivery_count = delivery_count + 1,
+                       updated_at = NOW()
                        WHERE id = $2""",
                     status_code,
                     webhook_id,
@@ -1343,7 +1344,8 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 await conn.execute(
                     """UPDATE webhook_configs SET
                        last_delivery_at = NOW(), last_delivery_status = $1,
-                       delivery_count = delivery_count + 1, failure_count = failure_count + 1
+                       delivery_count = delivery_count + 1, failure_count = failure_count + 1,
+                       updated_at = NOW()
                        WHERE id = $2""",
                     status_code,
                     webhook_id,

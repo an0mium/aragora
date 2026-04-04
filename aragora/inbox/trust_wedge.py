@@ -196,6 +196,10 @@ class ActionIntent:
     debate_id: str | None = None
     label_id: str | None = None
     user_id: str | None = None
+    # Email display metadata — populated by triage runner for auditability.
+    email_subject: str = ""
+    email_from: str = ""
+    email_snippet: str = ""
 
     @classmethod
     def create(
@@ -599,11 +603,11 @@ class InboxTrustWedgeStore:
             verdict = "FAIL"
         else:
             verdict = "CONDITIONAL"
-        # Include email metadata for auditability — these are set by
-        # _attach_display_metadata in triage_runner.py as private attrs.
-        email_subject = getattr(intent, "_subject", None) or ""
-        email_from = getattr(intent, "_sender", None) or ""
-        email_snippet = getattr(intent, "_snippet", None) or ""
+        # Include email metadata for auditability — set by
+        # _attach_display_metadata in triage_runner.py on the dataclass fields.
+        email_subject = intent.email_subject or ""
+        email_from = intent.email_from or ""
+        email_snippet = intent.email_snippet or ""
 
         return {
             "receipt_id": receipt_id,
