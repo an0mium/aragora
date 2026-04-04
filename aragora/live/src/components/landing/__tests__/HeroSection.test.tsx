@@ -118,8 +118,8 @@ describe('HeroSection', () => {
     it('renders ASCII banner on larger screens', () => {
       render(<HeroSection {...defaultProps} />);
 
-      // ASCII banner is in a pre element with specific class
-      const banner = document.querySelector('pre.text-acid-green');
+      // ASCII banner is rendered in the desktop-only preformatted block.
+      const banner = document.querySelector('pre.hidden.sm\\:block');
       expect(banner).toBeInTheDocument();
       // Banner is stylized ASCII art, just verify it has content
       expect(banner?.textContent?.length).toBeGreaterThan(100);
