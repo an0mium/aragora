@@ -96,7 +96,6 @@ def test_list_runs_route_is_registered(client) -> None:
     assert response.json() == {
         "runs": [
             {
-                "created_at": None,
                 "run_id": "run-fastapi-list",
                 "status": "plan_ready",
                 "stages": [
@@ -138,7 +137,6 @@ def test_get_run_route_is_registered(client) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "run": {
-            "created_at": None,
             "run_id": "run-fastapi-detail",
             "status": "execution_started",
             "stages": [

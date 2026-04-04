@@ -244,30 +244,6 @@ def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> N
     assert supervisor.launcher.config.claude_profile_script is None
 
 
-def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> None:
-    supervisor = SwarmSupervisor(repo_root=repo)
-    supervisor.launcher.config = LaunchConfig(
-        claude_model="claude-opus-4-6",
-        codex_model="gpt-4.1-codex",
-        claude_profile="existing-profile",
-        claude_profile_script="/tmp/profile.sh",
-    )
-
-    supervisor._apply_launcher_config_snapshot(
-        {
-            "claude_model": None,
-            "codex_model": "None",
-            "claude_profile": " null ",
-            "claude_profile_script": "",
-        }
-    )
-
-    assert supervisor.launcher.config.claude_model is None
-    assert supervisor.launcher.config.codex_model is None
-    assert supervisor.launcher.config.claude_profile is None
-    assert supervisor.launcher.config.claude_profile_script is None
-
-
 def test_start_run_discards_duplicate_open_non_deliverable_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -805,6 +781,7 @@ def test_start_run_preserves_rerun_when_existing_duplicate_chain_was_stale_reape
     for work_order in run.work_orders:
         assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
 
+
 def test_refresh_run_requeues_stale_reaped_needs_human_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1034,6 +1011,7 @@ def test_refresh_run_does_not_lease_downstream_lane_before_dependencies_complete
     assert "lease_id" not in work_orders["micro-3"]
     assert lifecycle.ensure_managed_worktree.call_count == 1
 
+
 def test_refresh_run_salvages_stale_reaped_lane_with_recoverable_commit(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1199,6 +1177,8 @@ def test_refresh_run_does_not_lease_downstream_lane_before_dependencies_complete
     assert work_orders["micro-3"]["status"] == "queued"
     assert "lease_id" not in work_orders["micro-3"]
     assert lifecycle.ensure_managed_worktree.call_count == 1
+
+
 def test_start_run_preserves_rerun_when_existing_missing_verification_plan_is_deferred(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -6179,50 +6159,6 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
         "exit_code",
     ):
         assert key not in work_order
-
-
-def test_no_progress_timeout_uses_recent_output_when_bytes_exist(
-    repo: Path, store: DevCoordinationStore
-) -> None:
-    supervisor = SwarmSupervisor(repo_root=repo, store=store)
-    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
-    now = datetime.now(UTC)
-    item = {
-        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
-        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
-        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
-        "output_fingerprint": {
-            "stdout_size": 128,
-            "stderr_size": 0,
-            "stdout_mtime_ns": 123,
-            "stderr_mtime_ns": 0,
-            "has_output": True,
-        },
-    }
-
-    assert supervisor._exceeded_no_progress_timeout(item) is False
-
-
-def test_no_progress_timeout_ignores_last_output_at_without_actual_output(
-    repo: Path, store: DevCoordinationStore
-) -> None:
-    supervisor = SwarmSupervisor(repo_root=repo, store=store)
-    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
-    now = datetime.now(UTC)
-    item = {
-        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
-        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
-        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
-        "output_fingerprint": {
-            "stdout_size": 0,
-            "stderr_size": 0,
-            "stdout_mtime_ns": 0,
-            "stderr_mtime_ns": 0,
-            "has_output": False,
-        },
-    }
-
-    assert supervisor._exceeded_no_progress_timeout(item) is True
 
 
 def test_no_progress_timeout_uses_recent_output_when_bytes_exist(
