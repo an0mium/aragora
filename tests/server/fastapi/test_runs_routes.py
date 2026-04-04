@@ -23,14 +23,27 @@ def _make_run(
     receipt_id: str = "",
     safety_mode: str | None = None,
     stage_events: list[RunStageEvent] | None = None,
+    org_id: str | None = None,
+    workspace_id: str | None = None,
+    owner_id: str | None = None,
 ) -> RunLedger:
+    metadata: dict[str, Any] = {}
+    if safety_mode:
+        metadata["safety_mode"] = safety_mode
+    if org_id:
+        metadata["org_id"] = org_id
+    if workspace_id:
+        metadata["workspace_id"] = workspace_id
+    if owner_id:
+        metadata["owner_id"] = owner_id
+
     run = RunLedger(
         run_id=run_id,
         entrypoint="prompt_engine.run",
         status=status,
         execution_id=execution_id,
         receipt_id=receipt_id,
-        metadata={"safety_mode": safety_mode} if safety_mode else {},
+        metadata=metadata,
     )
     for event in stage_events or []:
         run.add_event(event)
@@ -85,6 +98,9 @@ def test_list_runs_route_is_registered(client) -> None:
             receipt_id="receipt-fastapi",
             safety_mode=ExecutionMode.INTERACTIVE.value,
             stage_events=[RunStageEvent.create(BackboneStage.PLAN, status="completed")],
+            org_id="org-1",
+            workspace_id="ws-1",
+            owner_id="user-1",
         )
     )
 
@@ -120,6 +136,9 @@ def test_get_run_route_is_registered(client) -> None:
             "run-fastapi-detail",
             status="execution_started",
             stage_events=[RunStageEvent.create(BackboneStage.EXECUTION, status="running")],
+            org_id="org-1",
+            workspace_id="ws-1",
+            owner_id="user-1",
         )
     )
 
@@ -138,6 +157,64 @@ def test_get_run_route_is_registered(client) -> None:
             "safety_mode": None,
         }
     }
+
+
+def test_list_runs_route_filters_other_org_runs(client) -> None:
+    plan_store = client.app.state.context["plan_store"]
+    plan_store.create_run(_make_run("run-visible", status="plan_ready", org_id="org-1"))
+    plan_store.create_run(_make_run("run-hidden", status="plan_ready", org_id="org-2"))
+
+    _override_auth(client, {"orchestration:read"})
+    response = client.get("/api/v2/runs")
+    client.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "runs": [
+            {
+                "run_id": "run-visible",
+                "status": "plan_ready",
+                "stages": [],
+                "execution_id": None,
+                "receipt_id": None,
+                "safety_mode": None,
+            }
+        ]
+    }
+
+
+def test_list_runs_route_falls_back_to_workspace_scope(client) -> None:
+    plan_store = client.app.state.context["plan_store"]
+    plan_store.create_run(_make_run("run-ws-visible", status="running", workspace_id="ws-1"))
+    plan_store.create_run(_make_run("run-ws-hidden", status="running", workspace_id="ws-2"))
+
+    _override_auth(client, {"orchestration:read"})
+    response = client.get("/api/v2/runs?status=running")
+    client.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["runs"] == [
+        {
+            "run_id": "run-ws-visible",
+            "status": "running",
+            "stages": [],
+            "execution_id": None,
+            "receipt_id": None,
+            "safety_mode": None,
+        }
+    ]
+
+
+def test_get_run_route_hides_other_org_runs(client) -> None:
+    plan_store = client.app.state.context["plan_store"]
+    plan_store.create_run(_make_run("run-other-org", status="plan_ready", org_id="org-2"))
+
+    _override_auth(client, {"orchestration:read"})
+    response = client.get("/api/v2/runs/run-other-org")
+    client.app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Run not found"}
 
 
 def test_runs_routes_are_exposed_in_openapi(client) -> None:
