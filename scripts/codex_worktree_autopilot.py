@@ -458,6 +458,23 @@ def _branch_exists(repo_root: Path, branch: str) -> bool:
     return proc.returncode == 0
 
 
+def _local_branches_with_prefix(repo_root: Path, prefix: str) -> list[str]:
+    proc = _run_git(repo_root, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+    if proc.returncode != 0:
+        return []
+    prefix = str(prefix or "").strip()
+    if not prefix:
+        return []
+    branches: list[str] = []
+    for line in proc.stdout.splitlines():
+        branch = str(line).strip()
+        if not branch:
+            continue
+        if branch == prefix or branch.startswith(f"{prefix}-"):
+            branches.append(branch)
+    return branches
+
+
 def _branch_collision_error(stderr: str, branch: str) -> bool:
     message = str(stderr or "").lower()
     return (
@@ -632,6 +649,44 @@ def _create_managed_worktree(
         for entry in _get_worktree_entries(repo_root)
         if str(entry.branch or "").strip()
     }
+    reusable_branches = (
+        [
+            branch
+            for branch in _local_branches_with_prefix(repo_root, base_branch_name)
+            if branch not in attached_branches
+        ]
+        if session_id
+        else []
+    )
+    reusable_branches.sort(key=lambda branch: (0 if branch == base_branch_name else 1, branch))
+    for existing_branch in reusable_branches:
+        add_proc = _run_git(
+            repo_root,
+            "worktree",
+            "add",
+            str(worktree_path),
+            existing_branch,
+        )
+        if add_proc.returncode == 0:
+            return {
+                "session_id": sid,
+                "agent": agent,
+                "branch": existing_branch,
+                "path": str(worktree_path),
+                "base_branch": base,
+                "base_sha": _resolve_ref_sha(repo_root, _base_ref(base)),
+                "created_at": now.isoformat(),
+                "last_seen_at": now.isoformat(),
+                "cleanup_lock": False,
+                "cleanup_lock_reason": None,
+                "last_heartbeat_at": None,
+                "lease_status": None,
+                "lease_expires_at": None,
+                "lifecycle_state": "grace",
+            }
+        if worktree_path.exists():
+            shutil.rmtree(worktree_path, ignore_errors=True)
+
     if (
         session_id
         and _branch_exists(repo_root, base_branch_name)

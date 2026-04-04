@@ -2587,6 +2587,7 @@ class SwarmSupervisor:
         try:
             self.store.rehabilitate_dependency_deferred_missing_verification_plan_work_orders()
             self.store.archive_failed_no_deliverable_work_orders(grace_period_hours=0.0)
+            self.store.archive_clean_exit_no_deliverable_work_orders(grace_period_hours=0.0)
             self.store.archive_terminal_dependency_failure_work_orders()
         except Exception:
             logger.debug(
