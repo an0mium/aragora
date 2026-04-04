@@ -890,6 +890,145 @@ class TestHTTPRequests:
 # =============================================================================
 
 
+class TestRetryThenSuccess:
+    """Tests for retry behavior where initial failure is followed by success."""
+
+    @pytest.mark.asyncio
+    async def test_http_500_then_200_delivers_successfully(self, queue):
+        """Test HTTP 500 then 200 pattern: first attempt fails, second succeeds.
+
+        Reproduces issue #2218: first webhook attempt fails with HTTP 500,
+        second attempt succeeds with 200. Verifies delivered status and
+        attempt count after retry success.
+        """
+        delivery = WebhookDelivery(
+            id="retry-success-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=5,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False, 500, "HTTP 500 Internal Server Error"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        # First attempt — should fail with 500
+        await queue.store.save(delivery)
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        assert stored.status == DeliveryStatus.PENDING
+        assert stored.attempts == 1
+        assert stored.last_error == "HTTP 500 Internal Server Error"
+        assert stored.next_retry_at is not None
+
+        # Second attempt — should succeed with 200
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        final = await queue.store.get(delivery.id)
+        assert final.status == DeliveryStatus.DELIVERED
+        assert final.attempts == 2
+        assert final.last_status_code == 200
+
+    @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="Issue #2218: successful delivery does not clear last_error and next_retry_at",
+        strict=True,
+    )
+    async def test_http_500_then_200_clears_error_fields(self, queue):
+        """Test that successful delivery after failure clears error fields.
+
+        Issue #2218: after HTTP 500 then 200, last_error and next_retry_at
+        should be cleared on successful delivery. Currently they retain
+        stale values from the failed attempt.
+        """
+        delivery = WebhookDelivery(
+            id="retry-clear-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=5,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False, 500, "HTTP 500 Internal Server Error"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        await queue.store.save(delivery)
+        await queue._attempt_delivery(delivery)
+
+        stored = await queue.store.get(delivery.id)
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        final = await queue.store.get(delivery.id)
+        assert final.status == DeliveryStatus.DELIVERED
+        # These assertions document the EXPECTED behavior (not yet implemented)
+        assert final.last_error is None
+        assert final.next_retry_at is None
+
+    @pytest.mark.asyncio
+    async def test_multiple_failures_then_success(self, queue):
+        """Test that multiple 500 failures followed by success delivers correctly."""
+        delivery = WebhookDelivery(
+            id="multi-retry-1",
+            url="https://example.com/webhook",
+            payload={"event": "test"},
+            max_attempts=5,
+        )
+
+        call_count = 0
+
+        async def mock_send(d):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 3:
+                return False, 500, f"HTTP 500 (attempt {call_count})"
+            return True, 200, None
+
+        queue._send_webhook = mock_send
+
+        await queue.store.save(delivery)
+
+        # Run 3 failing attempts
+        for i in range(3):
+            stored = await queue.store.get(delivery.id)
+            if stored.next_retry_at:
+                stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+                await queue.store.save(stored)
+            await queue._attempt_delivery(stored)
+            stored = await queue.store.get(delivery.id)
+            assert stored.status == DeliveryStatus.PENDING
+            assert stored.attempts == i + 1
+
+        # Run 4th attempt — should succeed
+        stored = await queue.store.get(delivery.id)
+        stored.next_retry_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await queue.store.save(stored)
+        await queue._attempt_delivery(stored)
+
+        final = await queue.store.get(delivery.id)
+        assert final.status == DeliveryStatus.DELIVERED
+        assert final.attempts == 4
+        assert final.last_status_code == 200
+
+
 class TestConcurrency:
     """Tests for concurrent delivery handling."""
 
