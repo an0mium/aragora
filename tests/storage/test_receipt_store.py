@@ -583,6 +583,54 @@ class TestReceiptStoreList:
         assert receipt_store.count(verdict="REJECTED") == 2
 
 
+class TestReceiptStoreSearch:
+    """Tests for ReceiptStore full-text search filtering."""
+
+    def test_search_filters_by_debate_id_and_date_range(self, receipt_store, sample_receipt_dict):
+        """Search and search_count should honor debate_id and date bounds."""
+        now = time.time()
+        receipts = [
+            ("recent-keep", "gauntlet-keep", "debate-keep", now, "shared search phrase"),
+            ("recent-skip", "gauntlet-skip", "debate-skip", now, "shared search phrase"),
+            (
+                "old-keep",
+                "gauntlet-old",
+                "debate-keep",
+                now - 86400 * 10,
+                "shared search phrase",
+            ),
+        ]
+
+        for receipt_id, gauntlet_id, debate_id, timestamp, statement in receipts:
+            payload = dict(sample_receipt_dict)
+            payload.update(
+                {
+                    "receipt_id": receipt_id,
+                    "gauntlet_id": gauntlet_id,
+                    "debate_id": debate_id,
+                    "timestamp": timestamp,
+                    "statement": statement,
+                }
+            )
+            receipt_store.save(payload)
+
+        results = receipt_store.search(
+            "shared",
+            debate_id="debate-keep",
+            date_from=now - 86400,
+        )
+
+        assert [receipt.receipt_id for receipt in results] == ["recent-keep"]
+        assert (
+            receipt_store.search_count(
+                "shared",
+                debate_id="debate-keep",
+                date_from=now - 86400,
+            )
+            == 1
+        )
+
+
 # ===========================================================================
 # Signature Operations Tests
 # ===========================================================================

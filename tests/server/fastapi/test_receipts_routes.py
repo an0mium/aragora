@@ -543,6 +543,80 @@ class TestSearchReceipts:
         assert call_kwargs.kwargs.get("verdict") == "APPROVED"
         assert call_kwargs.kwargs.get("risk_level") == "LOW"
 
+    def test_search_forwards_supported_debate_id_filter(self, app, sample_stored_receipt):
+        """Search forwards debate_id to stores that support the filter."""
+
+        calls: dict[str, dict[str, object]] = {}
+
+        class SearchStore:
+            def search(
+                self,
+                *,
+                query,
+                limit=50,
+                offset=0,
+                verdict=None,
+                risk_level=None,
+                debate_id=None,
+            ):
+                calls["search"] = {
+                    "query": query,
+                    "limit": limit,
+                    "offset": offset,
+                    "verdict": verdict,
+                    "risk_level": risk_level,
+                    "debate_id": debate_id,
+                }
+                return [sample_stored_receipt]
+
+            def search_count(self, *, query, verdict=None, risk_level=None, debate_id=None):
+                calls["search_count"] = {
+                    "query": query,
+                    "verdict": verdict,
+                    "risk_level": risk_level,
+                    "debate_id": debate_id,
+                }
+                return 1
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": SearchStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts/search?q=security&debate_id=debate-123")
+        assert response.status_code == 200
+        assert calls["search"]["debate_id"] == "debate-123"
+        assert calls["search_count"]["debate_id"] == "debate-123"
+
+    def test_search_with_legacy_store_signature_stays_200(self, app):
+        """Legacy stores without debate_id support should not turn search into a 500."""
+
+        class LegacySearchStore:
+            def search(self, *, query, limit=50, offset=0, verdict=None, risk_level=None):
+                return []
+
+            def search_count(self, *, query, verdict=None, risk_level=None):
+                return 0
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": LegacySearchStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts/search?q=test&debate_id=debate-123")
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+
     def test_search_with_pagination(self, client, mock_receipt_store):
         """Search supports pagination."""
         mock_receipt_store.search = MagicMock(return_value=[])

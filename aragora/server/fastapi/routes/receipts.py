@@ -478,6 +478,60 @@ def _extract_receipt_payload(receipt: Any) -> dict[str, Any]:
     return {}
 
 
+def _coerce_receipt_timestamp(value: Any) -> float | None:
+    """Parse receipt timestamps from unix seconds or ISO datetime strings."""
+    if value is None:
+        return None
+
+    if isinstance(value, int | float):
+        return float(value)
+
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return None
+
+    return None
+
+
+def _receipt_matches_search_filters(
+    receipt: Any,
+    *,
+    verdict: str | None = None,
+    risk_level: str | None = None,
+    debate_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> bool:
+    """Return whether a receipt matches optional search filters."""
+    payload = _extract_receipt_payload(receipt)
+
+    if verdict and payload.get("verdict") != verdict:
+        return False
+    if risk_level and payload.get("risk_level") != risk_level:
+        return False
+    if debate_id and payload.get("debate_id") != debate_id:
+        return False
+
+    created_at = _coerce_receipt_timestamp(payload.get("created_at"))
+    if created_at is None:
+        created_at = _coerce_receipt_timestamp(payload.get("timestamp"))
+
+    date_from_ts = _coerce_receipt_timestamp(date_from)
+    if date_from_ts is not None and (created_at is None or created_at < date_from_ts):
+        return False
+
+    date_to_ts = _coerce_receipt_timestamp(date_to)
+    if date_to_ts is not None and (created_at is None or created_at > date_to_ts):
+        return False
+
+    return True
+
+
 def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
     """Extract only the original decision-receipt payload used for reconstruction."""
     if isinstance(receipt, dict):
@@ -672,29 +726,53 @@ async def search_receipts(
         results: list[Any] = []
         total = 0
 
-        search_kwargs: dict[str, Any] = {"limit": limit, "offset": offset}
-        if verdict:
-            search_kwargs["verdict"] = verdict
-        if risk_level:
-            search_kwargs["risk_level"] = risk_level
-        if debate_id:
-            search_kwargs["debate_id"] = debate_id
-        if date_from:
-            search_kwargs["date_from"] = date_from
-        if date_to:
-            search_kwargs["date_to"] = date_to
+        optional_filters = {
+            "verdict": verdict,
+            "risk_level": risk_level,
+            "debate_id": debate_id,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
 
         if hasattr(store, "search"):
+            search_kwargs: dict[str, Any] = {"limit": limit, "offset": offset}
+            unsupported_filters: dict[str, Any] = {}
+            for name, value in optional_filters.items():
+                if value is None:
+                    continue
+                if _store_accepts_keyword_argument(store, "search", name):
+                    search_kwargs[name] = value
+                else:
+                    unsupported_filters[name] = value
+
             raw_results = await _call_store_method(store, "search", query=q, **search_kwargs)
             results = list(raw_results)
+            if unsupported_filters:
+                results = [
+                    receipt
+                    for receipt in results
+                    if _receipt_matches_search_filters(receipt, **unsupported_filters)
+                ]
             if hasattr(store, "search_count"):
-                total = await _call_store_method(
-                    store,
-                    "search_count",
-                    query=q,
-                    verdict=verdict,
-                    risk_level=risk_level,
-                )
+                count_kwargs: dict[str, Any] = {}
+                unsupported_count_filters = False
+                for name, value in optional_filters.items():
+                    if value is None:
+                        continue
+                    if _store_accepts_keyword_argument(store, "search_count", name):
+                        count_kwargs[name] = value
+                    else:
+                        unsupported_count_filters = True
+
+                if unsupported_count_filters:
+                    total = len(results)
+                else:
+                    total = await _call_store_method(
+                        store,
+                        "search_count",
+                        query=q,
+                        **count_kwargs,
+                    )
             else:
                 total = len(results)
         elif hasattr(store, "list_all"):
@@ -702,7 +780,14 @@ async def search_receipts(
             query_lower = q.lower()
             for r in all_receipts:
                 data = r if isinstance(r, dict) else (r.to_dict() if hasattr(r, "to_dict") else {})
-                if query_lower in str(data).lower():
+                if query_lower in str(data).lower() and _receipt_matches_search_filters(
+                    r,
+                    verdict=verdict,
+                    risk_level=risk_level,
+                    debate_id=debate_id,
+                    date_from=date_from,
+                    date_to=date_to,
+                ):
                     results.append(data)
             total = len(results)
             results = results[offset : offset + limit]

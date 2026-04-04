@@ -1040,6 +1040,9 @@ class ReceiptStore:
         offset: int = 0,
         verdict: str | None = None,
         risk_level: str | None = None,
+        debate_id: str | None = None,
+        date_from: float | str | None = None,
+        date_to: float | str | None = None,
     ) -> builtins.list[StoredReceipt]:
         """
         Full-text search across receipt content.
@@ -1053,6 +1056,9 @@ class ReceiptStore:
             offset: Pagination offset
             verdict: Optional filter by verdict
             risk_level: Optional filter by risk level
+            debate_id: Optional filter by debate ID
+            date_from: Optional lower created_at bound
+            date_to: Optional upper created_at bound
 
         Returns:
             List of StoredReceipt objects matching the query
@@ -1067,6 +1073,8 @@ class ReceiptStore:
         limit = min(limit, 100)
         params: list[Any] = []
         conditions = []
+        date_from_ts = self._normalize_timestamp_filter(date_from)
+        date_to_ts = self._normalize_timestamp_filter(date_to)
 
         if self.backend_type == "postgresql":
             # PostgreSQL: Use TSVECTOR for efficient full-text search on JSONB
@@ -1095,6 +1103,15 @@ class ReceiptStore:
         if risk_level:
             conditions.append("risk_level = ?")
             params.append(risk_level)
+        if debate_id:
+            conditions.append("debate_id = ?")
+            params.append(debate_id)
+        if date_from_ts is not None:
+            conditions.append("created_at >= ?")
+            params.append(date_from_ts)
+        if date_to_ts is not None:
+            conditions.append("created_at <= ?")
+            params.append(date_to_ts)
 
         where_clause = " AND ".join(conditions)
         params.extend([limit, offset])
@@ -1120,6 +1137,9 @@ class ReceiptStore:
         query: str,
         verdict: str | None = None,
         risk_level: str | None = None,
+        debate_id: str | None = None,
+        date_from: float | str | None = None,
+        date_to: float | str | None = None,
     ) -> int:
         """
         Get total count of receipts matching search query.
@@ -1128,6 +1148,9 @@ class ReceiptStore:
             query: Search query (minimum 3 characters)
             verdict: Optional filter by verdict
             risk_level: Optional filter by risk level
+            debate_id: Optional filter by debate ID
+            date_from: Optional lower created_at bound
+            date_to: Optional upper created_at bound
 
         Returns:
             Total count of matching receipts
@@ -1140,6 +1163,8 @@ class ReceiptStore:
 
         params: list[Any] = []
         conditions = []
+        date_from_ts = self._normalize_timestamp_filter(date_from)
+        date_to_ts = self._normalize_timestamp_filter(date_to)
 
         if self.backend_type == "postgresql":
             search_condition = """
@@ -1165,6 +1190,15 @@ class ReceiptStore:
         if risk_level:
             conditions.append("risk_level = ?")
             params.append(risk_level)
+        if debate_id:
+            conditions.append("debate_id = ?")
+            params.append(debate_id)
+        if date_from_ts is not None:
+            conditions.append("created_at >= ?")
+            params.append(date_from_ts)
+        if date_to_ts is not None:
+            conditions.append("created_at <= ?")
+            params.append(date_to_ts)
 
         where_clause = " AND ".join(conditions)
 
@@ -1173,6 +1207,26 @@ class ReceiptStore:
             tuple(params),
         )
         return row[0] if row else 0
+
+    @staticmethod
+    def _normalize_timestamp_filter(value: float | str | None) -> float | None:
+        """Parse unix seconds or ISO datetime filters for receipt queries."""
+        if value is None:
+            return None
+
+        if isinstance(value, int | float):
+            return float(value)
+
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                try:
+                    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+                except ValueError:
+                    return None
+
+        return None
 
     # =========================================================================
     # Signature Operations
