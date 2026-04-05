@@ -2638,8 +2638,13 @@ def test_refresh_run_marks_resource_wait_on_disk_full(
     assert work_order["status"] == "waiting_resource"
     assert "No space left on device" in work_order["resource_error"]
     assert work_order["failure_reason"] == "waiting_resource"
-    assert "capacity or environment constraint" in work_order["blocking_question"]
-    assert work_order["blocker"]["reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
     assert work_order["blockers"] == ["No space left on device"]
 
 
@@ -7155,8 +7160,13 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
     assert work_order["review_status"] == "pending"
     assert work_order["resource_error"] == "No space left on device"
     assert work_order["failure_reason"] == "waiting_resource"
-    assert "capacity or environment constraint" in work_order["blocking_question"]
-    assert work_order["blocker"]["reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
     assert work_order["blockers"] == ["No space left on device"]
     for cleared_key in (
         "lease_id",
