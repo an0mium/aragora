@@ -1129,7 +1129,8 @@ class SwarmSupervisor:
         item["verification_results"] = verification_results
         item["worker_outcome"] = WorkerOutcome.COMPLETED.value
         metadata = dict(item.get("metadata") or {})
-        metadata["validation_marker_rehabilitated_at"] = datetime.now(UTC).isoformat()
+        rehabilitated_at = datetime.now(UTC).isoformat()
+        metadata["validation_marker_rehabilitated_at"] = rehabilitated_at
         metadata["validation_marker_original_exit_code"] = result.exit_code
         item["metadata"] = metadata
         self._finalize_completed_work_order_result(
@@ -1139,6 +1140,12 @@ class SwarmSupervisor:
             worker_type_circuit_breakers=worker_type_circuit_breakers,
             worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
         )
+        if str(item.get("status", "")).strip() == "completed":
+            self.store.sync_completion_receipt_verification(
+                receipt_id=str(item.get("receipt_id", "")).strip(),
+                verification_results=verification_results,
+                replayed_at=rehabilitated_at,
+            )
 
     def _recover_reaped_needs_human_deliverables(
         self,
