@@ -36,7 +36,13 @@ from aragora.swarm.terminal_truth import (
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 
 # Backwards-compatible re-exports from extracted modules
-from aragora.swarm.boss_feed import GitHubIssue, GitHubIssueFeed, select_eligible_issue  # noqa: F401
+from aragora.swarm.boss_feed import (  # noqa: F401
+    GitHubIssue,
+    GitHubIssueFeed,
+    fetch_open_pr_changed_paths,
+    infer_issue_scope_entries,
+    select_eligible_issue,
+)
 from aragora.swarm.boss_freshness import RunnerFreshnessResult, check_runner_freshness  # noqa: F401
 from aragora.swarm.boss_validation import (  # noqa: F401
     _compose_issue_dispatch_goal,
@@ -230,6 +236,10 @@ class BossLoopConfig:
     # value/cost before selecting.  This pushes the loop toward high-leverage
     # work instead of processing issues in arbitrary GitHub order.
     use_value_ranking: bool = True
+
+    # Scope conflict guardrail: skip issues whose inferred file scope already
+    # appears in an open PR or another issue selected in the same batch.
+    avoid_open_pr_scope_conflicts: bool = True
 
     # Micro-decomposition: break broad issues into single-file work orders.
     # Workers succeed on focused tasks but timeout on broad ones in large repos.
@@ -528,6 +538,7 @@ class BossLoop:
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
+        self._owns_issue_feed = issue_feed is None
         self._feed = issue_feed or GitHubIssueFeed(
             repo=self.config.repo,
             label_filter=self.config.label_filter,
@@ -544,6 +555,17 @@ class BossLoop:
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
+
+    def _blocked_issue_scopes(self) -> set[str]:
+        if not self.config.avoid_open_pr_scope_conflicts:
+            return set()
+        repo = str(self.config.repo).strip() if isinstance(self.config.repo, str) else ""
+        if not repo:
+            feed_repo = getattr(self._feed, "repo", None)
+            repo = str(feed_repo).strip() if isinstance(feed_repo, str) else ""
+        if not repo and not self._owns_issue_feed:
+            return set()
+        return fetch_open_pr_changed_paths(repo=repo or None)
 
     def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
         """Summarize changed files and test verification from a worker run."""
@@ -746,7 +768,12 @@ class BossLoop:
                 return value
         return None
 
-    def _pending_handoff_candidates(self, issues: list[GitHubIssue]) -> list[GitHubIssue]:
+    def _pending_handoff_candidates(
+        self,
+        issues: list[GitHubIssue],
+        *,
+        blocked_scopes: set[str] | None = None,
+    ) -> list[GitHubIssue]:
         if not self._pending_handoff_prompts:
             return []
 
@@ -766,6 +793,7 @@ class BossLoop:
                     [issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scopes,
                 )
                 is None
             ):
@@ -2064,7 +2092,11 @@ class BossLoop:
                 # Auto-decompose exhausted issues into sub-issues (best-effort, once)
                 if count == self.config.max_retries_per_issue and self.config.repo:
                     self._auto_decompose_stuck_issue(num, issues)
-        pending_handoffs = self._pending_handoff_candidates(issues)
+        blocked_scopes = self._blocked_issue_scopes()
+        pending_handoffs = self._pending_handoff_candidates(
+            issues,
+            blocked_scopes=blocked_scopes,
+        )
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
@@ -2081,6 +2113,7 @@ class BossLoop:
                     [target_issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scopes,
                 )
                 if target_issue is not None
                 else None
@@ -2090,6 +2123,7 @@ class BossLoop:
                 candidate_issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=blocked_scopes,
                 use_value_ranking=self.config.use_value_ranking,
             )
 
@@ -2231,7 +2265,11 @@ class BossLoop:
             for num, count in self._issue_attempt_counts.items()
             if count >= self.config.max_retries_per_issue
         }
-        pending_handoffs = self._pending_handoff_candidates(issues)
+        blocked_scopes = self._blocked_issue_scopes()
+        pending_handoffs = self._pending_handoff_candidates(
+            issues,
+            blocked_scopes=blocked_scopes,
+        )
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
@@ -2242,6 +2280,7 @@ class BossLoop:
         selected_issues = self._select_issues_for_iteration(
             ordered_candidates,
             limit=None,
+            blocked_scopes=blocked_scopes,
         )
 
         if not selected_issues:
@@ -2428,7 +2467,9 @@ class BossLoop:
         issues: list[GitHubIssue],
         *,
         limit: int | None,
+        blocked_scopes: set[str] | None = None,
     ) -> list[GitHubIssue]:
+        blocked_scope_entries = set(blocked_scopes or set())
         if limit is not None and limit <= 1:
             if self.config.issue_number is not None:
                 target_issue = next(
@@ -2440,6 +2481,7 @@ class BossLoop:
                         [target_issue],
                         skip_labels=self.config.skip_labels,
                         require_labels=self.config.require_labels,
+                        blocked_scopes=blocked_scope_entries,
                     )
                     if target_issue is not None
                     else None
@@ -2449,6 +2491,7 @@ class BossLoop:
                 issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=blocked_scope_entries,
             )
             return [selected] if selected is not None else []
 
@@ -2462,6 +2505,7 @@ class BossLoop:
                     [target_issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scope_entries,
                 )
                 if target_issue is not None
                 else None
@@ -2469,8 +2513,8 @@ class BossLoop:
             return [selected] if selected is not None else []
 
         selected_issues: list[GitHubIssue] = []
-        # Track file scopes to avoid dispatching overlapping work in parallel
-        claimed_scopes: set[str] = set()
+        # Track file scopes to avoid dispatching overlapping work in parallel.
+        claimed_scopes: set[str] = set(blocked_scope_entries)
         # Track title stems to avoid dispatching near-duplicate sub-issues
         claimed_stems: set[str] = set()
 
@@ -2479,17 +2523,19 @@ class BossLoop:
                 [issue],
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=claimed_scopes,
             )
             if candidate is None:
                 continue
 
             # Deduplicate by file scope — don't dispatch two issues targeting the same files
-            scope_hints = set(self._extract_file_scope_hints(candidate.body or ""))
+            scope_hints = set(infer_issue_scope_entries(candidate))
             if scope_hints and scope_hints & claimed_scopes:
                 continue
 
             # Deduplicate by title stem — strip [from #N] prefix and compare
             import re
+
             stem = re.sub(r"\[from #\d+\]\s*", "", candidate.title).strip().lower()[:60]
             if stem in claimed_stems:
                 continue

@@ -32,8 +32,10 @@ from aragora.swarm.boss_loop import (
     BossLoopConfig,
     BossLoopResult,
     BossStopReason,
+    fetch_open_pr_changed_paths,
     GitHubIssue,
     GitHubIssueFeed,
+    infer_issue_scope_entries,
     RunnerFreshnessResult,
     check_runner_freshness,
     discover_focused_tests,
@@ -199,6 +201,32 @@ class TestGitHubIssueFeed:
         assert "--limit" in cmd
         assert cmd[cmd.index("--limit") + 1] == "10"
 
+    def test_fetch_open_pr_changed_paths_parses_changed_files(self, monkeypatch):
+        gh_output = json.dumps(
+            [
+                {
+                    "files": [
+                        {"path": "tests/memory/test_tier_ttl_expiration.py"},
+                        {"path": "aragora/swarm/boss_loop.py"},
+                    ]
+                }
+            ]
+        )
+
+        def _run(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = gh_output
+            result.stderr = ""
+            return result
+
+        monkeypatch.setattr("aragora.swarm.boss_feed.subprocess.run", _run)
+
+        assert fetch_open_pr_changed_paths(repo="synaptent/aragora") == {
+            "tests/memory/test_tier_ttl_expiration.py",
+            "aragora/swarm/boss_loop.py",
+        }
+
 
 # ---------------------------------------------------------------------------
 # Issue selection tests
@@ -218,12 +246,91 @@ class TestSelectEligibleIssue:
         assert selected is not None
         assert selected.number == 2
 
+
+class TestBatchIssueSelection:
+    def test_parallel_selection_skips_conflicting_issue_scopes(self):
+        loop = BossLoop(_boss_config(max_parallel_dispatches=3))
+        issues = [
+            _make_issue(
+                1,
+                "TTL tests A",
+                body="Scope hints:\n- `tests/memory/test_tier_ttl_expiration.py`\n",
+            ),
+            _make_issue(
+                2,
+                "TTL tests B",
+                body="Scope hints:\n- `tests/memory/test_tier_ttl_expiration.py`\n",
+            ),
+            _make_issue(
+                3,
+                "Quota tests",
+                body="Scope hints:\n- `tests/agents/test_fallback_quota.py`\n",
+            ),
+        ]
+
+        selected = loop._select_issues_for_iteration(issues, limit=3)
+
+        assert [issue.number for issue in selected] == [1, 3]
+
+    def test_parallel_selection_respects_open_pr_blocked_scope(self):
+        loop = BossLoop(_boss_config(max_parallel_dispatches=2))
+        issues = [
+            _make_issue(
+                1,
+                "TTL tests",
+                body="Scope hints:\n- `tests/memory/test_tier_ttl_expiration.py`\n",
+            ),
+            _make_issue(
+                2,
+                "Quota tests",
+                body="Scope hints:\n- `tests/agents/test_fallback_quota.py`\n",
+            ),
+        ]
+
+        selected = loop._select_issues_for_iteration(
+            issues,
+            limit=2,
+            blocked_scopes={"tests/memory/test_tier_ttl_expiration.py"},
+        )
+
+        assert [issue.number for issue in selected] == [2]
+
     def test_skips_issues_with_skip_labels(self):
         issues = [
             _make_issue(1, "Dup", labels=["duplicate"]),
             _make_issue(2, "Valid"),
         ]
         selected = select_eligible_issue(issues, skip_labels={"duplicate"})
+        assert selected is not None
+        assert selected.number == 2
+
+    def test_infers_directory_scope_from_issue_constraints(self):
+        issue = _make_issue(
+            1,
+            "Boss loop cleanup",
+            body="Acceptance Criteria:\n- No files outside aragora/swarm/ are changed\n",
+        )
+
+        assert infer_issue_scope_entries(issue) == ["aragora/swarm"]
+
+    def test_skips_issue_when_scope_overlaps_blocked_open_pr_paths(self):
+        issues = [
+            _make_issue(
+                1,
+                "Duplicate TTL test",
+                body="Touch `tests/memory/test_tier_ttl_expiration.py` only.\n",
+            ),
+            _make_issue(
+                2,
+                "Independent fallback tests",
+                body="Touch `tests/agents/test_fallback_quota.py` only.\n",
+            ),
+        ]
+
+        selected = select_eligible_issue(
+            issues,
+            blocked_scopes={"tests/memory/test_tier_ttl_expiration.py"},
+        )
         assert selected is not None
         assert selected.number == 2
 
