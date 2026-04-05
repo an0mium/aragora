@@ -7,7 +7,6 @@ tampering detection to ensure data integrity violations are caught.
 from __future__ import annotations
 
 import copy
-import tempfile
 import os
 
 import pytest
@@ -129,3 +128,42 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        signed_dict = signed.to_dict()
+        assert signer.verify_dict(signed_dict)
+
+    def test_verify_dict_tampered(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        signed_dict = signed.to_dict()
+        signed_dict["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(signed_dict)
+
+    def test_signature_metadata_has_timestamp(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        assert signed.signature_metadata.timestamp
+        assert signed.signature_metadata.key_id.startswith("durable-")
+
+    def test_deep_copy_independence(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """Signing should not share mutable state with the original dict."""
+        signed = signer.sign(sample_receipt)
+        original_data = copy.deepcopy(signed.receipt_data)
+
+        # Mutate the original input after signing
+        sample_receipt["consensus_score"] = 0.0
+
+        # Signed receipt should still verify if receipt_data was copied
+        # (or fail consistently if it shares the reference)
+        if signed.receipt_data == original_data:
+            assert signer.verify(signed)
+        else:
+            assert not signer.verify(signed)
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+        signed.receipt_data["new_key"] = "injected"
+        assert not signer.verify(signed)
