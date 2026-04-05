@@ -32,6 +32,7 @@ jest.mock('../steps', () => ({
 }));
 
 import { OnboardingFlow } from '../OnboardingFlow';
+import { CompletionStep } from '../CompletionStep';
 import { FirstDebateStep } from '../FirstDebateStep';
 import { IntegrationSelector } from '../IntegrationSelector';
 import { QuickDebatePanel } from '../QuickDebatePanel';
@@ -157,6 +158,23 @@ describe('Onboarding backend selection', () => {
         expect.objectContaining({ method: 'POST' }),
       );
     });
+  });
+
+  it('CompletionStep opens receipt exports against the selected backend', () => {
+    mockStoreState = {
+      ...mockStoreState,
+      organizationName: 'Aragora Labs',
+      firstDebateId: 'debate-first',
+      firstReceiptId: 'receipt-first',
+      teamMembers: [],
+    };
+
+    render(<CompletionStep />);
+
+    expect(screen.getByRole('link', { name: /view receipt/i })).toHaveAttribute(
+      'href',
+      'https://api.aragora.ai/api/v2/receipts/receipt-first/export?format=html',
+    );
   });
 
   it('IntegrationSelector checks integrations against the selected backend', async () => {

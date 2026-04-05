@@ -1,6 +1,6 @@
 'use client';
 
-import { API_BASE_URL } from '@/config';
+import { getRuntimeBackendConfig } from '@/components/BackendSelector';
 import { useOnboardingStore } from '@/store';
 
 interface CompletionStepProps {
@@ -8,6 +8,7 @@ interface CompletionStepProps {
 }
 
 export function CompletionStep({ onComplete }: CompletionStepProps) {
+  const apiBase = getRuntimeBackendConfig().config.api;
   const {
     organizationName,
     firstDebateId,
@@ -68,7 +69,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
             description="See your decision summary"
             href={
               firstReceiptId
-                ? `${API_BASE_URL}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`
+                ? `${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`
                 : (firstDebateId ? `/debate/${firstDebateId}` : '/debates')
             }
           />
