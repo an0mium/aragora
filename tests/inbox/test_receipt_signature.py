@@ -35,3 +35,21 @@ def test_receipt_signature_lifecycle_detects_tampering(tmp_path) -> None:
     assert tampered.signature == round_tripped.signature
     assert verifier.verify(tampered) is False
     assert verifier.verify(round_tripped) is True
+
+
+def test_tampered_json_roundtrip_detects_tampering(tmp_path) -> None:
+    key_path = tmp_path / "receipt-signing.key"
+    signer = ReceiptSigner(backend=DurableFileSigner(key_path=str(key_path)))
+    receipt = {
+        "receipt_id": "rcpt-001",
+        "decision": "approve",
+        "topic": "Rate limiter design",
+        "consensus_score": 0.87,
+        "agents": ["claude", "gpt-4", "gemini"],
+    }
+
+    signed = signer.sign(receipt)
+    tampered_json = signed.to_json().replace('"approve"', '"reject"')
+    restored = SignedReceipt.from_json(tampered_json)
+
+    assert signer.verify(restored) is False
