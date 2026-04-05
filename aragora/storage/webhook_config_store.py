@@ -844,6 +844,20 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             data["secret"] = _decrypt_secret(secret)
         return WebhookConfig(**data)
 
+    @staticmethod
+    def _trusted_cache_revision(value: Any) -> float | None:
+        """Return a revision usable for cache trust decisions.
+
+        Cache payloads are untyped JSON. Reject booleans explicitly because
+        `True == 1.0` and `False == 0.0`, which can accidentally satisfy the
+        durable revision equality check.
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
+
     def register(
         self,
         url: str,
@@ -885,9 +899,11 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 if data:
                     cached_webhook = self._deserialize_from_cache(data)
                     durable_revision = self._sqlite.get_cache_revision(webhook_id)
+                    cached_revision = self._trusted_cache_revision(cached_webhook.updated_at)
                     if (
                         durable_revision is not None
-                        and cached_webhook.updated_at == durable_revision
+                        and cached_revision is not None
+                        and cached_revision == durable_revision
                     ):
                         return cached_webhook
             except (

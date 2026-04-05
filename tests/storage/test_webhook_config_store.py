@@ -1409,6 +1409,32 @@ class TestRedisWebhookConfigStore:
         mock_redis.setex.assert_called_once()
         store.close()
 
+    def test_with_mocked_redis_get_rejects_boolean_cached_revision(self, tmp_path):
+        """Boolean cache revisions must not satisfy the durable revision trust gate."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+
+        cached_payload = webhook.to_dict(include_secret=True)
+        cached_payload["url"] = "https://stale.example.com"
+        cached_payload["updated_at"] = True
+        mock_redis.get.return_value = json.dumps(cached_payload)
+
+        with patch.object(store._sqlite, "get_cache_revision", return_value=1.0):
+            retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.url == "https://example.com"
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_called_once()
+        store.close()
+
     def test_with_mocked_redis_get_cache_miss(self, tmp_path):
         """Test get falls back to SQLite on cache miss and populates cache."""
         db_path = tmp_path / "test.db"
