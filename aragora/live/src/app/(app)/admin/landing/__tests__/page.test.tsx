@@ -251,6 +251,54 @@ describe('LandingReviewPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a load failure state when the feedback fetch fails without an auth status', () => {
+    mockUseSWRFetch.mockImplementation((endpoint: string) => {
+      if (endpoint.startsWith('/api/v1/playground/landing/events/summary')) {
+        return {
+          data: buildSummary(),
+          error: null,
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateSummary,
+        };
+      }
+
+      if (endpoint.startsWith('/api/v1/playground/landing/feedback')) {
+        return {
+          data: null,
+          error: Object.assign(new Error('Server error'), { status: 500 }),
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateFeedback,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      };
+    });
+
+    render(<LandingReviewPage />);
+
+    expect(
+      screen.getByText(
+        /Failed to load raw wrong-answer reports\. Summary cards remain visible/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Wrong-answer review queue failed to load for this session.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/admin auth required/i)).not.toBeInTheDocument();
+    const reportsCard = screen.getByText('load failed').closest('.card');
+    expect(reportsCard).not.toBeNull();
+    expect(within(reportsCard as HTMLElement).getByText('--')).toBeInTheDocument();
+    expect(within(reportsCard as HTMLElement).getByText('load failed')).toBeInTheDocument();
+  });
+
   it('keeps the empty state when feedback loaded successfully but there are no reports', () => {
     mockUseSWRFetch.mockImplementation((endpoint: string) => {
       if (endpoint.startsWith('/api/v1/playground/landing/events/summary')) {

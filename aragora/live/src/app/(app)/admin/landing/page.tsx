@@ -84,6 +84,8 @@ interface LandingFeedbackSummary {
   reports: LandingFeedbackReport[];
 }
 
+type StatusError = Error & { status?: number };
+
 function formatPercent(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '--';
   return `${(value * 100).toFixed(1)}%`;
@@ -239,7 +241,9 @@ export default function LandingReviewPage() {
   );
 
   const lastUpdated = summary?.generated_at || feedback?.generated_at || null;
+  const feedbackStatus = (feedbackError as StatusError | null)?.status ?? null;
   const feedbackUnavailable = Boolean(feedbackError);
+  const feedbackAuthRequired = feedbackStatus === 401 || feedbackStatus === 403;
   const reports = feedback?.reports ?? [];
 
   return (
@@ -296,9 +300,11 @@ export default function LandingReviewPage() {
       )}
 
       {feedbackError && (
-        <div className="card mb-6 border-acid-yellow/40 bg-acid-yellow/10 p-4">
-          <p className="font-theme-data text-sm text-[var(--acid-yellow)]">
-            Raw wrong-answer reports require admin auth. Summary cards remain visible, but the review queue is unavailable for this session.
+        <div className={`card mb-6 p-4 ${feedbackAuthRequired ? 'border-acid-yellow/40 bg-acid-yellow/10' : 'border-acid-red/40 bg-acid-red/10'}`}>
+          <p className={`font-theme-data text-sm ${feedbackAuthRequired ? 'text-[var(--acid-yellow)]' : 'text-acid-red'}`}>
+            {feedbackAuthRequired
+              ? 'Raw wrong-answer reports require admin auth. Summary cards remain visible, but the review queue is unavailable for this session.'
+              : 'Failed to load raw wrong-answer reports. Summary cards remain visible, but the review queue is unavailable right now.'}
           </p>
         </div>
       )}
@@ -336,7 +342,11 @@ export default function LandingReviewPage() {
         <MetricCard
           label="Reports"
           value={feedbackUnavailable ? '--' : String(feedback?.total_reports ?? 0)}
-          sublabel={feedbackUnavailable ? 'admin auth required' : `${feedback?.returned_reports ?? 0} shown`}
+          sublabel={
+            feedbackUnavailable
+              ? (feedbackAuthRequired ? 'admin auth required' : 'load failed')
+              : `${feedback?.returned_reports ?? 0} shown`
+          }
           tone="text-[var(--acid-cyan)]"
         />
       </div>
@@ -473,8 +483,10 @@ export default function LandingReviewPage() {
         )}
 
         {feedbackUnavailable ? (
-          <div className="rounded border border-dashed border-acid-yellow/40 bg-acid-yellow/10 p-8 font-theme-data text-sm text-[var(--acid-yellow)]">
-            Wrong-answer review queue unavailable for this session.
+          <div className={`rounded border border-dashed p-8 font-theme-data text-sm ${feedbackAuthRequired ? 'border-acid-yellow/40 bg-acid-yellow/10 text-[var(--acid-yellow)]' : 'border-acid-red/40 bg-acid-red/10 text-acid-red'}`}>
+            {feedbackAuthRequired
+              ? 'Wrong-answer review queue unavailable for this session.'
+              : 'Wrong-answer review queue failed to load for this session.'}
           </div>
         ) : reports.length === 0 ? (
           <div className="rounded border border-dashed border-border p-8 font-theme-data text-sm text-text-muted">
