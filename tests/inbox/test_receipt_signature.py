@@ -6,8 +6,6 @@ tampering detection to ensure data integrity violations are caught.
 
 from __future__ import annotations
 
-import copy
-import tempfile
 import os
 
 import pytest
@@ -129,3 +127,56 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        as_dict = signed.to_dict()
+        assert signer.verify_dict(as_dict)
+
+        # Tamper via dict and verify detection
+        as_dict["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(as_dict)
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+        signed.receipt_data["new_key"] = "injected"
+        assert not signer.verify(signed)
+
+    def test_signatory_info_dict_roundtrip(self) -> None:
+        info = SignatoryInfo(
+            name="Bob",
+            email="bob@example.com",
+            role="Auditor",
+            title="Senior",
+            organization="Acme",
+            department="Eng",
+        )
+        restored = SignatoryInfo.from_dict(info.to_dict())
+        assert restored.name == "Bob"
+        assert restored.department == "Eng"
+
+    def test_signature_metadata_dict_roundtrip(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt, signatory=SignatoryInfo(name="C", email="c@x.com"))
+        meta_dict = signed.signature_metadata.to_dict()
+        restored = SignedReceipt.from_dict(signed.to_dict()).signature_metadata
+        assert restored.algorithm == "HMAC-SHA256"
+        assert restored.signatory is not None
+        assert restored.signatory.name == "C"
+
+    def test_key_file_permissions(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "perm.key")
+        DurableFileSigner(key_path=key_path)
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Key file should be 0600, got {oct(mode)}"
+
+    def test_nested_receipt_data(self, signer: ReceiptSigner) -> None:
+        receipt = {"id": "r1", "meta": {"scores": [1, 2, 3], "nested": {"deep": True}}}
+        signed = signer.sign(receipt)
+        assert signer.verify(signed)
+
+        signed.receipt_data["meta"]["scores"].append(4)
+        assert not signer.verify(signed)
