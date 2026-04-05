@@ -5,9 +5,18 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.memory.continuum import ContinuumMemory, reset_continuum_memory
+from aragora.memory.continuum import (
+    DEFAULT_RETENTION_MULTIPLIER,
+    ContinuumMemory,
+    reset_continuum_memory,
+)
 from aragora.memory.continuum_stats import cleanup_expired_memories
-from aragora.memory.tier_manager import MemoryTier, TierManager, reset_tier_manager
+from aragora.memory.tier_manager import (
+    DEFAULT_TIER_CONFIGS,
+    MemoryTier,
+    TierManager,
+    reset_tier_manager,
+)
 
 
 @pytest.fixture
@@ -154,3 +163,25 @@ class TestCrosssTierExpiration:
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             result = cleanup_expired_memories(memory)
         assert result["archived"] == 4
+
+
+@pytest.mark.parametrize(
+    ("tier", "future"),
+    [
+        (MemoryTier.FAST, timedelta(hours=3)),
+        (MemoryTier.MEDIUM, timedelta(hours=49)),
+        (MemoryTier.SLOW, timedelta(days=15)),
+    ],
+)
+def test_delete_mode_reports_expected_cutoff_hours(memory, tier, future):
+    _add_entries(memory)
+    with patch("aragora.memory.continuum_stats.datetime") as mock_dt:
+        mock_dt.now.return_value = datetime.now() + future
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        result = cleanup_expired_memories(memory, tier=tier, archive=False)
+
+    expected_cutoff_hours = (
+        DEFAULT_TIER_CONFIGS[tier].half_life_hours * DEFAULT_RETENTION_MULTIPLIER
+    )
+    assert result["deleted"] == 1
+    assert result["by_tier"][tier.value]["cutoff_hours"] == expected_cutoff_hours
