@@ -129,3 +129,47 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+
+class TestDurableFileSignerSecurity:
+    """Security-focused tests for DurableFileSigner."""
+
+    def test_key_file_permissions(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "secure.key")
+        DurableFileSigner(key_path=key_path)
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Key file should be 0600, got {oct(mode)}"
+
+    def test_key_id_is_deterministic(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "det.key")
+        s1 = DurableFileSigner(key_path=key_path)
+        s2 = DurableFileSigner(key_path=key_path)
+        assert s1.key_id == s2.key_id
+
+    def test_verify_dict_convenience(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "conv.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        receipt = {"id": "r1", "action": "deploy"}
+        signed = signer.sign(receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+    def test_empty_receipt_signs_and_verifies(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "empty.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+    def test_signature_metadata_has_timestamp(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "ts.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        signed = signer.sign({"x": 1})
+        assert signed.signature_metadata.timestamp
+        assert "T" in signed.signature_metadata.timestamp  # ISO format
+
+    def test_signing_does_not_mutate_input(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "mut.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        receipt = {"id": "r1", "items": [1, 2, 3]}
+        original = copy.deepcopy(receipt)
+        signer.sign(receipt)
+        assert receipt == original
