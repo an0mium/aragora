@@ -1,29 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { WS_URL } from '@/config';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface PublicSpectateEvent {
-  event_type: string;
-  timestamp: string;
-  data: Record<string, unknown>;
-  debate_id: string | null;
-  pipeline_id: string | null;
-  agent_name: string | null;
-  round_number: number | null;
-}
-
-interface PublicSpectateStatus {
-  active: boolean;
-  recent_activity_window_seconds?: number;
-  recent_event_count?: number;
-  last_event_at?: string | null;
-}
+import { useSpectate, type SpectateEvent, type UseSpectateReturn } from '@/hooks/useSpectate';
 
 interface LiveDebateSummary {
   debateId: string;
@@ -58,6 +38,7 @@ type LiveSocketStatus = 'idle' | 'connecting' | 'connected' | 'error';
 export interface LiveDebatePanelProps {
   apiBase: string;
   wsUrl?: string;
+  bridgeState?: Pick<UseSpectateReturn, 'events' | 'loaded' | 'status'>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -162,7 +143,7 @@ function eventBadgeClasses(eventType: string): string {
   }
 }
 
-function normalizeRecentEvent(event: PublicSpectateEvent): LivePreviewEvent {
+function normalizeRecentEvent(event: SpectateEvent): LivePreviewEvent {
   const timestampMs = toEpochMs(event.timestamp) ?? Date.now();
   const details = readDetails(event.data);
   const id = [
@@ -222,7 +203,7 @@ function mergePreviewEvents(...eventGroups: LivePreviewEvent[][]): LivePreviewEv
 }
 
 function summarizeLiveDebates(
-  events: PublicSpectateEvent[],
+  events: SpectateEvent[],
   activityWindowSeconds: number,
 ): LiveDebateSummary[] {
   const now = Date.now();
@@ -274,14 +255,21 @@ function summarizeLiveDebates(
 export function LiveDebatePanel({
   apiBase,
   wsUrl,
+  bridgeState,
 }: LiveDebatePanelProps) {
   const resolvedWsBase = (wsUrl || WS_URL).replace(/\/ws\/?$/, '');
   const wsRef = useRef<WebSocket | null>(null);
+  const fallbackBridgeState = useSpectate(undefined, undefined, {
+    apiBaseUrl: apiBase,
+    pollInterval: LIVE_PREVIEW_POLL_MS,
+    maxEvents: 40,
+    enabled: !bridgeState,
+  });
+  const status = bridgeState?.status ?? fallbackBridgeState.status;
+  const recentEvents = bridgeState?.events ?? fallbackBridgeState.events;
+  const loaded = bridgeState?.loaded ?? fallbackBridgeState.loaded;
+  const bridgeActive = Boolean(status?.active);
 
-  const [status, setStatus] = useState<PublicSpectateStatus | null>(null);
-  const [recentEvents, setRecentEvents] = useState<PublicSpectateEvent[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [bridgeReachable, setBridgeReachable] = useState(false);
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null);
   const [socketStatus, setSocketStatus] = useState<LiveSocketStatus>('idle');
   const [socketTask, setSocketTask] = useState<string | null>(null);
@@ -289,43 +277,10 @@ export function LiveDebatePanel({
   const [socketEvents, setSocketEvents] = useState<LivePreviewEvent[]>([]);
   const [mergedEvents, setMergedEvents] = useState<LivePreviewEvent[]>([]);
 
-  const refreshPreview = useCallback(async () => {
-    try {
-      const [recentRes, statusRes] = await Promise.all([
-        fetch(`${apiBase}/api/v1/spectate/recent?count=40`),
-        fetch(`${apiBase}/api/v1/spectate/status`),
-      ]);
-
-      const recentData = recentRes.ok ? await recentRes.json() : { events: [] };
-      const statusData = statusRes.ok ? await statusRes.json() : null;
-
-      setRecentEvents(Array.isArray(recentData.events) ? recentData.events : []);
-      setStatus(statusData);
-      setBridgeReachable(recentRes.ok);
-    } catch {
-      setRecentEvents([]);
-      setStatus(null);
-      setBridgeReachable(false);
-    } finally {
-      setLoaded(true);
-    }
-  }, [apiBase]);
-
-  useEffect(() => {
-    void refreshPreview();
-    const interval = window.setInterval(() => {
-      void refreshPreview();
-    }, LIVE_PREVIEW_POLL_MS);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [refreshPreview]);
-
   const activityWindowSeconds = status?.recent_activity_window_seconds ?? 120;
   const liveDebates = useMemo(
-    () => summarizeLiveDebates(recentEvents, activityWindowSeconds),
-    [activityWindowSeconds, recentEvents],
+    () => (bridgeActive ? summarizeLiveDebates(recentEvents, activityWindowSeconds) : []),
+    [activityWindowSeconds, bridgeActive, recentEvents],
   );
   const safeSelectedDebateId = useMemo(
     () => sanitizeDebateId(selectedDebateId),
@@ -428,13 +383,13 @@ export function LiveDebatePanel({
 
   const bridgeTone = socketStatus === 'connected'
     ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30'
-    : bridgeReachable
+    : bridgeActive
       ? 'bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30'
       : 'bg-[var(--crimson)]/10 text-[var(--crimson)] border-[var(--crimson)]/30';
 
   const bridgeLabel = socketStatus === 'connected'
     ? 'STREAMING NOW'
-    : bridgeReachable
+    : bridgeActive
       ? 'FOLLOWING LIVE BRIDGE'
       : 'BRIDGE OFFLINE';
 
@@ -442,7 +397,7 @@ export function LiveDebatePanel({
     ? 'Checking the public spectate bridge before claiming a live debate.'
     : selectedDebate
       ? `${selectedDebate.recentEventCount} recent event${selectedDebate.recentEventCount === 1 ? '' : 's'} discovered for this debate.`
-      : bridgeReachable
+      : bridgeActive
         ? 'The bridge is online. This panel will attach as soon as a public debate starts emitting events.'
         : 'The public spectate bridge is unreachable right now, so no live debate is shown.';
 

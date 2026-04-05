@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
-import { useSpectate, type SpectateEvent } from '@/hooks/useSpectate';
+import { useSpectate, type SpectateEvent, type UseSpectateReturn } from '@/hooks/useSpectate';
+
+export interface LiveDemoSectionProps {
+  bridgeState?: Pick<UseSpectateReturn, 'events' | 'loaded' | 'status'>;
+}
 
 interface TranscriptEvent {
   id: string;
@@ -267,12 +271,16 @@ function toTranscriptEvent(event: SpectateEvent, index: number): TranscriptEvent
   };
 }
 
-export function LiveDemoSection() {
+export function LiveDemoSection({ bridgeState }: LiveDemoSectionProps = {}) {
   const { theme } = useTheme();
-  const { status, loaded, events } = useSpectate(undefined, undefined, {
+  const fallbackBridgeState = useSpectate(undefined, undefined, {
     pollInterval: 3000,
     maxEvents: 24,
+    enabled: !bridgeState,
   });
+  const status = bridgeState?.status ?? fallbackBridgeState.status;
+  const loaded = bridgeState?.loaded ?? fallbackBridgeState.loaded;
+  const events = bridgeState?.events ?? fallbackBridgeState.events;
   const [demoVisibleCount, setDemoVisibleCount] = useState(3);
   const isDark = theme === 'dark';
   const recentEventCount = status?.recent_event_count ?? 0;
