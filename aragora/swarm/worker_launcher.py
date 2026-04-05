@@ -1265,12 +1265,12 @@ class WorkerLauncher:
         return pid
 
     @classmethod
-    def _session_lock_pids(cls, worktree_path: str) -> list[int]:
+    def _session_lock_pid_groups(cls, worktree_path: str) -> tuple[list[int], list[int]]:
         active_lock = Path(worktree_path) / ".codex_session_active"
         try:
             raw = active_lock.read_text(encoding="utf-8")
         except OSError:
-            return []
+            return [], []
         session_pids: list[int] = []
         parent_pids: list[int] = []
         for line in raw.splitlines():
@@ -1289,6 +1289,11 @@ class WorkerLauncher:
             target = session_pids if normalized_key == "pid" else parent_pids
             if pid not in target:
                 target.append(pid)
+        return session_pids, parent_pids
+
+    @classmethod
+    def _session_lock_pids(cls, worktree_path: str) -> list[int]:
+        session_pids, parent_pids = cls._session_lock_pid_groups(worktree_path)
         # Prefer the harness session PID over any optional parent PID entries.
         # The parent may outlive the managed session briefly and must not
         # become the authoritative liveness/cleanup target just because it was
@@ -1315,9 +1320,11 @@ class WorkerLauncher:
         active_lock = Path(worktree_path) / ".codex_session_active"
         if not active_lock.exists():
             return False
-        lock_pids = cls._session_lock_pids(worktree_path)
-        if lock_pids:
-            return any(cls._is_pid_running(lock_pid) for lock_pid in lock_pids)
+        session_pids, parent_pids = cls._session_lock_pid_groups(worktree_path)
+        if session_pids:
+            return any(cls._is_pid_running(lock_pid) for lock_pid in session_pids)
+        if parent_pids:
+            return any(cls._is_pid_running(lock_pid) for lock_pid in parent_pids)
         # codex_session.sh writes ended_at/exit_code before it removes the
         # active lock in its EXIT trap. Treat the lock as authoritative while
         # it still exists unless the session PID is clearly gone.
