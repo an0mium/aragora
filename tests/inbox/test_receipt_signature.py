@@ -129,3 +129,33 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_key_file_permissions(self, tmp_path: object) -> None:
+        """Key file must be created with restrictive permissions (owner-only)."""
+        key_path = os.path.join(str(tmp_path), "perms.key")
+        DurableFileSigner(key_path=key_path)
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
+
+    def test_stable_key_id_across_instances(self, tmp_path: object) -> None:
+        """Same key file should produce the same derived key_id."""
+        key_path = os.path.join(str(tmp_path), "stable.key")
+        b1 = DurableFileSigner(key_path=key_path)
+        b2 = DurableFileSigner(key_path=key_path)
+        assert b1.key_id == b2.key_id
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        """Empty dict should still sign and verify correctly."""
+        signed = signer.sign({})
+        assert signer.verify(signed)
+        signed.receipt_data["x"] = 1
+        assert not signer.verify(signed)
+
+    def test_tamper_reorder_agents_detected(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        """Reordering list values should not break verification (canonical JSON sorts keys, not values)."""
+        signed = signer.sign(sample_receipt)
+        # Reverse the agents list — this changes the canonical form
+        signed.receipt_data["agents"] = list(reversed(signed.receipt_data["agents"]))
+        assert not signer.verify(signed)
