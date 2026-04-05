@@ -2490,6 +2490,7 @@ class BossLoop:
 
             # Deduplicate by title stem — strip [from #N] prefix and compare
             import re
+
             stem = re.sub(r"\[from #\d+\]\s*", "", candidate.title).strip().lower()[:60]
             if stem in claimed_stems:
                 continue
