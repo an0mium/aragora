@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.agents.spec import AgentSpec
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _check_rate_limit,
@@ -1672,6 +1673,42 @@ class TestGetAvailableLiveAgents:
             assert len(agents) == 4
             assert "anthropic-api" in agents
             assert "openai-api" in agents
+
+    def test_xai_and_gemini_keys_return_valid_provider_names(self):
+        def fake_key(name):
+            keys = {
+                "XAI_API_KEY": "xai-key",
+                "GEMINI_API_KEY": "gemini-key",
+            }
+            return keys.get(name)
+
+        with patch(
+            "aragora.server.handlers.playground._get_api_key",
+            side_effect=fake_key,
+        ):
+            agents = _get_available_live_agents(2)
+
+        assert agents == ["grok", "gemini"]
+        assert "xai" not in agents
+        assert "google" not in agents
+        for provider in agents:
+            AgentSpec(provider=provider)
+
+    def test_alias_keys_are_recognized_for_live_agents(self):
+        def fake_key(name):
+            keys = {
+                "GROK_API_KEY": "grok-key",
+                "GOOGLE_API_KEY": "google-key",
+            }
+            return keys.get(name)
+
+        with patch(
+            "aragora.server.handlers.playground._get_api_key",
+            side_effect=fake_key,
+        ):
+            agents = _get_available_live_agents(2)
+
+        assert agents == ["grok", "gemini"]
 
 
 # ============================================================================

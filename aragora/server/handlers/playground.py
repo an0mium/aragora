@@ -808,6 +808,15 @@ def _get_api_key(name: str) -> str | None:
         return os.environ.get(name)
 
 
+def _get_first_api_key(*names: str) -> str | None:
+    """Return the first configured API key from the provided names."""
+    for name in names:
+        value = _get_api_key(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Multi-model tentacles — each tentacle is a genuinely different AI
 # ---------------------------------------------------------------------------
@@ -3854,16 +3863,16 @@ def _get_available_live_agents(count: int) -> list[str]:
 
     # Try primary providers first
     candidates: list[str] = []
-    if _get_api_key("ANTHROPIC_API_KEY"):
+    if _get_first_api_key("ANTHROPIC_API_KEY"):
         candidates.append("anthropic-api")
-    if _get_api_key("OPENAI_API_KEY"):
+    if _get_first_api_key("OPENAI_API_KEY"):
         candidates.append("openai-api")
-    if _get_api_key("MISTRAL_API_KEY"):
+    if _get_first_api_key("MISTRAL_API_KEY"):
         candidates.append("mistral")
-    if _get_api_key("XAI_API_KEY"):
-        candidates.append("xai")
-    if _get_api_key("GEMINI_API_KEY"):
-        candidates.append("google")
+    if _get_first_api_key("XAI_API_KEY", "GROK_API_KEY"):
+        candidates.append("grok")
+    if _get_first_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        candidates.append("gemini")
 
     # If we have enough primary agents, use them
     if len(candidates) >= count:
