@@ -53,6 +53,16 @@ THRESHOLDS: dict[str, float] = {
 
 _MEASUREMENT_TIMEOUT_SECONDS = 30.0
 
+_FIRST_DEBATE_QUICKSTART_PROTOCOL_ARGS = """
+        convergence_detection=False,
+        vote_grouping=False,
+        enable_trickster=False,
+        enable_research=False,
+        enable_trending_injection=False,
+        enable_llm_question_classification=False,
+        enable_llm_synthesis=False,
+"""
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -369,8 +379,8 @@ print(json.dumps({"imported": imported, "total": len(target_modules), "error": "
 
 
 def measure_first_debate() -> StepResult:
-    """Create an Arena with 2 mock agents and run a 1-round debate."""
-    code = r"""
+    """Create a bounded quickstart-style Arena with mock agents."""
+    code = f"""
 import asyncio
 import json
 
@@ -419,16 +429,27 @@ async def _main() -> None:
         _QuickstartAgent("agent-beta", "Beta: Agreed, token bucket with Redis backend."),
     ]
     env = Environment(task="Design a rate limiter for our API")
-    protocol = DebateProtocol(rounds=1, consensus="majority")
-    arena = Arena(environment=env, agents=agents, protocol=protocol)
+    # Mirror the bounded quickstart lane instead of triggering optional
+    # consensus helpers that can import heavyweight local ML stacks.
+    protocol = DebateProtocol(
+        rounds=1,
+        consensus="majority",
+{_FIRST_DEBATE_QUICKSTART_PROTOCOL_ARGS.rstrip()}
+    )
+    arena = Arena(
+        environment=env,
+        agents=agents,
+        protocol=protocol,
+        disable_post_debate_pipeline=True,
+    )
     result = await arena.run()
     print(
         json.dumps(
-            {
+            {{
                 "consensus": bool(result.consensus_reached),
                 "rounds": int(result.rounds_used),
                 "confidence": float(result.confidence),
-            }
+            }}
         )
     )
 

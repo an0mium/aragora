@@ -18,12 +18,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from scripts.measure_quickstart_time import (
+    _FIRST_DEBATE_QUICKSTART_PROTOCOL_ARGS,
     THRESHOLDS,
     QuickstartReport,
     StepResult,
     evaluate_step,
     format_report,
     measure_import_time,
+    measure_first_debate,
     measure_receipt_generation,
     measure_repo_size,
     run_all_measurements,
@@ -202,6 +204,42 @@ class TestMeasureImportTime:
         assert step.passed is False
         assert step.status == "FAIL"
         assert "exit=1" in step.error
+
+
+class TestMeasureFirstDebate:
+    """Tests for measure_first_debate()."""
+
+    def test_uses_bounded_quickstart_protocol(self):
+        """The benchmark should mirror the lightweight quickstart protocol."""
+        completed = subprocess.CompletedProcess(
+            args=["python3", "-c", "debate"],
+            returncode=0,
+            stdout='{"consensus": true, "rounds": 1, "confidence": 0.5}\n',
+            stderr="",
+        )
+
+        with patch(
+            "scripts.measure_quickstart_time.subprocess.run", return_value=completed
+        ) as mock_run:
+            step = measure_first_debate()
+
+        code = mock_run.call_args.args[0][2]
+        for expected in (
+            "convergence_detection=False",
+            "vote_grouping=False",
+            "enable_trickster=False",
+            "enable_research=False",
+            "enable_trending_injection=False",
+            "enable_llm_question_classification=False",
+            "enable_llm_synthesis=False",
+            "disable_post_debate_pipeline=True",
+        ):
+            assert expected in code
+            if expected != "disable_post_debate_pipeline=True":
+                assert expected in _FIRST_DEBATE_QUICKSTART_PROTOCOL_ARGS
+
+        assert step.passed is True
+        assert step.detail == "consensus=True, rounds=1, confidence=0.50"
 
 
 class TestMeasureReceiptGeneration:
