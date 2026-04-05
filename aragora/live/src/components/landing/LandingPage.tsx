@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '@/context/ThemeContext';
+import { useSpectate } from '@/hooks/useSpectate';
 import { BACKENDS, useBackend } from '../BackendSelector';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
@@ -28,6 +29,11 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
   const { config: backendConfig } = useBackend();
   const livePreviewApiBase = apiBase || backendConfig.api || BACKENDS.production.api;
   const livePreviewWsUrl = wsUrl || backendConfig.ws || BACKENDS.production.ws;
+  const bridgeState = useSpectate(undefined, undefined, {
+    apiBaseUrl: livePreviewApiBase,
+    pollInterval: 4000,
+    maxEvents: 40,
+  });
 
   return (
     <div
@@ -41,8 +47,8 @@ export function LandingPage({ apiBase, wsUrl, onEnterDashboard }: LandingPagePro
     >
       <Header onLoginClick={onEnterDashboard} />
       <HeroSection />
-      <LiveDebatePanel apiBase={livePreviewApiBase} wsUrl={livePreviewWsUrl} />
-      <LiveDemoSection />
+      <LiveDebatePanel apiBase={livePreviewApiBase} wsUrl={livePreviewWsUrl} bridgeState={bridgeState} />
+      <LiveDemoSection bridgeState={bridgeState} />
       <HowItWorksSection />
       <ProblemSection />
       <PricingSection />
