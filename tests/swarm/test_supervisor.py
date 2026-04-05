@@ -4943,6 +4943,12 @@ def test_apply_worker_result_accepts_validation_marker_commit_despite_nonzero_ex
         "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
         "file_scope": ["tests/webhooks/test_retry_queue.py"],
         "metadata": {"source": "explicit_spec_work_order"},
+        "resource_error": "old disk pressure",
+        "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+        "scope_violation": {"violations": [{"path": "README.md"}]},
+        "merge_gate": {"checks_passed": False},
+        "verification_missing_reason": "missing_verification_plan",
+        "blockers": ["old blocker"],
     }
     result = WorkerProcess(
         work_order_id="micro-2",
@@ -5028,6 +5034,17 @@ def test_apply_worker_result_preserves_non_validation_empty_commit_crash(
     assert work_order["failure_reason"] == "worker_crash_with_deliverable"
     assert work_order["worker_outcome"] == "crash"
     assert work_order["review_status"] == "changes_requested"
+    assert work_order["blockers"] == [
+        "worker exited non-zero after producing a recoverable deliverable"
+    ]
+    for cleared_key in (
+        "resource_error",
+        "conflicts",
+        "scope_violation",
+        "merge_gate",
+        "verification_missing_reason",
+    ):
+        assert cleared_key not in work_order
     mock_release.assert_called_once_with(work_order)
 
 

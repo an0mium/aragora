@@ -3617,6 +3617,15 @@ class SwarmSupervisor:
             return
         if deliverable_present:
             failure_reason = "worker_crash_with_deliverable"
+            for key in (
+                "resource_error",
+                "conflicts",
+                "scope_violation",
+                "merge_gate",
+                "verification_missing_reason",
+            ):
+                item.pop(key, None)
+            item.pop("blockers", None)
             self._mark_needs_human(
                 item,
                 "worker exited non-zero after producing a recoverable deliverable",

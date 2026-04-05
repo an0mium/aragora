@@ -1226,10 +1226,20 @@ class BossLoop:
 
     @staticmethod
     def _extract_file_scope_hints(body: str) -> list[str]:
-        """Extract file paths from an issue body."""
+        """Extract file paths from an issue body.
+
+        Handles backtick-wrapped paths and strips escaped backticks from
+        GitHub markdown rendering.
+        """
         import re
 
-        return re.findall(r"`((?:aragora|tests)/[a-zA-Z0-9_/.-]+\.py)`", body)
+        # Strip escaped backticks that GitHub API sometimes returns
+        cleaned = body.replace("\\`", "`")
+        # Match paths starting with known top-level directories
+        return re.findall(
+            r"`((?:aragora|tests|scripts|docs|docs-site|sdk|contracts)/[a-zA-Z0-9_/.*-]+(?:\.\w+)?)`",
+            cleaned,
+        )
 
     @staticmethod
     def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
