@@ -129,3 +129,70 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_full_lifecycle_create_sign_verify_tamper_detect(
+        self,
+        tmp_path: object,
+    ) -> None:
+        """End-to-end lifecycle: create receipt, sign, verify, tamper, detect."""
+        key_path = os.path.join(str(tmp_path), "lifecycle.key")
+        backend = DurableFileSigner(key_path=key_path)
+        signer = ReceiptSigner(backend=backend)
+
+        receipt = {
+            "receipt_id": "rcpt-lifecycle",
+            "decision": "approve",
+            "topic": "E2E lifecycle validation",
+            "consensus_score": 0.92,
+            "agents": ["claude", "gpt-4"],
+        }
+
+        # Step 1: Sign
+        signed = signer.sign(
+            receipt,
+            signatory=SignatoryInfo(name="Bot", email="bot@test.com", role="Auditor"),
+        )
+        assert signed.signature_metadata.algorithm == "HMAC-SHA256"
+        assert signed.signature_metadata.signatory.role == "Auditor"
+
+        # Step 2: Verify valid
+        assert signer.verify(signed)
+
+        # Step 3: Roundtrip through JSON and verify again
+        restored = SignedReceipt.from_json(signed.to_json())
+        assert signer.verify(restored)
+
+        # Step 4: Verify via dict interface
+        assert signer.verify_dict(signed.to_dict())
+
+        # Step 5: Tamper and detect
+        tampered = copy.deepcopy(signed)
+        tampered.receipt_data["decision"] = "reject"
+        assert not signer.verify(tampered)
+
+        # Step 6: Reload key from disk and verify original still valid
+        signer2 = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        assert signer2.verify(signed)
+        assert not signer2.verify(tampered)
+
+    def test_verify_dict_interface(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+        # Tamper via dict
+        d = signed.to_dict()
+        d["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(d)
+
+    def test_empty_receipt_signs_and_verifies(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+    def test_deep_copy_tamper_isolated(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        clone = copy.deepcopy(signed)
+
+        # Mutate nested list in clone
+        clone.receipt_data["agents"].append("rogue")
+        assert signer.verify(signed), "Original must remain valid"
+        assert not signer.verify(clone), "Tampered clone must fail"
