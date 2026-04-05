@@ -186,8 +186,22 @@ export default function AuditTrailPage() {
         : `/api/v1/receipts/${id}/verify`;
       const data = await apiPost<VerifyResult>(endpoint);
       setVerifyResult(data);
-    } catch {
-      // verification failed silently
+    } catch (error) {
+      const failureResult: VerifyResult = {
+        valid: false,
+        stored_checksum: '',
+        computed_checksum: '',
+        match: false,
+        error: error instanceof Error && error.message
+          ? error.message
+          : 'Verification failed. Please retry.',
+      };
+      if (type === 'trail') {
+        failureResult.trail_id = id;
+      } else {
+        failureResult.receipt_id = id;
+      }
+      setVerifyResult(failureResult);
     } finally {
       setVerifying(null);
     }

@@ -136,4 +136,21 @@ describe('AuditTrailPage', () => {
 
     expect(await screen.findByText('[VALID]')).toBeInTheDocument();
   });
+
+  it('shows verification failures in the result panel instead of failing silently', async () => {
+    const user = userEvent.setup();
+    mockApiPost.mockRejectedValue(new Error('API Error (503): upstream unavailable'));
+
+    render(<AuditTrailPage />);
+
+    await user.click(screen.getByRole('button', { name: 'VERIFY' }));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/v1/audit-trails/trail-123/verify');
+    });
+
+    expect(await screen.findByText('[INVALID]')).toBeInTheDocument();
+    expect(screen.getAllByText('trail-123')).toHaveLength(2);
+    expect(screen.getByText('API Error (503): upstream unavailable')).toBeInTheDocument();
+  });
 });
