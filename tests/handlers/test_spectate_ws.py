@@ -165,6 +165,7 @@ class TestRouteMatching:
 
         assert result is not None
         assert result.content_type == "text/event-stream"
+        assert result.headers["Cache-Control"] == "no-cache, no-store, must-revalidate"
         assert result.headers["X-Aragora-Stream-Transport"] == "sse_snapshot"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "proposal", "snapshot_complete"]
@@ -186,6 +187,7 @@ class TestRouteMatching:
         result = handler.handle("/api/v1/spectate/stream", {"format": "sse"}, mock_handler)
         assert result is not None
         assert result.content_type == "text/event-stream"
+        assert result.headers["Cache-Control"] == "no-cache, no-store, must-revalidate"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "snapshot_complete"]
 

@@ -533,7 +533,7 @@ class SpectateStreamHandler(BaseHandler):
                 content_type="text/event-stream",
                 body=self._build_sse_snapshot_body(events, metadata),
                 headers={
-                    "Cache-Control": "no-cache",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Connection": "keep-alive",
                     "Vary": "Accept",
                     "X-Accel-Buffering": "no",

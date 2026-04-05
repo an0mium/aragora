@@ -576,7 +576,7 @@ class TestRegisterSpectateRoutes:
         assert isinstance(result, StreamingResponse)
         assert result.media_type == "text/event-stream"
         # Check headers
-        assert result.headers.get("Cache-Control") == "no-cache"
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
         assert result.headers.get("X-Accel-Buffering") == "no"
 
     @pytest.mark.asyncio
