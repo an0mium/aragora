@@ -1,13 +1,25 @@
 """Tests that debate rounds respect timeout settings."""
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.debate.autonomic_executor import AutonomicExecutor
+from aragora.debate.phases.debate_rounds import DebateRoundsPhase
 from aragora.debate.protocol import DebateProtocol
 from aragora.debate.termination_checker import TerminationChecker
+from aragora.resilience.circuit_breaker import CircuitBreaker
+from tests.debate.phases.test_debate_rounds import (
+    MockAgent,
+    MockCritique,
+    MockDebateContext,
+    MockProtocol,
+    MockResult,
+)
 
 
 @dataclass
@@ -203,3 +215,76 @@ class TestRoundTimeoutExceedingDelay:
 
         should_continue = await checker.check_early_stopping(round_num=2, proposals={}, context=[])
         assert should_continue is True
+
+
+class TestDebateRoundsPhaseTimeout:
+    @pytest.mark.asyncio
+    async def test_slow_critique_times_out_and_cleans_up(self):
+        protocol = MockProtocol(rounds=1)
+        protocol.round_timeout_seconds = 0.02
+        started = asyncio.Event()
+        cleaned_up = asyncio.Event()
+
+        async def slow_critique(critic, proposal, task, context, target_agent=None):
+            started.set()
+            try:
+                await asyncio.sleep(0.1)
+                return MockCritique(agent=critic.name, target_agent=target_agent or "unknown")
+            finally:
+                cleaned_up.set()
+
+        phase = DebateRoundsPhase(protocol=protocol, critique_with_agent=slow_critique)
+        proposer = MockAgent(name="proposer", role="proposer")
+        critic = MockAgent(name="critic", role="critic")
+        ctx = MockDebateContext(
+            agents=[proposer, critic],
+            proposers=[proposer],
+            proposals={"proposer": "initial proposal"},
+            result=MockResult(critiques=[]),
+        )
+        perf_monitor = SimpleNamespace(
+            track_round=lambda *args, **kwargs: nullcontext(),
+            track_phase=lambda *args, **kwargs: nullcontext(),
+            slow_round_threshold=60.0,
+        )
+        governor = MagicMock()
+        governor.get_scaled_timeout.return_value = 30.0
+
+        with (
+            patch(
+                "aragora.debate.phases.debate_rounds.get_debate_monitor", return_value=perf_monitor
+            ),
+            patch(
+                "aragora.debate.phases.debate_rounds.get_complexity_governor",
+                return_value=governor,
+            ),
+        ):
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(phase.execute(ctx), timeout=protocol.round_timeout_seconds)
+
+        assert started.is_set()
+        await asyncio.wait_for(cleaned_up.wait(), timeout=0.2)
+        assert ctx.result.rounds_used == 0
+        assert ctx.result.critiques == []
+
+
+class TestAutonomicExecutorRoundTimeout:
+    @pytest.mark.asyncio
+    async def test_timeout_records_circuit_breaker_failure(self):
+        protocol = DebateProtocol(round_timeout_seconds=0.01)
+        circuit_breaker = CircuitBreaker(
+            name="test-breaker", failure_threshold=3, cooldown_seconds=60
+        )
+        executor = AutonomicExecutor(circuit_breaker=circuit_breaker, default_timeout=5.0)
+
+        async def slow_response():
+            await asyncio.sleep(1)
+
+        with pytest.raises(TimeoutError, match="slow-agent timed out"):
+            await executor.with_timeout(
+                slow_response(),
+                "slow-agent",
+                timeout_seconds=protocol.round_timeout_seconds,
+            )
+
+        assert circuit_breaker._failures.get("slow-agent", 0) >= 1
