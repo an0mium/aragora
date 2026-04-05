@@ -29,6 +29,12 @@ interface RiskClassification {
   confidence: number;
 }
 
+type ClassificationResponse =
+  | RiskClassification
+  | {
+      classification?: RiskClassification | null;
+    };
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -98,6 +104,15 @@ function getDemoClassification(description: string): RiskClassification {
   return { risk_level: 'minimal', annex_iii_categories: [], applicable_articles: ['Article 52'], matched_keywords: [], confidence: 0.85 };
 }
 
+function normalizeClassificationResponse(
+  data: ClassificationResponse,
+): RiskClassification | null {
+  if ('risk_level' in data) {
+    return data;
+  }
+  return data.classification ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Deadline countdown
 // ---------------------------------------------------------------------------
@@ -130,11 +145,11 @@ export default function CompliancePage() {
     setClassification(null);
 
     try {
-      const data = await apiPost<{ classification?: RiskClassification }>(
+      const data = await apiPost<ClassificationResponse>(
         '/api/v2/compliance/eu-ai-act/classify',
         { description: useCase },
       );
-      setClassification(data.classification || data);
+      setClassification(normalizeClassificationResponse(data));
     } catch {
       setClassification(getDemoClassification(useCase));
     } finally {
