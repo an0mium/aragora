@@ -4,9 +4,14 @@ import { LandingPage } from '../LandingPage';
 const mockUseBackend = jest.fn(() => ({
   config: { api: 'http://localhost:8080', ws: 'ws://localhost:8765/ws' },
 }));
+const mockUseSpectate = jest.fn();
 
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () => ({ theme: 'dark', setTheme: jest.fn() }),
+}));
+
+jest.mock('@/hooks/useSpectate', () => ({
+  useSpectate: (...args: unknown[]) => mockUseSpectate(...args),
 }));
 
 jest.mock('../../BackendSelector', () => ({
@@ -30,6 +35,9 @@ jest.mock('../HeroSection', () => ({
 const mockLiveDebatePanel = jest.fn(() => (
   <section data-testid="live-debate-panel">Live Debate</section>
 ));
+const mockLiveDemoSection = jest.fn(() => (
+  <section data-testid="live-demo-section">Live Demo</section>
+));
 
 jest.mock('../LiveDebatePanel', () => ({
   LiveDebatePanel: (props: Record<string, unknown>) => {
@@ -39,7 +47,10 @@ jest.mock('../LiveDebatePanel', () => ({
 }));
 
 jest.mock('../LiveDemoSection', () => ({
-  LiveDemoSection: () => <section data-testid="live-demo-section">Live Demo</section>,
+  LiveDemoSection: (props: Record<string, unknown>) => {
+    mockLiveDemoSection(props);
+    return <section data-testid="live-demo-section">Live Demo</section>;
+  },
 }));
 
 jest.mock('../HowItWorksSection', () => ({
@@ -59,11 +70,33 @@ jest.mock('../Footer', () => ({
 }));
 
 describe('LandingPage', () => {
+  const bridgeState = {
+    status: {
+      active: true,
+      subscribers: 2,
+      buffer_size: 8,
+      bridge_state: 'live_debates_available' as const,
+      last_event_at: '2026-04-05T16:00:00Z',
+      activity_age_seconds: 12,
+      recent_activity_window_seconds: 120,
+      recent_event_count: 4,
+      live_debate_count: 1,
+      live_debate_ids: ['debate-1'],
+      live_debates: [],
+      unattributed_recent_event_count: 0,
+    },
+    loaded: true,
+    connected: true,
+    events: [],
+    refresh: jest.fn(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseBackend.mockReturnValue({
       config: { api: 'http://localhost:8080', ws: 'ws://localhost:8765/ws' },
     });
+    mockUseSpectate.mockReturnValue(bridgeState);
   });
 
   describe('initial render', () => {
@@ -91,10 +124,21 @@ describe('LandingPage', () => {
     it('passes resolved backend settings to the live debate panel', () => {
       render(<LandingPage />);
 
+      expect(mockUseSpectate).toHaveBeenCalledWith(undefined, undefined, {
+        apiBaseUrl: 'http://localhost:8080',
+        pollInterval: 4000,
+        maxEvents: 40,
+      });
       expect(mockLiveDebatePanel).toHaveBeenCalledWith(
         expect.objectContaining({
           apiBase: 'http://localhost:8080',
           wsUrl: 'ws://localhost:8765/ws',
+          bridgeState,
+        }),
+      );
+      expect(mockLiveDemoSection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bridgeState,
         }),
       );
     });
