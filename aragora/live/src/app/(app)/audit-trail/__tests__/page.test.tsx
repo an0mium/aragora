@@ -137,9 +137,9 @@ describe('AuditTrailPage', () => {
     expect(await screen.findByText('[VALID]')).toBeInTheDocument();
   });
 
-  it('shows verification failures in the result panel instead of failing silently', async () => {
+  it('shows transport failures in the result panel instead of failing silently', async () => {
     const user = userEvent.setup();
-    mockApiPost.mockRejectedValue(new Error('API Error (503): upstream unavailable'));
+    mockApiPost.mockRejectedValue(new TypeError('Failed to fetch'));
 
     render(<AuditTrailPage />);
 
@@ -154,7 +154,30 @@ describe('AuditTrailPage', () => {
     expect(
       screen.getByText('Verification could not reach the backend, so no checksum comparison was performed.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('API Error (503): upstream unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
+  });
+
+  it('shows HTTP verification errors without backend outage messaging', async () => {
+    const user = userEvent.setup();
+    mockApiPost.mockRejectedValue(
+      new Error('API Error (404): {"error":"Audit trail not found: trail-123"}'),
+    );
+
+    render(<AuditTrailPage />);
+
+    await user.click(screen.getByRole('button', { name: 'VERIFY' }));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/v1/audit-trails/trail-123/verify');
+    });
+
+    expect(await screen.findByText('[ERROR]')).toBeInTheDocument();
+    expect(screen.getByText('Audit trail not found: trail-123')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Verification could not reach the backend, so no checksum comparison was performed.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Stored:')).not.toBeInTheDocument();
+    expect(screen.queryByText('Computed:')).not.toBeInTheDocument();
   });
 
   it('keeps checksum mismatches marked invalid', async () => {

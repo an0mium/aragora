@@ -58,17 +58,19 @@ interface VerifyResult {
   request_failed?: boolean;
 }
 
-type VerifyResultState = 'valid' | 'invalid' | 'unavailable';
+type VerifyResultState = 'valid' | 'invalid' | 'error' | 'unavailable';
 
 const VERIFY_RESULT_STYLES: Record<VerifyResultState, string> = {
   valid: 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]',
   invalid: 'bg-red-500/5 border-red-500/30 text-red-400',
+  error: 'bg-red-500/5 border-red-500/30 text-red-400',
   unavailable: 'bg-yellow-500/5 border-yellow-500/30 text-yellow-300',
 };
 
 const VERIFY_RESULT_LABELS: Record<VerifyResultState, string> = {
   valid: '[VALID]',
   invalid: '[INVALID]',
+  error: '[ERROR]',
   unavailable: '[UNAVAILABLE]',
 };
 
@@ -76,7 +78,36 @@ function getVerifyResultState(result: VerifyResult): VerifyResultState {
   if (result.request_failed) {
     return 'unavailable';
   }
+  if (!result.valid && result.error && !result.stored_checksum && !result.computed_checksum) {
+    return 'error';
+  }
   return result.valid ? 'valid' : 'invalid';
+}
+
+function getVerifyErrorMessage(error: unknown): { message: string; requestFailed: boolean } {
+  if (error instanceof Error && error.message) {
+    const apiErrorMatch = error.message.match(/^API Error \((\d+)\):\s*([\s\S]*)$/);
+    if (apiErrorMatch) {
+      const [, , rawPayload] = apiErrorMatch;
+      const trimmedPayload = rawPayload.trim();
+      if (!trimmedPayload) {
+        return { message: error.message, requestFailed: false };
+      }
+      try {
+        const parsed = JSON.parse(trimmedPayload) as { error?: unknown };
+        if (typeof parsed.error === 'string' && parsed.error.trim()) {
+          return { message: parsed.error, requestFailed: false };
+        }
+      } catch {
+        // Fall back to the raw response body when it is not JSON.
+      }
+      return { message: trimmedPayload, requestFailed: false };
+    }
+
+    return { message: error.message, requestFailed: true };
+  }
+
+  return { message: 'Verification failed. Please retry.', requestFailed: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -209,15 +240,14 @@ export default function AuditTrailPage() {
       const data = await apiPost<VerifyResult>(endpoint);
       setVerifyResult(data);
     } catch (error) {
+      const { message, requestFailed } = getVerifyErrorMessage(error);
       const failureResult: VerifyResult = {
         valid: false,
-        request_failed: true,
+        request_failed: requestFailed,
         stored_checksum: '',
         computed_checksum: '',
         match: false,
-        error: error instanceof Error && error.message
-          ? error.message
-          : 'Verification failed. Please retry.',
+        error: message,
       };
       if (type === 'trail') {
         failureResult.trail_id = id;
@@ -233,6 +263,9 @@ export default function AuditTrailPage() {
   const isLoading = activeTab === 'trails' ? trailsLoading : receiptsLoading;
   const error = activeTab === 'trails' ? trailsError : receiptsError;
   const verifyState = verifyResult ? getVerifyResultState(verifyResult) : null;
+  const showChecksumComparison = Boolean(
+    verifyResult && (verifyResult.stored_checksum || verifyResult.computed_checksum),
+  );
 
   return (
     <>
@@ -298,7 +331,7 @@ export default function AuditTrailPage() {
                   {verifyResult.trail_id || verifyResult.receipt_id}
                 </span>
               </div>
-              {!verifyResult.request_failed && (
+              {showChecksumComparison && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-[var(--text-muted)]">Stored: </span>
