@@ -4586,12 +4586,10 @@ class SwarmSupervisor:
         if session_meta:
             if str(session_meta.get("ended_at", "")).strip():
                 return "session_ended"
-            raw_pid = session_meta.get("pid")
-            try:
-                pid = int(raw_pid)
-            except (TypeError, ValueError):
-                pid = None
+            pid = WorkerLauncher._normalized_pid(session_meta.get("pid"))
             if pid is None:
+                if self._is_managed_worktree(path):
+                    return "managed_worktree_without_active_session"
                 return None
             if WorkerLauncher._is_pid_running(pid):
                 return None
