@@ -7,7 +7,6 @@ tampering detection to ensure data integrity violations are caught.
 from __future__ import annotations
 
 import copy
-import tempfile
 import os
 
 import pytest
@@ -41,6 +40,26 @@ def sample_receipt() -> dict:
 
 class TestReceiptSignatureLifecycle:
     """Full lifecycle: create -> sign -> verify -> tamper -> detect."""
+
+    def test_complete_signature_lifecycle_with_durable_signer(
+        self, tmp_path: object, sample_receipt: dict
+    ) -> None:
+        key_path = os.path.join(str(tmp_path), "receipt-signing.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+
+        signed = signer.sign(copy.deepcopy(sample_receipt))
+        restored = SignedReceipt.from_json(signed.to_json())
+        verifier = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+
+        assert os.path.exists(key_path)
+        assert restored.signature_metadata.key_id.startswith("durable-")
+        assert verifier.verify(restored)
+
+        tampered = SignedReceipt.from_json(signed.to_json())
+        tampered.receipt_data["consensus_score"] = 0.01
+
+        assert not verifier.verify(tampered)
+        assert verifier.verify(restored)
 
     def test_sign_and_verify(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
         signed = signer.sign(sample_receipt)
