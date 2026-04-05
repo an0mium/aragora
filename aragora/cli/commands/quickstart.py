@@ -25,7 +25,7 @@ import tempfile
 import time
 import uuid
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, TextIO, cast
 
@@ -102,6 +102,11 @@ _TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
     "CERTIFICATE_VERIFY_FAILED",
     "certificate verify failed",
     "unable to get local issuer certificate",
+)
+_QUICKSTART_SETTLEMENT_REVIEW_DAYS = 30
+_QUICKSTART_STRICT_CONFIDENCE_THRESHOLD = 0.8
+_DEFAULT_QUICKSTART_FALSIFIER = (
+    "Revisit this decision if implementation evidence contradicts the consensus summary."
 )
 
 
@@ -569,6 +574,16 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         ),
     )
 
+    settlement_metadata = _build_quickstart_settlement_metadata(
+        settlement_metadata=payload.get("settlement_metadata"),
+        debate_id=str(payload.get("debate_id") or receipt_id),
+        timestamp=timestamp,
+        confidence=confidence,
+        question=question,
+        dissenting_views=dissenting_views,
+        dissenting_agents=dissenting_agents,
+    )
+
     if has_receipt_contract:
         canonical = dict(payload)
     else:
@@ -633,6 +648,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             ],
             cost_summary=payload.get("cost_summary"),
             thinking_traces=payload.get("thinking_traces"),
+            settlement_metadata=settlement_metadata,
             config_used=(
                 payload.get("config_used", {})
                 if isinstance(payload.get("config_used"), dict)
@@ -653,6 +669,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     canonical["agent_votes"] = votes
     canonical["consensus"] = bool(consensus)
     canonical["consensus_reached"] = bool(consensus)
+    canonical["settlement_metadata"] = settlement_metadata
     canonical["receipt"] = {
         "id": str(canonical.get("receipt_id") or receipt_id),
         "artifact_hash": str(canonical.get("artifact_hash") or ""),
@@ -661,6 +678,82 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         "participants": participants,
     }
     return canonical
+
+
+def _parse_quickstart_timestamp(value: str) -> datetime:
+    raw = value.strip()
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _build_quickstart_settlement_metadata(
+    *,
+    settlement_metadata: Any,
+    debate_id: str,
+    timestamp: str,
+    confidence: float,
+    question: str,
+    dissenting_views: list[str],
+    dissenting_agents: list[str],
+) -> dict[str, Any]:
+    existing = dict(settlement_metadata) if isinstance(settlement_metadata, dict) else {}
+
+    normalized_confidence = _clamp_confidence(
+        existing["confidence"] if "confidence" in existing else confidence
+    )
+    normalized_timestamp = str(existing.get("settled_at") or timestamp).strip() or timestamp
+    review_horizon = str(existing.get("review_horizon") or "").strip()
+    if not review_horizon:
+        base_dt = _parse_quickstart_timestamp(normalized_timestamp)
+        review_horizon = (base_dt + timedelta(days=_QUICKSTART_SETTLEMENT_REVIEW_DAYS)).isoformat()
+
+    falsifiers = _coerce_string_list(existing.get("falsifiers"))
+    if not falsifiers:
+        falsifiers.extend(f"Dissent: {view}" for view in dissenting_views if view.strip())
+    if not falsifiers:
+        falsifiers.extend(
+            f"Agent {agent} dissented from consensus"
+            for agent in dissenting_agents
+            if agent.strip()
+        )
+    if not falsifiers and normalized_confidence >= _QUICKSTART_STRICT_CONFIDENCE_THRESHOLD:
+        fallback = question.strip() or _DEFAULT_QUICKSTART_FALSIFIER
+        falsifiers = [f"Revisit if evidence disproves the chosen path for: {fallback}"]
+
+    alternatives = _coerce_string_list(existing.get("alternatives"))
+    cruxes = _coerce_string_list(existing.get("cruxes"))
+    review_notes = _coerce_string_list(existing.get("review_notes"))
+    if dissenting_views and not (alternatives or cruxes or review_notes):
+        alternatives = dissenting_views[:]
+        review_notes = [
+            "Quickstart captured dissent; review the competing objections before irreversible execution."
+        ]
+
+    normalized = dict(existing)
+    normalized.update(
+        {
+            "debate_id": str(existing.get("debate_id") or debate_id).strip() or debate_id,
+            "settled_at": normalized_timestamp,
+            "confidence": normalized_confidence,
+            "falsifiers": falsifiers,
+            "review_horizon": review_horizon,
+            "status": str(existing.get("status") or "settled").strip() or "settled",
+        }
+    )
+    if alternatives:
+        normalized["alternatives"] = alternatives
+    if cruxes:
+        normalized["cruxes"] = cruxes
+    if review_notes:
+        normalized["review_notes"] = review_notes
+    return normalized
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -1036,6 +1129,15 @@ def _build_live_receipt(
         dissenting_agents = []
 
     rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
+    settlement_metadata = _build_quickstart_settlement_metadata(
+        settlement_metadata=getattr(result, "settlement_metadata", None),
+        debate_id=receipt_id,
+        timestamp=timestamp,
+        confidence=confidence,
+        question=question,
+        dissenting_views=dissenting_views,
+        dissenting_agents=dissenting_agents,
+    )
     receipt = DecisionReceipt(
         receipt_id=receipt_id,
         gauntlet_id=receipt_id,
@@ -1082,6 +1184,7 @@ def _build_live_receipt(
             "tokens_used": int(getattr(result, "total_tokens", 0) or 0),
         },
         thinking_traces=_extract_thinking_traces(result),
+        settlement_metadata=settlement_metadata,
         config_used={
             "mode": "quickstart-live",
             "rounds": rounds_used,
@@ -1098,6 +1201,7 @@ def _build_live_receipt(
             "summary": final_answer,
             "dissent": dissent,
             "mode": "live",
+            "settlement_metadata": settlement_metadata,
             "receipt": {
                 "id": receipt.receipt_id,
                 "artifact_hash": receipt.artifact_hash,

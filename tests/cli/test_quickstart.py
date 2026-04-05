@@ -35,6 +35,7 @@ from aragora.cli.commands.quickstart import (
 )
 from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
+from scripts.check_epistemic_hygiene import validate_receipt
 
 
 # =============================================================================
@@ -902,6 +903,9 @@ class TestCmdQuickstart:
 
         artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
         assert artifact_path.exists()
+        saved = json.loads(artifact_path.read_text())
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
 
         capsys.readouterr()
         with pytest.raises(SystemExit) as excinfo:
@@ -953,6 +957,8 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "live"
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
 
         output = capsys.readouterr().out
         assert "Run mode: live" in output
