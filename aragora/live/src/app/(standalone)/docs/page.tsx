@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { getRuntimeBackendConfig } from '@/lib/runtimeBackend';
 
 type DocView = 'swagger' | 'redoc';
 
 export default function DocsPage() {
   const [view, setView] = useState<DocView>('swagger');
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  const apiUrl = getRuntimeBackendConfig().config.api.replace(/\/$/, '');
 
   const urls: Record<DocView, string> = {
     swagger: `${apiUrl}/api/v2/docs`,
@@ -57,28 +58,13 @@ export default function DocsPage() {
       </nav>
 
       <div className="flex-1 relative">
-        {!apiUrl && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg)]">
-            <div className="text-center space-y-4 max-w-md px-4">
-              <p className="font-theme-data text-sm text-[var(--text-muted)]">
-                Set <code className="text-[var(--acid-green)]">NEXT_PUBLIC_API_URL</code> to load
-                live API documentation.
-              </p>
-              <p className="font-theme-data text-xs text-[var(--text-muted)]">
-                Example: <code>NEXT_PUBLIC_API_URL=http://localhost:8080</code>
-              </p>
-            </div>
-          </div>
-        )}
-        {apiUrl && (
-          <iframe
-            key={view}
-            src={urls[view]}
-            className="w-full h-full border-0"
-            style={{ minHeight: 'calc(100vh - 49px)' }}
-            title={`API Documentation - ${view}`}
-          />
-        )}
+        <iframe
+          key={view}
+          src={urls[view]}
+          className="w-full h-full border-0"
+          style={{ minHeight: 'calc(100vh - 49px)' }}
+          title={`API Documentation - ${view}`}
+        />
       </div>
     </main>
   );
