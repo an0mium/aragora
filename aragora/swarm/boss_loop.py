@@ -184,13 +184,15 @@ class BossLoopConfig:
     issue_number: int | None = None
     issue_numbers: list[int] | None = None
     issue_limit: int = 25
-    skip_labels: set[str] = field(default_factory=lambda: {"wontfix", "duplicate", "invalid"})
+    skip_labels: set[str] = field(
+        default_factory=lambda: {"wontfix", "duplicate", "invalid", "boss-stuck"}
+    )
     require_labels: set[str] | None = None
     require_validation_contract: bool = True
 
     # Retry / self-correction
     max_consecutive_failures: int = 3
-    max_retries_per_issue: int = 5  # Generous: allows initial attempt + 2 repairs + 2 retries
+    max_retries_per_issue: int = 3  # initial attempt + 1 ping-pong + 1 repair
 
     # Dispatch
     target_branch: str = "main"
@@ -1060,6 +1062,213 @@ class BossLoop:
             "comment": comment,
         }
 
+    def _auto_decompose_stuck_issue(
+        self,
+        issue_number: int | str,
+        issues: list[GitHubIssue],
+    ) -> None:
+        """When an issue exhausts retries, try to decompose it into sub-issues.
+
+        Uses the TaskDecomposer to break the issue into smaller pieces, then
+        creates sub-issues on GitHub with the boss-ready label. If decomposition
+        fails or produces nothing useful, falls back to labeling boss-stuck.
+        """
+        import subprocess
+
+        repo = self.config.repo or ""
+        issue = next((i for i in issues if i.number == int(issue_number)), None)
+        if not issue:
+            return
+
+        # Guard: cap decomposition depth to prevent runaway recursion.
+        # Each decomposition adds a "[from #N]" prefix — count nesting depth.
+        import re
+
+        depth_markers = re.findall(r"\[from #\d+\]", issue.title)
+        decomposition_depth = len(depth_markers)
+        max_decomposition_depth = 3
+        if decomposition_depth >= max_decomposition_depth:
+            self._label_boss_stuck(
+                issue_number,
+                repo,
+                f"Decomposition depth {decomposition_depth} reached limit of "
+                f"{max_decomposition_depth}. Needs manual attention.",
+            )
+            return
+
+        # Collect existing issue titles to avoid creating duplicates
+        existing_titles: set[str] = set()
+        try:
+            proc = subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--label",
+                    "boss-ready",
+                    "--state",
+                    "open",
+                    "--limit",
+                    "100",
+                    "--json",
+                    "title",
+                    "--jq",
+                    ".[].title",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if proc.returncode == 0:
+                existing_titles = {
+                    line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
+                }
+        except Exception:
+            pass
+
+        # Try LLM-based decomposition
+        sub_issues_created = 0
+        try:
+            from aragora.nomic.task_decomposer import TaskDecomposer
+
+            decomposer = TaskDecomposer()
+            result = decomposer.analyze(
+                issue.body or issue.title,
+                file_scope_hints=list(self._extract_file_scope_hints(issue.body or "")),
+            )
+
+            if result.should_decompose and result.subtasks:
+                for subtask in result.subtasks[:3]:  # Cap at 3 sub-issues (was 5)
+                    title = f"[from #{issue.number}] {subtask.title}"
+                    # Skip if a similar title already exists
+                    if title.lower() in existing_titles:
+                        continue
+                    scope_lines = (
+                        "\n".join(f"- `{f}`" for f in subtask.file_scope)
+                        if subtask.file_scope
+                        else "- (infer from context)"
+                    )
+                    body = (
+                        f"Auto-decomposed from #{issue.number} after {self.config.max_retries_per_issue} "
+                        f"failed autonomous attempts.\n\n"
+                        f"## Task\n{subtask.description}\n\n"
+                        f"## Files\n{scope_lines}\n\n"
+                        f"## Acceptance\n"
+                        f"`pytest` on the changed files passes\n\n"
+                        f"## Constraints\n"
+                        f"- Single-file change preferred\n"
+                        f"- Under 100 lines of new/changed code\n"
+                        f"- Estimated complexity: {subtask.estimated_complexity}\n"
+                    )
+                    try:
+                        proc = subprocess.run(
+                            [
+                                "gh",
+                                "issue",
+                                "create",
+                                "--repo",
+                                repo,
+                                "--title",
+                                title,
+                                "--body",
+                                body,
+                                "--label",
+                                "boss-ready",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=15,
+                        )
+                        if proc.returncode == 0:
+                            sub_issues_created += 1
+                    except Exception:
+                        pass
+
+        except Exception as exc:
+            logger.debug("Auto-decomposition failed for #%s: %s", issue_number, exc)
+
+        # Comment on the parent issue
+        if sub_issues_created > 0:
+            comment = (
+                f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
+                f"Auto-decomposed into {sub_issues_created} smaller sub-issues with `boss-ready` label."
+            )
+        else:
+            comment = (
+                f"Boss loop exhausted {self.config.max_retries_per_issue} attempts without "
+                f"producing a deliverable. The issue may be too complex for autonomous workers."
+            )
+
+        try:
+            subprocess.run(
+                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
+                capture_output=True,
+                timeout=15,
+            )
+            subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "edit",
+                    str(issue_number),
+                    "--repo",
+                    repo,
+                    "--add-label",
+                    "boss-stuck",
+                ],
+                capture_output=True,
+                timeout=15,
+            )
+        except Exception:
+            pass
+
+    @staticmethod
+    def _extract_file_scope_hints(body: str) -> list[str]:
+        """Extract file paths from an issue body.
+
+        Handles backtick-wrapped paths and strips escaped backticks from
+        GitHub markdown rendering.
+        """
+        import re
+
+        # Strip escaped backticks that GitHub API sometimes returns
+        cleaned = body.replace("\\`", "`")
+        # Match paths starting with known top-level directories
+        return re.findall(
+            r"`((?:aragora|tests|scripts|docs|docs-site|sdk|contracts)/[a-zA-Z0-9_/.*-]+(?:\.\w+)?)`",
+            cleaned,
+        )
+
+    @staticmethod
+    def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
+        """Label an issue as boss-stuck with an explanatory comment."""
+        import subprocess
+
+        try:
+            subprocess.run(
+                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
+                capture_output=True,
+                timeout=15,
+            )
+            subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "edit",
+                    str(issue_number),
+                    "--repo",
+                    repo,
+                    "--add-label",
+                    "boss-stuck",
+                ],
+                capture_output=True,
+                timeout=15,
+            )
+        except Exception:
+            pass
+
     def _maybe_publish_deliverable(
         self,
         issue: GitHubIssue,
@@ -1810,12 +2019,14 @@ class BossLoop:
             )
 
         # Step 2: Select eligible issue
-        # Skip issues that have exceeded retry limits
-        already_maxed = {
-            num
-            for num, count in self._issue_attempt_counts.items()
-            if count >= self.config.max_retries_per_issue
-        }
+        # Skip issues that have exceeded retry limits and auto-label them
+        already_maxed = set()
+        for num, count in self._issue_attempt_counts.items():
+            if count >= self.config.max_retries_per_issue:
+                already_maxed.add(num)
+                # Auto-decompose exhausted issues into sub-issues (best-effort, once)
+                if count == self.config.max_retries_per_issue and self.config.repo:
+                    self._auto_decompose_stuck_issue(num, issues)
         pending_handoffs = self._pending_handoff_candidates(issues)
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
         candidate_issues = [

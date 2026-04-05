@@ -1094,6 +1094,32 @@ class TestSQLiteWebhookConfigStore:
         assert updated.updated_at == revised_at
         assert sqlite_store.get_cache_revision(webhook.id) == revised_at
 
+    def test_update_returns_none_when_row_is_deleted_before_write(self, sqlite_store):
+        """A concurrent delete must not surface a phantom successful SQLite update."""
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        cursor = MagicMock()
+        cursor.rowcount = 0
+        conn = MagicMock()
+        conn.execute.return_value = cursor
+
+        with (
+            patch.object(sqlite_store, "get", return_value=original),
+            patch.object(sqlite_store, "_get_conn", return_value=conn),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=200.0),
+        ):
+            updated = sqlite_store.update("webhook-123", url="https://example.com/new")
+
+        assert updated is None
+        query, params = conn.execute.call_args.args
+        assert "updated_at = ?" in query
+        assert params == ["https://example.com/new", 200.0, "webhook-123"]
+
     def test_record_delivery_success(self, sqlite_store):
         """Test recording successful delivery."""
         webhook = sqlite_store.register(url="https://a.com", events=["debate_end"])
@@ -1775,6 +1801,38 @@ class TestPostgresWebhookConfigStoreSyncWrappers:
         assert updated is not None
         assert updated.url == "https://example.com/new"
         assert updated.updated_at == revised_at
+        query, *params = conn.execute.await_args.args
+        assert "updated_at = to_timestamp($2)" in query
+        assert params == ["https://example.com/new", revised_at, "webhook-123"]
+
+    @pytest.mark.asyncio
+    async def test_update_async_returns_none_when_row_is_deleted_before_write(self) -> None:
+        """A concurrent delete must not surface a phantom successful Postgres update."""
+        conn = AsyncMock()
+        conn.execute.return_value = "UPDATE 0"
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        revised_at = 200.0
+
+        with (
+            patch.object(store, "get_async", AsyncMock(return_value=original)),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at),
+        ):
+            updated = await store.update_async("webhook-123", url="https://example.com/new")
+
+        assert updated is None
         query, *params = conn.execute.await_args.args
         assert "updated_at = to_timestamp($2)" in query
         assert params == ["https://example.com/new", revised_at, "webhook-123"]

@@ -27,6 +27,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
 
+import httpx
 import pytest
 from aragora.rbac.models import AuthorizationContext
 
@@ -917,6 +918,100 @@ class TestCallback:
         assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;" in html
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_malformed_team_payload_without_workspace_identity(
+        self, handler
+    ):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": "not-a-dict",
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history,chat:write",
+            }
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_callback_accepts_top_level_workspace_identity_when_team_payload_is_malformed(
+        self, handler, mock_workspace_store
+    ):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": "not-a-dict",
+                "workspace_id": "W123",
+                "workspace_name": "Top Level Team",
+                "bot_user_id": "B789",
+                "authed_user": "not-a-dict",
+                "scope": ["channels:history", "chat:write"],
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+            patch("aragora.storage.slack_workspace_store.SlackWorkspace") as mock_workspace_cls,
+        ):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 200
+        assert mock_workspace_cls.call_args.kwargs["workspace_id"] == "W123"
+        assert mock_workspace_cls.call_args.kwargs["workspace_name"] == "Top Level Team"
+        assert mock_workspace_cls.call_args.kwargs["installed_by"] is None
+        assert mock_workspace_cls.call_args.kwargs["scopes"] == ["channels:history", "chat:write"]
+
+    @pytest.mark.asyncio
+    async def test_callback_rejects_nondict_token_payload(self, handler):
+        mock_client, _ = _make_httpx_mock(
+            [
+                {
+                    "ok": True,
+                    "access_token": "xoxb-new-token",
+                }
+            ]
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_callback_rejects_cross_tenant_workspace_rebind(
         self, handler, mock_workspace, mock_workspace_store, mock_state_store
     ):
@@ -1091,6 +1186,30 @@ class TestCallback:
         assert _status(result) == 400
         body = _body(result)
         assert "invalid_code" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_callback_http_status_error_returns_500(self, handler):
+        mock_client, mock_response = _make_httpx_mock({"ok": False, "error": "invalid_code"}, 400)
+        request = httpx.Request("POST", "https://slack.com/api/oauth.v2.access")
+        response = httpx.Response(400, request=request)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "400 Client Error",
+            request=request,
+            response=response,
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "bad-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+        assert _status(result) == 500
+        body = _body(result)
+        assert "token exchange failed" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_callback_missing_workspace_id_returns_500(self, handler):
@@ -2762,6 +2881,39 @@ class TestRefreshToken:
                 "refresh_token": "xoxr-new-refresh",
                 "expires_in": 43200,
             }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 502
+        body = _body(result)
+        assert "invalid token refresh response" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refresh_rejects_nondict_payload(self, handler, mock_workspace_store):
+        mock_client, _ = _make_httpx_mock(
+            [
+                {
+                    "ok": True,
+                    "access_token": "xoxb-new-token",
+                    "team": {"id": "W123"},
+                }
+            ]
         )
 
         with (

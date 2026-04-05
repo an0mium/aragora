@@ -199,9 +199,9 @@ describe('ModelSelector', () => {
         />
       );
 
-      // The selected model should have different styling (border-acid-green)
+      // The selected model should have different styling (accent border)
       const legalBertCard = screen.getByText('Legal BERT').closest('div[class*="border"]');
-      expect(legalBertCard).toHaveClass('border-acid-green');
+      expect(legalBertCard).toHaveClass('border-[var(--accent)]');
     });
 
     it('shows HuggingFace ID when model is selected', async () => {
