@@ -5116,6 +5116,8 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
     assert work_order["failure_reason"] == "worker_type_blocked"
     assert "worker type or capacity issue" in work_order["blocking_question"]
     for key in (
+        "lease_id",
+        "owner_session_id",
         "receipt_id",
         "confidence",
         "worker_outcome",

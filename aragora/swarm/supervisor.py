@@ -4442,6 +4442,8 @@ class SwarmSupervisor:
             failure_reason="worker_type_blocked",
         )
         self._release_terminal_lease(item)
+        item.pop("lease_id", None)
+        item.pop("owner_session_id", None)
 
     @staticmethod
     def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
