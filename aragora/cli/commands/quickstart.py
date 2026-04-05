@@ -392,8 +392,8 @@ async def _run_quickstart_spec_first(question: str) -> dict[str, Any]:
     """Generate a first-pass specification for quickstart onboarding.
 
     Prefer the orchestrator-backed path for canonical backbone tracking, but
-    fall back to the lighter prompt-engine conductor so onboarding still
-    produces a usable artifact when the wider stack is unavailable.
+    if that path does not return structured spec content, fall back to a
+    bounded local starter spec instead of saving an empty artifact.
     """
     from aragora.cli.commands.spec import _run_spec_pipeline
 
@@ -405,20 +405,100 @@ async def _run_quickstart_spec_first(question: str) -> dict[str, Any]:
             output_format="json",
             use_orchestrator=True,
         )
-        result["pipeline"] = "orchestrator"
-        return result
+        if _quickstart_spec_result_has_content(result):
+            result["pipeline"] = "orchestrator"
+            return result
+        logger.info("quickstart_spec_first_empty_orchestrator_result")
     except Exception:
         logger.debug("quickstart_spec_first_orchestrator_failed", exc_info=True)
 
-    result = await _run_spec_pipeline(
+    return _build_quickstart_spec_fallback(
         question,
-        depth="quick",
-        profile="founder",
-        output_format="json",
-        use_orchestrator=False,
+        reason="orchestrator returned no structured specification",
     )
-    result["pipeline"] = "prompt_engine"
-    return result
+
+
+def _quickstart_spec_result_has_content(result: dict[str, Any]) -> bool:
+    """Return whether a spec-first result contains actionable structured content."""
+
+    def _has_text(value: Any) -> bool:
+        return bool(str(value or "").strip())
+
+    def _has_list(values: Any) -> bool:
+        return isinstance(values, list) and any(_has_text(item) for item in values)
+
+    bundle = result.get("spec_bundle")
+    if isinstance(bundle, dict):
+        if _has_text(bundle.get("title")) or _has_text(bundle.get("problem_statement")):
+            return True
+        if _has_list(bundle.get("acceptance_criteria")) or _has_list(bundle.get("rollback_plan")):
+            return True
+
+    spec = result.get("specification")
+    if isinstance(spec, dict):
+        if _has_text(spec.get("title")) or _has_text(spec.get("problem_statement")):
+            return True
+        if _has_text(spec.get("proposed_solution")):
+            return True
+        if _has_list(spec.get("success_criteria")) or _has_list(spec.get("risks")):
+            return True
+
+    return False
+
+
+def _build_quickstart_spec_fallback(question: str, *, reason: str) -> dict[str, Any]:
+    """Create a truthful starter specification when canonical generation is unavailable."""
+    normalized_question = str(question or _DEFAULT_QUESTION).strip() or _DEFAULT_QUESTION
+    title = normalized_question.rstrip(" ?!.") or "Spec-first quickstart"
+    if len(title) > 72:
+        title = title[:69].rstrip() + "..."
+
+    return {
+        "specification": {
+            "title": title,
+            "problem_statement": normalized_question,
+            "proposed_solution": (
+                "Start from a bounded manual spec so the next command can validate the "
+                "decision, collect missing constraints, and continue without pretending "
+                "a full prompt-to-spec run succeeded."
+            ),
+            "success_criteria": [
+                {
+                    "description": "Capture the exact decision or change in one sentence.",
+                },
+                {
+                    "description": "Name at least one measurable verification step or success signal.",
+                },
+                {
+                    "description": "List the main constraint, risk, or rollback trigger before execution.",
+                },
+            ],
+            "risks": [
+                {
+                    "description": (
+                        "The canonical prompt-to-spec pipeline did not return structured output "
+                        "in this environment."
+                    ),
+                    "likelihood": "medium",
+                    "impact": "medium",
+                    "mitigation": (
+                        "Run `aragora spec` in a configured environment or add the missing "
+                        "constraints manually before execution."
+                    ),
+                }
+            ],
+            "estimated_effort": "small",
+            "confidence": 0.2,
+        },
+        "intent": None,
+        "research": None,
+        "questions": [],
+        "stages_completed": ["fallback_spec"],
+        "auto_approved": False,
+        "timing": None,
+        "pipeline": "quickstart_fallback",
+        "fallback_reason": reason,
+    }
 
 
 def _build_quickstart_spec_payload(question: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -1270,6 +1350,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         emit(f"  Criteria:   {len(criteria)}")
         emit(f"  Risks:      {len(risks)}")
         emit(f"  Pipeline:   {spec_payload.get('pipeline', 'unknown')}")
+        fallback_reason = str(spec_payload.get("fallback_reason", "") or "").strip()
+        if fallback_reason:
+            emit(f"  Note:       Starter spec fallback ({fallback_reason})")
         emit(f"  Elapsed:    {elapsed:.1f}s")
         if run_id:
             emit(f"  Run:        {run_id}")

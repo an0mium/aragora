@@ -29,6 +29,7 @@ from aragora.cli.commands.quickstart import (
     _resolve_rounds,
     _run_demo_debate,
     _run_live_debate,
+    _run_quickstart_spec_first,
     _save_receipt,
     add_quickstart_parser,
     cmd_quickstart,
@@ -1378,3 +1379,105 @@ class TestCmdQuickstart:
             f"aragora decide 'Should quickstart generate a spec first?' --spec {artifact_path}"
             in output
         )
+
+    @pytest.mark.asyncio
+    async def test_run_quickstart_spec_first_falls_back_when_orchestrator_returns_empty_spec(self):
+        with patch(
+            "aragora.cli.commands.spec._run_spec_pipeline",
+            new=AsyncMock(
+                return_value={
+                    "specification": None,
+                    "intent": None,
+                    "research": None,
+                    "questions": [],
+                    "stages_completed": ["research", "extend", "debate"],
+                    "auto_approved": False,
+                    "timing": None,
+                    "run_id": "run-empty-spec",
+                    "debate_result": None,
+                    "spec_bundle": None,
+                }
+            ),
+        ) as run_spec_pipeline:
+            result = await _run_quickstart_spec_first(
+                "Should quickstart emit a truthful starter spec?"
+            )
+
+        spec = result["specification"]
+        assert result["pipeline"] == "quickstart_fallback"
+        assert result["fallback_reason"] == "orchestrator returned no structured specification"
+        assert spec["problem_statement"] == "Should quickstart emit a truthful starter spec?"
+        assert len(spec["success_criteria"]) == 3
+        assert len(spec["risks"]) == 1
+        run_spec_pipeline.assert_awaited_once_with(
+            "Should quickstart emit a truthful starter spec?",
+            depth="quick",
+            profile="founder",
+            output_format="json",
+            use_orchestrator=True,
+        )
+
+    def test_spec_first_surfaces_fallback_note_when_canonical_spec_is_unavailable(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should quickstart emit a truthful starter spec?",
+            demo=False,
+            spec_first=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=None,
+            no_browser=True,
+        )
+        fallback_result = {
+            "specification": {
+                "title": "Should quickstart emit a truthful starter spec",
+                "problem_statement": "Should quickstart emit a truthful starter spec?",
+                "proposed_solution": "Start from a bounded manual spec.",
+                "success_criteria": [
+                    {"description": "Capture the exact decision or change in one sentence."},
+                    {
+                        "description": "Name at least one measurable verification step or success signal."
+                    },
+                    {
+                        "description": "List the main constraint, risk, or rollback trigger before execution."
+                    },
+                ],
+                "risks": [
+                    {
+                        "description": "The canonical prompt-to-spec pipeline did not return structured output in this environment."
+                    }
+                ],
+                "estimated_effort": "small",
+                "confidence": 0.2,
+            },
+            "pipeline": "quickstart_fallback",
+            "fallback_reason": "orchestrator returned no structured specification",
+            "stages_completed": ["fallback_spec"],
+        }
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._run_quickstart_spec_first",
+                new=AsyncMock(return_value=fallback_result),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                side_effect=AssertionError("spec-first should return before agent detection"),
+            ),
+        ):
+            cmd_quickstart(args)
+
+        output = capsys.readouterr().out
+        saved_payload = json.loads(
+            (tmp_path / ".aragora" / "specs" / "quickstart-spec.json").read_text()
+        )
+
+        assert saved_payload["pipeline"] == "quickstart_fallback"
+        assert "Pipeline:   quickstart_fallback" in output
+        assert "Starter spec fallback (orchestrator returned no structured specification)" in output
