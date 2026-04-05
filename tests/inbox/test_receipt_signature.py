@@ -7,7 +7,6 @@ tampering detection to ensure data integrity violations are caught.
 from __future__ import annotations
 
 import copy
-import tempfile
 import os
 
 import pytest
@@ -99,6 +98,16 @@ class TestReceiptSignatureLifecycle:
 
         assert signer.verify(restored)
         assert restored.receipt_data == sample_receipt
+
+    def test_tampered_json_roundtrip_detected(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        tampered = copy.deepcopy(signed.to_dict())
+        tampered["receipt"]["decision"] = "reject"
+
+        restored = SignedReceipt.from_dict(tampered)
+        assert not signer.verify(restored)
 
     def test_signatory_info_preserved(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
         signatory = SignatoryInfo(name="Alice", email="alice@example.com", role="Approver")
