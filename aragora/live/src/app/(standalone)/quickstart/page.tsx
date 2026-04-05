@@ -148,35 +148,27 @@ export default function QuickstartPage() {
               margin: 0,
             }}
           >
-            Get from zero to a working adversarial debate in under a minute.
+            Get from zero to a saved decision receipt in under a minute.
           </p>
         </div>
 
         {/* Step 1 */}
         <Step number={1} title="Install">
-          <CodeBlock lang="bash">pip install aragora-debate</CodeBlock>
+          <CodeBlock lang="bash">{`pip install aragora-debate
+python -m aragora --version`}</CodeBlock>
         </Step>
 
         {/* Step 2 */}
         <Step number={2} title="Zero-Key Demo">
           <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
-            No API keys needed — runs with styled mock agents locally:
+            No API keys needed. Run the bounded quickstart path locally and save a
+            deterministic demo receipt:
           </p>
-          <CodeBlock lang="python">{`from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
-import asyncio
-
-agents = [
-    StyledMockAgent('analyst', style='supportive'),
-    StyledMockAgent('critic', style='critical'),
-    StyledMockAgent('pm', style='balanced'),
-]
-arena = Arena(question='Should we migrate to microservices?', agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())`}</CodeBlock>
+          <CodeBlock lang="bash">python -m aragora quickstart --demo --no-browser</CodeBlock>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, fontFamily: 'var(--font-landing)' }}>
-            Three agents debate, critique each other, vote, and produce an
-            audit-ready decision receipt.
+            Quickstart reports whether the run was `demo` or `live`, saves the
+            artifact to `.aragora/receipts/`, and keeps the first-run path
+            bounded.
           </p>
         </Step>
 
@@ -184,49 +176,37 @@ print(result.receipt.to_markdown())`}</CodeBlock>
         <Step number={3} title="Add Real AI Models">
           <ConnectOpenRouterButton />
           <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
-            Or set API keys manually:
+            Or set a provider key manually and run the same quickstart flow in
+            live mode:
           </p>
           <CodeBlock lang="bash">{`export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 # or
 export OPENAI_API_KEY="sk-..."          # GPT`}</CodeBlock>
           <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
-            Then run a real multi-model debate:
+            Then run a live debate:
           </p>
-          <CodeBlock lang="python">{`import asyncio
-from aragora import Arena, Environment, DebateProtocol
-
-env = Environment(task="Design a rate limiter for our API")
-protocol = DebateProtocol(rounds=3, consensus="majority")
-
-# Arena auto-discovers available agents from your API keys
-arena = Arena(env, protocol=protocol)
-result = asyncio.run(arena.run())
-print(result.summary)`}</CodeBlock>
+          <CodeBlock lang="bash">python -m aragora quickstart --question "Should we rewrite this service in Go?" --no-browser</CodeBlock>
         </Step>
 
         {/* Step 4 */}
-        <Step number={4} title="TypeScript SDK">
-          <CodeBlock lang="bash">npm install @aragora/sdk</CodeBlock>
-          <CodeBlock lang="typescript">{`import { AragoraClient } from "@aragora/sdk";
-
-const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
-const result = await client.debates.create({
-  task: "Should we use microservices or a monolith?",
-  agents: ["claude", "openai"],
-  rounds: 3,
-});
-console.log(result.summary);`}</CodeBlock>
+        <Step number={4} title="Inspect The Receipt">
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
+            Quickstart writes a durable artifact for both demo and live runs.
+            Inspect it or verify it before moving on:
+          </p>
+          <CodeBlock lang="bash">{`python -m aragora receipt inspect .aragora/receipts/quickstart-live-receipt.json
+python -m aragora receipt verify .aragora/receipts/quickstart-live-receipt.json`}</CodeBlock>
         </Step>
 
         {/* Step 5 */}
         <Step number={5} title="Self-Host">
           <CodeBlock lang="bash">docker compose -f deploy/demo/docker-compose.yml up</CodeBlock>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             {[
-              { label: 'Landing page', url: 'localhost:3000' },
-              { label: 'API docs', url: 'localhost:8080/api/v2/docs' },
+              { label: 'Landing page', url: 'localhost:3000/landing' },
+              { label: 'Try route', url: 'localhost:3000/try' },
               { label: 'Playground', url: 'localhost:3000/playground' },
-              { label: 'CLI', url: 'aragora debate "your question"' },
+              { label: 'API docs', url: 'localhost:8080/api/v2/docs' },
             ].map((item) => (
               <div
                 key={item.label}
@@ -263,7 +243,7 @@ console.log(result.summary);`}</CodeBlock>
           >
             Next Steps
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
             <Link
               href="/try"
               style={{
