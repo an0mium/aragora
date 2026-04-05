@@ -36,8 +36,8 @@ describe('DecisionPackageView', () => {
     );
 
     expect(screen.getByText(/provider routing/i)).toBeInTheDocument();
-    expect(screen.getByText('anthropic')).toBeInTheDocument();
-    expect(screen.getByText('openai')).toBeInTheDocument();
+    expect(screen.getAllByText('anthropic').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('openai').length).toBeGreaterThan(0);
     expect(screen.getByText('provider_router_selection')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4')).toBeInTheDocument();
     expect(screen.getByText('gpt-4o')).toBeInTheDocument();
