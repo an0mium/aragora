@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _RECENT_ACTIVITY_WINDOW_SECONDS = 120
 _STATUS_ACTIVITY_SCAN_LIMIT = 200
+_SPECTATE_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 # Active SSE collectors keyed by debate_id -> set of queues
 # Each client gets its own queue; events are fanned out.
@@ -174,7 +175,8 @@ async def handle_spectate(
             "availability_state": availability_state,
             "observed_live": observed_live,
             "sse_url": f"/api/v1/debates/{debate_id}/spectate",
-        }
+        },
+        headers=_SPECTATE_CACHE_HEADERS,
     )
 
 
@@ -245,7 +247,7 @@ def register_spectate_routes(router: Any) -> None:
                 event_stream(),
                 media_type="text/event-stream",
                 headers={
-                    "Cache-Control": "no-cache",
+                    **_SPECTATE_CACHE_HEADERS,
                     "Connection": "keep-alive",
                     "X-Accel-Buffering": "no",
                 },
@@ -258,7 +260,8 @@ def register_spectate_routes(router: Any) -> None:
                     "spectate_available": True,
                     "sse_url": f"/api/v1/debates/{debate_id}/spectate",
                     "message": "Connect via SSE client",
-                }
+                },
+                headers=_SPECTATE_CACHE_HEADERS,
             )
 
     router.add_route(

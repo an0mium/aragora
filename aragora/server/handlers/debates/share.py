@@ -42,6 +42,7 @@ _public_collectors: dict[str, set[asyncio.Queue]] = {}  # type: ignore[type-arg]
 
 # Maximum concurrent public spectators per debate
 _MAX_PUBLIC_SPECTATORS = 10
+_SPECTATE_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 # Default host for share URLs
 _DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
@@ -219,6 +220,7 @@ class DebateShareHandler(BaseHandler):
                     "code": "not_shared",
                 },
                 status=403,
+                headers=_SPECTATE_CACHE_HEADERS,
             )
 
         # Check concurrent spectator limit
@@ -231,6 +233,7 @@ class DebateShareHandler(BaseHandler):
                     "max_spectators": _MAX_PUBLIC_SPECTATORS,
                 },
                 status=429,
+                headers=_SPECTATE_CACHE_HEADERS,
             )
 
         return json_response(
@@ -241,7 +244,8 @@ class DebateShareHandler(BaseHandler):
                 "active_viewers": current,
                 "max_viewers": _MAX_PUBLIC_SPECTATORS,
                 "sse_url": f"/api/v1/debates/{debate_id}/spectate/public",
-            }
+            },
+            headers=_SPECTATE_CACHE_HEADERS,
         )
 
     # ------------------------------------------------------------------

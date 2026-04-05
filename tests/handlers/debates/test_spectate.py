@@ -312,6 +312,12 @@ class TestHandleSpectate:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
+    async def test_sets_no_store_cache_header(self, auth_context):
+        """Status response is not cacheable."""
+        result = await handle_spectate("debate-123", context=auth_context)
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
+
+    @pytest.mark.asyncio
     async def test_body_contains_debate_id(self, auth_context):
         """Response body includes the debate ID."""
         result = await handle_spectate("debate-abc", context=auth_context)
@@ -576,7 +582,7 @@ class TestRegisterSpectateRoutes:
         assert isinstance(result, StreamingResponse)
         assert result.media_type == "text/event-stream"
         # Check headers
-        assert result.headers.get("Cache-Control") == "no-cache"
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
         assert result.headers.get("X-Accel-Buffering") == "no"
 
     @pytest.mark.asyncio
@@ -606,6 +612,7 @@ class TestRegisterSpectateRoutes:
                 assert body["debate_id"] == "d1"
                 assert body["spectate_available"] is True
                 assert body["message"] == "Connect via SSE client"
+                assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
 
     @pytest.mark.asyncio
     async def test_endpoint_extracts_debate_id_from_path_params(self):

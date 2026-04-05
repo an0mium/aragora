@@ -234,6 +234,7 @@ class TestPublicSpectate:
         h = DebateShareHandler()
         result = h.handle("/api/v1/debates/test-1/spectate/public", {}, _make_http_handler())
         assert _status(result) == 403
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
         body = _body(result)
         assert body["code"] == "not_shared"
         assert "not publicly shared" in body["error"]
@@ -243,6 +244,7 @@ class TestPublicSpectate:
         h = DebateShareHandler()
         result = h.handle("/api/v1/debates/test-2/spectate/public", {}, _make_http_handler())
         assert _status(result) == 200
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
         body = _body(result)
         assert body["debate_id"] == "test-2"
         assert body["public"] is True
@@ -279,6 +281,7 @@ class TestPublicSpectate:
         h = DebateShareHandler()
         result = h.handle(f"/api/v1/debates/{debate_id}/spectate/public", {}, _make_http_handler())
         assert _status(result) == 429
+        assert result.headers.get("Cache-Control") == "no-cache, no-store, must-revalidate"
         body = _body(result)
         assert body["code"] == "spectator_limit"
         assert body["max_spectators"] == _MAX_PUBLIC_SPECTATORS
