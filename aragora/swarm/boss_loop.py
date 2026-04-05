@@ -1661,11 +1661,13 @@ class BossLoop:
         return pr_url or None
 
     @staticmethod
+    def _publish_result_succeeded(publish_result: Any) -> bool:
+        return isinstance(publish_result, dict) and publish_result.get("published") is True
+
+    @staticmethod
     def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return None
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return None
         pr_url = BossLoop._published_pr_url(worker_result)
         if pr_url is None:
@@ -1788,9 +1790,7 @@ class BossLoop:
     @staticmethod
     def _promote_published_deliverable(worker_result: dict[str, Any]) -> bool:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return False
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return False
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):

@@ -3589,6 +3589,113 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
     )
 
 
+def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
+    worker_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "deliverable": {
+            "type": "pr",
+            "branch": "codex/issue-46",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        },
+        "publish_result": {
+            "published": "false",
+            "action": "pr_created",
+            "branch": "codex/issue-46",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        },
+    }
+
+    assert BossLoop._published_deliverable_comment(worker_result) is None
+    assert BossLoop._promote_published_deliverable(worker_result) is False
+    assert worker_result["status"] == "needs_human"
+    assert worker_result["outcome"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
+    issue = _make_issue(46, "Backbone malformed publish wiring")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "agent_type": "codex",
+    }
+
+    updated_calls: list[dict[str, Any]] = []
+
+    class MockRuntime:
+        def create_run(self, ledger):
+            return None
+
+        def update_run(self, run_id, **kw):
+            updated_calls.append({"run_id": run_id, **kw})
+
+    fake_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "run_id": "run-46",
+        "receipt_id": "receipt-46",
+        "deliverable": {
+            "type": "branch",
+            "branch": "codex/issue-46",
+            "commit_shas": ["abc123"],
+        },
+    }
+
+    with (
+        patch(
+            "aragora.pipeline.backbone_runtime.BackboneRuntime",
+            MockRuntime,
+        ),
+        patch(
+            "aragora.pipeline.backbone_contracts.RunLedger",
+            side_effect=lambda **kw: SimpleNamespace(**kw),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.BossLoop._harvest_worker_commits_for_publish",
+            return_value={
+                "action": "harvested",
+                "branch": "aragora/boss-harvest/issue-46",
+                "commit_shas": ["abc123"],
+            },
+        ),
+        patch(
+            "aragora.swarm.tranche_integrate.publish_lane_deliverable",
+            return_value={
+                "published": "false",
+                "action": "pr_created",
+                "branch": "codex/issue-46",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+            },
+        ),
+        patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
+        patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked"
+    assert result["publish_result"]["published"] == "false"
+    assert "issue_comment_result" not in result
+    assert len(updated_calls) == 2
+    assert updated_calls[-1]["status"] == "needs_human"
+    assert (
+        "postprocess_promoted_from_status" not in updated_calls[-1]["metadata"]["boss_postprocess"]
+    )
+    github_control_cls.return_value.upsert_issue_comment.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_dispatch_preserves_running_backbone_status():
     """Backbone ledger should preserve in-flight dispatch outcomes."""
