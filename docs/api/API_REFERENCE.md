@@ -424,8 +424,8 @@ Audit-to-GitHub endpoints live under `/api/v1/github/audit`.
 
 ## Audit Sessions API
 
-Audit session endpoints manage multi-agent document audits. The UI uses
-`/api/audit/sessions`; versioned endpoints live under `/api/v1/audit/sessions`.
+Audit session endpoints manage multi-agent document audits under the versioned
+`/api/v1/audit/sessions` namespace.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

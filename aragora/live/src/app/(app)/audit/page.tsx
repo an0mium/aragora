@@ -136,7 +136,7 @@ export default function AuditDashboardPage() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.api}/api/audit/sessions`, {
+      const response = await fetch(`${backendConfig.api}/api/v1/audit/sessions`, {
         headers: { Authorization: `Bearer ${tokens?.access_token || ''}` },
       });
       if (response.ok) {
@@ -511,7 +511,7 @@ export default function AuditDashboardPage() {
                                 e.stopPropagation();
                                 // Export functionality
                                 window.open(
-                                  `${backendConfig.api}/api/audit/sessions/${session.id}/report?format=html`,
+                                  `${backendConfig.api}/api/v1/audit/sessions/${session.id}/report?format=html`,
                                   '_blank'
                                 );
                               }}

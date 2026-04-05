@@ -11,17 +11,17 @@ Provides RESTful endpoints for managing document audit sessions:
 - Export audit reports
 
 Usage:
-    POST   /api/audit/sessions           - Create new audit session
-    GET    /api/audit/sessions           - List all sessions
-    GET    /api/audit/sessions/{id}      - Get session details
-    POST   /api/audit/sessions/{id}/start   - Start audit
-    POST   /api/audit/sessions/{id}/pause   - Pause audit
-    POST   /api/audit/sessions/{id}/resume  - Resume audit
-    POST   /api/audit/sessions/{id}/cancel  - Cancel audit
-    GET    /api/audit/sessions/{id}/findings - Get findings
-    GET    /api/audit/sessions/{id}/events   - SSE event stream
-    POST   /api/audit/sessions/{id}/intervene - Human intervention
-    GET    /api/audit/sessions/{id}/report   - Export report
+    POST   /api/v1/audit/sessions              - Create new audit session
+    GET    /api/v1/audit/sessions              - List all sessions
+    GET    /api/v1/audit/sessions/{id}         - Get session details
+    POST   /api/v1/audit/sessions/{id}/start   - Start audit
+    POST   /api/v1/audit/sessions/{id}/pause   - Pause audit
+    POST   /api/v1/audit/sessions/{id}/resume  - Resume audit
+    POST   /api/v1/audit/sessions/{id}/cancel  - Cancel audit
+    GET    /api/v1/audit/sessions/{id}/findings - Get findings
+    GET    /api/v1/audit/sessions/{id}/events   - SSE event stream
+    POST   /api/v1/audit/sessions/{id}/intervene - Human intervention
+    GET    /api/v1/audit/sessions/{id}/report   - Export report
 """
 
 from __future__ import annotations
