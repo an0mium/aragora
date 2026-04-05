@@ -1,5 +1,6 @@
 """Tests that debate rounds respect timeout settings."""
 
+from dataclasses import dataclass
 import asyncio
 from unittest.mock import MagicMock, patch
 
@@ -7,6 +8,26 @@ import pytest
 
 from aragora.debate.protocol import DebateProtocol
 from aragora.debate.termination_checker import TerminationChecker
+
+
+@dataclass
+class _StubProtocol:
+    """Minimal protocol stub for direct TerminationChecker coverage."""
+
+    round_timeout_seconds: int = 1
+    early_stopping: bool = True
+    early_stop_threshold: float = 0.6
+    min_rounds_before_early_stop: int = 1
+    min_rounds: int = 1
+    use_judge: bool = False
+    rounds: int = 5
+
+
+def _make_agent(name: str) -> MagicMock:
+    agent = MagicMock()
+    agent.name = name
+    agent.agent_id = name
+    return agent
 
 
 class TestRoundTimeout:
@@ -120,3 +141,65 @@ class TestRoundTimeout:
 
             with pytest.raises(asyncio.TimeoutError):
                 await service.run("Slow debate task", options=opts)
+
+
+class TestRoundTimeoutExceedingDelay:
+    """Verify early-stop timeout behavior directly on the checker."""
+
+    @pytest.mark.asyncio
+    async def test_early_stop_check_returns_continue_on_timeout(self):
+        protocol = _StubProtocol(round_timeout_seconds=1)
+        agents = [_make_agent("slow-agent")]
+
+        async def slow_generate(agent, prompt, context):
+            await asyncio.sleep(5)
+            return "STOP"
+
+        checker = TerminationChecker(
+            protocol=protocol,
+            agents=agents,
+            generate_fn=slow_generate,
+            task="test task",
+        )
+
+        should_continue = await checker.check_early_stopping(round_num=2, proposals={}, context=[])
+        assert should_continue is True
+
+    @pytest.mark.asyncio
+    async def test_fast_agents_allow_normal_stop_vote(self):
+        protocol = _StubProtocol(round_timeout_seconds=5)
+        agents = [_make_agent(f"agent-{i}") for i in range(3)]
+
+        async def fast_generate(agent, prompt, context):
+            await asyncio.sleep(0.01)
+            return "STOP"
+
+        checker = TerminationChecker(
+            protocol=protocol,
+            agents=agents,
+            generate_fn=fast_generate,
+            task="test task",
+        )
+
+        should_continue = await checker.check_early_stopping(round_num=2, proposals={}, context=[])
+        assert should_continue is False
+
+    @pytest.mark.asyncio
+    async def test_mixed_slow_fast_agents_timeout(self):
+        protocol = _StubProtocol(round_timeout_seconds=1)
+        agents = [_make_agent("fast"), _make_agent("slow")]
+
+        async def mixed_generate(agent, prompt, context):
+            if agent.name == "slow":
+                await asyncio.sleep(5)
+            return "STOP"
+
+        checker = TerminationChecker(
+            protocol=protocol,
+            agents=agents,
+            generate_fn=mixed_generate,
+            task="test task",
+        )
+
+        should_continue = await checker.check_early_stopping(round_num=2, proposals={}, context=[])
+        assert should_continue is True
