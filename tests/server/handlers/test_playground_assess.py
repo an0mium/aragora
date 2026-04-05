@@ -17,7 +17,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.playground import PlaygroundHandler, _reset_rate_limits
+from aragora.server.handlers.playground import (
+    PlaygroundHandler,
+    _MAX_TOPIC_LENGTH,
+    _reset_rate_limits,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +139,21 @@ class TestHandleAssess:
         assert body["type"] == "ready"
         mock_call.assert_not_called()
 
+    def test_long_question_short_circuits_to_ready_without_model(
+        self, handler: PlaygroundHandler
+    ) -> None:
+        """Oversized assess prompts should not hit the frontier model."""
+        question = "x" * (_MAX_TOPIC_LENGTH + 20)
+        http_handler = _make_http_handler({"question": question})
+
+        with patch.object(handler, "_call_frontier_model") as mock_call:
+            result = handler._handle_assess(http_handler)
+
+        body = json.loads(result.body)
+        assert body["type"] == "ready"
+        assert body["option"]["debatePrompt"] == question[:200]
+        mock_call.assert_not_called()
+
     def test_malformed_model_json_returns_ready(self, handler: PlaygroundHandler) -> None:
         """When the model returns unparseable garbage, gracefully return type=ready."""
         http_handler = _make_http_handler({"question": "Some question"})
@@ -182,6 +201,23 @@ class TestHandleAssess:
 
         body = json.loads(result.body)
         assert body["type"] == "ready"
+
+    def test_rate_limit_blocks_sixth_request(self, handler: PlaygroundHandler) -> None:
+        """Assess is capped at five requests per IP per minute."""
+        model_response = json.dumps({"clear": True, "topic": "Should we delay the launch?"})
+
+        with patch.object(handler, "_call_frontier_model", return_value=model_response):
+            for _ in range(5):
+                http_handler = _make_http_handler({"question": "Should we delay the launch?"})
+                result = handler._handle_assess(http_handler)
+                assert json.loads(result.body)["type"] == "ready"
+
+            http_handler = _make_http_handler({"question": "Should we delay the launch?"})
+            limited = handler._handle_assess(http_handler)
+
+        body = json.loads(limited.body)
+        assert limited.status_code == 429
+        assert body["code"] == "rate_limit_exceeded"
 
     def test_interpretations_capped_at_four(self, handler: PlaygroundHandler) -> None:
         """At most 4 interpretation options (plus the original) are returned."""

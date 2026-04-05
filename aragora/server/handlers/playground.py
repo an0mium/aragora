@@ -2820,6 +2820,10 @@ class PlaygroundHandler(BaseHandler):
         # Client-provided debate ID — allows the frontend to subscribe to
         # spectate WebSocket events *before* the HTTP POST returns.
         client_debate_id = str(body.get("debate_id", "") or "").strip() or None
+        if client_debate_id and (
+            len(str(client_debate_id)) > 64 or not str(client_debate_id).isascii()
+        ):
+            client_debate_id = None
 
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
@@ -2992,11 +2996,16 @@ class PlaygroundHandler(BaseHandler):
         if not question:
             return json_response({"type": "ready", "option": self._build_ready_option("")})
 
-        # Rate limit: reuse the existing per-IP check (10 per 60s for assess)
+        if len(question) > _MAX_TOPIC_LENGTH:
+            return json_response(
+                {"type": "ready", "option": self._build_ready_option(question[:200])}
+            )
+
+        # Rate limit: reuse the existing per-IP check (5 per 60s for assess)
         client_ip = _extract_client_ip(handler)
         allowed, retry_after = _check_rate_limit(
             f"assess:{client_ip}",
-            limit=10,
+            limit=5,
             window=60.0,
         )
         if not allowed:
@@ -3723,6 +3732,7 @@ class PlaygroundHandler(BaseHandler):
                 agent_count=agent_count,
                 max_rounds=rounds,
                 timeout=_LIVE_TIMEOUT,
+                debate_id=debate_id,
             )
         except TimeoutError:
             return json_response(
@@ -3894,6 +3904,7 @@ def start_playground_debate(
     agent_count: int = 3,
     max_rounds: int = 2,
     timeout: int = 60,
+    debate_id: str | None = None,
 ) -> dict[str, Any]:
     """Run a simplified live debate for the playground.
 
@@ -3905,6 +3916,8 @@ def start_playground_debate(
         agent_count: Number of agents (2-5)
         max_rounds: Maximum rounds (1-2)
         timeout: Timeout in seconds
+        debate_id: Optional debate ID to bind spectate context before the HTTP
+            response returns.
 
     Returns:
         Dict with debate result fields
@@ -3937,8 +3950,14 @@ def start_playground_debate(
 
             arena = factory.create_arena(config)
 
+            try:
+                from aragora.spectate.ws_bridge import bind_spectate_context
+            except ImportError:
+                from contextlib import nullcontext as bind_spectate_context  # type: ignore[assignment]
+
             async def _run_arena():
-                return await asyncio.wait_for(arena.run(), timeout=timeout)
+                with bind_spectate_context(debate_id=debate_id):
+                    return await asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = asyncio.run(_run_arena())
 
