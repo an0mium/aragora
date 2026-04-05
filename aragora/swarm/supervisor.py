@@ -5275,10 +5275,20 @@ class SwarmSupervisor:
                 if parent not in expanded_scope:
                     expanded_scope.append(parent)
 
+        # Always allow common infrastructure files that workers need to touch
+        always_allowed = {
+            "conftest.py", "__init__.py", "pyproject.toml",
+            ".gitignore", "setup.cfg", "setup.py",
+        }
+
         violations: list[dict[str, Any]] = []
         for path in changed_paths:
             normalized = str(path).strip().removeprefix("./")
             if not normalized:
+                continue
+            # Allow common infrastructure files regardless of scope
+            basename = normalized.rsplit("/", 1)[-1] if "/" in normalized else normalized
+            if basename in always_allowed:
                 continue
             if not any(_path_in_scope(normalized, scope) for scope in expanded_scope):
                 violations.append(
