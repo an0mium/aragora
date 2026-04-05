@@ -5284,8 +5284,12 @@ class SwarmSupervisor:
 
         # Always allow common infrastructure files that workers need to touch
         always_allowed = {
-            "conftest.py", "__init__.py", "pyproject.toml",
-            ".gitignore", "setup.cfg", "setup.py",
+            "conftest.py",
+            "__init__.py",
+            "pyproject.toml",
+            ".gitignore",
+            "setup.cfg",
+            "setup.py",
         }
 
         violations: list[dict[str, Any]] = []
