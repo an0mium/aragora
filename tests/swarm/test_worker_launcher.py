@@ -889,6 +889,87 @@ class TestWait:
         mock_push.assert_not_awaited()
         mock_verify.assert_not_awaited()
 
+    @pytest.mark.asyncio
+    async def test_wait_uses_session_meta_pid_for_cleanup(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+
+        worker = WorkerProcess(
+            work_order_id="wo-wait-session-meta-cleanup-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes[worker.work_order_id] = mock_proc
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 24680,
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="worker output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await launcher.wait(worker.work_order_id)
+
+        assert result.exit_code == 0
+        mock_wait.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_wait_uses_active_lock_pid_for_cleanup_when_session_meta_missing(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="wo-wait-lock-cleanup-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes[worker.work_order_id] = mock_proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="worker output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await launcher.wait(worker.work_order_id)
+
+        assert result.exit_code == 1
+        mock_wait.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
 
 class TestLaunchAndWait:
     @pytest.mark.asyncio

@@ -3508,6 +3508,9 @@ class SwarmSupervisor:
                     },
                 )
             except FileScopeViolationError as exc:
+                for key in ("resource_error", "conflicts"):
+                    item.pop(key, None)
+                item.pop("blockers", None)
                 self._mark_needs_human(
                     item,
                     "worker completion violated file-scope ownership; narrow or split the lane",
@@ -3611,8 +3614,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 item["commit_shas"] = []
                 self._mark_needs_human(
                     item,
@@ -3635,8 +3641,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 logger.warning(
@@ -4482,8 +4491,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
-        """Drop stale completion metadata before persisting a pre-launch blocker."""
+        """Drop stale completion and wait-state metadata before a pre-launch blocker."""
         for key in (
+            "dispatch_error",
+            "resource_error",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
@@ -4505,6 +4520,7 @@ class SwarmSupervisor:
             "scope_violation",
         ):
             item.pop(key, None)
+        item.pop("blockers", None)
 
     @staticmethod
     def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
@@ -4526,6 +4542,9 @@ class SwarmSupervisor:
             "verification_missing_reason",
             "pr_url",
             "adopted_pr",
+            "resource_error",
+            "conflicts",
+            "blockers",
             "scope_violation",
         ):
             item.pop(key, None)
