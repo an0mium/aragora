@@ -1566,8 +1566,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else "none"
             )
             stop = status_dict.get("stop_reason")
+            configured_parallel = status_dict.get("configured_max_parallel_dispatches")
+            effective_parallel = status_dict.get("effective_parallel_dispatches")
+            parallel_text = ""
+            if configured_parallel is not None:
+                effective_text = str(effective_parallel) if effective_parallel is not None else "?"
+                parallel_text = f" parallel={configured_parallel}/{effective_text}"
             print(
-                f"[iter {iteration}] worker={worker} issue={issue_text}"
+                f"[iter {iteration}] worker={worker} issue={issue_text}{parallel_text}"
                 + (f" stop={stop}" if stop else "")
             )
             for action_text in status_dict.get("next_actions", [])[:2]:
@@ -1583,7 +1589,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 f"attempted={len(result.issues_attempted)} "
                 f"completed={len(result.issues_completed)} "
                 f"failed={len(result.issues_failed)} "
-                f"elapsed={result.total_elapsed_seconds:.1f}s"
+                f"elapsed={result.total_elapsed_seconds:.1f}s "
+                f"parallel={result.configured_max_parallel_dispatches}/"
+                f"{result.effective_parallel_dispatches_observed if result.effective_parallel_dispatches_observed is not None else '?'}"
             )
             for reason in result.needs_human_reasons[:3]:
                 print(f"  needs_human: {reason}")

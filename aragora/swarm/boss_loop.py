@@ -108,6 +108,8 @@ class BossIterationStatus:
     elapsed_seconds: float = 0.0
     error: str | None = None
     worker_outcome: str | None = None
+    configured_max_parallel_dispatches: int | None = None
+    effective_parallel_dispatches: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -122,6 +124,8 @@ class BossIterationStatus:
             "next_actions": list(self.next_actions),
             "elapsed_seconds": self.elapsed_seconds,
             "error": self.error,
+            "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+            "effective_parallel_dispatches": self.effective_parallel_dispatches,
         }
         if self.worker_outcome is not None:
             result["worker_outcome"] = self.worker_outcome
@@ -142,6 +146,8 @@ class BossLoopResult:
     iteration_statuses: list[dict[str, Any]]
     needs_human_reasons: list[str]
     next_actions: list[str]
+    configured_max_parallel_dispatches: int = 1
+    effective_parallel_dispatches_observed: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -156,6 +162,8 @@ class BossLoopResult:
             "iteration_statuses": list(self.iteration_statuses),
             "needs_human_reasons": list(self.needs_human_reasons),
             "next_actions": list(self.next_actions),
+            "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+            "effective_parallel_dispatches_observed": self.effective_parallel_dispatches_observed,
         }
 
 
@@ -539,6 +547,9 @@ class BossLoop:
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
+        self._configured_parallel_dispatches = max(1, int(self.config.max_parallel_dispatches or 1))
+        self._current_effective_parallel_dispatches: int | None = None
+        self._max_effective_parallel_dispatches_observed: int | None = None
         self._feed = issue_feed or GitHubIssueFeed(
             repo=self.config.repo,
             label_filter=self.config.label_filter,
@@ -555,6 +566,26 @@ class BossLoop:
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
+
+    def _decorate_iteration_status(
+        self,
+        status: BossIterationStatus,
+        *,
+        effective_parallel_dispatches: int | None = None,
+    ) -> BossIterationStatus:
+        if status.configured_max_parallel_dispatches is None:
+            status.configured_max_parallel_dispatches = self._configured_parallel_dispatches
+        effective = effective_parallel_dispatches
+        if effective is None:
+            effective = self._current_effective_parallel_dispatches
+        if status.effective_parallel_dispatches is None:
+            status.effective_parallel_dispatches = effective
+        if status.effective_parallel_dispatches is not None:
+            self._max_effective_parallel_dispatches_observed = max(
+                int(status.effective_parallel_dispatches),
+                int(self._max_effective_parallel_dispatches_observed or 0),
+            )
+        return status
 
     def _blocked_issue_scopes(self) -> set[str]:
         if not self.config.avoid_open_pr_scope_conflicts:
@@ -965,6 +996,7 @@ class BossLoop:
                     "max_retries_per_issue": self.config.max_retries_per_issue,
                     "max_consecutive_failures": self.config.max_consecutive_failures,
                     "budget_limit_usd": self.config.budget_limit_usd,
+                    "configured_max_parallel_dispatches": result.configured_max_parallel_dispatches,
                 },
                 outputs={
                     "iterations_completed": result.iterations_completed,
@@ -972,6 +1004,9 @@ class BossLoop:
                     "issues_attempted": attempted,
                     "issues_completed": completed,
                     "issues_failed": failed,
+                    "effective_parallel_dispatches_observed": (
+                        result.effective_parallel_dispatches_observed
+                    ),
                     "needs_human_reasons": list(result.needs_human_reasons),
                     "next_actions": list(result.next_actions),
                 },
@@ -1994,10 +2029,10 @@ class BossLoop:
         except Exception:
             logger.debug("Boss lane telemetry emission skipped", exc_info=True)
 
-    @staticmethod
-    def _emit_live_status(on_status: Any | None, status: BossIterationStatus) -> None:
+    def _emit_live_status(self, on_status: Any | None, status: BossIterationStatus) -> None:
         if on_status is None:
             return
+        status = self._decorate_iteration_status(status)
         try:
             on_status(status)
         except Exception:
@@ -2019,6 +2054,10 @@ class BossLoop:
         """
         start_time = time.monotonic()
         iteration = 0
+        logger.info(
+            "Boss loop starting: configured_max_parallel_dispatches=%d",
+            self._configured_parallel_dispatches,
+        )
 
         # Clean stale supervisor runs that would block dispatch via
         # duplicate_open_work_order detection.  Previous runs with
@@ -2050,6 +2089,7 @@ class BossLoop:
             self._refresh_runner_heartbeats()
 
             statuses = await self._run_iteration_statuses(iteration, on_status=on_status)
+            statuses = [self._decorate_iteration_status(status) for status in statuses]
             self._iteration_statuses.extend(statuses)
 
             for status in statuses:
@@ -2100,6 +2140,8 @@ class BossLoop:
             iteration_statuses=[s.to_dict() for s in self._iteration_statuses],
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
+            configured_max_parallel_dispatches=self._configured_parallel_dispatches,
+            effective_parallel_dispatches_observed=self._max_effective_parallel_dispatches_observed,
         )
         self._emit_terminal_receipt(result)
         return result
@@ -2124,6 +2166,7 @@ class BossLoop:
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
         freshness_dict: dict[str, Any] = {}
+        self._current_effective_parallel_dispatches = 1
         # Step 1: Fetch issues from GitHub
         try:
             issues = self._feed.fetch()
@@ -2299,6 +2342,7 @@ class BossLoop:
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
         freshness_dict: dict[str, Any] = {}
+        self._current_effective_parallel_dispatches = None
 
         try:
             issues = self._feed.fetch()
@@ -2405,6 +2449,13 @@ class BossLoop:
             ]
 
         parallel_limit = self._parallel_dispatch_limit(freshness)
+        self._current_effective_parallel_dispatches = parallel_limit
+        logger.info(
+            "Boss loop iteration %d parallel dispatches: configured=%d effective=%d",
+            iteration,
+            self._configured_parallel_dispatches,
+            parallel_limit,
+        )
         pending_issues = list(selected_issues)
         active_tasks: dict[
             asyncio.Task[dict[str, Any]], tuple[GitHubIssue, dict[str, Any], float]
