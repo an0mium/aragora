@@ -142,6 +142,27 @@ class TestMeasureRepoSize:
             assert dur == -1.0
             assert size_mb == 0.0
 
+    def test_worktree_gitfile_uses_common_git_dir(self, tmp_path):
+        """Worktree .git pointer files should resolve to the shared Git storage."""
+        repo_root = tmp_path / "repo"
+        fake_script = repo_root / "scripts" / "fake.py"
+        fake_script.parent.mkdir(parents=True, exist_ok=True)
+        fake_script.touch()
+
+        common_git_dir = repo_root.parent / "shared" / ".git"
+        worktree_git_dir = common_git_dir / "worktrees" / "feature"
+        worktree_git_dir.mkdir(parents=True, exist_ok=True)
+        (worktree_git_dir / "commondir").write_text("../..", encoding="utf-8")
+        (common_git_dir / "objects").mkdir(parents=True, exist_ok=True)
+        (common_git_dir / "objects" / "pack-test").write_bytes(b"x" * 4096)
+        (repo_root / ".git").write_text(f"gitdir: {worktree_git_dir}\n", encoding="utf-8")
+
+        with patch("scripts.measure_quickstart_time.__file__", str(fake_script)):
+            dur, size_mb = measure_repo_size()
+
+        assert dur >= 0
+        assert size_mb > 0
+
 
 class TestMeasureImportTime:
     """Tests for measure_import_time()."""

@@ -138,8 +138,8 @@ def measure_repo_size() -> tuple[float, float]:
     Used as an informational proxy for clone time.
     """
     repo_root = Path(__file__).resolve().parent.parent
-    git_dir = repo_root / ".git"
-    if not git_dir.exists():
+    git_dir = _resolve_git_storage_dir(repo_root / ".git")
+    if git_dir is None:
         return -1.0, 0.0
 
     t0 = time.perf_counter()
@@ -152,6 +152,46 @@ def measure_repo_size() -> tuple[float, float]:
                 pass
     elapsed = time.perf_counter() - t0
     return elapsed, total_bytes / (1024 * 1024)
+
+
+def _resolve_git_storage_dir(git_path: Path) -> Path | None:
+    """Resolve the real Git storage directory for standard repos and worktrees."""
+    if not git_path.exists():
+        return None
+    if git_path.is_dir():
+        return git_path
+    if not git_path.is_file():
+        return None
+
+    try:
+        pointer = git_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+    if not pointer.startswith("gitdir:"):
+        return None
+
+    raw_git_dir = pointer.split(":", 1)[1].strip()
+    git_dir = Path(raw_git_dir)
+    if not git_dir.is_absolute():
+        git_dir = (git_path.parent / git_dir).resolve()
+    if not git_dir.exists():
+        return None
+
+    common_dir_file = git_dir / "commondir"
+    if not common_dir_file.is_file():
+        return git_dir
+
+    try:
+        raw_common_dir = common_dir_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return git_dir
+
+    common_dir = Path(raw_common_dir)
+    if not common_dir.is_absolute():
+        common_dir = (git_dir / common_dir).resolve()
+
+    return common_dir if common_dir.exists() else git_dir
 
 
 def measure_install_time() -> StepResult:
