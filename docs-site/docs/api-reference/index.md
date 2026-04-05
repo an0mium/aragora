@@ -11,6 +11,7 @@ when you need full schemas or less common operations.
 
 > **New to Aragora?** Start with the [Developer Quickstart](../getting-started/quickstart)
 > to run your first review, then come back here for API integration.
+
 ## Base URL
 
 ```
