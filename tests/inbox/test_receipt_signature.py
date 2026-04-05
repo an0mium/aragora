@@ -6,6 +6,7 @@ from aragora.gauntlet.signing import DurableFileSigner, ReceiptSigner
 def test_durable_file_signer_rejects_tampered_receipt(tmp_path):
     key_path = tmp_path / "receipt-signing.key"
     signer = ReceiptSigner(DurableFileSigner(key_path=str(key_path)))
+    verifier = ReceiptSigner(DurableFileSigner(key_path=str(key_path)))
     receipt = {
         "receipt_id": "rcpt-123",
         "provider": "gmail",
@@ -17,9 +18,9 @@ def test_durable_file_signer_rejects_tampered_receipt(tmp_path):
 
     signed = signer.sign(receipt)
 
-    assert signer.verify(signed) is True
+    assert verifier.verify(signed) is True
 
     tampered = signed.to_dict()
-    tampered["receipt_data"]["action"] = "trash"
+    tampered["receipt"]["action"] = "trash"
 
-    assert signer.verify_dict(tampered) is False
+    assert verifier.verify_dict(tampered) is False
