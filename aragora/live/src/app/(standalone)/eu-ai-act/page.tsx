@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
+import { apiPost } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,17 +130,11 @@ export default function CompliancePage() {
     setClassification(null);
 
     try {
-      const response = await fetch('/api/v2/compliance/eu-ai-act/classify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: useCase }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setClassification(data.classification || data);
-      } else {
-        setClassification(getDemoClassification(useCase));
-      }
+      const data = await apiPost<{ classification?: RiskClassification }>(
+        '/api/v2/compliance/eu-ai-act/classify',
+        { description: useCase },
+      );
+      setClassification(data.classification || data);
     } catch {
       setClassification(getDemoClassification(useCase));
     } finally {
