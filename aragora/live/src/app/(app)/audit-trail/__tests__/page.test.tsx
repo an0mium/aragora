@@ -149,8 +149,36 @@ describe('AuditTrailPage', () => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/v1/audit-trails/trail-123/verify');
     });
 
-    expect(await screen.findByText('[INVALID]')).toBeInTheDocument();
+    expect(await screen.findByText('[UNAVAILABLE]')).toBeInTheDocument();
     expect(screen.getAllByText('trail-123')).toHaveLength(2);
+    expect(
+      screen.getByText('Verification could not reach the backend, so no checksum comparison was performed.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('API Error (503): upstream unavailable')).toBeInTheDocument();
+  });
+
+  it('keeps checksum mismatches marked invalid', async () => {
+    const user = userEvent.setup();
+    mockApiPost.mockResolvedValue({
+      trail_id: 'trail-123',
+      valid: false,
+      stored_checksum: 'trail-checksum-123',
+      computed_checksum: 'trail-checksum-999',
+      match: false,
+      error: 'Checksum mismatch',
+    });
+
+    render(<AuditTrailPage />);
+
+    await user.click(screen.getByRole('button', { name: 'VERIFY' }));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/v1/audit-trails/trail-123/verify');
+    });
+
+    expect(await screen.findByText('[INVALID]')).toBeInTheDocument();
+    expect(screen.getByText('Checksum mismatch')).toBeInTheDocument();
+    expect(screen.getByText('trail-checksum-123')).toBeInTheDocument();
+    expect(screen.getByText('trail-checksum-999')).toBeInTheDocument();
   });
 });

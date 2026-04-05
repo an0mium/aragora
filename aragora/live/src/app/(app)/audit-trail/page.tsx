@@ -55,6 +55,28 @@ interface VerifyResult {
   computed_checksum: string;
   match: boolean;
   error?: string;
+  request_failed?: boolean;
+}
+
+type VerifyResultState = 'valid' | 'invalid' | 'unavailable';
+
+const VERIFY_RESULT_STYLES: Record<VerifyResultState, string> = {
+  valid: 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]',
+  invalid: 'bg-red-500/5 border-red-500/30 text-red-400',
+  unavailable: 'bg-yellow-500/5 border-yellow-500/30 text-yellow-300',
+};
+
+const VERIFY_RESULT_LABELS: Record<VerifyResultState, string> = {
+  valid: '[VALID]',
+  invalid: '[INVALID]',
+  unavailable: '[UNAVAILABLE]',
+};
+
+function getVerifyResultState(result: VerifyResult): VerifyResultState {
+  if (result.request_failed) {
+    return 'unavailable';
+  }
+  return result.valid ? 'valid' : 'invalid';
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +211,7 @@ export default function AuditTrailPage() {
     } catch (error) {
       const failureResult: VerifyResult = {
         valid: false,
+        request_failed: true,
         stored_checksum: '',
         computed_checksum: '',
         match: false,
@@ -209,6 +232,7 @@ export default function AuditTrailPage() {
 
   const isLoading = activeTab === 'trails' ? trailsLoading : receiptsLoading;
   const error = activeTab === 'trails' ? trailsError : receiptsError;
+  const verifyState = verifyResult ? getVerifyResultState(verifyResult) : null;
 
   return (
     <>
@@ -267,29 +291,34 @@ export default function AuditTrailPage() {
 
           {/* Verification Result */}
           {verifyResult && (
-            <div className={`mb-6 p-4 border font-theme-data text-sm ${
-              verifyResult.valid
-                ? 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]'
-                : 'bg-red-500/5 border-red-500/30 text-red-400'
-            }`}>
+            <div className={`mb-6 p-4 border font-theme-data text-sm ${VERIFY_RESULT_STYLES[verifyState!]}`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-lg">{verifyResult.valid ? '[VALID]' : '[INVALID]'}</span>
+                <span className="text-lg">{VERIFY_RESULT_LABELS[verifyState!]}</span>
                 <span className="text-xs text-[var(--text-muted)]">
                   {verifyResult.trail_id || verifyResult.receipt_id}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[var(--text-muted)]">Stored: </span>
-                  <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+              {!verifyResult.request_failed && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[var(--text-muted)]">Stored: </span>
+                    <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">Computed: </span>
+                    <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">Computed: </span>
-                  <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+              )}
+              {verifyResult.request_failed && (
+                <div className="mt-2 text-xs text-[var(--text-muted)]">
+                  Verification could not reach the backend, so no checksum comparison was performed.
                 </div>
-              </div>
+              )}
               {verifyResult.error && (
-                <div className="mt-2 text-xs text-red-400">{verifyResult.error}</div>
+                <div className={`mt-2 text-xs ${verifyResult.request_failed ? 'text-yellow-200' : 'text-red-400'}`}>
+                  {verifyResult.error}
+                </div>
               )}
               <button
                 onClick={() => setVerifyResult(null)}
