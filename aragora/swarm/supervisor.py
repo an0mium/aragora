@@ -4450,6 +4450,8 @@ class SwarmSupervisor:
         item["review_status"] = "pending"
         item["dispatch_error"] = str(reason)
         for key in (
+            "lease_id",
+            "owner_session_id",
             "resource_error",
             "conflicts",
             "receipt_id",

@@ -5119,6 +5119,22 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
         ],
         status="active",
     )
+    lease = store.claim_lease(
+        task_id="wo-dispatch-failed-cleanup",
+        title="dispatch failure clears stale deliverable state",
+        owner_agent="codex",
+        owner_session_id="stale-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+    run_record["work_orders"][0]["lease_id"] = lease.lease_id
+    run_record["work_orders"][0]["owner_session_id"] = lease.owner_session_id
+    store.update_supervisor_run(
+        run_record["run_id"],
+        work_orders=run_record["work_orders"],
+        status="active",
+    )
 
     mock_launcher = MagicMock(spec=WorkerLauncher)
     mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("fatal: boom"))
@@ -5149,6 +5165,8 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
         "pid",
         "initial_head",
         "dispatched_at",
+        "lease_id",
+        "owner_session_id",
         "failure_reason",
         "blocking_question",
         "blocker",
