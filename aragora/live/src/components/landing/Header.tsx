@@ -15,7 +15,15 @@ const NAV_LINKS = [
   { href: '/login', label: 'Log in', anchor: false },
 ];
 
-export function Header() {
+export interface HeaderProps {
+  /** Optional callback for the "Log in" link. When provided the click triggers
+   *  this handler instead of a normal Next.js Link navigation. Useful when the
+   *  landing page is rendered inline (e.g. HomePage for unauthenticated visitors)
+   *  and needs to store a return URL before redirecting to the login route. */
+  onLoginClick?: () => void;
+}
+
+export function Header({ onLoginClick }: HeaderProps = {}) {
   const { theme } = useTheme();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -85,17 +93,35 @@ export function Header() {
           {/* Desktop nav + Theme selector */}
           <div className="flex items-center gap-6">
             <nav className="hidden sm:flex items-center gap-5">
-              {NAV_LINKS.map((link) =>
-                link.anchor ? (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm transition-colors hover:opacity-80"
-                    style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
-                  >
-                    {link.label}
-                  </a>
-                ) : (
+              {NAV_LINKS.map((link) => {
+                if (link.anchor) {
+                  return (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className="text-sm transition-colors hover:opacity-80"
+                      style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                    >
+                      {link.label}
+                    </a>
+                  );
+                }
+
+                if (link.label === 'Log in' && onLoginClick) {
+                  return (
+                    <button
+                      key={link.href}
+                      type="button"
+                      onClick={onLoginClick}
+                      className="text-sm transition-colors hover:opacity-80 bg-transparent border-none cursor-pointer p-0"
+                      style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                    >
+                      {link.label}
+                    </button>
+                  );
+                }
+
+                return (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -104,8 +130,8 @@ export function Header() {
                   >
                     {link.label}
                   </Link>
-                ),
-              )}
+                );
+              })}
             </nav>
             <ThemeSelector />
 
@@ -177,16 +203,34 @@ export function Header() {
               transition: 'background-color 0.15s, color 0.15s',
             };
 
-            return link.anchor ? (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                style={linkStyle}
-              >
-                {link.label}
-              </a>
-            ) : (
+            if (link.anchor) {
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  style={linkStyle}
+                >
+                  {link.label}
+                </a>
+              );
+            }
+
+            if (link.label === 'Log in' && onLoginClick) {
+              return (
+                <button
+                  key={link.href}
+                  type="button"
+                  onClick={() => { setMobileOpen(false); onLoginClick(); }}
+                  className="bg-transparent border-none cursor-pointer text-left w-full"
+                  style={linkStyle}
+                >
+                  {link.label}
+                </button>
+              );
+            }
+
+            return (
               <Link
                 key={link.href}
                 href={link.href}
