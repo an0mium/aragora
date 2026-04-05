@@ -1080,6 +1080,30 @@ class BossLoop:
         if not issue:
             return
 
+        # Guard: don't decompose sub-issues — prevents recursive explosion
+        if issue.title.startswith("[from #"):
+            self._label_boss_stuck(
+                issue_number, repo,
+                "Sub-issue exhausted retries. Needs manual attention.",
+            )
+            return
+
+        # Collect existing issue titles to avoid creating duplicates
+        existing_titles: set[str] = set()
+        try:
+            proc = subprocess.run(
+                ["gh", "issue", "list", "--repo", repo, "--label", "boss-ready",
+                 "--state", "open", "--limit", "100", "--json", "title",
+                 "--jq", ".[].title"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                existing_titles = {
+                    line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
+                }
+        except Exception:
+            pass
+
         # Try LLM-based decomposition
         sub_issues_created = 0
         try:
@@ -1092,8 +1116,11 @@ class BossLoop:
             )
 
             if result.should_decompose and result.subtasks:
-                for subtask in result.subtasks[:5]:  # Cap at 5 sub-issues
+                for subtask in result.subtasks[:3]:  # Cap at 3 sub-issues (was 5)
                     title = f"[from #{issue.number}] {subtask.title}"
+                    # Skip if a similar title already exists
+                    if title.lower() in existing_titles:
+                        continue
                     scope_lines = (
                         "\n".join(f"- `{f}`" for f in subtask.file_scope)
                         if subtask.file_scope
@@ -1179,6 +1206,23 @@ class BossLoop:
         import re
 
         return re.findall(r"`((?:aragora|tests)/[a-zA-Z0-9_/.-]+\.py)`", body)
+
+    @staticmethod
+    def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
+        """Label an issue as boss-stuck with an explanatory comment."""
+        import subprocess
+
+        try:
+            subprocess.run(
+                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
+                capture_output=True, timeout=15,
+            )
+            subprocess.run(
+                ["gh", "issue", "edit", str(issue_number), "--repo", repo, "--add-label", "boss-stuck"],
+                capture_output=True, timeout=15,
+            )
+        except Exception:
+            pass
 
     def _maybe_publish_deliverable(
         self,
