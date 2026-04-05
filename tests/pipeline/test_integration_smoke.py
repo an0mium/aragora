@@ -199,6 +199,26 @@ class TestAsyncPipelineRun:
             or "failed" in event_types
         )
 
+    @pytest.mark.asyncio
+    async def test_async_run_dry_run_skips_outcome_recording(self):
+        """dry_run previews should not persist cross-session learning side effects."""
+        from aragora.pipeline.idea_to_execution import (
+            IdeaToExecutionPipeline,
+            PipelineConfig,
+        )
+
+        pipeline = IdeaToExecutionPipeline()
+        config = PipelineConfig(
+            dry_run=True,
+            stages_to_run=["ideation"],
+            enable_receipts=False,
+        )
+
+        with patch.object(pipeline, "_record_pipeline_outcome") as record_outcome:
+            await pipeline.run("Test dry run", config=config)
+
+        record_outcome.assert_not_called()
+
 
 class TestPipelineStreamEmitter:
     """Test the WebSocket stream emitter for pipeline events."""

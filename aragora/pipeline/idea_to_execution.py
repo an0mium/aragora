@@ -1780,8 +1780,9 @@ class IdeaToExecutionPipeline:
                 except (RuntimeError, ValueError, OSError) as exc:
                     logger.warning("Pipeline %s: KM persistence failed: %s", pipeline_id, exc)
 
-            # Record outcome for cross-session learning
-            self._record_pipeline_outcome(result)
+            # Dry runs are previews and should not enqueue cross-session side effects.
+            if not cfg.dry_run:
+                self._record_pipeline_outcome(result)
 
             result.duration = time.monotonic() - start_time
             self._emit(
@@ -1813,8 +1814,9 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate(f"pipeline.{event_type}", f"pipeline_id={pipeline_id}")
-            # Record outcome so MetaPlanner can learn from failures/cancellations
-            self._record_pipeline_outcome(result)
+            # Keep dry-run previews side-effect free even when they fail/cancel.
+            if not cfg.dry_run:
+                self._record_pipeline_outcome(result)
 
             # Re-raise cancellation so callers can handle it; swallow others
             if is_cancelled:
