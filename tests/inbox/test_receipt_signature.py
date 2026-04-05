@@ -129,3 +129,63 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_full_lifecycle_create_sign_verify_tamper_detect(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        """End-to-end lifecycle: create receipt, sign, verify, tamper, detect."""
+        # 1. Sign the receipt
+        signed = signer.sign(sample_receipt)
+        assert isinstance(signed, SignedReceipt)
+        assert signed.receipt_data == sample_receipt
+
+        # 2. Verify the valid signature
+        assert signer.verify(signed) is True
+
+        # 3. Roundtrip through JSON serialization
+        json_str = signed.to_json()
+        restored = SignedReceipt.from_json(json_str)
+        assert signer.verify(restored) is True
+
+        # 4. Tamper with restored copy and confirm detection
+        restored.receipt_data["decision"] = "deny"
+        assert signer.verify(restored) is False
+
+        # 5. Original signed receipt is still valid (independent copy)
+        assert signer.verify(signed) is True
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """verify_dict accepts a plain dict and validates correctly."""
+        signed = signer.sign(sample_receipt)
+        as_dict = signed.to_dict()
+
+        assert signer.verify_dict(as_dict) is True
+
+        # Tamper via dict and re-check
+        as_dict["receipt"]["decision"] = "reject"
+        assert signer.verify_dict(as_dict) is False
+
+    def test_sign_does_not_mutate_input(self, signer: ReceiptSigner) -> None:
+        """Signing should not alter the original receipt dict."""
+        original = {"id": "rcpt-mut", "value": 42}
+        snapshot = copy.deepcopy(original)
+
+        signer.sign(original)
+        assert original == snapshot
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        """An empty dict can still be signed and verified."""
+        signed = signer.sign({})
+        assert signer.verify(signed) is True
+
+        signed.receipt_data["x"] = 1
+        assert signer.verify(signed) is False
+
+    def test_metadata_has_timestamp_and_key_id(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        meta = signed.signature_metadata
+        assert meta.timestamp  # non-empty ISO string
+        assert meta.key_id.startswith("durable-")
+        assert meta.version == "1.0"
