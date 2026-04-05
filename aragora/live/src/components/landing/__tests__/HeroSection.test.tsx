@@ -92,6 +92,7 @@ describe('HeroSection', () => {
     jest.clearAllMocks();
     mockBackendConfig.api = 'http://localhost:8080';
     Element.prototype.scrollIntoView = jest.fn();
+    window.sessionStorage.clear();
   });
 
   describe('initial render', () => {
@@ -368,6 +369,8 @@ describe('HeroSection', () => {
       await waitFor(() => {
         expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /view full debate/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /log in to save/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /sign up free/i })).toBeInTheDocument();
       });
 
       expect(mockCompactDebateResult).toHaveBeenCalledWith(
@@ -381,6 +384,88 @@ describe('HeroSection', () => {
         }),
       );
       expect(screen.getByRole('button', { name: /try another/i })).toBeInTheDocument();
+      expect(screen.getByText(/keep this debate and continue from the full transcript/i)).toBeInTheDocument();
+    });
+
+    it('stores the result before routing to auth from the post-debate CTAs', async () => {
+      const user = userEvent.setup();
+      const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.includes('/api/v1/playground/landing/assess')) {
+          return createResponse({
+            type: 'proceed',
+            option: {
+              id: 'direct',
+              label: 'Direct debate',
+              description: 'Run the question as written.',
+              originalQuestion: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              interpretedQuestion: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              debatePrompt: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+              agents: 3,
+              rounds: 2,
+            },
+          });
+        }
+        if (url.includes('/api/v1/playground/landing/events')) {
+          return createResponse({});
+        }
+        if (url.includes('/api/v1/playground/debate')) {
+          return createResponse({
+            id: 'debate-123',
+            topic: 'Can I microwave frozen chicken nuggets for my 4-year-old?',
+            status: 'completed',
+            rounds_used: 1,
+            consensus_reached: false,
+            confidence: 0.7,
+            verdict: 'needs_review',
+            duration_seconds: 8,
+            participants: ['gpt', 'claude', 'grok'],
+            proposals: { gpt: 'Yes, if heated safely.' },
+            critiques: [],
+            votes: [],
+            dissenting_views: [],
+            final_answer: 'Yes, if heated safely.',
+            receipt: null,
+            receipt_hash: null,
+            result_mode: 'preview',
+          });
+        }
+        return createResponse({});
+      });
+      global.fetch = fetchMock as typeof fetch;
+      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+      render(<HeroSection />);
+
+      await user.type(
+        screen.getByRole('textbox'),
+        'Can I microwave frozen chicken nuggets for my 4-year-old?'
+      );
+      await user.click(screen.getByRole('button', { name: /start debate/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /log in to save/i })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /log in to save/i }));
+
+      expect(setItemSpy).toHaveBeenCalledWith(
+        'pending_debate',
+        expect.stringContaining('"id":"debate-123"'),
+      );
+      expect(setItemSpy).toHaveBeenCalledWith('return_url', '/debates/debate-123');
+      expect(mockPush).toHaveBeenLastCalledWith('/login');
+
+      await user.click(screen.getByRole('button', { name: /sign up free/i }));
+
+      expect(setItemSpy).toHaveBeenCalledWith(
+        'pending_debate',
+        expect.stringContaining('"id":"debate-123"'),
+      );
+      expect(setItemSpy).toHaveBeenCalledWith('return_url', '/debates/debate-123');
+      expect(mockPush).toHaveBeenLastCalledWith('/signup');
+
+      setItemSpy.mockRestore();
     });
   });
 });

@@ -1243,7 +1243,7 @@ class BossLoop:
 
     @staticmethod
     def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
-        """Label an issue as boss-stuck with an explanatory comment."""
+        """Label an issue as boss-stuck, remove boss-ready, and comment."""
         import subprocess
 
         try:
@@ -1252,17 +1252,10 @@ class BossLoop:
                 capture_output=True,
                 timeout=15,
             )
+            # Add boss-stuck AND remove boss-ready — an issue should never be both
             subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(issue_number),
-                    "--repo",
-                    repo,
-                    "--add-label",
-                    "boss-stuck",
-                ],
+                ["gh", "issue", "edit", str(issue_number), "--repo", repo,
+                 "--add-label", "boss-stuck", "--remove-label", "boss-ready"],
                 capture_output=True,
                 timeout=15,
             )

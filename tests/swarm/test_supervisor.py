@@ -4816,6 +4816,11 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
                 "merge_gate": {"checks_passed": True},
                 "pr_url": "https://github.com/synaptent/aragora/pull/9999",
                 "verification_missing_reason": "missing_verification_plan",
+                "resource_error": "stale resource shortage",
+                "conflicts": [{"path": "aragora/swarm/reconciler.py"}],
+                "pid": 4242,
+                "initial_head": "base123",
+                "dispatched_at": "2026-04-02T00:00:00+00:00",
                 "failure_reason": "worker_crash",
                 "blocking_question": "Old blocker?",
                 "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
@@ -4849,6 +4854,11 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
         "merge_gate",
         "pr_url",
         "verification_missing_reason",
+        "resource_error",
+        "conflicts",
+        "pid",
+        "initial_head",
+        "dispatched_at",
         "failure_reason",
         "blocking_question",
         "blocker",
@@ -7137,6 +7147,34 @@ def test_refresh_run_rehabilitates_validation_marker_crash_lane(
     )
     marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
 
+    lease = store.claim_lease(
+        task_id="micro-task-2",
+        title="Run validation and fix failures",
+        owner_agent="claude",
+        owner_session_id="swarm-rehab-micro-2",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["tests/webhooks/test_retry_queue.py"],
+        expected_tests=["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+        metadata={"work_order_id": "micro-2"},
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="claude",
+        owner_session_id="swarm-rehab-micro-2",
+        branch="main",
+        worktree_path=str(repo),
+        base_sha=base_head,
+        head_sha=marker_head,
+        commit_shas=[marker_head],
+        changed_paths=[],
+        tests_run=[],
+        validations_run=[],
+        outcome="deliverable_created",
+        confidence=0.8,
+        metadata={"verification_results": []},
+    )
+
     supervisor = SwarmSupervisor(repo_root=repo, store=store)
     run_record = store.create_supervisor_run(
         goal="rehabilitate validation marker crash lane",
@@ -7182,8 +7220,8 @@ def test_refresh_run_rehabilitates_validation_marker_crash_lane(
                 "blockers": ["worker exited non-zero after producing a recoverable deliverable"],
                 "branch": "main",
                 "worktree_path": str(repo),
-                "receipt_id": "receipt-child",
-                "lease_id": "lease-child",
+                "receipt_id": receipt.receipt_id,
+                "lease_id": lease.lease_id,
                 "owner_session_id": "swarm-rehab-micro-2",
                 "completed_at": "2026-04-04T23:33:37.068860+00:00",
                 "exit_code": 1,
@@ -7206,11 +7244,17 @@ def test_refresh_run_rehabilitates_validation_marker_crash_lane(
         status="needs_human",
     )
 
+    store.update_lease_metadata(
+        lease.lease_id,
+        {"supervisor_run_id": run_record["run_id"], "work_order_id": "micro-2"},
+    )
+
     refreshed = supervisor.refresh_run(run_record["run_id"])
 
     dependent = next(
         item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
     )
+    refreshed_receipt = store.get_completion_receipt(receipt.receipt_id)
     assert refreshed.status == "completed"
     assert dependent["status"] == "completed"
     assert dependent["review_status"] == "pending_heterogeneous_review"
@@ -7221,7 +7265,17 @@ def test_refresh_run_rehabilitates_validation_marker_crash_lane(
     assert dependent["merge_gate"]["checks_passed"] is True
     assert dependent["verification_results"][0]["inferred_from"] == "validation_marker_commit"
     assert dependent["metadata"]["validation_marker_original_exit_code"] == 1
-    assert dependent["receipt_id"] == "receipt-child"
+    assert dependent["receipt_id"] == receipt.receipt_id
+    assert refreshed_receipt is not None
+    assert refreshed_receipt.tests_run == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert refreshed_receipt.validations_run == [
+        "python -m pytest tests/webhooks/test_retry_queue.py -q"
+    ]
+    assert refreshed_receipt.metadata["verification_replayed"] is True
+    assert (
+        refreshed_receipt.metadata["verification_results"][0]["inferred_from"]
+        == "validation_marker_commit"
+    )
     assert "failure_reason" not in dependent
     assert "blocking_question" not in dependent
     assert "blocker" not in dependent

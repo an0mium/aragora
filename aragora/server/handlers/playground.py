@@ -38,6 +38,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from aragora.agents.errors import AgentError
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -3180,7 +3181,14 @@ class PlaygroundHandler(BaseHandler):
 
         try:
             return self._call_frontier_model(prompt, timeout=5.0)
-        except (TimeoutError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
+        except (
+            AgentError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ConnectionError,
+            ValueError,
+        ) as exc:
             logger.debug("TL;DR synthesis failed, using fallback: %s", exc)
 
         # Fallback: extract first sentence from fallback_text

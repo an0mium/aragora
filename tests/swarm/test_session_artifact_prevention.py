@@ -140,14 +140,19 @@ class TestStripSessionArtifacts:
 class TestWorkerPromptNoGitAddAll:
     """Verify the worker prompt no longer instructs git add -A."""
 
-    def test_prompt_does_not_instruct_git_add_all(self) -> None:
-        """Prompt must not tell the worker to USE git add -A (warning against it is fine)."""
-        work_order = {
+    @staticmethod
+    def _codex_work_order() -> dict[str, object]:
+        return {
             "title": "Test task",
             "description": "Do something",
             "file_scope": [],
             "metadata": {},
+            "target_agent": "codex",
         }
+
+    def test_prompt_does_not_instruct_git_add_all(self) -> None:
+        """Prompt must not tell the worker to USE git add -A (warning against it is fine)."""
+        work_order = self._codex_work_order()
         prompt = WorkerLauncher._build_prompt(work_order)
         # Must not contain an affirmative instruction to use git add -A
         assert "Stage all changed files with `git add -A`" not in prompt
@@ -155,15 +160,21 @@ class TestWorkerPromptNoGitAddAll:
         assert "Do NOT use `git add -A`" in prompt
 
     def test_prompt_instructs_explicit_staging(self) -> None:
-        work_order = {
-            "title": "Test task",
-            "description": "Do something",
-            "file_scope": [],
-            "metadata": {},
-        }
+        work_order = self._codex_work_order()
         prompt = WorkerLauncher._build_prompt(work_order)
         assert "git add <file>" in prompt
         assert "session metadata files must not be committed" in prompt
+
+    def test_prompt_requires_tty_for_long_lived_exec_sessions(self) -> None:
+        work_order = self._codex_work_order()
+        prompt = WorkerLauncher._build_prompt(work_order)
+        assert "launch it with `tty=true`" in prompt
+        assert "Use non-tty `exec_command` only for one-shot commands" in prompt
+
+    def test_prompt_prefers_python3_for_ad_hoc_probes(self) -> None:
+        work_order = self._codex_work_order()
+        prompt = WorkerLauncher._build_prompt(work_order)
+        assert "prefer `python3` over `python`" in prompt
 
 
 # ---------------------------------------------------------------------------

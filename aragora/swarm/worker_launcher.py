@@ -823,6 +823,13 @@ class WorkerLauncher:
                 'git commit -m "..."` BEFORE running any validation or tests.\n'
                 "  - Do not spend tokens on exploration after code is written — commit first, "
                 "then validate if budget remains.\n"
+                "  - If you start a long-running `exec_command` that you plan to poll or follow "
+                "with `write_stdin`, launch it with `tty=true`; otherwise stdin will be closed "
+                "and the session can wedge.\n"
+                "  - Use non-tty `exec_command` only for one-shot commands where you do not need "
+                "to send more input later.\n"
+                "  - For ad hoc interpreter probes and timeout-wrapped scripts, prefer `python3` "
+                "over `python`; on this repo `python` may resolve to a non-runtime shim.\n"
                 "  - Do not exit 0 with staged or unstaged changes remaining.\n"
                 "  - If validation is slow or fails, the commit still preserves your deliverable "
                 "with an honest commit message."
