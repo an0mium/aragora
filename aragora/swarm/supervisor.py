@@ -2403,6 +2403,12 @@ class SwarmSupervisor:
     ) -> bool:
         def _clear_stale_deliverable_state() -> None:
             for key in (
+                "dispatch_error",
+                "failure_reason",
+                "blocking_question",
+                "blocker",
+                "resource_error",
+                "conflicts",
                 "receipt_id",
                 "confidence",
                 "worker_outcome",
@@ -2424,6 +2430,7 @@ class SwarmSupervisor:
                 "scope_violation",
             ):
                 work_order.pop(key, None)
+            work_order.pop("blockers", None)
 
         if not self._is_safe_dependency_ref(str(session.path), dependency_ref):
             _clear_stale_deliverable_state()
@@ -3610,6 +3617,15 @@ class SwarmSupervisor:
             return
         if deliverable_present:
             failure_reason = "worker_crash_with_deliverable"
+            for key in (
+                "resource_error",
+                "conflicts",
+                "scope_violation",
+                "merge_gate",
+                "verification_missing_reason",
+            ):
+                item.pop(key, None)
+            item.pop("blockers", None)
             self._mark_needs_human(
                 item,
                 "worker exited non-zero after producing a recoverable deliverable",

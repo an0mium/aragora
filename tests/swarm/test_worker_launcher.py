@@ -2014,6 +2014,85 @@ class TestCollectDetachedResult:
         mock_cleanup.assert_called_once_with(str(tmp_path))
 
     @pytest.mark.asyncio
+    async def test_collects_when_active_lock_pid_is_dead_even_if_worker_pid_was_reused_without_session_meta(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-stale-worker-pid-no-meta",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert mock_running.call_args_list
+        assert all(call.args[0] in {24680, 13579} for call in mock_running.call_args_list)
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_prefers_pid_entry_when_lock_lists_ppid_first(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("ppid=13579\npid=24680\n", encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-ppid-first",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
     async def test_skips_session_meta_pid_fallback_when_disabled(self, tmp_path: Path):
         (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
 
@@ -2213,6 +2292,61 @@ class TestSnapshotProgress:
         assert snapshot["pid_alive"] is False
         assert mock_running.call_args_list
         assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_uses_active_lock_pid_when_session_meta_missing_and_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert all(call.args[0] in {24680, 13579} for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_prefers_pid_entry_when_lock_lists_ppid_first(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("ppid=13579\npid=24680\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert mock_running.call_args_list[0].args == (24680,)
 
     @pytest.mark.asyncio
     async def test_includes_log_tails(self, tmp_path: Path):

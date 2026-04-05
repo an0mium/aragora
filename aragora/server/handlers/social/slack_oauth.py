@@ -175,6 +175,21 @@ def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
         _oauth_states_fallback.pop(state, None)
 
 
+def _parse_expires_in(raw_value: Any) -> int | None:
+    """Parse Slack expires_in while rejecting malformed values."""
+    if raw_value is None or raw_value == "":
+        return None
+    if isinstance(raw_value, bool):
+        raise ValueError("expires_in must be an integer number of seconds")
+    try:
+        expires_in = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("expires_in must be an integer number of seconds") from exc
+    if expires_in < 0:
+        raise ValueError("expires_in must be non-negative")
+    return expires_in
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1154,6 +1169,10 @@ class SlackOAuthHandler(SecureHandler):
             logger.error("[%s] Slack token exchange failed: %s", request_id, e)
             return error_response("Token exchange failed", 500)
 
+        if not isinstance(data, dict):
+            logger.error("[%s] Slack token exchange returned non-dict payload", request_id)
+            return error_response("Invalid response from Slack", 500)
+
         if not data.get("ok"):
             error_msg = data.get("error", "Unknown error")
             logger.error("Slack OAuth failed: %s", error_msg)
@@ -1176,10 +1195,12 @@ class SlackOAuthHandler(SecureHandler):
 
         # Extract token refresh data (if available)
         refresh_token = data.get("refresh_token")
-        expires_in = data.get("expires_in")  # Seconds until expiration
-        token_expires_at = None
-        if expires_in:
-            token_expires_at = time.time() + expires_in
+        try:
+            expires_in = _parse_expires_in(data.get("expires_in"))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned invalid expires_in", request_id)
+            return error_response("Invalid response from Slack", 500)
+        token_expires_at = time.time() + expires_in if expires_in is not None else None
 
         workspace_id = str(
             team.get("id")
@@ -1693,6 +1714,21 @@ class SlackOAuthHandler(SecureHandler):
                 logger.warning("Handler error: %s", e)
                 return error_response("Token refresh failed", 502)
 
+            if not isinstance(data, dict):
+                logger.error(
+                    "Token refresh returned non-dict payload for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed payload",
+                    )
+                return error_response("Invalid token refresh response", 502)
+
             if not data.get("ok"):
                 error_msg = data.get("error", "Unknown error")
                 logger.error("Token refresh failed for %s: %s", workspace_id, error_msg)
@@ -1763,8 +1799,20 @@ class SlackOAuthHandler(SecureHandler):
             new_refresh_token = data.get("refresh_token")
             if not str(new_refresh_token or "").strip():
                 new_refresh_token = workspace.refresh_token
-            expires_in = data.get("expires_in")
-            new_expires_at = time.time() + expires_in if expires_in else None
+            try:
+                expires_in = _parse_expires_in(data.get("expires_in"))
+            except ValueError:
+                logger.error("Token refresh returned invalid expires_in for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed expires_in",
+                    )
+                return error_response("Invalid token refresh response", 502)
+            new_expires_at = time.time() + expires_in if expires_in is not None else None
 
             workspace.access_token = new_access_token
             workspace.refresh_token = new_refresh_token

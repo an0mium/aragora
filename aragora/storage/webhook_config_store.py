@@ -718,11 +718,13 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             params.append(webhook_id)
 
             conn = self._get_conn()
-            conn.execute(
+            cursor = conn.execute(
                 f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()
+            if cursor.rowcount <= 0:
+                return None
             webhook.updated_at = now
 
         return webhook

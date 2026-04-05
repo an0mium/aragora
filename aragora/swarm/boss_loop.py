@@ -1083,12 +1083,14 @@ class BossLoop:
         # Guard: cap decomposition depth to prevent runaway recursion.
         # Each decomposition adds a "[from #N]" prefix — count nesting depth.
         import re
+
         depth_markers = re.findall(r"\[from #\d+\]", issue.title)
         decomposition_depth = len(depth_markers)
         max_decomposition_depth = 3
         if decomposition_depth >= max_decomposition_depth:
             self._label_boss_stuck(
-                issue_number, repo,
+                issue_number,
+                repo,
                 f"Decomposition depth {decomposition_depth} reached limit of "
                 f"{max_decomposition_depth}. Needs manual attention.",
             )
@@ -1098,10 +1100,26 @@ class BossLoop:
         existing_titles: set[str] = set()
         try:
             proc = subprocess.run(
-                ["gh", "issue", "list", "--repo", repo, "--label", "boss-ready",
-                 "--state", "open", "--limit", "100", "--json", "title",
-                 "--jq", ".[].title"],
-                capture_output=True, text=True, timeout=15,
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--label",
+                    "boss-ready",
+                    "--state",
+                    "open",
+                    "--limit",
+                    "100",
+                    "--json",
+                    "title",
+                    "--jq",
+                    ".[].title",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if proc.returncode == 0:
                 existing_titles = {
@@ -1208,10 +1226,20 @@ class BossLoop:
 
     @staticmethod
     def _extract_file_scope_hints(body: str) -> list[str]:
-        """Extract file paths from an issue body."""
+        """Extract file paths from an issue body.
+
+        Handles backtick-wrapped paths and strips escaped backticks from
+        GitHub markdown rendering.
+        """
         import re
 
-        return re.findall(r"`((?:aragora|tests)/[a-zA-Z0-9_/.-]+\.py)`", body)
+        # Strip escaped backticks that GitHub API sometimes returns
+        cleaned = body.replace("\\`", "`")
+        # Match paths starting with known top-level directories
+        return re.findall(
+            r"`((?:aragora|tests|scripts|docs|docs-site|sdk|contracts)/[a-zA-Z0-9_/.*-]+(?:\.\w+)?)`",
+            cleaned,
+        )
 
     @staticmethod
     def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
@@ -1221,11 +1249,22 @@ class BossLoop:
         try:
             subprocess.run(
                 ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True, timeout=15,
+                capture_output=True,
+                timeout=15,
             )
             subprocess.run(
-                ["gh", "issue", "edit", str(issue_number), "--repo", repo, "--add-label", "boss-stuck"],
-                capture_output=True, timeout=15,
+                [
+                    "gh",
+                    "issue",
+                    "edit",
+                    str(issue_number),
+                    "--repo",
+                    repo,
+                    "--add-label",
+                    "boss-stuck",
+                ],
+                capture_output=True,
+                timeout=15,
             )
         except Exception:
             pass
