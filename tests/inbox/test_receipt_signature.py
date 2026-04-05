@@ -129,3 +129,72 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_full_lifecycle_end_to_end(self, tmp_path: object) -> None:
+        """Comprehensive end-to-end: create receipt, sign, verify, tamper, detect."""
+        # 1. Create a realistic receipt
+        receipt = {
+            "receipt_id": "rcpt-e2e-001",
+            "decision": "approve",
+            "topic": "API rate limiter design",
+            "consensus_score": 0.92,
+            "agents": ["claude", "gpt-4", "gemini"],
+            "metadata": {"rounds": 3, "duration_s": 45.2},
+        }
+
+        # 2. Sign using DurableFileSigner
+        key_path = os.path.join(str(tmp_path), "e2e.key")
+        backend = DurableFileSigner(key_path=key_path)
+        signer = ReceiptSigner(backend=backend)
+        signed = signer.sign(
+            receipt,
+            signatory=SignatoryInfo(name="Bot", email="bot@test.com", role="Auditor"),
+        )
+
+        # 3. Verify valid signature
+        assert isinstance(signed, SignedReceipt)
+        assert signed.signature_metadata.algorithm == "HMAC-SHA256"
+        assert signed.signature_metadata.signatory.name == "Bot"
+        assert signed.signature_metadata.timestamp  # non-empty
+        assert signer.verify(signed)
+
+        # 4. JSON roundtrip preserves validity
+        restored = SignedReceipt.from_json(signed.to_json())
+        assert signer.verify(restored)
+
+        # 5. Tamper with nested data and detect
+        tampered = SignedReceipt.from_json(signed.to_json())
+        tampered.receipt_data["metadata"]["rounds"] = 999
+        assert not signer.verify(tampered)
+
+        # 6. Tamper with agent list ordering
+        tampered2 = SignedReceipt.from_json(signed.to_json())
+        tampered2.receipt_data["agents"] = ["gemini", "gpt-4", "claude"]
+        assert not signer.verify(tampered2)
+
+        # 7. Re-verify original is still valid
+        assert signer.verify(signed)
+
+    def test_verify_dict_method(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+        # Tamper via dict and verify_dict detects it
+        d = signed.to_dict()
+        d["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(d)
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+        signed.receipt_data["new_key"] = "injected"
+        assert not signer.verify(signed)
+
+    def test_multiple_signs_independent(self, signer: ReceiptSigner) -> None:
+        r1 = signer.sign({"id": "a"})
+        r2 = signer.sign({"id": "b"})
+
+        assert signer.verify(r1)
+        assert signer.verify(r2)
+        assert r1.signature != r2.signature
