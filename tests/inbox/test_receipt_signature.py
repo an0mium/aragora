@@ -129,3 +129,57 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_full_lifecycle_durable_file_signer(self, tmp_path: object) -> None:
+        """End-to-end: create receipt, sign, verify, serialize, tamper, detect."""
+        key_path = os.path.join(str(tmp_path), "lifecycle.key")
+        backend = DurableFileSigner(key_path=key_path)
+        signer = ReceiptSigner(backend=backend)
+
+        receipt = {
+            "receipt_id": "rcpt-lifecycle",
+            "decision": "approve",
+            "confidence": 0.95,
+            "agents": ["claude", "gpt-4"],
+        }
+
+        # Sign and verify
+        signed = signer.sign(
+            receipt,
+            signatory=SignatoryInfo(
+                name="Bot",
+                email="bot@example.com",
+                role="Auditor",
+            ),
+        )
+        assert signer.verify(signed)
+        assert signed.signature_metadata.algorithm == "HMAC-SHA256"
+        assert signed.signature_metadata.signatory.role == "Auditor"
+
+        # JSON round-trip
+        restored = SignedReceipt.from_json(signed.to_json())
+        assert signer.verify(restored)
+
+        # Dict-based verify
+        assert signer.verify_dict(signed.to_dict())
+
+        # Key durability — new instance, same key file
+        signer2 = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        assert signer2.verify(signed)
+
+        # Tamper detection on deep-copied receipt
+        tampered = SignedReceipt.from_json(signed.to_json())
+        tampered.receipt_data["decision"] = "reject"
+        assert not signer.verify(tampered)
+
+    def test_verify_dict_detects_tamper(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        d = signed.to_dict()
+        d["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(d)
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+        signed.receipt_data["x"] = 1
+        assert not signer.verify(signed)
