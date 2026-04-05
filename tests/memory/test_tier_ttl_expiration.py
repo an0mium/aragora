@@ -13,7 +13,7 @@ from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier, TierMa
 class _Clock(datetime):
     @classmethod
     def now(cls, tz=None):
-        return datetime.fromtimestamp(time.time(), tz)
+        return datetime.utcfromtimestamp(time.time())
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def _set_updated_at(cms, memory_id, timestamp):
     with cms.connection() as conn:
         conn.execute(
             "UPDATE continuum_memory SET updated_at = ? WHERE id = ?",
-            (datetime.fromtimestamp(timestamp).isoformat(), memory_id),
+            (datetime.utcfromtimestamp(timestamp).isoformat(), memory_id),
         )
         conn.commit()
 
