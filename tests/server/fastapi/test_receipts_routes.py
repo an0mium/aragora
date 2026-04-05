@@ -401,6 +401,15 @@ class TestExportReceipt:
         assert data["format"] == "markdown"
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_markdown_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw mode returns markdown bytes for the live download surfaces."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=md&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/markdown")
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_md_alias_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt accepts the legacy md alias used by the live UI."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -422,6 +431,16 @@ class TestExportReceipt:
         assert "<!DOCTYPE html>" in data["content"]
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_html_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw HTML mode returns an inline document for onboarding receipt links."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=html&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert "<!DOCTYPE html>" in response.text
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_sarif_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt in SARIF format."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -434,6 +453,50 @@ class TestExportReceipt:
 
         sarif = json.loads(data["content"])
         assert sarif["version"] == "2.1.0"
+
+    def test_export_receipt_json_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw JSON mode serves the receipt body directly for file downloads."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=json&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["receipt_id"] == "rcpt_test123"
+
+    def test_export_receipt_pdf_format_returns_pdf_bytes(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """PDF export should return raw bytes for browser/download flows."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.return_value = b"%PDF-1.4..."
+
+        with patch("aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/pdf")
+        assert response.content == b"%PDF-1.4..."
+
+    def test_export_receipt_pdf_fallback_returns_printable_html(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """When PDF generation is unavailable, export falls back to printable HTML."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
+        mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
+
+        with patch("aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["x-pdf-fallback"] == "true"
+        assert "PDF export is unavailable" in response.text
+        assert "Receipt Content" in response.text
 
     def test_export_receipt_from_stored_receipt_uses_full_payload(
         self, client, mock_receipt_store, sample_stored_receipt
