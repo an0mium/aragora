@@ -17,6 +17,7 @@ Run with: pytest tests/e2e/test_user_journey.py -v --timeout=60
 
 from __future__ import annotations
 
+import os
 import hashlib
 from dataclasses import dataclass
 from typing import Any
@@ -24,10 +25,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "0")
+
+from aragora.config.secrets import reset_secret_manager
 from aragora.core import Agent, Critique, Environment, Message, Vote
 from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import DebateProtocol
 from aragora.gauntlet.receipt import DecisionReceipt
+
+reset_secret_manager()
 
 pytestmark = [pytest.mark.e2e, pytest.mark.smoke]
 
@@ -129,6 +135,11 @@ def journey_protocol() -> DebateProtocol:
         enable_calibration=False,
         enable_rhetorical_observer=False,
         enable_trickster=False,
+        enable_research=False,
+        enable_evidence_collection=False,
+        enable_trending_injection=False,
+        enable_llm_question_classification=False,
+        enable_llm_synthesis=False,
     )
 
 

@@ -794,6 +794,7 @@ async def _run_live_debate(
         vote_grouping=False,
         enable_trickster=False,
         enable_research=False,
+        enable_evidence_collection=False,
         enable_trending_injection=False,
         enable_llm_question_classification=False,
         enable_llm_synthesis=False,

@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-03-23
+Last updated: 2026-04-05
 
 This document links Aragora's current execution program to the live GitHub issue tracker.
 
@@ -23,7 +23,7 @@ The repo moved forward materially on March 21-23:
   python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
   ```
 
-  Result on March 23, 2026: `57 passed`
+  Result on April 5, 2026: `80 passed in 3.16s`
 
 That is enough to say the structural PMF slices are present.
 It is **not** enough to say the live PMF loop is proven for external users.

@@ -615,6 +615,7 @@ class TestCmdQuickstart:
         assert protocol.vote_grouping is False
         assert protocol.enable_trickster is False
         assert protocol.enable_research is False
+        assert protocol.enable_evidence_collection is False
         assert protocol.enable_trending_injection is False
         assert protocol.enable_llm_question_classification is False
         assert protocol.enable_llm_synthesis is False

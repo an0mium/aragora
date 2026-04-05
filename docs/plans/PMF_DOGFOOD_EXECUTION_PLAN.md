@@ -1,6 +1,6 @@
 # PMF Dogfood Execution Plan
 
-Last updated: 2026-03-25
+Last updated: 2026-04-05
 
 This is the bounded operator plan for using Aragora to finish Aragora's PMF-critical product loop.
 
@@ -134,9 +134,7 @@ Current focused proof on `main`:
 python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
 ```
 
-Result on March 24, 2026: `71 passed` in `34.2s`.
-
-Extended suite: `125 passed` in `35.1s`.
+Result on April 5, 2026: `80 passed` in `3.16s`.
 
 Live founder loop: **5/5 consecutive runs pass** (35-62s range).
 

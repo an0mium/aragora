@@ -128,6 +128,16 @@ class TestDebateProtocolDefaults:
         protocol = DebateProtocol()
         assert protocol.enable_trickster is True
 
+    def test_default_evidence_collection(self):
+        """Default keeps evidence collection enabled."""
+        protocol = DebateProtocol()
+        assert protocol.enable_evidence_collection is True
+
+    def test_evidence_collection_can_be_disabled(self):
+        """Protocol accepts the evidence collection flag."""
+        protocol = DebateProtocol(enable_evidence_collection=False)
+        assert protocol.enable_evidence_collection is False
+
     def test_default_breakpoints(self):
         """Default has breakpoints enabled."""
         protocol = DebateProtocol()

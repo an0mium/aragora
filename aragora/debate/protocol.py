@@ -317,6 +317,7 @@ class DebateProtocol:
 
     # Pre-debate web research
     enable_research: bool = True  # Enable web research before debates
+    enable_evidence_collection: bool = True  # Enable evidence collection sidecars before debates
 
     # Cognitive role rotation (Heavy3-inspired)
     # Assigns different cognitive roles (Analyst, Skeptic, Lateral Thinker, Synthesizer)
