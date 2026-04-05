@@ -129,3 +129,60 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_full_lifecycle_create_sign_verify_tamper_detect(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        """End-to-end: create receipt, sign, verify, tamper, detect tampering."""
+        # 1. Sign the receipt
+        signed = signer.sign(sample_receipt)
+        assert isinstance(signed, SignedReceipt)
+        assert signed.receipt_data == sample_receipt
+
+        # 2. Verify valid signature
+        assert signer.verify(signed)
+
+        # 3. Roundtrip through JSON serialization
+        restored = SignedReceipt.from_json(signed.to_json())
+        assert signer.verify(restored)
+
+        # 4. Tamper with data and confirm detection
+        tampered = SignedReceipt.from_json(signed.to_json())
+        tampered.receipt_data["decision"] = "reject"
+        assert not signer.verify(tampered)
+
+        # 5. Original is still valid after tampering a copy
+        assert signer.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+        # Tamper via dict
+        d = signed.to_dict()
+        d["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(d)
+
+    def test_nested_data_tamper_detected(self, signer: ReceiptSigner) -> None:
+        receipt = {"id": "rcpt-nested", "meta": {"priority": "high", "tags": ["a", "b"]}}
+        signed = signer.sign(receipt)
+        assert signer.verify(signed)
+
+        signed.receipt_data["meta"]["priority"] = "low"
+        assert not signer.verify(signed)
+
+    def test_empty_receipt_signs_and_verifies(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+        signed.receipt_data["injected"] = True
+        assert not signer.verify(signed)
+
+    def test_signature_metadata_has_timestamp(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        ts = signed.signature_metadata.timestamp
+        assert ts  # non-empty
+        # Should be ISO format with timezone
+        assert "T" in ts
