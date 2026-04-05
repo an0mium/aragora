@@ -668,6 +668,32 @@ class BossLoop:
                 return True
         return False
 
+    def _filter_mixed_retry_routing_batch(
+        self,
+        issues: list[GitHubIssue],
+    ) -> list[GitHubIssue]:
+        """Keep retry-routed work isolated from fresh issues in one batch.
+
+        A mixed batch forces `_requested_runner_type_for_freshness()` to widen
+        the runner pool for every selected issue. That is correct for retry
+        work, but it lets fresh issues piggy-back onto retry-specific routing.
+        When both kinds are present, dispatch only the retry-routed issues in
+        this iteration and leave fresh work for the next pass.
+        """
+        if len(issues) <= 1:
+            return issues
+
+        retry_routed: list[GitHubIssue] = []
+        fresh: list[GitHubIssue] = []
+        for issue in issues:
+            if self._selected_issues_need_retry_routing([issue]):
+                retry_routed.append(issue)
+            else:
+                fresh.append(issue)
+        if retry_routed and fresh:
+            return retry_routed
+        return issues
+
     def _requested_runner_type_for_freshness(
         self,
         selected_issues: list[GitHubIssue],
@@ -2281,6 +2307,7 @@ class BossLoop:
             limit=None,
             blocked_scopes=blocked_scopes,
         )
+        selected_issues = self._filter_mixed_retry_routing_batch(selected_issues)
 
         if not selected_issues:
             if self.config.issue_number is not None:

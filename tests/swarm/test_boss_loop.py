@@ -1434,6 +1434,83 @@ class TestBossLoop:
         assert dispatch_call["default_target_agent"] == "claude"
         assert dispatch_call["selected_runner"]["runner_type"] == "claude"
 
+    def test_batch_retry_issue_does_not_pull_fresh_issue_into_broadened_batch(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        retried_issue = _make_issue(42, "Retry-routed issue")
+        fresh_issue = _make_issue(99, "Fresh issue should wait")
+        feed.fetch.return_value = [retried_issue, fresh_issue]
+
+        freshness_requests: list[str | None] = []
+
+        def _freshness_checker(**kwargs):
+            freshness_requests.append(kwargs.get("requested_runner_type"))
+            return RunnerFreshnessResult(
+                fresh=True,
+                runner_ids=["claude-runner-1", "codex-runner-1"],
+                checked_at=datetime.now(UTC).isoformat(),
+                details={
+                    "routing": {
+                        "selected_runners": [
+                            {
+                                "runner_id": "claude-runner-1",
+                                "runner_type": "claude",
+                                "available_capacity": 1,
+                            },
+                            {
+                                "runner_id": "codex-runner-1",
+                                "runner_type": "codex",
+                                "available_capacity": 1,
+                            },
+                        ],
+                        "selected_runner_ids": ["claude-runner-1", "codex-runner-1"],
+                    }
+                },
+            )
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                max_parallel_dispatches=2,
+                default_target_agent="claude",
+                model_rotation=["claude", "codex"],
+            ),
+            issue_feed=feed,
+            freshness_checker=_freshness_checker,
+        )
+        loop._issue_attempt_counts[retried_issue.number] = 1
+
+        def _claim_runner(freshness, *, requested_target_agent=None):
+            runner_type = requested_target_agent or "claude"
+            return (
+                {
+                    "runner_id": f"{runner_type}-runner-1",
+                    "runner_type": runner_type,
+                },
+                f"{runner_type}-runner-1",
+            )
+
+        loop._claim_runner_for_dispatch = _claim_runner
+        loop._release_runner_claim = lambda runner_id: None
+
+        dispatch_results = AsyncMock(
+            return_value={
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "deliverable": {"type": "branch"},
+            }
+        )
+
+        with patch("aragora.swarm.boss_loop.dispatch_bounded_spec", dispatch_results):
+            result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert freshness_requests == [None]
+        assert dispatch_results.await_count == 1
+        dispatch_call = dispatch_results.await_args.kwargs
+        assert dispatch_call["default_target_agent"] == "codex"
+        assert dispatch_call["selected_runner"]["runner_type"] == "codex"
+        assert [item["number"] for item in result.issues_attempted] == [retried_issue.number]
+
     def test_retry_skips_maxed_issues(self):
         """Issues that have been attempted max_retries_per_issue times are skipped."""
         feed = MagicMock(spec=GitHubIssueFeed)
