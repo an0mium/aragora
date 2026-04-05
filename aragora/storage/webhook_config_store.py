@@ -1330,7 +1330,10 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 )
             if result == "UPDATE 0":
                 return None
-            webhook.updated_at = updated_at
+            durable = await self.get_async(webhook_id)
+            if durable is None:
+                return None
+            return durable
 
         return webhook
 
