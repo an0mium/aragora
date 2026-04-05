@@ -530,7 +530,7 @@ class UnifiedHandler(  # type: ignore[misc]
         self._response_status = 200
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Connection", "keep-alive")
         self.send_header("Vary", "Accept")
         self.send_header("X-Accel-Buffering", "no")

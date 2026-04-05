@@ -315,6 +315,7 @@ class TestHTTPDispatch:
         assert mock_request_handler.wfile.getvalue() == b"event: connected\ndata: {}\n\n"
         handler.send_response.assert_called_once_with(200)
         handler.send_header.assert_any_call("Content-Type", "text/event-stream")
+        handler.send_header.assert_any_call("Cache-Control", "no-cache, no-store, must-revalidate")
         handler.send_header.assert_any_call("X-Aragora-Stream-Transport", "sse_live")
 
     def test_serve_live_spectate_stream_keeps_private_events_for_debate_readers(
