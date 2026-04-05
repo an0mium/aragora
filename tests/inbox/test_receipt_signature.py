@@ -129,3 +129,61 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+
+class TestDurableFileSignerSecurity:
+    """Security-focused tests for DurableFileSigner key management."""
+
+    def test_key_file_created_with_restricted_permissions(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "secure.key")
+        DurableFileSigner(key_path=key_path)
+
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Key file should be 0600, got {oct(mode)}"
+
+    def test_key_file_not_empty(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "nonempty.key")
+        DurableFileSigner(key_path=key_path)
+
+        assert os.path.getsize(key_path) > 0
+
+    def test_stable_key_id_across_instances(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "stable.key")
+        s1 = DurableFileSigner(key_path=key_path)
+        s2 = DurableFileSigner(key_path=key_path)
+
+        assert s1.key_id == s2.key_id
+
+    def test_verify_dict_roundtrip(self, tmp_path: object) -> None:
+        key_path = os.path.join(str(tmp_path), "dict_rt.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        receipt = {"id": "r-42", "decision": "hold", "score": 0.5}
+
+        signed = signer.sign(receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+    def test_corrupted_key_file_uses_raw_bytes(self, tmp_path: object) -> None:
+        """If the key file contains non-hex bytes, DurableFileSigner falls back to raw."""
+        key_path = os.path.join(str(tmp_path), "raw.key")
+        raw_key = os.urandom(32)
+        with open(key_path, "wb") as f:
+            f.write(raw_key)
+
+        backend = DurableFileSigner(key_path=key_path)
+        signer = ReceiptSigner(backend=backend)
+        receipt = {"id": "r-raw", "ok": True}
+        signed = signer.sign(receipt)
+        assert signer.verify(signed)
+
+    def test_deep_copy_receipt_tamper_detected(self, tmp_path: object) -> None:
+        """Signing a deep copy and tampering the original should not affect verification."""
+        key_path = os.path.join(str(tmp_path), "dc.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        receipt = {"id": "r-dc", "items": [1, 2, 3]}
+
+        signed = signer.sign(copy.deepcopy(receipt))
+        assert signer.verify(signed)
+
+        # Tamper nested structure
+        signed.receipt_data["items"].append(4)
+        assert not signer.verify(signed)
