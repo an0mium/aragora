@@ -5,12 +5,11 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
+from aragora.agents.fallback import QuotaFallbackMixin
 
-class _QuotaPrimaryAgent:
+
+class _QuotaPrimaryAgent(QuotaFallbackMixin):
     def __init__(self):
-        from aragora.agents.fallback import QuotaFallbackMixin
-
-        self.__class__ = type("AnthropicQuotaStub", (QuotaFallbackMixin,), {})
         self.name = "anthropic-primary"
         self.model = "claude-opus-4-6"
         self.role = "proposer"
