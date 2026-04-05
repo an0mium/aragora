@@ -1306,10 +1306,12 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             params.append(webhook_id)
 
             async with self._pool.acquire() as conn:
-                await conn.execute(
+                result = await conn.execute(
                     f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                     *params,
                 )
+            if result == "UPDATE 0":
+                return None
             webhook.updated_at = updated_at
 
         return webhook

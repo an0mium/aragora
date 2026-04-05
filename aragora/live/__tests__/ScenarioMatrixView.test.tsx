@@ -139,7 +139,9 @@ describe('ScenarioMatrixView', () => {
       expect(screen.getAllByText('Baseline').length).toBeGreaterThan(0);
     });
 
-    const baselineToggle = screen.getByText('Baseline', { selector: 'span.text-sm.font-theme-data.text-text' });
+    const baselineToggle = screen.getByRole('button', {
+      name: /baseline\s+\(baseline\).*82% confidence/i,
+    });
     fireEvent.click(baselineToggle);
 
     expect(
@@ -186,8 +188,12 @@ describe('ScenarioMatrixView', () => {
       screen.getByText(/compare them/i)
     ).toBeInTheDocument();
 
-    const baselineCard = screen.getByText('Baseline', { selector: 'span.text-xs.font-theme-data' });
-    const enterpriseCard = screen.getByText('Enterprise', { selector: 'span.text-xs.font-theme-data' });
+    const baselineCard = screen.getByRole('gridcell', {
+      name: /baseline\s+\(baseline\): consensus reached,\s+82% confidence/i,
+    });
+    const enterpriseCard = screen.getByRole('gridcell', {
+      name: /enterprise: no consensus,\s+40% confidence/i,
+    });
 
     fireEvent.click(baselineCard);
     fireEvent.click(enterpriseCard);

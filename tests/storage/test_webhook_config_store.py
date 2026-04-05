@@ -1779,6 +1779,38 @@ class TestPostgresWebhookConfigStoreSyncWrappers:
         assert "updated_at = to_timestamp($2)" in query
         assert params == ["https://example.com/new", revised_at, "webhook-123"]
 
+    @pytest.mark.asyncio
+    async def test_update_async_returns_none_when_row_is_deleted_before_write(self) -> None:
+        """A concurrent delete must not surface a phantom successful Postgres update."""
+        conn = AsyncMock()
+        conn.execute.return_value = "UPDATE 0"
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        revised_at = 200.0
+
+        with (
+            patch.object(store, "get_async", AsyncMock(return_value=original)),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at),
+        ):
+            updated = await store.update_async("webhook-123", url="https://example.com/new")
+
+        assert updated is None
+        query, *params = conn.execute.await_args.args
+        assert "updated_at = to_timestamp($2)" in query
+        assert params == ["https://example.com/new", revised_at, "webhook-123"]
+
     def test_row_to_config_accepts_native_jsonb_sequence(self, postgres_store) -> None:
         """Postgres JSONB rows may already be decoded into Python sequences."""
         now = time.time()

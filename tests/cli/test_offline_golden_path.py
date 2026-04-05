@@ -29,10 +29,12 @@ def _stub_cmd_ask_global_side_effects(request):
         "test_cmd_ask_upgrades_output_to_good",
         "test_cmd_ask_cleans_shared_resources_on_debate_loop",
         "test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup",
+        "test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false",
         # CI on Python 3.11 surfaces loop/socket leaks in this path unless the
         # real cmd_ask cleanup coroutine runs on the active event loop.
         "test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output",
         "test_cmd_ask_quality_fail_closed_accepts_output_contract_file",
+        "test_cmd_ask_quality_retry_switches_models_after_timeout_and_low_quality",
     }
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
@@ -56,6 +58,13 @@ def _stub_cmd_ask_global_side_effects(request):
 def _collect_garbage_between_tests():
     """Force deferred loop/socket finalizers to surface in the test that created them."""
     yield
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
+    if loop is not None and not loop.is_closed():
+        loop.close()
+        asyncio.set_event_loop(None)
     gc.collect()
     gc.collect()
 
@@ -309,8 +318,11 @@ def test_cmd_ask_cleans_shared_resources_on_debate_loop(monkeypatch):
         loop_ids["run"] = id(asyncio.get_running_loop())
         return result
 
+    original_shutdown = debate_cmd._shutdown_cmd_ask_resources
+
     async def fake_shutdown() -> None:
         loop_ids["shutdown"] = id(asyncio.get_running_loop())
+        await original_shutdown()
 
     with (
         patch.object(debate_cmd, "run_debate", new=AsyncMock(side_effect=fake_run_debate)),
@@ -548,8 +560,11 @@ def test_cmd_ask_compare_mode_reuses_single_loop_for_cleanup(monkeypatch):
             rounds_used=1,
         )
 
+    original_shutdown = debate_cmd._shutdown_cmd_ask_resources
+
     async def _fake_shutdown() -> None:
         shutdown_loop_ids.append(id(asyncio.get_running_loop()))
+        await original_shutdown()
 
     with (
         patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
@@ -755,27 +770,8 @@ def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
     args.demo = False
     args.post_consensus_quality = False
 
-    async def _fake_run_with_cleanup(coro):
-        try:
-            return await coro
-        finally:
-            await asyncio.sleep(0)
-
-    async def _fake_shutdown() -> None:
-        await asyncio.sleep(0)
-
     with (
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate,
-        patch.object(
-            debate_cmd,
-            "_run_coro_with_cmd_ask_cleanup",
-            side_effect=_fake_run_with_cleanup,
-        ),
-        patch.object(
-            debate_cmd,
-            "_shutdown_cmd_ask_resources",
-            new=AsyncMock(side_effect=_fake_shutdown),
-        ),
         patch.object(debate_cmd, "_persist_debate_receipt", return_value=None),
     ):
         mock_result = MagicMock()
@@ -1237,29 +1233,10 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     def _no_timeout(_seconds: float):
         yield
 
-    async def _fake_run_with_cleanup(coro):
-        try:
-            return await coro
-        finally:
-            await asyncio.sleep(0)
-
-    async def _fake_shutdown() -> None:
-        await asyncio.sleep(0)
-
     with (
         patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
         patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
         patch.object(debate_cmd, "create_agent", return_value=repair_agent),
-        patch.object(
-            debate_cmd,
-            "_run_coro_with_cmd_ask_cleanup",
-            side_effect=_fake_run_with_cleanup,
-        ),
-        patch.object(
-            debate_cmd,
-            "_shutdown_cmd_ask_resources",
-            new=AsyncMock(side_effect=_fake_shutdown),
-        ),
     ):
         debate_cmd.cmd_ask(args)
 

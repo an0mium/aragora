@@ -48,6 +48,8 @@ from aragora.server.handlers.playground import (
     _LIVE_RATE_LIMIT,
     _LIVE_RATE_WINDOW,
 )
+from aragora.storage import debate_store as debate_store_module
+from aragora.storage.debate_store import DebateResultStore
 from aragora.storage.landing_review_store import (
     get_landing_review_store,
     reset_landing_review_store,
@@ -109,16 +111,22 @@ def handler():
 
 @pytest.fixture(autouse=True)
 def _clear_rate_limits(tmp_path, monkeypatch):
-    """Reset rate limit and landing review state before each test."""
+    """Reset public demo state before each test."""
     monkeypatch.setenv(
         "ARAGORA_LANDING_REVIEW_DB_PATH",
         str(tmp_path / "landing_review.sqlite3"),
+    )
+    monkeypatch.setattr(
+        debate_store_module,
+        "_store",
+        DebateResultStore(str(tmp_path / "debate_results.sqlite3")),
     )
     reset_landing_review_store()
     _reset_rate_limits()
     yield
     _reset_rate_limits()
     reset_landing_review_store()
+    debate_store_module._store = None
 
 
 # ============================================================================
