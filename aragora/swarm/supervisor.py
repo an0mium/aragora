@@ -4301,11 +4301,15 @@ class SwarmSupervisor:
         item["review_status"] = "pending"
         item["dispatch_error"] = str(reason)
         for key in (
+            "resource_error",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
             "completed_at",
             "exit_code",
+            "pid",
+            "initial_head",
             "head_sha",
             "commit_shas",
             "changed_paths",
@@ -4320,6 +4324,7 @@ class SwarmSupervisor:
             "pr_url",
             "adopted_pr",
             "scope_violation",
+            "dispatched_at",
             "failure_reason",
             "blocking_question",
             "blocker",

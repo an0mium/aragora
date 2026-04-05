@@ -1739,6 +1739,37 @@ class TestRunLiveDebate:
             assert "upgrade_cta" in body
             assert body["topic"] == "test topic"
 
+    def test_successful_live_debate_passes_generated_debate_id(self, handler):
+        mock_result = {
+            "status": "completed",
+            "rounds_used": 2,
+            "consensus_reached": True,
+            "confidence": 0.8,
+            "verdict": "approved",
+            "duration_seconds": 5.0,
+            "participants": ["anthropic", "openai"],
+            "proposals": {"anthropic": "A says...", "openai": "B says..."},
+            "critiques": [],
+            "votes": [],
+            "dissenting_views": [],
+            "final_answer": "Conclusion",
+        }
+        fake_uuid = MagicMock(hex="0123456789abcdef")
+        with (
+            patch("importlib.util.find_spec", return_value=True),
+            patch("aragora.server.handlers.playground.uuid.uuid4", return_value=fake_uuid),
+            patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                return_value=mock_result,
+            ) as mock_start,
+        ):
+            result = handler._run_live_debate("test topic", 2, 3)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["id"] == "playground_01234567"
+        assert mock_start.call_args.kwargs["debate_id"] == "playground_01234567"
+
 
 # ============================================================================
 # POST dispatch routing
@@ -1756,6 +1787,27 @@ class TestPostDispatch:
             mock_h = _MockHTTPHandler("POST", body={})
             result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             assert _status(result) == 200
+
+    def test_invalid_client_debate_id_is_dropped(self, handler):
+        from aragora.server.handlers.utils.responses import HandlerResult
+
+        invalid_id = "naïve-debate-id"
+        with patch.object(
+            handler,
+            "_run_debate",
+            return_value=HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=json.dumps({"ok": True}).encode(),
+            ),
+        ) as mock_run:
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={"topic": "AI Safety", "debate_id": invalid_id},
+            )
+            handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+
+        assert mock_run.call_args.kwargs["client_debate_id"] is None
 
     def test_cost_estimate_path_dispatches(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
