@@ -7,7 +7,6 @@ tampering detection to ensure data integrity violations are caught.
 from __future__ import annotations
 
 import copy
-import tempfile
 import os
 
 import pytest
@@ -50,6 +49,32 @@ class TestReceiptSignatureLifecycle:
         assert signed.signature  # non-empty
         assert signed.signature_metadata.algorithm == "HMAC-SHA256"
         assert signer.verify(signed)
+
+    def test_durable_signer_full_lifecycle_detects_tampering(
+        self, tmp_path: object, sample_receipt: dict
+    ) -> None:
+        key_path = os.path.join(str(tmp_path), "durable_signing.key")
+        signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+
+        signed = signer.sign(sample_receipt)
+        persisted = SignedReceipt.from_json(signed.to_json())
+        reloaded = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        tampered = copy.deepcopy(persisted)
+        tampered.receipt_data["decision"] = "reject"
+        other_signer = ReceiptSigner(
+            backend=DurableFileSigner(key_path=os.path.join(str(tmp_path), "other.key"))
+        )
+
+        assert os.path.isfile(key_path)
+        assert os.stat(key_path).st_mode & 0o777 == 0o600
+        assert signed.signature
+        assert signed.signature_metadata.algorithm == "HMAC-SHA256"
+        assert signed.signature_metadata.key_id.startswith("durable-")
+        assert signer.verify(signed)
+        assert reloaded.verify(persisted)
+        assert not reloaded.verify(tampered)
+        assert reloaded.verify(persisted)
+        assert not other_signer.verify(persisted)
 
     def test_tamper_receipt_data_detected(
         self, signer: ReceiptSigner, sample_receipt: dict
