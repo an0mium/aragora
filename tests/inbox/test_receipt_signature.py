@@ -129,3 +129,33 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """verify_dict should accept the dict form of a signed receipt."""
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+    def test_tamper_agents_list_detected(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """Mutating a nested list inside receipt data must invalidate signature."""
+        signed = signer.sign(sample_receipt)
+        signed.receipt_data["agents"].append("mallory")
+        assert not signer.verify(signed)
+
+    def test_empty_receipt_signs_and_verifies(self, signer: ReceiptSigner) -> None:
+        """An empty dict should still produce a valid signed receipt."""
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+    def test_key_file_permissions(self, tmp_path: object) -> None:
+        """DurableFileSigner must create key files with restrictive permissions."""
+        key_path = os.path.join(str(tmp_path), "perm_check.key")
+        DurableFileSigner(key_path=key_path)
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Key file permissions should be 0600, got {oct(mode)}"
+
+    def test_stable_key_id_across_instances(self, tmp_path: object) -> None:
+        """Two DurableFileSigner instances on the same key file get the same key_id."""
+        key_path = os.path.join(str(tmp_path), "stable_id.key")
+        a = DurableFileSigner(key_path=key_path)
+        b = DurableFileSigner(key_path=key_path)
+        assert a.key_id == b.key_id
