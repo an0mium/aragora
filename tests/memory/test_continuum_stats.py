@@ -469,6 +469,26 @@ class TestCleanupExpiredMemories:
         for tier_name, tier_data in result["by_tier"].items():
             assert "cutoff_hours" in tier_data
 
+    def test_cleanup_uses_updated_at_not_expires_at(self, memory):
+        """Test cleanup decisions are currently based on updated_at timestamps."""
+        expired_at = (datetime.now() - timedelta(days=1)).isoformat()
+
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO continuum_memory
+                   (id, tier, content, importance, updated_at, expires_at)
+                   VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)""",
+                ("expires_only", "fast", "Future content", 0.3, expired_at),
+            )
+            conn.commit()
+
+        result = cleanup_expired_memories(memory, tier=MemoryTier.FAST, max_age_hours=1)
+
+        assert result["deleted"] == 0
+        assert result["archived"] == 0
+        assert memory.get("expires_only") is not None
+
 
 # =============================================================================
 # Test delete_memory Function
@@ -801,6 +821,15 @@ class TestEdgeCases:
         # Check cutoff hours match expected
         # Fast tier has 1 hour half-life, so cutoff = 1 * 1.5 = 1.5 hours
         assert result["by_tier"]["fast"]["cutoff_hours"] == 1.5
+
+    def test_cleanup_default_cutoffs_match_tier_half_lives(self, memory):
+        """Test default cleanup windows follow tier half-life * multiplier."""
+        result = cleanup_expired_memories(memory)
+
+        assert result["by_tier"]["fast"]["cutoff_hours"] == 2.0
+        assert result["by_tier"]["medium"]["cutoff_hours"] == 48.0
+        assert result["by_tier"]["slow"]["cutoff_hours"] == 336.0
+        assert result["by_tier"]["glacial"]["cutoff_hours"] == 1440.0
 
     def test_delete_memory_logs_correctly(self, memory, caplog):
         """Test delete_memory logs appropriate messages."""
