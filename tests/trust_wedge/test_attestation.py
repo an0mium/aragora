@@ -406,6 +406,27 @@ class TestDurableFileSigner:
             assert signer.verify(data, sig)
             assert not signer.verify(b"tampered", sig)
 
+    def test_receipt_signature_lifecycle_detects_tampering(self):
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            key_path = os.path.join(tmpdir, "test_signing.key")
+            signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+
+            receipt = DecisionReceipt.from_debate_result(_make_debate_result())
+            receipt.sign(signer)
+
+            assert receipt.signature is not None
+            assert receipt.signature_algorithm == "HMAC-SHA256"
+            assert receipt.signed_at is not None
+            assert receipt.verify_signature(signer) is True
+
+            reloaded_signer = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+            assert receipt.verify_signature(reloaded_signer) is True
+
+            receipt.verdict = "FAIL"
+            assert receipt.verify_signature(reloaded_signer) is False
+
 
 # ---------------------------------------------------------------------------
 # Test: ephemeral HMAC blocked in production mode
