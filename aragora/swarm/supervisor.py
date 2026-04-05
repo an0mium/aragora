@@ -4677,19 +4677,32 @@ class SwarmSupervisor:
             command = str(entry.get("command", "")).strip()
             if not command:
                 continue
+            raw_exit_code = entry.get("exit_code", 0)
             try:
-                exit_code = int(entry.get("exit_code", 0))
+                if isinstance(raw_exit_code, (bool, float)):
+                    raise TypeError
+                exit_code = int(raw_exit_code)
             except (TypeError, ValueError):
                 exit_code = -1
+            raw_duration_seconds = entry.get("duration_seconds", 0.0)
             try:
-                duration_seconds = float(entry.get("duration_seconds", 0.0) or 0.0)
+                if isinstance(raw_duration_seconds, bool):
+                    raise TypeError
+                duration_seconds = float(raw_duration_seconds or 0.0)
             except (TypeError, ValueError):
                 duration_seconds = 0.0
+            raw_passed = entry.get("passed")
+            if isinstance(raw_passed, bool):
+                passed = raw_passed and exit_code == 0
+            elif "passed" not in entry:
+                passed = exit_code == 0
+            else:
+                passed = False
             normalized.append(
                 {
                     "command": command,
                     "exit_code": exit_code,
-                    "passed": bool(entry.get("passed", exit_code == 0)),
+                    "passed": passed,
                     "stdout": str(entry.get("stdout", "")),
                     "stderr": str(entry.get("stderr", "")),
                     "duration_seconds": duration_seconds,

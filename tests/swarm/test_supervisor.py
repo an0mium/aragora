@@ -3728,6 +3728,38 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
     assert wo["stderr_tail"] == "worker stderr\n"
 
 
+def test_verification_results_from_result_rejects_malformed_values() -> None:
+    normalized = SwarmSupervisor._verification_results_from_result(
+        WorkerProcess(
+            work_order_id="wo-malformed-verification",
+            agent="claude",
+            worktree_path="/tmp/wo-malformed-verification",
+            branch="main",
+            verification_results=[
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 0.0,
+                    "passed": "true",
+                    "stdout": {"line": "ok"},
+                    "stderr": ["bad"],
+                    "duration_seconds": True,
+                }
+            ],
+        )
+    )
+
+    assert normalized == [
+        {
+            "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+            "exit_code": -1,
+            "passed": False,
+            "stdout": "{'line': 'ok'}",
+            "stderr": "['bad']",
+            "duration_seconds": 0.0,
+        }
+    ]
+
+
 @pytest.mark.asyncio
 async def test_collect_results_records_passed_merge_gate_checks(
     repo: Path, store: DevCoordinationStore
@@ -3832,6 +3864,94 @@ async def test_collect_results_records_passed_merge_gate_checks(
         "scope_violation",
     ):
         assert cleared_key not in wo
+
+
+@pytest.mark.asyncio
+async def test_collect_results_blocks_merge_gate_on_malformed_verification_metadata(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="merge-malformed-verification",
+        title="Merge malformed verification lane",
+        owner_agent="claude",
+        owner_session_id="merge-malformed-verification-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="merge gate malformed verification metadata",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "merge gate malformed verification metadata"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge-malformed-verification",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "merge-malformed-verification-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-merge-malformed-verification",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="merge-malformed-verification-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0.0,
+                "passed": "true",
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": True,
+            }
+        ],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["worker_outcome"] == "merge_gate_failed"
+    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["verification_results"][0]["exit_code"] == -1
+    assert wo["verification_results"][0]["passed"] is False
+    assert wo["verification_results"][0]["duration_seconds"] == 0.0
+    assert "exit -1" in wo["dispatch_error"]
 
 
 @pytest.mark.asyncio
