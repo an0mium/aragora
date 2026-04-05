@@ -49,14 +49,11 @@ def test_cleanup_expires_entries_after_each_tier_ttl(memory):
         memory.add("medium-entry", "medium", tier=MemoryTier.MEDIUM)
         memory.add("slow-entry", "slow", tier=MemoryTier.SLOW)
 
-        assert memory.get_fast_tier_stats()["ttl_minutes"] == FAST_TIER_TTL_MINUTES
-        assert memory.get_medium_tier_stats()["ttl_hours"] == MEDIUM_TIER_TTL_HOURS
-        assert memory.get_slow_tier_stats()["ttl_days"] == SLOW_TIER_TTL_DAYS
-
         clock["now"] += FAST_TIER_TTL_MINUTES * 60 + 1
         result = memory.cleanup_expired_memories(
             tier=MemoryTier.FAST, max_age_hours=ttl_hours[MemoryTier.FAST], archive=False
         )
+        assert result["by_tier"]["fast"]["cutoff_hours"] == ttl_hours[MemoryTier.FAST]
         assert result["by_tier"]["fast"]["deleted"] == 1
         assert memory.get("fast-entry") is None
         assert memory.get("medium-entry") is not None
@@ -66,6 +63,7 @@ def test_cleanup_expires_entries_after_each_tier_ttl(memory):
         result = memory.cleanup_expired_memories(
             tier=MemoryTier.MEDIUM, max_age_hours=ttl_hours[MemoryTier.MEDIUM], archive=False
         )
+        assert result["by_tier"]["medium"]["cutoff_hours"] == ttl_hours[MemoryTier.MEDIUM]
         assert result["by_tier"]["medium"]["deleted"] == 1
         assert memory.get("medium-entry") is None
         assert memory.get("slow-entry") is not None
@@ -74,5 +72,6 @@ def test_cleanup_expires_entries_after_each_tier_ttl(memory):
         result = memory.cleanup_expired_memories(
             tier=MemoryTier.SLOW, max_age_hours=ttl_hours[MemoryTier.SLOW], archive=False
         )
+        assert result["by_tier"]["slow"]["cutoff_hours"] == ttl_hours[MemoryTier.SLOW]
         assert result["by_tier"]["slow"]["deleted"] == 1
         assert memory.get("slow-entry") is None
