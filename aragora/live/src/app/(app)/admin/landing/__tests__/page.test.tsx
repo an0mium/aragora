@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LandingReviewPage from '../page';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
@@ -197,5 +197,118 @@ describe('LandingReviewPage', () => {
       );
     });
     expect(mutateFeedback).toHaveBeenCalled();
+  });
+
+  it('shows queue unavailable copy when the admin feedback fetch is denied', () => {
+    mockUseSWRFetch.mockImplementation((endpoint: string) => {
+      if (endpoint.startsWith('/api/v1/playground/landing/events/summary')) {
+        return {
+          data: buildSummary(),
+          error: null,
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateSummary,
+        };
+      }
+
+      if (endpoint.startsWith('/api/v1/playground/landing/feedback')) {
+        return {
+          data: null,
+          error: Object.assign(new Error('Forbidden'), { status: 403 }),
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateFeedback,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      };
+    });
+
+    render(<LandingReviewPage />);
+
+    expect(
+      screen.getByText(
+        /Raw wrong-answer reports require admin auth\. Summary cards remain visible/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Wrong-answer review queue unavailable for this session.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('No wrong-answer reports captured in this window.'),
+    ).not.toBeInTheDocument();
+    const reportsCard = screen.getByText('admin auth required').closest('.card');
+    expect(reportsCard).not.toBeNull();
+    expect(within(reportsCard as HTMLElement).getByText('--')).toBeInTheDocument();
+    expect(
+      within(reportsCard as HTMLElement).getByText('admin auth required'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the empty state when feedback loaded successfully but there are no reports', () => {
+    mockUseSWRFetch.mockImplementation((endpoint: string) => {
+      if (endpoint.startsWith('/api/v1/playground/landing/events/summary')) {
+        return {
+          data: buildSummary(),
+          error: null,
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateSummary,
+        };
+      }
+
+      if (endpoint.startsWith('/api/v1/playground/landing/feedback')) {
+        return {
+          data: {
+            generated_at: '2026-04-04T01:00:00Z',
+            window_seconds: 86400,
+            total_reports: 0,
+            returned_reports: 0,
+            unique_client_count: 0,
+            last_report_at: null,
+            stats: {
+              rewritten_count: 0,
+              rewritten_rate: null,
+              preview_mode_count: 0,
+              preview_mode_rate: null,
+              review_status_counts: {
+                pending: 0,
+                reviewed: 0,
+                resolved: 0,
+                dismissed: 0,
+              },
+            },
+            reports: [],
+          },
+          error: null,
+          isLoading: false,
+          isValidating: false,
+          mutate: mutateFeedback,
+        };
+      }
+
+      return {
+        data: null,
+        error: null,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      };
+    });
+
+    render(<LandingReviewPage />);
+
+    expect(
+      screen.getByText('No wrong-answer reports captured in this window.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Wrong-answer review queue unavailable for this session.'),
+    ).not.toBeInTheDocument();
   });
 });

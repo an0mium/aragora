@@ -197,6 +197,22 @@ def _parse_slack_ok(raw_value: Any) -> bool:
     raise ValueError("ok must be a boolean")
 
 
+def _parse_token_string(raw_value: Any, *, required: bool) -> str | None:
+    """Parse Slack token fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError("token must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    return value
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1198,7 +1214,12 @@ class SlackOAuthHandler(SecureHandler):
             return error_response(f"Slack OAuth failed: {error_msg}", 400)
 
         # Extract workspace info
-        access_token = data.get("access_token")
+        try:
+            access_token = _parse_token_string(data.get("access_token"), required=True)
+            refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed token fields", request_id)
+            return error_response("Invalid response from Slack", 500)
         team_payload = data.get("team")
         team = team_payload if isinstance(team_payload, dict) else {}
         bot_user_id = data.get("bot_user_id", "")
@@ -1212,8 +1233,6 @@ class SlackOAuthHandler(SecureHandler):
         else:
             scope = str(raw_scope or "").strip()
 
-        # Extract token refresh data (if available)
-        refresh_token = data.get("refresh_token")
         try:
             expires_in = _parse_expires_in(data.get("expires_in"))
         except ValueError:
@@ -1817,7 +1836,20 @@ class SlackOAuthHandler(SecureHandler):
                 return error_response("Invalid token refresh response", 502)
 
             # Update stored tokens
-            new_access_token = data.get("access_token")
+            try:
+                new_access_token = _parse_token_string(data.get("access_token"), required=True)
+                new_refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+            except ValueError:
+                logger.error("Token refresh returned malformed token fields for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed token field",
+                    )
+                return error_response("Invalid token refresh response", 502)
             if not str(new_access_token or "").strip():
                 logger.error("Token refresh returned no access token for %s", workspace_id)
                 audit = _get_oauth_audit_logger()
@@ -1829,7 +1861,6 @@ class SlackOAuthHandler(SecureHandler):
                         error="Invalid refresh response: missing access token",
                     )
                 return error_response("Invalid token refresh response", 502)
-            new_refresh_token = data.get("refresh_token")
             if not str(new_refresh_token or "").strip():
                 new_refresh_token = workspace.refresh_token
             try:
