@@ -2637,6 +2637,10 @@ def test_refresh_run_marks_resource_wait_on_disk_full(
     work_order = run.work_orders[0]
     assert work_order["status"] == "waiting_resource"
     assert "No space left on device" in work_order["resource_error"]
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert "capacity or environment constraint" in work_order["blocking_question"]
+    assert work_order["blocker"]["reason"] == "waiting_resource"
+    assert work_order["blockers"] == ["No space left on device"]
 
 
 def test_start_run_prefers_explicit_spec_work_orders(
@@ -7150,6 +7154,10 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
     assert work_order["status"] == "waiting_resource"
     assert work_order["review_status"] == "pending"
     assert work_order["resource_error"] == "No space left on device"
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert "capacity or environment constraint" in work_order["blocking_question"]
+    assert work_order["blocker"]["reason"] == "waiting_resource"
+    assert work_order["blockers"] == ["No space left on device"]
     for cleared_key in (
         "lease_id",
         "owner_session_id",
@@ -7164,10 +7172,6 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
         "changed_paths",
         "merge_gate",
         "dispatch_error",
-        "failure_reason",
-        "blocking_question",
-        "blocker",
-        "blockers",
     ):
         assert cleared_key not in work_order
 

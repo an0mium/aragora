@@ -765,9 +765,7 @@ class SwarmSupervisor:
                     self._mark_waiting_conflict(item, exc.conflicts)
                 except RuntimeError as exc:
                     if self._is_resource_constraint_error(exc):
-                        self._clear_waiting_state(item)
-                        item["status"] = "waiting_resource"
-                        item["resource_error"] = str(exc)
+                        self._mark_waiting_resource(item, str(exc))
                         break
                     else:
                         self._clear_stale_prelaunch_deliverable_state(item)
@@ -5043,6 +5041,9 @@ class SwarmSupervisor:
             "waiting_conflict": (
                 "Which overlapping lane should finish, be discarded, or be split before this task can proceed?"
             ),
+            "waiting_resource": (
+                "Which capacity or environment constraint must be resolved before this lane can proceed?"
+            ),
             "clean_exit_no_deliverable": (
                 "What concrete branch, commit, or PR should this lane produce before rerunning?"
             ),
@@ -5187,6 +5188,21 @@ class SwarmSupervisor:
         if not blockers:
             blockers.append("waiting_conflict")
         item["blockers"] = blockers
+
+    @classmethod
+    def _mark_waiting_resource(cls, item: dict[str, Any], resource_error: str) -> None:
+        """Persist a resource-blocked wait state with explicit blocker metadata."""
+        cls._clear_waiting_state(item)
+        normalized_error = str(resource_error).strip() or "waiting_resource"
+        item["status"] = "waiting_resource"
+        item["resource_error"] = normalized_error
+        item["failure_reason"] = "waiting_resource"
+        item["blocking_question"] = cls._default_blocking_question("waiting_resource")
+        item["blocker"] = {
+            "reason": "waiting_resource",
+            "question": item["blocking_question"],
+        }
+        item["blockers"] = [normalized_error]
 
     @staticmethod
     def _clear_waiting_state(item: dict[str, Any]) -> None:
