@@ -330,6 +330,9 @@ class WorkerLauncher:
                     if str(item.get("command", "")).strip()
                 ]
         finally:
+            cleanup_pid = self._session_owned_pid(worker.worktree_path, worker.pid, session_meta)
+            if cleanup_pid is not None:
+                await self._wait_for_pid_exit(cleanup_pid)
             self._cleanup_session_artifacts(worker.worktree_path)
 
         logger.info(
@@ -1256,6 +1259,8 @@ class WorkerLauncher:
 
     @staticmethod
     def _normalized_pid(raw_pid: Any) -> int | None:
+        if isinstance(raw_pid, bool):
+            return None
         try:
             pid = int(raw_pid)
         except (TypeError, ValueError):
@@ -1286,6 +1291,12 @@ class WorkerLauncher:
             if not entry:
                 continue
             if "=" not in entry:
+                pid = cls._normalized_pid(entry)
+                # Older lockfiles sometimes used a bare "1" sentinel to mean
+                # "lock exists" without recording a usable PID. Only trust
+                # bare numeric lines when they look like real session PIDs.
+                if pid is not None and pid > 1 and pid not in session_pids:
+                    session_pids.append(pid)
                 continue
             key, value = entry.split("=", 1)
             normalized_key = key.strip()

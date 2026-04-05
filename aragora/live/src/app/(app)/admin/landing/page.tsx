@@ -239,6 +239,7 @@ export default function LandingReviewPage() {
   );
 
   const lastUpdated = summary?.generated_at || feedback?.generated_at || null;
+  const feedbackUnavailable = Boolean(feedbackError);
   const reports = feedback?.reports ?? [];
 
   return (
@@ -334,8 +335,8 @@ export default function LandingReviewPage() {
         />
         <MetricCard
           label="Reports"
-          value={String(feedback?.total_reports ?? 0)}
-          sublabel={`${feedback?.stats.review_status_counts.pending ?? 0} pending`}
+          value={feedbackUnavailable ? '--' : String(feedback?.total_reports ?? 0)}
+          sublabel={feedbackUnavailable ? 'admin auth required' : `${feedback?.returned_reports ?? 0} shown`}
           tone="text-[var(--acid-cyan)]"
         />
       </div>
@@ -441,21 +442,27 @@ export default function LandingReviewPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10">
-              Pending {feedback?.stats.review_status_counts.pending ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
-              Reviewed {feedback?.stats.review_status_counts.reviewed ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
-              Resolved {feedback?.stats.review_status_counts.resolved ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
-              Dismissed {feedback?.stats.review_status_counts.dismissed ?? 0}
-            </Badge>
-            <div className="font-theme-data text-xs text-text-muted">
-              Last report {formatTimestamp(feedback?.last_report_at)}
-            </div>
+            {feedbackUnavailable ? (
+              <div className="font-theme-data text-xs text-text-muted">Queue unavailable</div>
+            ) : (
+              <>
+                <Badge tone="text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10">
+                  Pending {feedback?.stats.review_status_counts.pending ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
+                  Reviewed {feedback?.stats.review_status_counts.reviewed ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
+                  Resolved {feedback?.stats.review_status_counts.resolved ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
+                  Dismissed {feedback?.stats.review_status_counts.dismissed ?? 0}
+                </Badge>
+                <div className="font-theme-data text-xs text-text-muted">
+                  Last report {formatTimestamp(feedback?.last_report_at)}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -465,7 +472,11 @@ export default function LandingReviewPage() {
           </div>
         )}
 
-        {reports.length === 0 ? (
+        {feedbackUnavailable ? (
+          <div className="rounded border border-dashed border-acid-yellow/40 bg-acid-yellow/10 p-8 font-theme-data text-sm text-[var(--acid-yellow)]">
+            Wrong-answer review queue unavailable for this session.
+          </div>
+        ) : reports.length === 0 ? (
           <div className="rounded border border-dashed border-border p-8 font-theme-data text-sm text-text-muted">
             No wrong-answer reports captured in this window.
           </div>
