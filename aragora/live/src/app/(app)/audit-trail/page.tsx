@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { apiPost } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types matching backend audit_trail.py response shapes
@@ -183,11 +184,8 @@ export default function AuditTrailPage() {
       const endpoint = type === 'trail'
         ? `/api/v1/audit-trails/${id}/verify`
         : `/api/v1/receipts/${id}/verify`;
-      const response = await fetch(endpoint, { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        setVerifyResult(data);
-      }
+      const data = await apiPost<VerifyResult>(endpoint);
+      setVerifyResult(data);
     } catch {
       // verification failed silently
     } finally {
