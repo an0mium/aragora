@@ -2839,17 +2839,24 @@ class PlaygroundHandler(BaseHandler):
         try:
             from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
-            agent_tags = _get_available_live_agents(agent_count)
-            if not agent_tags:
-                raise ValueError("no live playground agents configured")
-            model_ids = [
-                tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag for tag in agent_tags
-            ]
             effective_topic = question or topic
-            cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
-
             store = get_debate_store()
-            cached = store.get_by_cache_key(cache_key)
+            cached = None
+
+            agent_tags = _get_available_live_agents(agent_count)
+            if agent_tags:
+                model_ids = [
+                    tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag
+                    for tag in agent_tags
+                ]
+                cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
+                cached = store.get_by_cache_key(cache_key)
+
+            # The public /demo surface must still be able to replay a persisted live proof
+            # even when the current process has no live-provider credentials configured.
+            if cached is None and source == "demo":
+                cached = store.get_recent_live_result(effective_topic, rounds)
+
             if cached is not None:
                 cached = _normalize_public_debate_payload(cached)
                 cached.setdefault("source", source)

@@ -170,6 +170,48 @@ def test_demo_source_can_replay_cached_live_results(handler):
     mock_tentacles.assert_not_called()
 
 
+def test_demo_source_replays_recent_live_results_without_live_providers(handler, monkeypatch):
+    request = _make_http_handler(
+        {
+            "topic": "Should we require AI code review in CI?",
+            "question": "Should we require AI code review in CI?",
+            "source": "demo",
+        }
+    )
+    cached_live = _live_result("cached-live-result")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "0")
+    for env_var in (
+        "OPENROUTER_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY",
+    ):
+        monkeypatch.delenv(env_var, raising=False)
+
+    with (
+        patch(
+            "aragora.storage.debate_store.DebateResultStore.get_by_cache_key",
+            return_value=None,
+        ),
+        patch(
+            "aragora.storage.debate_store.DebateResultStore.get_recent_live_result",
+            return_value=cached_live,
+        ) as mock_recent,
+        patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
+    ):
+        result = handler.handle_post("/api/v1/playground/debate", {}, request)
+
+    body, status = _parse_result(result)
+    assert status == 200
+    assert body["id"] == "cached-live-result"
+    assert body["is_live"] is True
+    assert body["cached"] is True
+    mock_recent.assert_called_once()
+    mock_tentacles.assert_not_called()
+
+
 @patch("aragora.storage.debate_store.DebateResultStore.get_by_cache_key", return_value=None)
 def test_try_source_keeps_shareable_beta_fallbacks(
     _mock_cache,

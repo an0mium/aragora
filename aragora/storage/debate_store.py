@@ -187,6 +187,36 @@ class DebateResultStore(SQLiteStore):
 
         return result
 
+    def get_recent_live_result(
+        self,
+        topic: str,
+        rounds: int,
+        *,
+        limit: int = 10,
+    ) -> dict[str, Any] | None:
+        """Return the most recent persisted live result for a topic/round pair."""
+        normalized_topic = re.sub(r"\s+", " ", topic.strip().lower())
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT debate_id
+                FROM debate_cache_index
+                WHERE topic_normalized = ? AND rounds = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (normalized_topic, rounds, limit),
+            ).fetchall()
+
+        for row in rows:
+            result = self.get(row[0])
+            if result is None:
+                continue
+            if result.get("is_live") is True:
+                return result
+
+        return None
+
     def cleanup_expired(self) -> int:
         """Delete expired entries. Returns count of deleted rows."""
         now = time.time()
