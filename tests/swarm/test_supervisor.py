@@ -7172,6 +7172,104 @@ def test_refresh_run_rehabilitates_validation_marker_crash_lane(
     assert "dispatch_error" not in dependent
 
 
+def test_refresh_run_rehabilitates_validation_marker_crash_lane_without_expected_tests(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    base_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(
+        repo,
+        "git",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "test: validation passed for aragora/webhooks/retry_queue.py (48/48 tests pass)",
+    )
+    marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    run_record = store.create_supervisor_run(
+        goal="rehabilitate historical validation marker crash lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "rehabilitate historical validation marker crash lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for changes",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "worker_outcome": "crash_with_salvage",
+                "branch": "codex/swarm-micro-1",
+                "commit_shas": [base_head],
+                "head_sha": base_head,
+                "receipt_id": "receipt-parent",
+                "changed_paths": ["tests/webhooks/test_retry_queue.py"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "target_agent": "claude",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "worker_outcome": "crash",
+                "failure_reason": "worker_crash_with_deliverable",
+                "dispatch_error": "worker exited non-zero after producing a recoverable deliverable",
+                "blocking_question": (
+                    "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                ),
+                "blocker": {
+                    "reason": "worker_crash_with_deliverable",
+                    "question": (
+                        "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                    ),
+                },
+                "blockers": ["worker exited non-zero after producing a recoverable deliverable"],
+                "branch": "main",
+                "worktree_path": str(repo),
+                "receipt_id": "receipt-child",
+                "lease_id": "lease-child",
+                "owner_session_id": "swarm-rehab-micro-2",
+                "completed_at": "2026-04-04T23:09:29.037775+00:00",
+                "exit_code": 1,
+                "initial_head": base_head,
+                "head_sha": marker_head,
+                "commit_shas": [marker_head],
+                "changed_paths": [],
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["aragora/webhooks/retry_queue.py"],
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "stdout_tail": (
+                    "Done. All 48 tests in `tests/webhooks/test_retry_queue.py` passed. "
+                    "No-op marker committed.\n"
+                ),
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+        status="needs_human",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert refreshed.status == "completed"
+    assert dependent["status"] == "completed"
+    assert dependent["worker_outcome"] == "completed"
+    assert dependent["expected_tests"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert dependent["tests_run"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert dependent["verification_results"][0]["command"] == (
+        "python -m pytest tests/webhooks/test_retry_queue.py -q"
+    )
+    assert dependent["verification_results"][0]["inferred_from"] == "validation_marker_commit"
+
+
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
     """refresh_run should not leave dead leased work orders active forever."""
     lifecycle = MagicMock()
