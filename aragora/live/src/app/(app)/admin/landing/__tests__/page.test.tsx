@@ -243,7 +243,7 @@ describe('LandingReviewPage', () => {
     expect(
       screen.queryByText('No wrong-answer reports captured in this window.'),
     ).not.toBeInTheDocument();
-    const reportsCard = screen.getByText('Reports').closest('.card');
+    const reportsCard = screen.getByText('admin auth required').closest('.card');
     expect(reportsCard).not.toBeNull();
     expect(within(reportsCard as HTMLElement).getByText('--')).toBeInTheDocument();
     expect(
