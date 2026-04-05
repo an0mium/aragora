@@ -140,7 +140,7 @@ def test_durable_receipt_signature_lifecycle_detects_tampering(tmp_path):
         assert signer.verify(envelope.signed_receipt) is True
 
         tampered = envelope.signed_receipt.to_dict()
-        tampered["receipt_data"]["action_intent"]["action"] = InboxWedgeAction.STAR.value
+        tampered["receipt"]["action_intent"]["action"] = InboxWedgeAction.STAR.value
         assert signer.verify(SignedReceipt.from_dict(tampered)) is False
 
         with store._cursor() as cursor:
