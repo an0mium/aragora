@@ -7,7 +7,7 @@ tampering detection to ensure data integrity violations are caught.
 from __future__ import annotations
 
 import copy
-import tempfile
+import json
 import os
 
 import pytest
@@ -129,3 +129,70 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """verify_dict accepts a plain dict and validates the signature."""
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+        # Tamper via the dict representation
+        d = signed.to_dict()
+        d["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(d)
+
+    def test_metadata_has_timestamp_and_key_id(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        meta = signed.signature_metadata
+        assert meta.timestamp  # non-empty ISO string
+        assert meta.key_id.startswith("durable-")
+        assert meta.version == "1.0"
+
+    def test_deep_copy_does_not_affect_verification(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        """A deep-copied receipt still verifies; mutations to the copy are detected."""
+        signed = signer.sign(sample_receipt)
+        cloned = copy.deepcopy(signed)
+
+        assert signer.verify(cloned)
+
+        # Mutate only the clone
+        cloned.receipt_data["decision"] = "reject"
+        assert not signer.verify(cloned)
+        # Original still valid
+        assert signer.verify(signed)
+
+    def test_full_lifecycle(self, tmp_path: object) -> None:
+        """End-to-end: create receipt, sign, serialise, deserialise, verify, tamper, detect."""
+        key_path = os.path.join(str(tmp_path), "lifecycle.key")
+        backend = DurableFileSigner(key_path=key_path)
+        signer = ReceiptSigner(backend=backend)
+
+        receipt = {
+            "receipt_id": "rcpt-lifecycle",
+            "decision": "approve",
+            "topic": "Full lifecycle test",
+            "consensus_score": 0.95,
+            "agents": ["claude", "gpt-4"],
+        }
+
+        # Step 1: sign
+        signed = signer.sign(
+            receipt, signatory=SignatoryInfo(name="Bot", email="bot@test.com", role="CI")
+        )
+        assert signer.verify(signed)
+
+        # Step 2: serialise → JSON → deserialise
+        json_str = signed.to_json()
+        restored = SignedReceipt.from_json(json_str)
+        assert signer.verify(restored)
+
+        # Step 3: reload signer from same key file and re-verify
+        signer2 = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        assert signer2.verify(restored)
+
+        # Step 4: tamper and detect
+        restored.receipt_data["consensus_score"] = 0.0
+        assert not signer2.verify(restored)
