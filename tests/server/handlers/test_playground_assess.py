@@ -20,6 +20,7 @@ import pytest
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _MAX_TOPIC_LENGTH,
+    _reset_oracle_sessions,
     _reset_rate_limits,
 )
 
@@ -33,6 +34,10 @@ from aragora.server.handlers.playground import (
 def reset_rate_limits() -> None:
     """Reset rate limit state before each test to prevent cross-test interference."""
     _reset_rate_limits()
+    _reset_oracle_sessions()
+    yield
+    _reset_rate_limits()
+    _reset_oracle_sessions()
 
 
 @pytest.fixture()
