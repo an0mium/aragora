@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
-from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
+from aragora.gauntlet.signing import DurableFileSigner, HMACSigner, ReceiptSigner, SignedReceipt
 from aragora.inbox.trust_wedge import (
     ActionIntent,
     InboxTrustWedgeService,
@@ -116,6 +117,46 @@ def test_invalid_signature_blocks_approval(wedge):
 
     with pytest.raises(ValueError, match="signature verification failed"):
         service.review_receipt(envelope.receipt.receipt_id, choice="approve")
+
+
+def test_durable_receipt_signature_lifecycle_detects_tampering(tmp_path):
+    signer = ReceiptSigner(DurableFileSigner(key_path=str(tmp_path / "wedge-signing.key")))
+    store = InboxTrustWedgeStore(db_path=str(tmp_path / "wedge.db"))
+    service = InboxTrustWedgeService(
+        email_actions_service=EmailActionsService(),
+        store=store,
+        signer=signer,
+        auto_approval_threshold=0.85,
+    )
+    try:
+        envelope = service.create_receipt(_build_intent(), _build_decision())
+        valid = service.validate_receipt(
+            envelope.receipt.receipt_id,
+            require_state=ReceiptState.CREATED,
+        )
+
+        assert envelope.receipt.signature == envelope.signed_receipt.signature
+        assert valid.valid is True
+        assert signer.verify(envelope.signed_receipt) is True
+
+        tampered = envelope.signed_receipt.to_dict()
+        tampered["receipt_data"]["action_intent"]["action"] = InboxWedgeAction.STAR.value
+        assert signer.verify(SignedReceipt.from_dict(tampered)) is False
+
+        with store._cursor() as cursor:
+            cursor.execute(
+                "UPDATE inbox_trust_receipts SET signed_receipt_json = ? WHERE receipt_id = ?",
+                (json.dumps(tampered), envelope.receipt.receipt_id),
+            )
+
+        invalid = service.validate_receipt(
+            envelope.receipt.receipt_id,
+            require_state=ReceiptState.CREATED,
+        )
+        assert invalid.valid is False
+        assert invalid.error == "signature verification failed"
+    finally:
+        store.close()
 
 
 @pytest.mark.asyncio
