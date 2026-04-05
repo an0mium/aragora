@@ -213,6 +213,22 @@ def _parse_token_string(raw_value: Any, *, required: bool) -> str | None:
     return value
 
 
+def _parse_slack_string_field(raw_value: Any, *, field_name: str, required: bool) -> str | None:
+    """Parse Slack string fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError(f"{field_name} must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    return value
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1240,20 +1256,62 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Invalid response from Slack", 500)
         token_expires_at = time.time() + expires_in if expires_in is not None else None
 
-        workspace_id = str(
-            team.get("id")
-            or team.get("team_id")
-            or data.get("team_id")
-            or data.get("workspace_id")
-            or ""
-        ).strip()
-        workspace_name = (
-            str(
-                team.get("name") or data.get("team_name") or data.get("workspace_name") or "Unknown"
-            ).strip()
-            or "Unknown"
-        )
-        installed_by = str(authed_user.get("id") or "").strip() or None
+        try:
+            workspace_id = (
+                _parse_slack_string_field(team.get("id"), field_name="team.id", required=False)
+                or _parse_slack_string_field(
+                    team.get("team_id"),
+                    field_name="team.team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_id"),
+                    field_name="team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_id"),
+                    field_name="workspace_id",
+                    required=False,
+                )
+                or ""
+            )
+            workspace_name = (
+                _parse_slack_string_field(
+                    team.get("name"),
+                    field_name="team.name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_name"),
+                    field_name="team_name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_name"),
+                    field_name="workspace_name",
+                    required=False,
+                )
+                or "Unknown"
+            )
+            bot_user_id = (
+                _parse_slack_string_field(
+                    data.get("bot_user_id"),
+                    field_name="bot_user_id",
+                    required=False,
+                )
+                or ""
+            )
+            installed_by = _parse_slack_string_field(
+                authed_user.get("id"),
+                field_name="authed_user.id",
+                required=False,
+            )
+        except ValueError:
+            logger.error(
+                "[%s] Slack token exchange returned malformed workspace identity", request_id
+            )
+            return error_response("Invalid response from Slack", 500)
 
         if not workspace_id or not access_token:
             return error_response("Invalid response from Slack", 500)
@@ -1796,12 +1854,49 @@ class SlackOAuthHandler(SecureHandler):
 
             response_workspace_id = ""
             team = data.get("team")
-            if isinstance(team, dict):
-                response_workspace_id = str(team.get("id") or team.get("team_id") or "").strip()
-            if not response_workspace_id:
-                response_workspace_id = str(
-                    data.get("team_id") or data.get("workspace_id") or ""
-                ).strip()
+            try:
+                if isinstance(team, dict):
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            team.get("id"),
+                            field_name="team.id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            team.get("team_id"),
+                            field_name="team.team_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+                if not response_workspace_id:
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            data.get("team_id"),
+                            field_name="team_id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            data.get("workspace_id"),
+                            field_name="workspace_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+            except ValueError:
+                logger.error(
+                    "Token refresh returned malformed workspace identity for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed workspace identity",
+                    )
+                return error_response("Invalid token refresh response", 502)
             expected_workspace_id = str(
                 getattr(workspace, "workspace_id", "") or workspace_id
             ).strip()
