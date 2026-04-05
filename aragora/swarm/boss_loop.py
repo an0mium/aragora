@@ -1254,8 +1254,18 @@ class BossLoop:
             )
             # Add boss-stuck AND remove boss-ready — an issue should never be both
             subprocess.run(
-                ["gh", "issue", "edit", str(issue_number), "--repo", repo,
-                 "--add-label", "boss-stuck", "--remove-label", "boss-ready"],
+                [
+                    "gh",
+                    "issue",
+                    "edit",
+                    str(issue_number),
+                    "--repo",
+                    repo,
+                    "--add-label",
+                    "boss-stuck",
+                    "--remove-label",
+                    "boss-ready",
+                ],
                 capture_output=True,
                 timeout=15,
             )
