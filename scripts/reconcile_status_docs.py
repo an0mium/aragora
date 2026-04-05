@@ -45,6 +45,7 @@ FEATURE_DISCOVERY_STATUS = REPO_ROOT / "docs" / "status" / "FEATURE_DISCOVERY.md
 COMMERCIAL_OVERVIEW_STATUS = REPO_ROOT / "docs" / "status" / "COMMERCIAL_OVERVIEW.md"
 OPENAPI_GENERATED = REPO_ROOT / "docs" / "api" / "openapi_generated.json"
 CONNECTOR_ROOT = REPO_ROOT / "aragora" / "connectors"
+FEATURE_DISCOVERY_MIRROR_NOTE = "Compatibility mirror for older links."
 
 EXECUTION_TRACKING_DOCS = [
     (DOCS_README, "README.md"),
@@ -149,6 +150,33 @@ def _count_pattern(path: Path, pattern: str) -> int:
     return len(re.findall(pattern, content))
 
 
+def _normalize_mirror_content(content: str, *, strip_mirror_note: bool = False) -> str:
+    """Normalize markdown mirror content for stable parity comparisons."""
+
+    lines = content.splitlines()
+    if strip_mirror_note:
+        lines = [line for line in lines if FEATURE_DISCOVERY_MIRROR_NOTE not in line]
+
+    normalized = "\n".join(lines)
+    # Root-level compatibility mirrors rewrite relative links compared to docs/status.
+    normalized = re.sub(r"\]\((?:\./|\.\./)+", "](", normalized)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    return normalized.strip()
+
+
+def _first_diff_line(left: str, right: str) -> int | None:
+    """Return the first 1-based line number that differs between two strings."""
+
+    left_lines = left.splitlines()
+    right_lines = right.splitlines()
+    for index, (left_line, right_line) in enumerate(zip(left_lines, right_lines), start=1):
+        if left_line != right_line:
+            return index
+    if len(left_lines) != len(right_lines):
+        return min(len(left_lines), len(right_lines)) + 1
+    return None
+
+
 def _extract_checklist_stats(path: Path) -> dict:
     """Extract completed/total from a markdown checklist."""
     if not path.exists():
@@ -211,6 +239,39 @@ def _check_capability_matrix_freshness() -> list[dict]:
             }
         )
 
+    return findings
+
+
+def _check_feature_discovery_mirror_drift() -> list[dict]:
+    """Ensure the root compatibility mirror matches the canonical status inventory."""
+
+    findings = []
+    if not FEATURE_DISCOVERY.exists() or not FEATURE_DISCOVERY_STATUS.exists():
+        return findings
+
+    mirror_content = _normalize_mirror_content(
+        FEATURE_DISCOVERY.read_text(encoding="utf-8", errors="replace"),
+        strip_mirror_note=True,
+    )
+    canonical_content = _normalize_mirror_content(
+        FEATURE_DISCOVERY_STATUS.read_text(encoding="utf-8", errors="replace")
+    )
+
+    if mirror_content == canonical_content:
+        return findings
+
+    diff_line = _first_diff_line(mirror_content, canonical_content)
+    line_suffix = f" first differing normalized line {diff_line}." if diff_line else "."
+    findings.append(
+        {
+            "severity": "critical",
+            "source": "FEATURE_DISCOVERY.md",
+            "message": (
+                "Compatibility mirror diverges from status/FEATURE_DISCOVERY.md;"
+                f"{line_suffix} Sync the mirror before shipping documentation updates."
+            ),
+        }
+    )
     return findings
 
 
@@ -569,6 +630,7 @@ def reconcile(strict: bool = False) -> dict:
     """Run all reconciliation checks and return report."""
     findings = []
     findings.extend(_check_capability_matrix_freshness())
+    findings.extend(_check_feature_discovery_mirror_drift())
     findings.extend(_check_ga_checklist())
     findings.extend(_check_connector_status())
     findings.extend(_check_api_metric_claims())
