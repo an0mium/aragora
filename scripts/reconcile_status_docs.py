@@ -281,7 +281,9 @@ def _check_connector_status() -> list[dict]:
         beta_count = len(re.findall(r"(?i)\bbeta\b", content))
         prod_count = len(re.findall(r"(?i)\bproduction\b", content))
 
-    if stub_count > 0:
+    explicit_placeholder_count = len(_find_explicit_placeholder_connectors())
+
+    if stub_count > 0 and explicit_placeholder_count == 0:
         findings.append(
             {
                 "severity": "warning",
@@ -289,12 +291,30 @@ def _check_connector_status() -> list[dict]:
                 "message": f"Connector status has {stub_count} stub references (target: 0)",
             }
         )
+    elif stub_count > explicit_placeholder_count > 0:
+        findings.append(
+            {
+                "severity": "warning",
+                "source": "connectors/STATUS.md",
+                "message": (
+                    f"Connector status documents {stub_count} stub connectors, but only "
+                    f"{explicit_placeholder_count} explicit placeholder connectors exist in code"
+                ),
+            }
+        )
+
+    placeholder_label = (
+        "documented placeholder connectors" if explicit_placeholder_count > 0 else "stub mentions"
+    )
 
     findings.append(
         {
             "severity": "info",
             "source": "connectors/STATUS.md",
-            "message": f"Connectors: ~{prod_count} production, ~{beta_count} beta, ~{stub_count} stub mentions",
+            "message": (
+                f"Connectors: ~{prod_count} production, ~{beta_count} beta, "
+                f"~{stub_count} {placeholder_label}"
+            ),
         }
     )
 
