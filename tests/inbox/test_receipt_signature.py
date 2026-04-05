@@ -100,6 +100,15 @@ class TestReceiptSignatureLifecycle:
         assert signer.verify(restored)
         assert restored.receipt_data == sample_receipt
 
+    def test_tampered_json_roundtrip_detected(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        json_str = signed.to_json().replace('"approve"', '"reject"')
+        restored = SignedReceipt.from_json(json_str)
+
+        assert not signer.verify(restored)
+
     def test_signatory_info_preserved(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
         signatory = SignatoryInfo(name="Alice", email="alice@example.com", role="Approver")
         signed = signer.sign(sample_receipt, signatory=signatory)
