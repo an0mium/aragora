@@ -1386,7 +1386,10 @@ class WorkerLauncher:
 
     @staticmethod
     def _terminal_session_result(session_meta: dict[str, Any]) -> tuple[int | None, str | None]:
-        ended_at = str(session_meta.get("ended_at", "")).strip()
+        raw_ended_at = session_meta.get("ended_at")
+        if not isinstance(raw_ended_at, str):
+            return None, None
+        ended_at = raw_ended_at.strip()
         if not ended_at:
             return None, None
         raw_exit_code = session_meta.get("exit_code")
