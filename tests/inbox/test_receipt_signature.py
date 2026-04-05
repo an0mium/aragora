@@ -129,3 +129,48 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_empty_signature_rejected(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        signed.signature = ""
+        assert not signer.verify(signed)
+
+    def test_malformed_base64_signature_rejected(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        signed.signature = "!!!not-valid-base64!!!"
+        with pytest.raises(Exception):
+            signer.verify(signed)
+
+    def test_wrong_length_signature_rejected(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        import base64
+
+        signed = signer.sign(sample_receipt)
+        # Replace with a valid base64 string of wrong length
+        signed.signature = base64.b64encode(b"short").decode("ascii")
+        assert not signer.verify(signed)
+
+    def test_empty_receipt_signs_and_verifies(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+    def test_deep_copy_preserves_validity(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        cloned = copy.deepcopy(signed)
+        assert signer.verify(cloned)
+
+    def test_tamper_nested_list_detected(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        signed.receipt_data["agents"].append("rogue-agent")
+        assert not signer.verify(signed)
+
+    def test_metadata_algorithm_correct(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        assert signed.signature_metadata.algorithm == "HMAC-SHA256"
+        assert signed.signature_metadata.key_id.startswith("durable-")
+        assert signed.signature_metadata.timestamp  # non-empty ISO string
