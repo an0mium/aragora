@@ -136,6 +136,7 @@ const DOC_MAP = {
   'SDK_GUIDE.md': 'guides/sdk.md',
   'SDK_QUICKSTART.md': 'guides/sdk-quickstart.md',
   'guides/PYTHON_SDK_MIGRATION.md': 'guides/python-sdk-migration.md',
+  'api/API_REFERENCE_CURATED.md': 'api-reference/index.md',
   'API_QUICK_START.md': 'guides/api-quickstart.md',
   'API_USAGE.md': 'guides/api-usage.md',
   'WORKFLOWS.md': 'guides/workflows.md',

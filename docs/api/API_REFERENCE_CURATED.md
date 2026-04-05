@@ -1,16 +1,12 @@
----
-title: Curated API Reference
-description: Curated API Reference
----
-
 # Curated API Reference
 
 Use this page when you need the endpoints most teams touch first. It keeps the
 quickstart-critical routes in one place and points to the generated reference
 when you need full schemas or less common operations.
 
-> **New to Aragora?** Start with the [Developer Quickstart](../getting-started/quickstart)
+> **New to Aragora?** Start with the [Developer Quickstart](../QUICKSTART_DEVELOPER.md)
 > to run your first review, then come back here for API integration.
+
 ## Base URL
 
 ```
@@ -29,7 +25,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
   https://api.aragora.ai/api/v1/debates
 ```
 
-See the [Authentication Guide](../security/authentication) for details on obtaining API keys.
+See the [Authentication Guide](../guides/AUTH_GUIDE.md) for details on obtaining API keys.
 
 ## Essential Endpoints
 
@@ -38,8 +34,8 @@ See the [Authentication Guide](../security/authentication) for details on obtain
 | Method | Endpoint | Use it for |
 |--------|----------|------------|
 | `POST` | `/debates` | Start a new debate or review |
-| `GET` | `/debates/\{debate_id\}` | Fetch debate status and receipt data |
-| `GET` | `/debates/\{debate_id\}/stream` | Stream live debate events |
+| `GET` | `/debates/{debate_id}` | Fetch debate status and receipt data |
+| `GET` | `/debates/{debate_id}/stream` | Stream live debate events |
 
 ### Agents
 
@@ -60,11 +56,11 @@ See the [Authentication Guide](../security/authentication) for details on obtain
 | Method | Endpoint | Use it for |
 |--------|----------|------------|
 | `POST` | `/workflows` | Launch a review or orchestration workflow |
-| `GET` | `/workflows/\{workflow_id\}` | Track workflow state |
+| `GET` | `/workflows/{workflow_id}` | Track workflow state |
 
 ## When To Use The Generated Reference
 
-Use the [Generated API Reference](../api/reference) when you need:
+Use the [Generated API Reference](./API_REFERENCE.md) when you need:
 
 - full request and response schemas
 - less common or specialized endpoints
