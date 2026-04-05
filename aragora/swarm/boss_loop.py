@@ -1083,7 +1083,8 @@ class BossLoop:
         # Guard: don't decompose sub-issues — prevents recursive explosion
         if issue.title.startswith("[from #"):
             self._label_boss_stuck(
-                issue_number, repo,
+                issue_number,
+                repo,
                 "Sub-issue exhausted retries. Needs manual attention.",
             )
             return
@@ -1092,10 +1093,26 @@ class BossLoop:
         existing_titles: set[str] = set()
         try:
             proc = subprocess.run(
-                ["gh", "issue", "list", "--repo", repo, "--label", "boss-ready",
-                 "--state", "open", "--limit", "100", "--json", "title",
-                 "--jq", ".[].title"],
-                capture_output=True, text=True, timeout=15,
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--label",
+                    "boss-ready",
+                    "--state",
+                    "open",
+                    "--limit",
+                    "100",
+                    "--json",
+                    "title",
+                    "--jq",
+                    ".[].title",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if proc.returncode == 0:
                 existing_titles = {
@@ -1215,11 +1232,22 @@ class BossLoop:
         try:
             subprocess.run(
                 ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True, timeout=15,
+                capture_output=True,
+                timeout=15,
             )
             subprocess.run(
-                ["gh", "issue", "edit", str(issue_number), "--repo", repo, "--add-label", "boss-stuck"],
-                capture_output=True, timeout=15,
+                [
+                    "gh",
+                    "issue",
+                    "edit",
+                    str(issue_number),
+                    "--repo",
+                    repo,
+                    "--add-label",
+                    "boss-stuck",
+                ],
+                capture_output=True,
+                timeout=15,
             )
         except Exception:
             pass
