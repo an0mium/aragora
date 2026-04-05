@@ -1099,14 +1099,31 @@ class BossLoop:
         # Check if a PR was already merged for this issue — if so, close it
         try:
             pr_check = subprocess.run(
-                ["gh", "pr", "list", "--repo", repo, "--state", "merged",
-                 "--search", f"#{issue.number}", "--limit", "1",
-                 "--json", "number", "--jq", ".[0].number"],
-                capture_output=True, text=True, timeout=15,
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "merged",
+                    "--search",
+                    f"#{issue.number}",
+                    "--limit",
+                    "1",
+                    "--json",
+                    "number",
+                    "--jq",
+                    ".[0].number",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if pr_check.returncode == 0 and pr_check.stdout.strip():
                 self._label_boss_stuck(
-                    issue_number, repo,
+                    issue_number,
+                    repo,
                     f"PR #{pr_check.stdout.strip()} already merged for this issue.",
                 )
                 return
@@ -2452,6 +2469,11 @@ class BossLoop:
             return [selected] if selected is not None else []
 
         selected_issues: list[GitHubIssue] = []
+        # Track file scopes to avoid dispatching overlapping work in parallel
+        claimed_scopes: set[str] = set()
+        # Track title stems to avoid dispatching near-duplicate sub-issues
+        claimed_stems: set[str] = set()
+
         for issue in issues:
             candidate = select_eligible_issue(
                 [issue],
@@ -2460,7 +2482,21 @@ class BossLoop:
             )
             if candidate is None:
                 continue
+
+            # Deduplicate by file scope — don't dispatch two issues targeting the same files
+            scope_hints = set(self._extract_file_scope_hints(candidate.body or ""))
+            if scope_hints and scope_hints & claimed_scopes:
+                continue
+
+            # Deduplicate by title stem — strip [from #N] prefix and compare
+            import re
+            stem = re.sub(r"\[from #\d+\]\s*", "", candidate.title).strip().lower()[:60]
+            if stem in claimed_stems:
+                continue
+
             selected_issues.append(candidate)
+            claimed_scopes.update(scope_hints)
+            claimed_stems.add(stem)
             if limit is not None and len(selected_issues) >= limit:
                 break
         return selected_issues

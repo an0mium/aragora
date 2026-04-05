@@ -401,7 +401,9 @@ class TestExportReceipt:
         assert data["format"] == "markdown"
         assert "Decision Receipt" in data["content"]
 
-    def test_export_receipt_markdown_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+    def test_export_receipt_markdown_raw_mode(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
         """Raw mode returns markdown bytes for the live download surfaces."""
         mock_receipt_store.get.return_value = sample_receipt_dict
 
@@ -472,7 +474,9 @@ class TestExportReceipt:
         mock_receipt = MagicMock()
         mock_receipt.to_pdf.return_value = b"%PDF-1.4..."
 
-        with patch("aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt):
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
             response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
 
         assert response.status_code == 200
@@ -489,7 +493,9 @@ class TestExportReceipt:
         mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
         mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
 
-        with patch("aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt):
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
             response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
 
         assert response.status_code == 200

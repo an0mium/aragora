@@ -4491,8 +4491,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
-        """Drop stale completion metadata before persisting a pre-launch blocker."""
+        """Drop stale completion and wait-state metadata before a pre-launch blocker."""
         for key in (
+            "dispatch_error",
+            "resource_error",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
@@ -4514,6 +4520,7 @@ class SwarmSupervisor:
             "scope_violation",
         ):
             item.pop(key, None)
+        item.pop("blockers", None)
 
     @staticmethod
     def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:

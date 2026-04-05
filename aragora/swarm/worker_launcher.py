@@ -1259,6 +1259,8 @@ class WorkerLauncher:
 
     @staticmethod
     def _normalized_pid(raw_pid: Any) -> int | None:
+        if isinstance(raw_pid, bool):
+            return None
         try:
             pid = int(raw_pid)
         except (TypeError, ValueError):

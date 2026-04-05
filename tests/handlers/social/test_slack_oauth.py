@@ -1294,6 +1294,33 @@ class TestCallback:
         assert _status(result) == 500
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_nonstring_access_token(self, handler):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": {"token": "xoxb-token"},
+                "team": {"id": "W123", "name": "Bad Token"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": "channels:history",
+            }
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_callback_no_credentials_returns_503(self, handler, handler_module, monkeypatch):
         monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", None)
         result = await handler.handle(
@@ -2892,6 +2919,38 @@ class TestRefreshToken:
             {
                 "ok": True,
                 "access_token": "",
+                "expires_in": 43200,
+                "team": {"id": "W123"},
+            }
+        )
+
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=mock_workspace_store,
+            ),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/workspaces/W123/refresh",
+                {},
+                {},
+                {},
+                None,
+            )
+
+        assert _status(result) == 502
+        body = _body(result)
+        assert "invalid token refresh response" in body.get("error", "").lower()
+        mock_workspace_store.save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refresh_rejects_nonstring_access_token(self, handler, mock_workspace_store):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": {"token": "xoxb-new"},
                 "expires_in": 43200,
                 "team": {"id": "W123"},
             }

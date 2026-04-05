@@ -2017,6 +2017,42 @@ class TestCollectDetachedResult:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_collect_detached_result_ignores_boolean_session_meta_pid_for_cleanup(self):
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": True,
+                    "exit_code": 0,
+                    "ended_at": "2026-03-31T12:34:56+00:00",
+                },
+            ),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-bool-meta-pid",
+                agent="codex",
+                worktree_path="/tmp/wt-bool-meta-pid",
+                branch="main",
+                pid=None,
+                initial_head="def456",
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+        mock_wait.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_returns_none_without_pid_or_terminal_marker_and_no_deliverable(self):
         with (
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
@@ -2516,6 +2552,27 @@ class TestSnapshotProgress:
         assert snapshot["pid_alive"] is True
         assert mock_running.call_args_list
         assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_boolean_session_meta_pid(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": True}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        mock_running.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_snapshot_progress_treats_active_lock_without_usable_pid_as_alive(
