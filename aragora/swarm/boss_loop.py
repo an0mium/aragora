@@ -1080,12 +1080,19 @@ class BossLoop:
         if not issue:
             return
 
-        # Guard: don't decompose sub-issues — prevents recursive explosion
-        if issue.title.startswith("[from #"):
+        # Guard: cap decomposition depth to prevent runaway recursion.
+        # Each decomposition adds a "[from #N]" prefix — count nesting depth.
+        import re
+
+        depth_markers = re.findall(r"\[from #\d+\]", issue.title)
+        decomposition_depth = len(depth_markers)
+        max_decomposition_depth = 3
+        if decomposition_depth >= max_decomposition_depth:
             self._label_boss_stuck(
                 issue_number,
                 repo,
-                "Sub-issue exhausted retries. Needs manual attention.",
+                f"Decomposition depth {decomposition_depth} reached limit of "
+                f"{max_decomposition_depth}. Needs manual attention.",
             )
             return
 

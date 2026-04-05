@@ -3432,8 +3432,7 @@ class SwarmSupervisor:
             scope_violations = self._llm_adjudicate_scope(item, scope_violations)
         if scope_violations:
             self._mark_scope_violation(item, scope_violations)
-            if not _pre_outcome:
-                item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
+            item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
             lease_id = str(item.get("lease_id", "")).strip()
             if lease_id:
                 self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
@@ -5069,6 +5068,29 @@ class SwarmSupervisor:
         reason = "worker edited files outside permitted scope: " + ", ".join(out_of_scope_paths[:5])
         if extra_reason:
             reason = f"{extra_reason}; {reason}"
+        changed_paths = [
+            str(path).strip() for path in item.get("changed_paths", []) if str(path).strip()
+        ]
+        for key in (
+            "receipt_id",
+            "confidence",
+            "worker_outcome",
+            "completed_at",
+            "exit_code",
+            "head_sha",
+            "commit_shas",
+            "diff",
+            "diff_lines",
+            "tests_run",
+            "verification_results",
+            "resource_error",
+            "conflicts",
+            "pr_url",
+            "adopted_pr",
+            "merge_gate",
+            "verification_missing_reason",
+        ):
+            item.pop(key, None)
         item["status"] = "scope_violation"
         item["dispatch_error"] = reason
         item["failure_reason"] = "scope_violation"
@@ -5082,23 +5104,11 @@ class SwarmSupervisor:
         item["review_status"] = "changes_requested"
         scope_violation_detail = {
             "violations": violations,
-            "changed_paths": list(item.get("changed_paths", [])),
+            "changed_paths": changed_paths,
             "detected_at": datetime.now(UTC).isoformat(),
         }
         item["scope_violation"] = scope_violation_detail
-        blockers = [str(v).strip() for v in item.get("blockers", []) if str(v).strip()]
-        if reason not in blockers:
-            blockers.append(reason)
-        item["blockers"] = blockers
-        item.pop("receipt_id", None)
-        item.pop("confidence", None)
-        for key in (
-            "pr_url",
-            "adopted_pr",
-            "merge_gate",
-            "verification_missing_reason",
-        ):
-            item.pop(key, None)
+        item["blockers"] = [reason]
         item.pop("pid", None)
 
         # Write violation metadata into the lease so status_summary() surfaces

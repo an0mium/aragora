@@ -4052,12 +4052,20 @@ async def test_collect_results_marks_scope_violation_needs_human(
                 "lease_id": lease.lease_id,
                 "file_scope": ["aragora/server/auth_checks.py"],
                 "review_status": "pending",
+                "worker_outcome": "completed",
                 "receipt_id": "receipt-stale",
                 "confidence": 0.88,
+                "head_sha": "deadbeef",
                 "pr_url": "https://github.com/synaptent/aragora/pull/9999",
                 "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
                 "merge_gate": {"checks_passed": True},
                 "verification_missing_reason": "missing_verification_plan",
+                "commit_shas": ["deadbeef"],
+                "tests_run": ["python -m pytest tests/old_scope.py -q"],
+                "verification_results": [{"command": "pytest", "passed": True}],
+                "resource_error": "old disk pressure",
+                "conflicts": [{"source": "lease", "lease_id": "stale-lease"}],
+                "blockers": ["old blocker"],
             }
         ],
         status="active",
@@ -4103,11 +4111,19 @@ async def test_collect_results_marks_scope_violation_needs_human(
     assert "stay in scope" in wo["blocking_question"]
     assert wo.get("receipt_id") is None
     assert "confidence" not in wo
+    assert wo["scope_violation"]["changed_paths"] == ["aragora/server/handlers/playground.py"]
+    assert wo["blockers"] == [wo["dispatch_error"]]
     for cleared_key in (
+        "head_sha",
+        "commit_shas",
+        "tests_run",
+        "verification_results",
         "pr_url",
         "adopted_pr",
         "merge_gate",
         "verification_missing_reason",
+        "resource_error",
+        "conflicts",
     ):
         assert cleared_key not in wo
     assert wo["lease_id"] == lease.lease_id
