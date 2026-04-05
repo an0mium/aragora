@@ -129,3 +129,63 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """verify_dict accepts a raw dict instead of a SignedReceipt object."""
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+    def test_verify_dict_tampered(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        signed = signer.sign(sample_receipt)
+        raw = signed.to_dict()
+        raw["receipt"]["decision"] = "reject"
+        assert not signer.verify_dict(raw)
+
+    def test_metadata_timestamp_populated(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        ts = signed.signature_metadata.timestamp
+        assert ts  # non-empty
+        # Should be a valid ISO timestamp
+        from datetime import datetime
+
+        datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+    def test_metadata_key_id_stable(self, tmp_path: object, sample_receipt: dict) -> None:
+        """DurableFileSigner derives key_id from key material, so it's stable."""
+        key_path = os.path.join(str(tmp_path), "stable.key")
+        s1 = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        s2 = ReceiptSigner(backend=DurableFileSigner(key_path=key_path))
+        assert s1.key_id == s2.key_id
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        signed = signer.sign({})
+        assert signer.verify(signed)
+        signed.receipt_data["new"] = "field"
+        assert not signer.verify(signed)
+
+    def test_signatory_roundtrip_json(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """SignatoryInfo survives JSON serialization roundtrip."""
+        signatory = SignatoryInfo(
+            name="Bob",
+            email="bob@example.com",
+            role="Auditor",
+            title="Sr. Engineer",
+            organization="Acme",
+            department="Security",
+        )
+        signed = signer.sign(sample_receipt, signatory=signatory)
+        restored = SignedReceipt.from_json(signed.to_json())
+
+        assert restored.signature_metadata.signatory is not None
+        assert restored.signature_metadata.signatory.name == "Bob"
+        assert restored.signature_metadata.signatory.department == "Security"
+        assert signer.verify(restored)
+
+    def test_deep_copy_does_not_break_verification(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        signed = signer.sign(sample_receipt)
+        cloned = copy.deepcopy(signed)
+        assert signer.verify(cloned)
