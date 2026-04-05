@@ -20,6 +20,8 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from aragora.server.http_caching import no_cache_headers
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -38,6 +40,14 @@ _LIVE_SSE_HEARTBEAT_SECONDS = 15.0
 _LIVE_SSE_QUEUE_SIZE = 256
 _LIVE_SSE_RESYNC_SENTINEL = object()
 _PUBLIC_PLAYGROUND_DEBATE_PREFIX = "playground_"
+
+
+def _spectate_no_cache_headers(extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+    """Return anti-cache headers for public spectate surfaces."""
+    headers = no_cache_headers()
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -505,7 +515,10 @@ class SpectateStreamHandler(BaseHandler):
                 events,
                 storage=self.get_storage(),
             )
-        return json_response(self._recent_payload(events))
+        return json_response(
+            self._recent_payload(events),
+            headers=_spectate_no_cache_headers(),
+        )
 
     def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
@@ -526,15 +539,17 @@ class SpectateStreamHandler(BaseHandler):
                 status_code=200,
                 content_type="text/event-stream",
                 body=self._build_sse_snapshot_body(events, metadata),
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "Vary": "Accept",
-                    "X-Accel-Buffering": "no",
-                    "X-Aragora-Endpoint-State": self.STREAM_READINESS,
-                    "X-Aragora-Stream-Mode": self.STREAM_MODE,
-                    "X-Aragora-Stream-Transport": self.STREAM_SSE_TRANSPORT,
-                },
+                headers=_spectate_no_cache_headers(
+                    {
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "Vary": "Accept",
+                        "X-Accel-Buffering": "no",
+                        "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                        "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                        "X-Aragora-Stream-Transport": self.STREAM_SSE_TRANSPORT,
+                    }
+                ),
             )
 
         payload = self._recent_payload(events)
@@ -548,12 +563,14 @@ class SpectateStreamHandler(BaseHandler):
         )
         return json_response(
             payload,
-            headers={
-                "Vary": "Accept",
-                "X-Aragora-Endpoint-State": self.STREAM_READINESS,
-                "X-Aragora-Stream-Mode": self.STREAM_MODE,
-                "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
-            },
+            headers=_spectate_no_cache_headers(
+                {
+                    "Vary": "Accept",
+                    "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                    "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                    "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
+                }
+            ),
         )
 
     def _get_recent_events(self, query_params: dict[str, Any]) -> list[Any]:
@@ -637,7 +654,8 @@ class SpectateStreamHandler(BaseHandler):
                     "subscribers": bridge.subscriber_count,
                     "buffer_size": bridge.buffer_size,
                     **summary,
-                }
+                },
+                headers=_spectate_no_cache_headers(),
             )
         except ImportError:
             return json_response(
@@ -654,5 +672,6 @@ class SpectateStreamHandler(BaseHandler):
                     "live_debate_ids": [],
                     "live_debates": [],
                     "unattributed_recent_event_count": 0,
-                }
+                },
+                headers=_spectate_no_cache_headers(),
             )

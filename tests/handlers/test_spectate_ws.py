@@ -73,6 +73,14 @@ def _parse_sse_frames(body: bytes) -> list[tuple[str, object]]:
     return frames
 
 
+def _assert_no_cache_headers(result: Any, *, cache_control: str) -> None:
+    """Assert a spectate response includes anti-cache headers."""
+    headers = result.headers if hasattr(result, "headers") else result[2]
+    assert headers["Cache-Control"] == cache_control
+    assert headers["Pragma"] == "no-cache"
+    assert headers["Expires"] == "0"
+
+
 class _ManualSpectateBridge:
     """Deterministic bridge stub for live SSE generator tests."""
 
@@ -140,6 +148,10 @@ class TestRouteMatching:
         assert body["readiness"] == "partial"
         assert body["streaming_ready"] is False
         assert "JSON preview" in body["message"]
+        _assert_no_cache_headers(
+            result,
+            cache_control="no-store, no-cache, must-revalidate, max-age=0",
+        )
         assert result[2]["X-Aragora-Endpoint-State"] == "partial"
         assert result[2]["X-Aragora-Stream-Mode"] == "snapshot"
         assert result[2]["X-Aragora-Stream-Transport"] == "json_preview"
@@ -165,6 +177,7 @@ class TestRouteMatching:
 
         assert result is not None
         assert result.content_type == "text/event-stream"
+        _assert_no_cache_headers(result, cache_control="no-cache")
         assert result.headers["X-Aragora-Stream-Transport"] == "sse_snapshot"
         frames = _parse_sse_frames(result.body)
         assert [frame[0] for frame in frames] == ["connected", "proposal", "snapshot_complete"]
@@ -381,6 +394,10 @@ class TestRecentEvents:
         self, handler: SpectateStreamHandler, mock_handler: MagicMock
     ):
         result = handler.handle("/api/v1/spectate/recent", {}, mock_handler)
+        _assert_no_cache_headers(
+            result,
+            cache_control="no-store, no-cache, must-revalidate, max-age=0",
+        )
         body = result[0]
         assert body["events"] == []
         assert body["count"] == 0
@@ -571,6 +588,10 @@ class TestStatus:
 
     def test_status_when_inactive(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         result = handler.handle("/api/v1/spectate/status", {}, mock_handler)
+        _assert_no_cache_headers(
+            result,
+            cache_control="no-store, no-cache, must-revalidate, max-age=0",
+        )
         body = result[0]
         assert body["active"] is False
         assert body["subscribers"] == 0
