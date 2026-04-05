@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
@@ -558,13 +559,47 @@ class BossLoop:
     def _blocked_issue_scopes(self) -> set[str]:
         if not self.config.avoid_open_pr_scope_conflicts:
             return set()
+        blocked = self._coordination_blocked_scopes()
         repo = str(self.config.repo).strip() if isinstance(self.config.repo, str) else ""
         if not repo:
             feed_repo = getattr(self._feed, "repo", None)
             repo = str(feed_repo).strip() if isinstance(feed_repo, str) else ""
         if not repo:
-            return set()
-        return fetch_open_pr_changed_paths(repo=repo)
+            return blocked
+        blocked.update(fetch_open_pr_changed_paths(repo=repo))
+        return blocked
+
+    def _coordination_blocked_scopes(self) -> set[str]:
+        blocked: set[str] = set()
+        try:
+            store = DevCoordinationStore(repo_root=Path.cwd().resolve())
+        except Exception:
+            logger.debug(
+                "Failed to open coordination store for boss-loop scope blocking", exc_info=True
+            )
+            return blocked
+
+        try:
+            for lease in store.list_active_leases():
+                blocked.update(
+                    str(path).strip()
+                    for path in [*lease.claimed_paths, *lease.allowed_globs]
+                    if str(path).strip()
+                )
+        except Exception:
+            logger.debug("Failed to collect active lease scope claims", exc_info=True)
+
+        try:
+            store.fleet_store.reap_stale_claims()
+            blocked.update(
+                str(claim.get("path", "")).strip()
+                for claim in store.fleet_store.list_claims()
+                if isinstance(claim, dict) and str(claim.get("path", "")).strip()
+            )
+        except Exception:
+            logger.debug("Failed to collect active fleet claim scopes", exc_info=True)
+
+        return blocked
 
     def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
         """Summarize changed files and test verification from a worker run."""

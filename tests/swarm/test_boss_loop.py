@@ -255,8 +255,81 @@ class TestBatchIssueSelection:
             raise AssertionError("open PR scope lookup should be skipped without an explicit repo")
 
         monkeypatch.setattr("aragora.swarm.boss_loop.fetch_open_pr_changed_paths", _unexpected)
+        monkeypatch.setattr(loop, "_coordination_blocked_scopes", lambda: set())
 
         assert loop._blocked_issue_scopes() == set()
+
+    def test_blocked_issue_scopes_without_repo_keeps_coordination_claims(self, monkeypatch):
+        loop = BossLoop(_boss_config(repo=None))
+
+        def _unexpected(**kwargs):
+            raise AssertionError("open PR scope lookup should be skipped without an explicit repo")
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.fetch_open_pr_changed_paths", _unexpected)
+        monkeypatch.setattr(
+            loop,
+            "_coordination_blocked_scopes",
+            lambda: {"aragora/swarm/supervisor.py", "tests/swarm/test_supervisor.py"},
+        )
+
+        assert loop._blocked_issue_scopes() == {
+            "aragora/swarm/supervisor.py",
+            "tests/swarm/test_supervisor.py",
+        }
+
+    def test_blocked_issue_scopes_unions_open_pr_and_coordination_claims(self, monkeypatch):
+        loop = BossLoop(_boss_config(repo="synaptent/aragora"))
+        monkeypatch.setattr(
+            loop,
+            "_coordination_blocked_scopes",
+            lambda: {"aragora/swarm/supervisor.py"},
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.boss_loop.fetch_open_pr_changed_paths",
+            lambda **kwargs: {"tests/memory/test_tier_ttl_expiration.py"},
+        )
+
+        assert loop._blocked_issue_scopes() == {
+            "aragora/swarm/supervisor.py",
+            "tests/memory/test_tier_ttl_expiration.py",
+        }
+
+    def test_coordination_blocked_scopes_collects_active_leases_and_claims(self, monkeypatch):
+        loop = BossLoop(_boss_config(repo="synaptent/aragora"))
+
+        class _FakeFleetStore:
+            def __init__(self) -> None:
+                self.reaped = False
+
+            def reap_stale_claims(self) -> dict[str, int]:
+                self.reaped = True
+                return {"released": 1}
+
+            def list_claims(self) -> list[dict[str, str]]:
+                return [
+                    {"path": "tests/memory/test_tier_ttl_expiration.py"},
+                    {"path": "aragora/swarm"},
+                ]
+
+        class _FakeStore:
+            def __init__(self, repo_root) -> None:
+                self.repo_root = repo_root
+                self.fleet_store = _FakeFleetStore()
+
+            def list_active_leases(self):
+                lease = MagicMock()
+                lease.claimed_paths = ["aragora/swarm/boss_loop.py"]
+                lease.allowed_globs = ["tests/swarm/**"]
+                return [lease]
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.DevCoordinationStore", _FakeStore)
+
+        assert loop._coordination_blocked_scopes() == {
+            "aragora/swarm/boss_loop.py",
+            "tests/swarm/**",
+            "tests/memory/test_tier_ttl_expiration.py",
+            "aragora/swarm",
+        }
 
     def test_parallel_selection_skips_conflicting_issue_scopes(self):
         loop = BossLoop(_boss_config(max_parallel_dispatches=3))
