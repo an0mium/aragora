@@ -1261,9 +1261,17 @@ class WorkerLauncher:
     def _normalized_pid(raw_pid: Any) -> int | None:
         if isinstance(raw_pid, bool):
             return None
-        try:
-            pid = int(raw_pid)
-        except (TypeError, ValueError):
+        if isinstance(raw_pid, int):
+            pid = raw_pid
+        elif isinstance(raw_pid, str):
+            text = raw_pid.strip()
+            if not text or not re.fullmatch(r"[0-9]+", text):
+                return None
+            try:
+                pid = int(text)
+            except ValueError:
+                return None
+        else:
             return None
         return pid if pid > 0 else None
 
@@ -1395,9 +1403,17 @@ class WorkerLauncher:
         raw_exit_code = session_meta.get("exit_code")
         if isinstance(raw_exit_code, bool):
             return None, ended_at
-        try:
-            exit_code = int(raw_exit_code)
-        except (TypeError, ValueError):
+        if isinstance(raw_exit_code, int):
+            exit_code = raw_exit_code
+        elif isinstance(raw_exit_code, str):
+            text = raw_exit_code.strip()
+            if not text or not re.fullmatch(r"-?[0-9]+", text):
+                return None, ended_at
+            try:
+                exit_code = int(text)
+            except ValueError:
+                return None, ended_at
+        else:
             return None, ended_at
         return exit_code, ended_at
 
