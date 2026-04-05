@@ -538,7 +538,6 @@ class BossLoop:
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
-        self._owns_issue_feed = issue_feed is None
         self._feed = issue_feed or GitHubIssueFeed(
             repo=self.config.repo,
             label_filter=self.config.label_filter,
@@ -563,9 +562,9 @@ class BossLoop:
         if not repo:
             feed_repo = getattr(self._feed, "repo", None)
             repo = str(feed_repo).strip() if isinstance(feed_repo, str) else ""
-        if not repo and not self._owns_issue_feed:
+        if not repo:
             return set()
-        return fetch_open_pr_changed_paths(repo=repo or None)
+        return fetch_open_pr_changed_paths(repo=repo)
 
     def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
         """Summarize changed files and test verification from a worker run."""

@@ -248,6 +248,16 @@ class TestSelectEligibleIssue:
 
 
 class TestBatchIssueSelection:
+    def test_blocked_issue_scopes_skips_lookup_without_repo(self, monkeypatch):
+        loop = BossLoop(_boss_config(repo=None))
+
+        def _unexpected(**kwargs):
+            raise AssertionError("open PR scope lookup should be skipped without an explicit repo")
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.fetch_open_pr_changed_paths", _unexpected)
+
+        assert loop._blocked_issue_scopes() == set()
+
     def test_parallel_selection_skips_conflicting_issue_scopes(self):
         loop = BossLoop(_boss_config(max_parallel_dispatches=3))
         issues = [
