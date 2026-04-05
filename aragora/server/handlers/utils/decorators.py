@@ -13,14 +13,16 @@ Provides reusable decorators for HTTP handlers including:
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import time
 import uuid
 from contextlib import contextmanager
-from functools import wraps
 from typing import Any
 from collections.abc import Callable, Generator
+from functools import wraps
 
+from aragora.server.errors import ErrorCode as ServerErrorCode
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.utils.params import (
     get_bool_param,
@@ -109,11 +111,41 @@ _EXCEPTION_STATUS_MAP = {
     "HandlerDatabaseError": 500,
 }
 
+_STATUS_ERROR_CODE_MAP = {
+    400: ServerErrorCode.INVALID_REQUEST,
+    401: ServerErrorCode.UNAUTHORIZED,
+    403: ServerErrorCode.FORBIDDEN,
+    404: ServerErrorCode.NOT_FOUND,
+    409: ServerErrorCode.CONFLICT,
+    429: ServerErrorCode.RATE_LIMITED,
+    500: ServerErrorCode.INTERNAL_ERROR,
+    502: ServerErrorCode.EXTERNAL_SERVICE_ERROR,
+    503: ServerErrorCode.SERVICE_UNAVAILABLE,
+    504: ServerErrorCode.TIMEOUT,
+}
+
 
 def map_exception_to_status(e: Exception, default: int = 500) -> int:
     """Map exception type to appropriate HTTP status code."""
     error_type = type(e).__name__
     return _EXCEPTION_STATUS_MAP.get(error_type, default)
+
+
+def _error_response_with_code(message: str, *, status: int, trace_id: str) -> HandlerResult:
+    """Return a legacy-shaped handler error response with a machine-readable code."""
+    result = error_response(message, status=status, headers={"X-Trace-Id": trace_id})
+
+    try:
+        payload = json.loads(result.body.decode("utf-8"))
+    except (AttributeError, UnicodeDecodeError, json.JSONDecodeError):
+        payload = {"error": message}
+
+    payload["error_code"] = _STATUS_ERROR_CODE_MAP.get(
+        status,
+        ServerErrorCode.INTERNAL_ERROR,
+    ).value
+    result.body = json.dumps(payload, default=str).encode("utf-8")
+    return result
 
 
 # =============================================================================
@@ -249,11 +281,7 @@ def handle_errors(
                     )
                     status = map_exception_to_status(e, default_status)
                     message = safe_error_message(e, operation)
-                    return error_response(
-                        message,
-                        status=status,
-                        headers={"X-Trace-Id": trace_id},
-                    )
+                    return _error_response_with_code(message, status=status, trace_id=trace_id)
 
             return async_wrapper
         else:
@@ -274,11 +302,7 @@ def handle_errors(
                     )
                     status = map_exception_to_status(e, default_status)
                     message = safe_error_message(e, operation)
-                    return error_response(
-                        message,
-                        status=status,
-                        headers={"X-Trace-Id": trace_id},
-                    )
+                    return _error_response_with_code(message, status=status, trace_id=trace_id)
 
             return wrapper
 
