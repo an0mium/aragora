@@ -1234,6 +1234,49 @@ class TestTimeoutHandling:
     """Tests for timeout handling during debate rounds."""
 
     @pytest.mark.asyncio
+    async def test_execute_round_raises_timeout_with_delayed_agent_responses(self):
+        """Round timeout raises while preserving critiques already produced."""
+        protocol = MockProtocol(rounds=3)
+        protocol.round_timeout_seconds = 0.1
+
+        async def slow_generate(agent, prompt, context):
+            await asyncio.sleep(0.5)
+            return "revised proposal"
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        critic1 = MockAgent(name="critic-1", role="critic")
+        ctx = MockDebateContext(
+            agents=[agent1, critic1],
+            proposers=[agent1],
+            proposals={"agent-1": "initial proposal"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=AsyncMock(
+                return_value=MockCritique(agent="critic-1", target_agent="agent-1")
+            ),
+            generate_with_agent=slow_generate,
+            build_revision_prompt=MagicMock(return_value="prompt"),
+        )
+
+        perf_monitor = MagicMock()
+        perf_monitor.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+        perf_monitor.slow_round_threshold = 60.0
+
+        with patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov:
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(
+                    phase._execute_round(ctx, perf_monitor, round_num=1, total_rounds=3),
+                    timeout=protocol.round_timeout_seconds,
+                )
+
+        assert len(ctx.result.critiques) == 1
+        assert ctx.proposals["agent-1"] == "initial proposal"
+
+    @pytest.mark.asyncio
     async def test_revision_phase_timeout_handling(self):
         """Revision phase handles phase-level timeout gracefully."""
         generate_fn = AsyncMock(side_effect=asyncio.TimeoutError())
