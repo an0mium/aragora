@@ -129,3 +129,36 @@ class TestReceiptSignatureLifecycle:
 
         signed = s1.sign(sample_receipt)
         assert not s2.verify(signed)
+
+    def test_verify_dict_roundtrip(self, signer: ReceiptSigner, sample_receipt: dict) -> None:
+        """verify_dict accepts the dict form produced by to_dict."""
+        signed = signer.sign(sample_receipt)
+        assert signer.verify_dict(signed.to_dict())
+
+    def test_key_file_permissions(self, tmp_path: object) -> None:
+        """Durable key files must be owner-read/write only (0600)."""
+        key_path = os.path.join(str(tmp_path), "perm.key")
+        DurableFileSigner(key_path=key_path)
+        mode = os.stat(key_path).st_mode & 0o777
+        assert mode == 0o600, f"Expected 0600, got {oct(mode)}"
+
+    def test_empty_receipt(self, signer: ReceiptSigner) -> None:
+        """An empty dict should still sign and verify correctly."""
+        signed = signer.sign({})
+        assert signer.verify(signed)
+
+    def test_signature_metadata_timestamp(
+        self, signer: ReceiptSigner, sample_receipt: dict
+    ) -> None:
+        """Signature metadata includes a UTC ISO timestamp."""
+        signed = signer.sign(sample_receipt)
+        ts = signed.signature_metadata.timestamp
+        assert "T" in ts  # ISO format
+        assert ts.endswith("+00:00") or ts.endswith("Z")
+
+    def test_durable_key_id_stable(self, tmp_path: object) -> None:
+        """Two DurableFileSigner instances on the same key file get the same key_id."""
+        key_path = os.path.join(str(tmp_path), "stable.key")
+        a = DurableFileSigner(key_path=key_path)
+        b = DurableFileSigner(key_path=key_path)
+        assert a.key_id == b.key_id
