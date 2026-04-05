@@ -42,16 +42,18 @@ export interface SpectateStatus {
   unattributed_recent_event_count: number;
 }
 
-interface UseSpectateOptions {
+export interface UseSpectateOptions {
   /** Poll interval in milliseconds (default: 2000) */
   pollInterval?: number;
   /** Maximum number of events to fetch per poll (default: 50) */
   maxEvents?: number;
   /** Whether polling is enabled (default: true) */
   enabled?: boolean;
+  /** Optional API base override for the spectate endpoints */
+  apiBaseUrl?: string;
 }
 
-interface UseSpectateReturn {
+export interface UseSpectateReturn {
   /** Array of spectate events, newest last */
   events: SpectateEvent[];
   /** Whether the live stream or polling fallback is currently reachable */
@@ -157,6 +159,7 @@ export function useSpectate(
     pollInterval = 2000,
     maxEvents = 50,
     enabled = true,
+    apiBaseUrl = API_BASE_URL,
   } = options;
 
   const [events, setEvents] = useState<SpectateEvent[]>([]);
@@ -172,7 +175,7 @@ export function useSpectate(
     try {
       const params = buildSpectateParams(debateId, pipelineId, maxEvents);
       const res = await fetch(
-        `${API_BASE_URL}/api/v1/spectate/recent?${params.toString()}`,
+        `${apiBaseUrl}/api/v1/spectate/recent?${params.toString()}`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -186,11 +189,11 @@ export function useSpectate(
       setEvents([]);
       return false;
     }
-  }, [debateId, pipelineId, maxEvents]);
+  }, [apiBaseUrl, debateId, pipelineId, maxEvents]);
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/spectate/status`);
+      const res = await fetch(`${apiBaseUrl}/api/v1/spectate/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -202,7 +205,7 @@ export function useSpectate(
 
     setStatus(null);
     return false;
-  }, []);
+  }, [apiBaseUrl]);
 
   const refresh = useCallback(async () => {
     const [recentOk] = await Promise.all([
@@ -245,7 +248,7 @@ export function useSpectate(
 
     const params = buildSpectateParams(debateId, pipelineId, maxEvents);
     const source = new EventSource(
-      `${API_BASE_URL}/api/v1/spectate/stream?${params.toString()}`,
+      `${apiBaseUrl}/api/v1/spectate/stream?${params.toString()}`,
     );
     eventSourceRef.current = source;
 
@@ -294,6 +297,7 @@ export function useSpectate(
       startFallbackPolling();
     };
   }, [
+    apiBaseUrl,
     closeEventSource,
     debateId,
     maxEvents,

@@ -135,4 +135,49 @@ describe('LiveDemoSection', () => {
       '/spectate/debate-1',
     );
   });
+
+  it('uses shared bridge state without enabling its fallback spectate hook', () => {
+    mockUseSpectate.mockReturnValue({
+      status: null,
+      loaded: false,
+      connected: false,
+      events: [],
+      refresh: jest.fn(),
+    });
+
+    render(
+      <LiveDemoSection
+        bridgeState={{
+          status: {
+            active: false,
+            subscribers: 0,
+            buffer_size: 0,
+            bridge_state: 'inactive',
+            last_event_at: null,
+            activity_age_seconds: null,
+            recent_activity_window_seconds: 120,
+            recent_event_count: 0,
+            live_debate_count: 0,
+            live_debate_ids: [],
+            live_debates: [],
+            unattributed_recent_event_count: 0,
+          },
+          loaded: true,
+          events: [],
+        }}
+      />,
+    );
+
+    expect(mockUseSpectate).toHaveBeenCalledWith(undefined, undefined, {
+      pollInterval: 3000,
+      maxEvents: 24,
+      enabled: false,
+    });
+    expect(screen.getByText('Bridge offline')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Public spectate is offline right now, so the sample debate below stays illustrative.',
+      ),
+    ).toBeInTheDocument();
+  });
 });
