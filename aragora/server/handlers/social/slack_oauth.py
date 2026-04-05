@@ -1238,7 +1238,6 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Invalid response from Slack", 500)
         team_payload = data.get("team")
         team = team_payload if isinstance(team_payload, dict) else {}
-        bot_user_id = data.get("bot_user_id", "")
         authed_user_payload = data.get("authed_user")
         authed_user = authed_user_payload if isinstance(authed_user_payload, dict) else {}
         raw_scope = data.get("scope", "")

@@ -1014,6 +1014,34 @@ class TestCallback:
         assert "invalid response from slack" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_nonstring_top_level_workspace_identity(self, handler):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": "not-a-dict",
+                "workspace_id": {"id": "W123"},
+                "workspace_name": "Top Level Team",
+                "bot_user_id": "B789",
+                "scope": "channels:history,chat:write",
+            }
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_callback_rejects_nonstring_bot_user_id(self, handler):
         mock_client, _ = _make_httpx_mock(
             {
