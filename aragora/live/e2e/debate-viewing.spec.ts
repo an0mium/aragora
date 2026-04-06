@@ -6,8 +6,9 @@ async function mockSavedDebateEndpoints(
   debateId: string,
   payload = mockDebate,
 ) {
-  await mockApiResponse(page, `**/api/v1/debates/public/${debateId}`, payload);
-  await mockApiResponse(page, `**/api/v1/playground/debate/${debateId}`, payload);
+  await mockApiResponse(page, `**/api/v1/debates/public/${debateId}`, { data: payload });
+  await mockApiResponse(page, `**/api/v1/playground/debate/${debateId}`, { data: payload });
+  await mockApiResponse(page, `**/api/debates/${debateId}`, payload);
 }
 
 test.describe('Debate Viewing', () => {
@@ -37,7 +38,8 @@ test.describe('Debate Viewing', () => {
     const mainContent = page.locator('main').first();
     await expect(mainContent).toBeVisible({ timeout: 10000 });
 
-    const transcriptHeading = page.getByRole('heading', { name: /full transcript/i });
+    // Archived debates render a stable transcript heading and transcript text.
+    const transcriptHeading = page.getByRole('heading', { name: /full transcript/i }).first();
     await expect(transcriptHeading).toBeVisible({ timeout: 10000 });
   });
 
@@ -107,11 +109,12 @@ test.describe('Debate Viewing - Real-time Updates', () => {
       });
     });
 
-    await mockSavedDebateEndpoints(page, 'live-debate', {
+    const liveDebate = {
       ...mockDebate,
       id: 'live-debate',
       status: 'running',
-    });
+    };
+    await mockSavedDebateEndpoints(page, 'live-debate', liveDebate);
 
     await page.goto('/debate/live-debate');
     await aragoraPage.dismissAllOverlays();

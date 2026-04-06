@@ -57,7 +57,8 @@ describe('StreamingMessageCard', () => {
     it('shows cursor indicator', () => {
       const { container } = render(<StreamingMessageCard message={createStreamingMessage()} />);
       // The cursor is a span with | text
-      expect(screen.getByText('|')).toBeInTheDocument();
+      const cursor = container.querySelector('.bg-\\[var\\(--acid-cyan\\)\\]');
+      expect(cursor).toBeInTheDocument();
     });
   });
 
@@ -197,7 +198,7 @@ describe('StreamingMessageCard', () => {
 
       expect(screen.getByText('Confidence')).toBeInTheDocument();
       // Check the confidence bar width
-      const bar = container.querySelector('.h-full.transition-all.duration-300');
+      const bar = container.querySelector('.bg-\\[var\\(--accent\\)\\].transition-all');
       expect(bar).toBeInTheDocument();
       expect(bar).toHaveStyle({ width: '75%' });
     });

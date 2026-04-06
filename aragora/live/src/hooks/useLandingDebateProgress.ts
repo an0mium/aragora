@@ -15,7 +15,8 @@ interface UseLandingDebateProgressOptions {
 }
 
 export function useLandingDebateProgress({ debateId, wsUrl, enabled }: UseLandingDebateProgressOptions) {
-  const [events, setEvents] = useState<DebateProgressEvent[]>([]);
+  const [latestEvent, setLatestEvent] = useState<DebateProgressEvent | null>(null);
+  const [eventCount, setEventCount] = useState(0);
   const [connected, setConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
@@ -49,7 +50,8 @@ export function useLandingDebateProgress({ debateId, wsUrl, enabled }: UseLandin
           const data = JSON.parse(event.data);
           const mapped = mapEventToProgress(data);
           if (mapped) {
-            setEvents((prev) => [...prev, mapped]);
+            setLatestEvent(mapped);
+            setEventCount(c => c + 1);
           }
         } catch { /* ignore parse errors */ }
       };
@@ -61,14 +63,13 @@ export function useLandingDebateProgress({ debateId, wsUrl, enabled }: UseLandin
   }, [enabled, debateId, wsUrl]);
 
   const reset = useCallback(() => {
-    setEvents([]);
+    setLatestEvent(null);
+    setEventCount(0);
     setConnected(false);
     setElapsed(0);
   }, []);
 
-  const latestEvent = events.length > 0 ? events[events.length - 1] : null;
-
-  return { events, latestEvent, connected, elapsed, reset };
+  return { latestEvent, eventCount, connected, elapsed, reset };
 }
 
 function mapEventToProgress(data: Record<string, unknown>): DebateProgressEvent | null {

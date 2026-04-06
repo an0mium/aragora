@@ -430,8 +430,8 @@ class TestCreateBackup:
     @pytest.mark.asyncio
     async def test_create_missing_source_path(self, handler):
         result = await handler.handle("/api/v2/backups", {}, _http("POST", body={}))
-        assert result.status_code == 400
-        assert "source_path" in _body(result).get("error", "").lower()
+        assert result.status_code == 404
+        assert "default backup source not found" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_create_invalid_backup_type(self, handler):

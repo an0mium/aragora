@@ -34,7 +34,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 # ---------------------------------------------------------------------------
 # Threshold configuration (seconds)
@@ -49,6 +49,10 @@ THRESHOLDS: dict[str, float] = {
     "server_startup": 5.0,
     "total": 120.0,
 }
+
+
+_MEASUREMENT_TIMEOUT_SECONDS = 30.0
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -116,7 +120,7 @@ def evaluate_step(
             error=error,
             detail=detail,
         )
-    passed = (threshold <= 0) or (duration <= threshold)
+    passed = (threshold <= 0) or ((duration <= threshold) and not error)
     return StepResult(
         name=name,
         duration=round(duration, 3),
@@ -132,14 +136,130 @@ def evaluate_step(
 # ---------------------------------------------------------------------------
 
 
+def _repo_root() -> Path:
+    """Return the repository root for this script."""
+    return Path(__file__).resolve().parent.parent
+
+
+def _resolve_git_storage_root(repo_root: Path) -> Path | None:
+    """Resolve the backing git storage directory, including worktree pointers."""
+    git_path = repo_root / ".git"
+    if not git_path.exists():
+        return None
+    if git_path.is_dir():
+        return git_path
+    if not git_path.is_file():
+        return None
+
+    try:
+        first_line = git_path.read_text().splitlines()[0].strip()
+    except (IndexError, OSError):
+        return None
+
+    prefix = "gitdir:"
+    if not first_line.lower().startswith(prefix):
+        return None
+
+    gitdir = first_line[len(prefix) :].strip()
+    if not gitdir:
+        return None
+
+    worktree_gitdir = (git_path.parent / gitdir).resolve()
+    commondir_file = worktree_gitdir / "commondir"
+    if commondir_file.is_file():
+        try:
+            commondir = commondir_file.read_text().strip()
+        except OSError:
+            commondir = ""
+        if commondir:
+            return (worktree_gitdir / commondir).resolve()
+    return worktree_gitdir if worktree_gitdir.exists() else None
+
+
+def _measurement_env() -> dict[str, str]:
+    """Return a stable env for quickstart measurements."""
+    env = os.environ.copy()
+    repo_root = str(_repo_root())
+    existing_pythonpath = env.get("PYTHONPATH", "").strip()
+    env["PYTHONPATH"] = (
+        repo_root if not existing_pythonpath else os.pathsep.join([repo_root, existing_pythonpath])
+    )
+    env.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
+    return env
+
+
+def _summarize_output(text: str, *, limit: int = 240) -> str:
+    """Compact noisy subprocess output into a single short line."""
+    compact = " | ".join(line.strip() for line in text.splitlines() if line.strip())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 3] + "..."
+
+
+def _summarize_process_output(result: subprocess.CompletedProcess[str]) -> str:
+    """Summarize both stdout and stderr so warnings do not hide real failures."""
+    return _summarize_output("\n".join(part for part in (result.stdout, result.stderr) if part))
+
+
+def _parse_json_line(stdout: str) -> dict[str, Any]:
+    """Parse the last non-empty stdout line as JSON."""
+    for line in reversed(stdout.splitlines()):
+        candidate = line.strip()
+        if not candidate:
+            continue
+        return _json.loads(candidate)
+    raise ValueError("step produced no JSON output")
+
+
+def _run_repo_python_step(
+    *,
+    name: str,
+    threshold: float,
+    code: str,
+    detail_from_payload: Callable[[dict[str, Any]], str],
+    timeout: float = _MEASUREMENT_TIMEOUT_SECONDS,
+) -> StepResult:
+    """Execute a measurement snippet in an isolated repo-root subprocess."""
+    t0 = time.perf_counter()
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(_repo_root()),
+            env=_measurement_env(),
+        )
+    except subprocess.TimeoutExpired:
+        elapsed = time.perf_counter() - t0
+        return evaluate_step(name, elapsed, threshold, error="timeout")
+
+    elapsed = time.perf_counter() - t0
+    if result.returncode != 0:
+        combined = _summarize_process_output(result)
+        error = f"exit={result.returncode}"
+        if combined:
+            error = f"{error}: {combined}"
+        return evaluate_step(name, elapsed, threshold, error=error)
+
+    try:
+        payload = _parse_json_line(result.stdout)
+    except (ValueError, _json.JSONDecodeError) as exc:
+        return evaluate_step(name, elapsed, threshold, error=str(exc))
+
+    detail = detail_from_payload(payload)
+    error = str(payload.get("error", "")).strip()
+    return evaluate_step(name, elapsed, threshold, error=error, detail=detail)
+
+
 def measure_repo_size() -> tuple[float, float]:
     """Return (duration_seconds, size_mb) for the .git directory.
 
     Used as an informational proxy for clone time.
     """
-    repo_root = Path(__file__).resolve().parent.parent
-    git_dir = repo_root / ".git"
-    if not git_dir.exists():
+    repo_root = _repo_root()
+    git_dir = _resolve_git_storage_root(repo_root)
+    if git_dir is None or not git_dir.exists():
         return -1.0, 0.0
 
     t0 = time.perf_counter()
@@ -161,7 +281,7 @@ def measure_install_time() -> StepResult:
     modifying the environment.  Falls back to ``pip check`` when the
     dry-run flag is unavailable.
     """
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = _repo_root()
     t0 = time.perf_counter()
     try:
         result = subprocess.run(
@@ -180,6 +300,7 @@ def measure_install_time() -> StepResult:
         )
         elapsed = time.perf_counter() - t0
         detail = f"pip install --dry-run exit={result.returncode}"
+        error = ""
 
         if result.returncode != 0:
             # dry-run may not be supported; fall back to pip check
@@ -192,8 +313,16 @@ def measure_install_time() -> StepResult:
             )
             elapsed = time.perf_counter() - t0b
             detail = f"pip check exit={result.returncode} (dry-run unavailable)"
+            if result.returncode != 0:
+                error = _summarize_process_output(result) or detail
 
-        return evaluate_step("Dependencies Install", elapsed, THRESHOLDS["install"], detail=detail)
+        return evaluate_step(
+            "Dependencies Install",
+            elapsed,
+            THRESHOLDS["install"],
+            error=error,
+            detail=detail,
+        )
 
     except subprocess.TimeoutExpired:
         elapsed = time.perf_counter() - t0
@@ -208,130 +337,151 @@ def measure_install_time() -> StepResult:
 
 def measure_import_time() -> StepResult:
     """Measure ``import aragora`` and key submodule import times."""
-    target_modules = [
-        "aragora",
-        "aragora.core",
-        "aragora.debate.orchestrator",
-        "aragora.debate.protocol",
-        "aragora.gauntlet.receipt_models",
-    ]
+    code = r"""
+import json
 
-    t0 = time.perf_counter()
-    errors: list[str] = []
-    imported: list[str] = []
+target_modules = [
+    "aragora",
+    "aragora.core",
+    "aragora.debate.orchestrator",
+    "aragora.debate.protocol",
+    "aragora.gauntlet.receipt_models",
+]
+errors = []
+imported = []
+for mod in target_modules:
+    try:
+        __import__(mod)
+        imported.append(mod)
+    except Exception as exc:
+        errors.append(f"{mod}: {exc}")
 
-    for mod in target_modules:
-        try:
-            __import__(mod)
-            imported.append(mod)
-        except ImportError as exc:
-            errors.append(f"{mod}: {exc}")
-
-    elapsed = time.perf_counter() - t0
-    detail = f"imported {len(imported)}/{len(target_modules)} modules"
-    error_str = "; ".join(errors) if errors else ""
-    return evaluate_step(
-        "Import aragora", elapsed, THRESHOLDS["import"], error=error_str, detail=detail
+print(json.dumps({"imported": imported, "total": len(target_modules), "error": "; ".join(errors)}))
+"""
+    return _run_repo_python_step(
+        name="Import aragora",
+        threshold=THRESHOLDS["import"],
+        code=code,
+        detail_from_payload=lambda payload: (
+            f"imported {len(payload.get('imported', []))}/{payload.get('total', 0)} modules"
+        ),
     )
 
 
 def measure_first_debate() -> StepResult:
     """Create an Arena with 2 mock agents and run a 1-round debate."""
-    t0 = time.perf_counter()
-    try:
-        from aragora.core import Agent, Critique, Environment, Message, Vote
-        from aragora.debate.orchestrator import Arena
-        from aragora.debate.protocol import DebateProtocol
+    code = r"""
+import asyncio
+import json
 
-        class _QuickstartAgent(Agent):
-            """Minimal mock agent for timing measurement."""
+from aragora.core import Agent, Critique, Environment, Message, Vote
+from aragora.debate.orchestrator import Arena
+from aragora.debate.protocol import DebateProtocol
 
-            def __init__(self, name: str, response: str = "test response"):
-                super().__init__(name=name, model="mock-model", role="proposer")
-                self.agent_type = "mock"
-                self._response = response
 
-            async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-                return self._response
+class _QuickstartAgent(Agent):
+    def __init__(self, name: str, response: str = "test response"):
+        super().__init__(name=name, model="mock-model", role="proposer")
+        self.agent_type = "mock"
+        self._response = response
 
-            async def generate_stream(self, prompt: str, context: list[Message] | None = None):
-                yield self._response
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        return self._response
 
-            async def critique(
-                self,
-                proposal: str,
-                task: str,
-                context: list[Message] | None = None,
-                target_agent: str | None = None,
-            ) -> Critique:
-                return Critique(
-                    agent=self.name,
-                    target_agent=target_agent or "proposer",
-                    target_content=proposal[:100],
-                    issues=["Minor issue"],
-                    suggestions=["Consider refactoring"],
-                    severity=0.3,
-                    reasoning="Test reasoning",
-                )
+    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
+        yield self._response
 
-            async def vote(self, proposals: dict[str, str], task: str) -> Vote:
-                choice = self.name if self.name in proposals else next(iter(proposals), "unknown")
-                return Vote(agent=self.name, choice=choice, reasoning="Test vote", confidence=0.8)
-
-        agents = [
-            _QuickstartAgent("agent-alpha", "Alpha: Use a token bucket algorithm with Redis."),
-            _QuickstartAgent("agent-beta", "Beta: Agreed, token bucket with Redis backend."),
-        ]
-        env = Environment(task="Design a rate limiter for our API")
-        protocol = DebateProtocol(rounds=1, consensus="majority")
-        arena = Arena(environment=env, agents=agents, protocol=protocol)
-
-        result = asyncio.run(arena.run())
-
-        elapsed = time.perf_counter() - t0
-        detail = (
-            f"consensus={result.consensus_reached}, "
-            f"rounds={result.rounds_used}, "
-            f"confidence={result.confidence:.2f}"
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "proposer",
+            target_content=proposal[:100],
+            issues=["Minor issue"],
+            suggestions=["Consider refactoring"],
+            severity=0.3,
+            reasoning="Test reasoning",
         )
-        return evaluate_step("First debate", elapsed, THRESHOLDS["first_debate"], detail=detail)
 
-    except Exception as exc:
-        elapsed = time.perf_counter() - t0
-        return evaluate_step("First debate", elapsed, THRESHOLDS["first_debate"], error=str(exc))
+    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
+        choice = self.name if self.name in proposals else next(iter(proposals), "unknown")
+        return Vote(agent=self.name, choice=choice, reasoning="Test vote", confidence=0.8)
+
+
+async def _main() -> None:
+    agents = [
+        _QuickstartAgent("agent-alpha", "Alpha: Use a token bucket algorithm with Redis."),
+        _QuickstartAgent("agent-beta", "Beta: Agreed, token bucket with Redis backend."),
+    ]
+    env = Environment(task="Design a rate limiter for our API")
+    protocol = DebateProtocol(rounds=1, consensus="majority")
+    arena = Arena(environment=env, agents=agents, protocol=protocol)
+    result = await arena.run()
+    print(
+        json.dumps(
+            {
+                "consensus": bool(result.consensus_reached),
+                "rounds": int(result.rounds_used),
+                "confidence": float(result.confidence),
+            }
+        )
+    )
+
+
+asyncio.run(_main())
+"""
+    return _run_repo_python_step(
+        name="First debate",
+        threshold=THRESHOLDS["first_debate"],
+        code=code,
+        detail_from_payload=lambda payload: (
+            "consensus="
+            f"{payload.get('consensus')}, rounds={payload.get('rounds')}, "
+            f"confidence={float(payload.get('confidence', 0.0)):.2f}"
+        ),
+    )
 
 
 def measure_receipt_generation() -> StepResult:
     """Create a DecisionReceipt from a synthetic DebateResult."""
-    t0 = time.perf_counter()
-    try:
-        from aragora.core_types import DebateResult
-        from aragora.gauntlet.receipt_models import DecisionReceipt
+    code = r"""
+import json
 
-        result = DebateResult(
-            debate_id="bench-001",
-            task="Design a rate limiter",
-            final_answer="Use token bucket with Redis backend",
-            confidence=0.85,
-            consensus_reached=True,
-            rounds_used=1,
-            participants=["agent-alpha", "agent-beta"],
-            proposals={"agent-alpha": "Token bucket", "agent-beta": "Sliding window"},
-            messages=[],
-            votes=[],
-            winner="agent-alpha",
-            duration_seconds=1.0,
-        )
+from aragora.core_types import DebateResult
+from aragora.gauntlet.receipt_models import DecisionReceipt
 
-        receipt = DecisionReceipt.from_debate_result(result)
+result = DebateResult(
+    debate_id="bench-001",
+    task="Design a rate limiter",
+    final_answer="Use token bucket with Redis backend",
+    confidence=0.85,
+    consensus_reached=True,
+    rounds_used=1,
+    participants=["agent-alpha", "agent-beta"],
+    proposals={"agent-alpha": "Token bucket", "agent-beta": "Sliding window"},
+    messages=[],
+    votes=[],
+    winner="agent-alpha",
+    duration_seconds=1.0,
+)
 
-        elapsed = time.perf_counter() - t0
-        detail = f"receipt_id={receipt.receipt_id[:8]}..., verdict={receipt.verdict}"
-        return evaluate_step("Receipt generation", elapsed, THRESHOLDS["receipt"], detail=detail)
-
-    except Exception as exc:
-        elapsed = time.perf_counter() - t0
-        return evaluate_step("Receipt generation", elapsed, THRESHOLDS["receipt"], error=str(exc))
+receipt = DecisionReceipt.from_debate_result(result)
+print(json.dumps({"receipt_id": receipt.receipt_id, "verdict": receipt.verdict}))
+"""
+    return _run_repo_python_step(
+        name="Receipt generation",
+        threshold=THRESHOLDS["receipt"],
+        code=code,
+        detail_from_payload=lambda payload: (
+            f"receipt_id={str(payload.get('receipt_id', ''))[:8]}..., "
+            f"verdict={payload.get('verdict', '')}"
+        ),
+    )
 
 
 def measure_server_startup() -> StepResult:
@@ -339,7 +489,7 @@ def measure_server_startup() -> StepResult:
 
     Uses ephemeral high ports to avoid conflicts with other services.
     """
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = _repo_root()
     env = os.environ.copy()
     env["ARAGORA_OFFLINE"] = "true"
     env["ARAGORA_DEMO_MODE"] = "true"

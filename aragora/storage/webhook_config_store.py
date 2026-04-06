@@ -718,11 +718,13 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             params.append(webhook_id)
 
             conn = self._get_conn()
-            conn.execute(
+            cursor = conn.execute(
                 f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()
+            if cursor.rowcount <= 0:
+                return None
             webhook.updated_at = now
 
         return webhook
@@ -842,6 +844,20 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             data["secret"] = _decrypt_secret(secret)
         return WebhookConfig(**data)
 
+    @staticmethod
+    def _trusted_cache_revision(value: Any) -> float | None:
+        """Return a revision usable for cache trust decisions.
+
+        Cache payloads are untyped JSON. Reject booleans explicitly because
+        `True == 1.0` and `False == 0.0`, which can accidentally satisfy the
+        durable revision equality check.
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
+
     def register(
         self,
         url: str,
@@ -883,9 +899,11 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 if data:
                     cached_webhook = self._deserialize_from_cache(data)
                     durable_revision = self._sqlite.get_cache_revision(webhook_id)
+                    cached_revision = self._trusted_cache_revision(cached_webhook.updated_at)
                     if (
                         durable_revision is not None
-                        and cached_webhook.updated_at == durable_revision
+                        and cached_revision is not None
+                        and cached_revision == durable_revision
                     ):
                         return cached_webhook
             except (
@@ -1306,11 +1324,16 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             params.append(webhook_id)
 
             async with self._pool.acquire() as conn:
-                await conn.execute(
+                result = await conn.execute(
                     f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                     *params,
                 )
-            webhook.updated_at = updated_at
+            if result == "UPDATE 0":
+                return None
+            durable = await self.get_async(webhook_id)
+            if durable is None:
+                return None
+            return durable
 
         return webhook
 

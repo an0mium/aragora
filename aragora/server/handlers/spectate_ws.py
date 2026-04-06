@@ -493,7 +493,10 @@ class SpectateStreamHandler(BaseHandler):
                         round_number=event.get("round_number"),
                     )
                     emitted += 1
-            return json_response({"emitted": emitted, "debate_id": debate_id})
+            return json_response(
+                {"emitted": emitted, "debate_id": debate_id},
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
         except ImportError:
             return json_response({"error": "Bridge module unavailable"}, status=503)
 
@@ -505,7 +508,10 @@ class SpectateStreamHandler(BaseHandler):
                 events,
                 storage=self.get_storage(),
             )
-        return json_response(self._recent_payload(events))
+        return json_response(
+            self._recent_payload(events),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
@@ -549,6 +555,7 @@ class SpectateStreamHandler(BaseHandler):
         return json_response(
             payload,
             headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Vary": "Accept",
                 "X-Aragora-Endpoint-State": self.STREAM_READINESS,
                 "X-Aragora-Stream-Mode": self.STREAM_MODE,
@@ -637,7 +644,8 @@ class SpectateStreamHandler(BaseHandler):
                     "subscribers": bridge.subscriber_count,
                     "buffer_size": bridge.buffer_size,
                     **summary,
-                }
+                },
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
             )
         except ImportError:
             return json_response(
@@ -654,5 +662,6 @@ class SpectateStreamHandler(BaseHandler):
                     "live_debate_ids": [],
                     "live_debates": [],
                     "unattributed_recent_event_count": 0,
-                }
+                },
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
             )
