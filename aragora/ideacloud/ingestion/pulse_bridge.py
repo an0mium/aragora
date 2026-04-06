@@ -99,7 +99,7 @@ class PulseBridge:
                 HackerNewsIngestor,
                 RedditIngestor,
             )
-        except ImportError:
+        except ModuleNotFoundError:
             logger.warning("Pulse module not available; cannot fetch trending topics")
             return []
 
@@ -116,28 +116,28 @@ class PulseBridge:
             from aragora.pulse.ingestor import ArxivIngestor
 
             _ingestor_map["arxiv"] = ArxivIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import GitHubTrendingIngestor
 
             _ingestor_map["github"] = GitHubTrendingIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import LobstersIngestor
 
             _ingestor_map["lobsters"] = LobstersIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import DevToIngestor
 
             _ingestor_map["devto"] = DevToIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         for name in platforms:
