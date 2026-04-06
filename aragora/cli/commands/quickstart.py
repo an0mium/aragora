@@ -25,8 +25,9 @@ import tempfile
 import time
 import uuid
 import webbrowser
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, TextIO, cast
 
 logger = logging.getLogger(__name__)
@@ -104,10 +105,6 @@ _TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
     "unable to get local issuer certificate",
 )
 _QUICKSTART_SETTLEMENT_REVIEW_DAYS = 30
-_QUICKSTART_STRICT_CONFIDENCE_THRESHOLD = 0.8
-_DEFAULT_QUICKSTART_FALSIFIER = (
-    "Revisit this decision if implementation evidence contradicts the consensus summary."
-)
 
 
 def _quickstart_loop_factory() -> asyncio.AbstractEventLoop:
@@ -487,6 +484,43 @@ def _normalize_dissent_records(
     return _summarize_dissenting_views(reasons, participants), reasons
 
 
+def _settlement_value_is_blank(value: Any) -> bool:
+    """Identify settlement fields that still need a canonical default."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) == 0
+    return False
+
+
+def _build_quickstart_settlement_metadata(
+    *,
+    settlement_metadata: Any,
+    debate_result: Any,
+    receipt_context: Any | None,
+    timestamp: str,
+) -> dict[str, Any]:
+    """Capture settlement metadata via the canonical settlement tracker."""
+    from aragora.debate.settlement import EpistemicSettlementTracker
+
+    tracker = EpistemicSettlementTracker()
+    captured = tracker.capture_settlement(
+        debate_result,
+        receipt_context,
+        review_horizon_days=_QUICKSTART_SETTLEMENT_REVIEW_DAYS,
+        settled_at=timestamp,
+    ).to_dict()
+
+    existing = dict(settlement_metadata) if isinstance(settlement_metadata, dict) else {}
+    normalized = dict(existing)
+    for key, value in captured.items():
+        if _settlement_value_is_blank(normalized.get(key)):
+            normalized[key] = value
+    return normalized
+
+
 def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     """Normalize quickstart debate results into a receipt-compatible artifact payload."""
     from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
@@ -574,14 +608,28 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         ),
     )
 
+    settlement_result = SimpleNamespace(
+        debate_id=str(payload.get("debate_id") or receipt_id),
+        confidence=confidence,
+        consensus_reached=bool(consensus),
+        winner=str(payload.get("winner") or "") or None,
+        participants=participants,
+        dissenting_views=dissenting_views,
+        final_answer=str(payload.get("verdict_reasoning") or summary),
+        unresolved_tensions=list(payload.get("unresolved_tensions", []) or []),
+        convergence_similarity=float(payload.get("convergence_similarity", 1.0) or 1.0),
+        claims_kernel=payload.get("claims_kernel"),
+        epistemic_hygiene=payload.get("epistemic_hygiene"),
+        verification_criteria=_coerce_string_list(payload.get("verification_criteria")),
+    )
+    settlement_receipt_context = SimpleNamespace(
+        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents)
+    )
     settlement_metadata = _build_quickstart_settlement_metadata(
         settlement_metadata=payload.get("settlement_metadata"),
-        debate_id=str(payload.get("debate_id") or receipt_id),
+        debate_result=settlement_result,
+        receipt_context=settlement_receipt_context,
         timestamp=timestamp,
-        confidence=confidence,
-        question=question,
-        dissenting_views=dissenting_views,
-        dissenting_agents=dissenting_agents,
     )
 
     if has_receipt_contract:
@@ -680,82 +728,6 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     return canonical
 
 
-def _parse_quickstart_timestamp(value: str) -> datetime:
-    raw = value.strip()
-    if raw.endswith("Z"):
-        raw = f"{raw[:-1]}+00:00"
-    try:
-        parsed = datetime.fromisoformat(raw)
-    except ValueError:
-        return datetime.now(timezone.utc)
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed
-
-
-def _build_quickstart_settlement_metadata(
-    *,
-    settlement_metadata: Any,
-    debate_id: str,
-    timestamp: str,
-    confidence: float,
-    question: str,
-    dissenting_views: list[str],
-    dissenting_agents: list[str],
-) -> dict[str, Any]:
-    existing = dict(settlement_metadata) if isinstance(settlement_metadata, dict) else {}
-
-    normalized_confidence = _clamp_confidence(
-        existing["confidence"] if "confidence" in existing else confidence
-    )
-    normalized_timestamp = str(existing.get("settled_at") or timestamp).strip() or timestamp
-    review_horizon = str(existing.get("review_horizon") or "").strip()
-    if not review_horizon:
-        base_dt = _parse_quickstart_timestamp(normalized_timestamp)
-        review_horizon = (base_dt + timedelta(days=_QUICKSTART_SETTLEMENT_REVIEW_DAYS)).isoformat()
-
-    falsifiers = _coerce_string_list(existing.get("falsifiers"))
-    if not falsifiers:
-        falsifiers.extend(f"Dissent: {view}" for view in dissenting_views if view.strip())
-    if not falsifiers:
-        falsifiers.extend(
-            f"Agent {agent} dissented from consensus"
-            for agent in dissenting_agents
-            if agent.strip()
-        )
-    if not falsifiers and normalized_confidence >= _QUICKSTART_STRICT_CONFIDENCE_THRESHOLD:
-        fallback = question.strip() or _DEFAULT_QUICKSTART_FALSIFIER
-        falsifiers = [f"Revisit if evidence disproves the chosen path for: {fallback}"]
-
-    alternatives = _coerce_string_list(existing.get("alternatives"))
-    cruxes = _coerce_string_list(existing.get("cruxes"))
-    review_notes = _coerce_string_list(existing.get("review_notes"))
-    if dissenting_views and not (alternatives or cruxes or review_notes):
-        alternatives = dissenting_views[:]
-        review_notes = [
-            "Quickstart captured dissent; review the competing objections before irreversible execution."
-        ]
-
-    normalized = dict(existing)
-    normalized.update(
-        {
-            "debate_id": str(existing.get("debate_id") or debate_id).strip() or debate_id,
-            "settled_at": normalized_timestamp,
-            "confidence": normalized_confidence,
-            "falsifiers": falsifiers,
-            "review_horizon": review_horizon,
-            "status": str(existing.get("status") or "settled").strip() or "settled",
-        }
-    )
-    if alternatives:
-        normalized["alternatives"] = alternatives
-    if cruxes:
-        normalized["cruxes"] = cruxes
-    if review_notes:
-        normalized["review_notes"] = review_notes
-    return normalized
-
-
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
     output_path = Path(path)
@@ -838,6 +810,10 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
         "votes": [],
         "consensus": True,
         "consensus_reached": True,
+        "verification_criteria": [
+            "Guardrail metrics remain within agreed thresholds during the initial rollout phase.",
+            "Rollback indicators stay clear after the first production release.",
+        ],
         "receipt": {
             "id": receipt_id,
             "confidence": 0.85,
@@ -1129,14 +1105,14 @@ def _build_live_receipt(
         dissenting_agents = []
 
     rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
+    settlement_receipt_context = SimpleNamespace(
+        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents)
+    )
     settlement_metadata = _build_quickstart_settlement_metadata(
         settlement_metadata=getattr(result, "settlement_metadata", None),
-        debate_id=receipt_id,
+        debate_result=result,
+        receipt_context=settlement_receipt_context,
         timestamp=timestamp,
-        confidence=confidence,
-        question=question,
-        dissenting_views=dissenting_views,
-        dissenting_agents=dissenting_agents,
     )
     receipt = DecisionReceipt(
         receipt_id=receipt_id,

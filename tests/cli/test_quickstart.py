@@ -906,6 +906,13 @@ class TestCmdQuickstart:
         saved = json.loads(artifact_path.read_text())
         strict_hygiene = validate_receipt(saved, strict=True)
         assert strict_hygiene.passed_strict() is True
+        assert all(
+            entry.startswith("Verifiable:") for entry in saved["settlement_metadata"]["falsifiers"]
+        )
+        assert not any(
+            "Revisit if evidence disproves the chosen path for:" in entry
+            for entry in saved["settlement_metadata"]["falsifiers"]
+        )
 
         capsys.readouterr()
         with pytest.raises(SystemExit) as excinfo:
@@ -938,6 +945,9 @@ class TestCmdQuickstart:
             "agents": ["openai-api"],
             "summary": "Ship the truthful quickstart flow.",
             "dissent": [],
+            "verification_criteria": [
+                "Saved quickstart receipts continue to pass the strict epistemic hygiene gate."
+            ],
             "mode": "live",
         }
 
@@ -959,6 +969,13 @@ class TestCmdQuickstart:
         assert saved["mode"] == "live"
         strict_hygiene = validate_receipt(saved, strict=True)
         assert strict_hygiene.passed_strict() is True
+        assert all(
+            entry.startswith("Verifiable:") for entry in saved["settlement_metadata"]["falsifiers"]
+        )
+        assert not any(
+            "Revisit if evidence disproves the chosen path for:" in entry
+            for entry in saved["settlement_metadata"]["falsifiers"]
+        )
 
         output = capsys.readouterr().out
         assert "Run mode: live" in output
