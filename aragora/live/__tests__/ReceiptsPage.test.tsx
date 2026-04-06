@@ -337,6 +337,63 @@ describe('ReceiptsPage', () => {
     });
   });
 
+  it('offers PDF export through the v2 receipt route', async () => {
+    queueHookResponses([
+      hookResult({ data: { receipts: [] } }),
+      hookResult({
+        data: {
+          receipts: [
+            {
+              receipt_id: 'receipt-pdf-001',
+              verdict: 'APPROVED',
+              created_at: '2026-03-01T00:00:00Z',
+              input_summary: 'Receipt with PDF export',
+            },
+          ],
+        },
+      }),
+      hookResult(),
+    ]);
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          receipt_id: 'receipt-pdf-001',
+          verdict: 'APPROVED',
+          confidence: 0.88,
+          input_summary: 'Receipt with PDF export',
+          checksum: 'hash-pdf-001',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        blob: async () => new Blob(['%PDF-1.7'], { type: 'application/pdf' }),
+      });
+
+    render(<ReceiptsPage />);
+
+    fireEvent.click(await screen.findByText('Receipt with PDF export'));
+
+    await screen.findByText('Decision Receipt');
+    fireEvent.click(screen.getByText('PDF'));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        1,
+        'http://localhost:8080/api/v2/receipts/receipt-pdf-001',
+        expect.any(Object)
+      );
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        'http://localhost:8080/api/v2/receipts/receipt-pdf-001/export?format=pdf&raw=true',
+        expect.any(Object)
+      );
+      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled();
+    });
+  });
+
   it('shows a retryable error when every live source fails', async () => {
     queueHookResponses([
       hookResult({ error: new Error('gauntlet down') }),

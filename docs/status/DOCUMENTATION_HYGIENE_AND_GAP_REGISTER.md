@@ -1,6 +1,6 @@
 # Documentation Hygiene And Gap Register
 
-Last updated: 2026-03-07
+Last updated: 2026-04-06
 
 This register is the working record for documentation cleanup, roadmap extraction, and code-vs-doc drift found during the March 2026 hygiene pass.
 
@@ -82,7 +82,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - `aragora/server/handlers/features/connectors.py` still carries `coming_soon` / stubbed connector flows (`gdrive` and related enterprise sync/test paths).
 - `aragora/server/handlers/computer_use_handler.py` does not implement the full action/policy detail surface advertised by the OpenAPI computer-use endpoints.
 - Self-host compose smoke can still fail because `/readyz` returns `503` when `system.health.read` is denied in the composed runtime, even while `/healthz` succeeds. The gating/docs work is landed, but the runtime permission model still needs follow-through.
-- FastAPI receipts currently expose `json`/`markdown`/`sarif`, while legacy handlers still own `html`/`pdf` exports.
+- FastAPI receipts now expose `json`/`markdown`/`html`/`pdf`/`sarif`; remaining documentation drift is in historical notes that still describe the older export split.
 - Receipt delivery is only wired for `slack`, `teams`, `email`, and `discord`, not the broader connector/channel footprint implied elsewhere in the docs.
 - Unified and progressive memory handlers remain backend-conditional and still return `501` when optional backends or methods are unavailable.
 - `aragora/server/fastapi/routes/knowledge.py` can still return `501` when the configured KM backend lacks delete support.
