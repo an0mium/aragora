@@ -13,6 +13,7 @@ import { useSWRFetch } from '@/hooks/useSWRFetch';
 type ReceiptVerdict = 'PASS' | 'CONDITIONAL' | 'FAIL';
 type TabType = 'list' | 'detail';
 type ReceiptSource = 'gauntlet-receipts' | 'v2-receipts' | 'gauntlet-results';
+type ReceiptExportFormat = 'json' | 'html' | 'markdown' | 'pdf';
 
 interface RiskSummary {
   critical: number;
@@ -679,7 +680,7 @@ function buildDetailUrls(item: ReceiptListItem, backendUrl: string): string[] {
 function buildExportUrls(
   item: ReceiptListItem,
   backendUrl: string,
-  format: 'json' | 'html' | 'markdown'
+  format: ReceiptExportFormat
 ): string[] {
   const exportFormat = format === 'markdown' ? 'md' : format;
   const urls = new Set<string>();
@@ -925,7 +926,7 @@ export default function ReceiptsPage() {
     void fetchReceipt(match, { syncUrl: false });
   }, [fetchReceipt, receiptLoading, requestedReceiptId, results, selectedItem]);
 
-  const downloadReceipt = async (format: 'json' | 'html' | 'markdown') => {
+  const downloadReceipt = async (format: ReceiptExportFormat) => {
     if (!selectedItem) return;
 
     try {
@@ -1186,6 +1187,12 @@ export default function ReceiptsPage() {
                   className="w-full px-3 py-2 text-left text-sm hover:bg-bg"
                 >
                   Markdown
+                </button>
+                <button
+                  onClick={() => downloadReceipt('pdf')}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-bg"
+                >
+                  PDF
                 </button>
               </div>
             </div>

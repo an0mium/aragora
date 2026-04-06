@@ -51,6 +51,20 @@ jest.mock('@/hooks/useSWRFetch', () => ({
 const mockUseSWRFetch = useSWRFetch as jest.Mock;
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
+const mockCreateObjectURL = jest.fn(() => 'blob:receipt-pdf');
+const mockRevokeObjectURL = jest.fn();
+
+Object.defineProperty(URL, 'createObjectURL', {
+  configurable: true,
+  writable: true,
+  value: mockCreateObjectURL,
+});
+
+Object.defineProperty(URL, 'revokeObjectURL', {
+  configurable: true,
+  writable: true,
+  value: mockRevokeObjectURL,
+});
 
 type ReceiptRecord = Record<string, unknown>;
 
@@ -335,5 +349,86 @@ describe('ReceiptsPage', () => {
 
     await screen.findByText('Decision Receipt');
     expect(screen.queryByRole('link', { name: 'View result' })).not.toBeInTheDocument();
+  });
+
+  it('exports a receipt as PDF through the v2 export endpoint', async () => {
+    const user = userEvent.setup();
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const appendChildSpy = jest.spyOn(document.body, 'appendChild');
+    let downloadAnchor: HTMLAnchorElement | null = null;
+
+    appendChildSpy.mockImplementation((node: Node) => {
+      if (node instanceof HTMLAnchorElement) {
+        downloadAnchor = node;
+      }
+      return Node.prototype.appendChild.call(document.body, node);
+    });
+
+    mockFetch.mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'http://localhost:8080/api/v2/receipts/receipt-123') {
+        return {
+          ok: true,
+          json: async () => ({
+            receipt_id: 'receipt-123',
+            gauntlet_id: 'run-123',
+            timestamp: '2026-03-25T12:34:56Z',
+            input_summary: 'Receipt 123 summary',
+            input_hash: 'input-hash-123',
+            risk_summary: { critical: 0, high: 0, medium: 1, low: 0 },
+            attacks_attempted: 1,
+            attacks_successful: 0,
+            probes_run: 2,
+            vulnerabilities_found: 1,
+            verdict: 'PASS',
+            confidence: 0.91,
+            robustness_score: 0.82,
+            vulnerability_details: [],
+            verdict_reasoning: 'Looks good.',
+            dissenting_views: [],
+            provenance_chain: [],
+            artifact_hash: 'artifact-hash-123',
+          }),
+        } as Response;
+      }
+
+      if (
+        url ===
+        'http://localhost:8080/api/v2/receipts/receipt-123/export?format=pdf&raw=true'
+      ) {
+        return {
+          ok: true,
+          blob: async () => new Blob(['pdf-bytes'], { type: 'application/pdf' }),
+        } as Response;
+      }
+
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+    await screen.findByText('Decision Receipt');
+    await user.click(screen.getByRole('button', { name: 'PDF' }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v2/receipts/receipt-123/export?format=pdf&raw=true',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
+    expect(downloadAnchor?.download).toBe('receipt-receipt-123.pdf');
+    expect(downloadAnchor?.href).toBe('blob:receipt-pdf');
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:receipt-pdf');
+
+    appendChildSpy.mockRestore();
+    clickSpy.mockRestore();
   });
 });
