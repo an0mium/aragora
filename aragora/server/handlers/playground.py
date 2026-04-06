@@ -2757,7 +2757,10 @@ class PlaygroundHandler(BaseHandler):
             content_type="audio/mpeg",
             body=audio_bytes,
             headers={
-                "Cache-Control": "public, max-age=3600",
+                # User-supplied speech can contain sensitive content and should
+                # never be retained by shared caches.
+                "Cache-Control": "private, no-store, max-age=0",
+                "Pragma": "no-cache",
             },
         )
 
