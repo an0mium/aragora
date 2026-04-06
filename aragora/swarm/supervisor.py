@@ -4830,6 +4830,19 @@ class SwarmSupervisor:
                 return False
         return True
 
+    @staticmethod
+    def _merge_gate_entry_passed(entry: dict[str, Any]) -> bool:
+        if entry.get("passed") is not True:
+            return False
+        raw_exit_code = entry.get("exit_code", 0)
+        try:
+            if isinstance(raw_exit_code, (bool, float)):
+                raise TypeError
+            exit_code = int(raw_exit_code)
+        except (TypeError, ValueError):
+            return False
+        return exit_code == 0
+
     @classmethod
     def _merge_gate_state(cls, item: dict[str, Any]) -> dict[str, Any]:
         expected_checks = [
@@ -4855,7 +4868,7 @@ class SwarmSupervisor:
                 cls._verification_command_covers_expected(entry.get("command", ""), command)
                 for command in expected_checks
             )
-            and not bool(entry.get("passed", False))
+            and not cls._merge_gate_entry_passed(entry)
         ]
         deferred_dependency_ids = [
             str(dep).strip()

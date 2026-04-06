@@ -4307,6 +4307,50 @@ def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
     assert len(state["blocked_reasons"]) > 0
 
 
+def test_merge_gate_state_rejects_nonboolean_persisted_passed_flag() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "false",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
+
+
+def test_merge_gate_state_rejects_nonzero_exit_even_when_passed_true() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": True,
+                    "exit_code": 1,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
+
+
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
     repo: Path, store: DevCoordinationStore
 ) -> None:
