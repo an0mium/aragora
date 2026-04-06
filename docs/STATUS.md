@@ -111,7 +111,7 @@ The frontier is no longer building or wiring. It is:
 ### Inbox Trust Wedge — All Blocking Gaps Closed
 - **Trust Wedge Core**: Gmail → adversarial debate → signed receipt → CLI approval → gmail.modify
 - **Contracts**: AllowedAction enum (ARCHIVE/STAR/LABEL/IGNORE), TriageDecision, ReceiptState lifecycle (CREATED→APPROVED→EXECUTED→EXPIRED)
-- **Attestation**: Receipt persisted BEFORE execution gate, DurableFileSigner at `~/.aragora/signing.key`
+- **Attestation**: Receipt persisted BEFORE execution gate, durable inbox-wedge signing key stored in shared Aragora data (`.nomic/inbox_trust_wedge_signing.key` in linked worktrees or `ARAGORA_DATA_DIR`)
 - **Demo fallback removal**: SharedInboxView, TriageRulesPanel stripped of silent fallbacks (fail-closed)
 - **Session circuit-breaker** (PR #736, #740): Auth-state pinning on 401/403, QuotaFallbackMixin wired
 - **Gmail OAuth setup** (PR #741): One-time credential setup via `scripts/gmail_oauth_setup.py`
