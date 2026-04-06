@@ -41,6 +41,7 @@ from aragora.swarm.boss_feed import (  # noqa: F401
     GitHubIssue,
     GitHubIssueFeed,
     fetch_open_pr_changed_paths,
+    infer_issue_lane_hints,
     infer_issue_scope_entries,
     select_eligible_issue,
 )
@@ -586,6 +587,16 @@ class BossLoop:
                 int(self._max_effective_parallel_dispatches_observed or 0),
             )
         return status
+
+    @staticmethod
+    def _issue_payload(issue: GitHubIssue) -> dict[str, Any]:
+        payload = issue.to_dict()
+        lane_hints = infer_issue_lane_hints(issue)
+        if lane_hints:
+            payload["lane_hints"] = list(lane_hints)
+            if len(lane_hints) == 1:
+                payload["lane_id"] = lane_hints[0]
+        return payload
 
     def _blocked_issue_scopes(self) -> set[str]:
         if not self.config.avoid_open_pr_scope_conflicts:
@@ -2290,7 +2301,7 @@ class BossLoop:
             )
 
         # Step 4: Dispatch supervised work for this issue
-        issue_dict = selected.to_dict()
+        issue_dict = self._issue_payload(selected)
         self._attempted_issues.append(issue_dict)
         self._issue_attempt_counts[selected.number] = (
             self._issue_attempt_counts.get(selected.number, 0) + 1
@@ -2465,7 +2476,7 @@ class BossLoop:
 
         while pending_issues and len(active_tasks) < parallel_limit:
             issue = pending_issues.pop(0)
-            issue_dict = issue.to_dict()
+            issue_dict = self._issue_payload(issue)
             self._attempted_issues.append(issue_dict)
             self._issue_attempt_counts[issue.number] = (
                 self._issue_attempt_counts.get(issue.number, 0) + 1
@@ -2520,7 +2531,7 @@ class BossLoop:
 
                 while not stop_launching and pending_issues and len(active_tasks) < parallel_limit:
                     next_issue = pending_issues.pop(0)
-                    next_issue_dict = next_issue.to_dict()
+                    next_issue_dict = self._issue_payload(next_issue)
                     self._attempted_issues.append(next_issue_dict)
                     self._issue_attempt_counts[next_issue.number] = (
                         self._issue_attempt_counts.get(next_issue.number, 0) + 1
@@ -2690,6 +2701,9 @@ class BossLoop:
         selected_issues: list[GitHubIssue] = []
         # Track file scopes to avoid dispatching overlapping work in parallel.
         claimed_scopes: set[str] = set(blocked_scope_entries)
+        # Track coarse ownership lanes so one batch does not dispatch multiple
+        # issues into the same domain when explicit metadata or scope hints exist.
+        claimed_lanes: set[str] = set()
         # Track title stems to avoid dispatching near-duplicate sub-issues
         claimed_stems: set[str] = set()
 
@@ -2707,6 +2721,9 @@ class BossLoop:
             scope_hints = set(infer_issue_scope_entries(candidate))
             if scope_hints and scope_hints & claimed_scopes:
                 continue
+            lane_hints = set(infer_issue_lane_hints(candidate))
+            if lane_hints and lane_hints & claimed_lanes:
+                continue
 
             # Deduplicate by title stem — strip [from #N] prefix and compare
             import re
@@ -2717,6 +2734,7 @@ class BossLoop:
 
             selected_issues.append(candidate)
             claimed_scopes.update(scope_hints)
+            claimed_lanes.update(lane_hints)
             claimed_stems.add(stem)
             if limit is not None and len(selected_issues) >= limit:
                 break

@@ -35,6 +35,7 @@ from aragora.swarm.boss_loop import (
     fetch_open_pr_changed_paths,
     GitHubIssue,
     GitHubIssueFeed,
+    infer_issue_lane_hints,
     infer_issue_scope_entries,
     RunnerFreshnessResult,
     check_runner_freshness,
@@ -355,6 +356,30 @@ class TestBatchIssueSelection:
 
         assert [issue.number for issue in selected] == [1, 3]
 
+    def test_parallel_selection_claims_lane_before_dispatch(self):
+        loop = BossLoop(_boss_config(max_parallel_dispatches=3))
+        issues = [
+            _make_issue(
+                1,
+                "Swarm supervisor follow-up",
+                body="Touch `aragora/swarm/supervisor.py` only.\n",
+            ),
+            _make_issue(
+                2,
+                "Swarm test follow-up",
+                body="Touch `tests/swarm/test_supervisor.py` only.\n",
+            ),
+            _make_issue(
+                3,
+                "Frontend follow-up",
+                body="Touch `aragora/live/src/app/page.tsx` only.\n",
+            ),
+        ]
+
+        selected = loop._select_issues_for_iteration(issues, limit=3)
+
+        assert [issue.number for issue in selected] == [1, 3]
+
     def test_parallel_selection_respects_open_pr_blocked_scope(self):
         loop = BossLoop(_boss_config(max_parallel_dispatches=2))
         issues = [
@@ -395,6 +420,36 @@ class TestBatchIssueSelection:
         )
 
         assert infer_issue_scope_entries(issue) == ["aragora/swarm"]
+
+    def test_infers_lane_from_scope_hints(self):
+        issue = _make_issue(
+            1,
+            "Boss loop cleanup",
+            body="Acceptance Criteria:\n- No files outside aragora/swarm/ are changed\n",
+        )
+
+        assert infer_issue_lane_hints(issue) == ["swarm"]
+
+    def test_infers_lane_from_explicit_label(self):
+        issue = _make_issue(
+            1,
+            "Landing polish",
+            labels=["boss-ready", "lane:frontend"],
+        )
+
+        assert infer_issue_lane_hints(issue) == ["frontend"]
+
+    def test_issue_payload_exposes_lane_metadata(self):
+        issue = _make_issue(
+            1,
+            "Boss loop cleanup",
+            body="Touch `aragora/swarm/boss_loop.py` only.\n",
+        )
+
+        payload = BossLoop._issue_payload(issue)
+
+        assert payload["lane_hints"] == ["swarm"]
+        assert payload["lane_id"] == "swarm"
 
     def test_skips_issue_when_scope_overlaps_blocked_open_pr_paths(self):
         issues = [
