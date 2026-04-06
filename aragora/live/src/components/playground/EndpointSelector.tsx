@@ -35,9 +35,10 @@ export const ENDPOINTS: Endpoint[] = [
     description: 'Create a new debate',
     group: 'Debates',
     body: {
-      task: 'Should we use microservices?',
+      question: 'Should we use microservices for the control plane?',
       agents: ['claude', 'openai'],
       rounds: 3,
+      consensus: 'majority',
     },
   },
   {
@@ -59,8 +60,15 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     method: 'GET',
-    path: '/api/v2/debates/{debate_id}/receipt',
-    description: 'Get debate receipt',
+    path: '/api/v2/debates/{debate_id}/messages',
+    description: 'Get debate messages',
+    group: 'Debates',
+    parameters: [{ name: 'debate_id', in: 'path', required: true }],
+  },
+  {
+    method: 'GET',
+    path: '/api/v2/debates/{debate_id}/convergence',
+    description: 'Get convergence metrics',
     group: 'Debates',
     parameters: [{ name: 'debate_id', in: 'path', required: true }],
   },
@@ -99,6 +107,20 @@ export const ENDPOINTS: Endpoint[] = [
     description: 'Knowledge base statistics',
     group: 'Knowledge',
   },
+  // Receipts
+  {
+    method: 'GET',
+    path: '/api/v2/receipts',
+    description: 'List receipts',
+    group: 'Receipts',
+  },
+  {
+    method: 'GET',
+    path: '/api/v2/receipts/{receipt_id}',
+    description: 'Get receipt by ID',
+    group: 'Receipts',
+    parameters: [{ name: 'receipt_id', in: 'path', required: true }],
+  },
   // Health
   {
     method: 'GET',
@@ -108,14 +130,8 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     method: 'GET',
-    path: '/api/v2/health/ready',
-    description: 'Readiness probe',
-    group: 'System',
-  },
-  {
-    method: 'GET',
-    path: '/api/v2/metrics',
-    description: 'Prometheus metrics',
+    path: '/api/v2/metrics/summary',
+    description: 'Metrics summary',
     group: 'System',
   },
 ];
