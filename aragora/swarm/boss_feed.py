@@ -67,6 +67,9 @@ _SCOPE_LANE_PREFIXES = (
     (".github/", "infra"),
     ("contracts/", "infra"),
 )
+# Lane aliases are intentionally module-local constants. The taxonomy changes
+# rarely, and keeping the mapping next to normalization avoids a second config
+# surface for a hot-path boss-loop decision.
 
 
 @dataclass(slots=True)
@@ -279,6 +282,15 @@ def _normalize_scope_entries(values: list[str] | set[str] | tuple[str, ...]) -> 
 
 
 def _normalize_lane_name(value: Any) -> str | None:
+    """Normalize a lane hint into the canonical boss-loop lane identifier.
+
+    The normalization keeps label/body/scope inference consistent by:
+    1. lowercasing and trimming surrounding whitespace
+    2. converting separators (underscores, slashes, spaces) to hyphens
+    3. stripping non-alphanumeric characters except hyphens
+    4. collapsing repeated hyphens
+    5. mapping known aliases like ``backend`` -> ``server``
+    """
     text = str(value or "").strip().lower()
     if not text:
         return None

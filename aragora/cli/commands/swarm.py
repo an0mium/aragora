@@ -117,6 +117,10 @@ _UNSAFE_VALIDATION_SHELL_FRAGMENTS = (
     "\r",
 )
 
+# Keep boss-loop iteration output readable without hiding the lane signal
+# entirely when multiple inferred hints are available.
+MAX_DISPLAYED_LANE_HINTS = 2
+
 
 def _probe_validation_command(
     command: str,
@@ -1567,7 +1571,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     lane_hints = issue.get("lane_hints")
                     if isinstance(lane_hints, list) and lane_hints:
                         lane = ",".join(
-                            str(item).strip() for item in lane_hints[:2] if str(item).strip()
+                            str(item).strip()
+                            for item in lane_hints[:MAX_DISPLAYED_LANE_HINTS]
+                            if str(item).strip()
                         )
             issue_text = (
                 f"#{issue.get('number', '?')} {issue.get('title', '')[:60]}"
