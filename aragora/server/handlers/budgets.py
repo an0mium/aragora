@@ -32,6 +32,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from typing import Any
 
@@ -60,6 +61,14 @@ from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as Bu
 # Global circuit breaker instance for the budget manager
 _circuit_breaker = BudgetCircuitBreaker(name="budget", half_open_max_calls=2)
 _circuit_breaker_lock = threading.Lock()
+
+
+def _coerce_finite_float(value: Any) -> float:
+    """Coerce numeric input to a finite float."""
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError("Value must be finite")
+    return parsed
 
 
 def get_budget_circuit_breaker() -> BudgetCircuitBreaker:
@@ -401,7 +410,7 @@ class BudgetHandler(BaseHandler):
             if amount_usd is None:
                 return error_response("Missing required field: amount_usd", 400)
             try:
-                amount_usd_float = float(amount_usd)
+                amount_usd_float = _coerce_finite_float(amount_usd)
             except (ValueError, TypeError):
                 return error_response("Invalid amount_usd value: must be a number", 400)
             if amount_usd_float < self.MIN_AMOUNT_USD:
@@ -534,7 +543,7 @@ class BudgetHandler(BaseHandler):
             amount_usd_float = None
             if amount_usd is not None:
                 try:
-                    amount_usd_float = float(amount_usd)
+                    amount_usd_float = _coerce_finite_float(amount_usd)
                 except (ValueError, TypeError):
                     return error_response("Invalid amount_usd value: must be a number", 400)
                 if amount_usd_float < self.MIN_AMOUNT_USD:
@@ -648,14 +657,14 @@ class BudgetHandler(BaseHandler):
                 return error_response("Invalid request body", 400)
 
             estimated_cost = body.get("estimated_cost_usd", 0)
-            if estimated_cost <= 0:
+            try:
+                estimated_cost_float = _coerce_finite_float(estimated_cost)
+            except (ValueError, TypeError):
+                return error_response("Invalid estimated_cost_usd value", 400)
+            if estimated_cost_float <= 0:
                 return error_response("Invalid estimated_cost_usd: must be positive", 400)
 
             manager = self._get_budget_manager()
-            try:
-                estimated_cost_float = float(estimated_cost)
-            except (ValueError, TypeError):
-                return error_response("Invalid estimated_cost_usd value", 400)
             allowed, reason, action = manager.check_budget(
                 org_id=org_id,
                 estimated_cost_usd=estimated_cost_float,
@@ -759,15 +768,22 @@ class BudgetHandler(BaseHandler):
             target_user_id = body.get("user_id")
             if not target_user_id:
                 return error_response("Missing required field: user_id", 400)
+            if not isinstance(target_user_id, str):
+                return error_response("user_id must be a string", 400)
+            target_user_id = target_user_id.strip()
+            if not target_user_id:
+                return error_response("user_id cannot be empty", 400)
 
             duration_hours = body.get("duration_hours")
 
             duration_hours_float = None
             if duration_hours is not None:
                 try:
-                    duration_hours_float = float(duration_hours)
+                    duration_hours_float = _coerce_finite_float(duration_hours)
                 except (ValueError, TypeError):
                     return error_response("Invalid duration_hours value", 400)
+                if duration_hours_float <= 0:
+                    return error_response("duration_hours must be positive", 400)
             manager.add_override(
                 budget_id=budget_id,
                 user_id=target_user_id,
