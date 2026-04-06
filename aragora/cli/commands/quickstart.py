@@ -486,6 +486,31 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     """Normalize quickstart debate results into a receipt-compatible artifact payload."""
     from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
 
+    def _canonicalize_quickstart_verdict(
+        raw_verdict: Any,
+        *,
+        consensus_reached: bool,
+        confidence_score: float,
+    ) -> str:
+        normalized = str(raw_verdict or "").strip().lower()
+        if normalized in {"pass", "passed", "approve", "approved", "consensus"}:
+            return "PASS"
+        if normalized in {"fail", "failed", "reject", "rejected"}:
+            return "FAIL"
+        if normalized in {
+            "conditional",
+            "warn",
+            "warning",
+            "needs_review",
+            "needs review",
+            "approved_with_conditions",
+            "approved with conditions",
+        }:
+            return "CONDITIONAL"
+        if consensus_reached:
+            return "PASS"
+        return "CONDITIONAL" if confidence_score >= 0.45 else "FAIL"
+
     payload = dict(result)
     receipt_info = payload.get("receipt", {})
     if not isinstance(receipt_info, dict):
@@ -519,6 +544,11 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             "approve",
             "approved",
         }
+    canonical_verdict = _canonicalize_quickstart_verdict(
+        payload.get("verdict"),
+        consensus_reached=bool(consensus),
+        confidence_score=confidence,
+    )
 
     votes = payload.get("votes")
     if not isinstance(votes, list):
@@ -590,7 +620,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             vulnerabilities_found=int(
                 payload.get("vulnerabilities_found", 0) or len(dissenting_views)
             ),
-            verdict=str(payload.get("verdict", "")),
+            verdict=canonical_verdict,
             confidence=confidence,
             robustness_score=_clamp_confidence(payload.get("robustness_score", confidence)),
             verdict_reasoning=str(payload.get("verdict_reasoning") or summary),
@@ -643,6 +673,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         canonical = dict(payload)
         canonical.update(receipt.to_dict())
 
+    canonical["verdict"] = canonical_verdict
     canonical["question"] = question
     canonical["rounds"] = rounds
     canonical["agents"] = participants

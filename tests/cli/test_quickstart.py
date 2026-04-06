@@ -16,6 +16,7 @@ import pytest
 from aragora.agents.base import create_agent as create_real_agent
 from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
+    _build_quickstart_receipt_payload,
     _build_live_receipt,
     _build_live_team,
     _can_reach_provider_tls,
@@ -879,6 +880,24 @@ class TestCmdQuickstart:
         data = json.loads(Path(output_path).read_text())
         assert data["verdict"] == "yes"
 
+    def test_build_quickstart_receipt_payload_normalizes_demo_verdict(self):
+        payload = _build_quickstart_receipt_payload(
+            {
+                "question": "Should the demo receipt look like a passing run?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 2,
+                "agents": ["analyst", "critic", "synthesizer"],
+                "summary": "The demo path reached consensus.",
+                "dissent": [],
+                "mode": "demo",
+            }
+        )
+
+        assert payload["verdict"] == "PASS"
+        assert payload["consensus_reached"] is True
+        assert payload["receipt"]["confidence"] == 0.85
+
     def test_demo_mode_saves_receipt_that_verifies(self, tmp_path, monkeypatch, capsys):
         monkeypatch.chdir(tmp_path)
         args = argparse.Namespace(
@@ -1111,6 +1130,7 @@ class TestCmdQuickstart:
             "dissent": [],
             "mode": "demo",
         }
+        mock_store = MagicMock()
 
         with (
             patch(
@@ -1121,6 +1141,10 @@ class TestCmdQuickstart:
                 "aragora.cli.commands.quickstart._run_demo_debate",
                 return_value=demo_result,
             ),
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                return_value=mock_store,
+            ),
         ):
             cmd_quickstart(args)
 
@@ -1128,6 +1152,9 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "demo"
+        assert saved["verdict"] == "PASS"
+        mock_store.save.assert_called_once()
+        assert mock_store.save.call_args.args[0]["verdict"] == "PASS"
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
