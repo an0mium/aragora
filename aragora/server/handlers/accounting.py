@@ -174,6 +174,18 @@ async def get_gusto_connector(request: web.Request) -> GustoConnector:
     return connector
 
 
+def _require_non_empty_string(value: Any, field_name: str) -> str:
+    """Require a non-empty string value."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} is required")
+
+    return normalized
+
+
 def _parse_iso_date(value: str | None, field_name: str) -> date | None:
     """Parse an ISO date query param."""
     if not value:
@@ -374,8 +386,16 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
     Handle OAuth callback from QuickBooks.
     """
     try:
-        code = request.query.get("code")
-        realm_id = request.query.get("realmId")
+        try:
+            code = _require_non_empty_string(request.query.get("code"), "code")
+            realm_id = _require_non_empty_string(request.query.get("realmId"), "realmId")
+        except ValueError:
+            return web.json_response(
+                {
+                    "error": "Missing authorization code or realm ID",
+                },
+                status=400,
+            )
         _state = request.query.get("state")  # noqa: F841 (for CSRF validation)
         error = request.query.get("error")
 
@@ -384,14 +404,6 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
                 {
                     "error": error,
                     "description": request.query.get("error_description", ""),
-                },
-                status=400,
-            )
-
-        if not code or not realm_id:
-            return web.json_response(
-                {
-                    "error": "Missing authorization code or realm ID",
                 },
                 status=400,
             )
@@ -715,7 +727,21 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
-        if not start_date_str or not end_date_str:
+        if start_date_str is None or end_date_str is None:
+            return web.json_response(
+                {
+                    "error": "start_date and end_date are required",
+                },
+                status=400,
+            )
+        if not isinstance(start_date_str, str) or not isinstance(end_date_str, str):
+            return web.json_response(
+                {
+                    "error": "start_date and end_date must be ISO 8601 strings",
+                },
+                status=400,
+            )
+        if not start_date_str.strip() or not end_date_str.strip():
             return web.json_response(
                 {
                     "error": "start_date and end_date are required",
@@ -724,8 +750,8 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
             )
 
         try:
-            start_date = datetime.fromisoformat(start_date_str)
-            end_date = datetime.fromisoformat(end_date_str)
+            start_date = datetime.fromisoformat(start_date_str.strip())
+            end_date = datetime.fromisoformat(end_date_str.strip())
             _validate_date_range(start_date, end_date)
         except ValueError:
             return web.json_response(
@@ -979,7 +1005,15 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
     Handle OAuth callback from Gusto.
     """
     try:
-        code = request.query.get("code")
+        try:
+            code = _require_non_empty_string(request.query.get("code"), "code")
+        except ValueError:
+            return web.json_response(
+                {
+                    "error": "Missing authorization code",
+                },
+                status=400,
+            )
         error = request.query.get("error")
 
         if error:
@@ -987,14 +1021,6 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
                 {
                     "error": error,
                     "description": request.query.get("error_description", ""),
-                },
-                status=400,
-            )
-
-        if not code:
-            return web.json_response(
-                {
-                    "error": "Missing authorization code",
                 },
                 status=400,
             )
@@ -1230,8 +1256,11 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
                 status=503,
             )
 
-        payroll_id = request.match_info.get("payroll_id")
-        if not payroll_id:
+        try:
+            payroll_id = _require_non_empty_string(
+                request.match_info.get("payroll_id"), "payroll_id"
+            )
+        except ValueError:
             return web.json_response(
                 {
                     "error": "Missing payroll_id",
@@ -1292,8 +1321,11 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
                 status=503,
             )
 
-        payroll_id = request.match_info.get("payroll_id")
-        if not payroll_id:
+        try:
+            payroll_id = _require_non_empty_string(
+                request.match_info.get("payroll_id"), "payroll_id"
+            )
+        except ValueError:
             return web.json_response(
                 {
                     "error": "Missing payroll_id",
