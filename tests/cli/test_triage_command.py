@@ -245,6 +245,60 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
 
 
 @pytest.mark.asyncio
+async def test_run_triage_falls_back_when_home_diagnostics_dir_unwritable(
+    capsys, tmp_path, monkeypatch
+):
+    decision = TriageDecision.create(
+        final_action="archive",
+        confidence=0.92,
+        dissent_summary="",
+        receipt_id="receipt-fallback",
+    )
+    home = tmp_path / "home"
+    home.mkdir()
+    fallback_tmp = tmp_path / "fallback-tmp"
+    fallback_tmp.mkdir()
+
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("ARAGORA_TRIAGE_DIAGNOSTICS_DIR", raising=False)
+
+    real_mkdir = Path.mkdir
+
+    def _mkdir(self: Path, *args, **kwargs):
+        if str(self).startswith(str(home / ".aragora")):
+            raise PermissionError("home dir blocked")
+        return real_mkdir(self, *args, **kwargs)
+
+    fake_runner = SimpleNamespace(
+        run_triage=AsyncMock(return_value=[decision]),
+        next_page_token=None,
+    )
+    fake_service = SimpleNamespace(review_receipt=object())
+
+    with (
+        patch(
+            "aragora.inbox.triage_diagnostics.tempfile.gettempdir", return_value=str(fallback_tmp)
+        ),
+        patch("aragora.inbox.triage_diagnostics.Path.mkdir", new=_mkdir),
+        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch("aragora.inbox.triage_runner.InboxTriageRunner", return_value=fake_runner),
+        patch(
+            "aragora.inbox.trust_wedge.get_inbox_trust_wedge_service",
+            return_value=fake_service,
+        ),
+    ):
+        await triage_cmd._run_triage(batch_size=1, auto_approve=False, dry_run=True)
+
+    out = capsys.readouterr().out
+    assert "Run summary:" in out
+    meta_files = list((fallback_tmp / "aragora" / "triage-runs").glob("*/meta.json"))
+    assert len(meta_files) == 1
+    meta = json.loads(meta_files[0].read_text())
+    assert meta["artifact_dir"].startswith(str(fallback_tmp / "aragora" / "triage-runs"))
+    assert meta["requested_artifact_dir"].startswith(str(home / ".aragora" / "triage-runs"))
+
+
+@pytest.mark.asyncio
 async def test_sync_gmail_connector_to_token_store_saves_connector_tokens():
     store = InMemoryGmailTokenStore()
     connector = SimpleNamespace(

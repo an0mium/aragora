@@ -6,6 +6,7 @@ import contextvars
 import json
 import logging
 import re
+import tempfile
 import traceback
 import warnings
 from contextlib import contextmanager
@@ -106,6 +107,27 @@ def _coerce_severity(value: str | DiagnosticSeverity | None) -> DiagnosticSeveri
         return DiagnosticSeverity(normalized)
     except ValueError:
         return DiagnosticSeverity.DIAGNOSTIC
+
+
+def _fallback_artifact_root() -> Path:
+    return Path(tempfile.gettempdir()) / "aragora" / "triage-runs"
+
+
+def _prepare_artifact_dir(base_dir: Path, run_id: str) -> tuple[Path, str | None]:
+    preferred_dir = base_dir / run_id
+    try:
+        preferred_dir.mkdir(parents=True, exist_ok=True)
+        return preferred_dir, None
+    except OSError as exc:
+        fallback_dir = _fallback_artifact_root() / run_id
+        if fallback_dir == preferred_dir:
+            raise
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        warning = (
+            f"Diagnostics dir {preferred_dir} unavailable; using {fallback_dir}: "
+            f"{sanitize_error(str(exc), max_length=200)}"
+        )
+        return fallback_dir, warning
 
 
 def _extract_debate_id(text: str) -> str | None:
@@ -217,8 +239,10 @@ class TriageRunDiagnostics:
             if diagnostics_dir is not None
             else Path.home() / ".aragora" / "triage-runs"
         )
-        self.artifact_dir = base_dir / self.run_id
-        self.artifact_dir.mkdir(parents=True, exist_ok=True)
+        self.requested_artifact_dir = base_dir / self.run_id
+        self.artifact_dir, self.artifact_storage_warning = _prepare_artifact_dir(
+            base_dir, self.run_id
+        )
         self.events_path = self.artifact_dir / "events.jsonl"
         self.meta_path = self.artifact_dir / "meta.json"
         self.started_at = _iso_now()
@@ -399,6 +423,8 @@ class TriageRunDiagnostics:
             "global_suppressed_diagnostics_count": global_suppressed_count,
             "severity_counts": severity_counts,
             "artifact_dir": str(self.artifact_dir),
+            "requested_artifact_dir": str(self.requested_artifact_dir),
+            "artifact_storage_warning": self.artifact_storage_warning,
             "events_path": str(self.events_path),
         }
         with self.meta_path.open("w", encoding="utf-8") as handle:

@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import warnings
+from pathlib import Path
 
 from aragora.inbox.triage_diagnostics import TriageRunDiagnostics
 
@@ -171,3 +172,46 @@ def test_finalize_separates_global_and_message_suppressed_counts(tmp_path):
     assert meta["suppressed_diagnostics_count"] == 2
     assert meta["message_suppressed_diagnostics_count"] == 1
     assert meta["global_suppressed_diagnostics_count"] == 1
+
+
+def test_init_falls_back_to_temp_root_when_default_dir_unwritable(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    fallback_tmp = tmp_path / "fallback-tmp"
+    fallback_tmp.mkdir()
+
+    monkeypatch.setenv("HOME", str(home))
+
+    real_mkdir = Path.mkdir
+
+    def _mkdir(self: Path, *args, **kwargs):
+        if str(self).startswith(str(home / ".aragora")):
+            raise PermissionError("home dir blocked")
+        return real_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr("aragora.inbox.triage_diagnostics.Path.mkdir", _mkdir)
+    monkeypatch.setattr(
+        "aragora.inbox.triage_diagnostics.tempfile.gettempdir",
+        lambda: str(fallback_tmp),
+    )
+
+    diagnostics = TriageRunDiagnostics(
+        profile="staged_v1",
+        batch_size=1,
+        auto_approve=False,
+        dry_run=True,
+        verbose=False,
+    )
+    with diagnostics.activate(), diagnostics.message_scope("msg-fallback"):
+        diagnostics.record_event(
+            code="startup",
+            severity="diagnostic",
+            logger_name="aragora.storage.pool_manager",
+            summary="startup warning",
+        )
+
+    meta = diagnostics.finalize([])
+
+    assert str(diagnostics.artifact_dir).startswith(str(fallback_tmp / "aragora" / "triage-runs"))
+    assert meta["requested_artifact_dir"].startswith(str(home / ".aragora" / "triage-runs"))
+    assert "using" in str(meta["artifact_storage_warning"])
