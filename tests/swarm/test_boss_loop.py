@@ -41,6 +41,7 @@ from aragora.swarm.boss_loop import (
     check_runner_freshness,
     discover_focused_tests,
     dispatch_bounded_spec,
+    extract_declared_new_file_paths,
     extract_pre_dispatch_validation_commands,
     extract_issue_validation_contract,
     find_missing_pre_dispatch_validation_targets,
@@ -510,6 +511,19 @@ Acceptance Criteria:
 
         assert find_missing_pre_dispatch_validation_targets(commands, repo_root=tmp_path) == [
             "tests/webhooks/test_delivery_retry.py"
+        ]
+
+    def test_extract_declared_new_file_paths_only_accepts_explicit_new_markers(self):
+        body = (
+            "## Files\n"
+            "- `tests/test_openapi_regeneration.py` (new)\n"
+            "- `tests/webhooks/test_delivery_retry.py` (new or extend)\n"
+            "- `tests/pipeline/test_run_ledger_ordering.py` (new file)\n"
+        )
+
+        assert extract_declared_new_file_paths(body) == [
+            "tests/test_openapi_regeneration.py",
+            "tests/pipeline/test_run_ledger_ordering.py",
         ]
 
     def test_run_pre_dispatch_validation_commands_stops_on_failure(self, monkeypatch):
@@ -2601,6 +2615,57 @@ async def test_dispatch_issue_blocks_on_missing_validation_target_before_dispatc
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_allows_missing_validation_target_for_explicit_new_file() -> None:
+    issue = _make_issue(
+        2459,
+        "Add OpenAPI spec regeneration test to prevent drift",
+        body=(
+            "The generated OpenAPI artifacts drift when handlers change. Add a test that regenerates and diffs.\n\n"
+            "## Files\n"
+            "- `tests/test_openapi_regeneration.py` (new)\n\n"
+            "## Acceptance\n"
+            "`pytest tests/test_openapi_regeneration.py -x -q` passes\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-2459",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/openapi-regen-test", "commit_shas": ["abc123"]}
+        ],
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    mock_commander_cls.return_value.run_supervised_from_spec.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_consumes_pending_handoff_prompt_and_target_agent() -> None:
     issue = _make_issue(1701, "Retry same issue with handoff")
     loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
@@ -2661,6 +2726,50 @@ async def test_dispatch_issue_preserves_pending_handoff_on_pre_run_failure() -> 
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "failed", "outcome": "crash", "error": "boom"}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    dispatch_kwargs = dispatch_mock.await_args.kwargs
+    assert result["status"] == "failed"
+    assert dispatch_kwargs["default_target_agent"] == "codex"
+    assert loop._pending_handoff_prompts[issue.number] == (
+        "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
+        "codex",
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_preserves_pending_handoff_on_failed_result_with_malformed_run_id() -> (
+    None
+):
+    issue = _make_issue(1705, "Retry handoff should ignore malformed run id")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
+    loop._pending_handoff_prompts[issue.number] = (
+        "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
+        "codex",
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": requested_target_agent or "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(
+                return_value={
+                    "status": "failed",
+                    "run_id": {"id": "junk"},
+                    "outcome": "crash",
+                    "error": "boom",
+                }
+            ),
         ) as dispatch_mock,
     ):
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
@@ -3135,6 +3244,45 @@ def test_boss_loop_batch_reports_effective_parallel_dispatches() -> None:
     assert result.effective_parallel_dispatches_observed == 2
     assert {status.effective_parallel_dispatches for status in statuses} == {2}
     assert {status["effective_parallel_dispatches"] for status in result.iteration_statuses} == {2}
+
+
+def test_boss_loop_batch_uses_configured_limit_when_no_capacity_reported() -> None:
+    """When selected runners don't report available_capacity, the configured
+    max_parallel_dispatches should be used instead of falling back to serial."""
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(401, "Batch issue X"),
+        _make_issue(402, "Batch issue Y"),
+        _make_issue(403, "Batch issue Z"),
+        _make_issue(404, "Batch issue W"),
+    ]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=4),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["max-01", "max-02", "max-03", "max-04"],
+            checked_at=datetime.now(UTC).isoformat(),
+            details={
+                "routing": {
+                    "selected_runners": [
+                        {"runner_id": "max-01", "available_capacity": 0},
+                        {"runner_id": "max-02", "available_capacity": 0},
+                        {"runner_id": "max-03"},
+                        {"runner_id": "max-04"},
+                    ]
+                }
+            },
+        ),
+    )
+    loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+    statuses: list[BossIterationStatus] = []
+    result = asyncio.run(loop.run(on_status=statuses.append))
+
+    assert result.configured_max_parallel_dispatches == 4
+    assert result.effective_parallel_dispatches_observed == 4
+    assert {status.effective_parallel_dispatches for status in statuses} == {4}
 
 
 # ---------------------------------------------------------------------------
@@ -3838,3 +3986,209 @@ async def test_dispatch_backbone_failure_does_not_block():
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
+
+
+# ---------------------------------------------------------------------------
+# Draft PR promotion tests
+# ---------------------------------------------------------------------------
+
+
+class TestConvertPrToDraft:
+    """Tests for _convert_pr_to_draft."""
+
+    def test_converts_pr_to_draft_on_success(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        worker_result: dict[str, Any] = {
+            "pr_url": "https://github.com/synaptent/aragora/pull/42",
+        }
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout="", stderr="")
+            loop._convert_pr_to_draft(worker_result)
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd == ["gh", "pr", "ready", "--undo", "42", "-R", "synaptent/aragora"]
+        assert worker_result.get("draft_converted") is True
+
+    def test_no_op_when_no_pr_url(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        worker_result: dict[str, Any] = {"status": "completed"}
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            loop._convert_pr_to_draft(worker_result)
+        mock_run.assert_not_called()
+        assert "draft_converted" not in worker_result
+
+    def test_handles_already_draft(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        worker_result: dict[str, Any] = {
+            "pr_url": "https://github.com/synaptent/aragora/pull/7",
+        }
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(
+                returncode=1, stdout="", stderr="already a draft"
+            )
+            loop._convert_pr_to_draft(worker_result)
+        assert worker_result.get("draft_converted") is True
+
+    def test_handles_gh_failure_gracefully(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        worker_result: dict[str, Any] = {
+            "pr_url": "https://github.com/synaptent/aragora/pull/7",
+        }
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="network error")
+            loop._convert_pr_to_draft(worker_result)
+        assert "draft_converted" not in worker_result
+
+    def test_handles_subprocess_exception(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        worker_result: dict[str, Any] = {
+            "pr_url": "https://github.com/synaptent/aragora/pull/7",
+        }
+        with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=OSError("fail")):
+            loop._convert_pr_to_draft(worker_result)
+        assert "draft_converted" not in worker_result
+
+
+class TestAllRequiredChecksPassed:
+    """Tests for _all_required_checks_passed."""
+
+    def test_all_checks_pass(self) -> None:
+        checks_json = json.dumps(
+            [
+                {"name": "lint", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "Generate & Validate", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "state": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+                {"name": "other-check", "state": "COMPLETED", "conclusion": "FAILURE"},
+            ]
+        )
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout=checks_json, stderr="")
+            assert BossLoop._all_required_checks_passed(42, "synaptent/aragora") is True
+
+    def test_missing_check_fails(self) -> None:
+        checks_json = json.dumps(
+            [
+                {"name": "lint", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "Generate & Validate", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                # TypeScript SDK Type Check is missing
+            ]
+        )
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout=checks_json, stderr="")
+            assert BossLoop._all_required_checks_passed(42, "synaptent/aragora") is False
+
+    def test_failed_check_fails(self) -> None:
+        checks_json = json.dumps(
+            [
+                {"name": "lint", "state": "COMPLETED", "conclusion": "FAILURE"},
+                {"name": "typecheck", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "Generate & Validate", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "state": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+            ]
+        )
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout=checks_json, stderr="")
+            assert BossLoop._all_required_checks_passed(42, "synaptent/aragora") is False
+
+    def test_gh_command_failure(self) -> None:
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="error")
+            assert BossLoop._all_required_checks_passed(42, "synaptent/aragora") is False
+
+    def test_subprocess_exception(self) -> None:
+        with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=OSError("fail")):
+            assert BossLoop._all_required_checks_passed(42, "synaptent/aragora") is False
+
+
+class TestPromoteReadyDrafts:
+    """Tests for _promote_ready_drafts."""
+
+    def test_promotes_draft_with_all_checks_passing(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        draft_list_json = json.dumps([{"number": 10}, {"number": 20}])
+        checks_10 = json.dumps(
+            [
+                {"name": "lint", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "Generate & Validate", "state": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "state": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+            ]
+        )
+        checks_20 = json.dumps(
+            [
+                {"name": "lint", "state": "COMPLETED", "conclusion": "FAILURE"},
+            ]
+        )
+
+        def fake_run(cmd, **kw):
+            if "list" in cmd:
+                return SimpleNamespace(returncode=0, stdout=draft_list_json, stderr="")
+            if "checks" in cmd:
+                if "10" in cmd:
+                    return SimpleNamespace(returncode=0, stdout=checks_10, stderr="")
+                return SimpleNamespace(returncode=0, stdout=checks_20, stderr="")
+            # gh pr ready (promote)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=fake_run):
+            promoted = loop._promote_ready_drafts()
+
+        assert promoted == [10]
+
+    def test_no_repo_returns_empty(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo=None))
+        result = loop._promote_ready_drafts()
+        assert result == []
+
+    def test_gh_list_failure_returns_empty(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="error")
+            result = loop._promote_ready_drafts()
+        assert result == []
+
+    def test_empty_draft_list(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout="[]", stderr="")
+            result = loop._promote_ready_drafts()
+        assert result == []
+
+
+class TestPostprocessConvertsToDraft:
+    """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
+
+    def test_postprocess_calls_convert(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        issue = _make_issue(number=99)
+        worker_result: dict[str, Any] = {
+            "status": "completed",
+            "pr_url": "https://github.com/synaptent/aragora/pull/99",
+        }
+        with (
+            patch.object(loop, "_maybe_publish_deliverable", return_value=None),
+            patch.object(loop, "_maybe_comment_published_deliverable", return_value=None),
+            patch.object(loop, "_maybe_auto_close_already_done_issue", return_value=None),
+            patch.object(loop, "_promote_published_deliverable"),
+            patch.object(loop, "_convert_pr_to_draft") as mock_convert,
+        ):
+            loop._postprocess_issue_result(issue, worker_result)
+        mock_convert.assert_called_once_with(worker_result)

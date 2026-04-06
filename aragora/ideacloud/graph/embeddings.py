@@ -33,6 +33,10 @@ from typing import Protocol
 logger = logging.getLogger(__name__)
 
 
+class EmbeddingProviderError(RuntimeError):
+    """Raised when embedding operations fail closed."""
+
+
 class EmbeddingFunction(Protocol):
     """Protocol for embedding functions."""
 
@@ -78,9 +82,15 @@ class EmbeddingProvider:
         except ImportError:
             logger.warning("openai package not installed; embedding provider unavailable")
             return cls(provider_name="none")
-        except Exception as exc:
-            logger.warning("Failed to initialize OpenAI embeddings: %s", exc)
-            return cls(provider_name="none")
+        except (
+            AttributeError,
+            OSError,
+            TypeError,
+            ValueError,
+            openai.OpenAIError,
+        ) as exc:
+            logger.warning("Failed to initialize OpenAI embeddings: %s", exc, exc_info=True)
+            raise EmbeddingProviderError("Failed to initialize OpenAI embedding provider") from exc
 
     @classmethod
     def from_sentence_transformers(
@@ -109,9 +119,11 @@ class EmbeddingProvider:
                 "sentence-transformers package not installed; embedding provider unavailable"
             )
             return cls(provider_name="none")
-        except Exception as exc:
-            logger.warning("Failed to initialize sentence-transformers: %s", exc)
-            return cls(provider_name="none")
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            logger.warning("Failed to initialize sentence-transformers: %s", exc, exc_info=True)
+            raise EmbeddingProviderError(
+                "Failed to initialize sentence-transformers embedding provider"
+            ) from exc
 
     @classmethod
     def from_callable(
@@ -189,9 +201,16 @@ class EmbeddingProvider:
         try:
             emb_a, emb_b = self.embed([text_a, text_b])
             return cosine_similarity(emb_a, emb_b)
-        except Exception as exc:
-            logger.warning("Embedding similarity failed: %s", exc)
-            return 0.0
+        except (EmbeddingProviderError, RuntimeError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Embedding similarity failed for provider %s: %s",
+                self.provider_name,
+                exc,
+                exc_info=True,
+            )
+            raise EmbeddingProviderError(
+                f"Embedding similarity failed for provider {self.provider_name}"
+            ) from exc
 
     def clear_cache(self) -> None:
         """Clear the embedding cache."""

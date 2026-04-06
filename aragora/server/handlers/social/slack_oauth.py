@@ -229,6 +229,24 @@ def _parse_slack_string_field(raw_value: Any, *, field_name: str, required: bool
     return value
 
 
+def _parse_slack_scopes(raw_value: Any) -> list[str]:
+    """Parse Slack scope payloads while rejecting malformed non-string entries."""
+    if raw_value is None or raw_value == "":
+        return []
+    if isinstance(raw_value, str):
+        return [item.strip() for item in raw_value.split(",") if item.strip()]
+    if isinstance(raw_value, (list, tuple, set)):
+        scopes: list[str] = []
+        for entry in raw_value:
+            if not isinstance(entry, str):
+                raise ValueError("scope entries must be strings")
+            value = entry.strip()
+            if value:
+                scopes.append(value)
+        return scopes
+    raise ValueError("scope must be a string or list of strings")
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1240,13 +1258,11 @@ class SlackOAuthHandler(SecureHandler):
         team = team_payload if isinstance(team_payload, dict) else {}
         authed_user_payload = data.get("authed_user")
         authed_user = authed_user_payload if isinstance(authed_user_payload, dict) else {}
-        raw_scope = data.get("scope", "")
-        if isinstance(raw_scope, str):
-            scope = raw_scope
-        elif isinstance(raw_scope, (list, tuple, set)):
-            scope = ",".join(str(item).strip() for item in raw_scope if str(item).strip())
-        else:
-            scope = str(raw_scope or "").strip()
+        try:
+            scope_entries = _parse_slack_scopes(data.get("scope", ""))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed scope payload", request_id)
+            return error_response("Invalid response from Slack", 500)
 
         try:
             expires_in = _parse_expires_in(data.get("expires_in"))
@@ -1365,7 +1381,7 @@ class SlackOAuthHandler(SecureHandler):
                 bot_user_id=bot_user_id,
                 installed_at=time.time(),
                 installed_by=installed_by,
-                scopes=scope.split(",") if scope else [],
+                scopes=scope_entries,
                 tenant_id=requested_tenant_id or existing_tenant_id,
                 is_active=True,
                 refresh_token=refresh_token,
@@ -1395,7 +1411,7 @@ class SlackOAuthHandler(SecureHandler):
                     action="install",
                     success=True,
                     user_id=installed_by or "",
-                    scopes=scope.split(",") if scope else [],
+                    scopes=scope_entries,
                 )
 
         except ImportError as e:

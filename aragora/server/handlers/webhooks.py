@@ -298,6 +298,21 @@ class WebhookHandler(SecureHandler):
             return error_response("Webhook not found", 404)
         return cls._forbidden_webhook_access()
 
+    @staticmethod
+    def _parse_events_field(raw_events: Any) -> list[str] | None:
+        """Normalize webhook events while rejecting malformed non-list payloads."""
+        if not isinstance(raw_events, (list, tuple, set)):
+            return None
+        events: list[str] = []
+        for raw_event in raw_events:
+            if not isinstance(raw_event, str):
+                return None
+            event = raw_event.strip()
+            if not event:
+                return None
+            events.append(event)
+        return events
+
     @api_endpoint(
         path="/api/v1/webhooks",
         method="GET",
@@ -687,7 +702,9 @@ The webhook secret is only returned once on creation - save it securely.""",
         if not is_valid:
             return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
-        events = body.get("events", [])
+        events = self._parse_events_field(body.get("events", []))
+        if events is None:
+            return error_response("Events must be a list of strings", 400)
         if not events:
             return error_response("At least one event type is required", 400)
 
@@ -788,22 +805,34 @@ The webhook secret is only returned once on creation - save it securely.""",
             return self._webhook_access_denied_response(webhook, user)
 
         # Validate URL if provided (SSRF check)
-        new_url = body.get("url")
-        if new_url:
+        new_url = None
+        if "url" in body:
+            raw_url = body.get("url")
+            if not isinstance(raw_url, str):
+                return error_response("URL must be a non-empty string", 400)
+            new_url = raw_url.strip()
+            if not new_url:
+                return error_response("URL must be a non-empty string", 400)
             is_valid, error_msg = validate_webhook_url(new_url, allow_localhost=False)
             if not is_valid:
                 return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
         # Validate events if provided
-        events = body.get("events")
-        if events:
+        events = None
+        if "events" in body:
+            events = self._parse_events_field(body.get("events"))
+            if events is None:
+                return error_response("Events must be a list of strings", 400)
+            if not events:
+                return error_response("At least one event type is required", 400)
+        if events is not None:
             invalid_events = [e for e in events if e != "*" and e not in WEBHOOK_EVENTS]
             if invalid_events:
                 return error_response(f"Invalid event types: {', '.join(invalid_events)}", 400)
 
         updated = store.update(
             webhook_id=webhook_id,
-            url=body.get("url"),
+            url=new_url,
             events=events,
             active=body.get("active"),
             name=body.get("name"),

@@ -19,6 +19,7 @@ from aragora.swarm.supervisor import (
     LAUNCHER_CONFIG_METADATA_KEY,
     WORKER_TYPE_CIRCUIT_BREAKERS_KEY,
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
+    SwarmApprovalPolicy,
     SwarmSupervisor,
 )
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
@@ -242,6 +243,48 @@ def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> N
     assert supervisor.launcher.config.codex_model is None
     assert supervisor.launcher.config.claude_profile is None
     assert supervisor.launcher.config.claude_profile_script is None
+
+
+def test_apply_launcher_snapshot_rejects_malformed_boolean_fields(repo: Path) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo)
+    supervisor.launcher.config = LaunchConfig(
+        auto_commit=False,
+        use_managed_session_script=False,
+        detach=False,
+        require_explicit_approval=True,
+        allow_claude_dangerously_skip_permissions=False,
+        allow_codex_full_auto=False,
+    )
+
+    supervisor._apply_launcher_config_snapshot(
+        {
+            "auto_commit": "false",
+            "use_managed_session_script": 1,
+            "detach": "false",
+            "require_explicit_approval": 0,
+            "allow_claude_dangerously_skip_permissions": "false",
+            "allow_codex_full_auto": "false",
+        }
+    )
+
+    assert supervisor.launcher.config.auto_commit is False
+    assert supervisor.launcher.config.use_managed_session_script is False
+    assert supervisor.launcher.config.detach is False
+    assert supervisor.launcher.config.require_explicit_approval is True
+    assert supervisor.launcher.config.allow_claude_dangerously_skip_permissions is False
+    assert supervisor.launcher.config.allow_codex_full_auto is False
+
+
+def test_swarm_approval_policy_from_dict_rejects_malformed_booleans() -> None:
+    policy = SwarmApprovalPolicy.from_dict(
+        {
+            "require_merge_approval": 0,
+            "require_external_action_approval": "false",
+        }
+    )
+
+    assert policy.require_merge_approval is True
+    assert policy.require_external_action_approval is True
 
 
 def test_start_run_discards_duplicate_open_non_deliverable_lane(
@@ -4281,6 +4324,28 @@ def test_merge_gate_state_normalizes_python_command_equivalence() -> None:
     assert state["checks_passed"] is True
     assert state["merge_eligible"] is True
     assert state["blocked_reasons"] == []
+
+
+def test_merge_gate_state_rejects_nonboolean_passed_field() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "true",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert "verification failed" in state["blocked_reasons"][0]
 
 
 def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:

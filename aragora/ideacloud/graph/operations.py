@@ -127,8 +127,13 @@ def _link_node_to_candidates(
                 embed_sim = embedding_provider.similarity(text_a, text_b)
                 # Blend: 40% keyword + 60% embedding
                 sim = 0.4 * keyword_sim + 0.6 * embed_sim
-            except Exception:
-                sim = keyword_sim
+            except (AttributeError, TypeError, ValueError, RuntimeError):
+                logger.exception(
+                    "Embedding similarity failed for nodes %s and %s",
+                    node.id,
+                    candidate.id,
+                )
+                raise
         else:
             sim = keyword_sim
 

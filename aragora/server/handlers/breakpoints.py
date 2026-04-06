@@ -254,9 +254,12 @@ class BreakpointsHandler(BaseHandler):
         if not self.breakpoint_manager:
             return error_response("Breakpoints module not available", 503)
 
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
+
         # Validate required fields
         action = body.get("action")
-        if not action:
+        if not isinstance(action, str) or not action:
             return error_response("Missing required field: action", 400)
 
         valid_actions = ["continue", "abort", "redirect", "inject"]
@@ -265,6 +268,10 @@ class BreakpointsHandler(BaseHandler):
 
         message = body.get("message", "")
         redirect_task = body.get("redirect_task")
+        if not isinstance(message, str):
+            return error_response("Field 'message' must be a string", 400)
+        if redirect_task is not None and not isinstance(redirect_task, str):
+            return error_response("Field 'redirect_task' must be a string", 400)
 
         try:
             import uuid
