@@ -764,7 +764,8 @@ class TestUploadFile:
             "content": _sample_b64_content(b'{"key": "val"}'),
             "metadata": {1: "engineering"},
         }
-        h = _make_handler(body=body, method="POST")
+        h = _make_handler(method="POST")
+        handler.read_json_body = MagicMock(return_value=body)
         result = await handler.handle_post("/api/v2/storage/files", {}, h)
         assert _status(result) == 400
         assert _body(result)["error"] == "metadata must be an object with string keys"
