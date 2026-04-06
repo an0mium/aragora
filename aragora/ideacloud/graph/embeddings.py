@@ -157,6 +157,7 @@ class EmbeddingProvider:
 
         Raises:
             RuntimeError: If no embedding function is configured.
+            EmbeddingProviderError: If embedding generation fails.
         """
         if not self._embed_fn:
             raise RuntimeError("No embedding provider configured")
@@ -174,7 +175,41 @@ class EmbeddingProvider:
                 uncached_texts.append(text)
 
         if uncached_texts:
-            new_embeddings = self._embed_fn(uncached_texts)
+            try:
+                new_embeddings = self._embed_fn(uncached_texts)
+            except EmbeddingProviderError:
+                raise
+            except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.warning(
+                    "Embedding generation failed for provider %s: %s",
+                    self.provider_name,
+                    exc,
+                    exc_info=True,
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding generation failed for provider {self.provider_name}"
+                ) from exc
+
+            if len(new_embeddings) != len(uncached_texts):
+                logger.warning(
+                    "Embedding provider %s returned %d embeddings for %d texts",
+                    self.provider_name,
+                    len(new_embeddings),
+                    len(uncached_texts),
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding provider {self.provider_name} returned an invalid embedding batch"
+                )
+
+            if any(not emb for emb in new_embeddings):
+                logger.warning(
+                    "Embedding provider %s returned an empty embedding vector",
+                    self.provider_name,
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding provider {self.provider_name} returned an empty embedding vector"
+                )
+
             for idx, emb in zip(uncached_indices, new_embeddings):
                 key = self._cache_key(texts[idx])
                 self._cache[key] = emb
