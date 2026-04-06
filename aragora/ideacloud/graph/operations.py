@@ -78,11 +78,27 @@ def auto_link(
                 )
             )
 
-    # Add edges to graph and inject wiki-links into node bodies
-    for edge in new_edges:
-        graph.add_edge(edge)
-        if inject_wiki_links:
-            _inject_wiki_link(graph, edge)
+    # Apply graph mutations as a unit and roll back partial changes on failure.
+    applied_edges: list[IdeaEdge] = []
+    original_bodies: dict[str, str] = {}
+    try:
+        for edge in new_edges:
+            graph.add_edge(edge)
+            applied_edges.append(edge)
+            if inject_wiki_links:
+                source = graph.nodes.get(edge.source_id)
+                if source and source.id not in original_bodies:
+                    original_bodies[source.id] = source.body
+                _inject_wiki_link(graph, edge)
+    except (AttributeError, KeyError, TypeError, ValueError, RuntimeError):
+        logger.exception("Auto-link failed while applying graph mutations")
+        if applied_edges:
+            graph.edges = [edge for edge in graph.edges if edge not in applied_edges]
+        for source_id, body in original_bodies.items():
+            source = graph.nodes.get(source_id)
+            if source:
+                source.body = body
+        raise
 
     if new_edges:
         logger.info("Auto-linked %d new connections", len(new_edges))
@@ -385,7 +401,11 @@ def _inject_wiki_link(graph: IdeaGraph, edge: IdeaEdge) -> None:
     """
     source = graph.nodes.get(edge.source_id)
     target = graph.nodes.get(edge.target_id)
-    if not source or not target or not target.title:
+    if not source or not target:
+        raise KeyError(
+            f"Cannot inject wiki-link for missing nodes: {edge.source_id!r} -> {edge.target_id!r}"
+        )
+    if not target.title:
         return
 
     wiki_link = f"[[{target.title}]]"
