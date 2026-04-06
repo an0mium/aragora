@@ -272,8 +272,6 @@ class BreakpointsHandler(BaseHandler):
             return error_response("Field 'message' must be a string", 400)
         if redirect_task is not None and not isinstance(redirect_task, str):
             return error_response("Field 'redirect_task' must be a string", 400)
-        if action == "redirect" and not redirect_task:
-            return error_response("Missing required field: redirect_task", 400)
 
         try:
             import uuid
