@@ -31,6 +31,7 @@ from aragora.auth.oidc import (
     OIDCError,
     OIDCProvider,
     PROVIDER_CONFIGS,
+    _validate_oidc_fetch_url,
 )
 from aragora.auth.sso import (
     SSOAuthenticationError,
@@ -57,6 +58,22 @@ def create_mock_http_pool():
 
     mock_pool.get_session = mock_get_session
     return mock_pool, mock_client
+
+
+class TestOIDCFetchUrlValidation:
+    """Tests for urllib fallback URL validation."""
+
+    def test_rejects_non_http_schemes(self):
+        with pytest.raises(OIDCError, match="Unsupported URL scheme"):
+            _validate_oidc_fetch_url("file:///etc/passwd")
+
+    def test_rejects_missing_network_location(self):
+        with pytest.raises(OIDCError, match="network location"):
+            _validate_oidc_fetch_url("https:///missing-host")
+
+    def test_allows_http_and_https_urls(self):
+        _validate_oidc_fetch_url("https://login.example.com/.well-known/openid-configuration")
+        _validate_oidc_fetch_url("http://localhost:8080/.well-known/openid-configuration")
 
 
 # ============================================================================

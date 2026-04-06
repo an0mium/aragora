@@ -36,7 +36,7 @@ import time
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse
 import urllib.request
 
 from .sso import (
@@ -68,6 +68,19 @@ except ImportError:
     HAS_HTTPX = False
 
 
+def _validate_oidc_fetch_url(url: str) -> None:
+    """Restrict urllib fallback requests to ordinary HTTP(S) endpoints."""
+
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise OIDCError(
+            "Unsupported URL scheme for OIDC fetch",
+            {"url": url, "scheme": parsed.scheme or ""},
+        )
+    if not parsed.netloc:
+        raise OIDCError("OIDC fetch URL must include a network location", {"url": url})
+
+
 async def _urlopen_json(
     url: str,
     *,
@@ -79,6 +92,7 @@ async def _urlopen_json(
     """Fetch JSON via urllib in a worker thread when httpx is unavailable."""
 
     def _request() -> dict[str, Any]:
+        _validate_oidc_fetch_url(url)
         request_headers = dict(headers or {})
         payload: bytes | None = None
         if data is not None:
@@ -94,7 +108,7 @@ async def _urlopen_json(
             headers=request_headers,
             method=method,
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 -- URL scheme/netloc validated above for OIDC fallback fetches
             raw = response.read()
         return json.loads(raw.decode("utf-8"))
 
