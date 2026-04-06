@@ -489,7 +489,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for finding workflow storage")
             self._using_fallback = False
-        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis transport failures must degrade to SQLite
             logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
@@ -504,7 +504,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis reads must degrade to SQLite
             logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(finding_id)
 
@@ -537,7 +537,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             pipe.sadd(f"{self.REDIS_INDEX_STATE}{current_state}", finding_id)
 
             pipe.execute()
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis writes must not break SQLite durability
             logger.warning("Redis save failed (SQLite fallback used): %s", e)
 
     async def delete(self, finding_id: str) -> bool:
@@ -573,7 +573,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 pipe.execute()
                 return True
             return result
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis deletes must not break fallback behavior
             logger.warning("Redis delete failed: %s", e)
             return result
 
@@ -600,7 +600,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                             if v:
                                 results.append(json.loads(v))
             return results
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis scans must degrade to SQLite
             logger.warning("Redis list_all failed, using fallback: %s", e)
             return await self._fallback.list_all()
 
@@ -617,7 +617,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             keys = [f"{self.REDIS_PREFIX}{fid.decode()}" for fid in finding_ids]
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis index reads must degrade to SQLite
             logger.warning("Redis list_by_assignee failed, using fallback: %s", e)
             return await self._fallback.list_by_assignee(user_id)
 
@@ -639,7 +639,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             keys = [f"{self.REDIS_PREFIX}{fid.decode()}" for fid in finding_ids]
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis index reads must degrade to SQLite
             logger.warning("Redis list_by_state failed, using fallback: %s", e)
             return await self._fallback.list_by_state(state)
 
@@ -649,9 +649,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
         if self._redis_client:
             try:
                 self._redis_client.close()
-            except (ConnectionError, OSError) as e:
-                logger.debug("Redis close failed (connection already closed): %s", e)
-            except (RuntimeError, ValueError) as e:
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup
                 logger.debug("Redis close failed: %s", e)
 
 

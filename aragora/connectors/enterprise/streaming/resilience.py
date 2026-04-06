@@ -232,7 +232,7 @@ class StreamingCircuitBreaker:
             try:
                 await send_message(msg)
                 await breaker.record_success()
-            except Exception as e:  # noqa: BLE001 - circuit breaker must record all failure types
+            except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
                 await breaker.record_failure(e)
     """
 
@@ -508,7 +508,7 @@ class DLQHandler(Generic[T]):
 
         try:
             await process_message(msg)
-        except Exception as e:  # noqa: BLE001 - DLQ handler must capture all failure types for dead-letter routing
+        except (ConnectionError, RuntimeError, TimeoutError, TypeError, ValueError) as e:
             await dlq_handler.handle_failure(msg, e)
     """
 
@@ -948,11 +948,19 @@ def with_retry(
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             backoff = ExponentialBackoff(cfg)
             last_error: Exception | None = None
+            handled_exceptions = tuple(
+                exc for exc in retryable_exceptions if exc not in (Exception, BaseException)
+            )
+
+            if not handled_exceptions:
+                raise ValueError(
+                    "retryable_exceptions must include at least one specific exception type"
+                )
 
             for attempt in range(cfg.max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
-                except retryable_exceptions as e:
+                except handled_exceptions as e:
                     last_error = e
                     if attempt == cfg.max_retries:
                         logger.error(

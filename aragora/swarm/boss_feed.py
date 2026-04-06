@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -25,6 +26,50 @@ _SCOPE_ROOT_PREFIXES = (
     "contracts/",
     ".github/",
 )
+_LANE_LABEL_RE = re.compile(r"^(?:lane|area)[:/](?P<lane>[a-z0-9._/\- ]+)$", re.IGNORECASE)
+_LANE_BODY_RE = re.compile(r"(?im)^(?:lane|owner lane|lane id)\s*:\s*(?P<lane>[a-z0-9._/\- ]+)\s*$")
+_LANE_ALIASES = {
+    "api": "server",
+    "backend": "server",
+    "claude": "swarm",
+    "control-plane": "swarm",
+    "docs": "docs",
+    "documentation": "docs",
+    "front-end": "frontend",
+    "frontend": "frontend",
+    "infra": "infra",
+    "live": "frontend",
+    "nomic": "swarm",
+    "sdk": "sdk",
+    "server": "server",
+    "swarm": "swarm",
+    "tooling": "infra",
+    "ui": "frontend",
+}
+_SCOPE_LANE_PREFIXES = (
+    ("aragora/swarm/", "swarm"),
+    ("aragora/nomic/", "swarm"),
+    ("tests/swarm/", "swarm"),
+    ("tests/nomic/", "swarm"),
+    ("aragora/live/", "frontend"),
+    ("tests/live/", "frontend"),
+    ("docs-site/", "frontend"),
+    ("aragora/server/", "server"),
+    ("tests/server/", "server"),
+    ("tests/handlers/", "server"),
+    ("tests/fastapi/", "server"),
+    ("tests/inbox/", "server"),
+    ("tests/pipeline/", "server"),
+    ("sdk/", "sdk"),
+    ("tests/sdk/", "sdk"),
+    ("docs/", "docs"),
+    ("scripts/", "infra"),
+    (".github/", "infra"),
+    ("contracts/", "infra"),
+)
+# Lane aliases are intentionally module-local constants. The taxonomy changes
+# rarely, and keeping the mapping next to normalization avoids a second config
+# surface for a hot-path boss-loop decision.
 
 
 @dataclass(slots=True)
@@ -234,6 +279,66 @@ def _normalize_scope_entries(values: list[str] | set[str] | tuple[str, ...]) -> 
         if value:
             normalized.append(value)
     return list(dict.fromkeys(normalized))
+
+
+def _normalize_lane_name(value: Any) -> str | None:
+    """Normalize a lane hint into the canonical boss-loop lane identifier.
+
+    The normalization keeps label/body/scope inference consistent by:
+    1. lowercasing and trimming surrounding whitespace
+    2. converting separators (underscores, slashes, spaces) to hyphens
+    3. stripping non-alphanumeric characters except hyphens
+    4. collapsing repeated hyphens
+    5. mapping known aliases like ``backend`` -> ``server``
+    """
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    text = text.replace("_", "-").replace("/", "-").replace(" ", "-")
+    text = re.sub(r"[^a-z0-9-]+", "", text)
+    text = re.sub(r"-{2,}", "-", text).strip("-")
+    if not text:
+        return None
+    return _LANE_ALIASES.get(text, text)
+
+
+def _infer_lane_from_scope_entry(scope_entry: str) -> str | None:
+    for prefix, lane in _SCOPE_LANE_PREFIXES:
+        normalized_prefix = prefix.rstrip("/")
+        if scope_entry == normalized_prefix or scope_entry.startswith(prefix):
+            return lane
+    return None
+
+
+def infer_issue_lane_hints(issue: GitHubIssue) -> list[str]:
+    lanes: list[str] = []
+
+    for label in issue.labels:
+        match = _LANE_LABEL_RE.match(str(label or "").strip())
+        if not match:
+            continue
+        lane = _normalize_lane_name(match.group("lane"))
+        if lane:
+            lanes.append(lane)
+
+    if lanes:
+        return list(dict.fromkeys(lanes))
+
+    combined = "\n".join(
+        part for part in (str(issue.title or "").strip(), str(issue.body or "").strip()) if part
+    )
+    for match in _LANE_BODY_RE.finditer(combined):
+        lane = _normalize_lane_name(match.group("lane"))
+        if lane:
+            lanes.append(lane)
+    if lanes:
+        return list(dict.fromkeys(lanes))
+
+    for scope_entry in infer_issue_scope_entries(issue):
+        lane = _infer_lane_from_scope_entry(scope_entry)
+        if lane:
+            lanes.append(lane)
+    return list(dict.fromkeys(lanes))
 
 
 def _scope_entry_matches(scope_entry: str, path: str) -> bool:
