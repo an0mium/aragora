@@ -97,6 +97,38 @@ _LANDING_EVENT_TYPES = set(_LANDING_EVENT_TYPE_ORDER)
 _LANDING_REVIEW_STATUSES = frozenset({"pending", "reviewed", "resolved", "dismissed"})
 
 
+def _ensure_unique_public_share_id(response: dict[str, Any]) -> str:
+    """Keep public playground share IDs immutable across persisted results.
+
+    Public playground callers may provide a debate ID early so the frontend can
+    bind spectate context before the HTTP response returns. That ID must not be
+    allowed to replace an already-persisted public debate. If the requested ID
+    is already in use, mint a fresh server-side ID for persistence and return it
+    in the response instead.
+    """
+    debate_id = str(response.get("id", "") or "").strip() or uuid.uuid4().hex[:16]
+
+    try:
+        from aragora.storage.debate_store import DebateResultStore, get_debate_store
+
+        store = get_debate_store()
+        if isinstance(store, DebateResultStore):
+            original_id = debate_id
+            while store.get(debate_id) is not None:
+                debate_id = uuid.uuid4().hex[:16]
+            if debate_id != original_id:
+                logger.warning(
+                    "Rejected colliding public playground debate id %s; issued %s instead",
+                    original_id,
+                    debate_id,
+                )
+    except (ImportError, OSError, RuntimeError, ValueError):
+        logger.debug("Could not verify public debate id uniqueness", exc_info=True)
+
+    response["id"] = debate_id
+    return debate_id
+
+
 def _check_rate_limit(
     client_ip: str,
     limit: int = _PLAYGROUND_RATE_LIMIT,
@@ -2418,11 +2450,12 @@ def _persist_playground_debate(response: dict[str, Any]) -> None:
     Non-fatal: if persistence fails, the debate still works but won't
     have a shareable link.
     """
+    debate_id = _ensure_unique_public_share_id(response)
+
     try:
         from aragora.persistence.repositories.debate import DebateEntity, DebateRepository
 
         topic = response.get("topic", "debate")
-        debate_id = response.get("id", uuid.uuid4().hex[:16])
 
         # Generate URL-friendly slug
         slug_base = re.sub(r"[^a-z0-9]+", "-", topic[:60].lower()).strip("-")
@@ -2451,7 +2484,7 @@ def _persist_playground_debate(response: dict[str, Any]) -> None:
     try:
         from aragora.storage.debate_store import get_debate_store
 
-        store_debate_id = response.get("id", uuid.uuid4().hex[:16])
+        store_debate_id = response.get("id", debate_id)
         store_topic = response.get("topic", "debate")
         store_source = response.get("source", "playground")
         store = get_debate_store()
@@ -3380,6 +3413,7 @@ class PlaygroundHandler(BaseHandler):
             data = _normalize_public_debate_payload(json.loads(body_bytes.decode("utf-8")))
             debate_id = data.get("id", "")
             if debate_id:
+                debate_id = _ensure_unique_public_share_id(data)
                 # Inject share fields and source into data BEFORE persisting
                 # so the public viewer's _is_shareable() check passes.
                 data["share_url"] = f"/debate/{debate_id}"
