@@ -99,28 +99,6 @@ def _require_coordinator(request: Any = Depends(lambda request: request)):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/tasks/{task_id}")
-async def get_task(task_id: str):
-    """Get task by ID."""
-    try:
-        from aragora.control_plane.integration import get_integrated_control_plane
-
-        cp = get_integrated_control_plane()
-        if not cp:
-            raise HTTPException(status_code=503, detail="Control plane not initialized")
-
-        task = await cp.get_task(task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
-
-        return {"data": task.to_dict()}
-    except HTTPException:
-        raise
-    except (ValueError, KeyError, AttributeError, TypeError, RuntimeError, OSError) as e:
-        logger.error("Error getting task %s: %s", task_id, e)
-        raise HTTPException(status_code=500, detail="Failed to get task")
-
-
 @router.post("/tasks", status_code=201)
 async def submit_task(body: SubmitTaskRequest):
     """Submit a new task to the control plane."""
@@ -479,6 +457,28 @@ async def get_task_history(
 # ---------------------------------------------------------------------------
 # Deliberation endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/tasks/{task_id}")
+async def get_task(task_id: str):
+    """Get task by ID."""
+    try:
+        from aragora.control_plane.integration import get_integrated_control_plane
+
+        cp = get_integrated_control_plane()
+        if not cp:
+            raise HTTPException(status_code=503, detail="Control plane not initialized")
+
+        task = await cp.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
+
+        return {"data": task.to_dict()}
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError, RuntimeError, OSError) as e:
+        logger.error("Error getting task %s: %s", task_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get task")
 
 
 @router.get("/deliberations/{request_id}")
