@@ -3401,6 +3401,32 @@ def test_boss_loop_batch_reports_effective_parallel_dispatches() -> None:
     assert {status["effective_parallel_dispatches"] for status in result.iteration_statuses} == {2}
 
 
+def test_boss_loop_batch_blocks_malformed_truthy_freshness_flag() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(351, "Batch malformed freshness A"),
+        _make_issue(352, "Batch malformed freshness B"),
+    ]
+    freshness = SimpleNamespace(
+        fresh="false",
+        blocked_reason="malformed_fresh_flag",
+        details={"routing": {"selected_runners": [{"runner_id": "codex-runner-1"}]}},
+        to_dict=lambda: {"fresh": "false", "blocked_reason": "malformed_fresh_flag"},
+    )
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=2),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: freshness,
+    )
+
+    with patch.object(BossLoop, "_dispatch_issue", new_callable=AsyncMock) as mock_dispatch:
+        result = asyncio.run(loop.run())
+
+    assert result.stop_reason == BossStopReason.NO_FRESH_RUNNER.value
+    assert result.issues_attempted == []
+    mock_dispatch.assert_not_called()
+
+
 def test_boss_loop_batch_uses_configured_limit_when_no_capacity_reported() -> None:
     """When selected runners don't report available_capacity, the configured
     max_parallel_dispatches should be used instead of falling back to serial."""
