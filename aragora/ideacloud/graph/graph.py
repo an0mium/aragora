@@ -58,6 +58,8 @@ class IdeaGraph:
         # Load nodes from .md files
         for fp in md.list_node_files(self.vault_path):
             node = md.read_node(fp)
+            if node.id in nodes:
+                raise ValueError(f"Duplicate node id while loading graph: {node.id}")
             nodes[node.id] = node
 
         # Load edges and clusters from index
@@ -66,8 +68,21 @@ class IdeaGraph:
 
         adjacency: dict[str, list[str]] = defaultdict(list)
         for edge in edges:
+            if edge.source_id not in nodes or edge.target_id not in nodes:
+                raise ValueError(
+                    f"Edge references unknown node(s): {edge.source_id} -> {edge.target_id}"
+                )
             adjacency[edge.source_id].append(edge.target_id)
             adjacency[edge.target_id].append(edge.source_id)
+
+        for cluster in clusters.values():
+            missing_node_ids = sorted(
+                node_id for node_id in cluster.node_ids if node_id not in nodes
+            )
+            if missing_node_ids:
+                raise ValueError(
+                    f"Cluster {cluster.id} references unknown node(s): {', '.join(missing_node_ids)}"
+                )
 
         self.nodes = nodes
         self.edges = edges
