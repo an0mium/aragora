@@ -597,27 +597,35 @@ class TestSemanticRetriever:
 class TestAutoDetectProvider:
     """Tests for _auto_detect_provider logic."""
 
+    @staticmethod
+    def _provider_env(**env: str):
+        return patch.dict(
+            os.environ,
+            {"ARAGORA_USE_SECRETS_MANAGER": "false", **env},
+            clear=True,
+        )
+
     def test_openai_preferred(self, temp_db):
         """Test OpenAI is preferred when key available."""
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=True):
+        with self._provider_env(OPENAI_API_KEY="test-key"):
             retriever = SemanticRetriever(db_path=temp_db)
             assert isinstance(retriever.provider, OpenAIEmbedding)
 
     def test_gemini_fallback(self, temp_db):
         """Test Gemini used when no OpenAI key."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=True):
+        with self._provider_env(GEMINI_API_KEY="test-key"):
             retriever = SemanticRetriever(db_path=temp_db)
             assert isinstance(retriever.provider, GeminiEmbedding)
 
     def test_google_api_key_alias(self, temp_db):
         """Test GOOGLE_API_KEY works for Gemini."""
-        with patch.dict(os.environ, {"GOOGLE_API_KEY": "test-key"}, clear=True):
+        with self._provider_env(GOOGLE_API_KEY="test-key"):
             retriever = SemanticRetriever(db_path=temp_db)
             assert isinstance(retriever.provider, GeminiEmbedding)
 
     def test_hash_fallback_no_keys(self, temp_db):
         """Test hash-based fallback when no API keys."""
-        with patch.dict(os.environ, {}, clear=True):
+        with self._provider_env():
             # Also mock socket to fail Ollama check
             with patch("socket.socket") as mock_socket:
                 mock_sock = Mock()
@@ -631,7 +639,7 @@ class TestAutoDetectProvider:
 
     def test_ollama_when_available(self, temp_db):
         """Test Ollama used when running and no API keys."""
-        with patch.dict(os.environ, {}, clear=True):
+        with self._provider_env():
             with patch("socket.socket") as mock_socket:
                 mock_sock = Mock()
                 mock_sock.connect_ex.return_value = 0  # Connection success

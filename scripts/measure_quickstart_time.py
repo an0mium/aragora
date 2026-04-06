@@ -262,9 +262,37 @@ def measure_repo_size() -> tuple[float, float]:
     if git_dir is None or not git_dir.exists():
         return -1.0, 0.0
 
+    if git_dir.is_file():
+        try:
+            gitdir_text = git_dir.read_text(encoding="utf-8").strip()
+        except OSError:
+            return -1.0, 0.0
+        if not gitdir_text.startswith("gitdir:"):
+            return -1.0, 0.0
+        worktree_git_dir = (git_dir.parent / gitdir_text.split(":", 1)[1].strip()).resolve()
+        if not worktree_git_dir.exists():
+            return -1.0, 0.0
+        commondir_file = worktree_git_dir / "commondir"
+        if commondir_file.is_file():
+            try:
+                commondir = commondir_file.read_text(encoding="utf-8").strip()
+            except OSError:
+                commondir = ""
+            if commondir:
+                common_git_dir = (worktree_git_dir / commondir).resolve()
+                if common_git_dir.exists():
+                    git_dir = common_git_dir
+                else:
+                    git_dir = worktree_git_dir
+            else:
+                git_dir = worktree_git_dir
+        else:
+            git_dir = worktree_git_dir
+
     t0 = time.perf_counter()
     total_bytes = 0
-    for p in git_dir.rglob("*"):
+    git_paths = [git_dir] if git_dir.is_file() else git_dir.rglob("*")
+    for p in git_paths:
         if p.is_file():
             try:
                 total_bytes += p.stat().st_size

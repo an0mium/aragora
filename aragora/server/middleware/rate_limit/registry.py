@@ -306,11 +306,14 @@ def cleanup_rate_limiters(max_age_seconds: int = 300) -> int:
 def reset_rate_limiters() -> None:
     """Reset all rate limiters. Primarily for testing."""
     from aragora.services import ServiceRegistry
+    from .distributed import reset_distributed_limiter
 
     registry = ServiceRegistry.get()
     if registry.has(RateLimiterRegistry):
         registry.resolve(RateLimiterRegistry).reset()
         registry.unregister(RateLimiterRegistry)
+
+    reset_distributed_limiter()
 
     # Also reset Redis client
     reset_redis_client()

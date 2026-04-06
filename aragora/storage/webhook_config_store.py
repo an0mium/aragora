@@ -839,6 +839,8 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def _deserialize_from_cache(payload: str) -> WebhookConfig:
         """Deserialize cache entries, decrypting cached secrets when present."""
         data = json.loads(payload)
+        if data.get("active") is not True and data.get("active") is not False:
+            raise ValueError("cached webhook active flag must be boolean")
         secret = str(data.get("secret") or "").strip()
         if secret:
             data["secret"] = _decrypt_secret(secret)

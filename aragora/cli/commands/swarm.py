@@ -117,6 +117,10 @@ _UNSAFE_VALIDATION_SHELL_FRAGMENTS = (
     "\r",
 )
 
+# Keep boss-loop iteration output readable without hiding the lane signal
+# entirely when multiple inferred hints are available.
+MAX_DISPLAYED_LANE_HINTS = 2
+
 
 def _probe_validation_command(
     command: str,
@@ -1560,11 +1564,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             iteration = status_dict.get("iteration", "?")
             worker = status_dict.get("worker_status", "?")
             issue = status_dict.get("selected_issue")
+            lane = None
+            if isinstance(issue, dict):
+                lane = issue.get("lane_id")
+                if lane is None:
+                    lane_hints = issue.get("lane_hints")
+                    if isinstance(lane_hints, list) and lane_hints:
+                        lane = ",".join(
+                            str(item).strip()
+                            for item in lane_hints[:MAX_DISPLAYED_LANE_HINTS]
+                            if str(item).strip()
+                        )
             issue_text = (
                 f"#{issue.get('number', '?')} {issue.get('title', '')[:60]}"
                 if isinstance(issue, dict)
                 else "none"
             )
+            if lane:
+                issue_text = f"{issue_text} lane={lane}"
             stop = status_dict.get("stop_reason")
             configured_parallel = status_dict.get("configured_max_parallel_dispatches")
             effective_parallel = status_dict.get("effective_parallel_dispatches")

@@ -99,7 +99,7 @@ class PulseBridge:
                 HackerNewsIngestor,
                 RedditIngestor,
             )
-        except ImportError:
+        except ModuleNotFoundError:
             logger.warning("Pulse module not available; cannot fetch trending topics")
             return []
 
@@ -116,28 +116,28 @@ class PulseBridge:
             from aragora.pulse.ingestor import ArxivIngestor
 
             _ingestor_map["arxiv"] = ArxivIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import GitHubTrendingIngestor
 
             _ingestor_map["github"] = GitHubTrendingIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import LobstersIngestor
 
             _ingestor_map["lobsters"] = LobstersIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         try:
             from aragora.pulse.ingestor import DevToIngestor
 
             _ingestor_map["devto"] = DevToIngestor
-        except ImportError:
+        except ModuleNotFoundError:
             pass
 
         for name in platforms:
@@ -145,7 +145,7 @@ class PulseBridge:
             if cls:
                 try:
                     manager.add_ingestor(name, cls())
-                except Exception as exc:
+                except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
                     logger.warning("Failed to create %s ingestor: %s", name, exc)
             else:
                 logger.debug("No ingestor available for platform: %s", name)
@@ -163,7 +163,7 @@ class PulseBridge:
                 filters=filters,
             )
             return topics
-        except Exception as exc:
+        except (AttributeError, OSError, RuntimeError, TimeoutError, TypeError, ValueError) as exc:
             logger.warning("Failed to fetch Pulse topics: %s", exc)
             return []
 

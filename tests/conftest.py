@@ -39,6 +39,13 @@ if _DEBATE_SRC_ROOT.is_dir():
     if _debate_src not in sys.path:
         sys.path.insert(0, _debate_src)
 
+# Preload the real Slack handler package before test modules install lightweight
+# sys.modules stubs, so nested imports like social.slack.responses still resolve.
+try:
+    import aragora.server.handlers.social.slack  # noqa: F401
+except Exception:
+    pass
+
 # Register skip governance plugin for expiry checking
 pytest_plugins = ["tests.plugins.skip_governance"]
 
@@ -1790,12 +1797,12 @@ def clean_env(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_supabase_env(monkeypatch):
-    """Reset Supabase and PostgreSQL environment variables between tests.
+    """Reset database and Redis environment variables between tests.
 
     This prevents test pollution where earlier tests set SUPABASE_URL/KEY
     that affect later tests expecting unconfigured clients. Also prevents
-    the webhook_config_store and other stores from connecting to real
-    PostgreSQL via ARAGORA_POSTGRES_DSN.
+    the webhook_config_store, queue config, and other stores from connecting
+    to real PostgreSQL or Redis instances via inherited environment variables.
     """
     # Clear Supabase env vars to ensure clean state
     monkeypatch.delenv("SUPABASE_URL", raising=False)
@@ -1803,8 +1810,27 @@ def reset_supabase_env(monkeypatch):
     # Clear PostgreSQL DSNs to prevent asyncpg connections in unit tests
     monkeypatch.delenv("ARAGORA_POSTGRES_DSN", raising=False)
     monkeypatch.delenv("SUPABASE_POSTGRES_DSN", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("ARAGORA_DATABASE_URL", raising=False)
+    # Clear Redis URLs so unit tests use explicit fixtures instead of real env
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
+    # Clear common provider and webhook secrets so tests don't depend on local env
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("ARAGORA_AWS_KMS_KEY_ID", raising=False)
     # Clear OAuth env var to prevent test pollution from .env config
     monkeypatch.delenv("OAUTH_ALLOWED_REDIRECT_HOSTS", raising=False)
+    monkeypatch.delenv("ARAGORA_ALLOWED_OAUTH_HOSTS", raising=False)
     # Reset webhook config store singleton so it doesn't cache a Postgres store
     try:
         import aragora.storage.webhook_config_store as _wcs
@@ -1992,6 +2018,89 @@ def _reset_lazy_globals_impl():
         from aragora.reasoning.evidence_bridge import reset_evidence_bridge
 
         reset_evidence_bridge()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.memory.embeddings as _memory_embeddings
+        from aragora.services import EmbeddingCacheService, ServiceRegistry
+
+        if _memory_embeddings._embedding_cache is not None:
+            _memory_embeddings._embedding_cache.clear()
+        _memory_embeddings._embedding_cache = None
+        _memory_embeddings._embedding_cache_registered = False
+        ServiceRegistry.get().unregister(EmbeddingCacheService)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.debate.cache.embeddings_lru import reset_embedding_cache
+
+        reset_embedding_cache()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.memory.hybrid_search as _hybrid_search
+
+        if _hybrid_search._hybrid_search is not None:
+            _hybrid_search._hybrid_search.close()
+        _hybrid_search._hybrid_search = None
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.memory.tier_manager import reset_tier_manager
+
+        reset_tier_manager()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.debate.immune_system import reset_immune_system
+
+        reset_immune_system()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.debate.chaos_theater as _chaos_theater
+
+        _chaos_theater._chaos_director = None
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.server.handlers.debates.spectate as _spectate
+        from aragora.spectate.ws_bridge import reset_spectate_bridge
+
+        _spectate._active_collectors.clear()
+        reset_spectate_bridge()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.knowledge.mound as _knowledge_mound
+
+        _knowledge_mound.reset_knowledge_mound()
+        _knowledge_mound._knowledge_mound_config = None
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.knowledge.mound.ops.calibration_fusion as _calibration_fusion
+        import aragora.knowledge.mound.ops.composite_analytics as _composite_analytics
+        import aragora.knowledge.mound.ops.confidence_decay as _confidence_decay
+        import aragora.knowledge.mound.ops.fusion as _fusion
+        import aragora.knowledge.mound.ops.multi_party_validation as _multi_party_validation
+        import aragora.knowledge.mound.ops.quality_signals as _quality_signals
+
+        _fusion._fusion_coordinator = None
+        _multi_party_validation._multi_party_validator = None
+        _quality_signals._quality_signal_engine = None
+        _composite_analytics._composite_analytics = None
+        _calibration_fusion._calibration_fusion_engine = None
+        _confidence_decay._decay_manager = None
     except (ImportError, AttributeError):
         pass
 
@@ -2876,7 +2985,7 @@ def _global_mock_pollution_guard():
 
     # Restore run_async in loaded modules
     if _global_real_run_async is not None:
-        for mod_name, mod in list(sys.modules.items()):
+        for mod_name, mod in tuple(sys.modules.copy().items()):
             if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
                 continue
             for attr in ("run_async", "_run_async"):
@@ -2903,7 +3012,7 @@ def _global_mock_pollution_guard():
             setattr(_GlobalBaseHandler, "extract_path_param", _global_real_extract_path_param)
 
     if _global_real_run_async is not None:
-        for mod_name, mod in list(sys.modules.items()):
+        for mod_name, mod in tuple(sys.modules.copy().items()):
             if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
                 continue
             for attr in ("run_async", "_run_async"):

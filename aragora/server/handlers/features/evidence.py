@@ -62,6 +62,13 @@ _evidence_read_limiter = RateLimiter(requests_per_minute=60)
 _evidence_write_limiter = RateLimiter(requests_per_minute=10)
 
 
+def _normalize_legacy_api_path(path: str) -> str:
+    """Normalize legacy v1 endpoints without accepting newer API versions."""
+    if path.startswith("/api/v1/"):
+        return f"/api/{path[len('/api/v1/') :]}"
+    return path
+
+
 class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for evidence-related API endpoints."""
 
@@ -79,10 +86,6 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     # Static routes for exact matching
     ROUTES = [
-        "/api/evidence",
-        "/api/evidence/statistics",
-        "/api/evidence/search",
-        "/api/evidence/collect",
         "/api/v1/evidence",
         "/api/v1/evidence/statistics",
         "/api/v1/evidence/search",
@@ -91,7 +94,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/evidence") or path.startswith("/api/evidence")
+        return _normalize_legacy_api_path(path).startswith("/api/evidence")
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
@@ -229,6 +232,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     @handle_errors("evidence retrieval")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
+        normalized = _normalize_legacy_api_path(path)
+
         # Rate limit check for read operations
         client_ip = get_client_ip(handler)
         rate_key = client_ip
@@ -240,32 +245,36 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # GET /api/evidence/statistics
-        if path == "/api/v1/evidence/statistics":
+        if normalized == "/api/evidence/statistics":
             return self._handle_statistics()
 
-        # GET /api/v1/evidence/debate/:debate_id
-        # Path: /api/v1/evidence/debate/{debate_id}
-        # Split: ["", "api", "v1", "evidence", "debate", "{debate_id}"] -> index 5
-        if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 5, "debate_id", SAFE_ID_PATTERN)
+        # GET /api/evidence/debate/:debate_id
+        # Path: /api/evidence/debate/{debate_id}
+        # Split: ["", "api", "evidence", "debate", "{debate_id}"] -> index 4
+        if normalized.startswith("/api/evidence/debate/"):
+            debate_id, err = self.extract_path_param(normalized, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_debate_evidence(debate_id, query_params)
 
         # GET /api/evidence/:id
-        # Path: /api/v1/evidence/{evidence_id}
-        # Split: ["", "api", "v1", "evidence", "{evidence_id}"] -> index 4
-        if path.startswith("/api/v1/evidence/") and not path.startswith("/api/v1/evidence/debate/"):
-            parts = path.split("/")
-            if len(parts) != 5:
+        # Path: /api/evidence/{evidence_id}
+        # Split: ["", "api", "evidence", "{evidence_id}"] -> index 3
+        if normalized.startswith("/api/evidence/") and not normalized.startswith(
+            "/api/evidence/debate/"
+        ):
+            parts = normalized.split("/")
+            if len(parts) != 4:
                 return error_response("Invalid evidence path", 400)
-            evidence_id, err = self.extract_path_param(path, 4, "evidence_id", SAFE_ID_PATTERN)
+            evidence_id, err = self.extract_path_param(
+                normalized, 3, "evidence_id", SAFE_ID_PATTERN
+            )
             if err:
                 return err
             return self._handle_get_evidence(evidence_id)
 
         # GET /api/evidence - list all
-        if path == "/api/v1/evidence":
+        if normalized == "/api/evidence":
             return self._handle_list_evidence(query_params)
 
         return None
@@ -276,6 +285,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests for evidence endpoints."""
+        normalized = _normalize_legacy_api_path(path)
+
         # Rate limit check for write operations
         client_ip = get_client_ip(handler)
         rate_key = client_ip
@@ -287,24 +298,24 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/evidence/search
-        if path == "/api/v1/evidence/search":
+        if normalized == "/api/evidence/search":
             body, err = self._read_json_body_lenient(handler)
             if err:
                 return err
             return self._handle_search(body)
 
         # POST /api/evidence/collect
-        if path == "/api/v1/evidence/collect":
+        if normalized == "/api/evidence/collect":
             body, err = self._read_json_body_lenient(handler)
             if err:
                 return err
             return await self._handle_collect(body)
 
-        # POST /api/v1/evidence/debate/:debate_id
-        # Path: /api/v1/evidence/debate/{debate_id}
-        # Split: ["", "api", "v1", "evidence", "debate", "{debate_id}"] -> index 5
-        if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 5, "debate_id", SAFE_ID_PATTERN)
+        # POST /api/evidence/debate/:debate_id
+        # Path: /api/evidence/debate/{debate_id}
+        # Split: ["", "api", "evidence", "debate", "{debate_id}"] -> index 4
+        if normalized.startswith("/api/evidence/debate/"):
+            debate_id, err = self.extract_path_param(normalized, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             body, err = self._read_json_body_lenient(handler)
@@ -320,6 +331,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle DELETE requests for evidence endpoints."""
+        normalized = _normalize_legacy_api_path(path)
+
         # Rate limit check for delete operations (uses write limiter)
         client_ip = get_client_ip(handler)
         rate_key = client_ip
@@ -331,13 +344,15 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # DELETE /api/evidence/:id
-        # Path: /api/v1/evidence/{evidence_id}
-        # Split: ["", "api", "v1", "evidence", "{evidence_id}"] -> index 4
-        if path.startswith("/api/v1/evidence/"):
-            parts = path.split("/")
-            if len(parts) != 5:
+        # Path: /api/evidence/{evidence_id}
+        # Split: ["", "api", "evidence", "{evidence_id}"] -> index 3
+        if normalized.startswith("/api/evidence/"):
+            parts = normalized.split("/")
+            if len(parts) != 4:
                 return error_response("Invalid evidence path", 400)
-            evidence_id, err = self.extract_path_param(path, 4, "evidence_id", SAFE_ID_PATTERN)
+            evidence_id, err = self.extract_path_param(
+                normalized, 3, "evidence_id", SAFE_ID_PATTERN
+            )
             if err:
                 return err
             return self._handle_delete_evidence(evidence_id)
