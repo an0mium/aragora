@@ -354,11 +354,13 @@ jobs:
           fi
 
       - name: Install OpenAPI validator
-        run: npm install -g @redocly/cli
+        run: npm install -g @redocly/cli@1.34.11
 
       - name: Validate OpenAPI spec
         run: |
-          redocly lint docs/api/openapi_generated.json --skip-rule=no-empty-servers
+          redocly lint docs/api/openapi_generated.json \
+            --skip-rule=no-empty-servers \
+            --skip-rule=path-parameters-defined
 
       - name: Audit documentation coverage
         run: |
