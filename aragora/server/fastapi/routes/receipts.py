@@ -49,6 +49,7 @@ class ExportFormat(str, Enum):
     html = "html"
     markdown = "markdown"
     md = "md"
+    pdf = "pdf"
     sarif = "sarif"
 
 
@@ -1310,9 +1311,13 @@ async def verify_receipt(
 async def export_receipt(
     receipt_id: str,
     format: ExportFormat = Query(ExportFormat.json, description="Export format"),
+    raw: bool = Query(
+        False,
+        description="Return the exported bytes directly instead of a JSON wrapper.",
+    ),
     store=Depends(get_receipt_store),
-) -> ExportResponse:
-    """Export receipt in the specified format (json, html, markdown, sarif)."""
+) -> ExportResponse | Response:
+    """Export receipt in the specified format."""
     try:
         receipt_data = None
 
@@ -1333,18 +1338,61 @@ async def export_receipt(
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
+            if format == ExportFormat.pdf:
+                try:
+                    return Response(
+                        content=receipt.to_pdf(),
+                        media_type="application/pdf",
+                    )
+                except ImportError:
+                    logger.info("PDF export unavailable, falling back to printable HTML")
+                    printable_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {receipt.to_html()}
+</body>
+</html>"""
+                    return Response(
+                        content=printable_html.encode("utf-8"),
+                        media_type="text/html",
+                        headers={"X-PDF-Fallback": "true"},
+                    )
+
             if format in (ExportFormat.markdown, ExportFormat.md):
                 content = receipt.to_markdown()
                 response_format = "markdown"
+                media_type = "text/markdown"
             elif format == ExportFormat.html:
                 content = receipt.to_html()
                 response_format = "html"
+                media_type = "text/html"
             elif format == ExportFormat.sarif:
                 content = receipt.to_sarif_json()
                 response_format = "sarif"
+                media_type = "application/sarif+json"
             else:
                 content = receipt.to_json()
                 response_format = "json"
+                media_type = "application/json"
+
+            if raw:
+                body = content if isinstance(content, bytes) else content.encode("utf-8")
+                return Response(content=body, media_type=media_type)
 
             return ExportResponse(
                 receipt_id=receipt_id,

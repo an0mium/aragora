@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { apiPost } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types matching backend audit_trail.py response shapes
@@ -54,6 +55,59 @@ interface VerifyResult {
   computed_checksum: string;
   match: boolean;
   error?: string;
+  request_failed?: boolean;
+}
+
+type VerifyResultState = 'valid' | 'invalid' | 'error' | 'unavailable';
+
+const VERIFY_RESULT_STYLES: Record<VerifyResultState, string> = {
+  valid: 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]',
+  invalid: 'bg-red-500/5 border-red-500/30 text-red-400',
+  error: 'bg-red-500/5 border-red-500/30 text-red-400',
+  unavailable: 'bg-yellow-500/5 border-yellow-500/30 text-yellow-300',
+};
+
+const VERIFY_RESULT_LABELS: Record<VerifyResultState, string> = {
+  valid: '[VALID]',
+  invalid: '[INVALID]',
+  error: '[ERROR]',
+  unavailable: '[UNAVAILABLE]',
+};
+
+function getVerifyResultState(result: VerifyResult): VerifyResultState {
+  if (result.request_failed) {
+    return 'unavailable';
+  }
+  if (!result.valid && result.error && !result.stored_checksum && !result.computed_checksum) {
+    return 'error';
+  }
+  return result.valid ? 'valid' : 'invalid';
+}
+
+function getVerifyErrorMessage(error: unknown): { message: string; requestFailed: boolean } {
+  if (error instanceof Error && error.message) {
+    const apiErrorMatch = error.message.match(/^API Error \((\d+)\):\s*([\s\S]*)$/);
+    if (apiErrorMatch) {
+      const [, , rawPayload] = apiErrorMatch;
+      const trimmedPayload = rawPayload.trim();
+      if (!trimmedPayload) {
+        return { message: error.message, requestFailed: false };
+      }
+      try {
+        const parsed = JSON.parse(trimmedPayload) as { error?: unknown };
+        if (typeof parsed.error === 'string' && parsed.error.trim()) {
+          return { message: parsed.error, requestFailed: false };
+        }
+      } catch {
+        // Fall back to the raw response body when it is not JSON.
+      }
+      return { message: trimmedPayload, requestFailed: false };
+    }
+
+    return { message: error.message, requestFailed: true };
+  }
+
+  return { message: 'Verification failed. Please retry.', requestFailed: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,13 +237,24 @@ export default function AuditTrailPage() {
       const endpoint = type === 'trail'
         ? `/api/v1/audit-trails/${id}/verify`
         : `/api/v1/receipts/${id}/verify`;
-      const response = await fetch(endpoint, { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        setVerifyResult(data);
+      const data = await apiPost<VerifyResult>(endpoint);
+      setVerifyResult(data);
+    } catch (error) {
+      const { message, requestFailed } = getVerifyErrorMessage(error);
+      const failureResult: VerifyResult = {
+        valid: false,
+        request_failed: requestFailed,
+        stored_checksum: '',
+        computed_checksum: '',
+        match: false,
+        error: message,
+      };
+      if (type === 'trail') {
+        failureResult.trail_id = id;
+      } else {
+        failureResult.receipt_id = id;
       }
-    } catch {
-      // verification failed silently
+      setVerifyResult(failureResult);
     } finally {
       setVerifying(null);
     }
@@ -197,6 +262,10 @@ export default function AuditTrailPage() {
 
   const isLoading = activeTab === 'trails' ? trailsLoading : receiptsLoading;
   const error = activeTab === 'trails' ? trailsError : receiptsError;
+  const verifyState = verifyResult ? getVerifyResultState(verifyResult) : null;
+  const showChecksumComparison = Boolean(
+    verifyResult && (verifyResult.stored_checksum || verifyResult.computed_checksum),
+  );
 
   return (
     <>
@@ -255,29 +324,34 @@ export default function AuditTrailPage() {
 
           {/* Verification Result */}
           {verifyResult && (
-            <div className={`mb-6 p-4 border font-theme-data text-sm ${
-              verifyResult.valid
-                ? 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]'
-                : 'bg-red-500/5 border-red-500/30 text-red-400'
-            }`}>
+            <div className={`mb-6 p-4 border font-theme-data text-sm ${VERIFY_RESULT_STYLES[verifyState!]}`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-lg">{verifyResult.valid ? '[VALID]' : '[INVALID]'}</span>
+                <span className="text-lg">{VERIFY_RESULT_LABELS[verifyState!]}</span>
                 <span className="text-xs text-[var(--text-muted)]">
                   {verifyResult.trail_id || verifyResult.receipt_id}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[var(--text-muted)]">Stored: </span>
-                  <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+              {showChecksumComparison && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[var(--text-muted)]">Stored: </span>
+                    <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">Computed: </span>
+                    <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">Computed: </span>
-                  <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+              )}
+              {verifyResult.request_failed && (
+                <div className="mt-2 text-xs text-[var(--text-muted)]">
+                  Verification could not reach the backend, so no checksum comparison was performed.
                 </div>
-              </div>
+              )}
               {verifyResult.error && (
-                <div className="mt-2 text-xs text-red-400">{verifyResult.error}</div>
+                <div className={`mt-2 text-xs ${verifyResult.request_failed ? 'text-yellow-200' : 'text-red-400'}`}>
+                  {verifyResult.error}
+                </div>
               )}
               <button
                 onClick={() => setVerifyResult(null)}
