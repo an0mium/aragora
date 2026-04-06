@@ -3710,6 +3710,50 @@ class TestRunnerHeartbeatRefresh:
         assert reg["updated_at"] != old_ts, "updated_at should be refreshed"
         assert reg["heartbeat_at"] != old_ts, "heartbeat_at should be refreshed"
 
+    def test_heartbeat_refresh_requires_real_boolean_available(self, tmp_path):
+        """Malformed availability values fail closed during heartbeat refresh."""
+        import json as _json
+
+        registry_path = str(tmp_path / "runners.json")
+        old_ts = "2025-01-01T00:00:00+00:00"
+        _json.dump(
+            {
+                "registrations": [
+                    {
+                        "runner_id": "codex-runner-1",
+                        "runner_type": "codex",
+                        "availability": "ready",
+                        "available": "false",
+                        "auth_mode": "api_key",
+                        "registered": True,
+                        "registered_at": old_ts,
+                        "updated_at": old_ts,
+                        "heartbeat_at": old_ts,
+                        "owner_binding": {
+                            "user_id": "u1",
+                            "workspace_id": "w1",
+                        },
+                    }
+                ]
+            },
+            open(registry_path, "w"),
+        )
+
+        config = _boss_config(registry_path=registry_path)
+        loop = BossLoop(
+            config=config,
+            env={"ARAGORA_USER_ID": "u1", "ARAGORA_WORKSPACE_ID": "w1"},
+        )
+
+        loop._refresh_runner_heartbeats()
+
+        with open(registry_path) as f:
+            data = _json.load(f)
+
+        reg = data["registrations"][0]
+        assert reg["available"] is False
+        assert reg["freshness_status"] == "unavailable"
+
     def test_heartbeat_refresh_called_during_run(self, tmp_path):
         """The main run() loop calls _refresh_runner_heartbeats each iteration."""
         feed = MagicMock()

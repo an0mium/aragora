@@ -88,6 +88,10 @@ _ALREADY_DONE_MARKERS = (
 _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
 
 
+def _strict_bool(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
 # ---------------------------------------------------------------------------
 # Boss Loop Status & Stop Conditions
 # ---------------------------------------------------------------------------
@@ -858,7 +862,7 @@ class BossLoop:
                 runner_id=runner_id,
                 runner_type=str(reg.get("runner_type", "codex")).strip(),
                 availability=str(reg.get("availability", "unknown")).strip(),
-                available=bool(reg.get("available", False)),
+                available=_strict_bool(reg.get("available")) is True,
                 auth_mode=str(reg.get("auth_mode", "unknown")).strip(),
                 command_path=reg.get("command_path"),
                 profile=reg.get("profile"),
