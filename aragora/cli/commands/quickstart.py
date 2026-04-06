@@ -495,12 +495,28 @@ def _settlement_value_is_blank(value: Any) -> bool:
     return False
 
 
+def _build_quickstart_default_falsifiers(question: str, final_answer: str) -> list[str]:
+    """Provide deterministic falsifiers when quickstart lacks richer claim metadata."""
+    prompt = question.strip() or "the recorded quickstart decision"
+    conclusion = (final_answer.strip().splitlines() or [prompt])[0]
+    falsifiers = [
+        f"Verifiable: Observed outcomes within the review horizon still support the chosen path for: {prompt[:160]}"
+    ]
+    if conclusion and conclusion != prompt:
+        falsifiers.append(
+            f"Verifiable: New evidence does not contradict the recorded answer: {conclusion[:160]}"
+        )
+    return falsifiers
+
+
 def _build_quickstart_settlement_metadata(
     *,
     settlement_metadata: Any,
     debate_result: Any,
     receipt_context: Any | None,
     timestamp: str,
+    question: str,
+    final_answer: str,
 ) -> dict[str, Any]:
     """Capture settlement metadata via the canonical settlement tracker."""
     from aragora.debate.settlement import EpistemicSettlementTracker
@@ -518,6 +534,11 @@ def _build_quickstart_settlement_metadata(
     for key, value in captured.items():
         if _settlement_value_is_blank(normalized.get(key)):
             normalized[key] = value
+    if _settlement_value_is_blank(normalized.get("falsifiers")):
+        normalized["falsifiers"] = _build_quickstart_default_falsifiers(
+            question=question,
+            final_answer=final_answer,
+        )
     return normalized
 
 
@@ -630,6 +651,8 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         debate_result=settlement_result,
         receipt_context=settlement_receipt_context,
         timestamp=timestamp,
+        question=question,
+        final_answer=str(payload.get("verdict_reasoning") or summary),
     )
 
     if has_receipt_contract:
@@ -1113,6 +1136,8 @@ def _build_live_receipt(
         debate_result=result,
         receipt_context=settlement_receipt_context,
         timestamp=timestamp,
+        question=question,
+        final_answer=final_answer,
     )
     receipt = DecisionReceipt(
         receipt_id=receipt_id,

@@ -35,6 +35,7 @@ from aragora.cli.commands.quickstart import (
 )
 from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
+from aragora.core import DebateResult
 from scripts.check_epistemic_hygiene import validate_receipt
 
 
@@ -472,6 +473,38 @@ class TestLiveQuickstartHelpers:
         assert receipt["confidence"] == 1.0
         assert receipt["receipt"]["confidence"] == 1.0
         assert receipt["consensus_proof"]["confidence"] == 1.0
+
+    def test_build_live_receipt_generates_falsifiers_for_sparse_debate_result(self):
+        result = DebateResult(
+            confidence=0.91,
+            consensus_reached=True,
+            dissenting_views=[],
+            final_answer="Proceed with a phased rollout.",
+            participants=["proposer", "critic", "synthesizer"],
+            rounds_used=1,
+        )
+
+        receipt = _build_live_receipt(
+            result,
+            "Should we proceed?",
+            1,
+            [
+                {"name": "proposer", "provider": "openai-api"},
+                {"name": "critic", "provider": "openai-api"},
+                {"name": "synthesizer", "provider": "openai-api"},
+            ],
+        )
+
+        strict_hygiene = validate_receipt(receipt, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert all(
+            entry.startswith("Verifiable:")
+            for entry in receipt["settlement_metadata"]["falsifiers"]
+        )
+        assert not any(
+            "Revisit if evidence disproves the chosen path for:" in entry
+            for entry in receipt["settlement_metadata"]["falsifiers"]
+        )
 
     @pytest.mark.asyncio
     async def test_can_reach_provider_tls_normalizes_wrapped_cert_errors(self):
