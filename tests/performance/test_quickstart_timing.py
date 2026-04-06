@@ -23,6 +23,8 @@ from scripts.measure_quickstart_time import (
     StepResult,
     evaluate_step,
     format_report,
+    measure_first_debate,
+    measure_install_time,
     measure_import_time,
     measure_receipt_generation,
     measure_repo_size,
@@ -202,6 +204,79 @@ class TestMeasureImportTime:
         assert step.passed is False
         assert step.status == "FAIL"
         assert "exit=1" in step.error
+
+    def test_targets_quickstart_cli_modules(self):
+        """Import timing should follow the quickstart CLI wedge, not arena internals."""
+        with patch("scripts.measure_quickstart_time._run_repo_python_step") as mock_step:
+            sentinel = StepResult("Import aragora", 0.5, 5.0, True)
+            mock_step.return_value = sentinel
+
+            step = measure_import_time()
+
+        assert step is sentinel
+        code = mock_step.call_args.kwargs["code"]
+        assert "aragora.cli.main" in code
+        assert "aragora.cli.commands.quickstart" in code
+        assert "aragora.debate.orchestrator" not in code
+
+
+class TestMeasureInstallTime:
+    """Tests for measure_install_time()."""
+
+    def test_uses_local_no_build_isolation_install_probe(self):
+        """Install timing should avoid build-isolation network fetches and extra drift."""
+        completed = subprocess.CompletedProcess(
+            args=["python3", "-m", "pip", "install"],
+            returncode=0,
+            stdout="Would install aragora-debate-2.8.0",
+            stderr="",
+        )
+
+        with patch(
+            "scripts.measure_quickstart_time.subprocess.run", return_value=completed
+        ) as mock_run:
+            step = measure_install_time()
+
+        assert step.passed is True
+        args = mock_run.call_args.args[0]
+        assert "--no-build-isolation" in args
+        assert all("[dev]" not in str(arg) for arg in args)
+
+    def test_skips_when_pip_dry_run_is_unsupported(self):
+        """Older pip versions should skip instead of falling back to ambient pip check noise."""
+        completed = subprocess.CompletedProcess(
+            args=["python3", "-m", "pip", "install"],
+            returncode=2,
+            stdout="",
+            stderr="no such option: --dry-run",
+        )
+
+        with patch(
+            "scripts.measure_quickstart_time.subprocess.run", return_value=completed
+        ) as mock_run:
+            step = measure_install_time()
+
+        assert step.status == "SKIP"
+        assert step.error == "pip install --dry-run unsupported"
+        assert mock_run.call_count == 1
+
+
+class TestMeasureFirstDebate:
+    """Tests for measure_first_debate()."""
+
+    def test_uses_quickstart_demo_path(self):
+        """The debate timing probe should exercise the real quickstart demo helper."""
+        with patch("scripts.measure_quickstart_time._run_repo_python_step") as mock_step:
+            sentinel = StepResult("First debate", 6.0, 10.0, True)
+            mock_step.return_value = sentinel
+
+            step = measure_first_debate()
+
+        assert step is sentinel
+        code = mock_step.call_args.kwargs["code"]
+        assert "_run_demo_debate" in code
+        assert "_build_quickstart_receipt_payload" not in code
+        assert "Arena(" not in code
 
 
 class TestMeasureReceiptGeneration:

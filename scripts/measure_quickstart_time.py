@@ -306,8 +306,9 @@ def measure_install_time() -> StepResult:
     """Measure pip install --dry-run duration.
 
     Uses ``pip install --dry-run`` to exercise dependency resolution without
-    modifying the environment.  Falls back to ``pip check`` when the
-    dry-run flag is unavailable.
+    modifying the environment. Uses ``--no-build-isolation`` so the benchmark
+    measures the local package contract instead of transient build-dependency
+    fetches, and skips cleanly on older pip versions that lack ``--dry-run``.
     """
     repo_root = _repo_root()
     t0 = time.perf_counter()
@@ -319,30 +320,28 @@ def measure_install_time() -> StepResult:
                 "pip",
                 "install",
                 "--dry-run",
+                "--no-build-isolation",
                 "-e",
-                f"{repo_root}[dev]",
+                str(repo_root),
             ],
             capture_output=True,
             text=True,
             timeout=120,
         )
         elapsed = time.perf_counter() - t0
-        detail = f"pip install --dry-run exit={result.returncode}"
-        error = ""
+        detail = f"pip install --dry-run --no-build-isolation exit={result.returncode}"
+        output = _summarize_process_output(result)
 
-        if result.returncode != 0:
-            # dry-run may not be supported; fall back to pip check
-            t0b = time.perf_counter()
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "check"],
-                capture_output=True,
-                text=True,
-                timeout=30,
+        if result.returncode != 0 and "--dry-run" in output and "no such option" in output.lower():
+            return evaluate_step(
+                "Dependencies Install",
+                -1.0,
+                THRESHOLDS["install"],
+                error="pip install --dry-run unsupported",
+                detail="pip install --dry-run --no-build-isolation unsupported",
             )
-            elapsed = time.perf_counter() - t0b
-            detail = f"pip check exit={result.returncode} (dry-run unavailable)"
-            if result.returncode != 0:
-                error = _summarize_process_output(result) or detail
+
+        error = output if result.returncode != 0 else ""
 
         return evaluate_step(
             "Dependencies Install",
@@ -364,16 +363,14 @@ def measure_install_time() -> StepResult:
 
 
 def measure_import_time() -> StepResult:
-    """Measure ``import aragora`` and key submodule import times."""
+    """Measure imports for the CLI quickstart entrypoint."""
     code = r"""
 import json
 
 target_modules = [
     "aragora",
-    "aragora.core",
-    "aragora.debate.orchestrator",
-    "aragora.debate.protocol",
-    "aragora.gauntlet.receipt_models",
+    "aragora.cli.main",
+    "aragora.cli.commands.quickstart",
 ]
 errors = []
 imported = []
@@ -397,65 +394,23 @@ print(json.dumps({"imported": imported, "total": len(target_modules), "error": "
 
 
 def measure_first_debate() -> StepResult:
-    """Create an Arena with 2 mock agents and run a 1-round debate."""
+    """Run the real quickstart demo debate path."""
     code = r"""
 import asyncio
 import json
 
-from aragora.core import Agent, Critique, Environment, Message, Vote
-from aragora.debate.orchestrator import Arena
-from aragora.debate.protocol import DebateProtocol
-
-
-class _QuickstartAgent(Agent):
-    def __init__(self, name: str, response: str = "test response"):
-        super().__init__(name=name, model="mock-model", role="proposer")
-        self.agent_type = "mock"
-        self._response = response
-
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        return self._response
-
-    async def generate_stream(self, prompt: str, context: list[Message] | None = None):
-        yield self._response
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-        target_agent: str | None = None,
-    ) -> Critique:
-        return Critique(
-            agent=self.name,
-            target_agent=target_agent or "proposer",
-            target_content=proposal[:100],
-            issues=["Minor issue"],
-            suggestions=["Consider refactoring"],
-            severity=0.3,
-            reasoning="Test reasoning",
-        )
-
-    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
-        choice = self.name if self.name in proposals else next(iter(proposals), "unknown")
-        return Vote(agent=self.name, choice=choice, reasoning="Test vote", confidence=0.8)
+from aragora.cli.commands.quickstart import _run_demo_debate
 
 
 async def _main() -> None:
-    agents = [
-        _QuickstartAgent("agent-alpha", "Alpha: Use a token bucket algorithm with Redis."),
-        _QuickstartAgent("agent-beta", "Beta: Agreed, token bucket with Redis backend."),
-    ]
-    env = Environment(task="Design a rate limiter for our API")
-    protocol = DebateProtocol(rounds=1, consensus="majority")
-    arena = Arena(environment=env, agents=agents, protocol=protocol)
-    result = await arena.run()
+    result = await _run_demo_debate("Design a rate limiter for our API", 2)
     print(
         json.dumps(
             {
-                "consensus": bool(result.consensus_reached),
-                "rounds": int(result.rounds_used),
-                "confidence": float(result.confidence),
+                "consensus": bool(result.get("consensus_reached")),
+                "rounds": int(result.get("rounds", 0)),
+                "confidence": float(result.get("confidence", 0.0)),
+                "receipt_id": result.get("receipt_id", ""),
             }
         )
     )
@@ -470,7 +425,8 @@ asyncio.run(_main())
         detail_from_payload=lambda payload: (
             "consensus="
             f"{payload.get('consensus')}, rounds={payload.get('rounds')}, "
-            f"confidence={float(payload.get('confidence', 0.0)):.2f}"
+            f"confidence={float(payload.get('confidence', 0.0)):.2f}, "
+            f"receipt_id={str(payload.get('receipt_id', ''))[:20]}"
         ),
     )
 
