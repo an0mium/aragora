@@ -192,6 +192,22 @@ class TestListSuggestions:
         assert _status(result) == 400
 
     @patch("aragora.audience.suggestions.cluster_suggestions")
+    def test_whitespace_only_debate_id_returns_400(self, mock_cluster, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(method="GET")
+        result = h.handle("/api/v1/audience/suggestions", {"debate_id": "   "}, http)
+        assert _status(result) == 400
+        assert "debate_id" in _body(result)["error"]
+
+    @patch("aragora.audience.suggestions.cluster_suggestions")
+    def test_non_string_debate_id_returns_400(self, mock_cluster, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(method="GET")
+        result = h.handle("/api/v1/audience/suggestions", {"debate_id": 123}, http)
+        assert _status(result) == 400
+        assert "debate_id" in _body(result)["error"]
+
+    @patch("aragora.audience.suggestions.cluster_suggestions")
     def test_successful_list_with_clusters(self, mock_cluster, handler_with_storage):
         h, storage = handler_with_storage
         storage.get_audience_suggestions.return_value = [
@@ -211,6 +227,21 @@ class TestListSuggestions:
         assert body["clusters"][0]["representative"] == "idea1"
         assert body["clusters"][0]["count"] == 2
         assert body["clusters"][0]["user_ids"] == ["u1", "u2"]
+
+    @patch("aragora.audience.suggestions.cluster_suggestions")
+    def test_debate_id_is_stripped_before_storage_lookup(self, mock_cluster, handler_with_storage):
+        h, storage = handler_with_storage
+        storage.get_audience_suggestions.return_value = []
+        mock_cluster.return_value = []
+        http = MockHTTPHandler(method="GET")
+        result = h.handle(
+            "/api/v1/audience/suggestions",
+            {"debate_id": "  d1  "},
+            http,
+        )
+        assert _status(result) == 200
+        storage.get_audience_suggestions.assert_called_once_with("d1")
+        assert _body(result)["debate_id"] == "d1"
 
     @patch("aragora.audience.suggestions.cluster_suggestions")
     def test_successful_list_empty_suggestions(self, mock_cluster, handler_with_storage):
@@ -629,6 +660,13 @@ class TestSubmitSuggestion:
         assert _status(result) == 400
         assert "JSON" in _body(result)["error"]
 
+    def test_json_body_must_be_object(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(method="POST", body=["not", "an", "object"])
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "object" in _body(result)["error"]
+
     def test_storage_not_available_returns_503(self, handler):
         http = MockHTTPHandler(
             method="POST",
@@ -716,6 +754,36 @@ class TestSubmitSuggestion:
         assert _status(result) == 400
         assert "debate_id" in _body(result)["error"]
 
+    def test_whitespace_only_debate_id_in_body_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "   ", "suggestion": "idea"},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "debate_id" in _body(result)["error"]
+
+    def test_non_string_debate_id_in_body_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": 123, "suggestion": "idea"},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "debate_id" in _body(result)["error"]
+
+    def test_non_string_suggestion_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "d1", "suggestion": 123},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "suggestion" in _body(result)["error"]
+
     @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="trimmed")
     def test_suggestion_with_leading_trailing_spaces(self, mock_sanitize, handler_with_storage):
         """Suggestion text should be stripped before length check."""
@@ -726,6 +794,25 @@ class TestSubmitSuggestion:
         )
         result = h.handle("/api/v1/audience/suggestions", {}, http)
         assert _status(result) == 201
+
+    @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="clean")
+    def test_submit_strips_debate_id_and_suggestion_before_save(
+        self, mock_sanitize, handler_with_storage
+    ):
+        h, storage = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "  d1  ", "suggestion": "  idea  "},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 201
+        mock_sanitize.assert_called_once_with("idea")
+        storage.save_audience_suggestion.assert_called_once_with(
+            debate_id="d1",
+            user_id="test-user-001",
+            suggestion="clean",
+        )
+        assert _body(result)["debate_id"] == "d1"
 
 
 # ---------------------------------------------------------------------------
