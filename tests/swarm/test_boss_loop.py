@@ -1266,6 +1266,32 @@ class TestBossLoop:
         assert len(result.needs_human_reasons) > 0
         assert "No fresh runner" in result.needs_human_reasons[0]
 
+    def test_malformed_truthy_freshness_flag_blocks_dispatch(self):
+        config = _boss_config()
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(1, "Malformed freshness issue")]
+
+        freshness = SimpleNamespace(
+            fresh="false",
+            blocked_reason="malformed_fresh_flag",
+            details={},
+            to_dict=lambda: {"fresh": "false", "blocked_reason": "malformed_fresh_flag"},
+        )
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: freshness,
+        )
+
+        with patch.object(BossLoop, "_dispatch_issue", new_callable=AsyncMock) as mock_dispatch:
+            result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_FRESH_RUNNER.value
+        assert len(result.issues_attempted) == 0
+        assert "No fresh runner" in result.needs_human_reasons[0]
+        mock_dispatch.assert_not_awaited()
+
     def test_no_suitable_issue_stops(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = []

@@ -326,6 +326,13 @@ def _freshness_to_dict(freshness: Any) -> dict[str, Any]:
     return {}
 
 
+def _freshness_is_fresh(freshness: Any, freshness_dict: dict[str, Any]) -> bool:
+    """Require a real boolean freshness signal before dispatching work."""
+    if hasattr(freshness, "fresh"):
+        return getattr(freshness, "fresh") is True
+    return freshness_dict.get("fresh") is True
+
+
 async def dispatch_bounded_spec(
     spec: Any,
     *,
@@ -2278,7 +2285,7 @@ class BossLoop:
         )
         freshness_dict = _freshness_to_dict(freshness)
 
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+        if not _freshness_is_fresh(freshness, freshness_dict):
             blocked_reason = (
                 freshness.blocked_reason
                 if hasattr(freshness, "blocked_reason")
