@@ -524,6 +524,25 @@ def _backbone_dispatch_status(result: dict[str, Any]) -> str:
     return status or "failed"
 
 
+def _dispatch_result_started(result: Any) -> bool:
+    if not isinstance(result, dict):
+        return False
+    run_id = result.get("run_id")
+    if isinstance(run_id, str) and run_id.strip():
+        return True
+    run = result.get("run")
+    if not isinstance(run, dict):
+        return False
+    embedded_run_id = run.get("run_id")
+    if isinstance(embedded_run_id, str) and embedded_run_id.strip():
+        return True
+    work_orders = run.get("work_orders")
+    if isinstance(work_orders, list):
+        return True
+    run_status = run.get("status")
+    return isinstance(run_status, str) and bool(run_status.strip())
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
@@ -3356,7 +3375,7 @@ class BossLoop:
             except Exception:
                 pass  # Never block autonomous dispatch
         if pending_handoff is not None:
-            dispatch_started = bool(result.get("run") or result.get("run_id"))
+            dispatch_started = _dispatch_result_started(result)
             if result.get("status") != "failed" or dispatch_started:
                 self._pending_handoff_prompts.pop(issue.number, None)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
