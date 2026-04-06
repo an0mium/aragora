@@ -79,24 +79,22 @@ class _GroupedCommandsParser(argparse.ArgumentParser):
 
         if subparser_action is not None:
             core, advanced = [], []
-            for choice, _parser in (subparser_action.choices or {}).items():
-                help_text = ""
-                for sub_action in subparser_action._choices_actions:
-                    if sub_action.dest == choice:
-                        help_text = sub_action.help or ""
-                        break
-                entry = (choice, help_text)
+            for sub_action in subparser_action._choices_actions:
+                choice = sub_action.dest
+                display_name = getattr(sub_action, "metavar", choice) or choice
+                help_text = sub_action.help or ""
+                entry = (choice, display_name, help_text)
                 (core if choice in CORE_COMMANDS else advanced).append(entry)
 
             if core:
                 formatter.start_section("core commands")
-                for name, help_text in sorted(core):
-                    formatter.add_text(f"  {name:<20}{help_text}")
+                for _choice, display_name, help_text in sorted(core):
+                    formatter.add_text(f"  {display_name:<20}{help_text}")
                 formatter.end_section()
             if advanced:
                 formatter.start_section("advanced commands")
-                for name, help_text in sorted(advanced):
-                    formatter.add_text(f"  {name:<20}{help_text}")
+                for _choice, display_name, help_text in sorted(advanced):
+                    formatter.add_text(f"  {display_name:<20}{help_text}")
                 formatter.end_section()
 
         if self.epilog:
@@ -208,7 +206,11 @@ Examples:
 
 def _add_ask_parser(subparsers) -> None:
     """Add the 'ask' subcommand parser."""
-    ask_parser = subparsers.add_parser("ask", help="Run a decision stress-test (debate engine)")
+    ask_parser = subparsers.add_parser(
+        "ask",
+        aliases=["debate"],
+        help="Run a decision stress-test (debate engine)",
+    )
     ask_parser.add_argument("task", help="The task/question to debate")
     ask_parser.add_argument(
         "--agents",

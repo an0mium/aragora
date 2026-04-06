@@ -4,10 +4,18 @@ Get from zero to a working adversarial debate in under a minute.
 
 ---
 
-## 1. Install
+## 1. Install The Package For Your Path
+
+For the standalone local debate examples in Steps 2-3:
 
 ```bash
 pip install aragora-debate
+```
+
+For the full Aragora CLI, live-provider flow, and self-hosted server in Steps 4-7:
+
+```bash
+pip install aragora
 ```
 
 ## 2. Zero-Key Demo
@@ -36,6 +44,7 @@ You'll see three agents debate, critique each other, vote, and produce an audit-
 ## 3. Three-Line Debate (Python)
 
 ```python
+import asyncio
 from aragora_debate.arena import Arena
 from aragora_debate.styled_mock import StyledMockAgent
 
@@ -50,6 +59,12 @@ print(result.receipt.to_markdown())
 ```
 
 ## 4. Add Real AI Models
+
+This step uses the full Aragora package rather than the standalone `aragora-debate` package from Steps 2-3:
+
+```bash
+pip install aragora
+```
 
 Set at least one API key:
 
@@ -107,7 +122,8 @@ Then visit:
 ## 7. CLI
 
 ```bash
-pip install aragora
+aragora ask "Should we build or buy our auth system?"
+# Backward-compatible alias:
 aragora debate "Should we build or buy our auth system?"
 aragora serve --api-port 8080 --ws-port 8765
 ```
