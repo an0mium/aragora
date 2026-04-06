@@ -288,7 +288,7 @@ class RelationshipTracker:
             if raw:
                 rel = AgentRelationship.from_stats(raw)
                 self._emit_relationship_event(agent_a, agent_b, rel)
-        except (RuntimeError, ValueError, TypeError) as e:
+        except (RuntimeError, TypeError) as e:
             logger.debug("Failed to emit relationship event: %s", e)
 
     def _emit_relationship_event(
@@ -317,7 +317,7 @@ class RelationshipTracker:
                     "influence_b_on_a": round(relationship.influence_b_on_a, 4),
                 },
             )
-        except (ImportError, RuntimeError, TypeError, ValueError) as e:
+        except (ImportError, RuntimeError, TypeError) as e:
             logger.debug("Relationship event emission unavailable: %s", e)
 
     def update_batch(self, updates: list[dict]) -> None:
