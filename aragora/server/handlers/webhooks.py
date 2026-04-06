@@ -817,6 +817,8 @@ The webhook secret is only returned once on creation - save it securely.""",
             events = self._parse_events_field(body.get("events"))
             if events is None:
                 return error_response("Events must be a list of strings", 400)
+            if not events:
+                return error_response("At least one event type is required", 400)
         if events is not None:
             invalid_events = [e for e in events if e != "*" and e not in WEBHOOK_EVENTS]
             if invalid_events:
