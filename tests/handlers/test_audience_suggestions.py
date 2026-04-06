@@ -192,6 +192,23 @@ class TestListSuggestions:
         assert _status(result) == 400
 
     @patch("aragora.audience.suggestions.cluster_suggestions")
+    def test_whitespace_debate_id_returns_400(self, mock_cluster, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(method="GET")
+        result = h.handle("/api/v1/audience/suggestions", {"debate_id": "   "}, http)
+        assert _status(result) == 400
+
+    @patch("aragora.audience.suggestions.cluster_suggestions")
+    def test_debate_id_is_stripped_before_storage_lookup(self, mock_cluster, handler_with_storage):
+        h, storage = handler_with_storage
+        storage.get_audience_suggestions.return_value = []
+        mock_cluster.return_value = []
+        http = MockHTTPHandler(method="GET")
+        result = h.handle("/api/v1/audience/suggestions", {"debate_id": "  d1  "}, http)
+        assert _status(result) == 200
+        storage.get_audience_suggestions.assert_called_once_with("d1")
+
+    @patch("aragora.audience.suggestions.cluster_suggestions")
     def test_successful_list_with_clusters(self, mock_cluster, handler_with_storage):
         h, storage = handler_with_storage
         storage.get_audience_suggestions.return_value = [
@@ -646,15 +663,15 @@ class TestSubmitSuggestion:
         "aragora.audience.suggestions.sanitize_suggestion",
         side_effect=ValueError("bad input"),
     )
-    def test_sanitize_value_error_returns_500(self, mock_sanitize, handler_with_storage):
+    def test_sanitize_value_error_returns_400(self, mock_sanitize, handler_with_storage):
         h, _ = handler_with_storage
         http = MockHTTPHandler(
             method="POST",
             body={"debate_id": "d1", "suggestion": "idea"},
         )
         result = h.handle("/api/v1/audience/suggestions", {}, http)
-        assert _status(result) == 500
-        assert "Failed to submit" in _body(result)["error"]
+        assert _status(result) == 400
+        assert "Invalid suggestion text" in _body(result)["error"]
 
     @patch(
         "aragora.audience.suggestions.sanitize_suggestion",
@@ -716,6 +733,35 @@ class TestSubmitSuggestion:
         assert _status(result) == 400
         assert "debate_id" in _body(result)["error"]
 
+    def test_whitespace_debate_id_in_body_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "   ", "suggestion": "idea"},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "debate_id" in _body(result)["error"]
+
+    def test_non_string_suggestion_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "d1", "suggestion": 123},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "suggestion" in _body(result)["error"]
+
+    def test_json_array_body_returns_400(self, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(method="POST")
+        http.rfile.read.return_value = b'["not", "an", "object"]'
+        http.headers["Content-Length"] = str(len(http.rfile.read.return_value))
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "object" in _body(result)["error"].lower()
+
     @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="trimmed")
     def test_suggestion_with_leading_trailing_spaces(self, mock_sanitize, handler_with_storage):
         """Suggestion text should be stripped before length check."""
@@ -726,6 +772,17 @@ class TestSubmitSuggestion:
         )
         result = h.handle("/api/v1/audience/suggestions", {}, http)
         assert _status(result) == 201
+
+    @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="   ")
+    def test_blank_sanitized_text_returns_400(self, mock_sanitize, handler_with_storage):
+        h, _ = handler_with_storage
+        http = MockHTTPHandler(
+            method="POST",
+            body={"debate_id": "d1", "suggestion": "idea"},
+        )
+        result = h.handle("/api/v1/audience/suggestions", {}, http)
+        assert _status(result) == 400
+        assert "suggestion" in _body(result)["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -818,7 +875,7 @@ class TestEdgeCases:
         assert _status(result) == 500
 
     @patch("aragora.audience.suggestions.sanitize_suggestion", return_value="x")
-    def test_save_raises_type_error_returns_500(self, mock_sanitize, handler_with_storage):
+    def test_save_raises_type_error_returns_400(self, mock_sanitize, handler_with_storage):
         h, storage = handler_with_storage
         storage.save_audience_suggestion.side_effect = TypeError("t")
         http = MockHTTPHandler(
@@ -826,4 +883,4 @@ class TestEdgeCases:
             body={"debate_id": "d1", "suggestion": "idea"},
         )
         result = h.handle("/api/v1/audience/suggestions", {}, http)
-        assert _status(result) == 500
+        assert _status(result) == 400
