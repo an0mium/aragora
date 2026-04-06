@@ -498,10 +498,13 @@ class TestLiveQuickstartHelpers:
         strict_hygiene = validate_receipt(receipt, strict=True)
         assert strict_hygiene.passed_strict() is True
         assert receipt["confidence"] == pytest.approx(0.91)
+        assert receipt["settlement"]["status"] == "needs_definition"
+        assert receipt["settlement"]["claim"] == "Should we proceed?"
+        assert receipt["settlement"]["review_horizon_days"] == 30
         assert receipt["settlement_metadata"]["confidence"] == pytest.approx(0.79)
         assert receipt["settlement_metadata"]["falsifiers"] == []
         assert any(
-            "did not include explicit falsifiers" in note
+            "Quickstart could not derive explicit falsifiers" in note
             for note in receipt["settlement_metadata"]["review_notes"]
         )
 
@@ -938,12 +941,11 @@ class TestCmdQuickstart:
         saved = json.loads(artifact_path.read_text())
         strict_hygiene = validate_receipt(saved, strict=True)
         assert strict_hygiene.passed_strict() is True
-        assert all(
-            entry.startswith("Verifiable:") for entry in saved["settlement_metadata"]["falsifiers"]
-        )
-        assert not any(
-            "Revisit if evidence disproves the chosen path for:" in entry
-            for entry in saved["settlement_metadata"]["falsifiers"]
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
         )
 
         capsys.readouterr()
@@ -953,6 +955,24 @@ class TestCmdQuickstart:
         assert excinfo.value.code == 0
         output = capsys.readouterr().out
         assert "Result: VALID" in output
+        saved = json.loads(artifact_path.read_text())
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert saved["settlement"]["status"] == "needs_definition"
+        assert saved["settlement"]["claim"] == "Should we verify the saved quickstart receipt?"
+        assert saved["settlement"]["falsifier"] == (
+            "Define an objective falsifier for the primary claim."
+        )
+        assert saved["settlement"]["metric"] == (
+            "Define a measurable metric for decision settlement."
+        )
+        assert saved["settlement"]["review_horizon_days"] == 30
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
+        )
 
     def test_live_mode_saves_default_receipt_artifact(self, tmp_path, monkeypatch, capsys):
         """Test live quickstart saves a deterministic default artifact."""
@@ -1001,12 +1021,15 @@ class TestCmdQuickstart:
         assert saved["mode"] == "live"
         strict_hygiene = validate_receipt(saved, strict=True)
         assert strict_hygiene.passed_strict() is True
-        assert all(
-            entry.startswith("Verifiable:") for entry in saved["settlement_metadata"]["falsifiers"]
-        )
-        assert not any(
-            "Revisit if evidence disproves the chosen path for:" in entry
-            for entry in saved["settlement_metadata"]["falsifiers"]
+        assert saved["confidence"] == pytest.approx(0.91)
+        assert saved["settlement"]["status"] == "needs_definition"
+        assert saved["settlement"]["claim"] == "Should we ship the CLI quickstart?"
+        assert saved["settlement"]["review_horizon_days"] == 30
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
         )
 
         output = capsys.readouterr().out

@@ -25,7 +25,7 @@ import tempfile
 import time
 import uuid
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, TextIO, cast
@@ -108,9 +108,13 @@ _QUICKSTART_SETTLEMENT_REVIEW_DAYS = 30
 _QUICKSTART_STRICT_FALSIFIER_THRESHOLD = 0.8
 _QUICKSTART_SETTLEMENT_CONFIDENCE_CAP = 0.79
 _QUICKSTART_SETTLEMENT_REVIEW_NOTE = (
-    "Quickstart settlement metadata did not include explicit falsifiers; "
-    "settlement confidence was capped below the strict-review threshold."
+    "Quickstart could not derive explicit falsifiers; settlement confidence "
+    "was capped below the strict-review threshold and the canonical settlement "
+    "record remains needs_definition."
 )
+_QUICKSTART_DEFAULT_SETTLEMENT_FALSIFIER = "Define an objective falsifier for the primary claim."
+_QUICKSTART_DEFAULT_SETTLEMENT_METRIC = "Define a measurable metric for decision settlement."
+_QUICKSTART_DEFAULT_SETTLEMENT_RESOLVER_TYPE = "human"
 
 
 def _quickstart_loop_factory() -> asyncio.AbstractEventLoop:
@@ -490,8 +494,29 @@ def _normalize_dissent_records(
     return _summarize_dissenting_views(reasons, participants), reasons
 
 
+def _coerce_positive_int(value: Any, *, default: int) -> int:
+    """Coerce optional positive integers while preserving a safe default."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _parse_iso_datetime(value: Any) -> datetime:
+    """Return a timezone-aware datetime for quickstart timestamps."""
+    raw = str(value or "").strip()
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return datetime.now(timezone.utc)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 def _settlement_value_is_blank(value: Any) -> bool:
-    """Identify settlement fields that still need a canonical default."""
+    """Identify settlement fields that still need canonical defaults."""
     if value is None:
         return True
     if isinstance(value, str):
@@ -501,57 +526,94 @@ def _settlement_value_is_blank(value: Any) -> bool:
     return False
 
 
-def _normalize_quickstart_settlement_confidence(settlement_metadata: dict[str, Any]) -> None:
-    """Fail closed for sparse quickstart receipts instead of inventing falsifiers."""
-    falsifiers = settlement_metadata.get("falsifiers")
-    if isinstance(falsifiers, list) and falsifiers:
-        return
-
-    try:
-        confidence = float(settlement_metadata.get("confidence", 0.0) or 0.0)
-    except (TypeError, ValueError):
-        confidence = 0.0
-
-    if confidence >= _QUICKSTART_STRICT_FALSIFIER_THRESHOLD:
-        settlement_metadata["confidence"] = min(
-            confidence,
-            _QUICKSTART_SETTLEMENT_CONFIDENCE_CAP,
-        )
-
-    review_notes = settlement_metadata.get("review_notes")
-    if not isinstance(review_notes, list):
-        review_notes = []
-        settlement_metadata["review_notes"] = review_notes
-    if _QUICKSTART_SETTLEMENT_REVIEW_NOTE not in review_notes:
-        review_notes.append(_QUICKSTART_SETTLEMENT_REVIEW_NOTE)
-
-
 def _build_quickstart_settlement_metadata(
     *,
     settlement_metadata: Any,
     debate_result: Any,
     receipt_context: Any | None,
+    debate_id: str,
     timestamp: str,
+    confidence: float,
+    review_horizon_days: int = _QUICKSTART_SETTLEMENT_REVIEW_DAYS,
 ) -> dict[str, Any]:
-    """Capture settlement metadata via the canonical settlement tracker."""
+    """Build strict-safe settlement metadata without inventing falsifiers."""
     from aragora.debate.settlement import EpistemicSettlementTracker
 
     tracker = EpistemicSettlementTracker()
     captured = tracker.capture_settlement(
         debate_result,
         receipt_context,
-        review_horizon_days=_QUICKSTART_SETTLEMENT_REVIEW_DAYS,
-        settled_at=timestamp,
+        review_horizon_days=review_horizon_days,
     ).to_dict()
 
-    existing = dict(settlement_metadata) if isinstance(settlement_metadata, dict) else {}
-    normalized = dict(existing)
+    normalized = dict(settlement_metadata) if isinstance(settlement_metadata, dict) else {}
     for key, value in captured.items():
         if _settlement_value_is_blank(normalized.get(key)):
             normalized[key] = value
-    if _settlement_value_is_blank(normalized.get("falsifiers")):
-        normalized["falsifiers"] = []
-        _normalize_quickstart_settlement_confidence(normalized)
+
+    settled_at = _parse_iso_datetime(timestamp)
+    normalized["debate_id"] = str(normalized.get("debate_id") or debate_id)
+    normalized["settled_at"] = str(normalized.get("settled_at") or settled_at.isoformat())
+    normalized["review_horizon"] = str(
+        normalized.get("review_horizon")
+        or (settled_at + timedelta(days=review_horizon_days)).isoformat()
+    )
+    normalized["status"] = str(normalized.get("status") or "settled").strip() or "settled"
+    normalized["falsifiers"] = _coerce_string_list(normalized.get("falsifiers"))
+    normalized["alternatives"] = _coerce_string_list(normalized.get("alternatives"))
+    normalized["cruxes"] = _coerce_string_list(normalized.get("cruxes"))
+    review_notes = _coerce_string_list(normalized.get("review_notes"))
+    normalized["review_notes"] = review_notes
+    normalized["confidence"] = _clamp_confidence(normalized.get("confidence", confidence))
+
+    if (
+        not normalized["falsifiers"]
+        and normalized["confidence"] >= _QUICKSTART_STRICT_FALSIFIER_THRESHOLD
+    ):
+        normalized["confidence"] = min(
+            normalized["confidence"],
+            _QUICKSTART_SETTLEMENT_CONFIDENCE_CAP,
+        )
+        if _QUICKSTART_SETTLEMENT_REVIEW_NOTE not in review_notes:
+            review_notes.append(_QUICKSTART_SETTLEMENT_REVIEW_NOTE)
+    return normalized
+
+
+def _normalize_quickstart_settlement(
+    *,
+    settlement: Any,
+    question: str,
+    settlement_metadata: dict[str, Any],
+    review_horizon_days: int = _QUICKSTART_SETTLEMENT_REVIEW_DAYS,
+) -> dict[str, Any]:
+    """Persist the controller-style settlement fields used by review flows."""
+    normalized = dict(settlement) if isinstance(settlement, dict) else {}
+    normalized["status"] = (
+        str(normalized.get("status") or "needs_definition").strip() or "needs_definition"
+    )
+    normalized["claim"] = str(normalized.get("claim") or question).strip() or question
+    normalized["falsifier"] = str(
+        normalized.get("falsifier") or _QUICKSTART_DEFAULT_SETTLEMENT_FALSIFIER
+    ).strip()
+    normalized["metric"] = str(
+        normalized.get("metric") or _QUICKSTART_DEFAULT_SETTLEMENT_METRIC
+    ).strip()
+    normalized["review_horizon_days"] = _coerce_positive_int(
+        normalized.get("review_horizon_days"),
+        default=review_horizon_days,
+    )
+    normalized["resolver_type"] = (
+        str(normalized.get("resolver_type") or _QUICKSTART_DEFAULT_SETTLEMENT_RESOLVER_TYPE).strip()
+        or _QUICKSTART_DEFAULT_SETTLEMENT_RESOLVER_TYPE
+    )
+    normalized.setdefault(
+        "created_at",
+        str(settlement_metadata.get("settled_at") or ""),
+    )
+    normalized.setdefault(
+        "next_review_at",
+        str(settlement_metadata.get("review_horizon") or ""),
+    )
     return normalized
 
 
@@ -654,16 +716,23 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         convergence_similarity=float(payload.get("convergence_similarity", 1.0) or 1.0),
         claims_kernel=payload.get("claims_kernel"),
         epistemic_hygiene=payload.get("epistemic_hygiene"),
-        verification_criteria=_coerce_string_list(payload.get("verification_criteria")),
     )
     settlement_receipt_context = SimpleNamespace(
-        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents)
+        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents),
+        provenance_chain=[],
     )
     settlement_metadata = _build_quickstart_settlement_metadata(
         settlement_metadata=payload.get("settlement_metadata"),
         debate_result=settlement_result,
         receipt_context=settlement_receipt_context,
+        debate_id=str(payload.get("debate_id") or receipt_id),
         timestamp=timestamp,
+        confidence=confidence,
+    )
+    settlement = _normalize_quickstart_settlement(
+        settlement=payload.get("settlement"),
+        question=question,
+        settlement_metadata=settlement_metadata,
     )
 
     if has_receipt_contract:
@@ -752,6 +821,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     canonical["consensus"] = bool(consensus)
     canonical["consensus_reached"] = bool(consensus)
     canonical["settlement_metadata"] = settlement_metadata
+    canonical["settlement"] = settlement
     canonical["receipt"] = {
         "id": str(canonical.get("receipt_id") or receipt_id),
         "artifact_hash": str(canonical.get("artifact_hash") or ""),
@@ -1140,13 +1210,21 @@ def _build_live_receipt(
 
     rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
     settlement_receipt_context = SimpleNamespace(
-        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents)
+        consensus_proof=SimpleNamespace(dissenting_agents=dissenting_agents),
+        provenance_chain=[],
     )
     settlement_metadata = _build_quickstart_settlement_metadata(
         settlement_metadata=getattr(result, "settlement_metadata", None),
         debate_result=result,
         receipt_context=settlement_receipt_context,
+        debate_id=receipt_id,
         timestamp=timestamp,
+        confidence=confidence,
+    )
+    settlement = _normalize_quickstart_settlement(
+        settlement=getattr(result, "settlement", None),
+        question=question,
+        settlement_metadata=settlement_metadata,
     )
     receipt = DecisionReceipt(
         receipt_id=receipt_id,
@@ -1212,6 +1290,7 @@ def _build_live_receipt(
             "dissent": dissent,
             "mode": "live",
             "settlement_metadata": settlement_metadata,
+            "settlement": settlement,
             "receipt": {
                 "id": receipt.receipt_id,
                 "artifact_hash": receipt.artifact_hash,
