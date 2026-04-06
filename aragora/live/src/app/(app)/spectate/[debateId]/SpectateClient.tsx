@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { WS_URL } from '@/config';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { ThemeEffects } from '@/components/ThemeEffects';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { TimelineView } from '@/components/spectate/TimelineView';
 import { SummaryView } from '@/components/spectate/SummaryView';
@@ -157,10 +157,10 @@ export default function SpectateClient() {
             <span
               className={`text-sm font-theme-data ${
                 connectionStatus === 'connected'
-                  ? 'text-green-400'
+                  ? 'text-success'
                   : connectionStatus === 'error'
-                    ? 'text-red-400'
-                    : 'text-yellow-400'
+                    ? 'text-crimson'
+                    : 'text-warning'
               }`}
             >
               {connectionStatus.toUpperCase()}
@@ -172,7 +172,7 @@ export default function SpectateClient() {
         <div className="space-y-2">
           <Link
             href="/spectate"
-            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center btn-theme-secondary"
           >
             ← BACK TO LIST
           </Link>
@@ -180,8 +180,8 @@ export default function SpectateClient() {
             onClick={() => setAutoScroll(!autoScroll)}
             className={`block w-full px-3 py-2 text-xs font-theme-data text-center border transition-colors ${
               autoScroll
-                ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)] border-[var(--acid-green)]/30'
-                : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]'
+                ? 'bg-accent/10 text-accent border-accent/30'
+                : 'bg-surface text-text-muted border-border'
             }`}
           >
             AUTO-SCROLL {autoScroll ? 'ON' : 'OFF'}
@@ -190,8 +190,8 @@ export default function SpectateClient() {
             onClick={() => setShowTimestamps(!showTimestamps)}
             className={`block w-full px-3 py-2 text-xs font-theme-data text-center border transition-colors ${
               showTimestamps
-                ? 'bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30'
-                : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]'
+                ? 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30'
+                : 'bg-surface text-text-muted border-border'
             }`}
           >
             TIMESTAMPS {showTimestamps ? 'ON' : 'OFF'}
@@ -228,8 +228,7 @@ export default function SpectateClient() {
 
   return (
     <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+      <ThemeEffects opacity={0.02} />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         <div className="max-w-6xl mx-auto px-4 py-8">
@@ -242,7 +241,7 @@ export default function SpectateClient() {
                 </Link>
                 <div className="flex items-center gap-2">
                   {connectionStatus === 'connected' && (
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    <div className="w-3 h-3 bg-crimson rounded-full animate-pulse" />
                   )}
                   <h1 className="text-xl font-theme-data text-[var(--accent)]">SPECTATING</h1>
                 </div>
@@ -250,12 +249,12 @@ export default function SpectateClient() {
 
               {/* Connection Status Badge */}
               <div
-                className={`px-3 py-1 text-xs font-theme-data border ${
+                className={`px-3 py-1 text-xs font-theme-data border badge-theme ${
                   connectionStatus === 'connected'
-                    ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                    ? 'bg-success/10 text-success border-success/30'
                     : connectionStatus === 'connecting'
-                      ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                      : 'bg-red-500/10 text-red-400 border-red-500/30'
+                      ? 'bg-warning/10 text-warning border-warning/30'
+                      : 'bg-crimson/10 text-crimson border-crimson/30'
                 }`}
               >
                 {connectionStatus.toUpperCase()}
@@ -291,8 +290,8 @@ export default function SpectateClient() {
           )}
 
           {/* View Mode Tabs */}
-          <div className="border border-[var(--accent)]/30 bg-surface/50">
-            <div className="flex items-center border-b border-[var(--accent)]/20 bg-surface/80">
+          <div className="card-theme overflow-hidden">
+            <div className="flex items-center border-b border-border bg-surface-elevated/80">
               {/* Tab buttons */}
               <div className="flex">
                 {([
@@ -343,7 +342,7 @@ export default function SpectateClient() {
                 {filteredEvents.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-text-muted">
-                      <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+                      <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4" />
                       <p>Waiting for events...</p>
                     </div>
                   </div>
@@ -376,7 +375,7 @@ export default function SpectateClient() {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 border border-[var(--accent)]/20 bg-surface/30 p-4">
+          <div className="mt-4 card-theme-info p-4">
             <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3">EVENT TYPES</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {Object.entries(EVENT_STYLES).map(([type, style]) => (
@@ -403,7 +402,7 @@ function EventLine({
   showTimestamp: boolean;
   formatTimestamp: (ts: number) => string;
 }) {
-  const style = EVENT_STYLES[event.type] || { icon: '•', color: 'text-gray-400', label: 'UNKNOWN' };
+  const style = EVENT_STYLES[event.type] || { icon: '•', color: 'text-text-muted', label: 'UNKNOWN' };
 
   return (
     <div className="flex items-start gap-2 py-1 hover:bg-[var(--accent)]/5 px-2 -mx-2 rounded">

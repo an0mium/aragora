@@ -68,7 +68,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
             description="See your decision summary"
             href={
               firstReceiptId
-                ? `${API_BASE_URL}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`
+                ? `${API_BASE_URL}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html&raw=true`
                 : (firstDebateId ? `/debate/${firstDebateId}` : '/debates')
             }
           />

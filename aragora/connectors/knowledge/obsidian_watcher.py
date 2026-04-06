@@ -147,7 +147,7 @@ class ObsidianFileWatcher:
         for event in pending.values():
             try:
                 await self._on_change(event)
-            except Exception:  # noqa: BLE001 -- external callback
+            except (OSError, RuntimeError, TypeError, ValueError):
                 logger.warning("Watcher callback failed for %s", event.path)
 
     async def start(self) -> None:
@@ -416,7 +416,7 @@ class VaultWatcher:
         for event in events:
             try:
                 await self._on_change(event)
-            except Exception:  # noqa: BLE001 -- external callback
+            except (OSError, RuntimeError, TypeError, ValueError):
                 logger.warning("on_change callback failed for %s", event.path, exc_info=True)
 
     # =========================================================================
@@ -437,7 +437,9 @@ class VaultWatcher:
 
         try:
             self._loop = asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError as exc:
+            if "no running event loop" not in str(exc):
+                raise
             self._loop = None
 
         handler = _WatchdogHandler(self)
