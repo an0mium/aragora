@@ -232,7 +232,7 @@ class StreamingCircuitBreaker:
             try:
                 await send_message(msg)
                 await breaker.record_success()
-            except Exception as e:  # noqa: BLE001 - circuit breaker must record all failure types
+            except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
                 await breaker.record_failure(e)
     """
 
@@ -508,7 +508,7 @@ class DLQHandler(Generic[T]):
 
         try:
             await process_message(msg)
-        except Exception as e:  # noqa: BLE001 - DLQ handler must capture all failure types for dead-letter routing
+        except (ConnectionError, RuntimeError, TimeoutError, TypeError, ValueError) as e:
             await dlq_handler.handle_failure(msg, e)
     """
 
