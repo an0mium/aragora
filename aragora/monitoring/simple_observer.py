@@ -108,7 +108,7 @@ class SimpleObserver:
             "start_time": time.time(),
             "status": "in_progress",
         }
-        self._logger.info("Agent attempt started: %s (timeout=%ss)", agent, timeout)
+        self._logger.info(f"Agent attempt started: {agent} (timeout={timeout}s)")
         return attempt_id
 
     def record_agent_completion(

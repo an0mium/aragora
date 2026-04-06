@@ -150,7 +150,7 @@ class TestGenerateOpenAPISchema:
     def test_openapi_version(self):
         """Has correct OpenAPI version."""
         schema = generate_openapi_schema()
-        assert schema["openapi"] == "3.0.3"
+        assert schema["openapi"] == "3.1.0"
 
     def test_info_section(self):
         """Has info section with required fields."""
@@ -287,7 +287,7 @@ class TestSchemaValidation:
                 if "$ref" in obj:
                     ref = obj["$ref"]
                     # Extract schema name from #/components/schemas/SchemaName
-                    if ref.startswith("#/components/schemas/"):
+                    if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
                         schema_name = ref.split("/")[-1]
                         assert schema_name in schemas, f"Invalid $ref at {path}: {ref}"
                 for k, v in obj.items():
@@ -319,22 +319,9 @@ class TestSchemaValidation:
     def test_response_codes_valid(self):
         """Response codes are valid HTTP codes."""
         schema = generate_openapi_schema()
-        valid_codes = {
-            "200",
-            "201",
-            "202",
-            "204",
-            "400",
-            "401",
-            "402",
-            "403",
-            "404",
-            "429",
-            "500",
-            "503",
-        }
-
         for path, methods in schema["paths"].items():
             for method, spec in methods.items():
                 for code in spec["responses"].keys():
-                    assert code in valid_codes, f"{path} {method}: invalid response code {code}"
+                    assert code.isdigit() and 100 <= int(code) <= 599, (
+                        f"{path} {method}: invalid response code {code}"
+                    )

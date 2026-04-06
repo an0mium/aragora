@@ -200,6 +200,79 @@ ADMIN_SECURITY_ENDPOINTS = {
             },
             "security": [{"bearerAuth": []}],
         },
+        "post": {
+            "tags": ["Admin", "Security"],
+            "summary": "Create encryption key",
+            "description": """Create a new encryption key and make it active.
+
+**Requires:** `admin.security.keys` permission
+
+**Audit:** This action is logged for security audit trails.
+
+**Request body:**
+- `name` (required): Human-friendly key name
+- `algorithm`: Must match the configured server algorithm
+- `expires_in_days`: Optional expiration window
+- `metadata`: Optional metadata echoed in the response""",
+            "operationId": "createSecurityKey",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["name"],
+                            "properties": {
+                                "name": {"type": "string"},
+                                "algorithm": {"type": "string", "default": "aes-256-gcm"},
+                                "expires_in_days": {"type": "integer", "minimum": 1},
+                                "metadata": {
+                                    "type": "object",
+                                    "additionalProperties": True,
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "201": {
+                    "description": "Encryption key created",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "key_id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "status": {"type": "string", "enum": ["active", "inactive"]},
+                                    "algorithm": {"type": "string"},
+                                    "version": {"type": "integer"},
+                                    "created_at": {
+                                        "type": ["string", "null"],
+                                        "format": "date-time",
+                                    },
+                                    "expires_at": {
+                                        "type": ["string", "null"],
+                                        "format": "date-time",
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "additionalProperties": True,
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
     },
     "/api/v1/admin/security/rotate-key": {
         "post": {

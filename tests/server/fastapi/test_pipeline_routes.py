@@ -24,53 +24,31 @@ from aragora.server.fastapi import create_app
 
 
 @pytest.fixture
-def app():
-    """Create a test FastAPI app."""
-    return create_app()
-
-
-@pytest.fixture
 def pipeline_store():
     """Create an empty pipeline store for tests."""
     return {}
 
 
 @pytest.fixture
-def client(app, pipeline_store):
-    """Create a test client with mocked context."""
-    app.state.context = {
-        "storage": MagicMock(),
-        "elo_system": MagicMock(),
-        "user_store": None,
-        "rbac_checker": MagicMock(),
-        "decision_service": MagicMock(),
-        "pipeline_store": pipeline_store,
-    }
+def client(fastapi_context_builder, pipeline_store):
+    """Create a test client with the standard FastAPI route harness."""
+    app = create_app()
+    app.state.context = fastapi_context_builder(
+        decision_service=MagicMock(),
+        pipeline_store=pipeline_store,
+    )
     return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
-def auth_ctx():
-    """Create an auth context with pipeline permissions."""
-    from aragora.rbac.models import AuthorizationContext
-
-    return AuthorizationContext(
-        user_id="user-1",
-        org_id="org-1",
-        workspace_id="ws-1",
+def authed_client(client, override_fastapi_auth):
+    """Client with auth overrides applied."""
+    override_fastapi_auth(
+        client,
         roles={"admin"},
         permissions={"pipeline:create", "pipeline:approve", "pipeline:delete"},
     )
-
-
-@pytest.fixture
-def authed_client(client, auth_ctx):
-    """Client with auth overrides applied."""
-    from aragora.server.fastapi.dependencies.auth import require_authenticated
-
-    client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
-    yield client
-    client.app.dependency_overrides.clear()
+    return client
 
 
 @pytest.fixture

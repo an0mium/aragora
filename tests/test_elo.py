@@ -1668,14 +1668,16 @@ class TestCachingEdgeCases:
 
         # Get rating without cache
         rating1 = elo.get_rating("bypass_agent", use_cache=False)
+        initial_games_played = rating1.games_played
+        initial_elo = rating1.elo
 
         # Record another match
         elo.record_match("m2", ["bypass_agent", "opp2"], {"bypass_agent": 1.0, "opp2": 0.0})
 
         # Should get updated data
         rating2 = elo.get_rating("bypass_agent", use_cache=False)
-        assert rating2.games_played == rating1.games_played + 1
-        assert rating2.elo > rating1.elo
+        assert rating2.games_played == initial_games_played + 1
+        assert rating2.elo > initial_elo
 
 
 class TestHeadToHeadComplex:

@@ -181,9 +181,11 @@ class TestNetworkErrors:
     async def test_duckduckgo_network_failures(self, connector):
         """Test handling of DuckDuckGo search network failures."""
         with patch("aragora.connectors.web.DDGS_AVAILABLE", True):
-            with patch("aragora.connectors.web.DDGS") as mock_ddgs:
-                mock_ddgs.return_value.text.side_effect = Exception("Network error")
-
+            with patch.object(
+                connector,
+                "_run_ddgs_search_subprocess",
+                side_effect=ConnectionError("Network error"),
+            ):
                 results = await connector._search_web_actual("test query")
 
                 # Should return error evidence
@@ -216,10 +218,17 @@ class TestHTTPResponses:
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=final_response)
 
-        with patch.object(connector, "_get_http_client", AsyncMock(return_value=mock_client)):
+        with (
+            patch(
+                "aragora.security.ssrf_protection.validate_url",
+                return_value=MagicMock(is_safe=True, error=None),
+            ),
+            patch.object(connector, "_resolve_and_validate_ip", return_value=(True, None)),
+            patch.object(connector, "_get_http_client", AsyncMock(return_value=mock_client)),
+        ):
             result = await connector.fetch_url("https://old-url.com/page")
 
-            # Should get the final content (httpx follows redirects by default)
+            # Should get the final content once SSRF checks are satisfied.
             assert result is not None
             assert "Final content" in result.content or "Redirected" in result.title
 
@@ -395,15 +404,15 @@ class TestConcurrentAndState:
 
         # Search should recover gracefully and not crash
         with patch("aragora.connectors.web.DDGS_AVAILABLE", True):
-            with patch("aragora.connectors.web.DDGS") as mock_ddgs:
-                mock_ddgs.return_value.text.return_value = iter(
-                    [{"title": "Result", "body": "Body", "href": "https://example.com"}]
-                )
-
+            with patch.object(
+                connector,
+                "_run_ddgs_search_subprocess",
+                return_value=[{"title": "Result", "body": "Body", "href": "https://example.com"}],
+            ):
                 results = await connector.search(query)
 
                 # Should proceed with search, not crash
-                # May return mock results or error depending on DDGS availability
+                assert results
 
     @pytest.mark.asyncio
     async def test_http_client_connection_pooling(self, connector):

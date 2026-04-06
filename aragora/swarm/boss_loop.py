@@ -41,6 +41,7 @@ from aragora.swarm.boss_feed import (  # noqa: F401
     GitHubIssue,
     GitHubIssueFeed,
     fetch_open_pr_changed_paths,
+    infer_issue_lane_hints,
     infer_issue_scope_entries,
     select_eligible_issue,
 )
@@ -51,6 +52,7 @@ from aragora.swarm.boss_validation import (  # noqa: F401
     sanitize_issue_body_for_dispatch,
     extract_issue_validation_contract,
     extract_pre_dispatch_validation_commands,
+    extract_declared_new_file_paths,
     find_missing_pre_dispatch_validation_targets,
     run_pre_dispatch_validation_commands,
     discover_focused_tests,
@@ -62,6 +64,19 @@ UTC = timezone.utc
 _LANE_TELEMETRY = LaneTelemetryCollector()
 _GITHUB_ISSUE_URL_RE = re.compile(r"github\.com/(?P<repo>[^/]+/[^/]+)/issues/(?P<number>\d+)")
 _GITHUB_PR_URL_RE = re.compile(r"github\.com/[^/]+/[^/]+/pull/(?P<number>\d+)")
+
+# The 5 CI checks required for merge.  Draft PRs run only these;
+# ready PRs run the full 32-workflow suite.  The boss loop creates
+# PRs as drafts and auto-promotes them once these 5 pass.
+_REQUIRED_CHECK_NAMES: frozenset[str] = frozenset(
+    {
+        "lint",
+        "typecheck",
+        "sdk-parity",
+        "Generate & Validate",
+        "TypeScript SDK Type Check",
+    }
+)
 _ALREADY_DONE_MARKERS = (
     "already implemented",
     "already exists",
@@ -262,6 +277,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
+    max_open_auto_publish_prs: int = 1
     auto_close_already_done_issues: bool = False
 
     # Reporting
@@ -323,6 +339,13 @@ def _freshness_to_dict(freshness: Any) -> dict[str, Any]:
     if isinstance(freshness, dict):
         return dict(freshness)
     return {}
+
+
+def _freshness_is_fresh(freshness: Any, freshness_dict: dict[str, Any]) -> bool:
+    """Require a real boolean freshness signal before dispatching work."""
+    if hasattr(freshness, "fresh"):
+        return getattr(freshness, "fresh") is True
+    return freshness_dict.get("fresh") is True
 
 
 async def dispatch_bounded_spec(
@@ -523,6 +546,25 @@ def _backbone_dispatch_status(result: dict[str, Any]) -> str:
     return status or "failed"
 
 
+def _dispatch_result_started(result: Any) -> bool:
+    if not isinstance(result, dict):
+        return False
+    run_id = result.get("run_id")
+    if isinstance(run_id, str) and run_id.strip():
+        return True
+    run = result.get("run")
+    if not isinstance(run, dict):
+        return False
+    embedded_run_id = run.get("run_id")
+    if isinstance(embedded_run_id, str) and embedded_run_id.strip():
+        return True
+    work_orders = run.get("work_orders")
+    if isinstance(work_orders, list):
+        return True
+    run_status = run.get("status")
+    return isinstance(run_status, str) and bool(run_status.strip())
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
@@ -586,6 +628,16 @@ class BossLoop:
                 int(self._max_effective_parallel_dispatches_observed or 0),
             )
         return status
+
+    @staticmethod
+    def _issue_payload(issue: GitHubIssue) -> dict[str, Any]:
+        payload = issue.to_dict()
+        lane_hints = infer_issue_lane_hints(issue)
+        if lane_hints:
+            payload["lane_hints"] = list(lane_hints)
+            if len(lane_hints) == 1:
+                payload["lane_id"] = lane_hints[0]
+        return payload
 
     def _blocked_issue_scopes(self) -> set[str]:
         if not self.config.avoid_open_pr_scope_conflicts:
@@ -1467,6 +1519,38 @@ class BossLoop:
         ]
         if not branch or not commit_shas:
             return None
+        max_open_prs = max(int(self.config.max_open_auto_publish_prs or 0), 0)
+        if max_open_prs <= 0:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: max_open_auto_publish_prs=%d",
+                issue.number,
+                branch,
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "max_open_auto_publish_prs_zero",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": [],
+            }
+        open_boss_prs = self._list_open_boss_harvest_prs()
+        if len(open_boss_prs) >= max_open_prs:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: %d open boss-harvest PR(s) "
+                "already exist (limit=%d)",
+                issue.number,
+                branch,
+                len(open_boss_prs),
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "open_boss_harvest_pr_limit",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": open_boss_prs,
+            }
         try:
             from aragora.ralph.github_control import GitHubControl
             from aragora.swarm.pr_registry import PullRequestRegistry
@@ -1530,6 +1614,60 @@ class BossLoop:
             worker_result["pr_url"] = pr_url
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
         return dict(publish_result)
+
+    def _list_open_boss_harvest_prs(self) -> list[dict[str, Any]]:
+        """List open boss-harvest PRs so auto-publish can avoid queue fan-out."""
+        repo = str(self.config.repo or "").strip()
+        if not repo:
+            return []
+        cmd: list[str] = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--json",
+            "number,headRefName,isDraft,url",
+            "--limit",
+            "100",
+            "-R",
+            repo,
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode != 0:
+                logger.debug(
+                    "Failed to list open boss-harvest PRs: %s",
+                    (proc.stderr or proc.stdout or "").strip(),
+                )
+                return []
+            entries = json.loads(proc.stdout or "[]")
+        except Exception as exc:
+            logger.debug("Exception listing open boss-harvest PRs: %s", exc)
+            return []
+
+        open_boss_prs: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            head_ref = str(entry.get("headRefName", "")).strip()
+            if not head_ref.startswith("aragora/boss-harvest/issue-"):
+                continue
+            open_boss_prs.append(
+                {
+                    "number": entry.get("number"),
+                    "headRefName": head_ref,
+                    "isDraft": bool(entry.get("isDraft")),
+                    "url": str(entry.get("url", "")).strip() or None,
+                }
+            )
+        return open_boss_prs
 
     def _harvest_worker_commits_for_publish(
         self,
@@ -1661,11 +1799,13 @@ class BossLoop:
         return pr_url or None
 
     @staticmethod
+    def _publish_result_succeeded(publish_result: Any) -> bool:
+        return isinstance(publish_result, dict) and publish_result.get("published") is True
+
+    @staticmethod
     def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return None
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return None
         pr_url = BossLoop._published_pr_url(worker_result)
         if pr_url is None:
@@ -1788,9 +1928,7 @@ class BossLoop:
     @staticmethod
     def _promote_published_deliverable(worker_result: dict[str, Any]) -> bool:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return False
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return False
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
@@ -1830,6 +1968,175 @@ class BossLoop:
             return f"Auto-continuing: published PR {pr_url} for human review."
         return f"Auto-continuing: deliverable is available at {pr_url} for human review."
 
+    def _convert_pr_to_draft(self, worker_result: dict[str, Any]) -> None:
+        """Convert a newly-created PR to draft so only the 5 required checks run.
+
+        The boss loop later promotes draft PRs to ready once those checks pass
+        (see ``_promote_ready_drafts``).  This avoids triggering all 32 CI
+        workflows on every PR while 35+ PRs compete for runner time.
+        """
+        pr_url = self._published_pr_url(worker_result)
+        if not pr_url:
+            return
+        pr_number = self._pr_number_from_url(pr_url)
+        if pr_number is None:
+            return
+        repo = str(self.config.repo or "").strip()
+        cmd: list[str] = ["gh", "pr", "ready", "--undo", str(pr_number)]
+        if repo:
+            cmd.extend(["-R", repo])
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode == 0:
+                logger.info(
+                    "Converted PR #%d to draft to limit CI to required checks only",
+                    pr_number,
+                )
+                worker_result["draft_converted"] = True
+            else:
+                detail = (proc.stderr or proc.stdout or "").strip()
+                # If already a draft, treat as success
+                if "already a draft" in detail.lower():
+                    logger.debug("PR #%d already a draft", pr_number)
+                    worker_result["draft_converted"] = True
+                else:
+                    logger.warning(
+                        "Failed to convert PR #%d to draft: %s",
+                        pr_number,
+                        detail or "gh pr ready --undo failed",
+                    )
+        except Exception as exc:
+            logger.warning("Exception converting PR #%d to draft: %s", pr_number, exc)
+
+    def _promote_ready_drafts(self) -> list[int]:
+        """Promote draft PRs whose 5 required checks have all passed.
+
+        Returns the list of PR numbers that were promoted.
+        """
+        repo = str(self.config.repo or "").strip()
+        if not repo:
+            return []
+
+        # List open draft PRs authored by the current user (or any, if no filter)
+        list_cmd: list[str] = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--draft",
+            "--json",
+            "number",
+            "--limit",
+            "100",
+            "-R",
+            repo,
+        ]
+        try:
+            list_proc = subprocess.run(
+                list_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if list_proc.returncode != 0:
+                logger.debug(
+                    "Failed to list draft PRs for promotion: %s",
+                    (list_proc.stderr or "").strip(),
+                )
+                return []
+            draft_prs = json.loads(list_proc.stdout or "[]")
+        except Exception as exc:
+            logger.debug("Exception listing draft PRs for promotion: %s", exc)
+            return []
+
+        promoted: list[int] = []
+        for pr_entry in draft_prs:
+            pr_num = pr_entry.get("number")
+            if not isinstance(pr_num, int):
+                continue
+            if self._all_required_checks_passed(pr_num, repo):
+                ready_cmd: list[str] = [
+                    "gh",
+                    "pr",
+                    "ready",
+                    str(pr_num),
+                    "-R",
+                    repo,
+                ]
+                try:
+                    ready_proc = subprocess.run(
+                        ready_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
+                    )
+                    if ready_proc.returncode == 0:
+                        logger.info(
+                            "Promoted draft PR #%d to ready — all %d required checks passed",
+                            pr_num,
+                            len(_REQUIRED_CHECK_NAMES),
+                        )
+                        promoted.append(pr_num)
+                    else:
+                        logger.debug(
+                            "Failed to promote PR #%d: %s",
+                            pr_num,
+                            (ready_proc.stderr or "").strip(),
+                        )
+                except Exception as exc:
+                    logger.debug("Exception promoting PR #%d: %s", pr_num, exc)
+        return promoted
+
+    @staticmethod
+    def _all_required_checks_passed(pr_number: int, repo: str) -> bool:
+        """Return True if all 5 required CI checks have conclusion==success."""
+        checks_cmd: list[str] = [
+            "gh",
+            "pr",
+            "checks",
+            str(pr_number),
+            "--json",
+            "name,state,conclusion",
+            "-R",
+            repo,
+        ]
+        try:
+            proc = subprocess.run(
+                checks_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode != 0:
+                return False
+            checks = json.loads(proc.stdout or "[]")
+        except Exception:
+            return False
+
+        # Build a map of check name -> conclusion
+        check_conclusions: dict[str, str] = {}
+        for check in checks:
+            name = str(check.get("name", "")).strip()
+            conclusion = str(check.get("conclusion", "")).strip().upper()
+            if name in _REQUIRED_CHECK_NAMES:
+                check_conclusions[name] = conclusion
+
+        # All 5 must be present and successful
+        for required in _REQUIRED_CHECK_NAMES:
+            if check_conclusions.get(required) != "SUCCESS":
+                return False
+        return True
+
     def _postprocess_issue_result(
         self,
         issue: GitHubIssue,
@@ -1846,6 +2153,10 @@ class BossLoop:
             worker_result["issue_resolution"] = issue_resolution
         self._apply_postprocess_metadata(worker_result)
         self._promote_published_deliverable(worker_result)
+        # Convert newly-published PRs to draft so only the 5 required CI
+        # checks run.  They will be promoted to ready by _promote_ready_drafts
+        # once those checks pass.
+        self._convert_pr_to_draft(worker_result)
         return worker_result
 
     def _log_value_outcome(
@@ -2119,6 +2430,20 @@ class BossLoop:
                     len(self._failed_issues),
                 )
 
+            # Promote draft PRs whose required checks have passed.
+            # This converts them to ready-for-review, triggering the
+            # full CI suite only when the 5 fast required checks pass.
+            try:
+                promoted = self._promote_ready_drafts()
+                if promoted:
+                    logger.info(
+                        "Promoted %d draft PR(s) to ready: %s",
+                        len(promoted),
+                        promoted,
+                    )
+            except Exception:
+                logger.debug("Draft PR promotion check skipped", exc_info=True)
+
             # Inter-iteration sleep (skipped after last iteration)
             if iteration < self.config.max_iterations:
                 import asyncio
@@ -2267,7 +2592,7 @@ class BossLoop:
         )
         freshness_dict = _freshness_to_dict(freshness)
 
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+        if not _freshness_is_fresh(freshness, freshness_dict):
             blocked_reason = (
                 freshness.blocked_reason
                 if hasattr(freshness, "blocked_reason")
@@ -2290,7 +2615,7 @@ class BossLoop:
             )
 
         # Step 4: Dispatch supervised work for this issue
-        issue_dict = selected.to_dict()
+        issue_dict = self._issue_payload(selected)
         self._attempted_issues.append(issue_dict)
         self._issue_attempt_counts[selected.number] = (
             self._issue_attempt_counts.get(selected.number, 0) + 1
@@ -2465,7 +2790,7 @@ class BossLoop:
 
         while pending_issues and len(active_tasks) < parallel_limit:
             issue = pending_issues.pop(0)
-            issue_dict = issue.to_dict()
+            issue_dict = self._issue_payload(issue)
             self._attempted_issues.append(issue_dict)
             self._issue_attempt_counts[issue.number] = (
                 self._issue_attempt_counts.get(issue.number, 0) + 1
@@ -2520,7 +2845,7 @@ class BossLoop:
 
                 while not stop_launching and pending_issues and len(active_tasks) < parallel_limit:
                     next_issue = pending_issues.pop(0)
-                    next_issue_dict = next_issue.to_dict()
+                    next_issue_dict = self._issue_payload(next_issue)
                     self._attempted_issues.append(next_issue_dict)
                     self._issue_attempt_counts[next_issue.number] = (
                         self._issue_attempt_counts.get(next_issue.number, 0) + 1
@@ -2566,12 +2891,19 @@ class BossLoop:
         if not isinstance(selected_runners, list):
             return configured_limit
         available_capacity = 0
+        any_capacity_reported = False
         for item in selected_runners:
             if not isinstance(item, dict):
                 continue
-            available_capacity += max(0, int(item.get("available_capacity", 0) or 0))
-        if available_capacity <= 0:
-            return 1
+            cap = max(0, int(item.get("available_capacity", 0) or 0))
+            if cap > 0:
+                any_capacity_reported = True
+            available_capacity += cap
+        if not any_capacity_reported:
+            # Runners are selected (passed eligibility) but none report explicit
+            # capacity — trust the configured parallel limit instead of degrading
+            # to serial dispatch.
+            return configured_limit
         return max(1, min(configured_limit, available_capacity))
 
     @staticmethod
@@ -2690,6 +3022,9 @@ class BossLoop:
         selected_issues: list[GitHubIssue] = []
         # Track file scopes to avoid dispatching overlapping work in parallel.
         claimed_scopes: set[str] = set(blocked_scope_entries)
+        # Track coarse ownership lanes so one batch does not dispatch multiple
+        # issues into the same domain when explicit metadata or scope hints exist.
+        claimed_lanes: set[str] = set()
         # Track title stems to avoid dispatching near-duplicate sub-issues
         claimed_stems: set[str] = set()
 
@@ -2707,6 +3042,9 @@ class BossLoop:
             scope_hints = set(infer_issue_scope_entries(candidate))
             if scope_hints and scope_hints & claimed_scopes:
                 continue
+            lane_hints = set(infer_issue_lane_hints(candidate))
+            if lane_hints and lane_hints & claimed_lanes:
+                continue
 
             # Deduplicate by title stem — strip [from #N] prefix and compare
             import re
@@ -2717,6 +3055,7 @@ class BossLoop:
 
             selected_issues.append(candidate)
             claimed_scopes.update(scope_hints)
+            claimed_lanes.update(lane_hints)
             claimed_stems.add(stem)
             if limit is not None and len(selected_issues) >= limit:
                 break
@@ -2825,7 +3164,10 @@ class BossLoop:
             )
 
         if worker_result.get("status") == "needs_human":
-            has_deliverable = bool(worker_result.get("deliverable"))
+            _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
+                worker_result
+            )
+            has_deliverable = bool(normalized_deliverable_type)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             if self.config.auto_continue_on_needs_human and has_deliverable:
                 self._failed_issues.append(issue_dict)
@@ -3231,18 +3573,29 @@ class BossLoop:
             repo_root=Path.cwd(),
         )
         if missing_validation_targets:
-            targets_text = ", ".join(missing_validation_targets)
-            return {
-                "status": "needs_human",
-                "outcome": "verification_target_missing",
-                "reasons": [
-                    f"Issue #{issue.number} references missing validation targets: {targets_text}"
-                ],
-                "next_actions": [
-                    "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
-                    "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
-                ],
-            }
+            declared_new_paths = set(extract_declared_new_file_paths(issue.body or ""))
+            unresolved_missing_targets = [
+                target for target in missing_validation_targets if target not in declared_new_paths
+            ]
+            if not unresolved_missing_targets:
+                logger.info(
+                    "boss_loop_missing_validation_targets_allowed issue=#%s targets=%s",
+                    issue.number,
+                    ", ".join(missing_validation_targets),
+                )
+            else:
+                targets_text = ", ".join(unresolved_missing_targets)
+                return {
+                    "status": "needs_human",
+                    "outcome": "verification_target_missing",
+                    "reasons": [
+                        f"Issue #{issue.number} references missing validation targets: {targets_text}"
+                    ],
+                    "next_actions": [
+                        "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
+                        "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
+                    ],
+                }
 
         if not spec.is_dispatch_bounded():
             return {
@@ -3338,7 +3691,7 @@ class BossLoop:
             except Exception:
                 pass  # Never block autonomous dispatch
         if pending_handoff is not None:
-            dispatch_started = bool(result.get("run") or result.get("run_id"))
+            dispatch_started = _dispatch_result_started(result)
             if result.get("status") != "failed" or dispatch_started:
                 self._pending_handoff_prompts.pop(issue.number, None)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
