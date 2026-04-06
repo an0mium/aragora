@@ -54,6 +54,27 @@ class TestGitHubControlPRCreation:
         with pytest.raises(GitHubControlError, match="auth failed"):
             control.create_pr_for_branch("codex/test", "main")
 
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_create_pr_for_branch_supports_draft_creation(self, mock_run, tmp_path: Path) -> None:
+        mock_run.return_value = _completed_process(stdout="https://github.com/org/repo/pull/77\n")
+
+        control = GitHubControl(repo_root=tmp_path)
+
+        assert control.create_pr_for_branch("codex/test", "main", draft=True) == (
+            "https://github.com/org/repo/pull/77"
+        )
+        assert mock_run.call_args.args[0] == [
+            "gh",
+            "pr",
+            "create",
+            "--fill",
+            "--head",
+            "codex/test",
+            "--base",
+            "main",
+            "--draft",
+        ]
+
 
 class TestGitHubControlIssueComments:
     @patch("aragora.ralph.github_control.subprocess.run")

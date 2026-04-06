@@ -86,6 +86,7 @@ _ALREADY_DONE_MARKERS = (
     "there's nothing to commit",
 )
 _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
+_BOSS_MANAGED_DRAFT_FLAG = "boss_managed_draft"
 
 
 # ---------------------------------------------------------------------------
@@ -1555,6 +1556,8 @@ class BossLoop:
                 repo_root=repo_root,
                 target_branch=self.config.target_branch,
                 artifact_store=None,
+                create_pr_draft=True,
+                created_pr_registry_metadata={_BOSS_MANAGED_DRAFT_FLAG: True},
             )
         except Exception as exc:
             logger.warning(
@@ -1881,51 +1884,28 @@ class BossLoop:
             return f"Auto-continuing: published PR {pr_url} for human review."
         return f"Auto-continuing: deliverable is available at {pr_url} for human review."
 
-    def _convert_pr_to_draft(self, worker_result: dict[str, Any]) -> None:
-        """Convert a newly-created PR to draft so only the 5 required checks run.
-
-        The boss loop later promotes draft PRs to ready once those checks pass
-        (see ``_promote_ready_drafts``).  This avoids triggering all 32 CI
-        workflows on every PR while 35+ PRs compete for runner time.
-        """
-        pr_url = self._published_pr_url(worker_result)
-        if not pr_url:
-            return
-        pr_number = self._pr_number_from_url(pr_url)
-        if pr_number is None:
-            return
-        repo = str(self.config.repo or "").strip()
-        cmd: list[str] = ["gh", "pr", "ready", "--undo", str(pr_number)]
-        if repo:
-            cmd.extend(["-R", repo])
+    def _boss_managed_draft_entries(self) -> list[dict[str, Any]]:
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                check=False,
-            )
-            if proc.returncode == 0:
-                logger.info(
-                    "Converted PR #%d to draft to limit CI to required checks only",
-                    pr_number,
-                )
-                worker_result["draft_converted"] = True
-            else:
-                detail = (proc.stderr or proc.stdout or "").strip()
-                # If already a draft, treat as success
-                if "already a draft" in detail.lower():
-                    logger.debug("PR #%d already a draft", pr_number)
-                    worker_result["draft_converted"] = True
-                else:
-                    logger.warning(
-                        "Failed to convert PR #%d to draft: %s",
-                        pr_number,
-                        detail or "gh pr ready --undo failed",
-                    )
+            from aragora.swarm.pr_registry import PullRequestRegistry
+
+            registry = PullRequestRegistry(state_dir=Path.cwd().resolve() / ".aragora")
+            entries = registry.list_active()
         except Exception as exc:
-            logger.warning("Exception converting PR #%d to draft: %s", pr_number, exc)
+            logger.debug("Failed to load boss-managed draft registry entries: %s", exc)
+            return []
+
+        managed_entries: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            metadata = entry.get("metadata")
+            if not isinstance(metadata, dict) or metadata.get(_BOSS_MANAGED_DRAFT_FLAG) is not True:
+                continue
+            pr_url = str(entry.get("pr_url", "")).strip()
+            if not pr_url:
+                continue
+            managed_entries.append(entry)
+        return managed_entries
 
     def _promote_ready_drafts(self) -> list[int]:
         """Promote draft PRs whose 5 required checks have all passed.
@@ -1936,44 +1916,10 @@ class BossLoop:
         if not repo:
             return []
 
-        # List open draft PRs authored by the current user (or any, if no filter)
-        list_cmd: list[str] = [
-            "gh",
-            "pr",
-            "list",
-            "--state",
-            "open",
-            "--draft",
-            "--json",
-            "number",
-            "--limit",
-            "100",
-            "-R",
-            repo,
-        ]
-        try:
-            list_proc = subprocess.run(
-                list_cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                check=False,
-            )
-            if list_proc.returncode != 0:
-                logger.debug(
-                    "Failed to list draft PRs for promotion: %s",
-                    (list_proc.stderr or "").strip(),
-                )
-                return []
-            draft_prs = json.loads(list_proc.stdout or "[]")
-        except Exception as exc:
-            logger.debug("Exception listing draft PRs for promotion: %s", exc)
-            return []
-
         promoted: list[int] = []
-        for pr_entry in draft_prs:
-            pr_num = pr_entry.get("number")
-            if not isinstance(pr_num, int):
+        for pr_entry in self._boss_managed_draft_entries():
+            pr_num = self._pr_number_from_url(str(pr_entry.get("pr_url", "")).strip())
+            if pr_num is None:
                 continue
             if self._all_required_checks_passed(pr_num, repo):
                 ready_cmd: list[str] = [
@@ -2011,14 +1957,14 @@ class BossLoop:
 
     @staticmethod
     def _all_required_checks_passed(pr_number: int, repo: str) -> bool:
-        """Return True if all 5 required CI checks have conclusion==success."""
+        """Return True if all 5 required CI checks passed on a draft PR."""
         checks_cmd: list[str] = [
             "gh",
             "pr",
-            "checks",
+            "view",
             str(pr_number),
             "--json",
-            "name,state,conclusion",
+            "isDraft,statusCheckRollup",
             "-R",
             repo,
         ]
@@ -2032,19 +1978,28 @@ class BossLoop:
             )
             if proc.returncode != 0:
                 return False
-            checks = json.loads(proc.stdout or "[]")
+            payload = json.loads(proc.stdout or "{}")
         except Exception:
             return False
 
-        # Build a map of check name -> conclusion
+        if not isinstance(payload, dict) or payload.get("isDraft") is not True:
+            return False
+
+        checks = payload.get("statusCheckRollup")
+        if not isinstance(checks, list):
+            return False
+
         check_conclusions: dict[str, str] = {}
         for check in checks:
-            name = str(check.get("name", "")).strip()
+            if not isinstance(check, dict):
+                continue
+            name = str(check.get("name") or check.get("context") or "").strip()
             conclusion = str(check.get("conclusion", "")).strip().upper()
+            if not conclusion:
+                conclusion = str(check.get("state") or check.get("status") or "").strip().upper()
             if name in _REQUIRED_CHECK_NAMES:
                 check_conclusions[name] = conclusion
 
-        # All 5 must be present and successful
         for required in _REQUIRED_CHECK_NAMES:
             if check_conclusions.get(required) != "SUCCESS":
                 return False
@@ -2066,10 +2021,6 @@ class BossLoop:
             worker_result["issue_resolution"] = issue_resolution
         self._apply_postprocess_metadata(worker_result)
         self._promote_published_deliverable(worker_result)
-        # Convert newly-published PRs to draft so only the 5 required CI
-        # checks run.  They will be promoted to ready by _promote_ready_drafts
-        # once those checks pass.
-        self._convert_pr_to_draft(worker_result)
         return worker_result
 
     def _log_value_outcome(
