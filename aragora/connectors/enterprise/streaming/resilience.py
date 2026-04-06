@@ -948,11 +948,19 @@ def with_retry(
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             backoff = ExponentialBackoff(cfg)
             last_error: Exception | None = None
+            handled_exceptions = tuple(
+                exc for exc in retryable_exceptions if exc not in (Exception, BaseException)
+            )
+
+            if not handled_exceptions:
+                raise ValueError(
+                    "retryable_exceptions must include at least one specific exception type"
+                )
 
             for attempt in range(cfg.max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
-                except retryable_exceptions as e:
+                except handled_exceptions as e:
                     last_error = e
                     if attempt == cfg.max_retries:
                         logger.error(
