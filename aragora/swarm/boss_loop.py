@@ -2566,12 +2566,19 @@ class BossLoop:
         if not isinstance(selected_runners, list):
             return configured_limit
         available_capacity = 0
+        any_capacity_reported = False
         for item in selected_runners:
             if not isinstance(item, dict):
                 continue
-            available_capacity += max(0, int(item.get("available_capacity", 0) or 0))
-        if available_capacity <= 0:
-            return 1
+            cap = max(0, int(item.get("available_capacity", 0) or 0))
+            if cap > 0:
+                any_capacity_reported = True
+            available_capacity += cap
+        if not any_capacity_reported:
+            # Runners are selected (passed eligibility) but none report explicit
+            # capacity — trust the configured parallel limit instead of degrading
+            # to serial dispatch.
+            return configured_limit
         return max(1, min(configured_limit, available_capacity))
 
     @staticmethod

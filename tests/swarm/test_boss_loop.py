@@ -3082,6 +3082,45 @@ def test_boss_loop_batch_reports_effective_parallel_dispatches() -> None:
     assert {status["effective_parallel_dispatches"] for status in result.iteration_statuses} == {2}
 
 
+def test_boss_loop_batch_uses_configured_limit_when_no_capacity_reported() -> None:
+    """When selected runners don't report available_capacity, the configured
+    max_parallel_dispatches should be used instead of falling back to serial."""
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(401, "Batch issue X"),
+        _make_issue(402, "Batch issue Y"),
+        _make_issue(403, "Batch issue Z"),
+        _make_issue(404, "Batch issue W"),
+    ]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=4),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["max-01", "max-02", "max-03", "max-04"],
+            checked_at=datetime.now(UTC).isoformat(),
+            details={
+                "routing": {
+                    "selected_runners": [
+                        {"runner_id": "max-01", "available_capacity": 0},
+                        {"runner_id": "max-02", "available_capacity": 0},
+                        {"runner_id": "max-03"},
+                        {"runner_id": "max-04"},
+                    ]
+                }
+            },
+        ),
+    )
+    loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+    statuses: list[BossIterationStatus] = []
+    result = asyncio.run(loop.run(on_status=statuses.append))
+
+    assert result.configured_max_parallel_dispatches == 4
+    assert result.effective_parallel_dispatches_observed == 4
+    assert {status.effective_parallel_dispatches for status in statuses} == {4}
+
+
 # ---------------------------------------------------------------------------
 # _classify_terminal_run_outcome regression tests
 # ---------------------------------------------------------------------------
