@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import io
 import json
 from pathlib import Path
@@ -13,8 +14,13 @@ import pytest
 
 from aragora.cli.commands import triage as triage_cmd
 from aragora.inbox.triage_diagnostics import DiagnosticSeverity, record_triage_diagnostic
-from aragora.inbox.trust_wedge import InboxWedgeAction, TriageDecision
+from aragora.inbox.trust_wedge import (
+    InboxWedgeAction,
+    TriageDecision,
+    _default_inbox_wedge_signing_key_path,
+)
 from aragora.storage.gmail_token_store import (
+    GmailUserState,
     InMemoryGmailTokenStore,
     reset_gmail_token_store,
     set_gmail_token_store,
@@ -60,7 +66,11 @@ async def test_run_triage_uses_receipt_review_loop(tmp_path, monkeypatch):
             return []
 
     with (
-        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch.object(
+            triage_cmd,
+            "_get_gmail_connector_async",
+            AsyncMock(return_value=object()),
+        ),
         patch(
             "aragora.inbox.triage_runner.InboxTriageRunner",
             return_value=fake_runner,
@@ -96,7 +106,11 @@ async def test_run_triage_dry_run_disables_action_execution(capsys, tmp_path, mo
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (
-        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch.object(
+            triage_cmd,
+            "_get_gmail_connector_async",
+            AsyncMock(return_value=object()),
+        ),
         patch(
             "aragora.inbox.triage_runner.InboxTriageRunner",
             return_value=fake_runner,
@@ -151,7 +165,11 @@ async def test_run_triage_defaults_to_staged_profile(tmp_path, monkeypatch):
         return fake_runner
 
     with (
-        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch.object(
+            triage_cmd,
+            "_get_gmail_connector_async",
+            AsyncMock(return_value=object()),
+        ),
         patch("aragora.inbox.triage_runner.InboxTriageRunner", side_effect=_runner_factory),
         patch(
             "aragora.inbox.trust_wedge.get_inbox_trust_wedge_service",
@@ -179,7 +197,11 @@ async def test_run_triage_syncs_connector_state_before_execution(tmp_path, monke
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (
-        patch.object(triage_cmd, "_get_gmail_connector", return_value=gmail),
+        patch.object(
+            triage_cmd,
+            "_get_gmail_connector_async",
+            AsyncMock(return_value=gmail),
+        ),
         patch.object(
             triage_cmd,
             "_sync_gmail_connector_to_token_store",
@@ -223,7 +245,11 @@ async def test_run_triage_footer_shows_diagnostics_path(capsys, tmp_path, monkey
     fake_service = SimpleNamespace(review_receipt=object())
 
     with (
-        patch.object(triage_cmd, "_get_gmail_connector", return_value=object()),
+        patch.object(
+            triage_cmd,
+            "_get_gmail_connector_async",
+            AsyncMock(return_value=object()),
+        ),
         patch("aragora.inbox.triage_runner.InboxTriageRunner", return_value=fake_runner),
         patch(
             "aragora.inbox.trust_wedge.get_inbox_trust_wedge_service",
@@ -386,6 +412,37 @@ def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkey
     assert connector._refresh_token == "refresh-from-file"
 
 
+@pytest.mark.asyncio
+async def test_get_gmail_connector_loads_refresh_token_from_durable_store(monkeypatch):
+    class _FakeConnector:
+        def __init__(self):
+            self._refresh_token = None
+            self.user_id = "me"
+
+    store = InMemoryGmailTokenStore()
+    set_gmail_token_store(store)
+    try:
+        await store.save(GmailUserState(user_id="me", refresh_token="refresh-from-store"))
+        monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+        monkeypatch.setenv("GMAIL_CLIENT_SECRET", "client-secret")
+        monkeypatch.delenv("GMAIL_REFRESH_TOKEN", raising=False)
+
+        with (
+            patch.object(triage_cmd, "_get_secret_fallback", return_value=""),
+            patch.object(triage_cmd, "_load_local_dotenv"),
+            patch(
+                "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+                _FakeConnector,
+            ),
+        ):
+            connector = await triage_cmd._get_gmail_connector_async()
+    finally:
+        reset_gmail_token_store()
+
+    assert connector is not None
+    assert connector._refresh_token == "refresh-from-store"
+
+
 def test_resolve_gmail_oauth_credentials_skips_remote_secret_fallback_by_default(monkeypatch):
     monkeypatch.delenv("ARAGORA_ENV", raising=False)
     monkeypatch.delenv("ARAGORA_USE_SECRETS_MANAGER", raising=False)
@@ -442,54 +499,77 @@ def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monk
     assert connector._refresh_token == "refresh-from-file"
 
 
-def test_show_status_reports_refresh_token(tmp_path, monkeypatch, capsys):
-    token_dir = Path(tmp_path) / ".aragora"
-    token_dir.mkdir()
-    (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
-    (token_dir / "signing.key").write_text("dummy-signing-key")
+@pytest.mark.asyncio
+async def test_show_status_reports_durable_store_state(tmp_path, monkeypatch, capsys):
+    shared_dir = tmp_path / "shared"
+    home_dir = tmp_path / "home"
+    shared_dir.mkdir()
+    home_dir.mkdir()
 
-    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(shared_dir))
+    monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
-    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv("GMAIL_CLIENT_SECRET", "client-secret")
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
 
-    with (
-        patch.object(triage_cmd, "_get_secret_fallback", return_value=""),
-        patch.object(triage_cmd, "_load_local_dotenv"),  # Prevent repo .env leaking keys
-    ):
-        triage_cmd._show_status()
+    store = InMemoryGmailTokenStore()
+    set_gmail_token_store(store)
+    try:
+        await store.save(GmailUserState(user_id="me", refresh_token="refresh-from-store"))
+        signing_key_path = _default_inbox_wedge_signing_key_path()
+        signing_key_path.parent.mkdir(parents=True, exist_ok=True)
+        signing_key_path.write_text("dummy-signing-key")
+
+        with (
+            patch.object(triage_cmd, "_get_secret_fallback", return_value=""),
+            patch.object(triage_cmd, "_load_local_dotenv"),
+        ):
+            await triage_cmd._show_status_async()
+    finally:
+        reset_gmail_token_store()
 
     out = capsys.readouterr().out
-    assert "Gmail configured:     NO" in out
+    assert "Gmail configured:     yes" in out
     assert "Durable signing key:  yes" in out
     assert "Gmail refresh token:  yes" in out
     assert "OpenRouter fallback:  yes" in out
 
 
 def test_show_status_reports_gmail_from_secret_fallback(tmp_path, monkeypatch, capsys):
-    token_dir = Path(tmp_path) / ".aragora"
-    token_dir.mkdir()
-    (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
-    (token_dir / "signing.key").write_text("dummy-signing-key")
+    shared_dir = tmp_path / "shared"
+    home_dir = tmp_path / "home"
+    shared_dir.mkdir()
+    home_dir.mkdir()
 
-    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(shared_dir))
+    monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("ARAGORA_ENV", "production")
     monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "1")
     monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
     monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
 
-    with (
-        patch.object(
-            triage_cmd,
-            "_get_secret_fallback",
-            side_effect=lambda name: {
-                "GMAIL_CLIENT_ID": "secret-client-id",
-                "GMAIL_CLIENT_SECRET": "secret-client-secret",
-            }.get(name, ""),
-        ),
-        patch.object(triage_cmd, "_load_local_dotenv"),
-    ):
-        triage_cmd._show_status()
+    store = InMemoryGmailTokenStore()
+    set_gmail_token_store(store)
+    try:
+        asyncio.run(store.save(GmailUserState(user_id="me", refresh_token="refresh-from-store")))
+        signing_key_path = _default_inbox_wedge_signing_key_path()
+        signing_key_path.parent.mkdir(parents=True, exist_ok=True)
+        signing_key_path.write_text("dummy-signing-key")
+
+        with (
+            patch.object(
+                triage_cmd,
+                "_get_secret_fallback",
+                side_effect=lambda name: {
+                    "GMAIL_CLIENT_ID": "secret-client-id",
+                    "GMAIL_CLIENT_SECRET": "secret-client-secret",
+                }.get(name, ""),
+            ),
+            patch.object(triage_cmd, "_load_local_dotenv"),
+        ):
+            triage_cmd._show_status()
+    finally:
+        reset_gmail_token_store()
 
     out = capsys.readouterr().out
     assert "Gmail configured:     yes" in out
@@ -582,4 +662,71 @@ async def test_run_gmail_auth_saves_refresh_token(tmp_path, monkeypatch, capsys)
     assert "Opening browser for Gmail authorization..." in out
     assert "Gmail authenticated successfully!" in out
     assert str(token_path) in out
+    sync_token_store.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_gmail_auth_skips_legacy_refresh_token_file_when_home_path_is_blocked(
+    tmp_path, monkeypatch, capsys
+):
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    (home_dir / ".aragora").write_text("not-a-directory")
+
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GMAIL_CLIENT_SECRET", "client-secret")
+
+    opened_urls: list[str] = []
+
+    class _FakeConnector:
+        def __init__(self):
+            self._refresh_token = "refresh-token-123"
+
+        def get_oauth_url(self, redirect_uri: str) -> str:
+            assert redirect_uri == "http://localhost:8089/callback"
+            return "https://accounts.google.test/oauth"
+
+        async def authenticate(self, *, code: str, redirect_uri: str) -> bool:
+            assert code == "oauth-code"
+            assert redirect_uri == "http://localhost:8089/callback"
+            return True
+
+    class _FakeHTTPServer:
+        def __init__(self, server_address, handler_cls):
+            self.server_address = server_address
+            self.handler_cls = handler_cls
+
+        def handle_request(self):
+            handler = object.__new__(self.handler_cls)
+            handler.path = "/callback?code=oauth-code"
+            handler.wfile = io.BytesIO()
+            handler.send_response = lambda _code: None
+            handler.send_header = lambda *_args, **_kwargs: None
+            handler.end_headers = lambda: None
+            self.handler_cls.do_GET(handler)
+
+        def server_close(self):
+            return None
+
+    with (
+        patch(
+            "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+            _FakeConnector,
+        ),
+        patch.object(
+            triage_cmd,
+            "_sync_gmail_connector_to_token_store",
+            AsyncMock(),
+        ) as sync_token_store,
+        patch("webbrowser.open", side_effect=opened_urls.append),
+        patch("http.server.HTTPServer", _FakeHTTPServer),
+    ):
+        await triage_cmd._run_gmail_auth()
+
+    out = capsys.readouterr().out
+    assert "Gmail authenticated successfully!" in out
+    assert "Legacy refresh-token file skipped:" in out
+    assert "Durable Gmail token-store sync completed" in out
+    assert opened_urls == ["https://accounts.google.test/oauth"]
     sync_token_store.assert_awaited_once()

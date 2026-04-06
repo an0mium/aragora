@@ -18,6 +18,7 @@ import os
 import sys
 import warnings
 from enum import Enum
+from pathlib import Path
 from typing import Any, cast
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,61 @@ def _resolve_gmail_oauth_credentials(
                 break
 
     return client_id, client_secret
+
+
+def _run_sync_command_coro(coro: object) -> object:
+    """Run an async CLI helper from a sync command path."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(cast(Any, coro))
+    raise RuntimeError(
+        "Synchronous triage CLI wrapper called from an active event loop; "
+        "use the async helper directly."
+    )
+
+
+def _legacy_gmail_refresh_token_path() -> Path:
+    """Legacy compatibility location for local Gmail refresh tokens."""
+    return Path.home() / ".aragora" / "gmail_refresh_token"
+
+
+async def _load_gmail_user_state(user_id: str = "me") -> object | None:
+    """Read Gmail auth state from the durable token store when available."""
+    try:
+        from aragora.storage.gmail_token_store import get_gmail_token_store
+
+        return await get_gmail_token_store().get(user_id)
+    except Exception as exc:  # noqa: BLE001 - durable store is best-effort in local CLI
+        logger.debug("Durable Gmail token-store lookup skipped: %s", exc)
+        return None
+
+
+async def _resolve_gmail_refresh_token(user_id: str = "me") -> str:
+    """Load the Gmail refresh token from env, durable store, or legacy home file."""
+    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "").strip()
+    if refresh_token:
+        return refresh_token
+
+    state = await _load_gmail_user_state(user_id)
+    durable_refresh_token = str(getattr(state, "refresh_token", "") or "").strip()
+    if durable_refresh_token:
+        return durable_refresh_token
+
+    token_file = _legacy_gmail_refresh_token_path()
+    try:
+        if token_file.exists():
+            return token_file.read_text().strip()
+    except OSError as exc:
+        logger.debug("Legacy Gmail refresh-token file unreadable: %s", exc)
+    return ""
+
+
+def _resolve_inbox_wedge_signing_key_path() -> Path:
+    """Return the real default inbox trust wedge signing-key path."""
+    from aragora.inbox.trust_wedge import _default_inbox_wedge_signing_key_path
+
+    return _default_inbox_wedge_signing_key_path()
 
 
 def _action_value(action: object) -> str:
@@ -362,7 +418,7 @@ async def _run_triage(
         try:
             await _initialize_triage_storage()
 
-            gmail = _get_gmail_connector()
+            gmail = await _get_gmail_connector_async()
             if gmail is None:
                 print(
                     "Error: Gmail not configured. Run 'aragora triage auth' first,\n"
@@ -438,7 +494,6 @@ async def _run_gmail_auth() -> None:
     """Run interactive Gmail OAuth flow from CLI."""
     import webbrowser
     from http.server import BaseHTTPRequestHandler, HTTPServer
-    from pathlib import Path
     from urllib.parse import parse_qs, urlparse
 
     client_id, client_secret = _resolve_gmail_oauth_credentials()
@@ -513,22 +568,30 @@ async def _run_gmail_auth() -> None:
 
     refresh_token = getattr(connector, "_refresh_token", None)
     if refresh_token:
-        token_path = Path.home() / ".aragora" / "gmail_refresh_token"
-        token_path.parent.mkdir(parents=True, exist_ok=True)
-        token_path.write_text(refresh_token)
-        token_path.chmod(0o600)
+        token_path = _legacy_gmail_refresh_token_path()
+        token_write_error: str | None = None
+        try:
+            token_path.parent.mkdir(parents=True, exist_ok=True)
+            token_path.write_text(refresh_token)
+            token_path.chmod(0o600)
+        except OSError as exc:
+            token_write_error = str(exc)
+            logger.warning("Legacy Gmail refresh-token file write skipped: %s", exc)
+
         print("\nGmail authenticated successfully!")
-        print(f"Refresh token saved to: {token_path}")
+        if token_write_error is None:
+            print(f"Refresh token saved to: {token_path}")
+        else:
+            print(f"Legacy refresh-token file skipped: {token_path}")
+            print("Durable Gmail token-store sync completed before the compatibility write.")
         print("\nYou can now run: aragora triage run --dry-run")
     else:
         print("\nAuthenticated but no refresh token received.")
         print("Try re-running 'aragora triage auth'.")
 
 
-def _get_gmail_connector():
+async def _get_gmail_connector_async():
     """Build and return an authenticated GmailConnector, or None."""
-    from pathlib import Path
-
     client_id, client_secret = _resolve_gmail_oauth_credentials()
     if not (client_id and client_secret):
         return None
@@ -538,11 +601,10 @@ def _get_gmail_connector():
 
         connector = GmailConnector()
 
-        refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "").strip()
-        if not refresh_token:
-            token_file = Path.home() / ".aragora" / "gmail_refresh_token"
-            if token_file.exists():
-                refresh_token = token_file.read_text().strip()
+        user_id = str(getattr(connector, "user_id", "") or "me")
+        refresh_token = await _resolve_gmail_refresh_token(user_id)
+        if not refresh_token and user_id != "me":
+            refresh_token = await _resolve_gmail_refresh_token("me")
 
         if refresh_token:
             connector._refresh_token = refresh_token
@@ -551,6 +613,11 @@ def _get_gmail_connector():
     except ImportError:
         logger.warning("GmailConnector not available")
         return None
+
+
+def _get_gmail_connector():
+    """Sync wrapper for tests and synchronous CLI helpers."""
+    return _run_sync_command_coro(_get_gmail_connector_async())
 
 
 async def _sync_gmail_connector_to_token_store(connector: object | None) -> None:
@@ -676,6 +743,11 @@ def _print_wedge_receipt_handoffs(decisions: list) -> None:
 
 
 def _show_status() -> None:
+    """Sync wrapper for triage status."""
+    _run_sync_command_coro(_show_status_async())
+
+
+async def _show_status_async() -> None:
     """Show triage configuration status and dogfood metrics."""
     print("Inbox Triage Status")
     print(f"{'─' * 40}")
@@ -684,13 +756,11 @@ def _show_status() -> None:
     has_gmail = bool(client_id and client_secret)
     print(f"  Gmail configured:     {'yes' if has_gmail else 'NO'}")
 
-    from pathlib import Path
-
-    key_path = Path.home() / ".aragora" / "signing.key"
+    key_path = _resolve_inbox_wedge_signing_key_path()
     print(f"  Durable signing key:  {'yes' if key_path.exists() else 'NO'}")
 
-    token_path = Path.home() / ".aragora" / "gmail_refresh_token"
-    print(f"  Gmail refresh token:  {'yes' if token_path.exists() else 'NO'}")
+    has_refresh_token = bool(await _resolve_gmail_refresh_token())
+    print(f"  Gmail refresh token:  {'yes' if has_refresh_token else 'NO'}")
 
     has_openrouter = bool(os.environ.get("OPENROUTER_API_KEY"))
     print(f"  OpenRouter fallback:  {'yes' if has_openrouter else 'NO'}")
