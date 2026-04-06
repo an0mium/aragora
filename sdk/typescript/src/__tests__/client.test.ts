@@ -274,6 +274,31 @@ describe('AragoraClient', () => {
     });
   });
 
+  describe('verification', () => {
+    it('should verify claims through the formal verify route', async () => {
+      const request = {
+        claim: 'If A implies B and A is true, then B is true',
+        context: 'Propositional logic',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ verified: true, backend: 'z3' })),
+      });
+
+      const result = await client.verifyClaim(request);
+
+      expect(result.verified).toBe(true);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/api/v1/verification/formal-verify',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(request),
+        })
+      );
+    });
+  });
+
   describe('workflows', () => {
     it('should list workflow templates', async () => {
       mockFetch.mockResolvedValueOnce({

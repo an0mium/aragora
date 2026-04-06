@@ -5097,7 +5097,9 @@ export class AragoraClient {
    * Verify a claim using formal verification (Z3 or Lean).
    */
   async verifyClaim(request: VerifyClaimRequest): Promise<VerificationResult> {
-    return this.request<VerificationResult>('POST', '/api/v1/verification/verify', { body: request });
+    return this.request<VerificationResult>('POST', '/api/v1/verification/formal-verify', {
+      body: request,
+    });
   }
 
   /**
