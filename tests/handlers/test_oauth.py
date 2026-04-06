@@ -15,6 +15,7 @@ import os
 from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
+import aragora.server.handlers._oauth_impl as oauth_impl_module
 from aragora.server.handlers.oauth import (
     OAuthHandler,
     _oauth_limiter,
@@ -84,6 +85,15 @@ def clear_env_vars():
     for k, v in original.items():
         if v is not None:
             os.environ[k] = v
+
+
+@pytest.fixture(autouse=True)
+def refresh_oauth_impl_symbols():
+    """Refresh direct helper references in case other tests reload the OAuth modules."""
+    globals()["_generate_state"] = oauth_impl_module._generate_state
+    globals()["_validate_state"] = oauth_impl_module._validate_state
+    globals()["_validate_redirect_url"] = oauth_impl_module._validate_redirect_url
+    yield
 
 
 # ============================================================================
@@ -295,7 +305,7 @@ class TestOAuthProviderNotConfigured:
 
     def test_google_not_configured_returns_503(self, handler, mock_http_handler, clear_env_vars):
         """Returns 503 when Google OAuth not configured."""
-        with patch("aragora.server.handlers.oauth._get_google_client_id", return_value=""):
+        with patch("aragora.server.handlers._oauth_impl._get_google_client_id", return_value=""):
             result = handler.handle(
                 "/api/v1/auth/oauth/google",
                 {},
@@ -306,7 +316,7 @@ class TestOAuthProviderNotConfigured:
 
     def test_github_not_configured_returns_503(self, handler, mock_http_handler, clear_env_vars):
         """Returns 503 when GitHub OAuth not configured."""
-        with patch("aragora.server.handlers.oauth._get_github_client_id", return_value=""):
+        with patch("aragora.server.handlers._oauth_impl._get_github_client_id", return_value=""):
             result = handler.handle(
                 "/api/v1/auth/oauth/github",
                 {},
@@ -317,7 +327,7 @@ class TestOAuthProviderNotConfigured:
 
     def test_microsoft_not_configured_returns_503(self, handler, mock_http_handler, clear_env_vars):
         """Returns 503 when Microsoft OAuth not configured."""
-        with patch("aragora.server.handlers.oauth._get_microsoft_client_id", return_value=""):
+        with patch("aragora.server.handlers._oauth_impl._get_microsoft_client_id", return_value=""):
             result = handler.handle(
                 "/api/v1/auth/oauth/microsoft",
                 {},
@@ -539,14 +549,14 @@ class TestGoogleOAuth:
     def test_google_redirect_includes_scope(self, handler, mock_http_handler):
         """Google OAuth redirect includes required scopes."""
         with patch(
-            "aragora.server.handlers.oauth._get_google_client_id", return_value="test-client"
+            "aragora.server.handlers._oauth_impl._get_google_client_id", return_value="test-client"
         ):
             with patch(
-                "aragora.server.handlers.oauth._get_google_redirect_uri",
+                "aragora.server.handlers._oauth_impl._get_google_redirect_uri",
                 return_value="http://localhost:8080/callback",
             ):
                 with patch(
-                    "aragora.server.handlers.oauth._validate_redirect_url", return_value=True
+                    "aragora.server.handlers._oauth_impl._validate_redirect_url", return_value=True
                 ):
                     result = handler.handle(
                         "/api/v1/auth/oauth/google",
@@ -566,14 +576,14 @@ class TestGitHubOAuth:
     def test_github_redirect_includes_scope(self, handler, mock_http_handler):
         """GitHub OAuth redirect includes required scopes."""
         with patch(
-            "aragora.server.handlers.oauth._get_github_client_id", return_value="test-client"
+            "aragora.server.handlers._oauth_impl._get_github_client_id", return_value="test-client"
         ):
             with patch(
-                "aragora.server.handlers.oauth._get_github_redirect_uri",
+                "aragora.server.handlers._oauth_impl._get_github_redirect_uri",
                 return_value="http://localhost:8080/callback",
             ):
                 with patch(
-                    "aragora.server.handlers.oauth._validate_redirect_url", return_value=True
+                    "aragora.server.handlers._oauth_impl._validate_redirect_url", return_value=True
                 ):
                     result = handler.handle(
                         "/api/v1/auth/oauth/github",
@@ -592,14 +602,14 @@ class TestAppleOAuth:
     def test_apple_uses_form_post(self, handler, mock_http_handler):
         """Apple OAuth uses form_post response mode."""
         with patch(
-            "aragora.server.handlers.oauth._get_apple_client_id", return_value="test-client"
+            "aragora.server.handlers._oauth_impl._get_apple_client_id", return_value="test-client"
         ):
             with patch(
-                "aragora.server.handlers.oauth._get_apple_redirect_uri",
+                "aragora.server.handlers._oauth_impl._get_apple_redirect_uri",
                 return_value="http://localhost:8080/callback",
             ):
                 with patch(
-                    "aragora.server.handlers.oauth._validate_redirect_url", return_value=True
+                    "aragora.server.handlers._oauth_impl._validate_redirect_url", return_value=True
                 ):
                     result = handler.handle(
                         "/api/v1/auth/oauth/apple",
@@ -634,17 +644,20 @@ class TestMicrosoftOAuth:
     def test_microsoft_uses_tenant(self, handler, mock_http_handler):
         """Microsoft OAuth uses configured tenant."""
         with patch(
-            "aragora.server.handlers.oauth._get_microsoft_client_id", return_value="test-client"
+            "aragora.server.handlers._oauth_impl._get_microsoft_client_id",
+            return_value="test-client",
         ):
             with patch(
-                "aragora.server.handlers.oauth._get_microsoft_tenant", return_value="my-tenant"
+                "aragora.server.handlers._oauth_impl._get_microsoft_tenant",
+                return_value="my-tenant",
             ):
                 with patch(
-                    "aragora.server.handlers.oauth._get_microsoft_redirect_uri",
+                    "aragora.server.handlers._oauth_impl._get_microsoft_redirect_uri",
                     return_value="http://localhost:8080/callback",
                 ):
                     with patch(
-                        "aragora.server.handlers.oauth._validate_redirect_url", return_value=True
+                        "aragora.server.handlers._oauth_impl._validate_redirect_url",
+                        return_value=True,
                     ):
                         result = handler.handle(
                             "/api/v1/auth/oauth/microsoft",
@@ -662,7 +675,7 @@ class TestOIDCGeneric:
 
     def test_oidc_requires_issuer(self, handler, mock_http_handler):
         """Generic OIDC requires issuer to be configured."""
-        with patch("aragora.server.handlers.oauth._get_oidc_issuer", return_value=""):
+        with patch("aragora.server.handlers._oauth_impl._get_oidc_issuer", return_value=""):
             result = handler.handle(
                 "/api/v1/auth/oauth/oidc",
                 {},
@@ -782,8 +795,12 @@ class TestOAuthCacheControlHeaders:
 
     def test_redirect_includes_cache_headers(self, handler, mock_http_handler):
         """OAuth redirects include cache control headers."""
-        with patch("aragora.server.handlers.oauth._get_google_client_id", return_value="test"):
-            with patch("aragora.server.handlers.oauth._validate_redirect_url", return_value=True):
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_google_client_id", return_value="test"
+        ):
+            with patch(
+                "aragora.server.handlers._oauth_impl._validate_redirect_url", return_value=True
+            ):
                 result = handler.handle(
                     "/api/v1/auth/oauth/google",
                     {},

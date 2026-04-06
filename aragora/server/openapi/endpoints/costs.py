@@ -268,6 +268,124 @@ COSTS_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/costs/efficiency": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get efficiency metrics",
+            "operationId": "getCostsEfficiency",
+            "description": "Get cost efficiency metrics including cost per token and model utilization.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "range", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Efficiency metrics",
+                    {
+                        "workspace_id": {"type": "string"},
+                        "range": {"type": "string"},
+                        "metrics": {"type": "object", "additionalProperties": True},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/export": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Export cost data",
+            "operationId": "getCostsExport",
+            "description": "Export usage data as CSV or JSON.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "format",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["json", "csv"], "default": "json"},
+                },
+                {"name": "range", "in": "query", "schema": {"type": "string"}},
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Export generated",
+                    {
+                        "format": {"type": "string"},
+                        "filename": {"type": "string"},
+                        "content": {"type": "string"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/forecast": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get cost forecast",
+            "operationId": "getCostsForecast",
+            "description": "Get cost forecast for the specified number of days.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "days",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 365, "default": 30},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Forecast",
+                    {
+                        "workspace_id": {"type": "string"},
+                        "days": {"type": "integer"},
+                        "predicted_cost": {"type": "number"},
+                        "confidence": {"type": "number"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/recommendations": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get recommendations",
+            "operationId": "getCostsRecommendations",
+            "description": "Get cost optimization recommendations for the workspace.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "status",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["pending", "applied", "dismissed"]},
+                },
+                {"name": "type", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Recommendations",
+                    {
+                        "recommendations": {"type": "array", "items": {"type": "object"}},
+                        "count": {"type": "integer"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     # Detailed forecast
     "/api/v1/costs/forecast/detailed": {
         "get": {

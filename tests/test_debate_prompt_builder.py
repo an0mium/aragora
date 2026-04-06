@@ -23,6 +23,8 @@ def mock_protocol():
     protocol = MagicMock()
     protocol.asymmetric_stances = False
     protocol.agreement_intensity = None
+    protocol.enable_privacy_anonymization = False
+    protocol.privacy_anonymization_method = "redact"
     return protocol
 
 
