@@ -19,10 +19,16 @@ def get_or_create_persona(manager: PersonaManager, agent_name: str) -> Persona:
     if persona:
         return persona
 
-    # Check for default
-    base_name = agent_name.split("_")[0].lower()  # e.g., "claude_critic" -> "claude"
-    if base_name in DEFAULT_PERSONAS:
-        default = DEFAULT_PERSONAS[base_name]
+    normalized_name = agent_name.lower()
+
+    # Prefer exact default matches so names like "pci_dss" and
+    # "security_engineer" are not truncated into unknown prefixes.
+    default = DEFAULT_PERSONAS.get(normalized_name)
+    if default is None:
+        base_name = normalized_name.split("_")[0]  # e.g., "claude_critic" -> "claude"
+        default = DEFAULT_PERSONAS.get(base_name)
+
+    if default is not None:
         return manager.create_persona(
             agent_name=agent_name,
             description=default.description,

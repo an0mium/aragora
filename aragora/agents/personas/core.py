@@ -59,6 +59,8 @@ EXPERTISE_DOMAINS = [
     "ethics",  # Moral philosophy and applied ethics
     "theology",  # Religious and theological questions
     "humanities",  # Arts, literature, culture
+    "history",  # Historical analysis and context
+    "literature",  # Literary analysis and interpretation
     "sociology",  # Social structures and dynamics
     "psychology",  # Human behavior and cognition
     "existential_philosophy",  # Existentialism, meaning, purpose
@@ -80,6 +82,17 @@ PERSONALITY_TRAITS = [
     "risk_aware",  # Identifies and assesses risks
     "audit_minded",  # Thinks about audit trails and evidence
     "procedural",  # Ensures proper processes are followed
+    # Additional specialization traits used by expanded default personas
+    "authentic",  # Grounds arguments in lived experience and sincerity
+    "balanced",  # Actively weighs tradeoffs instead of polarizing
+    "contemplative",  # Explores questions slowly and reflectively
+    "empathetic",  # Centers human impact and emotional context
+    "individualistic",  # Emphasizes agency, autonomy, and responsibility
+    "interdisciplinary",  # Connects ideas across domains
+    "methodical",  # Works through problems systematically
+    "nuanced",  # Preserves ambiguity and avoids false binaries
+    "practical",  # Keeps recommendations grounded and actionable
+    "probing",  # Presses on assumptions to expose hidden premises
 ]
 
 

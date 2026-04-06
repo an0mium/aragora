@@ -508,20 +508,25 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_expertise_domains_defined(self):
-        """Should have 12 expertise domains."""
-        assert len(EXPERTISE_DOMAINS) == 12
+        """Core and expanded default expertise domains should be registered."""
+        assert len(EXPERTISE_DOMAINS) == len(set(EXPERTISE_DOMAINS))
         assert "security" in EXPERTISE_DOMAINS
         assert "performance" in EXPERTISE_DOMAINS
         assert "architecture" in EXPERTISE_DOMAINS
         assert "testing" in EXPERTISE_DOMAINS
+        assert "history" in EXPERTISE_DOMAINS
+        assert "literature" in EXPERTISE_DOMAINS
 
     def test_personality_traits_defined(self):
-        """Should have 8 personality traits."""
-        assert len(PERSONALITY_TRAITS) == 8
+        """Core and expanded default persona traits should be registered."""
+        assert len(PERSONALITY_TRAITS) == len(set(PERSONALITY_TRAITS))
         assert "thorough" in PERSONALITY_TRAITS
         assert "pragmatic" in PERSONALITY_TRAITS
         assert "innovative" in PERSONALITY_TRAITS
         assert "conservative" in PERSONALITY_TRAITS
+        assert "methodical" in PERSONALITY_TRAITS
+        assert "empathetic" in PERSONALITY_TRAITS
+        assert "contemplative" in PERSONALITY_TRAITS
 
 
 # =============================================================================
@@ -533,14 +538,16 @@ class TestDefaultPersonas:
     """Tests for DEFAULT_PERSONAS constant."""
 
     def test_default_personas_defined(self):
-        """Should have 6 default personas."""
-        assert len(DEFAULT_PERSONAS) == 6
+        """Should include the canonical provider personas plus specialty personas."""
+        assert len(DEFAULT_PERSONAS) >= 6
         assert "claude" in DEFAULT_PERSONAS
         assert "codex" in DEFAULT_PERSONAS
         assert "gemini" in DEFAULT_PERSONAS
         assert "grok" in DEFAULT_PERSONAS
         assert "qwen" in DEFAULT_PERSONAS
         assert "deepseek" in DEFAULT_PERSONAS
+        assert "accessibility" in DEFAULT_PERSONAS
+        assert "philosopher" in DEFAULT_PERSONAS
 
     def test_default_claude_persona(self):
         """Should have correct claude persona."""
@@ -622,6 +629,13 @@ class TestGetOrCreatePersona:
         persona = manager.get_persona("claude")
         assert persona is not None
         assert "thorough" in persona.traits
+
+    def test_preserves_expanded_default_traits_and_expertise(self, manager):
+        """Expanded default persona definitions should survive persistence intact."""
+        for agent_name, default in DEFAULT_PERSONAS.items():
+            persona = get_or_create_persona(manager, agent_name)
+            assert persona.traits == default.traits
+            assert persona.expertise == default.expertise
 
     def test_uses_default_traits_copy(self, manager):
         """Should copy traits, not reference default."""
