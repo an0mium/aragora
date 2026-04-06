@@ -127,9 +127,9 @@ class MockRotationResult:
 
 
 @pytest.fixture
-def security_handler(admin_server_context: dict[str, Any]) -> SecurityHandler:
+def security_handler(mock_server_context: dict[str, Any]) -> SecurityHandler:
     """Create security handler for tests."""
-    return SecurityHandler(admin_server_context)
+    return SecurityHandler(mock_server_context)
 
 
 class TestCanHandle:

@@ -20,6 +20,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from aragora.server.fastapi import create_app
+
 
 @pytest.fixture
 def pipeline_store():
@@ -28,12 +30,14 @@ def pipeline_store():
 
 
 @pytest.fixture
-def client(build_fastapi_client, pipeline_store):
+def client(fastapi_context_builder, pipeline_store):
     """Create a test client with the standard FastAPI route harness."""
-    return build_fastapi_client(
+    app = create_app()
+    app.state.context = fastapi_context_builder(
         decision_service=MagicMock(),
         pipeline_store=pipeline_store,
     )
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture

@@ -103,9 +103,9 @@ def system_handler(admin_server_context) -> SystemHandler:
 
 
 @pytest.fixture
-def mock_http_handler(admin_http_handler):
+def mock_http_handler(admin_request_factory):
     """Create mock HTTP handler."""
-    return admin_http_handler(
+    return admin_request_factory(
         headers={"Content-Type": "application/json"},
         path="/api/debug/test",
         method="GET",

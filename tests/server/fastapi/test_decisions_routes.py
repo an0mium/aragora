@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
+from aragora.server.fastapi import create_app
+
 
 @pytest.fixture
 def decision_service() -> AsyncMock:
@@ -12,8 +14,10 @@ def decision_service() -> AsyncMock:
 
 
 @pytest.fixture
-def client(build_fastapi_client, decision_service: AsyncMock) -> TestClient:
-    return build_fastapi_client(decision_service=decision_service)
+def client(fastapi_context_builder, decision_service: AsyncMock) -> TestClient:
+    app = create_app()
+    app.state.context = fastapi_context_builder(decision_service=decision_service)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 def test_start_decision_requires_auth(client: TestClient) -> None:

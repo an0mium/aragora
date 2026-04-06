@@ -1,13 +1,9 @@
-"""Shared fixtures for FastAPI route tests.
-
-These helpers keep route tests focused on endpoint behavior instead of
-repeating the same app/context/auth bootstrap in every file.
-"""
+"""Shared fixtures for FastAPI route tests."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
-from collections.abc import Callable, Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -18,23 +14,18 @@ from aragora.server.fastapi import create_app
 from aragora.server.fastapi.dependencies.auth import require_authenticated
 
 
-def _base_fastapi_context() -> dict[str, object]:
-    """Build the default context shape expected by FastAPI route tests."""
-    return {
-        "storage": MagicMock(),
-        "elo_system": MagicMock(),
-        "user_store": None,
-        "rbac_checker": MagicMock(),
-        "decision_service": MagicMock(),
-    }
-
-
 @pytest.fixture
-def build_fastapi_context() -> Callable[..., dict[str, object]]:
-    """Create a standard app context with optional overrides."""
+def fastapi_context_builder():
+    """Build common FastAPI app context dictionaries for route tests."""
 
-    def _build(**overrides: object) -> dict[str, object]:
-        context = _base_fastapi_context()
+    def _build(**overrides: Any) -> dict[str, Any]:
+        context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+        }
         context.update(overrides)
         return context
 
@@ -42,14 +33,14 @@ def build_fastapi_context() -> Callable[..., dict[str, object]]:
 
 
 @pytest.fixture
-def fastapi_context(build_fastapi_context: Callable[..., dict[str, object]]) -> dict[str, object]:
-    """Default FastAPI context for tests that only need the base shape."""
-    return build_fastapi_context()
+def fastapi_context(fastapi_context_builder):
+    """Default FastAPI app context used by shared client/request fixtures."""
+    return fastapi_context_builder()
 
 
 @pytest.fixture
-def fastapi_app(fastapi_context: dict[str, object]):
-    """Create a FastAPI app with the default mocked context."""
+def fastapi_app(fastapi_context):
+    """Create a FastAPI app with a lightweight mocked context."""
     app = create_app()
     app.state.context = fastapi_context
     return app
@@ -57,34 +48,13 @@ def fastapi_app(fastapi_context: dict[str, object]):
 
 @pytest.fixture
 def app(fastapi_app):
-    """Compatibility alias for tests expecting a shared app fixture."""
+    """Compatibility alias for tests that expect an ``app`` fixture."""
     return fastapi_app
 
 
 @pytest.fixture
-def build_fastapi_client(
-    build_fastapi_context: Callable[..., dict[str, object]],
-) -> Iterator[Callable[..., TestClient]]:
-    """Create disposable TestClient instances with the standard context wiring."""
-    clients: list[TestClient] = []
-
-    def _build(**context_overrides: object) -> TestClient:
-        app = create_app()
-        app.state.context = build_fastapi_context(**context_overrides)
-        client = TestClient(app, raise_server_exceptions=False)
-        clients.append(client)
-        return client
-
-    yield _build
-
-    for client in clients:
-        client.app.dependency_overrides.clear()
-        client.close()
-
-
-@pytest.fixture
 def fastapi_client(fastapi_app):
-    """Create a disposable client for tests using the default context."""
+    """Create a test client that always clears dependency overrides on teardown."""
     client = TestClient(fastapi_app, raise_server_exceptions=False)
     try:
         yield client
@@ -95,32 +65,30 @@ def fastapi_client(fastapi_app):
 
 @pytest.fixture
 def client(fastapi_client):
-    """Compatibility alias for tests expecting a shared client fixture."""
+    """Compatibility alias for tests that expect a ``client`` fixture."""
     return fastapi_client
 
 
 @pytest.fixture
 def mock_app_client(fastapi_client):
-    """Explicit alias for tests that name the shared app client differently."""
+    """Explicit alias used by route tests that want a mocked app client."""
     return fastapi_client
 
 
 @pytest.fixture
-def fastapi_request_factory(
-    build_fastapi_context: Callable[..., dict[str, object]],
-) -> Callable[..., MagicMock]:
-    """Create lightweight request doubles for direct route-function tests."""
+def fastapi_request_factory(fastapi_context_builder):
+    """Create lightweight request mocks for calling route functions directly."""
 
     def _build(
         *,
-        context: dict[str, object] | None = None,
+        context: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         method: str = "GET",
         path: str = "/",
         body: bytes = b"",
     ) -> MagicMock:
         request = MagicMock()
-        request.app.state.context = context if context is not None else build_fastapi_context()
+        request.app.state.context = context if context is not None else fastapi_context_builder()
         request.headers = headers or {}
         request.method = method
         request.url = SimpleNamespace(path=path)
@@ -133,12 +101,12 @@ def fastapi_request_factory(
 
 @pytest.fixture
 def route_request_factory(fastapi_request_factory):
-    """Short alias for direct route request helpers."""
+    """Short alias for direct route-request helper creation."""
     return fastapi_request_factory
 
 
 @pytest.fixture
-def fastapi_route_auth_factory() -> Callable[..., SimpleNamespace]:
+def fastapi_route_auth_factory():
     """Build lightweight auth objects for direct route-function tests."""
 
     def _build(
@@ -149,7 +117,7 @@ def fastapi_route_auth_factory() -> Callable[..., SimpleNamespace]:
         workspace_id: str = "ws-1",
         roles: set[str] | None = None,
         permissions: set[str] | None = None,
-        **extra: object,
+        **extra: Any,
     ) -> SimpleNamespace:
         return SimpleNamespace(
             user_id=user_id,
@@ -166,13 +134,13 @@ def fastapi_route_auth_factory() -> Callable[..., SimpleNamespace]:
 
 @pytest.fixture
 def route_auth_factory(fastapi_route_auth_factory):
-    """Short alias for direct route auth helpers."""
+    """Short alias for direct route-auth helper creation."""
     return fastapi_route_auth_factory
 
 
 @pytest.fixture
-def override_fastapi_auth() -> Callable[..., AuthorizationContext]:
-    """Install a minimal authenticated RBAC context on a TestClient."""
+def override_fastapi_auth():
+    """Override ``require_authenticated`` with a configurable auth context."""
 
     def _override(
         client: TestClient,
@@ -187,8 +155,8 @@ def override_fastapi_auth() -> Callable[..., AuthorizationContext]:
             user_id=user_id,
             org_id=org_id,
             workspace_id=workspace_id,
-            roles=roles if roles is not None else {"admin"},
-            permissions=permissions if permissions is not None else {"*"},
+            roles=set(roles or {"admin"}),
+            permissions=set(permissions or {"*"}),
         )
         client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
         return auth_ctx

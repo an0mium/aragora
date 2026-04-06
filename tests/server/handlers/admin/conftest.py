@@ -1,9 +1,8 @@
-"""Admin handler test helpers layered on top of shared handler fixtures."""
+"""Shared fixtures for admin handler tests."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -31,79 +30,106 @@ def reset_admin_rate_limiter():
 
 
 @pytest.fixture
-def admin_server_context(mock_server_context: dict[str, Any]) -> dict[str, Any]:
-    """Provide a mutable admin-oriented context with nomic_dir available."""
-    context = dict(mock_server_context)
-    context.setdefault("nomic_dir", "/tmp/nomic")
-    return context
+def admin_context_builder():
+    """Build common server context dictionaries for admin handler tests."""
+
+    def _build(**overrides: Any) -> dict[str, Any]:
+        context = {
+            "user_store": MagicMock(),
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "decision_service": MagicMock(),
+        }
+        context.update(overrides)
+        return context
+
+    return _build
 
 
 @pytest.fixture
-def admin_request_factory() -> Callable[..., MagicMock]:
-    """Create admin request doubles with auth and body metadata populated."""
+def admin_server_context(admin_context_builder):
+    """Default admin server context with mocked dependencies."""
+    return admin_context_builder()
+
+
+@pytest.fixture
+def mock_server_context(admin_server_context):
+    """Compatibility alias for tests that expect ``mock_server_context``."""
+    return admin_server_context
+
+
+@pytest.fixture
+def admin_auth_context() -> MagicMock:
+    """Create a reusable authenticated admin auth context."""
+    auth_ctx = MagicMock()
+    auth_ctx.user_id = "admin-1"
+    auth_ctx.user_email = "admin@example.com"
+    auth_ctx.org_id = "org-1"
+    auth_ctx.workspace_id = "ws-1"
+    auth_ctx.roles = ["admin", "owner"]
+    auth_ctx.permissions = {"*"}
+    return auth_ctx
+
+
+@pytest.fixture
+def admin_request_factory(admin_auth_context):
+    """Create request-handler doubles for admin handler unit tests."""
 
     def _build(
         *,
         method: str = "GET",
         path: str = "/api/v1/admin",
-        body: dict[str, Any] | list[Any] | bytes | str | None = None,
         headers: dict[str, str] | None = None,
-        user_id: str = "admin-1",
+        body: dict[str, Any] | list[Any] | bytes | str | None = None,
+        user_id: str | None = None,
         roles: list[str] | None = None,
-        permissions: set[str] | None = None,
-        client_address: tuple[str, int] = ("127.0.0.1", 12345),
     ) -> MagicMock:
         body_bytes = _coerce_request_body(body)
-        role_list = list(roles or ["admin", "owner"])
-        permission_set = set(permissions or {"*"})
+        role_list = list(roles or admin_auth_context.roles)
+        current_user_id = user_id or admin_auth_context.user_id
+
         handler = MagicMock()
         handler.headers = {"Content-Type": "application/json", **(headers or {})}
         handler.headers.setdefault("Content-Length", str(len(body_bytes)))
+        handler.request_body = body_bytes
+        handler._body = body_bytes
         handler.rfile = MagicMock()
         handler.rfile.read = MagicMock(return_value=body_bytes)
         handler.path = path
         handler.command = method
-        handler.request_body = body_bytes
-        handler._body = body_bytes
-        handler.client_address = client_address
-        handler._context = {"user": {"id": user_id, "roles": role_list}}
-        handler._auth_context = MagicMock()
-        handler._auth_context.user_id = user_id
-        handler._auth_context.user_email = "admin@example.com"
-        handler._auth_context.org_id = "org-1"
-        handler._auth_context.workspace_id = "ws-1"
-        handler._auth_context.roles = role_list
-        handler._auth_context.permissions = permission_set
+        handler.client_address = ("127.0.0.1", 12345)
+        handler._context = {"user": {"id": current_user_id, "roles": role_list}}
+
+        request_auth_context = MagicMock()
+        request_auth_context.user_id = current_user_id
+        request_auth_context.user_email = admin_auth_context.user_email
+        request_auth_context.org_id = admin_auth_context.org_id
+        request_auth_context.workspace_id = admin_auth_context.workspace_id
+        request_auth_context.roles = role_list
+        request_auth_context.permissions = admin_auth_context.permissions
+        handler._auth_context = request_auth_context
         return handler
 
     return _build
 
 
 @pytest.fixture
-def admin_request_handler(admin_request_factory) -> MagicMock:
-    """Default admin request double."""
+def admin_request_handler(admin_request_factory):
+    """Default admin request handler double."""
     return admin_request_factory()
 
 
 @pytest.fixture
-def mock_handler(admin_request_handler) -> MagicMock:
-    """Compatibility alias for tests expecting a generic mock handler."""
+def mock_handler(admin_request_handler):
+    """Compatibility alias for tests that expect ``mock_handler``."""
     return admin_request_handler
 
 
 @pytest.fixture
-def admin_http_handler(admin_request_factory) -> Callable[..., MagicMock]:
-    """Compatibility alias for tests naming the admin request builder differently."""
-    return admin_request_factory
+def admin_handler_factory(admin_server_context):
+    """Instantiate admin handlers with the shared server context."""
 
+    def _build(handler_cls, *args: Any, **kwargs: Any):
+        return handler_cls(admin_server_context, *args, **kwargs)
 
-@pytest.fixture
-def decode_admin_result() -> Callable[[Any], dict[str, Any]]:
-    """Decode JSON HandlerResult bodies for admin tests."""
-
-    def _decode(result: Any) -> dict[str, Any]:
-        if result and getattr(result, "body", None):
-            return json.loads(result.body.decode("utf-8"))
-        return {}
-
-    return _decode
+    return _build
