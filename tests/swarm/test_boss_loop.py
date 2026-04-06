@@ -1630,6 +1630,8 @@ class TestBossLoop:
         assert len(statuses) == 1
         assert isinstance(statuses[0], BossIterationStatus)
         assert statuses[0].iteration == 1
+        assert statuses[0].configured_max_parallel_dispatches == 1
+        assert statuses[0].effective_parallel_dispatches == 1
 
     @pytest.mark.asyncio
     async def test_on_status_callback_emits_dispatching_before_final_status(self):
@@ -1650,7 +1652,12 @@ class TestBossLoop:
         assert statuses[0].selected_issue["number"] == 1749
         assert statuses[1].selected_issue["number"] == 1749
         assert statuses[0].next_actions == ["Dispatching issue #1749 with codex."]
+        assert statuses[0].configured_max_parallel_dispatches == 1
+        assert statuses[0].effective_parallel_dispatches == 1
+        assert statuses[1].effective_parallel_dispatches == 1
         assert [status["worker_status"] for status in result.iteration_statuses] == ["completed"]
+        assert result.configured_max_parallel_dispatches == 1
+        assert result.effective_parallel_dispatches_observed == 1
 
     def test_successful_completion_resets_consecutive_failures(self):
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -1875,6 +1882,8 @@ class TestStatusPayloadShape:
         assert "needs_human_reasons" in payload
         assert "next_actions" in payload
         assert "elapsed_seconds" in payload
+        assert "configured_max_parallel_dispatches" in payload
+        assert "effective_parallel_dispatches" in payload
 
     def test_loop_result_has_required_fields(self):
         result = BossLoopResult(
@@ -1902,6 +1911,8 @@ class TestStatusPayloadShape:
         assert "iteration_statuses" in payload
         assert "needs_human_reasons" in payload
         assert "next_actions" in payload
+        assert "configured_max_parallel_dispatches" in payload
+        assert "effective_parallel_dispatches_observed" in payload
 
     def test_loop_result_is_json_serializable(self):
         result = BossLoopResult(
@@ -1926,6 +1937,8 @@ class TestStatusPayloadShape:
         parsed = json.loads(serialized)
         assert parsed["mode"] == "boss-loop"
         assert parsed["run_id"] == "boss-test-789"
+        assert parsed["configured_max_parallel_dispatches"] == 1
+        assert parsed["effective_parallel_dispatches_observed"] is None
 
     def test_freshness_result_serializable(self):
         result = _fresh_result(fresh=True)
@@ -2145,6 +2158,7 @@ class TestBossLoopCLI:
         assert "Boss loop finished" in out
         assert "no_fresh_runner" in out
         assert "iterations=1" in out
+        assert "parallel=1/1" in out
 
     def test_boss_loop_parser_accepts_action(self):
         from aragora.cli.parser import build_parser
@@ -2979,6 +2993,8 @@ class TestBossLoopFixtureInvocation:
         assert payload["iterations_completed"] == 1
         assert payload["stop_reason"] == "max_iterations"
         assert len(payload["issues_completed"]) == 1
+        assert payload["configured_max_parallel_dispatches"] == 1
+        assert payload["effective_parallel_dispatches_observed"] == 1
         assert payload["issues_completed"][0]["number"] in {100, 200}
         assert payload["issues_completed"][0]["title"] in {
             "Add retry to aragora/resilience/retry.py",
@@ -3011,6 +3027,8 @@ class TestBossLoopFixtureInvocation:
         assert "run_id" in payload2
         assert isinstance(payload2["next_actions"], list)
         assert len(payload2["next_actions"]) > 0
+        assert payload2["configured_max_parallel_dispatches"] == 1
+        assert payload2["effective_parallel_dispatches_observed"] == 1
 
 
 def test_boss_loop_batch_no_issue_skips_runner_freshness_check() -> None:
@@ -3028,6 +3046,40 @@ def test_boss_loop_batch_no_issue_skips_runner_freshness_check() -> None:
 
     assert result.stop_reason == "no_suitable_issue"
     assert result.iterations_completed == 1
+
+
+def test_boss_loop_batch_reports_effective_parallel_dispatches() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(301, "Batch issue A"),
+        _make_issue(302, "Batch issue B"),
+    ]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=2),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["codex-runner-1", "codex-runner-2"],
+            checked_at=datetime.now(UTC).isoformat(),
+            details={
+                "routing": {
+                    "selected_runners": [
+                        {"runner_id": "codex-runner-1", "available_capacity": 1},
+                        {"runner_id": "codex-runner-2", "available_capacity": 1},
+                    ]
+                }
+            },
+        ),
+    )
+    loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+    statuses: list[BossIterationStatus] = []
+    result = asyncio.run(loop.run(on_status=statuses.append))
+
+    assert result.configured_max_parallel_dispatches == 2
+    assert result.effective_parallel_dispatches_observed == 2
+    assert {status.effective_parallel_dispatches for status in statuses} == {2}
+    assert {status["effective_parallel_dispatches"] for status in result.iteration_statuses} == {2}
 
 
 # ---------------------------------------------------------------------------
