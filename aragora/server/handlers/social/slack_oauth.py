@@ -1559,11 +1559,41 @@ class SlackOAuthHandler(SecureHandler):
                 logger.warning("Invalid Slack signature")
                 return error_response("Invalid signature", 401)
 
-        event = body.get("event", {})
-        event_type = event.get("type")
+        event_payload = body.get("event")
+        event = event_payload if isinstance(event_payload, dict) else {}
+        try:
+            event_type = (
+                _parse_slack_string_field(
+                    event.get("type"),
+                    field_name="event.type",
+                    required=False,
+                )
+                or ""
+            )
+        except ValueError:
+            logger.warning("Ignoring malformed Slack uninstall event type")
+            event_type = ""
 
         if event_type == "app_uninstalled":
-            workspace_id = body.get("team_id") or event.get("team_id")
+            workspace_id = ""
+            for raw_value, field_name in (
+                (body.get("team_id"), "team_id"),
+                (event.get("team_id"), "event.team_id"),
+            ):
+                try:
+                    candidate_workspace_id = _parse_slack_string_field(
+                        raw_value,
+                        field_name=field_name,
+                        required=False,
+                    )
+                except ValueError:
+                    logger.warning(
+                        "Ignoring malformed Slack uninstall workspace id in %s", field_name
+                    )
+                    continue
+                if candidate_workspace_id:
+                    workspace_id = candidate_workspace_id
+                    break
 
             if workspace_id:
                 try:
@@ -1588,9 +1618,26 @@ class SlackOAuthHandler(SecureHandler):
                     logger.warning("Could not deactivate workspace - store unavailable")
 
         elif event_type == "tokens_revoked":
-            workspace_id = body.get("team_id")
-            tokens = event.get("tokens", {})
-            bot_tokens = tokens.get("bot", [])
+            try:
+                workspace_id = (
+                    _parse_slack_string_field(
+                        body.get("team_id"),
+                        field_name="team_id",
+                        required=False,
+                    )
+                    or ""
+                )
+            except ValueError:
+                logger.warning("Ignoring malformed Slack tokens_revoked workspace id")
+                workspace_id = ""
+            tokens_payload = event.get("tokens")
+            tokens = tokens_payload if isinstance(tokens_payload, dict) else {}
+            bot_payload = tokens.get("bot", [])
+            bot_tokens = (
+                [token.strip() for token in bot_payload if isinstance(token, str) and token.strip()]
+                if isinstance(bot_payload, (list, tuple, set))
+                else []
+            )
 
             if workspace_id and bot_tokens:
                 try:
