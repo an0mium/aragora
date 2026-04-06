@@ -52,6 +52,7 @@ from aragora.swarm.boss_validation import (  # noqa: F401
     sanitize_issue_body_for_dispatch,
     extract_issue_validation_contract,
     extract_pre_dispatch_validation_commands,
+    extract_declared_new_file_paths,
     find_missing_pre_dispatch_validation_targets,
     run_pre_dispatch_validation_commands,
     discover_focused_tests,
@@ -3249,18 +3250,29 @@ class BossLoop:
             repo_root=Path.cwd(),
         )
         if missing_validation_targets:
-            targets_text = ", ".join(missing_validation_targets)
-            return {
-                "status": "needs_human",
-                "outcome": "verification_target_missing",
-                "reasons": [
-                    f"Issue #{issue.number} references missing validation targets: {targets_text}"
-                ],
-                "next_actions": [
-                    "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
-                    "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
-                ],
-            }
+            declared_new_paths = set(extract_declared_new_file_paths(issue.body or ""))
+            unresolved_missing_targets = [
+                target for target in missing_validation_targets if target not in declared_new_paths
+            ]
+            if not unresolved_missing_targets:
+                logger.info(
+                    "boss_loop_missing_validation_targets_allowed issue=#%s targets=%s",
+                    issue.number,
+                    ", ".join(missing_validation_targets),
+                )
+            else:
+                targets_text = ", ".join(unresolved_missing_targets)
+                return {
+                    "status": "needs_human",
+                    "outcome": "verification_target_missing",
+                    "reasons": [
+                        f"Issue #{issue.number} references missing validation targets: {targets_text}"
+                    ],
+                    "next_actions": [
+                        "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
+                        "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
+                    ],
+                }
 
         if not spec.is_dispatch_bounded():
             return {

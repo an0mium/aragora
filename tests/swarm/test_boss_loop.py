@@ -41,6 +41,7 @@ from aragora.swarm.boss_loop import (
     check_runner_freshness,
     discover_focused_tests,
     dispatch_bounded_spec,
+    extract_declared_new_file_paths,
     extract_pre_dispatch_validation_commands,
     extract_issue_validation_contract,
     find_missing_pre_dispatch_validation_targets,
@@ -510,6 +511,19 @@ Acceptance Criteria:
 
         assert find_missing_pre_dispatch_validation_targets(commands, repo_root=tmp_path) == [
             "tests/webhooks/test_delivery_retry.py"
+        ]
+
+    def test_extract_declared_new_file_paths_only_accepts_explicit_new_markers(self):
+        body = (
+            "## Files\n"
+            "- `tests/test_openapi_regeneration.py` (new)\n"
+            "- `tests/webhooks/test_delivery_retry.py` (new or extend)\n"
+            "- `tests/pipeline/test_run_ledger_ordering.py` (new file)\n"
+        )
+
+        assert extract_declared_new_file_paths(body) == [
+            "tests/test_openapi_regeneration.py",
+            "tests/pipeline/test_run_ledger_ordering.py",
         ]
 
     def test_run_pre_dispatch_validation_commands_stops_on_failure(self, monkeypatch):
@@ -2598,6 +2612,57 @@ async def test_dispatch_issue_blocks_on_missing_validation_target_before_dispatc
     assert "missing validation targets" in result["reasons"][0]
     assert "tests/webhooks/test_delivery_retry.py" in result["reasons"][0]
     mock_commander_cls.return_value.run_supervised_from_spec.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_allows_missing_validation_target_for_explicit_new_file() -> None:
+    issue = _make_issue(
+        2459,
+        "Add OpenAPI spec regeneration test to prevent drift",
+        body=(
+            "The generated OpenAPI artifacts drift when handlers change. Add a test that regenerates and diffs.\n\n"
+            "## Files\n"
+            "- `tests/test_openapi_regeneration.py` (new)\n\n"
+            "## Acceptance\n"
+            "`pytest tests/test_openapi_regeneration.py -x -q` passes\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-2459",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/openapi-regen-test", "commit_shas": ["abc123"]}
+        ],
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    mock_commander_cls.return_value.run_supervised_from_spec.assert_awaited_once()
 
 
 @pytest.mark.asyncio
