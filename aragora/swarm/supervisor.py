@@ -3765,7 +3765,9 @@ class SwarmSupervisor:
             # Salvaged deliverables proceed to completion — the recovery was
             # intentional and the deliverable (commits/PR) is real. Clear any
             # stale blocker metadata from the failed attempt so the lane does
-            # not remain "completed" while still looking blocked.
+            # not remain "completed" while still looking blocked. Also drop any
+            # inherited receipt/confidence so completion backfill records a
+            # fresh receipt for the current salvaged deliverable.
             item["status"] = "completed"
             item["review_status"] = "pending_heterogeneous_review"
             for key in (
@@ -3778,6 +3780,8 @@ class SwarmSupervisor:
                 "merge_gate",
                 "verification_missing_reason",
                 "scope_violation",
+                "receipt_id",
+                "confidence",
             ):
                 item.pop(key, None)
             item.pop("blockers", None)

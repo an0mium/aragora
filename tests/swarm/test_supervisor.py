@@ -4207,7 +4207,8 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
                 "lease_id": lease.lease_id,
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
-                "receipt_id": None,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
                 "dispatch_error": "old crash",
                 "failure_reason": "worker_crash",
                 "blocking_question": "Old blocker?",
@@ -4252,6 +4253,7 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
     assert wo["review_status"] == "pending_heterogeneous_review"
     assert wo["worker_outcome"] == "crash_with_salvage"
     assert wo["receipt_id"] is not None
+    assert wo["receipt_id"] != "receipt-stale"
     receipt = store.get_completion_receipt(wo["receipt_id"])
     assert receipt is not None
     assert receipt.outcome == "deliverable_created"
