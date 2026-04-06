@@ -1,123 +1,80 @@
 # Quickstart
 
-Get from zero to a working adversarial debate in under a minute.
+This compatibility path now tracks Aragora's CLI-first onboarding.
+The canonical current guide lives at [QUICKSTART_CLI.md](QUICKSTART_CLI.md).
+
+Get from zero to a saved decision receipt in under a minute.
 
 ---
 
 ## 1. Install
 
 ```bash
-pip install aragora-debate
+pip install aragora
+aragora --version
 ```
 
 ## 2. Zero-Key Demo
 
-No API keys needed — runs with styled mock agents locally:
+No API keys needed:
 
 ```bash
-python -c "
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
-import asyncio
-
-agents = [
-    StyledMockAgent('analyst', style='supportive'),
-    StyledMockAgent('critic', style='critical'),
-    StyledMockAgent('pm', style='balanced'),
-]
-arena = Arena(question='Should we migrate to microservices?', agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())
-"
+aragora quickstart --demo --no-browser
 ```
 
-You'll see three agents debate, critique each other, vote, and produce an audit-ready decision receipt.
+Expected behavior:
 
-## 3. Three-Line Debate (Python)
+- The terminal reports `Run mode: demo`
+- The debate uses local mock agents
+- A saved artifact is written to `.aragora/receipts/quickstart-demo-receipt.json`
 
-```python
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
+## 3. Live Run
 
-agents = [
-    StyledMockAgent("analyst", style="supportive"),
-    StyledMockAgent("critic", style="critical"),
-    StyledMockAgent("pm", style="balanced"),
-]
-arena = Arena(question="Should we adopt GraphQL?", agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())
-```
-
-## 4. Add Real AI Models
-
-Set at least one API key:
+Set at least one supported API key:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
-# or
-export OPENAI_API_KEY="sk-..."          # GPT
+export OPENAI_API_KEY="sk-..."
 ```
 
-Then run a real debate:
-
-```python
-import asyncio
-from aragora import Arena, Environment, DebateProtocol
-
-env = Environment(task="Design a rate limiter for our API")
-protocol = DebateProtocol(rounds=3, consensus="majority")
-
-# Arena auto-discovers available agents from your API keys
-arena = Arena(env, protocol=protocol)
-result = asyncio.run(arena.run())
-print(result.summary)
-```
-
-## 5. TypeScript SDK
+Then run quickstart with a real question:
 
 ```bash
-npm install @aragora/sdk
+aragora quickstart \
+  --question "Should we rewrite this service in Go?" \
+  --no-browser
 ```
 
-```typescript
-import { AragoraClient } from "@aragora/sdk";
+Expected behavior:
 
-const client = new AragoraClient({ baseUrl: "http://localhost:8080" });
-const result = await client.debates.create({
-  task: "Should we use microservices or a monolith?",
-  agents: ["claude", "openai"],
-  rounds: 3,
-});
-console.log(result.summary);
-```
+- The terminal reports `Run mode: live`
+- Quickstart lists the detected providers it will use
+- A saved artifact is written to `.aragora/receipts/quickstart-live-receipt.json`
 
-## 6. Self-Host the Full Platform
+## 4. Inspect The Receipt
+
+Quickstart writes one durable artifact. Inspect or verify it with the receipt CLI:
 
 ```bash
-docker compose -f deploy/demo/docker-compose.yml up
+aragora receipt inspect .aragora/receipts/quickstart-live-receipt.json
+aragora receipt verify .aragora/receipts/quickstart-live-receipt.json
 ```
 
-Then visit:
-- **Landing page:** http://localhost:3000
-- **API docs (Swagger):** http://localhost:8080/api/v2/docs
-- **API docs (Redoc):** http://localhost:8080/api/v2/redoc
-- **Interactive playground:** http://localhost:3000/playground
+If you ran demo mode, swap in `quickstart-demo-receipt.json`.
 
-## 7. CLI
+## 5. Useful Flags
 
 ```bash
-pip install aragora
-aragora debate "Should we build or buy our auth system?"
-aragora serve --api-port 8080 --ws-port 8765
+aragora quickstart --demo
+aragora quickstart --format md --no-browser
+aragora quickstart --output ./my-first-receipt.html
+aragora quickstart --rounds 3
+aragora quickstart --provider openai --api-key sk-... --save-key
 ```
 
 ## Next Steps
 
 | Guide | What you'll learn |
 |-------|-------------------|
-| [CLI Reference](CLI_REFERENCE.md) | All CLI commands and flags |
-| [SDK Guide](SDK_GUIDE.md) | Python & TypeScript SDK reference |
-| [API Reference](api/API_REFERENCE.md) | REST API endpoints |
-| [Self-Hosting](guides/SELF_HOSTED_COMPLETE_GUIDE.md) | Production deployment |
-| [Start Here](START_HERE.md) | Deeper architectural overview |
+| [QUICKSTART_CLI.md](QUICKSTART_CLI.md) | Full quickstart behavior and flag details |
+| [QUICKSTART_DEVELOPER.md](QUICKSTART_DEVELOPER.md) | Local development workflow |
+| [START_HERE.md](START_HERE.md) | Product and architecture overview |
