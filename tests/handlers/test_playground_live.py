@@ -274,7 +274,7 @@ class TestMockFallback:
             patch.dict("os.environ", env, clear=False),
             patch(
                 "aragora.server.handlers.playground._get_available_live_agents",
-                side_effect=ValueError("No API keys configured"),
+                return_value=[],
             ),
         ):
             # Mock the aragora_debate imports used by _run_debate

@@ -718,6 +718,20 @@ class TestObsidianWriteback:
 
 
 class TestPersistArtifacts:
+    @pytest.fixture(autouse=True)
+    def _mock_backbone(self):
+        with (
+            patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-computer-use-1",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+        ):
+            yield
+
     def _make_rc(self, **overrides):
         from aragora.server.handlers.debates.implementation import _parse_request
 
@@ -947,6 +961,20 @@ class TestCreateDecisionIntegrity:
 
 
 class TestHandleWorkflowMode:
+    @pytest.fixture(autouse=True)
+    def _mock_backbone(self):
+        with (
+            patch(
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                return_value="run-workflow-1",
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                return_value=True,
+            ),
+        ):
+            yield
+
     @patch("aragora.server.handlers.debates.implementation.run_async")
     @patch("aragora.pipeline.decision_plan.DecisionPlanFactory")
     @patch("aragora.pipeline.executor.store_plan")
@@ -1001,13 +1029,17 @@ class TestHandleWorkflowMode:
         MockPE.return_value = mock_executor_inst
 
         # run_async needs to return different things for different calls
-        call_count = [0]
-
         def side_effect(coro):
-            call_count[0] += 1
-            # First call: coerce_debate_result (via run_async is not used for it though)
-            # Actually run_async wraps the executor.execute call
-            return outcome
+            if hasattr(coro, "close"):
+                coro.close()
+            return (
+                {
+                    "run_id": "run-workflow-1",
+                    "execution_id": "exec-workflow-1",
+                    "correlation_id": "corr-workflow-1",
+                },
+                outcome,
+            )
 
         mock_ra.side_effect = side_effect
 
@@ -1046,7 +1078,13 @@ class TestHandleWorkflowMode:
         MockFactory.from_debate_result.return_value = mock_plan
 
         approval_req = _MockApprovalRequest(status=ApprovalStatus.PENDING)
-        mock_ra.return_value = approval_req
+
+        def _approval_side_effect(coro):
+            if hasattr(coro, "close"):
+                coro.close()
+            return approval_req
+
+        mock_ra.side_effect = _approval_side_effect
 
         rc = _parse_request({"execution_mode": "execute_workflow"}, {})
         h = _make_handler(storage=MagicMock())

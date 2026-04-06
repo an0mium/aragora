@@ -14,6 +14,7 @@ Tests cover:
 
 import json
 import os
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -223,6 +224,7 @@ class TestSecretManagerAWS:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {}  # AWS has no secrets
+        manager._cache_timestamp = time.time()
         manager._initialized = True
 
         with patch.dict(os.environ, {"ENV_ONLY_SECRET": "env_value"}):
@@ -508,6 +510,7 @@ class TestStrictMode:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {}  # AWS has no secrets
+        manager._cache_timestamp = time.time()
         manager._initialized = True
 
         with patch.dict(
@@ -526,6 +529,7 @@ class TestStrictMode:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {}  # AWS has no secrets for this test
+        manager._cache_timestamp = time.time()
         manager._initialized = True
 
         # Use a non-critical secret name that won't exist in AWS
@@ -556,6 +560,7 @@ class TestStrictMode:
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {}
+        manager._cache_timestamp = time.time()
         manager._initialized = True
 
         with patch.dict(

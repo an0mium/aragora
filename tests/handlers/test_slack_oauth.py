@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -94,6 +95,11 @@ def _reset_module_globals(handler_module, monkeypatch):
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch, handler_module):
     """Set a default non-production environment and Slack credentials."""
+    monkeypatch.setattr(
+        handler_module,
+        "get_secret",
+        lambda name, default=None, strict=False: os.environ.get(name, default),
+    )
     monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", "test-client-id")
     monkeypatch.setattr(handler_module, "SLACK_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", "https://example.com/callback")
@@ -281,7 +287,7 @@ class TestInstall:
         assert result.headers.get("Cache-Control") == "no-store"
 
     @pytest.mark.asyncio
-    async def test_with_tenant_id(self, handler, mock_state_store):
+    async def test_ignores_unauthenticated_tenant_id(self, handler, mock_state_store):
         result = await handler.handle(
             "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
         )
@@ -289,7 +295,7 @@ class TestInstall:
         mock_state_store.generate.assert_called_once()
         call_kwargs = mock_state_store.generate.call_args
         metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
-        assert metadata["tenant_id"] == "t-123"
+        assert metadata["tenant_id"] is None
 
     @pytest.mark.asyncio
     async def test_stores_state_in_fallback(self, handler, handler_module):

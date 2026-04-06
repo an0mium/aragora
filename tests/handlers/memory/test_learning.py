@@ -218,7 +218,7 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/learning/unknown") is False
 
     def test_unversioned_route(self, handler):
-        assert handler.can_handle("/api/learning/cycles") is False
+        assert handler.can_handle("/api/learning/cycles") is True
 
     def test_empty_path(self, handler):
         assert handler.can_handle("") is False

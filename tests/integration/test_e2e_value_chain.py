@@ -450,10 +450,12 @@ class TestStep3PostDebateCoordinator:
             auto_create_plan=False,
             auto_notify=False,
             auto_persist_receipt=True,
+            require_persisted_receipt=False,
             auto_outcome_feedback=False,
             auto_queue_improvement=False,
             auto_trigger_canvas=False,
             auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
             auto_llm_judge=False,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -906,10 +908,12 @@ class TestFailurePaths:
             auto_create_plan=False,
             auto_notify=False,
             auto_persist_receipt=True,
+            require_persisted_receipt=False,
             auto_outcome_feedback=False,
             auto_queue_improvement=False,
             auto_trigger_canvas=False,
             auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
             auto_llm_judge=False,
         )
         coordinator = PostDebateCoordinator(config=config)

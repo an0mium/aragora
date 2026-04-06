@@ -228,6 +228,14 @@ ENTRYPOINT_INVENTORY: Final[tuple[BackboneEntrypoint, ...]] = (
         ),
     ),
     BackboneEntrypoint(
+        file_path="aragora/debate/post_debate_coordinator.py",
+        qualname="PostDebateCoordinator.run",
+        lifecycle="mixed",
+        coverage="green",
+        wiring_mode="manual_run",
+        signals=("run_ledger_create",),
+    ),
+    BackboneEntrypoint(
         file_path="aragora/debate/hook_handlers.py",
         qualname="HookHandlerRegistry._register_decision_plan_handlers.handle_auto_plan_creation",
         lifecycle="create",
@@ -260,6 +268,9 @@ INTERNAL_BACKBONE_HELPERS: Final[dict[str, str]] = {
     ),
     "aragora/cli/commands/decide.py::_seed_cli_backbone_run": (
         "internal CLI helper for run-ledger seeding and receipt sync"
+    ),
+    "aragora/debate/post_debate_coordinator.py::PostDebateCoordinator._seed_backbone_run": (
+        "internal post-debate helper that seeds the backbone run before pipeline execution"
     ),
 }
 

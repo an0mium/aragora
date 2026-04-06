@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 
-SCRIPT_PATH = Path("scripts/check_v1_scope_lock.py")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "scripts/check_v1_scope_lock.py"
 
 
 def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -20,6 +21,7 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
         capture_output=True,
         text=True,
         env=merged_env,
+        cwd=REPO_ROOT,
         check=False,
     )
 

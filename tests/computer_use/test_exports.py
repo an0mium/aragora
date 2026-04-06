@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 class TestComputerUseExports:
     """Test that all expected classes are exported from aragora.computer_use."""
@@ -66,27 +68,20 @@ class TestComputerUseExports:
 
 
 class TestTopLevelExports:
-    """Test that computer_use classes are accessible from aragora package."""
+    """Test that computer_use classes are not re-exported from top-level aragora."""
 
-    def test_orchestrator_from_aragora(self):
-        from aragora import ComputerUseOrchestrator
+    def test_orchestrator_not_exported_from_aragora(self):
+        with pytest.raises(ImportError):
+            from aragora import ComputerUseOrchestrator
 
-        assert ComputerUseOrchestrator is not None
+    def test_policy_not_exported_from_aragora(self):
+        with pytest.raises(ImportError):
+            from aragora import ComputerPolicy, ComputerPolicyChecker
 
-    def test_policy_from_aragora(self):
-        from aragora import ComputerPolicy, ComputerPolicyChecker
+    def test_executor_not_exported_from_aragora(self):
+        with pytest.raises(ImportError):
+            from aragora import ExecutorConfig, PlaywrightActionExecutor
 
-        assert ComputerPolicy is not None
-        assert ComputerPolicyChecker is not None
-
-    def test_executor_from_aragora(self):
-        from aragora import ExecutorConfig, PlaywrightActionExecutor
-
-        assert ExecutorConfig is not None
-        assert PlaywrightActionExecutor is not None
-
-    def test_bridge_from_aragora(self):
-        from aragora import BridgeConfig, ClaudeComputerUseBridge
-
-        assert BridgeConfig is not None
-        assert ClaudeComputerUseBridge is not None
+    def test_bridge_not_exported_from_aragora(self):
+        with pytest.raises(ImportError):
+            from aragora import BridgeConfig, ClaudeComputerUseBridge

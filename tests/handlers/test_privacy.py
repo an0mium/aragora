@@ -1212,4 +1212,4 @@ class TestHandlerInit:
 
     def test_routes_list(self, handler):
         """ROUTES contains all expected paths."""
-        assert len(handler.ROUTES) == 9
+        assert len(handler.ROUTES) == 8

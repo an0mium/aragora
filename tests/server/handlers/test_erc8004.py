@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -690,58 +691,64 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
-        """Should register an agent and return 201."""
-        mock_contract = MagicMock()
-        mock_contract.register_agent.return_value = 42
-        mock_signer = MagicMock()
-        mock_signer.address = "0xSignerAddress"
+        """Should queue an agent registration and return 202."""
+        queued_action = SimpleNamespace(
+            action_id="chain-123",
+            status=SimpleNamespace(value="queued"),
+        )
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
             patch(
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
-                return_value=mock_contract,
+                return_value=MagicMock(),
             ),
-            patch("aragora.blockchain.wallet.WalletSigner.from_env", return_value=mock_signer),
+            patch.object(
+                erc8004,
+                "enqueue_register_agent_action",
+                return_value=queued_action,
+            ) as mock_enqueue,
         ):
             result = await erc8004.handle_register_agent(
                 agent_uri="ipfs://QmAgent",
                 metadata={"role": "critic", "score": 99},
             )
 
-        assert result["status"] == 201
+        assert result["status"] == 202
         data = json.loads(result["body"])
-        assert data["token_id"] == 42
-        assert data["owner"] == "0xSignerAddress"
-        call_args = mock_contract.register_agent.call_args
-        assert call_args is not None
-        metadata_entries = call_args.args[2]
-        assert metadata_entries[0].key == "role"
-        assert metadata_entries[0].value == b"critic"
+        assert data["action_id"] == "chain-123"
+        assert data["status"] == "queued"
+        assert data["agent_uri"] == "ipfs://QmAgent"
+        assert data["chain_id"] == 1
+        assert data["requires_approval"] is True
+        mock_enqueue.assert_called_once_with(
+            agent_uri="ipfs://QmAgent",
+            metadata={"role": "critic", "score": 99},
+            requested_by="system",
+            approval_id="",
+            receipt_id="",
+        )
 
     @pytest.mark.asyncio
-    async def test_register_agent_requires_wallet_credentials(
+    async def test_register_agent_rejects_invalid_metadata(
         self,
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should return 400 when wallet credentials are missing."""
-        mock_contract = MagicMock()
-
+        """Should return 400 when metadata contains unsupported values."""
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
             patch(
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
-                return_value=mock_contract,
-            ),
-            patch(
-                "aragora.blockchain.wallet.WalletSigner.from_env",
-                side_effect=ValueError("No wallet credentials configured"),
+                return_value=MagicMock(),
             ),
         ):
-            result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
+            result = await erc8004.handle_register_agent(
+                agent_uri="ipfs://QmAgent",
+                metadata={"bad": ["unsupported"]},
+            )
 
         assert result["status"] == 400
 
@@ -853,11 +860,14 @@ class TestERC8004HandlerRouting:
             ),
             patch.object(erc8004, "handle_register_agent") as mock_fn,
         ):
-            mock_fn.return_value = {"status": 201, "body": "{}"}
+            mock_fn.return_value = {"status": 202, "body": "{}"}
             handler_instance.handle("/api/v1/blockchain/agents", {}, post_handler)
             mock_fn.assert_called_once_with(
                 agent_uri="ipfs://QmAgent",
                 metadata={"role": "critic"},
+                requested_by="",
+                approval_id="",
+                receipt_id="",
             )
 
 

@@ -53,6 +53,7 @@ def _make_webhook(
     secret: str = "test-secret-key",
     active: bool = True,
     user_id: str | None = "user-1",
+    workspace_id: str | None = None,
     name: str | None = "Test Webhook",
     description: str | None = "A test webhook",
 ) -> WebhookConfig:
@@ -64,6 +65,7 @@ def _make_webhook(
         secret=secret,
         active=active,
         user_id=user_id,
+        workspace_id=workspace_id,
         name=name,
         description=description,
         created_at=time.time(),
@@ -93,6 +95,7 @@ class MockWebhookStore:
         name: str | None = None,
         description: str | None = None,
         user_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> WebhookConfig:
         webhook = _make_webhook(
             webhook_id=f"wh-{len(self._webhooks) + 1:03d}",
@@ -101,6 +104,7 @@ class MockWebhookStore:
             name=name,
             description=description,
             user_id=user_id,
+            workspace_id=workspace_id,
         )
         self._webhooks[webhook.id] = webhook
         return webhook
@@ -111,11 +115,14 @@ class MockWebhookStore:
     def list(
         self,
         user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
     ) -> builtins.list[WebhookConfig]:
         result = list(self._webhooks.values())
         if user_id:
             result = [w for w in result if w.user_id == user_id]
+        if workspace_id:
+            result = [w for w in result if w.workspace_id == workspace_id]
         if active_only:
             result = [w for w in result if w.active]
         return result

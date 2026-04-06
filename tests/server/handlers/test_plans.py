@@ -509,8 +509,21 @@ class TestExecutePlan:
             ),
             patch.object(handler, "get_json_body", return_value={}),
             patch(
-                "aragora.pipeline.execution_bridge.get_execution_bridge",
-                return_value=MagicMock(),
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value={
+                    "run_id": "run-001",
+                    "execution_id": "exec-001",
+                    "correlation_id": "corr-001",
+                    "status": "queued",
+                    "execution_mode": "autonomous",
+                },
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.execute_queued_plan",
+                new=MagicMock(return_value="queued-task"),
+            ),
+            patch(
+                "aragora.pipeline.canonical_execution.schedule_coroutine",
             ),
             patch(
                 "aragora.server.handlers.plans._fire_plan_notification",

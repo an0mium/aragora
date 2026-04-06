@@ -66,6 +66,13 @@ _training_circuit_breaker: TrainingCircuitBreaker | None = None
 _circuit_breaker_lock = threading.Lock()
 
 
+def _normalize_legacy_api_path(path: str) -> str:
+    """Normalize legacy v1 endpoints without accepting newer API versions."""
+    if path.startswith("/api/v1/"):
+        return f"/api/{path[len('/api/v1/') :]}"
+    return path
+
+
 def _get_training_circuit_breaker() -> TrainingCircuitBreaker:
     """Get or create the global training circuit breaker."""
     global _training_circuit_breaker
@@ -104,6 +111,9 @@ class TrainingHandler(BaseHandler):
         "/api/v1/training/formats": "handle_formats",
         "/api/v1/training/jobs": "handle_list_jobs",
     }
+    _NORMALIZED_ROUTE_MAP = {
+        _normalize_legacy_api_path(path): handler_name for path, handler_name in _ROUTE_MAP.items()
+    }
 
     ROUTES = [
         "/api/v1/training/export/sft",
@@ -137,10 +147,11 @@ class TrainingHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        if path in self._ROUTE_MAP:
+        normalized = _normalize_legacy_api_path(path)
+        if normalized in self._NORMALIZED_ROUTE_MAP:
             return True
         # Check job routes (dynamic patterns)
-        if path.startswith("/api/v1/training/jobs/"):
+        if normalized.startswith("/api/training/jobs/"):
             return True
         return False
 
@@ -152,15 +163,17 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route training requests to appropriate methods."""
+        normalized = _normalize_legacy_api_path(path)
+
         # Check static routes first
-        method_name = self._ROUTE_MAP.get(path)
+        method_name = self._NORMALIZED_ROUTE_MAP.get(normalized)
         if method_name and hasattr(self, method_name):
-            result = getattr(self, method_name)(path, query_params, handler)
+            result = getattr(self, method_name)(normalized, query_params, handler)
             return cast(HandlerResult | None, result)
 
         # Handle job-specific routes
-        if path.startswith("/api/v1/training/jobs/"):
-            return self._handle_job_route(path, query_params, handler)
+        if normalized.startswith("/api/training/jobs/"):
+            return self._handle_job_route(normalized, query_params, handler)
 
         return None
 

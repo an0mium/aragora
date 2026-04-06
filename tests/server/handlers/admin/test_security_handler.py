@@ -30,10 +30,25 @@ class MockEncryptionKey:
         key_id: str = "key-001",
         version: int = 1,
         created_at: datetime | None = None,
+        algorithm: str = "aes-256-gcm",
+        expires_at: datetime | None = None,
     ):
         self.key_id = key_id
         self.version = version
         self.created_at = created_at or datetime.now(timezone.utc)
+        self.algorithm = algorithm
+        self.expires_at = expires_at
+        self.is_active = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key_id": self.key_id,
+            "algorithm": self.algorithm,
+            "version": self.version,
+            "created_at": self.created_at.isoformat(),
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "is_active": self.is_active,
+        }
 
 
 class MockEncryptionService:
@@ -46,6 +61,7 @@ class MockEncryptionService:
     ):
         self._active_key = active_key or MockEncryptionKey()
         self._keys = keys or [self._active_key]
+        self.config = type("Config", (), {"algorithm": "aes-256-gcm"})()
 
     def get_active_key(self) -> MockEncryptionKey | None:
         return self._active_key
@@ -53,13 +69,30 @@ class MockEncryptionService:
     def get_active_key_id(self) -> str | None:
         return self._active_key.key_id if self._active_key else None
 
+    def generate_key(
+        self, key_id: str | None = None, ttl_days: int | None = None
+    ) -> MockEncryptionKey:
+        created_at = datetime.now(timezone.utc)
+        expires_at = created_at + timedelta(days=ttl_days) if ttl_days else None
+        key = MockEncryptionKey(
+            key_id=key_id or "key-new",
+            version=len(self._keys) + 1,
+            created_at=created_at,
+            expires_at=expires_at,
+        )
+        self._active_key = key
+        self._keys.append(key)
+        return key
+
     def list_keys(self) -> list[dict[str, Any]]:
         """Return keys as dictionaries, matching real EncryptionService.list_keys()."""
         return [
             {
                 "key_id": key.key_id,
+                "algorithm": key.algorithm,
                 "version": key.version,
                 "created_at": key.created_at.isoformat(),
+                "expires_at": key.expires_at.isoformat() if key.expires_at else None,
                 "is_active": key == self._active_key,
             }
             for key in self._keys
@@ -227,6 +260,68 @@ class TestGetStatus:
 
         body = json.loads(result.body.decode())
         assert body["rotation_required"] is True
+
+
+class TestCreateKey:
+    """Tests for _create_key endpoint."""
+
+    def test_create_key_success(self, security_handler: SecurityHandler, mock_handler: MagicMock):
+        """Creating a key returns the created key details."""
+        service = MockEncryptionService()
+
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
+                result = security_handler._create_key.__wrapped__(
+                    security_handler,
+                    {
+                        "name": "backup_key",
+                        "algorithm": "AES-256-GCM",
+                        "expires_in_days": 365,
+                        "metadata": {"purpose": "backup"},
+                    },
+                    mock_handler,
+                )
+
+        assert result.status_code == 201
+        body = json.loads(result.body.decode())
+        assert body["id"] == "backup_key"
+        assert body["name"] == "backup_key"
+        assert body["status"] == "active"
+        assert body["metadata"] == {"purpose": "backup"}
+
+    def test_create_key_requires_name(
+        self, security_handler: SecurityHandler, mock_handler: MagicMock
+    ):
+        """Creating a key without a name returns 400."""
+        service = MockEncryptionService()
+
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
+                result = security_handler._create_key.__wrapped__(
+                    security_handler, {"algorithm": "AES-256-GCM"}, mock_handler
+                )
+
+        assert result.status_code == 400
+        body = json.loads(result.body.decode())
+        assert "name is required" in body["error"]
+
+    def test_create_key_rejects_unsupported_algorithm(
+        self, security_handler: SecurityHandler, mock_handler: MagicMock
+    ):
+        """Creating a key with an unsupported algorithm returns 400."""
+        service = MockEncryptionService()
+
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
+                result = security_handler._create_key.__wrapped__(
+                    security_handler,
+                    {"name": "backup_key", "algorithm": "rsa-4096"},
+                    mock_handler,
+                )
+
+        assert result.status_code == 400
+        body = json.loads(result.body.decode())
+        assert "unsupported algorithm" in body["error"].lower()
 
 
 class TestRotateKey:
@@ -435,8 +530,11 @@ class TestRouting:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                with patch.object(security_handler, "_get_status") as mock_status:
-                    mock_status.return_value = MagicMock(status_code=200)
+                with patch.object(
+                    security_handler,
+                    "_get_status",
+                    new=MagicMock(return_value=MagicMock(status_code=200)),
+                ) as mock_status:
                     security_handler.handle("/api/v1/admin/security/status", {}, mock_handler)
                     mock_status.assert_called_once()
 
@@ -444,12 +542,31 @@ class TestRouting:
         self, security_handler: SecurityHandler, mock_handler: MagicMock
     ):
         """POST request routes to rotate handler."""
-        with patch.object(security_handler, "_rotate_key") as mock_rotate:
-            mock_rotate.return_value = MagicMock(status_code=200)
+        with patch.object(
+            security_handler,
+            "_rotate_key",
+            new=MagicMock(return_value=MagicMock(status_code=200)),
+        ) as mock_rotate:
             security_handler.handle_post(
                 "/api/v1/admin/security/rotate-key", {"dry_run": True}, mock_handler
             )
             mock_rotate.assert_called_once()
+
+    def test_handle_post_routes_to_create_key(
+        self, security_handler: SecurityHandler, mock_handler: MagicMock
+    ):
+        """POST request routes to create key handler."""
+        with patch.object(
+            security_handler,
+            "_create_key",
+            new=MagicMock(return_value=MagicMock(status_code=201)),
+        ) as mock_create:
+            security_handler.handle_post(
+                "/api/v1/admin/security/keys",
+                {"name": "backup_key"},
+                mock_handler,
+            )
+            mock_create.assert_called_once()
 
     def test_handle_returns_none_for_unknown(
         self, security_handler: SecurityHandler, mock_handler: MagicMock
