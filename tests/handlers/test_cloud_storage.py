@@ -342,6 +342,25 @@ class TestFilenameValidation:
         assert valid is True
 
 
+class TestBucketValidation:
+    """Test _validate_bucket_name method."""
+
+    def test_valid_bucket_name(self, handler):
+        valid, err = handler._validate_bucket_name("my-bucket-123")
+        assert valid is True
+        assert err == ""
+
+    def test_non_string_bucket_name(self, handler):
+        valid, err = handler._validate_bucket_name(123)
+        assert valid is False
+        assert "must be a string" in err.lower()
+
+    def test_invalid_bucket_name_pattern(self, handler):
+        valid, err = handler._validate_bucket_name("My_Bucket")
+        assert valid is False
+        assert "lowercase letters" in err.lower()
+
+
 # ============================================================================
 # Utility Methods
 # ============================================================================
@@ -474,6 +493,27 @@ class TestListFiles:
         h = _make_handler(method="POST")
         result = await handler.handle("/api/v2/storage/files", {}, h)
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_list_rejects_non_string_bucket(self, handler):
+        h = _make_handler()
+        result = await handler.handle("/api/v2/storage/files", {"bucket": 123}, h)
+        assert _status(result) == 400
+        assert "must be a string" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_list_rejects_invalid_bucket_name(self, handler):
+        h = _make_handler()
+        result = await handler.handle("/api/v2/storage/files", {"bucket": "BadBucket"}, h)
+        assert _status(result) == 400
+        assert "lowercase letters" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_list_rejects_non_string_prefix(self, handler):
+        h = _make_handler()
+        result = await handler.handle("/api/v2/storage/files", {"prefix": 123}, h)
+        assert _status(result) == 400
+        assert "prefix must be a string" == _body(result).get("error", "")
 
 
 # ============================================================================
@@ -742,6 +782,94 @@ class TestUploadFile:
         data = _body(result)
         assert "png" in data["file"]["content_type"].lower()
 
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_string_filename(self, handler):
+        body = {"filename": 123, "content": _sample_b64_content()}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "filename must be a string" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_string_content(self, handler):
+        body = {"filename": "test.txt", "content": 123}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "content must be a base64-encoded string" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_string_bucket(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "bucket": 123,
+        }
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "bucket name must be a string" == _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_invalid_bucket_name(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "bucket": "BadBucket",
+        }
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "lowercase letters" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_list_tags(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "tags": "important",
+        }
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "tags must be a list of strings" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_string_tag_item(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "tags": ["important", 1],
+        }
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "tags must be a list of strings" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_dict_metadata(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "metadata": ["department", "engineering"],
+        }
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "metadata must be an object with string keys" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_non_string_metadata_key(self, handler):
+        body = {
+            "filename": "test.txt",
+            "content": _sample_b64_content(),
+            "metadata": {1: "engineering"},
+        }
+        h = _make_handler(method="POST")
+        result = await handler._upload_file(body, h)
+        assert _status(result) == 400
+        assert "metadata must be an object with string keys" == _body(result).get("error", "")
+
 
 # ============================================================================
 # DELETE /api/v2/storage/files/:file_id - Delete File
@@ -887,6 +1015,35 @@ class TestPresignedUrl:
         h = _make_handler(body=body, method="POST")
         result = await handler.handle_post("/api/v2/storage/files/file_b86400/presign", {}, h)
         assert _status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_presign_rejects_boolean_expiry(self, handler):
+        _add_sample_file(handler, "file_bool_expiry")
+        body = {"expires_in_seconds": True}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files/file_bool_expiry/presign", {}, h)
+        assert _status(result) == 400
+        assert "expires_in_seconds must be an integer" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_presign_rejects_non_integer_expiry(self, handler):
+        _add_sample_file(handler, "file_str_expiry")
+        body = {"expires_in_seconds": "600"}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/files/file_str_expiry/presign", {}, h)
+        assert _status(result) == 400
+        assert "expires_in_seconds must be an integer" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_presign_rejects_non_string_method(self, handler):
+        _add_sample_file(handler, "file_non_string_method")
+        body = {"method": 123}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post(
+            "/api/v2/storage/files/file_non_string_method/presign", {}, h
+        )
+        assert _status(result) == 400
+        assert "method must be GET or PUT" == _body(result).get("error", "")
 
 
 # ============================================================================
@@ -1112,6 +1269,46 @@ class TestCreateBucket:
             hh = _make_handler(body=body, method="POST")
             result = await h2.handle_post("/api/v2/storage/buckets", {}, hh)
             assert _status(result) == 201, f"Name '{name}' should be valid"
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_non_string_name(self, handler):
+        body = {"name": 123}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/buckets", {}, h)
+        assert _status(result) == 400
+        assert "bucket name must be a string" == _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_non_string_provider(self, handler):
+        body = {"name": "typed-bucket", "provider": 123}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/buckets", {}, h)
+        assert _status(result) == 400
+        assert "provider must be a string" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_blank_region(self, handler):
+        body = {"name": "typed-bucket", "region": "   "}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/buckets", {}, h)
+        assert _status(result) == 400
+        assert "region must be a non-empty string" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_non_boolean_is_public(self, handler):
+        body = {"name": "typed-bucket", "is_public": "yes"}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/buckets", {}, h)
+        assert _status(result) == 400
+        assert "is_public must be a boolean" == _body(result).get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_non_boolean_versioning_enabled(self, handler):
+        body = {"name": "typed-bucket", "versioning_enabled": "yes"}
+        h = _make_handler(body=body, method="POST")
+        result = await handler.handle_post("/api/v2/storage/buckets", {}, h)
+        assert _status(result) == 400
+        assert "versioning_enabled must be a boolean" == _body(result).get("error", "")
 
 
 # ============================================================================
