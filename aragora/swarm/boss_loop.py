@@ -3077,7 +3077,10 @@ class BossLoop:
             )
 
         if worker_result.get("status") == "needs_human":
-            has_deliverable = bool(worker_result.get("deliverable"))
+            _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
+                worker_result
+            )
+            has_deliverable = bool(normalized_deliverable_type)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             if self.config.auto_continue_on_needs_human and has_deliverable:
                 self._failed_issues.append(issue_dict)

@@ -1569,6 +1569,34 @@ class TestBossLoop:
         assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
         assert "Approval required for merge." in result.needs_human_reasons
 
+    def test_needs_human_truthy_junk_deliverable_does_not_auto_continue(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(1, "Needs human review")]
+
+        config = _boss_config(auto_continue_on_needs_human=True)
+
+        async def _needs_human_dispatch(issue, freshness):
+            return {
+                "status": "needs_human",
+                "reasons": ["Approval required for merge."],
+                "deliverable": "branch-ready",
+            }
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _needs_human_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert result.iteration_statuses[0]["next_actions"] == [
+            "Skipping to next issue (auto-continue mode)."
+        ]
+        assert "Approval required for merge." in result.iteration_statuses[0]["needs_human_reasons"]
+
     def test_retry_rotation_switches_target_agent_after_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [_make_issue(42, "Retry with rotated agent")]
