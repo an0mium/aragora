@@ -343,6 +343,8 @@ def publish_lane_deliverable(
     repo_root: Path,
     target_branch: str,
     artifact_store: TrancheArtifactStore | Any | None = None,
+    create_pr_draft: bool = False,
+    created_pr_registry_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     branch = _artifact_branch(artifact)
     if not branch:
@@ -439,7 +441,7 @@ def publish_lane_deliverable(
         }
 
     try:
-        created_pr = github.create_pr_for_branch(branch, target_branch)
+        created_pr = github.create_pr_for_branch(branch, target_branch, draft=create_pr_draft)
     except Exception as exc:
         logger.warning("pr create failed for branch %s: %s", branch, exc)
         failure = {
@@ -457,7 +459,16 @@ def publish_lane_deliverable(
         )
         return failure
 
-    register_pr(created_pr, branch, registry, metadata=registry_metadata)
+    created_metadata = dict(registry_metadata)
+    if isinstance(created_pr_registry_metadata, dict):
+        created_metadata.update(
+            {
+                str(key): value
+                for key, value in created_pr_registry_metadata.items()
+                if value not in (None, [], "")
+            }
+        )
+    register_pr(created_pr, branch, registry, metadata=created_metadata)
     _persist_published_pr(
         artifact,
         manifest_id=manifest_id,

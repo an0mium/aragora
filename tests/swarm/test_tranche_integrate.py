@@ -591,6 +591,49 @@ def test_publish_lane_deliverable_pushes_branch_and_creates_pr() -> None:
     artifact_store.save.assert_called_once()
 
 
+def test_publish_lane_deliverable_can_create_boss_managed_draft_pr() -> None:
+    artifact = _make_artifact(
+        status="completed",
+        metadata={
+            "branch": "feat-branch",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-branch",
+                "commit_shas": ["abc123"],
+            },
+        },
+    )
+    github = MagicMock()
+    github.find_pr_for_branch.side_effect = [None, None, None]
+    github.create_pr_for_branch.return_value = "https://github.com/org/repo/pull/77"
+    registry = MagicMock(spec=PullRequestRegistry)
+    artifact_store = MagicMock()
+
+    with patch("aragora.swarm.tranche_integrate.subprocess.run") as mock_run:
+        mock_run.return_value = SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+        publish_lane_deliverable(
+            artifact,
+            manifest_id="m1",
+            github=github,
+            registry=registry,
+            repo_root=Path("/tmp/repo"),
+            target_branch="main",
+            artifact_store=artifact_store,
+            create_pr_draft=True,
+            created_pr_registry_metadata={"boss_managed_draft": True},
+        )
+
+    github.create_pr_for_branch.assert_called_once_with("feat-branch", "main", draft=True)
+    register_call = registry.register.call_args
+    assert register_call.kwargs["metadata"] == {
+        "manifest_id": "m1",
+        "branch": "feat-branch",
+        "lane_id": "lane-a",
+        "commit_shas": ["abc123"],
+        "boss_managed_draft": True,
+    }
+
+
 def test_publish_lane_deliverable_reuses_active_registry_pr_without_push() -> None:
     artifact = _make_artifact(
         status="completed",

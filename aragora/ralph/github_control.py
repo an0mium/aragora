@@ -127,9 +127,18 @@ class GitHubControl:
                 return _optional_text(first.get("url"))
         return None
 
-    def create_pr_for_branch(self, branch: str, target_branch: str) -> str:
+    def create_pr_for_branch(
+        self,
+        branch: str,
+        target_branch: str,
+        *,
+        draft: bool = False,
+    ) -> str:
+        cmd = ["pr", "create", "--fill", "--head", branch, "--base", target_branch]
+        if draft:
+            cmd.append("--draft")
         result = self._run_gh(
-            ["pr", "create", "--fill", "--head", branch, "--base", target_branch],
+            cmd,
             raise_on_error=False,
             timeout=30,
         )
