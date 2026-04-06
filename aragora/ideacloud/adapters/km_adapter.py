@@ -47,38 +47,43 @@ class IdeaCloudAdapter(KnowledgeMoundAdapter):
                 skipped += 1
                 continue
 
-            async with self._resilient_call("sync_to_km"):
-                # Create KM-compatible record and ingest
-                await self.km.ingest(
-                    {
-                        "source_type": "ideacloud",
-                        "source_id": node.id,
-                        "node_type": node.node_type,
-                        "content": f"{node.title}\n\n{node.body}",
-                        "confidence": node.confidence,
-                        "tags": node.tags,
-                        "metadata": {
-                            "source_url": node.source_url,
-                            "source_author": node.source_author,
-                            "cluster_id": node.cluster_id,
-                            "pipeline_status": node.pipeline_status,
-                            "relevance_score": node.relevance_score,
+            try:
+                async with self._resilient_call("sync_to_km"):
+                    # Create KM-compatible record and ingest
+                    await self.km.ingest(
+                        {
+                            "source_type": "ideacloud",
+                            "source_id": node.id,
+                            "node_type": node.node_type,
+                            "content": f"{node.title}\n\n{node.body}",
+                            "confidence": node.confidence,
+                            "tags": node.tags,
+                            "metadata": {
+                                "source_url": node.source_url,
+                                "source_author": node.source_author,
+                                "cluster_id": node.cluster_id,
+                                "pipeline_status": node.pipeline_status,
+                                "relevance_score": node.relevance_score,
+                            },
+                        }
+                    )
+
+                    self._emit_event(
+                        "ideacloud_sync",
+                        {
+                            "node_id": node.id,
+                            "title": node.title,
+                            "direction": "forward",
                         },
-                    }
-                )
+                    )
 
-                self._emit_event(
-                    "ideacloud_sync",
-                    {
-                        "node_id": node.id,
-                        "title": node.title,
-                        "direction": "forward",
-                    },
-                )
+                    # Mark as synced
+                    node.km_synced = True
+                    synced += 1
 
-                # Mark as synced
-                node.km_synced = True
-                synced += 1
+            except Exception as exc:
+                logger.warning("Failed to sync node %s: %s", node.id, exc)
+                failed += 1
 
         # Persist sync status back to vault
         if synced > 0:
@@ -145,35 +150,43 @@ class IdeaCloudAdapter(KnowledgeMoundAdapter):
             if not validation:
                 continue
 
-            async with self._resilient_call("sync_from_km"):
-                # Update confidence from KM validation
-                new_confidence = validation.get("confidence")
-                if new_confidence is not None:
-                    node.confidence = float(new_confidence)
+            try:
+                async with self._resilient_call("sync_from_km"):
+                    # Update confidence from KM validation
+                    new_confidence = validation.get("confidence")
+                    if new_confidence is not None:
+                        node.confidence = float(new_confidence)
 
-                # Update pipeline status based on validation
-                status = validation.get("validation_status", "")
-                if status == "confirmed" and node.pipeline_status == "inbox":
-                    node.pipeline_status = "candidate"
-                elif status == "disputed":
-                    node.confidence = max(0.0, node.confidence - 0.2)
+                    # Update pipeline status based on validation
+                    status = validation.get("validation_status", "")
+                    if status == "confirmed" and node.pipeline_status == "inbox":
+                        node.pipeline_status = "candidate"
+                    elif status == "disputed":
+                        node.confidence = max(0.0, node.confidence - 0.2)
 
-                node.updated_at = __import__(
-                    "aragora.ideacloud.graph.node",
-                    fromlist=["_now_iso"],
-                )._now_iso()
+                    node.updated_at = __import__(
+                        "aragora.ideacloud.graph.node",
+                        fromlist=["_now_iso"],
+                    )._now_iso()
 
-                self._emit_event(
-                    "ideacloud_sync",
-                    {
-                        "node_id": node.id,
-                        "title": node.title,
-                        "direction": "reverse",
-                        "validation_status": status,
-                    },
+                    self._emit_event(
+                        "ideacloud_sync",
+                        {
+                            "node_id": node.id,
+                            "title": node.title,
+                            "direction": "reverse",
+                            "validation_status": status,
+                        },
+                    )
+
+                    updated += 1
+
+            except Exception as exc:
+                logger.warning(
+                    "Failed to apply KM validation to node %s: %s",
+                    node.id,
+                    exc,
                 )
-
-                updated += 1
 
         if updated > 0:
             self._cloud.save()
