@@ -474,7 +474,7 @@ class TestLiveQuickstartHelpers:
         assert receipt["receipt"]["confidence"] == 1.0
         assert receipt["consensus_proof"]["confidence"] == 1.0
 
-    def test_build_live_receipt_generates_falsifiers_for_sparse_debate_result(self):
+    def test_build_live_receipt_caps_settlement_confidence_for_sparse_debate_result(self):
         result = DebateResult(
             confidence=0.91,
             consensus_reached=True,
@@ -497,13 +497,12 @@ class TestLiveQuickstartHelpers:
 
         strict_hygiene = validate_receipt(receipt, strict=True)
         assert strict_hygiene.passed_strict() is True
-        assert all(
-            entry.startswith("Verifiable:")
-            for entry in receipt["settlement_metadata"]["falsifiers"]
-        )
-        assert not any(
-            "Revisit if evidence disproves the chosen path for:" in entry
-            for entry in receipt["settlement_metadata"]["falsifiers"]
+        assert receipt["confidence"] == pytest.approx(0.91)
+        assert receipt["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert receipt["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "did not include explicit falsifiers" in note
+            for note in receipt["settlement_metadata"]["review_notes"]
         )
 
     @pytest.mark.asyncio

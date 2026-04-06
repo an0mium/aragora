@@ -105,6 +105,12 @@ _TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
     "unable to get local issuer certificate",
 )
 _QUICKSTART_SETTLEMENT_REVIEW_DAYS = 30
+_QUICKSTART_STRICT_FALSIFIER_THRESHOLD = 0.8
+_QUICKSTART_SETTLEMENT_CONFIDENCE_CAP = 0.79
+_QUICKSTART_SETTLEMENT_REVIEW_NOTE = (
+    "Quickstart settlement metadata did not include explicit falsifiers; "
+    "settlement confidence was capped below the strict-review threshold."
+)
 
 
 def _quickstart_loop_factory() -> asyncio.AbstractEventLoop:
@@ -495,18 +501,29 @@ def _settlement_value_is_blank(value: Any) -> bool:
     return False
 
 
-def _build_quickstart_default_falsifiers(question: str, final_answer: str) -> list[str]:
-    """Provide deterministic falsifiers when quickstart lacks richer claim metadata."""
-    prompt = question.strip() or "the recorded quickstart decision"
-    conclusion = (final_answer.strip().splitlines() or [prompt])[0]
-    falsifiers = [
-        f"Verifiable: Observed outcomes within the review horizon still support the chosen path for: {prompt[:160]}"
-    ]
-    if conclusion and conclusion != prompt:
-        falsifiers.append(
-            f"Verifiable: New evidence does not contradict the recorded answer: {conclusion[:160]}"
+def _normalize_quickstart_settlement_confidence(settlement_metadata: dict[str, Any]) -> None:
+    """Fail closed for sparse quickstart receipts instead of inventing falsifiers."""
+    falsifiers = settlement_metadata.get("falsifiers")
+    if isinstance(falsifiers, list) and falsifiers:
+        return
+
+    try:
+        confidence = float(settlement_metadata.get("confidence", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    if confidence >= _QUICKSTART_STRICT_FALSIFIER_THRESHOLD:
+        settlement_metadata["confidence"] = min(
+            confidence,
+            _QUICKSTART_SETTLEMENT_CONFIDENCE_CAP,
         )
-    return falsifiers
+
+    review_notes = settlement_metadata.get("review_notes")
+    if not isinstance(review_notes, list):
+        review_notes = []
+        settlement_metadata["review_notes"] = review_notes
+    if _QUICKSTART_SETTLEMENT_REVIEW_NOTE not in review_notes:
+        review_notes.append(_QUICKSTART_SETTLEMENT_REVIEW_NOTE)
 
 
 def _build_quickstart_settlement_metadata(
@@ -515,8 +532,6 @@ def _build_quickstart_settlement_metadata(
     debate_result: Any,
     receipt_context: Any | None,
     timestamp: str,
-    question: str,
-    final_answer: str,
 ) -> dict[str, Any]:
     """Capture settlement metadata via the canonical settlement tracker."""
     from aragora.debate.settlement import EpistemicSettlementTracker
@@ -535,10 +550,8 @@ def _build_quickstart_settlement_metadata(
         if _settlement_value_is_blank(normalized.get(key)):
             normalized[key] = value
     if _settlement_value_is_blank(normalized.get("falsifiers")):
-        normalized["falsifiers"] = _build_quickstart_default_falsifiers(
-            question=question,
-            final_answer=final_answer,
-        )
+        normalized["falsifiers"] = []
+        _normalize_quickstart_settlement_confidence(normalized)
     return normalized
 
 
@@ -651,8 +664,6 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         debate_result=settlement_result,
         receipt_context=settlement_receipt_context,
         timestamp=timestamp,
-        question=question,
-        final_answer=str(payload.get("verdict_reasoning") or summary),
     )
 
     if has_receipt_contract:
@@ -1136,8 +1147,6 @@ def _build_live_receipt(
         debate_result=result,
         receipt_context=settlement_receipt_context,
         timestamp=timestamp,
-        question=question,
-        final_answer=final_answer,
     )
     receipt = DecisionReceipt(
         receipt_id=receipt_id,
