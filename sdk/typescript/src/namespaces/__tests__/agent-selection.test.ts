@@ -519,7 +519,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/scorers/elo-scorer'
+        '/api/v1/selection/scorers/elo-scorer'
       );
       expect(result.metrics).toContain('accuracy');
     });
@@ -541,7 +541,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/team-selectors/diversity-selector'
+        '/api/v1/selection/team-selectors/diversity-selector'
       );
       expect(result.supports_constraints).toBe(true);
     });
@@ -563,7 +563,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/role-assigners/capability-assigner'
+        '/api/v1/selection/role-assigners/capability-assigner'
       );
       expect(result.roles).toContain('lead');
     });
@@ -585,7 +585,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/scorers/custom%2Fscorer'
+        '/api/v1/selection/scorers/custom%2Fscorer'
       );
     });
   });

@@ -417,7 +417,7 @@ export class MarketplaceAPI {
       `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/ratings`,
       { body: { score: rating } }
     );
-    return { new_rating: response.average_rating };
+    return { new_rating: response.average_rating ?? (response as { new_rating?: number }).new_rating ?? 0 };
   }
 
   /**

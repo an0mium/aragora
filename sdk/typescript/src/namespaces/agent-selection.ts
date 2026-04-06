@@ -470,33 +470,34 @@ export class AgentSelectionAPI {
    * List all scorer plugins via the plugins endpoint.
    */
   async listScorers(): Promise<{ scorers: ScorerPlugin[] }> {
-    return this.client.request<{ scorers: ScorerPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'scorers' } }
-    );
+    const response = await this.client.request<ListPluginsResponse>('GET', '/api/v1/selection/plugins');
+    return {
+      scorers: response.plugins.filter((plugin): plugin is ScorerPlugin => plugin.type === 'scorer'),
+    };
   }
 
   /**
    * List all team selector plugins via the plugins endpoint.
    */
   async listTeamSelectors(): Promise<{ selectors: TeamSelectorPlugin[] }> {
-    return this.client.request<{ selectors: TeamSelectorPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'team-selectors' } }
-    );
+    const response = await this.client.request<ListPluginsResponse>('GET', '/api/v1/selection/plugins');
+    return {
+      selectors: response.plugins.filter(
+        (plugin): plugin is TeamSelectorPlugin => plugin.type === 'team_selector'
+      ),
+    };
   }
 
   /**
    * List all role assigner plugins via the plugins endpoint.
    */
   async listRoleAssigners(): Promise<{ assigners: RoleAssignerPlugin[] }> {
-    return this.client.request<{ assigners: RoleAssignerPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'role-assigners' } }
-    );
+    const response = await this.client.request<ListPluginsResponse>('GET', '/api/v1/selection/plugins');
+    return {
+      assigners: response.plugins.filter(
+        (plugin): plugin is RoleAssignerPlugin => plugin.type === 'role_assigner'
+      ),
+    };
   }
 
   /**
