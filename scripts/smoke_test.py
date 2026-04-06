@@ -73,6 +73,31 @@ def _find_free_port() -> int:
         return s.getsockname()[1]
 
 
+def _make_smoke_protocol(rounds: int = 1, consensus: str = "any"):
+    """Build a lean debate protocol for offline smoke checks.
+
+    Smoke coverage should verify the core propose/critique/vote flow without
+    pulling in optional heavyweight subsystems and background enrichers.
+    """
+    from aragora.debate.protocol import DebateProtocol
+
+    return DebateProtocol(
+        rounds=rounds,
+        consensus=consensus,
+        enable_trickster=False,
+        enable_research=False,
+        enable_trending_injection=False,
+        enable_llm_question_classification=False,
+        enable_llm_synthesis=False,
+        enable_evolution=False,
+        verify_claims_during_consensus=False,
+        enable_evidence_weighting=False,
+        enable_breakpoints=False,
+        enable_calibration=False,
+        vote_grouping=False,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Check 1: Server startup in offline mode
 # ---------------------------------------------------------------------------
@@ -89,6 +114,7 @@ def check_server_startup() -> bool:
         "ARAGORA_DEMO_MODE": "true",
         "ARAGORA_DB_BACKEND": "sqlite",
         "ARAGORA_ENV": "development",
+        "ARAGORA_USE_SECRETS_MANAGER": "false",
     }
 
     cmd = [
@@ -170,6 +196,7 @@ def check_health_endpoint() -> bool:
         "ARAGORA_DEMO_MODE": "true",
         "ARAGORA_DB_BACKEND": "sqlite",
         "ARAGORA_ENV": "development",
+        "ARAGORA_USE_SECRETS_MANAGER": "false",
     }
 
     cmd = [
@@ -255,10 +282,10 @@ def check_health_endpoint() -> bool:
 
 def check_debate_run() -> bool:
     """Create and run a debate with mock agents, verify result structure."""
+    os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
     try:
         from aragora.core import Agent, Critique, Vote, Environment, DebateResult
         from aragora.debate.orchestrator import Arena
-        from aragora.debate.protocol import DebateProtocol
     except ImportError as exc:
         return _check("debate_run", False, f"import failed: {exc}")
 
@@ -302,8 +329,8 @@ def check_debate_run() -> bool:
     async def _run() -> DebateResult:
         agents = [SmokeAgent("alpha"), SmokeAgent("beta"), SmokeAgent("gamma")]
         env = Environment(task="Design a rate limiter API", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="any")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=1, consensus="any")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
         return await asyncio.wait_for(arena.run(), timeout=30)
 
     try:

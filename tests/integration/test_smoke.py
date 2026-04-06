@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -24,6 +25,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
+
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Vote
 from aragora.debate.orchestrator import Arena
@@ -37,6 +40,25 @@ pytestmark = [pytest.mark.integration]
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _make_smoke_protocol(rounds: int = 1, consensus: str = "any") -> DebateProtocol:
+    """Mirror the lightweight debate profile used by scripts/smoke_test.py."""
+    return DebateProtocol(
+        rounds=rounds,
+        consensus=consensus,
+        enable_trickster=False,
+        enable_research=False,
+        enable_trending_injection=False,
+        enable_llm_question_classification=False,
+        enable_llm_synthesis=False,
+        enable_evolution=False,
+        verify_claims_during_consensus=False,
+        enable_evidence_weighting=False,
+        enable_breakpoints=False,
+        enable_calibration=False,
+        vote_grouping=False,
+    )
 
 
 class SmokeAgent(Agent):
@@ -168,8 +190,8 @@ class TestDebateRun:
         """A 1-round debate with 3 smoke agents produces a DebateResult."""
         agents = [SmokeAgent("alpha"), SmokeAgent("beta"), SmokeAgent("gamma")]
         env = Environment(task="Design a rate limiter API", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="any")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=1, consensus="any")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
 
         result = await asyncio.wait_for(arena.run(), timeout=30)
 
@@ -180,8 +202,8 @@ class TestDebateRun:
         """The debate result includes a non-empty debate_id."""
         agents = [SmokeAgent("a1"), SmokeAgent("a2")]
         env = Environment(task="Pick a database", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="any")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=1, consensus="any")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
 
         result = await asyncio.wait_for(arena.run(), timeout=30)
 
@@ -192,8 +214,8 @@ class TestDebateRun:
         """The result records how many rounds were executed."""
         agents = [SmokeAgent("x"), SmokeAgent("y"), SmokeAgent("z")]
         env = Environment(task="Evaluate caching strategies", max_rounds=2)
-        protocol = DebateProtocol(rounds=2, consensus="any")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=2, consensus="any")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
 
         result = await asyncio.wait_for(arena.run(), timeout=30)
 
@@ -203,8 +225,8 @@ class TestDebateRun:
         """The result includes a list of messages."""
         agents = [SmokeAgent("p"), SmokeAgent("q")]
         env = Environment(task="Choose a framework", max_rounds=1)
-        protocol = DebateProtocol(rounds=1, consensus="any")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=1, consensus="any")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
 
         result = await asyncio.wait_for(arena.run(), timeout=30)
 
@@ -218,8 +240,8 @@ class TestDebateRun:
             SmokeAgent("c", vote_choice="a"),
         ]
         env = Environment(task="Quick consensus test", max_rounds=2)
-        protocol = DebateProtocol(rounds=2, consensus="majority")
-        arena = Arena(env, agents, protocol)
+        protocol = _make_smoke_protocol(rounds=2, consensus="majority")
+        arena = Arena(env, agents, protocol, disable_post_debate_pipeline=True)
 
         result = await asyncio.wait_for(arena.run(), timeout=30)
 
