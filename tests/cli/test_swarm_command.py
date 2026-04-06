@@ -51,9 +51,19 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "rationale": "",
         "new_pr_url": None,
         "status_limit": 20,
+        "findings_limit": 10,
         "refresh_scaling": False,
         "no_dispatch": False,
         "watch": False,
+        "session_id": None,
+        "assigned_by": None,
+        "directive_status": "active",
+        "scope": None,
+        "constraint": None,
+        "claim_intent": None,
+        "ttl_minutes": 30,
+        "kind": None,
+        "pr": None,
         "claude_runner_profiles": None,
         "runner_rotation_interval": 1800.0,
         "boss_max_parallel_dispatches": 1,
@@ -150,6 +160,77 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "status"
         assert args.run_id == "run-123"
         assert args.json is True
+
+    def test_swarm_coord_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["swarm", "coord", "--findings-limit", "5", "--json"])
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "coord"
+        assert args.findings_limit == 5
+        assert args.json is True
+
+    def test_swarm_assign_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "assign",
+                "codex-a",
+                "SDK parity consolidation",
+                "--scope",
+                "#2684",
+                "--constraint",
+                "no queue drain",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "assign"
+        assert args.swarm_goal == "codex-a"
+        assert args.swarm_campaign_target == "SDK parity consolidation"
+        assert args.scope == ["#2684"]
+        assert args.constraint == ["no queue drain"]
+
+    def test_swarm_claim_pr_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            ["swarm", "claim-pr", "2684", "--session-id", "codex-a", "--ttl-minutes", "15"]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "claim-pr"
+        assert args.swarm_goal == "2684"
+        assert args.session_id == "codex-a"
+        assert args.ttl_minutes == 15
+
+    def test_swarm_report_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            ["swarm", "report", "Verification route bug", "--kind", "blocker", "--pr", "2677"]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "report"
+        assert args.swarm_goal == "Verification route bug"
+        assert args.kind == "blocker"
+        assert args.pr == 2677
+
+    def test_swarm_findings_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            ["swarm", "findings", "--kind", "blocker", "--session-id", "review-codex"]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "findings"
+        assert args.kind == "blocker"
+        assert args.session_id == "review-codex"
 
     def test_swarm_reconcile_parser(self):
         from aragora.cli.parser import build_parser
@@ -731,6 +812,115 @@ class TestSwarmParser:
 
 
 class TestSwarmCommand:
+    def test_cmd_swarm_assign_and_findings_flow(self, tmp_path: Path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        assign_args = _swarm_args(
+            swarm_action_or_goal="assign",
+            swarm_goal="codex-a",
+            swarm_campaign_target="SDK parity consolidation",
+            scope=["#2684"],
+            constraint=["no queue drain"],
+            assigned_by="boss-codex",
+            json=True,
+        )
+        cmd_swarm(assign_args)
+        assign_out = capsys.readouterr().out
+        assert '"mode": "coordination-assign"' in assign_out
+        assert '"target": "codex-a"' in assign_out
+
+        report_args = _swarm_args(
+            swarm_action_or_goal="report",
+            swarm_goal="Verification route bug",
+            session_id="review-codex",
+            kind="blocker",
+            pr=2677,
+            json=True,
+        )
+        cmd_swarm(report_args)
+        report_out = capsys.readouterr().out
+        assert '"mode": "coordination-report"' in report_out
+        assert '"kind": "blocker"' in report_out
+
+        findings_args = _swarm_args(
+            swarm_action_or_goal="findings",
+            session_id="review-codex",
+            kind="blocker",
+            json=True,
+        )
+        cmd_swarm(findings_args)
+        findings_out = capsys.readouterr().out
+        assert '"mode": "coordination-findings"' in findings_out
+        assert '"message": "Verification route bug"' in findings_out
+
+    def test_cmd_swarm_claim_pr_reports_contested_owner(self, tmp_path: Path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        first_args = _swarm_args(
+            swarm_action_or_goal="claim-pr",
+            swarm_goal="2684",
+            session_id="codex-a",
+        )
+        cmd_swarm(first_args)
+        assert "claimed PR#2684 for codex-a" in capsys.readouterr().out
+
+        second_args = _swarm_args(
+            swarm_action_or_goal="claim-pr",
+            swarm_goal="2684",
+            session_id="codex-b",
+        )
+        cmd_swarm(second_args)
+        out = capsys.readouterr().out
+        assert "PR#2684 claim contested for codex-b" in out
+        assert "codex-a" in out
+
+    def test_cmd_swarm_status_includes_coordination_view(self, tmp_path: Path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        cmd_swarm(
+            _swarm_args(
+                swarm_action_or_goal="assign",
+                swarm_goal="codex-a",
+                swarm_campaign_target="Own parity lane",
+                assigned_by="boss-codex",
+            )
+        )
+        capsys.readouterr()
+        cmd_swarm(
+            _swarm_args(
+                swarm_action_or_goal="report",
+                swarm_goal="Bandit B310 in auth/oidc.py",
+                session_id="codex-b",
+                kind="blocker",
+                pr=2679,
+            )
+        )
+        capsys.readouterr()
+
+        with (
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=tmp_path),
+            patch("aragora.worktree.fleet.build_fleet_rows", return_value=[]),
+            patch("aragora.worktree.fleet.FleetCoordinationStore") as store_cls,
+            patch("aragora.swarm.SwarmSupervisor") as supervisor_cls,
+        ):
+            store_cls.return_value.list_claims.return_value = []
+            store_cls.return_value.list_merge_queue.return_value = []
+            supervisor_cls.return_value.status_summary.return_value = {
+                "runs": [],
+                "counts": {
+                    "runs": 0,
+                    "queued_work_orders": 0,
+                    "leased_work_orders": 0,
+                    "completed_work_orders": 0,
+                },
+                "coordination": {"counts": {"active_leases": 0}},
+            }
+            cmd_swarm(_swarm_args(swarm_action_or_goal="status"))
+
+        out = capsys.readouterr().out
+        assert "coordination directives=1 sessions=0 claims=0 findings=1" in out
+        assert "directive codex-a status=active task=Own parity lane" in out
+        assert "finding codex-b kind=blocker pr=#2679 Bandit B310 in auth/oidc.py" in out
+
     def test_cmd_swarm_runner_inspect_json(self, capsys):
         args = _swarm_args(
             swarm_action_or_goal="runner",

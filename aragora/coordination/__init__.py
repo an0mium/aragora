@@ -30,6 +30,10 @@ from aragora.coordination.claims import (
     ClaimStatus,
     FileClaim,
 )
+from aragora.coordination.directives import (
+    DirectiveBoard,
+    SessionDirective,
+)
 from aragora.coordination.cross_workspace import (
     CrossWorkspaceCoordinator,
     FederatedWorkspace,
@@ -76,6 +80,9 @@ __all__ = [
     # Event bus
     "CoordinationBus",
     "CoordinationEvent",
+    # Directive board
+    "DirectiveBoard",
+    "SessionDirective",
     # File claims
     "ClaimManager",
     "ClaimResult",
