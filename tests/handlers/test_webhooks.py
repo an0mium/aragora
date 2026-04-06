@@ -175,7 +175,7 @@ class TestWebhookHandlerListWebhooks:
     def test_handle_list_webhooks_with_webhooks(self, handler, mock_store):
         """Test authenticated listing returns webhook data."""
         webhook = MagicMock()
-        webhook.user_id = None
+        webhook.user_id = "user_123"
         webhook.workspace_id = None
         webhook.to_dict.return_value = {
             "id": "wh_123",
