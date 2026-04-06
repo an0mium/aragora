@@ -830,11 +830,18 @@ The webhook secret is only returned once on creation - save it securely.""",
             if invalid_events:
                 return error_response(f"Invalid event types: {', '.join(invalid_events)}", 400)
 
+        active = None
+        if "active" in body:
+            raw_active = body.get("active")
+            if not isinstance(raw_active, bool):
+                return error_response("Active must be a boolean", 400)
+            active = raw_active
+
         updated = store.update(
             webhook_id=webhook_id,
             url=new_url,
             events=events,
-            active=body.get("active"),
+            active=active,
             name=body.get("name"),
             description=body.get("description"),
         )

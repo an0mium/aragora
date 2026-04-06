@@ -917,6 +917,24 @@ class TestWebhookHandlerUpdate:
         assert result.status_code == 400
         assert b"at least one event type is required" in result.body.lower()
 
+    def test_update_webhook_rejects_nonboolean_active(self, webhook_handler, server_context):
+        """PATCH must not persist malformed activation flags."""
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
+
+        body = json.dumps({"active": "false"}).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 400
+        assert b"active must be a boolean" in result.body.lower()
+
     def test_update_webhook_hides_workspace_mismatch(self, server_context):
         from aragora.server.handlers.webhooks import WebhookHandler
 
