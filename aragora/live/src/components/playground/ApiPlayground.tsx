@@ -35,20 +35,18 @@ interface RequestState {
 const ENDPOINTS: Endpoint[] = [
   {
     method: 'POST',
-    path: '/api/debates',
+    path: '/api/v2/debates',
     description: 'Create a new debate',
     body: {
-      task: 'What is the best programming paradigm?',
-      agents: ['claude', 'gpt-4'],
-      protocol: {
-        rounds: 2,
-        consensus: 'majority',
-      },
+      question: 'What is the best programming paradigm?',
+      agents: ['anthropic-api', 'openai-api'],
+      rounds: 2,
+      consensus: 'majority',
     },
   },
   {
     method: 'GET',
-    path: '/api/debates',
+    path: '/api/v2/debates',
     description: 'List all debates',
     parameters: [
       { name: 'limit', type: 'number', required: false, description: 'Max results', default: 10 },
@@ -57,7 +55,7 @@ const ENDPOINTS: Endpoint[] = [
   },
   {
     method: 'GET',
-    path: '/api/debates/{debate_id}',
+    path: '/api/v2/debates/{debate_id}',
     description: 'Get debate details',
     parameters: [
       { name: 'debate_id', type: 'string', required: true, description: 'Debate ID' },
@@ -65,27 +63,31 @@ const ENDPOINTS: Endpoint[] = [
   },
   {
     method: 'GET',
-    path: '/api/agents',
+    path: '/api/v2/agents',
     description: 'List available agents',
   },
   {
-    method: 'POST',
-    path: '/api/agents/recommend',
-    description: 'Get agent recommendations for a task',
-    body: {
-      task: 'Review this code for security issues',
-      count: 3,
-    },
+    method: 'GET',
+    path: '/api/v2/agents/leaderboard',
+    description: 'Get agent leaderboard',
   },
   {
     method: 'GET',
-    path: '/api/capabilities',
-    description: 'Get API capabilities and version',
+    path: '/api/v2/receipts/{receipt_id}',
+    description: 'Get receipt by ID',
+    parameters: [
+      { name: 'receipt_id', type: 'string', required: true, description: 'Receipt ID' },
+    ],
   },
   {
     method: 'GET',
-    path: '/health/ready',
-    description: 'Health check endpoint',
+    path: '/api/v2/health',
+    description: 'Detailed health status',
+  },
+  {
+    method: 'GET',
+    path: '/readyz',
+    description: 'Readiness probe',
   },
 ];
 
