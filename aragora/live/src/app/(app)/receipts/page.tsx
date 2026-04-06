@@ -685,11 +685,15 @@ function buildExportUrls(
   const urls = new Set<string>();
 
   if (item.receiptId) {
-    urls.add(`${backendUrl}/api/v2/receipts/${item.receiptId}/export?format=${exportFormat}`);
+    urls.add(
+      `${backendUrl}/api/v2/receipts/${item.receiptId}/export?format=${exportFormat}&raw=true`
+    );
   }
 
   if (!item.receiptId && item.id) {
-    urls.add(`${backendUrl}/api/v2/receipts/${item.id}/export?format=${exportFormat}`);
+    urls.add(
+      `${backendUrl}/api/v2/receipts/${item.id}/export?format=${exportFormat}&raw=true`
+    );
   }
 
   if (item.gauntletId) {

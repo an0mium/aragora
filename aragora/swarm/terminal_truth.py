@@ -47,9 +47,9 @@ _WORKER_OUTCOME_TO_TERMINAL: dict[str, str] = {
     "completed": "deliverable_created",
     "clean_exit_no_effect": "clean_exit_no_deliverable",
     "crash": "crash",
-    "crash_with_salvage": "crash",
+    "crash_with_salvage": "deliverable_created",  # salvaged commits are real deliverables
     "timeout_no_progress": "timeout",
-    "timeout_with_salvage": "timeout",
+    "timeout_with_salvage": "deliverable_created",  # salvaged commits are real deliverables
     "scope_violation": "blocked",
     "merge_gate_failed": "needs_human",
 }

@@ -11,8 +11,10 @@ Tests cover:
 
 from __future__ import annotations
 
+import gc
 import functools
 import json
+import warnings
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -274,6 +276,63 @@ class TestPostSecurityDebate:
                         assert data["status"] == "completed"
                         assert data["consensus_reached"] is True
                         assert data["findings_analyzed"] == 1
+
+    def test_post_success_does_not_leak_coroutine_when_run_async_short_circuits(self, handler):
+        findings = [
+            {
+                "severity": "critical",
+                "title": "RCE Vulnerability",
+                "description": "Remote code execution via deserialization",
+                "file_path": "app/utils.py",
+                "line_number": 42,
+            }
+        ]
+
+        mock_result = MockDebateResult()
+        mock_security_event = MagicMock()
+        mock_security_event.id = "evt-001"
+
+        mock_severity_cls = MagicMock()
+        mock_severity_cls.CRITICAL = MagicMock()
+        mock_severity_cls.HIGH = MagicMock()
+        mock_severity_cls.MEDIUM = MagicMock()
+        mock_severity_cls.return_value = mock_severity_cls.CRITICAL
+
+        mock_event_type_cls = MagicMock()
+        mock_event_type_cls.SAST_CRITICAL = MagicMock()
+        mock_event_type_cls.VULNERABILITY_DETECTED = MagicMock()
+
+        mock_finding_obj = MagicMock()
+        mock_finding_obj.severity = mock_severity_cls.CRITICAL
+
+        with patch.object(handler, "get_json_body", return_value={"findings": findings}):
+            with patch.dict("sys.modules", {}):
+                with patch(
+                    "aragora.server.handlers.security_debate.run_async",
+                    return_value=mock_result,
+                ):
+                    mock_sec_debate = MagicMock()
+                    mock_sec_events = MagicMock()
+                    mock_sec_events.SecuritySeverity = mock_severity_cls
+                    mock_sec_events.SecurityEventType = mock_event_type_cls
+                    mock_sec_events.SecurityFinding = MagicMock(return_value=mock_finding_obj)
+                    mock_sec_events.SecurityEvent = MagicMock(return_value=mock_security_event)
+
+                    with patch.dict(
+                        "sys.modules",
+                        {
+                            "aragora.debate.security_debate": mock_sec_debate,
+                            "aragora.events.security_events": mock_sec_events,
+                        },
+                    ):
+                        with warnings.catch_warnings(record=True) as caught:
+                            warnings.simplefilter("always", RuntimeWarning)
+                            result = handler.post_api_v1_audit_security_debate()
+                            del result
+                            gc.collect()
+
+        leaked = [warning for warning in caught if "was never awaited" in str(warning.message)]
+        assert leaked == []
 
 
 # ===========================================================================
