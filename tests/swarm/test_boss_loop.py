@@ -4446,3 +4446,59 @@ class TestPostprocessConvertsToDraft:
         ):
             loop._postprocess_issue_result(issue, worker_result)
         mock_convert.assert_called_once_with(worker_result)
+
+
+class TestDeferredPublishAutoContinue:
+    def test_deferred_branch_publish_does_not_use_receipt_backed_auto_continue(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                auto_continue_on_needs_human=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=123, title="Deferred branch publish")
+        worker_result: dict[str, Any] = {
+            "status": "needs_human",
+            "outcome": "deliverable_blocked",
+            "reasons": ["Boss auto-publish deferred until the open PR queue drains."],
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-123",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(
+                loop,
+                "_list_open_boss_harvest_prs",
+                return_value=[
+                    {
+                        "number": 2045,
+                        "headRefName": "aragora/boss-harvest/issue-45-boss-aaa",
+                        "isDraft": True,
+                        "url": "https://github.com/synaptent/aragora/pull/2045",
+                    }
+                ],
+            ),
+            patch.object(loop, "_emit_lane_receipt"),
+            patch.object(loop, "_append_iteration_metrics"),
+            patch.object(loop, "_log_value_outcome"),
+        ):
+            postprocessed = loop._postprocess_issue_result(issue, worker_result)
+            status = loop._finalize_worker_result(
+                iteration=1,
+                timestamp="2026-04-06T00:00:00Z",
+                runner_freshness={},
+                issue=issue,
+                issue_dict={"number": issue.number, "title": issue.title},
+                worker_result=postprocessed,
+                elapsed_seconds=1.0,
+            )
+
+        assert postprocessed["publish_result"]["action"] == "deferred_due_to_open_boss_prs"
+        assert status.worker_status == "needs_human"
+        assert status.next_actions == ["Skipping to next issue (auto-continue mode)."]
+        assert "receipt-backed" not in status.next_actions[0]

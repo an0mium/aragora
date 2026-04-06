@@ -1791,12 +1791,25 @@ class BossLoop:
             else worker_result.get("pr_url")
             or (
                 worker_result.get("deliverable", {}).get("pr_url")
+                or worker_result.get("deliverable", {}).get("adopted_pr")
                 if isinstance(worker_result.get("deliverable"), dict)
                 else ""
             )
             or ""
         ).strip()
         return pr_url or None
+
+    @staticmethod
+    def _can_auto_continue_needs_human_deliverable(
+        worker_result: dict[str, Any],
+        deliverable_type: str,
+    ) -> bool:
+        normalized_type = str(deliverable_type or "").strip().lower()
+        if not normalized_type:
+            return False
+        if normalized_type != "branch":
+            return True
+        return BossLoop._published_pr_url(worker_result) is not None
 
     @staticmethod
     def _publish_result_succeeded(publish_result: Any) -> bool:
@@ -3167,9 +3180,12 @@ class BossLoop:
             _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
                 worker_result
             )
-            has_deliverable = bool(normalized_deliverable_type)
+            can_auto_continue_deliverable = self._can_auto_continue_needs_human_deliverable(
+                worker_result,
+                normalized_deliverable_type,
+            )
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
-            if self.config.auto_continue_on_needs_human and has_deliverable:
+            if self.config.auto_continue_on_needs_human and can_auto_continue_deliverable:
                 self._failed_issues.append(issue_dict)
                 self._consecutive_failures = 0
                 logger.info(
