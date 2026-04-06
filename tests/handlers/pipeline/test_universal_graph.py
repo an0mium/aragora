@@ -34,10 +34,8 @@ import pytest
 
 from aragora.canvas.stages import PipelineStage, StageEdgeType
 from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
-from aragora.server.handlers.pipeline.universal_graph import (
-    UniversalGraphHandler,
-    _graph_limiter,
-)
+import aragora.server.handlers.pipeline.universal_graph as universal_graph_module
+from aragora.server.handlers.pipeline.universal_graph import UniversalGraphHandler
 
 # Patch targets -- lazy imports inside method bodies use these source modules
 _GRAPH_CLS = "aragora.pipeline.universal_node.UniversalGraph"
@@ -171,9 +169,13 @@ def _mock_edge(edge_id: str = "edge-abc123"):
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """Reset the rate limiter between tests."""
-    _graph_limiter._buckets.clear()
+    universal_graph_module._graph_limiter = universal_graph_module.RateLimiter(
+        requests_per_minute=60
+    )
     yield
-    _graph_limiter._buckets.clear()
+    universal_graph_module._graph_limiter = universal_graph_module.RateLimiter(
+        requests_per_minute=60
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -1327,14 +1329,20 @@ class TestRateLimiting:
     def test_handle_rate_limited(self, patched_store):
         h = _make_handler()
         http = _make_http_handler(client_ip="10.0.0.1")
-        with patch.object(_graph_limiter, "is_allowed", return_value=False):
+        with patch(
+            "aragora.server.handlers.pipeline.universal_graph._graph_limiter.is_allowed",
+            return_value=False,
+        ):
             result = h.handle("/api/v1/pipeline/graphs", {}, http)
         assert _status(result) == 429
 
     def test_handle_post_rate_limited(self, patched_store):
         h = _make_handler()
         http = _make_http_handler(client_ip="10.0.0.2")
-        with patch.object(_graph_limiter, "is_allowed", return_value=False):
+        with patch(
+            "aragora.server.handlers.pipeline.universal_graph._graph_limiter.is_allowed",
+            return_value=False,
+        ):
             result = h.handle_post("/api/v1/pipeline/graphs", {}, http)
         assert _status(result) == 429
 

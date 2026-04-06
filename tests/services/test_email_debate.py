@@ -318,14 +318,16 @@ class TestSanitizeEmail:
 class TestPrioritizeEmail:
     @pytest.mark.asyncio
     async def test_prioritize_fallback(self):
-        svc = EmailDebateService()
+        svc = EmailDebateService(enable_sender_reputation=False)
+        svc._debate_factory = False
         email = _make_email(subject="URGENT: Please respond ASAP")
         result = await svc.prioritize_email(email)
         assert result.priority == EmailPriority.URGENT
 
     @pytest.mark.asyncio
     async def test_prioritize_normal(self):
-        svc = EmailDebateService()
+        svc = EmailDebateService(enable_sender_reputation=False)
+        svc._debate_factory = False
         email = _make_email(subject="Monthly status update")
         result = await svc.prioritize_email(email)
         assert result.priority == EmailPriority.NORMAL
@@ -346,7 +348,8 @@ class TestPrioritizeBatch:
 
     @pytest.mark.asyncio
     async def test_batch_multiple(self):
-        svc = EmailDebateService()
+        svc = EmailDebateService(enable_sender_reputation=False)
+        svc._debate_factory = False
         emails = [
             _make_email(subject="URGENT: Fire!", message_id="m1"),
             _make_email(subject="Newsletter update", message_id="m2"),

@@ -324,6 +324,8 @@ class TestStreamingIntegration:
         # Create mock clients
         clients = [AsyncMock() for _ in range(3)]
         server.clients = set(clients)
+        for client in clients:
+            server._client_subscriptions[id(client)] = "integration-test"
 
         # Create emitter
         emitter = SyncEventEmitter(loop_id="integration-test")

@@ -189,6 +189,15 @@ def audit_trail_handler():
 from aragora.server.handlers.compliance.audit import AuditTrailHandler
 
 
+@pytest.fixture(autouse=True)
+def _reset_audit_trail_class_storage():
+    AuditTrailHandler._trails = {}
+    AuditTrailHandler._receipts = {}
+    yield
+    AuditTrailHandler._trails = {}
+    AuditTrailHandler._receipts = {}
+
+
 class TestAuditTrailHandlerCanHandle:
     """Tests for AuditTrailHandler.can_handle routing."""
 

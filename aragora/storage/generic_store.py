@@ -58,6 +58,7 @@ import sqlite3
 import threading
 import time
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -471,7 +472,7 @@ class GenericPostgresStore(GenericStoreBackend):
         if not item_id:
             raise ValueError(f"{self.PRIMARY_KEY} is required")
 
-        now = time.time()
+        now = datetime.now(timezone.utc)
         data_json = json.dumps(data)
         extra_cols = self._extract_columns(data)
 
@@ -587,7 +588,7 @@ class GenericPostgresStore(GenericStoreBackend):
 
             # Build SET clause
             set_parts = ["updated_at = $1", "data_json = $2"]
-            values: list[Any] = [time.time(), json.dumps(data)]
+            values: list[Any] = [datetime.now(timezone.utc), json.dumps(data)]
             param_idx = 3
 
             if extra_column_updates:
