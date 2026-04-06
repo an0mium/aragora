@@ -1803,6 +1803,17 @@ class BossLoop:
         return isinstance(publish_result, dict) and publish_result.get("published") is True
 
     @staticmethod
+    def _needs_human_auto_continue_allowed(worker_result: dict[str, Any]) -> bool:
+        _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
+            worker_result
+        )
+        if not normalized_deliverable_type:
+            return False
+        if normalized_deliverable_type in {"pr", "adopted_pr"}:
+            return True
+        return BossLoop._published_pr_url(worker_result) is not None
+
+    @staticmethod
     def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
         publish_result = worker_result.get("publish_result")
         if not BossLoop._publish_result_succeeded(publish_result):
@@ -3164,12 +3175,10 @@ class BossLoop:
             )
 
         if worker_result.get("status") == "needs_human":
-            _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
-                worker_result
-            )
-            has_deliverable = bool(normalized_deliverable_type)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
-            if self.config.auto_continue_on_needs_human and has_deliverable:
+            if self.config.auto_continue_on_needs_human and self._needs_human_auto_continue_allowed(
+                worker_result
+            ):
                 self._failed_issues.append(issue_dict)
                 self._consecutive_failures = 0
                 logger.info(
