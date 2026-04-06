@@ -231,6 +231,8 @@ class GauntletHandler(
             return True
         if normalized == "/api/gauntlet/run" and method == "POST":
             return True
+        if normalized.endswith("/receipt/verify") and method == "POST":
+            return normalized.startswith("/api/gauntlet/")
         if normalized == "/api/gauntlet/personas" and method == "GET":
             return True
         if normalized == "/api/gauntlet/results" and method == "GET":

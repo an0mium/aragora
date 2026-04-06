@@ -91,8 +91,8 @@ class TestGauntletHandlerRouting:
         assert handler.can_handle("/api/v1/gauntlet/abc-123/receipt", method="GET")
 
     def test_can_handle_receipt_verify(self, handler):
-        """Handler can handle GET /api/v1/gauntlet/:id/receipt/verify."""
-        assert handler.can_handle("/api/v1/gauntlet/abc-123/receipt/verify", method="GET")
+        """Handler can handle POST /api/v1/gauntlet/:id/receipt/verify."""
+        assert handler.can_handle("/api/v1/gauntlet/abc-123/receipt/verify", method="POST")
 
     def test_can_handle_heatmap_endpoint(self, handler):
         """Handler can handle GET /api/v1/gauntlet/:id/heatmap."""
@@ -279,7 +279,7 @@ class TestGauntletReceiptVerification:
 
     def test_can_handle_verify_endpoint(self, handler):
         """Handler can handle verify endpoint."""
-        assert handler.can_handle("/api/v1/gauntlet/abc-123/receipt/verify", method="GET")
+        assert handler.can_handle("/api/v1/gauntlet/abc-123/receipt/verify", method="POST")
 
 
 # ============================================================================

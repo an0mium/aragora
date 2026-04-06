@@ -255,6 +255,13 @@ class TestGauntletHandlerRouting:
             gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/receipt", "GET") is True
         )
 
+    def test_can_handle_receipt_verify(self, gauntlet_handler):
+        """Should handle POST /api/gauntlet/{id}/receipt/verify."""
+        assert (
+            gauntlet_handler.can_handle("/api/gauntlet/gauntlet-12345-abc/receipt/verify", "POST")
+            is True
+        )
+
     def test_can_handle_heatmap(self, gauntlet_handler):
         """Should handle GET /api/gauntlet/{id}/heatmap."""
         assert (

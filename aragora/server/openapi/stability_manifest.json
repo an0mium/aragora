@@ -544,7 +544,7 @@
     "GET /api/v1/gauntlet/{param}/export",
     "GET /api/v1/gauntlet/{param}/heatmap",
     "GET /api/v1/gauntlet/{param}/receipt",
-    "GET /api/v1/gauntlet/{param}/receipt/verify",
+    "POST /api/v1/gauntlet/{param}/receipt/verify",
     "GET /api/v1/genesis/descendants",
     "GET /api/v1/genesis/descendants/{param}",
     "GET /api/v1/genesis/events",
