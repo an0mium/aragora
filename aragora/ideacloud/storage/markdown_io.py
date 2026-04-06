@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from stat import S_ISDIR
 from typing import Any
 
 import yaml
@@ -121,7 +122,7 @@ def list_node_files(vault_path: str | Path) -> list[Path]:
     matching the ``ic_*.md`` naming convention.
     """
     vault = Path(vault_path)
-    if not vault.is_dir():
+    if not _path_is_dir(vault):
         return []
 
     # Flat files in vault root
@@ -130,7 +131,7 @@ def list_node_files(vault_path: str | Path) -> list[Path]:
     # Hierarchical files in status subdirectories
     for subdir in _STATUS_DIRS:
         sub = vault / subdir
-        if sub.is_dir():
+        if _path_is_dir(sub):
             files.extend(sub.glob("ic_*.md"))
 
     # Deduplicate (in case the same file somehow exists in both)
@@ -155,7 +156,7 @@ def delete_node_file(vault_path: str | Path, node_id: str) -> bool:
     Returns True if file was deleted, False if it didn't exist.
     """
     path = Path(vault_path) / f"{node_id}.md"
-    if path.exists():
+    if _path_exists(path):
         path.unlink()
         logger.debug("Deleted idea file %s", path)
         return True
@@ -215,7 +216,7 @@ def _cleanup_old_locations(vault: Path, node_id: str, exclude: Path) -> None:
 
     # Check vault root
     root_file = vault / filename
-    if root_file.exists() and root_file.parent != exclude:
+    if _path_exists(root_file) and root_file.parent != exclude:
         root_file.unlink()
         logger.debug("Cleaned up %s from vault root", filename)
 
@@ -223,7 +224,7 @@ def _cleanup_old_locations(vault: Path, node_id: str, exclude: Path) -> None:
     for subdir in _STATUS_DIRS:
         sub = vault / subdir
         old_file = sub / filename
-        if old_file.exists() and sub != exclude:
+        if _path_exists(old_file) and sub != exclude:
             old_file.unlink()
             logger.debug("Cleaned up %s from %s/", filename, subdir)
 
@@ -241,7 +242,7 @@ def migrate_to_hierarchical(vault_path: str | Path) -> dict[str, int]:
         Dict of status → count of files moved.
     """
     vault = Path(vault_path)
-    if not vault.is_dir():
+    if not _path_is_dir(vault):
         return {}
 
     moved: dict[str, int] = {}
@@ -265,3 +266,20 @@ def migrate_to_hierarchical(vault_path: str | Path) -> dict[str, int]:
         logger.debug("Migrated %s to %s/", file_path.name, status)
 
     return moved
+
+
+def _path_exists(path: Path) -> bool:
+    """Return True for existing paths while propagating real I/O failures."""
+    try:
+        path.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return True
+
+
+def _path_is_dir(path: Path) -> bool:
+    """Return True for directories while propagating real I/O failures."""
+    try:
+        return S_ISDIR(path.stat().st_mode)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
