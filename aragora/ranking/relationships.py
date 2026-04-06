@@ -317,7 +317,7 @@ class RelationshipTracker:
                     "influence_b_on_a": round(relationship.influence_b_on_a, 4),
                 },
             )
-        except Exception as e:  # noqa: BLE001
+        except (ImportError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("Relationship event emission unavailable: %s", e)
 
     def update_batch(self, updates: list[dict]) -> None:
