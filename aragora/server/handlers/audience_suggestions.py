@@ -122,6 +122,9 @@ class AudienceSuggestionsHandler(BaseHandler):
             from aragora.audience.suggestions import sanitize_suggestion
 
             sanitized = sanitize_suggestion(suggestion_text)
+            if not isinstance(sanitized, str) or not sanitized.strip():
+                return error_response("suggestion text is required", 400)
+            sanitized = sanitized.strip()
             storage = self.ctx.get("storage")
             if storage is None:
                 return error_response("Storage not available", 503)
@@ -139,10 +142,11 @@ class AudienceSuggestionsHandler(BaseHandler):
                 },
                 status=201,
             )
+        except (ValueError, TypeError) as exc:
+            logger.info("Rejected audience suggestion input: %s", exc)
+            return error_response("Invalid suggestion text", 400)
         except (
             ImportError,
-            ValueError,
-            TypeError,
             KeyError,
             AttributeError,
             OSError,
