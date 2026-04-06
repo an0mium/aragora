@@ -37,6 +37,12 @@ from aragora.swarm.terminal_truth import (
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 
 # Backwards-compatible re-exports from extracted modules
+from aragora.swarm.boss_dedup import (
+    auto_decompose_stuck_issue as _auto_decompose_stuck_issue_impl,
+    extract_file_scope_hints as _extract_file_scope_hints_impl,
+    label_boss_stuck as _label_boss_stuck_impl,
+    semantic_dedup_issues as _semantic_dedup_issues_impl,
+)
 from aragora.swarm.boss_feed import (  # noqa: F401
     GitHubIssue,
     GitHubIssueFeed,
@@ -46,6 +52,18 @@ from aragora.swarm.boss_feed import (  # noqa: F401
     select_eligible_issue,
 )
 from aragora.swarm.boss_freshness import RunnerFreshnessResult, check_runner_freshness  # noqa: F401
+from aragora.swarm.boss_retry import (
+    extract_worker_agent as _extract_worker_agent_impl,
+    extract_worker_files_changed as _extract_worker_files_changed_impl,
+    extract_worker_transcript as _extract_worker_transcript_impl,
+    filter_mixed_retry_routing_batch as _filter_mixed_retry_routing_batch_impl,
+    normalized_model_rotation as _normalized_model_rotation_impl,
+    pending_handoff_candidates as _pending_handoff_candidates_impl,
+    prepare_ping_pong_handoff as _prepare_ping_pong_handoff_impl,
+    requested_runner_type_for_freshness as _requested_runner_type_for_freshness_impl,
+    requested_target_agent_for_issue as _requested_target_agent_for_issue_impl,
+    selected_issues_need_retry_routing as _selected_issues_need_retry_routing_impl,
+)
 from aragora.swarm.boss_validation import (  # noqa: F401
     _compose_issue_dispatch_goal,
     _should_replace_with_focused_tests,
@@ -765,67 +783,36 @@ class BossLoop:
             logger.debug("Boss metrics emission skipped: %s", exc)
 
     def _normalized_model_rotation(self) -> list[str]:
-        seen: set[str] = set()
-        normalized: list[str] = []
-        for item in self.config.model_rotation:
-            runner_type = str(item).strip().lower()
-            if not runner_type or runner_type in seen:
-                continue
-            seen.add(runner_type)
-            normalized.append(runner_type)
-        return normalized
+        return _normalized_model_rotation_impl(self.config.model_rotation)
 
     def _selected_issues_need_retry_routing(self, issues: list[GitHubIssue]) -> bool:
-        for issue in issues:
-            issue_number = int(getattr(issue, "number", 0) or 0)
-            if issue_number <= 0:
-                continue
-            if issue_number in self._pending_handoff_prompts:
-                return True
-            if int(self._issue_attempt_counts.get(issue_number, 0) or 0) > 0:
-                return True
-        return False
+        return _selected_issues_need_retry_routing_impl(
+            issues,
+            pending_handoff_prompts=self._pending_handoff_prompts,
+            issue_attempt_counts=self._issue_attempt_counts,
+        )
 
     def _filter_mixed_retry_routing_batch(
         self,
         issues: list[GitHubIssue],
     ) -> list[GitHubIssue]:
-        """Keep retry-routed work isolated from fresh issues in one batch.
-
-        A mixed batch forces `_requested_runner_type_for_freshness()` to widen
-        the runner pool for every selected issue. That is correct for retry
-        work, but it lets fresh issues piggy-back onto retry-specific routing.
-        When both kinds are present, dispatch only the retry-routed issues in
-        this iteration and leave fresh work for the next pass.
-        """
-        if len(issues) <= 1:
-            return issues
-
-        retry_routed: list[GitHubIssue] = []
-        fresh: list[GitHubIssue] = []
-        for issue in issues:
-            if self._selected_issues_need_retry_routing([issue]):
-                retry_routed.append(issue)
-            else:
-                fresh.append(issue)
-        if retry_routed and fresh:
-            return retry_routed
-        return issues
+        return _filter_mixed_retry_routing_batch_impl(
+            issues,
+            pending_handoff_prompts=self._pending_handoff_prompts,
+            issue_attempt_counts=self._issue_attempt_counts,
+        )
 
     def _requested_runner_type_for_freshness(
         self,
         selected_issues: list[GitHubIssue],
     ) -> str | None:
-        # Broaden the freshness pool only for the issue(s) we are about to
-        # dispatch when they are actually on a retry/handoff path. Historical
-        # retries on unrelated issues must not let fresh issues bypass the
-        # default target runner requirement.
-        if (
-            self._selected_issues_need_retry_routing(selected_issues)
-            and len(self._normalized_model_rotation()) > 1
-        ):
-            return None
-        return self.config.default_target_agent
+        return _requested_runner_type_for_freshness_impl(
+            selected_issues,
+            default_target_agent=self.config.default_target_agent,
+            model_rotation=self.config.model_rotation,
+            pending_handoff_prompts=self._pending_handoff_prompts,
+            issue_attempt_counts=self._issue_attempt_counts,
+        )
 
     def _refresh_runner_heartbeats(self) -> None:
         """Update heartbeat timestamps for all registered runners.
@@ -869,47 +856,15 @@ class BossLoop:
                 logger.debug("Failed to refresh heartbeat for runner %s", runner_id, exc_info=True)
 
     def _requested_target_agent_for_issue(self, issue_number: int) -> str | None:
-        attempt_count = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
-        default_target = str(self.config.default_target_agent or "").strip().lower() or None
-        if attempt_count <= 1:
-            return default_target
-
-        rotation = self._normalized_model_rotation()
-        if not rotation:
-            return default_target
-        if default_target and default_target in rotation:
-            base_index = rotation.index(default_target)
-            return rotation[(base_index + attempt_count - 1) % len(rotation)]
-        if default_target:
-            return rotation[(attempt_count - 2) % len(rotation)]
-        return rotation[(attempt_count - 2) % len(rotation)]
+        return _requested_target_agent_for_issue_impl(
+            issue_number,
+            default_target_agent=self.config.default_target_agent,
+            model_rotation=self.config.model_rotation,
+            issue_attempt_counts=self._issue_attempt_counts,
+        )
 
     def _extract_worker_agent(self, worker_result: dict[str, Any]) -> str | None:
-        for key in ("target_agent", "runner_type"):
-            value = str(worker_result.get(key, "")).strip().lower()
-            if value:
-                return value
-
-        receipt_metadata = worker_result.get("receipt_metadata")
-        if isinstance(receipt_metadata, dict):
-            for key in ("actual_target_agent", "requested_target_agent", "runner_type"):
-                value = str(receipt_metadata.get(key, "")).strip().lower()
-                if value:
-                    return value
-
-        run = worker_result.get("run")
-        if not isinstance(run, dict):
-            return None
-        work_orders = run.get("work_orders", [])
-        if not isinstance(work_orders, list):
-            return None
-        for work_order in work_orders:
-            if not isinstance(work_order, dict):
-                continue
-            value = str(work_order.get("target_agent", "")).strip().lower()
-            if value:
-                return value
-        return None
+        return _extract_worker_agent_impl(worker_result)
 
     def _pending_handoff_candidates(
         self,
@@ -917,37 +872,14 @@ class BossLoop:
         *,
         blocked_scopes: set[str] | None = None,
     ) -> list[GitHubIssue]:
-        if not self._pending_handoff_prompts:
-            return []
-
-        issue_by_number = {int(issue.number): issue for issue in issues}
-        candidates: list[GitHubIssue] = []
-        stale_issue_numbers: list[int] = []
-
-        for issue_number in list(self._pending_handoff_prompts):
-            issue = issue_by_number.get(issue_number)
-            if issue is None:
-                stale_issue_numbers.append(issue_number)
-                continue
-            if self.config.issue_number is not None and issue_number != self.config.issue_number:
-                continue
-            if (
-                select_eligible_issue(
-                    [issue],
-                    skip_labels=self.config.skip_labels,
-                    require_labels=self.config.require_labels,
-                    blocked_scopes=blocked_scopes,
-                )
-                is None
-            ):
-                stale_issue_numbers.append(issue_number)
-                continue
-            candidates.append(issue)
-
-        for issue_number in stale_issue_numbers:
-            self._pending_handoff_prompts.pop(issue_number, None)
-
-        return candidates
+        return _pending_handoff_candidates_impl(
+            issues,
+            pending_handoff_prompts=self._pending_handoff_prompts,
+            issue_number=self.config.issue_number,
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=blocked_scopes,
+        )
 
     def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
         reasons = [
@@ -1071,37 +1003,11 @@ class BossLoop:
 
     @staticmethod
     def _extract_worker_transcript(worker_result: dict[str, Any]) -> str:
-        """Extract the worker's stdout transcript from the run dict."""
-        run = worker_result.get("run")
-        if not isinstance(run, dict):
-            return ""
-        work_orders = run.get("work_orders", [])
-        if not isinstance(work_orders, list):
-            return ""
-        parts = []
-        for wo in work_orders:
-            if isinstance(wo, dict):
-                for key in ("stdout_tail", "transcript", "log_tail"):
-                    tail = str(wo.get(key, "")).strip()
-                    if tail:
-                        parts.append(tail)
-                        break
-        return "\n---\n".join(parts)
+        return _extract_worker_transcript_impl(worker_result)
 
     @staticmethod
     def _extract_worker_files_changed(worker_result: dict[str, Any]) -> list[str]:
-        """Extract changed file paths from the run dict."""
-        run = worker_result.get("run")
-        if not isinstance(run, dict):
-            return []
-        work_orders = run.get("work_orders", [])
-        files: list[str] = []
-        for wo in work_orders:
-            if isinstance(wo, dict):
-                paths = wo.get("changed_paths", [])
-                if isinstance(paths, list):
-                    files.extend(str(p) for p in paths if str(p).strip())
-        return files
+        return _extract_worker_files_changed_impl(worker_result)
 
     def _repo_slug_for_issue(self, issue: GitHubIssue) -> str | None:
         configured_repo = str(self.config.repo or "").strip()
@@ -1242,244 +1148,22 @@ class BossLoop:
         issue_number: int | str,
         issues: list[GitHubIssue],
     ) -> None:
-        """When an issue exhausts retries, try to decompose it into sub-issues.
-
-        Uses the TaskDecomposer to break the issue into smaller pieces, then
-        creates sub-issues on GitHub with the boss-ready label. If decomposition
-        fails or produces nothing useful, falls back to labeling boss-stuck.
-        """
-        import subprocess
-
-        repo = self.config.repo or ""
-        issue = next((i for i in issues if i.number == int(issue_number)), None)
-        if not issue:
-            return
-
-        # Guard: cap decomposition depth to prevent runaway recursion.
-        # Each decomposition adds a "[from #N]" prefix — count nesting depth.
-        import re
-
-        depth_markers = re.findall(r"\[from #\d+\]", issue.title)
-        decomposition_depth = len(depth_markers)
-        max_decomposition_depth = 3
-        if decomposition_depth >= max_decomposition_depth:
-            self._label_boss_stuck(
-                issue_number,
-                repo,
-                f"Decomposition depth {decomposition_depth} reached limit of "
-                f"{max_decomposition_depth}. Needs manual attention.",
-            )
-            return
-
-        # Check if a PR was already merged for this issue — if so, close it
-        try:
-            pr_check = subprocess.run(
-                [
-                    "gh",
-                    "pr",
-                    "list",
-                    "--repo",
-                    repo,
-                    "--state",
-                    "merged",
-                    "--search",
-                    f"#{issue.number}",
-                    "--limit",
-                    "1",
-                    "--json",
-                    "number",
-                    "--jq",
-                    ".[0].number",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if pr_check.returncode == 0 and pr_check.stdout.strip():
-                self._label_boss_stuck(
-                    issue_number,
-                    repo,
-                    f"PR #{pr_check.stdout.strip()} already merged for this issue.",
-                )
-                return
-        except Exception:
-            pass
-
-        # Collect existing issue titles to avoid creating duplicates
-        existing_titles: set[str] = set()
-        try:
-            proc = subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "list",
-                    "--repo",
-                    repo,
-                    "--label",
-                    "boss-ready",
-                    "--state",
-                    "open",
-                    "--limit",
-                    "100",
-                    "--json",
-                    "title",
-                    "--jq",
-                    ".[].title",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if proc.returncode == 0:
-                existing_titles = {
-                    line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
-                }
-        except Exception:
-            pass
-
-        # Try LLM-based decomposition
-        sub_issues_created = 0
-        try:
-            from aragora.nomic.task_decomposer import TaskDecomposer
-
-            decomposer = TaskDecomposer()
-            result = decomposer.analyze(
-                issue.body or issue.title,
-                file_scope_hints=list(self._extract_file_scope_hints(issue.body or "")),
-            )
-
-            if result.should_decompose and result.subtasks:
-                for subtask in result.subtasks[:3]:  # Cap at 3 sub-issues (was 5)
-                    title = f"[from #{issue.number}] {subtask.title}"
-                    # Skip if a similar title already exists
-                    if title.lower() in existing_titles:
-                        continue
-                    scope_lines = (
-                        "\n".join(f"- `{f}`" for f in subtask.file_scope)
-                        if subtask.file_scope
-                        else "- (infer from context)"
-                    )
-                    body = (
-                        f"Auto-decomposed from #{issue.number} after {self.config.max_retries_per_issue} "
-                        f"failed autonomous attempts.\n\n"
-                        f"## Task\n{subtask.description}\n\n"
-                        f"## Files\n{scope_lines}\n\n"
-                        f"## Acceptance\n"
-                        f"`pytest` on the changed files passes\n\n"
-                        f"## Constraints\n"
-                        f"- Single-file change preferred\n"
-                        f"- Under 100 lines of new/changed code\n"
-                        f"- Estimated complexity: {subtask.estimated_complexity}\n"
-                    )
-                    try:
-                        proc = subprocess.run(
-                            [
-                                "gh",
-                                "issue",
-                                "create",
-                                "--repo",
-                                repo,
-                                "--title",
-                                title,
-                                "--body",
-                                body,
-                                "--label",
-                                "boss-ready",
-                            ],
-                            capture_output=True,
-                            text=True,
-                            timeout=15,
-                        )
-                        if proc.returncode == 0:
-                            sub_issues_created += 1
-                    except Exception:
-                        pass
-
-        except Exception as exc:
-            logger.debug("Auto-decomposition failed for #%s: %s", issue_number, exc)
-
-        # Comment on the parent issue
-        if sub_issues_created > 0:
-            comment = (
-                f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
-                f"Auto-decomposed into {sub_issues_created} smaller sub-issues with `boss-ready` label."
-            )
-        else:
-            comment = (
-                f"Boss loop exhausted {self.config.max_retries_per_issue} attempts without "
-                f"producing a deliverable. The issue may be too complex for autonomous workers."
-            )
-
-        try:
-            subprocess.run(
-                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True,
-                timeout=15,
-            )
-            subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(issue_number),
-                    "--repo",
-                    repo,
-                    "--add-label",
-                    "boss-stuck",
-                ],
-                capture_output=True,
-                timeout=15,
-            )
-        except Exception:
-            pass
-
-    @staticmethod
-    def _extract_file_scope_hints(body: str) -> list[str]:
-        """Extract file paths from an issue body.
-
-        Handles backtick-wrapped paths and strips escaped backticks from
-        GitHub markdown rendering.
-        """
-        import re
-
-        # Strip escaped backticks that GitHub API sometimes returns
-        cleaned = body.replace("\\`", "`")
-        # Match paths starting with known top-level directories
-        return re.findall(
-            r"`((?:aragora|tests|scripts|docs|docs-site|sdk|contracts)/[a-zA-Z0-9_/.*-]+(?:\.\w+)?)`",
-            cleaned,
+        _auto_decompose_stuck_issue_impl(
+            issue_number,
+            issues,
+            repo=self.config.repo or "",
+            max_retries_per_issue=self.config.max_retries_per_issue,
+            label_boss_stuck=self._label_boss_stuck,
+            extract_file_scope_hints=self._extract_file_scope_hints,
         )
 
     @staticmethod
-    def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
-        """Label an issue as boss-stuck, remove boss-ready, and comment."""
-        import subprocess
+    def _extract_file_scope_hints(body: str) -> list[str]:
+        return _extract_file_scope_hints_impl(body)
 
-        try:
-            subprocess.run(
-                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True,
-                timeout=15,
-            )
-            # Add boss-stuck AND remove boss-ready — an issue should never be both
-            subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(issue_number),
-                    "--repo",
-                    repo,
-                    "--add-label",
-                    "boss-stuck",
-                    "--remove-label",
-                    "boss-ready",
-                ],
-                capture_output=True,
-                timeout=15,
-            )
-        except Exception:
-            pass
+    @staticmethod
+    def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
+        _label_boss_stuck_impl(issue_number, repo, comment)
 
     def _maybe_publish_deliverable(
         self,
@@ -1807,11 +1491,12 @@ class BossLoop:
         publish_result = worker_result.get("publish_result")
         if not BossLoop._publish_result_succeeded(publish_result):
             return None
+        publish_result_dict = publish_result if isinstance(publish_result, dict) else {}
         pr_url = BossLoop._published_pr_url(worker_result)
         if pr_url is None:
             return None
         branch = str(
-            publish_result.get("branch")
+            publish_result_dict.get("branch")
             or (
                 worker_result.get("deliverable", {}).get("branch")
                 if isinstance(worker_result.get("deliverable"), dict)
@@ -1819,8 +1504,8 @@ class BossLoop:
             )
             or ""
         ).strip()
-        action = str(publish_result.get("action", "")).strip()
-        detail = str(publish_result.get("detail", "")).strip()
+        action = str(publish_result_dict.get("action", "")).strip()
+        detail = str(publish_result_dict.get("detail", "")).strip()
         lines = [
             "Aragora boss loop published a deliverable for human review.",
             "",
@@ -2908,63 +2593,7 @@ class BossLoop:
 
     @staticmethod
     def _semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
-        """Use LLM to cluster semantically duplicate issues, keep one per cluster."""
-        if len(issues) < 6:
-            return issues
-        import json as _json
-        import os
-        import re
-
-        try:
-            from aragora.agents.base import create_agent
-
-            agent = None
-            if os.environ.get("OPENROUTER_API_KEY"):
-                agent = create_agent(
-                    "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-chat"
-                )
-            elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
-                agent = create_agent(
-                    "gemini", name="dedup", role="proposer", model="gemini-2.0-flash"
-                )
-            if agent is None:
-                return issues
-
-            issue_map = {
-                str(i.number): re.sub(r"\[from #\d+\]\s*", "", i.title).strip() for i in issues
-            }
-            prompt = (
-                "You are deduplicating GitHub issues. Group semantically equivalent tasks. "
-                "Return ONLY a JSON array of arrays: [[num1,num2],[num3],...]\n\n"
-                + "\n".join(f"#{num}: {title}" for num, title in issue_map.items())
-            )
-
-            import asyncio
-
-            try:
-                asyncio.get_running_loop()
-                return issues  # Can't call asyncio.run inside running loop
-            except RuntimeError:
-                pass
-
-            raw = asyncio.run(agent.generate(prompt))
-            match = re.search(r"\[.*\]", raw, re.DOTALL)
-            if not match:
-                return issues
-
-            clusters = _json.loads(match.group())
-            if not isinstance(clusters, list):
-                return issues
-
-            kept = {int(c[0]) for c in clusters if isinstance(c, list) and c}
-            all_clustered = {int(n) for c in clusters if isinstance(c, list) for n in c}
-            deduped = [i for i in issues if i.number in kept or i.number not in all_clustered]
-
-            logger.info("Semantic dedup: %d → %d issues", len(issues), len(deduped))
-            return deduped
-        except Exception as exc:
-            logger.debug("Semantic dedup skipped: %s", exc)
-            return issues
+        return _semantic_dedup_issues_impl(issues)
 
     def _select_issues_for_iteration(
         self,
@@ -3256,31 +2885,32 @@ class BossLoop:
             if self.config.enable_ping_pong_retry and not has_verification_failure:
                 pp_key = f"pingpong_{issue_num}"
                 pp_count = self._issue_attempt_counts.get(pp_key, 0)
-                transcript = self._extract_worker_transcript(worker_result)
-                if pp_count < 1 and len(transcript.strip()) > 50:
-                    self._issue_attempt_counts[pp_key] = pp_count + 1
-                    previous_agent = self._extract_worker_agent(worker_result) or "unknown"
-                    rotation = list(self.config.model_rotation or ["claude", "codex"])
-                    next_agent = rotation[0] if previous_agent == rotation[-1] else rotation[-1]
-
-                    from aragora.swarm.ping_pong import build_handoff_prompt
-
-                    handoff = build_handoff_prompt(
-                        goal=f"[Issue #{issue_num}] {issue_dict.get('title', '')}",
-                        previous_transcript=transcript,
-                        previous_agent=previous_agent,
-                        next_agent=next_agent,
-                        round_number=1,
-                        files_changed=self._extract_worker_files_changed(worker_result),
-                        remaining_issues=[str(r) for r in reasons[:5]],
+                handoff = (
+                    _prepare_ping_pong_handoff_impl(
+                        issue_number=issue_num,
+                        issue_title=str(issue_dict.get("title", "")).strip(),
+                        worker_result=worker_result,
+                        reasons=[str(reason) for reason in reasons],
+                        model_rotation=self.config.model_rotation,
                     )
-                    self._pending_handoff_prompts[issue_num] = (handoff, next_agent)
+                    if pp_count < 1
+                    else None
+                )
+                if handoff is not None:
+                    self._issue_attempt_counts[pp_key] = pp_count + 1
+                    previous_agent = str(handoff.get("previous_agent", "")).strip() or "unknown"
+                    next_agent = str(handoff.get("next_agent", "")).strip() or "unknown"
+                    handoff_prompt = str(handoff.get("prompt", "")).strip()
+                    self._pending_handoff_prompts[issue_num] = (
+                        handoff_prompt,
+                        next_agent,
+                    )
                     logger.info(
                         "boss_loop_ping_pong issue=#%s from=%s to=%s transcript_len=%d",
                         issue_num,
                         previous_agent,
                         next_agent,
-                        len(transcript),
+                        int(handoff.get("transcript_length", 0) or 0),
                     )
                     self._append_iteration_metrics(
                         iteration=iteration,
