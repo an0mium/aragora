@@ -45,6 +45,15 @@ from aragora.server.handlers.openclaw._base import (
 class TestHasPermissionDefault:
     """Tests for _has_permission when no gateway override is present."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_gateway_module(self):
+        saved = sys.modules.pop("aragora.server.handlers.openclaw_gateway", None)
+        try:
+            yield
+        finally:
+            if saved is not None:
+                sys.modules["aragora.server.handlers.openclaw_gateway"] = saved
+
     def test_delegates_to_canonical_has_permission(self):
         """When no gateway module override exists, delegates to the canonical function."""
         with patch(

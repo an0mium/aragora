@@ -71,6 +71,65 @@ def _normalize_string_list(values: Any) -> list[str]:
     return [item for item in values if isinstance(item, str)]
 
 
+def _normalize_string_dict(values: Any) -> dict[str, str]:
+    """Return only string-to-string pairs from dict-like payloads."""
+
+    if not isinstance(values, dict):
+        return {}
+
+    normalized: dict[str, str] = {}
+    for key, value in values.items():
+        if isinstance(key, str) and isinstance(value, str):
+            normalized[key] = value
+    return normalized
+
+
+def _normalize_float_dict(values: Any) -> dict[str, float]:
+    """Return only string-to-float pairs from dict-like payloads."""
+
+    if not isinstance(values, dict):
+        return {}
+
+    normalized: dict[str, float] = {}
+    for key, value in values.items():
+        if not isinstance(key, str):
+            continue
+        coerced = _coerce_float(value, fallback=float("nan"))
+        if coerced == coerced:
+            normalized[key] = coerced
+    return normalized
+
+
+def _normalize_provider_routing(value: Any) -> dict[str, Any] | None:
+    """Preserve provider-routing metadata in a stable, JSON-safe shape."""
+
+    if not isinstance(value, dict):
+        return None
+
+    routing: dict[str, Any] = {}
+
+    if "routing_applied" in value:
+        routing["routing_applied"] = bool(value.get("routing_applied"))
+
+    strategy = value.get("routing_strategy")
+    if isinstance(strategy, str) and strategy:
+        routing["routing_strategy"] = strategy
+
+    routed_agent_names = _normalize_string_list(value.get("routed_agent_names"))
+    if routed_agent_names:
+        routing["routed_agent_names"] = routed_agent_names
+
+    provider_matches = _normalize_string_dict(value.get("provider_matches"))
+    if provider_matches:
+        routing["provider_matches"] = provider_matches
+
+    provider_hint_scores = _normalize_float_dict(value.get("provider_hint_scores"))
+    if provider_hint_scores:
+        routing["provider_hint_scores"] = provider_hint_scores
+
+    return routing or None
+
+
 def _build_arguments(messages: Any) -> tuple[list[dict[str, Any]], int]:
     """Convert stored debate messages into detail-page argument entries."""
 
@@ -286,6 +345,38 @@ def _build_markdown(package: dict[str, Any]) -> str:
         if per_agent:
             for agent, agent_cost in per_agent.items():
                 lines.append(f"  - {agent}: ${agent_cost:.4f}")
+        lines.append("")
+
+    provider_names = _normalize_string_list(package.get("provider_names"))
+    provider_routing = package.get("provider_routing")
+    if provider_names or isinstance(provider_routing, dict):
+        lines.append("## Provider Routing")
+        lines.append("")
+        if provider_names:
+            lines.append(f"- **Providers:** {', '.join(provider_names)}")
+
+        if isinstance(provider_routing, dict):
+            strategy = provider_routing.get("routing_strategy")
+            if isinstance(strategy, str) and strategy:
+                lines.append(f"- **Strategy:** {strategy}")
+
+            routed_agents = _normalize_string_list(provider_routing.get("routed_agent_names"))
+            if routed_agents:
+                lines.append(f"- **Routed Agents:** {', '.join(routed_agents)}")
+
+            provider_matches = _normalize_string_dict(provider_routing.get("provider_matches"))
+            if provider_matches:
+                lines.append("- **Agent → Provider:**")
+                for agent, provider in provider_matches.items():
+                    lines.append(f"  - {agent}: {provider}")
+
+            provider_hint_scores = _normalize_float_dict(
+                provider_routing.get("provider_hint_scores")
+            )
+            if provider_hint_scores:
+                lines.append("- **Hint Scores:**")
+                for provider, score in provider_hint_scores.items():
+                    lines.append(f"  - {provider}: {score:.2f}")
         lines.append("")
 
     # Receipt
@@ -519,6 +610,10 @@ class DecisionPackageHandler(BaseHandler):
         ) as exc:
             logger.debug("Argument map not available for %s: %s", debate_id, exc)
 
+        metadata = result_data.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
         # -- Cost --
         per_agent_cost = result_data.get("per_agent_cost", {})
         if not isinstance(per_agent_cost, dict):
@@ -554,6 +649,15 @@ class DecisionPackageHandler(BaseHandler):
         participants = _normalize_string_list(
             result_data.get("participants", debate.get("agents", []))
         )
+        provider_names = _normalize_string_list(
+            result_data.get("provider_names", metadata.get("provider_names", []))
+        )
+        provider_hints = _normalize_string_list(
+            result_data.get("provider_hints", metadata.get("provider_hints", []))
+        )
+        provider_routing = _normalize_provider_routing(
+            result_data.get("provider_routing", metadata.get("provider_routing"))
+        )
         arguments, rounds = _build_arguments(debate.get("messages", []))
         assembled_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         created_at = debate.get("created_at") or result_data.get("created_at") or assembled_at
@@ -572,6 +676,9 @@ class DecisionPackageHandler(BaseHandler):
             "explanation": result_data.get("explanation_summary", ""),
             "participants": participants,
             "agents": participants,
+            "provider_names": provider_names,
+            "provider_hints": provider_hints,
+            "provider_routing": provider_routing,
             "rounds": result_data.get("rounds", rounds),
             "arguments": arguments,
             "receipt": receipt_dict,

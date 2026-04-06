@@ -24,8 +24,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: capability-gap-${{ github.ref }}
-  cancel-in-progress: false
+  group: capability-gap-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   report:

@@ -423,7 +423,7 @@ class TestHybridExecutorTaskRetry:
         """Retries with extended timeout on timeout failure."""
         call_count = 0
 
-        async def mock_execute(task, attempt=1, use_fallback=False):
+        async def mock_execute(task, attempt=1, use_fallback=False, feedback=None, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count == 1:

@@ -311,6 +311,200 @@ def test_create_managed_worktree_retries_add_time_branch_collision(
     ) in calls
 
 
+def test_create_managed_worktree_reuses_existing_unattached_retry_branch_for_same_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = repo_root / ".worktrees" / "codex-auto"
+    attached_path = tmp_path / "attached"
+    attached_path.mkdir()
+    calls: list[tuple[str, ...]] = []
+    now = datetime(2026, 4, 4, 5, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [
+            mod.WorktreeEntry(path=repo_root, branch="main"),
+            mod.WorktreeEntry(path=attached_path, branch="codex/swarm-race"),
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_local_branches_with_prefix",
+        lambda _repo, prefix: [prefix, f"{prefix}-b16b"],
+    )
+    monkeypatch.setattr(mod, "_branch_exists", lambda *_args, **_kwargs: True)
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(tuple(args))
+        if args[:2] == ("worktree", "add") and args[2] != "-b":
+            assert args[3] == "codex/swarm-race-b16b"
+            return subprocess.CompletedProcess(
+                args=("git", *args), returncode=0, stdout="", stderr=""
+            )
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-race",
+    )
+
+    assert session["branch"] == "codex/swarm-race-b16b"
+    assert (
+        "worktree",
+        "add",
+        str((managed_root / "swarm-race").resolve()),
+        "codex/swarm-race-b16b",
+    ) in calls
+
+
+def test_create_managed_worktree_clears_stale_initializing_registration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = repo_root / ".worktrees" / "codex-auto"
+    stale_admin = repo_root / ".git" / "worktrees" / "swarm-stale"
+    stale_admin.mkdir(parents=True)
+    (stale_admin / "locked").write_text("initializing", encoding="utf-8")
+    (stale_admin / "gitdir").write_text(
+        str((managed_root / "swarm-stale" / ".git").resolve()),
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, ...]] = []
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_git_common_dir", lambda _repo: repo_root / ".git")
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=repo_root, branch="main")],
+    )
+    monkeypatch.setattr(mod, "_local_branches_with_prefix", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(mod, "_branch_exists", lambda *_args, **_kwargs: False)
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(tuple(args))
+        if args[:2] == ("worktree", "add"):
+            assert not stale_admin.exists()
+            return subprocess.CompletedProcess(
+                args=("git", *args), returncode=0, stdout="", stderr=""
+            )
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-stale",
+    )
+
+    assert session["branch"] == "codex/swarm-stale"
+    assert not stale_admin.exists()
+    assert (
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-stale",
+        str((managed_root / "swarm-stale").resolve()),
+        "origin/main",
+    ) in calls
+
+
+def test_create_managed_worktree_cleans_leaked_branch_before_second_source_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    managed_root = repo_root / ".worktrees" / "codex-auto"
+    existing_branches: set[str] = set()
+    calls: list[tuple[str, ...]] = []
+
+    monkeypatch.setattr(mod, "_ensure_fetched", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=repo_root, branch="main")],
+    )
+    monkeypatch.setattr(mod, "_local_branches_with_prefix", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_branch_exists",
+        lambda _repo, branch: branch in existing_branches,
+    )
+
+    def _proc(returncode: int, stderr: str = "") -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(tuple(args))
+        if args[:2] == ("worktree", "add"):
+            branch = args[3]
+            source = args[5]
+            if source == "origin/main":
+                existing_branches.add(branch)
+                return _proc(
+                    128,
+                    "fatal: '/repo/.worktrees/codex-auto/swarm-race' is a missing but already "
+                    "registered worktree; use 'add -f' to override",
+                )
+            if source == "main":
+                assert branch not in existing_branches
+                return _proc(0)
+        if args[:2] == ("branch", "-D"):
+            existing_branches.discard(args[2])
+            return _proc(0)
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    session = mod._create_managed_worktree(
+        repo_root,
+        managed_root,
+        agent="codex",
+        base="main",
+        session_id="swarm-race",
+    )
+
+    assert session["branch"] == "codex/swarm-race"
+    assert ("branch", "-D", "codex/swarm-race") in calls
+    assert (
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-race",
+        str((managed_root / "swarm-race").resolve()),
+        "main",
+    ) in calls
+
+
 def test_cmd_cleanup_keeps_session_when_worktree_remove_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -725,6 +919,8 @@ def test_create_managed_worktree_retries_when_branch_is_created_concurrently(
         return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
 
     def _run_git(_repo: Path, *args: str, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if args[:1] == ("for-each-ref",):
+            return _proc(0)
         if args[:2] == ("worktree", "add"):
             branch = args[3]
             branches_seen.append(branch)

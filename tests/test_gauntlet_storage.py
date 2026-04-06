@@ -510,21 +510,23 @@ class TestBackendSelection:
     def test_database_url_env_var_detection(self, tmp_path):
         """Test that DATABASE_URL env var triggers PostgreSQL detection."""
         db_path = tmp_path / "env_test.db"
+        mock_backend = MagicMock()
+        mock_backend.backend_type = "postgresql"
 
-        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://localhost/test"}):
-            # Should raise ImportError if psycopg2 not available
-            # or create PostgreSQL backend if available
-            try:
-                storage = GauntletStorage(str(db_path))
-                # If we get here, psycopg2 is available
-                assert storage._backend.backend_type == "postgresql"
-            except ImportError as e:
-                # Expected if psycopg2 not installed
-                assert "psycopg2" in str(e)
+        with (
+            patch.dict(os.environ, {"DATABASE_URL": "postgresql://localhost/test"}),
+            patch("aragora.gauntlet.storage.POSTGRESQL_AVAILABLE", True),
+            patch("aragora.gauntlet.storage.PostgreSQLBackend", return_value=mock_backend),
+        ):
+            storage = GauntletStorage(str(db_path))
+
+        assert storage._backend.backend_type == "postgresql"
 
     def test_aragora_database_url_env_var(self, tmp_path):
         """Test ARAGORA_DATABASE_URL env var is recognized."""
         db_path = tmp_path / "aragora_env_test.db"
+        mock_backend = MagicMock()
+        mock_backend.backend_type = "postgresql"
 
         with patch.dict(
             os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}, clear=False
@@ -534,15 +536,14 @@ class TestBackendSelection:
             env.pop("DATABASE_URL", None)
 
             with patch.dict(os.environ, env, clear=True):
-                with patch.dict(
-                    os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}
+                with (
+                    patch.dict(os.environ, {"ARAGORA_DATABASE_URL": "postgresql://localhost/test"}),
+                    patch("aragora.gauntlet.storage.POSTGRESQL_AVAILABLE", True),
+                    patch("aragora.gauntlet.storage.PostgreSQLBackend", return_value=mock_backend),
                 ):
-                    try:
-                        storage = GauntletStorage(str(db_path))
-                        assert storage._backend.backend_type == "postgresql"
-                    except ImportError:
-                        # Expected if psycopg2 not installed
-                        pass
+                    storage = GauntletStorage(str(db_path))
+
+        assert storage._backend.backend_type == "postgresql"
 
     def test_explicit_database_url_overrides_env(self, tmp_path):
         """Test explicit database_url parameter takes precedence."""
