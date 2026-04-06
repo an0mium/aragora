@@ -53,11 +53,21 @@ async def query_knowledge_tool(
             filters = QueryFilters(min_importance=min_confidence)
 
         # Query the mound - returns QueryResult with items attribute
-        query_result = await mound.query(
-            query=query,
-            filters=filters,
-            limit=limit,
-        )
+        try:
+            query_result = await mound.query(
+                query=query,
+                filters=filters,
+                limit=limit,
+            )
+        except RuntimeError as exc:
+            if "not initialized" not in str(exc).lower() or not hasattr(mound, "initialize"):
+                raise
+            await mound.initialize()
+            query_result = await mound.query(
+                query=query,
+                filters=filters,
+                limit=limit,
+            )
 
         # Iterate over items in the result
         for item in query_result.items:

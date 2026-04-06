@@ -140,13 +140,13 @@ def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | Non
             from aragora.pipeline.plan_store import get_plan_store
 
             store = get_plan_store()
-        except Exception:  # noqa: BLE001 - gating must degrade safely
-            logger.debug("Backbone run store unavailable during execution gate lookup")
+        except (ImportError, RuntimeError, OSError, TypeError, ValueError) as exc:
+            logger.warning("Backbone run store unavailable during execution gate lookup: %s", exc)
             return None
     try:
         return store.get_run(run_id)
-    except Exception:  # noqa: BLE001 - treat missing run as absent evidence
-        logger.debug("Backbone run lookup failed for %s", run_id, exc_info=True)
+    except (RuntimeError, OSError, TypeError, ValueError) as exc:
+        logger.warning("Backbone run lookup failed for %s: %s", run_id, exc)
         return None
 
 

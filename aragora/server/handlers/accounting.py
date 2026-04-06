@@ -42,6 +42,9 @@ from aragora.server.handlers.openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
 
+VALID_TRANSACTION_TYPES = frozenset({"all", "invoice", "expense"})
+VALID_REPORT_TYPES = frozenset({"profit_loss", "balance_sheet", "ar_aging", "ap_aging"})
+
 # Mock data for demo when QBO not connected
 MOCK_COMPANY = {
     "name": "Demo Company",
@@ -179,6 +182,32 @@ def _parse_iso_date(value: str | None, field_name: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise ValueError(f"Invalid {field_name}: {value}") from exc
+
+
+def _parse_bool_param(value: str | None, field_name: str, *, default: bool) -> bool:
+    """Parse a boolean query param with strict validation."""
+    if value is None:
+        return default
+
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+
+    raise ValueError(f"Invalid {field_name}: {value}")
+
+
+def _validate_date_range(
+    start_value: date | datetime | None,
+    end_value: date | datetime | None,
+    *,
+    start_field: str = "start_date",
+    end_field: str = "end_date",
+) -> None:
+    """Validate that the start of a range is not after the end."""
+    if start_value and end_value and start_value > end_value:
+        raise ValueError(f"{start_field} must be on or before {end_field}")
 
 
 @api_endpoint(
@@ -473,13 +502,15 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
     List all customers from QuickBooks.
     """
     try:
+        try:
+            active_only = _parse_bool_param(request.query.get("active"), "active", default=True)
+            limit, offset = get_pagination_params(dict(request.query))
+        except ValueError:
+            return web.json_response({"error": "Invalid query parameter"}, status=400)
+
         connector = await get_qbo_connector(request)
 
         if connector and connector.is_connected():
-            active_only = request.query.get("active", "true").lower() == "true"
-            # Use safe pagination helper with bounds checking
-            limit, offset = get_pagination_params(dict(request.query))
-
             customers = await connector.list_customers(
                 active_only=active_only,
                 limit=limit,
@@ -557,25 +588,33 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
     List transactions (invoices, expenses, payments).
     """
     try:
+        txn_type = request.query.get("type", "all").strip().lower()
+        if txn_type not in VALID_TRANSACTION_TYPES:
+            return web.json_response(
+                {
+                    "error": f"Invalid type. Expected one of: {', '.join(sorted(VALID_TRANSACTION_TYPES))}",
+                },
+                status=400,
+            )
+
+        start_date_str = request.query.get("start_date")
+        end_date_str = request.query.get("end_date")
+        try:
+            start_date = (
+                datetime.fromisoformat(start_date_str)
+                if start_date_str
+                else datetime.now() - timedelta(days=30)
+            )
+            end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.now()
+            _validate_date_range(start_date, end_date)
+        except ValueError:
+            return web.json_response(
+                {"error": "Invalid date range or format. Use ISO 8601."}, status=400
+            )
+
         connector = await get_qbo_connector(request)
 
         if connector and connector.is_connected():
-            txn_type = request.query.get("type", "all")
-            start_date_str = request.query.get("start_date")
-            end_date_str = request.query.get("end_date")
-
-            try:
-                start_date = (
-                    datetime.fromisoformat(start_date_str)
-                    if start_date_str
-                    else datetime.now() - timedelta(days=30)
-                )
-                end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.now()
-            except ValueError:
-                return web.json_response(
-                    {"error": "Invalid date format. Use ISO 8601."}, status=400
-                )
-
             transactions = []
 
             if txn_type in ("all", "invoice"):
@@ -658,7 +697,21 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
         data, err = await parse_json_body(request, context="accounting_report")
         if err:
             return err
+        if not isinstance(data, dict):
+            return web.json_response({"error": "Request body must be a JSON object"}, status=400)
+
         report_type = data.get("type", "profit_loss")
+        if not isinstance(report_type, str):
+            return web.json_response({"error": "type must be a string"}, status=400)
+        report_type = report_type.strip().lower()
+        if report_type not in VALID_REPORT_TYPES:
+            return web.json_response(
+                {
+                    "error": f"Unknown report type: {report_type}",
+                },
+                status=400,
+            )
+
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -673,8 +726,11 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
         try:
             start_date = datetime.fromisoformat(start_date_str)
             end_date = datetime.fromisoformat(end_date_str)
+            _validate_date_range(start_date, end_date)
         except ValueError:
-            return web.json_response({"error": "Invalid date format. Use ISO 8601."}, status=400)
+            return web.json_response(
+                {"error": "Invalid date range or format. Use ISO 8601."}, status=400
+            )
 
         connector = await get_qbo_connector(request)
 
@@ -687,13 +743,6 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
                 report = await connector.get_ar_aging_report()
             elif report_type == "ap_aging":
                 report = await connector.get_ap_aging_report()
-            else:
-                return web.json_response(
-                    {
-                        "error": f"Unknown report type: {report_type}",
-                    },
-                    status=400,
-                )
 
             return web.json_response(
                 {
@@ -1043,6 +1092,11 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
     List employees from Gusto.
     """
     try:
+        try:
+            active_only = _parse_bool_param(request.query.get("active"), "active", default=True)
+        except ValueError:
+            return web.json_response({"error": "Invalid query parameter"}, status=400)
+
         connector = await get_gusto_connector(request)
         if not connector.is_authenticated:
             return web.json_response(
@@ -1052,7 +1106,6 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
                 status=503,
             )
 
-        active_only = request.query.get("active", "true").lower() == "true"
         employees = await connector.list_employees(active_only=active_only)
 
         return web.json_response(
@@ -1106,6 +1159,13 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
     List payroll runs from Gusto.
     """
     try:
+        start_date = _parse_iso_date(request.query.get("start_date"), "start_date")
+        end_date = _parse_iso_date(request.query.get("end_date"), "end_date")
+        _validate_date_range(start_date, end_date)
+        processed_only = _parse_bool_param(
+            request.query.get("processed"), "processed", default=True
+        )
+
         connector = await get_gusto_connector(request)
         if not connector.is_authenticated:
             return web.json_response(
@@ -1114,10 +1174,6 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
                 },
                 status=503,
             )
-
-        start_date = _parse_iso_date(request.query.get("start_date"), "start_date")
-        end_date = _parse_iso_date(request.query.get("end_date"), "end_date")
-        processed_only = request.query.get("processed", "true").lower() == "true"
 
         payrolls = await connector.list_payrolls(
             start_date=start_date,
@@ -1248,9 +1304,18 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
         body, err = await parse_json_body(request, context="gusto_journal_entry", allow_empty=True)
         if err:
             return err
+        if body is None:
+            body = {}
+        elif not isinstance(body, dict):
+            return web.json_response({"error": "Request body must be a JSON object"}, status=400)
 
         account_mappings = {}
-        raw_mappings = body.get("account_mappings", {}) if isinstance(body, dict) else {}
+        raw_mappings = body.get("account_mappings", {})
+        if not isinstance(raw_mappings, dict):
+            return web.json_response(
+                {"error": "account_mappings must be a JSON object"},
+                status=400,
+            )
         for key, value in raw_mappings.items():
             if isinstance(value, dict):
                 account_id = value.get("account_id") or value.get("id")
