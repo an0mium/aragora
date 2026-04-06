@@ -53,20 +53,26 @@ class IdeaGraph:
         self.clusters.clear()
         self._adjacency.clear()
 
+        nodes: dict[str, IdeaNode] = {}
+
         # Load nodes from .md files
         for fp in md.list_node_files(self.vault_path):
-            try:
-                node = md.read_node(fp)
-                self.nodes[node.id] = node
-            except Exception as exc:
-                logger.warning("Failed to load %s: %s", fp, exc)
+            node = md.read_node(fp)
+            nodes[node.id] = node
 
         # Load edges and clusters from index
-        self.edges = idx.load_edges_from_index(self.vault_path)
-        self.clusters = idx.load_clusters_from_index(self.vault_path)
+        edges = idx.load_edges_from_index(self.vault_path)
+        clusters = idx.load_clusters_from_index(self.vault_path)
 
-        # Rebuild adjacency
-        self._rebuild_adjacency()
+        adjacency: dict[str, list[str]] = defaultdict(list)
+        for edge in edges:
+            adjacency[edge.source_id].append(edge.target_id)
+            adjacency[edge.target_id].append(edge.source_id)
+
+        self.nodes = nodes
+        self.edges = edges
+        self.clusters = clusters
+        self._adjacency = adjacency
 
         logger.info(
             "Loaded idea graph: %d nodes, %d edges, %d clusters",
