@@ -447,6 +447,19 @@ class TestCaptureSettlement:
 
         assert any("Verifiable" in f for f in meta.falsifiers)
 
+    def test_capture_with_explicit_verification_criteria(self):
+        tracker = EpistemicSettlementTracker()
+        result = _make_debate_result()
+        result.verification_criteria = [
+            "Pilot metrics stay within agreed guardrails after rollout."
+        ]
+
+        meta = tracker.capture_settlement(result)
+
+        assert meta.falsifiers == [
+            "Verifiable: Pilot metrics stay within agreed guardrails after rollout."
+        ]
+
     def test_capture_generates_id_when_missing(self):
         tracker = EpistemicSettlementTracker()
         result = SimpleNamespace(

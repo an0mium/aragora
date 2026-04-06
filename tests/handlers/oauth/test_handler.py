@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import types
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -145,6 +146,13 @@ def _clear_oauth_env_vars():
             os.environ[key] = val
         else:
             os.environ.pop(key, None)
+
+
+@pytest.fixture(autouse=True)
+def _disable_secrets_module():
+    """Force OAuth config getters to read env/defaults instead of shared secrets state."""
+    with patch.dict(sys.modules, {"aragora.config.secrets": None}):
+        yield
 
 
 @pytest.fixture
@@ -777,6 +785,11 @@ class TestOAuthHandlerRouting:
 
 class TestConfigGettersWithEnvVars:
     """Test that config getters read from environment correctly."""
+
+    @pytest.fixture(autouse=True)
+    def _disable_secrets_module(self):
+        with patch.dict(sys.modules, {"aragora.config.secrets": None}):
+            yield
 
     def test_microsoft_tenant_from_env(self):
         os.environ["MICROSOFT_OAUTH_TENANT"] = "my-tenant-id"

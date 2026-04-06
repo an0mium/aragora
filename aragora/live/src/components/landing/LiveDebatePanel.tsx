@@ -64,8 +64,9 @@ export interface LiveDebatePanelProps {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const LIVE_PREVIEW_POLL_MS = 4000;
+const LIVE_PREVIEW_POLL_MS = 12000;
 const LIVE_PREVIEW_EVENT_LIMIT = 12;
+const SAFE_DEBATE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 function toEpochMs(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -80,6 +81,20 @@ function formatClockTime(timestampMs: number): string {
     second: '2-digit',
     hour12: false,
   });
+}
+
+function sanitizeDebateId(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return SAFE_DEBATE_ID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+function buildSpectateSocketUrl(wsBase: string, debateId: string): string {
+  const normalizedBase = wsBase.endsWith('/') ? wsBase : `${wsBase}/`;
+  const url = new URL(normalizedBase);
+  const basePath = url.pathname.replace(/\/+$/, '');
+  url.pathname = `${basePath}/spectate/${encodeURIComponent(debateId)}`.replace(/\/{2,}/g, '/');
+  return url.toString();
 }
 
 function readDetails(data: Record<string, unknown>): string | null {
@@ -193,6 +208,19 @@ function normalizeSocketEvent(message: SpectateSocketMessage): LivePreviewEvent 
   };
 }
 
+function mergePreviewEvents(...eventGroups: LivePreviewEvent[][]): LivePreviewEvent[] {
+  const merged = new Map<string, LivePreviewEvent>();
+  for (const group of eventGroups) {
+    for (const event of group) {
+      merged.set(event.id, event);
+    }
+  }
+
+  return Array.from(merged.values())
+    .sort((left, right) => left.timestampMs - right.timestampMs)
+    .slice(-LIVE_PREVIEW_EVENT_LIMIT);
+}
+
 function summarizeLiveDebates(
   events: PublicSpectateEvent[],
   activityWindowSeconds: number,
@@ -204,15 +232,16 @@ function summarizeLiveDebates(
     const timestampMs = toEpochMs(event.timestamp);
     if (timestampMs === null) continue;
     if (now - timestampMs > activityWindowSeconds * 1000) continue;
-    if (!event.debate_id) continue;
+    const debateId = sanitizeDebateId(event.debate_id);
+    if (!debateId) continue;
 
-    const existing = debates.get(event.debate_id);
+    const existing = debates.get(debateId);
     const task = readTask(event.data);
     const agents = readAgents(event.data);
 
     if (!existing) {
-      debates.set(event.debate_id, {
-        debateId: event.debate_id,
+      debates.set(debateId, {
+        debateId,
         task,
         agents,
         lastEventAt: event.timestamp,
@@ -258,6 +287,7 @@ export function LiveDebatePanel({
   const [socketTask, setSocketTask] = useState<string | null>(null);
   const [socketAgents, setSocketAgents] = useState<string[]>([]);
   const [socketEvents, setSocketEvents] = useState<LivePreviewEvent[]>([]);
+  const [mergedEvents, setMergedEvents] = useState<LivePreviewEvent[]>([]);
 
   const refreshPreview = useCallback(async () => {
     try {
@@ -297,14 +327,26 @@ export function LiveDebatePanel({
     () => summarizeLiveDebates(recentEvents, activityWindowSeconds),
     [activityWindowSeconds, recentEvents],
   );
+  const safeSelectedDebateId = useMemo(
+    () => sanitizeDebateId(selectedDebateId),
+    [selectedDebateId],
+  );
+
+  useEffect(() => {
+    if (selectedDebateId && !safeSelectedDebateId) {
+      setSelectedDebateId(null);
+    }
+  }, [safeSelectedDebateId, selectedDebateId]);
 
   useEffect(() => {
     const hottestDebateId = liveDebates[0]?.debateId ?? null;
-    setSelectedDebateId(hottestDebateId);
+    setSelectedDebateId((currentDebateId) =>
+      currentDebateId === hottestDebateId ? currentDebateId : hottestDebateId,
+    );
   }, [liveDebates]);
 
   useEffect(() => {
-    if (!selectedDebateId) {
+    if (!safeSelectedDebateId) {
       setSocketStatus('idle');
       setSocketTask(null);
       setSocketAgents([]);
@@ -317,7 +359,7 @@ export function LiveDebatePanel({
     setSocketAgents([]);
     setSocketEvents([]);
 
-    const socket = new WebSocket(`${resolvedWsBase}/spectate/${selectedDebateId}`);
+    const socket = new WebSocket(buildSpectateSocketUrl(resolvedWsBase, safeSelectedDebateId));
     wsRef.current = socket;
 
     socket.onopen = () => {
@@ -344,15 +386,7 @@ export function LiveDebatePanel({
         }
 
         const normalizedEvent = normalizeSocketEvent(message);
-        setSocketEvents((currentEvents) => {
-          const nextEvents = new Map(
-            currentEvents.map((previewEvent) => [previewEvent.id, previewEvent]),
-          );
-          nextEvents.set(normalizedEvent.id, normalizedEvent);
-          return Array.from(nextEvents.values())
-            .sort((left, right) => left.timestampMs - right.timestampMs)
-            .slice(-LIVE_PREVIEW_EVENT_LIMIT);
-        });
+        setSocketEvents((currentEvents) => mergePreviewEvents(currentEvents, [normalizedEvent]));
       } catch {
         setSocketStatus('error');
       }
@@ -374,29 +408,22 @@ export function LiveDebatePanel({
         wsRef.current = null;
       }
     };
-  }, [resolvedWsBase, selectedDebateId]);
+  }, [resolvedWsBase, safeSelectedDebateId]);
 
   const selectedDebate = useMemo(
-    () => liveDebates.find((debate) => debate.debateId === selectedDebateId) ?? null,
-    [liveDebates, selectedDebateId],
+    () => liveDebates.find((debate) => debate.debateId === safeSelectedDebateId) ?? null,
+    [liveDebates, safeSelectedDebateId],
   );
 
   const recentDebateEvents = useMemo(() => {
-    if (!selectedDebateId) return [];
+    if (!safeSelectedDebateId) return [];
     return recentEvents
-      .filter((event) => event.debate_id === selectedDebateId)
+      .filter((event) => sanitizeDebateId(event.debate_id) === safeSelectedDebateId)
       .map(normalizeRecentEvent);
-  }, [recentEvents, selectedDebateId]);
+  }, [recentEvents, safeSelectedDebateId]);
 
-  const mergedEvents = useMemo(() => {
-    const merged = new Map<string, LivePreviewEvent>();
-    for (const event of [...recentDebateEvents, ...socketEvents]) {
-      merged.set(event.id, event);
-    }
-
-    return Array.from(merged.values())
-      .sort((left, right) => left.timestampMs - right.timestampMs)
-      .slice(-LIVE_PREVIEW_EVENT_LIMIT);
+  useEffect(() => {
+    setMergedEvents(mergePreviewEvents(recentDebateEvents, socketEvents));
   }, [recentDebateEvents, socketEvents]);
 
   const bridgeTone = socketStatus === 'connected'
@@ -423,6 +450,9 @@ export function LiveDebatePanel({
     ?? selectedDebate?.task
     ?? 'Waiting for a public debate to surface in the live bridge.';
   const activeAgents = socketAgents.length > 0 ? socketAgents : (selectedDebate?.agents ?? []);
+  const spectatorHref = safeSelectedDebateId
+    ? `/spectate/${encodeURIComponent(safeSelectedDebateId)}`
+    : '/spectate';
 
   return (
     <section className="px-4 pb-20">
@@ -476,9 +506,9 @@ export function LiveDebatePanel({
               <span className="font-theme-data text-xs text-text-muted">
                 {(status?.recent_event_count ?? recentEvents.length).toString()} recent bridge events
               </span>
-              {selectedDebateId && (
+              {safeSelectedDebateId && (
                 <span className="font-theme-data text-xs text-text-muted">
-                  Debate {selectedDebateId.slice(-8).toUpperCase()}
+                  Debate {safeSelectedDebateId.slice(-8).toUpperCase()}
                 </span>
               )}
               {activeAgents.length > 0 && (
@@ -490,7 +520,7 @@ export function LiveDebatePanel({
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href={selectedDebateId ? `/spectate/${selectedDebateId}` : '/spectate'}
+                href={spectatorHref}
                 className="font-theme-data text-xs px-4 py-2 bg-[var(--accent)] text-bg font-bold hover:opacity-90 transition-opacity"
               >
                 Open spectator view

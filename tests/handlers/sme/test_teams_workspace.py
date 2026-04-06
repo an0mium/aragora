@@ -15,6 +15,15 @@ from aragora.connectors.chat.models import ChatChannel
 from aragora.server.handlers.sme.teams_workspace import TeamsWorkspaceHandler
 
 
+@pytest.fixture(autouse=True)
+def _reset_teams_rate_limiter():
+    from aragora.server.handlers.sme import teams_workspace as teams_workspace_module
+
+    teams_workspace_module._teams_limiter._buckets.clear()
+    yield
+    teams_workspace_module._teams_limiter._buckets.clear()
+
+
 @dataclass
 class MockUser:
     """Mock user for testing."""

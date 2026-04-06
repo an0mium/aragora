@@ -91,7 +91,7 @@ class TestAuthMiddleware:
         assert ip == "192.168.1.100"
 
     def test_extract_client_ip_forwarded(self):
-        """extract_client_ip should prefer X-Forwarded-For."""
+        """extract_client_ip should ignore XFF without trusted proxy config."""
         from aragora.server.middleware import extract_client_ip
 
         handler = MagicMock()
@@ -99,7 +99,7 @@ class TestAuthMiddleware:
         handler.client_address = ("127.0.0.1", 12345)
 
         ip = extract_client_ip(handler)
-        assert ip == "10.0.0.1"  # First IP in chain
+        assert ip == "127.0.0.1"
 
     def test_extract_client_ip_none_handler(self):
         """extract_client_ip should handle None handler."""
