@@ -251,15 +251,17 @@ def migrate_to_hierarchical(vault_path: str | Path) -> dict[str, int]:
 
         try:
             node = read_node(file_path)
-            status = node.pipeline_status or "inbox"
-            target_dir = vault / status
-            target_dir.mkdir(exist_ok=True)
-
-            target_path = target_dir / file_path.name
-            file_path.rename(target_path)
-            moved[status] = moved.get(status, 0) + 1
-            logger.debug("Migrated %s to %s/", file_path.name, status)
-        except Exception as exc:
+        except (ValueError, yaml.YAMLError) as exc:
             logger.warning("Failed to migrate %s: %s", file_path.name, exc)
+            continue
+
+        status = node.pipeline_status or "inbox"
+        target_dir = vault / status
+        target_dir.mkdir(exist_ok=True)
+
+        target_path = target_dir / file_path.name
+        file_path.rename(target_path)
+        moved[status] = moved.get(status, 0) + 1
+        logger.debug("Migrated %s to %s/", file_path.name, status)
 
     return moved

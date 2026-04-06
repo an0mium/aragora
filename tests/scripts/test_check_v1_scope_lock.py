@@ -41,6 +41,7 @@ def test_scope_lock_fails_for_blocked_prefix() -> None:
     assert result.returncode == 1
     assert "violation" in result.stderr.lower()
     assert "social/slack.py" in result.stderr
+    assert "ARAGORA_ALLOW_SCOPE_EXPANSION=1" in result.stderr
 
 
 def test_scope_lock_can_be_overridden_by_env() -> None:

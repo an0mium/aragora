@@ -98,6 +98,10 @@ def _is_concrete_repo_path(path: str) -> bool:
     return "." in name
 
 
+def _strict_bool(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
 def _docs_only_scope_supports_hint(path: str, original_scope: list[str]) -> bool:
     if any(_path_in_scope(path, scope) or _path_in_scope(scope, path) for scope in original_scope):
         return True
@@ -394,9 +398,15 @@ class SwarmApprovalPolicy:
     def from_dict(cls, data: dict[str, Any] | None) -> SwarmApprovalPolicy:
         payload = dict(data or {})
         return cls(
-            require_merge_approval=bool(payload.get("require_merge_approval", True)),
-            require_external_action_approval=bool(
-                payload.get("require_external_action_approval", True)
+            require_merge_approval=(
+                _strict_bool(payload.get("require_merge_approval"))
+                if _strict_bool(payload.get("require_merge_approval")) is not None
+                else True
+            ),
+            require_external_action_approval=(
+                _strict_bool(payload.get("require_external_action_approval"))
+                if _strict_bool(payload.get("require_external_action_approval")) is not None
+                else True
             ),
             protected_patterns=[
                 str(item) for item in payload.get("protected_patterns", []) if str(item).strip()
@@ -545,22 +555,30 @@ class SwarmSupervisor:
             config.claude_profile_script = self._optional_snapshot_text(
                 snapshot["claude_profile_script"]
             )
-        if "auto_commit" in snapshot:
-            config.auto_commit = bool(snapshot["auto_commit"])
-        if "use_managed_session_script" in snapshot:
-            config.use_managed_session_script = bool(snapshot["use_managed_session_script"])
+        auto_commit = _strict_bool(snapshot.get("auto_commit"))
+        if auto_commit is not None:
+            config.auto_commit = auto_commit
+        use_managed_session_script = _strict_bool(snapshot.get("use_managed_session_script"))
+        if use_managed_session_script is not None:
+            config.use_managed_session_script = use_managed_session_script
         if "base_branch" in snapshot:
             config.base_branch = str(snapshot["base_branch"]).strip() or config.base_branch
-        if "detach" in snapshot:
-            config.detach = bool(snapshot["detach"])
-        if "require_explicit_approval" in snapshot:
-            config.require_explicit_approval = bool(snapshot["require_explicit_approval"])
-        if "allow_claude_dangerously_skip_permissions" in snapshot:
-            config.allow_claude_dangerously_skip_permissions = bool(
-                snapshot["allow_claude_dangerously_skip_permissions"]
+        detach = _strict_bool(snapshot.get("detach"))
+        if detach is not None:
+            config.detach = detach
+        require_explicit_approval = _strict_bool(snapshot.get("require_explicit_approval"))
+        if require_explicit_approval is not None:
+            config.require_explicit_approval = require_explicit_approval
+        allow_claude_dangerously_skip_permissions = _strict_bool(
+            snapshot.get("allow_claude_dangerously_skip_permissions")
+        )
+        if allow_claude_dangerously_skip_permissions is not None:
+            config.allow_claude_dangerously_skip_permissions = (
+                allow_claude_dangerously_skip_permissions
             )
-        if "allow_codex_full_auto" in snapshot:
-            config.allow_codex_full_auto = bool(snapshot["allow_codex_full_auto"])
+        allow_codex_full_auto = _strict_bool(snapshot.get("allow_codex_full_auto"))
+        if allow_codex_full_auto is not None:
+            config.allow_codex_full_auto = allow_codex_full_auto
         if "execution_mode" in snapshot:
             try:
                 config.execution_mode = ExecutionMode(str(snapshot["execution_mode"]).strip())
@@ -4855,7 +4873,7 @@ class SwarmSupervisor:
                 cls._verification_command_covers_expected(entry.get("command", ""), command)
                 for command in expected_checks
             )
-            and not bool(entry.get("passed", False))
+            and entry.get("passed") is not True
         ]
         deferred_dependency_ids = [
             str(dep).strip()

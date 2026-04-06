@@ -145,7 +145,7 @@ class PulseBridge:
             if cls:
                 try:
                     manager.add_ingestor(name, cls())
-                except Exception as exc:
+                except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
                     logger.warning("Failed to create %s ingestor: %s", name, exc)
             else:
                 logger.debug("No ingestor available for platform: %s", name)
@@ -163,7 +163,7 @@ class PulseBridge:
                 filters=filters,
             )
             return topics
-        except Exception as exc:
+        except (AttributeError, OSError, RuntimeError, TimeoutError, TypeError, ValueError) as exc:
             logger.warning("Failed to fetch Pulse topics: %s", exc)
             return []
 
