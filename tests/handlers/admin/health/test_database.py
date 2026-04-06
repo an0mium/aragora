@@ -167,11 +167,11 @@ class TestHealthHandlerProtocol:
         """A plain dict does not satisfy the protocol."""
         assert not isinstance({}, _HealthHandlerProtocol)
 
-    def test_mock_with_all_attrs_satisfies_protocol(self):
-        """A MagicMock with correct spec satisfies the protocol."""
+    def test_mock_with_spec_does_not_satisfy_protocol(self):
+        """A specced MagicMock is not a structural match for the runtime protocol."""
         mock = MagicMock(spec=FakeHandler)
         mock.ctx = {}
-        assert isinstance(mock, _HealthHandlerProtocol)
+        assert not isinstance(mock, _HealthHandlerProtocol)
 
 
 # ===========================================================================

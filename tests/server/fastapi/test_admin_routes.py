@@ -7,17 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aragora.server.fastapi.routes import admin as admin_routes
 
 
-def _request() -> MagicMock:
-    request = MagicMock()
-    request.app.state.context = {}
-    return request
-
-
-def _auth(user_id: str = "admin-1") -> SimpleNamespace:
-    return SimpleNamespace(user_id=user_id)
-
-
-def test_list_users_prefers_async_store_methods() -> None:
+def test_list_users_prefers_async_store_methods(route_request_factory, route_auth_factory) -> None:
     user = MagicMock()
     user.to_dict.return_value = {
         "id": "user-1",
@@ -34,13 +24,13 @@ def test_list_users_prefers_async_store_methods() -> None:
 
     response = asyncio.run(
         admin_routes.list_users(
-            request=_request(),
+            request=route_request_factory(context={}),
             limit=50,
             offset=0,
             org_id=None,
             role=None,
             active_only=False,
-            auth=_auth(),
+            auth=route_auth_factory(user_id="admin-1"),
             user_store=store,
         )
     )
@@ -56,7 +46,9 @@ def test_list_users_prefers_async_store_methods() -> None:
     )
 
 
-def test_create_user_hashes_password_and_prefers_async_store_methods() -> None:
+def test_create_user_hashes_password_and_prefers_async_store_methods(
+    route_request_factory, route_auth_factory
+) -> None:
     store = MagicMock()
     store.get_user_by_email.side_effect = AssertionError(
         "sync get_user_by_email should not be used"
@@ -77,8 +69,8 @@ def test_create_user_hashes_password_and_prefers_async_store_methods() -> None:
                     role="member",
                     password="super-secret-1",
                 ),
-                request=_request(),
-                auth=_auth(),
+                request=route_request_factory(context={}),
+                auth=route_auth_factory(user_id="admin-1"),
                 user_store=store,
             )
         )
@@ -95,7 +87,9 @@ def test_create_user_hashes_password_and_prefers_async_store_methods() -> None:
     )
 
 
-def test_deactivate_user_prefers_async_store_methods() -> None:
+def test_deactivate_user_prefers_async_store_methods(
+    route_request_factory, route_auth_factory
+) -> None:
     target_user = SimpleNamespace(email="user@example.com")
     store = MagicMock()
     store.get_user_by_id.side_effect = AssertionError("sync get_user_by_id should not be used")
@@ -107,8 +101,8 @@ def test_deactivate_user_prefers_async_store_methods() -> None:
         response = asyncio.run(
             admin_routes.deactivate_user(
                 user_id="user-1",
-                request=_request(),
-                auth=_auth(),
+                request=route_request_factory(context={}),
+                auth=route_auth_factory(user_id="admin-1"),
                 user_store=store,
             )
         )
@@ -118,7 +112,9 @@ def test_deactivate_user_prefers_async_store_methods() -> None:
     store.update_user_async.assert_awaited_once_with("user-1", is_active=False)
 
 
-def test_get_revenue_stats_prefers_async_store_methods() -> None:
+def test_get_revenue_stats_prefers_async_store_methods(
+    route_request_factory, route_auth_factory
+) -> None:
     store = MagicMock()
     store.get_admin_stats.side_effect = AssertionError("sync get_admin_stats should not be used")
     store.get_admin_stats_async = AsyncMock(
@@ -130,8 +126,8 @@ def test_get_revenue_stats_prefers_async_store_methods() -> None:
 
     response = asyncio.run(
         admin_routes.get_revenue_stats(
-            request=_request(),
-            auth=_auth(),
+            request=route_request_factory(context={}),
+            auth=route_auth_factory(user_id="admin-1"),
             user_store=store,
         )
     )
@@ -140,10 +136,9 @@ def test_get_revenue_stats_prefers_async_store_methods() -> None:
     store.get_admin_stats_async.assert_awaited_once_with()
 
 
-def test_get_user_store_falls_back_to_storage_singleton() -> None:
+def test_get_user_store_falls_back_to_storage_singleton(route_request_factory) -> None:
     store = object()
-    request = _request()
-    request.app.state.context = {}
+    request = route_request_factory(context={})
 
     with patch("aragora.storage.user_store.get_user_store", return_value=store):
         result = admin_routes._get_user_store(request)

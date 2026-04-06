@@ -127,12 +127,9 @@ export function ProvenanceGraph({
 
       const json = await response.json();
 
-      // If no nodes from API, generate demo data for visualization
-      if (!json.nodes || json.nodes.length === 0) {
-        const demoData = generateDemoProvenance(debateId);
-        setData(demoData);
+      if (!Array.isArray(json?.nodes) || json.nodes.length === 0) {
+        setData(null);
       } else {
-        // Layout nodes hierarchically
         const layoutData = layoutNodes(json, width, height);
         setData(layoutData);
       }
@@ -140,176 +137,15 @@ export function ProvenanceGraph({
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load provenance');
-      // Generate demo data even on error for visualization
-      const demoData = generateDemoProvenance(debateId);
-      setData(demoData);
+      setData(null);
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- generateDemoProvenance is stable
   }, [apiBase, debateId, viewMode, width, height]);
 
   useEffect(() => {
     fetchProvenance();
   }, [fetchProvenance]);
-
-  // Generate demo provenance data for visualization
-  function generateDemoProvenance(debateId: string): ProvenanceGraphData {
-    const agents = ['claude', 'gpt4', 'gemini', 'mistral'];
-    const nodes: ProvenanceNode[] = [];
-    const edges: ProvenanceEdge[] = [];
-
-    // Question node (root)
-    nodes.push({
-      id: 'q1',
-      type: 'question',
-      label: 'Question',
-      content: 'What is the best approach?',
-      depth: 0,
-      x: width / 2,
-      y: 60,
-    });
-
-    // Agent nodes (level 1)
-    agents.forEach((agent, i) => {
-      const agentId = `agent-${agent}`;
-      nodes.push({
-        id: agentId,
-        type: 'agent',
-        label: agent,
-        content: `${agent} agent`,
-        agent,
-        depth: 1,
-        x: 100 + (i * (width - 200) / (agents.length - 1)),
-        y: 150,
-      });
-      edges.push({
-        id: `e-q1-${agentId}`,
-        source: 'q1',
-        target: agentId,
-        type: 'leads_to',
-      });
-    });
-
-    // Arguments per agent (level 2)
-    agents.forEach((agent, i) => {
-      const argId = `arg-${agent}-1`;
-      nodes.push({
-        id: argId,
-        type: 'argument',
-        label: 'Argument',
-        content: `${agent}'s main argument for the approach`,
-        agent,
-        round: 1,
-        confidence: 0.7 + Math.random() * 0.3,
-        depth: 2,
-        x: 100 + (i * (width - 200) / (agents.length - 1)),
-        y: 250,
-      });
-      edges.push({
-        id: `e-agent-${agent}-${argId}`,
-        source: `agent-${agent}`,
-        target: argId,
-        type: 'contributes',
-      });
-    });
-
-    // Evidence nodes (level 3)
-    nodes.push({
-      id: 'ev1',
-      type: 'evidence',
-      label: 'Evidence',
-      content: 'Research paper supporting approach A',
-      verified: true,
-      hash: 'abc123...',
-      depth: 3,
-      x: width / 4,
-      y: 350,
-    });
-    nodes.push({
-      id: 'ev2',
-      type: 'evidence',
-      label: 'Evidence',
-      content: 'Case study from similar project',
-      verified: true,
-      hash: 'def456...',
-      depth: 3,
-      x: (3 * width) / 4,
-      y: 350,
-    });
-
-    edges.push({
-      id: 'e-arg-claude-ev1',
-      source: 'arg-claude-1',
-      target: 'ev1',
-      type: 'supports',
-    });
-    edges.push({
-      id: 'e-arg-gpt4-ev2',
-      source: 'arg-gpt4-1',
-      target: 'ev2',
-      type: 'supports',
-    });
-
-    // Synthesis node (level 4)
-    nodes.push({
-      id: 'syn1',
-      type: 'synthesis',
-      label: 'Synthesis',
-      content: 'Combined insights from multiple agents',
-      round: 2,
-      confidence: 0.85,
-      depth: 4,
-      x: width / 2,
-      y: 450,
-    });
-
-    edges.push({
-      id: 'e-ev1-syn1',
-      source: 'ev1',
-      target: 'syn1',
-      type: 'synthesizes',
-    });
-    edges.push({
-      id: 'e-ev2-syn1',
-      source: 'ev2',
-      target: 'syn1',
-      type: 'synthesizes',
-    });
-
-    // Consensus node (level 5)
-    nodes.push({
-      id: 'consensus',
-      type: 'consensus',
-      label: 'Consensus',
-      content: 'Agents reached 85% agreement on approach',
-      confidence: 0.85,
-      verified: true,
-      depth: 5,
-      x: width / 2,
-      y: 540,
-    });
-
-    edges.push({
-      id: 'e-syn1-consensus',
-      source: 'syn1',
-      target: 'consensus',
-      type: 'leads_to',
-    });
-
-    return {
-      debate_id: debateId,
-      nodes,
-      edges,
-      metadata: {
-        total_nodes: nodes.length,
-        total_edges: edges.length,
-        max_depth: 5,
-        verified: true,
-        status: 'demo',
-      },
-    };
-  }
 
   // Layout nodes hierarchically
   function layoutNodes(data: ProvenanceGraphData, w: number, h: number): ProvenanceGraphData {

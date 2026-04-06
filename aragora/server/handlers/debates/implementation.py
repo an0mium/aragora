@@ -91,25 +91,35 @@ def _persist_receipt(receipt: Any, debate_id: str) -> str | None:
 def _persist_plan(plan: Any, debate_id: str) -> None:
     """Store an ImplementPlan in the pipeline plan store for tracking."""
     try:
-        from aragora.server.decision_integrity_utils import (
-            ensure_decision_plan_backbone_run,
-            sync_decision_plan_backbone_receipt,
-        )
         from aragora.pipeline.executor import store_plan
         from aragora.pipeline.decision_plan import DecisionPlanFactory
 
         # Wrap ImplementPlan as a DecisionPlan for the store
         decision_plan = DecisionPlanFactory.from_implement_plan(plan, debate_id=debate_id)
+    except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
+        logger.debug("Plan persistence setup failed: %s", exc)
+        return
+
+    try:
         ensure_decision_plan_backbone_run(
             decision_plan,
             auth_context=None,
             source_surface="debates_decision_integrity_plan_only",
             source_id=debate_id,
         )
+    except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
+        logger.debug("Plan backbone seeding failed: %s", exc)
+
+    try:
         store_plan(decision_plan)
-        sync_decision_plan_backbone_receipt(decision_plan, append_event=False)
     except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
         logger.debug("Plan persistence failed: %s", exc)
+        return
+
+    try:
+        sync_decision_plan_backbone_receipt(decision_plan, append_event=False)
+    except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
+        logger.debug("Plan backbone receipt sync failed: %s", exc)
 
 
 def _check_execution_budget(debate_id: str, ctx: dict[str, Any]) -> tuple[bool, str]:

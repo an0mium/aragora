@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
@@ -36,7 +37,14 @@ from aragora.swarm.terminal_truth import (
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 
 # Backwards-compatible re-exports from extracted modules
-from aragora.swarm.boss_feed import GitHubIssue, GitHubIssueFeed, select_eligible_issue  # noqa: F401
+from aragora.swarm.boss_feed import (  # noqa: F401
+    GitHubIssue,
+    GitHubIssueFeed,
+    fetch_open_pr_changed_paths,
+    infer_issue_lane_hints,
+    infer_issue_scope_entries,
+    select_eligible_issue,
+)
 from aragora.swarm.boss_freshness import RunnerFreshnessResult, check_runner_freshness  # noqa: F401
 from aragora.swarm.boss_validation import (  # noqa: F401
     _compose_issue_dispatch_goal,
@@ -44,6 +52,7 @@ from aragora.swarm.boss_validation import (  # noqa: F401
     sanitize_issue_body_for_dispatch,
     extract_issue_validation_contract,
     extract_pre_dispatch_validation_commands,
+    extract_declared_new_file_paths,
     find_missing_pre_dispatch_validation_targets,
     run_pre_dispatch_validation_commands,
     discover_focused_tests,
@@ -55,6 +64,19 @@ UTC = timezone.utc
 _LANE_TELEMETRY = LaneTelemetryCollector()
 _GITHUB_ISSUE_URL_RE = re.compile(r"github\.com/(?P<repo>[^/]+/[^/]+)/issues/(?P<number>\d+)")
 _GITHUB_PR_URL_RE = re.compile(r"github\.com/[^/]+/[^/]+/pull/(?P<number>\d+)")
+
+# The 5 CI checks required for merge.  Draft PRs run only these;
+# ready PRs run the full 32-workflow suite.  The boss loop creates
+# PRs as drafts and auto-promotes them once these 5 pass.
+_REQUIRED_CHECK_NAMES: frozenset[str] = frozenset(
+    {
+        "lint",
+        "typecheck",
+        "sdk-parity",
+        "Generate & Validate",
+        "TypeScript SDK Type Check",
+    }
+)
 _ALREADY_DONE_MARKERS = (
     "already implemented",
     "already exists",
@@ -101,6 +123,8 @@ class BossIterationStatus:
     elapsed_seconds: float = 0.0
     error: str | None = None
     worker_outcome: str | None = None
+    configured_max_parallel_dispatches: int | None = None
+    effective_parallel_dispatches: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -115,6 +139,8 @@ class BossIterationStatus:
             "next_actions": list(self.next_actions),
             "elapsed_seconds": self.elapsed_seconds,
             "error": self.error,
+            "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+            "effective_parallel_dispatches": self.effective_parallel_dispatches,
         }
         if self.worker_outcome is not None:
             result["worker_outcome"] = self.worker_outcome
@@ -135,6 +161,8 @@ class BossLoopResult:
     iteration_statuses: list[dict[str, Any]]
     needs_human_reasons: list[str]
     next_actions: list[str]
+    configured_max_parallel_dispatches: int = 1
+    effective_parallel_dispatches_observed: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +177,8 @@ class BossLoopResult:
             "iteration_statuses": list(self.iteration_statuses),
             "needs_human_reasons": list(self.needs_human_reasons),
             "next_actions": list(self.next_actions),
+            "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+            "effective_parallel_dispatches_observed": self.effective_parallel_dispatches_observed,
         }
 
 
@@ -231,6 +261,10 @@ class BossLoopConfig:
     # work instead of processing issues in arbitrary GitHub order.
     use_value_ranking: bool = True
 
+    # Scope conflict guardrail: skip issues whose inferred file scope already
+    # appears in an open PR or another issue selected in the same batch.
+    avoid_open_pr_scope_conflicts: bool = True
+
     # Micro-decomposition: break broad issues into single-file work orders.
     # Workers succeed on focused tasks but timeout on broad ones in large repos.
     use_micro_decomposition: bool = True
@@ -243,6 +277,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
+    max_open_auto_publish_prs: int = 1
     auto_close_already_done_issues: bool = False
 
     # Reporting
@@ -304,6 +339,13 @@ def _freshness_to_dict(freshness: Any) -> dict[str, Any]:
     if isinstance(freshness, dict):
         return dict(freshness)
     return {}
+
+
+def _freshness_is_fresh(freshness: Any, freshness_dict: dict[str, Any]) -> bool:
+    """Require a real boolean freshness signal before dispatching work."""
+    if hasattr(freshness, "fresh"):
+        return getattr(freshness, "fresh") is True
+    return freshness_dict.get("fresh") is True
 
 
 async def dispatch_bounded_spec(
@@ -504,6 +546,25 @@ def _backbone_dispatch_status(result: dict[str, Any]) -> str:
     return status or "failed"
 
 
+def _dispatch_result_started(result: Any) -> bool:
+    if not isinstance(result, dict):
+        return False
+    run_id = result.get("run_id")
+    if isinstance(run_id, str) and run_id.strip():
+        return True
+    run = result.get("run")
+    if not isinstance(run, dict):
+        return False
+    embedded_run_id = run.get("run_id")
+    if isinstance(embedded_run_id, str) and embedded_run_id.strip():
+        return True
+    work_orders = run.get("work_orders")
+    if isinstance(work_orders, list):
+        return True
+    run_status = run.get("status")
+    return isinstance(run_status, str) and bool(run_status.strip())
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
@@ -528,6 +589,9 @@ class BossLoop:
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
+        self._configured_parallel_dispatches = max(1, int(self.config.max_parallel_dispatches or 1))
+        self._current_effective_parallel_dispatches: int | None = None
+        self._max_effective_parallel_dispatches_observed: int | None = None
         self._feed = issue_feed or GitHubIssueFeed(
             repo=self.config.repo,
             label_filter=self.config.label_filter,
@@ -544,6 +608,81 @@ class BossLoop:
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
+
+    def _decorate_iteration_status(
+        self,
+        status: BossIterationStatus,
+        *,
+        effective_parallel_dispatches: int | None = None,
+    ) -> BossIterationStatus:
+        if status.configured_max_parallel_dispatches is None:
+            status.configured_max_parallel_dispatches = self._configured_parallel_dispatches
+        effective = effective_parallel_dispatches
+        if effective is None:
+            effective = self._current_effective_parallel_dispatches
+        if status.effective_parallel_dispatches is None:
+            status.effective_parallel_dispatches = effective
+        if status.effective_parallel_dispatches is not None:
+            self._max_effective_parallel_dispatches_observed = max(
+                int(status.effective_parallel_dispatches),
+                int(self._max_effective_parallel_dispatches_observed or 0),
+            )
+        return status
+
+    @staticmethod
+    def _issue_payload(issue: GitHubIssue) -> dict[str, Any]:
+        payload = issue.to_dict()
+        lane_hints = infer_issue_lane_hints(issue)
+        if lane_hints:
+            payload["lane_hints"] = list(lane_hints)
+            if len(lane_hints) == 1:
+                payload["lane_id"] = lane_hints[0]
+        return payload
+
+    def _blocked_issue_scopes(self) -> set[str]:
+        if not self.config.avoid_open_pr_scope_conflicts:
+            return set()
+        blocked = self._coordination_blocked_scopes()
+        repo = str(self.config.repo).strip() if isinstance(self.config.repo, str) else ""
+        if not repo:
+            feed_repo = getattr(self._feed, "repo", None)
+            repo = str(feed_repo).strip() if isinstance(feed_repo, str) else ""
+        if not repo:
+            return blocked
+        blocked.update(fetch_open_pr_changed_paths(repo=repo))
+        return blocked
+
+    def _coordination_blocked_scopes(self) -> set[str]:
+        blocked: set[str] = set()
+        try:
+            store = DevCoordinationStore(repo_root=Path.cwd().resolve())
+        except Exception:
+            logger.debug(
+                "Failed to open coordination store for boss-loop scope blocking", exc_info=True
+            )
+            return blocked
+
+        try:
+            for lease in store.list_active_leases():
+                blocked.update(
+                    str(path).strip()
+                    for path in [*lease.claimed_paths, *lease.allowed_globs]
+                    if str(path).strip()
+                )
+        except Exception:
+            logger.debug("Failed to collect active lease scope claims", exc_info=True)
+
+        try:
+            store.fleet_store.reap_stale_claims()
+            blocked.update(
+                str(claim.get("path", "")).strip()
+                for claim in store.fleet_store.list_claims()
+                if isinstance(claim, dict) and str(claim.get("path", "")).strip()
+            )
+        except Exception:
+            logger.debug("Failed to collect active fleet claim scopes", exc_info=True)
+
+        return blocked
 
     def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
         """Summarize changed files and test verification from a worker run."""
@@ -647,6 +786,32 @@ class BossLoop:
                 return True
         return False
 
+    def _filter_mixed_retry_routing_batch(
+        self,
+        issues: list[GitHubIssue],
+    ) -> list[GitHubIssue]:
+        """Keep retry-routed work isolated from fresh issues in one batch.
+
+        A mixed batch forces `_requested_runner_type_for_freshness()` to widen
+        the runner pool for every selected issue. That is correct for retry
+        work, but it lets fresh issues piggy-back onto retry-specific routing.
+        When both kinds are present, dispatch only the retry-routed issues in
+        this iteration and leave fresh work for the next pass.
+        """
+        if len(issues) <= 1:
+            return issues
+
+        retry_routed: list[GitHubIssue] = []
+        fresh: list[GitHubIssue] = []
+        for issue in issues:
+            if self._selected_issues_need_retry_routing([issue]):
+                retry_routed.append(issue)
+            else:
+                fresh.append(issue)
+        if retry_routed and fresh:
+            return retry_routed
+        return issues
+
     def _requested_runner_type_for_freshness(
         self,
         selected_issues: list[GitHubIssue],
@@ -746,7 +911,12 @@ class BossLoop:
                 return value
         return None
 
-    def _pending_handoff_candidates(self, issues: list[GitHubIssue]) -> list[GitHubIssue]:
+    def _pending_handoff_candidates(
+        self,
+        issues: list[GitHubIssue],
+        *,
+        blocked_scopes: set[str] | None = None,
+    ) -> list[GitHubIssue]:
         if not self._pending_handoff_prompts:
             return []
 
@@ -766,6 +936,7 @@ class BossLoop:
                     [issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scopes,
                 )
                 is None
             ):
@@ -877,6 +1048,7 @@ class BossLoop:
                     "max_retries_per_issue": self.config.max_retries_per_issue,
                     "max_consecutive_failures": self.config.max_consecutive_failures,
                     "budget_limit_usd": self.config.budget_limit_usd,
+                    "configured_max_parallel_dispatches": result.configured_max_parallel_dispatches,
                 },
                 outputs={
                     "iterations_completed": result.iterations_completed,
@@ -884,6 +1056,9 @@ class BossLoop:
                     "issues_attempted": attempted,
                     "issues_completed": completed,
                     "issues_failed": failed,
+                    "effective_parallel_dispatches_observed": (
+                        result.effective_parallel_dispatches_observed
+                    ),
                     "needs_human_reasons": list(result.needs_human_reasons),
                     "next_actions": list(result.next_actions),
                 },
@@ -1096,6 +1271,40 @@ class BossLoop:
             )
             return
 
+        # Check if a PR was already merged for this issue — if so, close it
+        try:
+            pr_check = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "merged",
+                    "--search",
+                    f"#{issue.number}",
+                    "--limit",
+                    "1",
+                    "--json",
+                    "number",
+                    "--jq",
+                    ".[0].number",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if pr_check.returncode == 0 and pr_check.stdout.strip():
+                self._label_boss_stuck(
+                    issue_number,
+                    repo,
+                    f"PR #{pr_check.stdout.strip()} already merged for this issue.",
+                )
+                return
+        except Exception:
+            pass
+
         # Collect existing issue titles to avoid creating duplicates
         existing_titles: set[str] = set()
         try:
@@ -1243,7 +1452,7 @@ class BossLoop:
 
     @staticmethod
     def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
-        """Label an issue as boss-stuck with an explanatory comment."""
+        """Label an issue as boss-stuck, remove boss-ready, and comment."""
         import subprocess
 
         try:
@@ -1252,6 +1461,7 @@ class BossLoop:
                 capture_output=True,
                 timeout=15,
             )
+            # Add boss-stuck AND remove boss-ready — an issue should never be both
             subprocess.run(
                 [
                     "gh",
@@ -1262,6 +1472,8 @@ class BossLoop:
                     repo,
                     "--add-label",
                     "boss-stuck",
+                    "--remove-label",
+                    "boss-ready",
                 ],
                 capture_output=True,
                 timeout=15,
@@ -1307,6 +1519,38 @@ class BossLoop:
         ]
         if not branch or not commit_shas:
             return None
+        max_open_prs = max(int(self.config.max_open_auto_publish_prs or 0), 0)
+        if max_open_prs <= 0:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: max_open_auto_publish_prs=%d",
+                issue.number,
+                branch,
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "max_open_auto_publish_prs_zero",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": [],
+            }
+        open_boss_prs = self._list_open_boss_harvest_prs()
+        if len(open_boss_prs) >= max_open_prs:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: %d open boss-harvest PR(s) "
+                "already exist (limit=%d)",
+                issue.number,
+                branch,
+                len(open_boss_prs),
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "open_boss_harvest_pr_limit",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": open_boss_prs,
+            }
         try:
             from aragora.ralph.github_control import GitHubControl
             from aragora.swarm.pr_registry import PullRequestRegistry
@@ -1370,6 +1614,60 @@ class BossLoop:
             worker_result["pr_url"] = pr_url
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
         return dict(publish_result)
+
+    def _list_open_boss_harvest_prs(self) -> list[dict[str, Any]]:
+        """List open boss-harvest PRs so auto-publish can avoid queue fan-out."""
+        repo = str(self.config.repo or "").strip()
+        if not repo:
+            return []
+        cmd: list[str] = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--json",
+            "number,headRefName,isDraft,url",
+            "--limit",
+            "100",
+            "-R",
+            repo,
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode != 0:
+                logger.debug(
+                    "Failed to list open boss-harvest PRs: %s",
+                    (proc.stderr or proc.stdout or "").strip(),
+                )
+                return []
+            entries = json.loads(proc.stdout or "[]")
+        except Exception as exc:
+            logger.debug("Exception listing open boss-harvest PRs: %s", exc)
+            return []
+
+        open_boss_prs: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            head_ref = str(entry.get("headRefName", "")).strip()
+            if not head_ref.startswith("aragora/boss-harvest/issue-"):
+                continue
+            open_boss_prs.append(
+                {
+                    "number": entry.get("number"),
+                    "headRefName": head_ref,
+                    "isDraft": bool(entry.get("isDraft")),
+                    "url": str(entry.get("url", "")).strip() or None,
+                }
+            )
+        return open_boss_prs
 
     def _harvest_worker_commits_for_publish(
         self,
@@ -1501,11 +1799,13 @@ class BossLoop:
         return pr_url or None
 
     @staticmethod
+    def _publish_result_succeeded(publish_result: Any) -> bool:
+        return isinstance(publish_result, dict) and publish_result.get("published") is True
+
+    @staticmethod
     def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return None
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return None
         pr_url = BossLoop._published_pr_url(worker_result)
         if pr_url is None:
@@ -1628,9 +1928,7 @@ class BossLoop:
     @staticmethod
     def _promote_published_deliverable(worker_result: dict[str, Any]) -> bool:
         publish_result = worker_result.get("publish_result")
-        if not isinstance(publish_result, dict):
-            return False
-        if not bool(publish_result.get("published")):
+        if not BossLoop._publish_result_succeeded(publish_result):
             return False
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
@@ -1670,6 +1968,175 @@ class BossLoop:
             return f"Auto-continuing: published PR {pr_url} for human review."
         return f"Auto-continuing: deliverable is available at {pr_url} for human review."
 
+    def _convert_pr_to_draft(self, worker_result: dict[str, Any]) -> None:
+        """Convert a newly-created PR to draft so only the 5 required checks run.
+
+        The boss loop later promotes draft PRs to ready once those checks pass
+        (see ``_promote_ready_drafts``).  This avoids triggering all 32 CI
+        workflows on every PR while 35+ PRs compete for runner time.
+        """
+        pr_url = self._published_pr_url(worker_result)
+        if not pr_url:
+            return
+        pr_number = self._pr_number_from_url(pr_url)
+        if pr_number is None:
+            return
+        repo = str(self.config.repo or "").strip()
+        cmd: list[str] = ["gh", "pr", "ready", "--undo", str(pr_number)]
+        if repo:
+            cmd.extend(["-R", repo])
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode == 0:
+                logger.info(
+                    "Converted PR #%d to draft to limit CI to required checks only",
+                    pr_number,
+                )
+                worker_result["draft_converted"] = True
+            else:
+                detail = (proc.stderr or proc.stdout or "").strip()
+                # If already a draft, treat as success
+                if "already a draft" in detail.lower():
+                    logger.debug("PR #%d already a draft", pr_number)
+                    worker_result["draft_converted"] = True
+                else:
+                    logger.warning(
+                        "Failed to convert PR #%d to draft: %s",
+                        pr_number,
+                        detail or "gh pr ready --undo failed",
+                    )
+        except Exception as exc:
+            logger.warning("Exception converting PR #%d to draft: %s", pr_number, exc)
+
+    def _promote_ready_drafts(self) -> list[int]:
+        """Promote draft PRs whose 5 required checks have all passed.
+
+        Returns the list of PR numbers that were promoted.
+        """
+        repo = str(self.config.repo or "").strip()
+        if not repo:
+            return []
+
+        # List open draft PRs authored by the current user (or any, if no filter)
+        list_cmd: list[str] = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--draft",
+            "--json",
+            "number",
+            "--limit",
+            "100",
+            "-R",
+            repo,
+        ]
+        try:
+            list_proc = subprocess.run(
+                list_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if list_proc.returncode != 0:
+                logger.debug(
+                    "Failed to list draft PRs for promotion: %s",
+                    (list_proc.stderr or "").strip(),
+                )
+                return []
+            draft_prs = json.loads(list_proc.stdout or "[]")
+        except Exception as exc:
+            logger.debug("Exception listing draft PRs for promotion: %s", exc)
+            return []
+
+        promoted: list[int] = []
+        for pr_entry in draft_prs:
+            pr_num = pr_entry.get("number")
+            if not isinstance(pr_num, int):
+                continue
+            if self._all_required_checks_passed(pr_num, repo):
+                ready_cmd: list[str] = [
+                    "gh",
+                    "pr",
+                    "ready",
+                    str(pr_num),
+                    "-R",
+                    repo,
+                ]
+                try:
+                    ready_proc = subprocess.run(
+                        ready_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
+                    )
+                    if ready_proc.returncode == 0:
+                        logger.info(
+                            "Promoted draft PR #%d to ready — all %d required checks passed",
+                            pr_num,
+                            len(_REQUIRED_CHECK_NAMES),
+                        )
+                        promoted.append(pr_num)
+                    else:
+                        logger.debug(
+                            "Failed to promote PR #%d: %s",
+                            pr_num,
+                            (ready_proc.stderr or "").strip(),
+                        )
+                except Exception as exc:
+                    logger.debug("Exception promoting PR #%d: %s", pr_num, exc)
+        return promoted
+
+    @staticmethod
+    def _all_required_checks_passed(pr_number: int, repo: str) -> bool:
+        """Return True if all 5 required CI checks have conclusion==success."""
+        checks_cmd: list[str] = [
+            "gh",
+            "pr",
+            "checks",
+            str(pr_number),
+            "--json",
+            "name,state,conclusion",
+            "-R",
+            repo,
+        ]
+        try:
+            proc = subprocess.run(
+                checks_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode != 0:
+                return False
+            checks = json.loads(proc.stdout or "[]")
+        except Exception:
+            return False
+
+        # Build a map of check name -> conclusion
+        check_conclusions: dict[str, str] = {}
+        for check in checks:
+            name = str(check.get("name", "")).strip()
+            conclusion = str(check.get("conclusion", "")).strip().upper()
+            if name in _REQUIRED_CHECK_NAMES:
+                check_conclusions[name] = conclusion
+
+        # All 5 must be present and successful
+        for required in _REQUIRED_CHECK_NAMES:
+            if check_conclusions.get(required) != "SUCCESS":
+                return False
+        return True
+
     def _postprocess_issue_result(
         self,
         issue: GitHubIssue,
@@ -1686,6 +2153,10 @@ class BossLoop:
             worker_result["issue_resolution"] = issue_resolution
         self._apply_postprocess_metadata(worker_result)
         self._promote_published_deliverable(worker_result)
+        # Convert newly-published PRs to draft so only the 5 required CI
+        # checks run.  They will be promoted to ready by _promote_ready_drafts
+        # once those checks pass.
+        self._convert_pr_to_draft(worker_result)
         return worker_result
 
     def _log_value_outcome(
@@ -1869,10 +2340,10 @@ class BossLoop:
         except Exception:
             logger.debug("Boss lane telemetry emission skipped", exc_info=True)
 
-    @staticmethod
-    def _emit_live_status(on_status: Any | None, status: BossIterationStatus) -> None:
+    def _emit_live_status(self, on_status: Any | None, status: BossIterationStatus) -> None:
         if on_status is None:
             return
+        status = self._decorate_iteration_status(status)
         try:
             on_status(status)
         except Exception:
@@ -1894,6 +2365,10 @@ class BossLoop:
         """
         start_time = time.monotonic()
         iteration = 0
+        logger.info(
+            "Boss loop starting: configured_max_parallel_dispatches=%d",
+            self._configured_parallel_dispatches,
+        )
 
         # Clean stale supervisor runs that would block dispatch via
         # duplicate_open_work_order detection.  Previous runs with
@@ -1925,6 +2400,7 @@ class BossLoop:
             self._refresh_runner_heartbeats()
 
             statuses = await self._run_iteration_statuses(iteration, on_status=on_status)
+            statuses = [self._decorate_iteration_status(status) for status in statuses]
             self._iteration_statuses.extend(statuses)
 
             for status in statuses:
@@ -1954,6 +2430,20 @@ class BossLoop:
                     len(self._failed_issues),
                 )
 
+            # Promote draft PRs whose required checks have passed.
+            # This converts them to ready-for-review, triggering the
+            # full CI suite only when the 5 fast required checks pass.
+            try:
+                promoted = self._promote_ready_drafts()
+                if promoted:
+                    logger.info(
+                        "Promoted %d draft PR(s) to ready: %s",
+                        len(promoted),
+                        promoted,
+                    )
+            except Exception:
+                logger.debug("Draft PR promotion check skipped", exc_info=True)
+
             # Inter-iteration sleep (skipped after last iteration)
             if iteration < self.config.max_iterations:
                 import asyncio
@@ -1975,6 +2465,8 @@ class BossLoop:
             iteration_statuses=[s.to_dict() for s in self._iteration_statuses],
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
+            configured_max_parallel_dispatches=self._configured_parallel_dispatches,
+            effective_parallel_dispatches_observed=self._max_effective_parallel_dispatches_observed,
         )
         self._emit_terminal_receipt(result)
         return result
@@ -1999,6 +2491,7 @@ class BossLoop:
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
         freshness_dict: dict[str, Any] = {}
+        self._current_effective_parallel_dispatches = 1
         # Step 1: Fetch issues from GitHub
         try:
             issues = self._feed.fetch()
@@ -2027,7 +2520,11 @@ class BossLoop:
                 # Auto-decompose exhausted issues into sub-issues (best-effort, once)
                 if count == self.config.max_retries_per_issue and self.config.repo:
                     self._auto_decompose_stuck_issue(num, issues)
-        pending_handoffs = self._pending_handoff_candidates(issues)
+        blocked_scopes = self._blocked_issue_scopes()
+        pending_handoffs = self._pending_handoff_candidates(
+            issues,
+            blocked_scopes=blocked_scopes,
+        )
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
@@ -2044,6 +2541,7 @@ class BossLoop:
                     [target_issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scopes,
                 )
                 if target_issue is not None
                 else None
@@ -2053,6 +2551,7 @@ class BossLoop:
                 candidate_issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=blocked_scopes,
                 use_value_ranking=self.config.use_value_ranking,
             )
 
@@ -2093,7 +2592,7 @@ class BossLoop:
         )
         freshness_dict = _freshness_to_dict(freshness)
 
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+        if not _freshness_is_fresh(freshness, freshness_dict):
             blocked_reason = (
                 freshness.blocked_reason
                 if hasattr(freshness, "blocked_reason")
@@ -2116,7 +2615,7 @@ class BossLoop:
             )
 
         # Step 4: Dispatch supervised work for this issue
-        issue_dict = selected.to_dict()
+        issue_dict = self._issue_payload(selected)
         self._attempted_issues.append(issue_dict)
         self._issue_attempt_counts[selected.number] = (
             self._issue_attempt_counts.get(selected.number, 0) + 1
@@ -2168,6 +2667,7 @@ class BossLoop:
         now = datetime.now(UTC).isoformat()
         iter_start = time.monotonic()
         freshness_dict: dict[str, Any] = {}
+        self._current_effective_parallel_dispatches = None
 
         try:
             issues = self._feed.fetch()
@@ -2194,7 +2694,11 @@ class BossLoop:
             for num, count in self._issue_attempt_counts.items()
             if count >= self.config.max_retries_per_issue
         }
-        pending_handoffs = self._pending_handoff_candidates(issues)
+        blocked_scopes = self._blocked_issue_scopes()
+        pending_handoffs = self._pending_handoff_candidates(
+            issues,
+            blocked_scopes=blocked_scopes,
+        )
         pending_issue_numbers = {issue.number for issue in pending_handoffs}
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
@@ -2205,7 +2709,9 @@ class BossLoop:
         selected_issues = self._select_issues_for_iteration(
             ordered_candidates,
             limit=None,
+            blocked_scopes=blocked_scopes,
         )
+        selected_issues = self._filter_mixed_retry_routing_batch(selected_issues)
 
         if not selected_issues:
             if self.config.issue_number is not None:
@@ -2268,6 +2774,13 @@ class BossLoop:
             ]
 
         parallel_limit = self._parallel_dispatch_limit(freshness)
+        self._current_effective_parallel_dispatches = parallel_limit
+        logger.info(
+            "Boss loop iteration %d parallel dispatches: configured=%d effective=%d",
+            iteration,
+            self._configured_parallel_dispatches,
+            parallel_limit,
+        )
         pending_issues = list(selected_issues)
         active_tasks: dict[
             asyncio.Task[dict[str, Any]], tuple[GitHubIssue, dict[str, Any], float]
@@ -2277,7 +2790,7 @@ class BossLoop:
 
         while pending_issues and len(active_tasks) < parallel_limit:
             issue = pending_issues.pop(0)
-            issue_dict = issue.to_dict()
+            issue_dict = self._issue_payload(issue)
             self._attempted_issues.append(issue_dict)
             self._issue_attempt_counts[issue.number] = (
                 self._issue_attempt_counts.get(issue.number, 0) + 1
@@ -2332,7 +2845,7 @@ class BossLoop:
 
                 while not stop_launching and pending_issues and len(active_tasks) < parallel_limit:
                     next_issue = pending_issues.pop(0)
-                    next_issue_dict = next_issue.to_dict()
+                    next_issue_dict = self._issue_payload(next_issue)
                     self._attempted_issues.append(next_issue_dict)
                     self._issue_attempt_counts[next_issue.number] = (
                         self._issue_attempt_counts.get(next_issue.number, 0) + 1
@@ -2378,20 +2891,89 @@ class BossLoop:
         if not isinstance(selected_runners, list):
             return configured_limit
         available_capacity = 0
+        any_capacity_reported = False
         for item in selected_runners:
             if not isinstance(item, dict):
                 continue
-            available_capacity += max(0, int(item.get("available_capacity", 0) or 0))
-        if available_capacity <= 0:
-            return 1
+            cap = max(0, int(item.get("available_capacity", 0) or 0))
+            if cap > 0:
+                any_capacity_reported = True
+            available_capacity += cap
+        if not any_capacity_reported:
+            # Runners are selected (passed eligibility) but none report explicit
+            # capacity — trust the configured parallel limit instead of degrading
+            # to serial dispatch.
+            return configured_limit
         return max(1, min(configured_limit, available_capacity))
+
+    @staticmethod
+    def _semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
+        """Use LLM to cluster semantically duplicate issues, keep one per cluster."""
+        if len(issues) < 6:
+            return issues
+        import json as _json
+        import os
+        import re
+
+        try:
+            from aragora.agents.base import create_agent
+
+            agent = None
+            if os.environ.get("OPENROUTER_API_KEY"):
+                agent = create_agent(
+                    "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-chat"
+                )
+            elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+                agent = create_agent(
+                    "gemini", name="dedup", role="proposer", model="gemini-2.0-flash"
+                )
+            if agent is None:
+                return issues
+
+            issue_map = {
+                str(i.number): re.sub(r"\[from #\d+\]\s*", "", i.title).strip() for i in issues
+            }
+            prompt = (
+                "You are deduplicating GitHub issues. Group semantically equivalent tasks. "
+                "Return ONLY a JSON array of arrays: [[num1,num2],[num3],...]\n\n"
+                + "\n".join(f"#{num}: {title}" for num, title in issue_map.items())
+            )
+
+            import asyncio
+
+            try:
+                asyncio.get_running_loop()
+                return issues  # Can't call asyncio.run inside running loop
+            except RuntimeError:
+                pass
+
+            raw = asyncio.run(agent.generate(prompt))
+            match = re.search(r"\[.*\]", raw, re.DOTALL)
+            if not match:
+                return issues
+
+            clusters = _json.loads(match.group())
+            if not isinstance(clusters, list):
+                return issues
+
+            kept = {int(c[0]) for c in clusters if isinstance(c, list) and c}
+            all_clustered = {int(n) for c in clusters if isinstance(c, list) for n in c}
+            deduped = [i for i in issues if i.number in kept or i.number not in all_clustered]
+
+            logger.info("Semantic dedup: %d → %d issues", len(issues), len(deduped))
+            return deduped
+        except Exception as exc:
+            logger.debug("Semantic dedup skipped: %s", exc)
+            return issues
 
     def _select_issues_for_iteration(
         self,
         issues: list[GitHubIssue],
         *,
         limit: int | None,
+        blocked_scopes: set[str] | None = None,
     ) -> list[GitHubIssue]:
+        blocked_scope_entries = set(blocked_scopes or set())
         if limit is not None and limit <= 1:
             if self.config.issue_number is not None:
                 target_issue = next(
@@ -2403,6 +2985,7 @@ class BossLoop:
                         [target_issue],
                         skip_labels=self.config.skip_labels,
                         require_labels=self.config.require_labels,
+                        blocked_scopes=blocked_scope_entries,
                     )
                     if target_issue is not None
                     else None
@@ -2412,6 +2995,7 @@ class BossLoop:
                 issues,
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=blocked_scope_entries,
             )
             return [selected] if selected is not None else []
 
@@ -2425,22 +3009,54 @@ class BossLoop:
                     [target_issue],
                     skip_labels=self.config.skip_labels,
                     require_labels=self.config.require_labels,
+                    blocked_scopes=blocked_scope_entries,
                 )
                 if target_issue is not None
                 else None
             )
             return [selected] if selected is not None else []
 
+        # Semantic dedup: LLM clusters near-duplicate issues before dispatch
+        issues = self._semantic_dedup_issues(issues)
+
         selected_issues: list[GitHubIssue] = []
+        # Track file scopes to avoid dispatching overlapping work in parallel.
+        claimed_scopes: set[str] = set(blocked_scope_entries)
+        # Track coarse ownership lanes so one batch does not dispatch multiple
+        # issues into the same domain when explicit metadata or scope hints exist.
+        claimed_lanes: set[str] = set()
+        # Track title stems to avoid dispatching near-duplicate sub-issues
+        claimed_stems: set[str] = set()
+
         for issue in issues:
             candidate = select_eligible_issue(
                 [issue],
                 skip_labels=self.config.skip_labels,
                 require_labels=self.config.require_labels,
+                blocked_scopes=claimed_scopes,
             )
             if candidate is None:
                 continue
+
+            # Deduplicate by file scope — don't dispatch two issues targeting the same files
+            scope_hints = set(infer_issue_scope_entries(candidate))
+            if scope_hints and scope_hints & claimed_scopes:
+                continue
+            lane_hints = set(infer_issue_lane_hints(candidate))
+            if lane_hints and lane_hints & claimed_lanes:
+                continue
+
+            # Deduplicate by title stem — strip [from #N] prefix and compare
+            import re
+
+            stem = re.sub(r"\[from #\d+\]\s*", "", candidate.title).strip().lower()[:60]
+            if stem in claimed_stems:
+                continue
+
             selected_issues.append(candidate)
+            claimed_scopes.update(scope_hints)
+            claimed_lanes.update(lane_hints)
+            claimed_stems.add(stem)
             if limit is not None and len(selected_issues) >= limit:
                 break
         return selected_issues
@@ -2548,7 +3164,10 @@ class BossLoop:
             )
 
         if worker_result.get("status") == "needs_human":
-            has_deliverable = bool(worker_result.get("deliverable"))
+            _terminal_outcome, normalized_deliverable_type = _qualify_worker_result_terminal_state(
+                worker_result
+            )
+            has_deliverable = bool(normalized_deliverable_type)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             if self.config.auto_continue_on_needs_human and has_deliverable:
                 self._failed_issues.append(issue_dict)
@@ -2954,18 +3573,29 @@ class BossLoop:
             repo_root=Path.cwd(),
         )
         if missing_validation_targets:
-            targets_text = ", ".join(missing_validation_targets)
-            return {
-                "status": "needs_human",
-                "outcome": "verification_target_missing",
-                "reasons": [
-                    f"Issue #{issue.number} references missing validation targets: {targets_text}"
-                ],
-                "next_actions": [
-                    "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
-                    "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
-                ],
-            }
+            declared_new_paths = set(extract_declared_new_file_paths(issue.body or ""))
+            unresolved_missing_targets = [
+                target for target in missing_validation_targets if target not in declared_new_paths
+            ]
+            if not unresolved_missing_targets:
+                logger.info(
+                    "boss_loop_missing_validation_targets_allowed issue=#%s targets=%s",
+                    issue.number,
+                    ", ".join(missing_validation_targets),
+                )
+            else:
+                targets_text = ", ".join(unresolved_missing_targets)
+                return {
+                    "status": "needs_human",
+                    "outcome": "verification_target_missing",
+                    "reasons": [
+                        f"Issue #{issue.number} references missing validation targets: {targets_text}"
+                    ],
+                    "next_actions": [
+                        "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
+                        "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
+                    ],
+                }
 
         if not spec.is_dispatch_bounded():
             return {
@@ -3061,7 +3691,7 @@ class BossLoop:
             except Exception:
                 pass  # Never block autonomous dispatch
         if pending_handoff is not None:
-            dispatch_started = bool(result.get("run") or result.get("run_id"))
+            dispatch_started = _dispatch_result_started(result)
             if result.get("status") != "failed" or dispatch_started:
                 self._pending_handoff_prompts.pop(issue.number, None)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
