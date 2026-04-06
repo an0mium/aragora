@@ -176,12 +176,8 @@ class TestDiscordSendMessage:
 
         connector = DiscordConnector(bot_token="test-token")
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.request = AsyncMock(side_effect=Exception("Rate limited"))
-        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("httpx.AsyncClient", return_value=mock_client_instance):
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = (False, None, "Rate limited")
             result = await connector.send_message(
                 channel_id="invalid",
                 text="Test",
@@ -267,11 +263,8 @@ class TestDiscordDeleteMessage:
 
         connector = DiscordConnector(bot_token="test-token")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = mock_client.return_value.__aenter__.return_value
-            # Now uses request() method instead of delete()
-            mock_instance.request = AsyncMock(side_effect=Exception("Not found"))
-
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = (False, None, "Not found")
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="invalid",
